@@ -159,6 +159,7 @@ class StaticGTFSService {
     return [...new Set(activeServices)]; // Remove duplicates
   }
 
+
   // Get scheduled departures for our ferry routes
   async getScheduledDepartures() {
     // Check cache first
@@ -300,6 +301,7 @@ class StaticGTFSService {
     // Default based on current stop
     return currentStopId === STOPS.bulimba ? 'outbound' : 'inbound';
   }
+
 }
 
 export default new StaticGTFSService();

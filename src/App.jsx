@@ -8,7 +8,7 @@ import useFerryData from './hooks/useFerryData';
 import clsx from 'clsx';
 
 function App() {
-  const { departures, loading, error, lastUpdated, refresh } = useFerryData();
+  const { departures, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData();
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
   
   // Filter departures based on selected mode
@@ -40,6 +40,21 @@ function App() {
         isLoading={loading}
         onRefresh={refresh}
       />
+      
+      {/* Schedule loading indicator */}
+      {scheduleLoading && !loading && (
+        <div className="bg-amber-50 border-b border-amber-200">
+          <div className="container mx-auto px-4 max-w-6xl py-2">
+            <div className="flex items-center justify-center space-x-2 text-sm text-amber-800">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span>Loading schedule data... (showing live departures only)</span>
+            </div>
+          </div>
+        </div>
+      )}
       
       <main className="container mx-auto px-4 max-w-6xl py-8">
         {error && !loading && (
@@ -92,7 +107,7 @@ function App() {
                 const hasScheduled = departures.outbound.some(d => d.isScheduled) || departures.inbound.some(d => d.isScheduled);
                 const hasRealtime = departures.outbound.some(d => d.isRealtime) || departures.inbound.some(d => d.isRealtime);
                 
-                if (hasScheduled || hasRealtime) {
+                if (hasScheduled || hasRealtime || scheduleLoading) {
                   return (
                     <div className="text-center text-sm text-gray-600 bg-blue-50 rounded-lg p-2">
                       <span className="inline-flex items-center space-x-2">
@@ -100,7 +115,9 @@ function App() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span>
-                          {hasRealtime && hasScheduled 
+                          {scheduleLoading && hasRealtime 
+                            ? "Showing live departures only • Schedule data loading..."
+                            : hasRealtime && hasScheduled 
                             ? "Showing live departures and scheduled times"
                             : hasRealtime 
                             ? "Showing live departures"

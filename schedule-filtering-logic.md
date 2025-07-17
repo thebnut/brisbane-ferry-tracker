@@ -82,20 +82,25 @@ checkDestination(currentStopId, allStopTimes, currentIndex) {
 
 ### Real-time Data (ferryData.js)
 - Filters GTFS-RT trip updates
+- Sorts stops by stopSequence to ensure correct order
 - Applies both initial and direction filtering
-- Merges with static schedule data
+- Uses tripId-based merging for accurate schedule matching
 
 ### Static Schedule Data (staticGtfsService.js)
-- Parses GTFS stop_times.txt
-- Applies same filtering logic
-- Caches results for 24 hours
+- Parses GTFS stop_times.txt from ZIP file
+- Applies same filtering logic as real-time
+- Caches processed results (not raw data) for 24 hours
+- Loads asynchronously in background for better UX
 
 ### Data Flow
-1. Fetch all trips containing both terminals
-2. For each stop at Bulimba/Riverside:
+1. Load real-time data first (immediate display)
+2. Fetch all trips containing both terminals
+3. Sort stops by stopSequence for correct ordering
+4. For each stop at Bulimba/Riverside:
    - Check if the other terminal appears later in the route
    - If yes, include in appropriate departure board
    - If no, skip this departure
+5. Load schedule data in background and merge using tripId matching
 
 ## Testing the Logic
 

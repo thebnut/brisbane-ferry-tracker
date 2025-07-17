@@ -9,9 +9,12 @@ A real-time ferry departure tracker for Brisbane's Bulimba ⟷ Riverside ferry r
 - ⏱️ Real-time countdown timers for next departures
 - 📅 Shows scheduled times when real-time data unavailable (early mornings)
 - 🔄 Auto-refresh every 5 minutes
-- 🎛️ Interactive filter for Express-only or All services
+- 🎛️ Interactive filter for Express-only view
 - 📱 Fully responsive design
-- ⚡ Fast and lightweight single-page application
+- ⚡ Progressive loading - see live ferries instantly while schedule loads
+- 📊 "More..." button to expand from 5 to 13 departures per direction
+- 🕐 Shows scheduled time in brackets for live departures
+- 📢 Dynamic status messages based on available data
 
 ## Tech Stack
 
@@ -112,6 +115,11 @@ src/
 
 ## How It Works
 
+### Progressive Loading
+The app uses a two-stage loading approach for optimal user experience:
+1. **Immediate Display**: Real-time ferry data loads first, showing live departures instantly
+2. **Background Loading**: Schedule data (30MB) loads in the background and merges seamlessly
+
 ### Data Sources
 The app combines two data sources for comprehensive coverage:
 
@@ -126,7 +134,10 @@ The app intelligently filters ferry services to show only those traveling betwee
 - ❌ Excludes: Ferries that stop at one terminal but don't continue to the other
 - ❌ Excludes: Ferries traveling in the opposite direction (e.g., already been to destination)
 
-This ensures accurate, relevant departure information for travelers going between these specific terminals.
+Key features:
+- **TripId-based tracking**: Each ferry journey is uniquely identified
+- **Stop sequence ordering**: Ensures correct direction determination
+- **Smart merging**: Matches real-time updates with scheduled times using tripId
 
 ## API Integration
 

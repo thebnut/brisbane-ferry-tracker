@@ -9,29 +9,47 @@ const useFerryData = () => {
     inbound: []
   });
   const [loading, setLoading] = useState(true);
+  const [scheduleLoading, setScheduleLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [rawGtfsData, setRawGtfsData] = useState({ tripUpdates: [], vehiclePositions: [] });
 
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
       setError(null);
 
-      // Fetch all GTFS data
+      // First, fetch real-time GTFS data (fast)
       const { tripUpdates, vehiclePositions } = await gtfsService.getAllData();
       
       // Store raw data for debugging
       setRawGtfsData({ tripUpdates, vehiclePositions });
       
-      // Process and filter the data
-      const processedDepartures = await ferryDataService.getFerryDepartures(
+      // Process real-time data immediately
+      const realtimeDepartures = await ferryDataService.getRealtimeDepartures(
         tripUpdates,
         vehiclePositions
       );
 
-      setDepartures(processedDepartures);
+      setDepartures(realtimeDepartures);
       setLastUpdated(new Date());
+      setLoading(false); // Mark initial load complete
+      
+      // Then fetch schedule data in background (slow)
+      setScheduleLoading(true);
+      ferryDataService.getScheduledDeparturesAsync().then(scheduledData => {
+        // Merge with existing real-time data
+        const mergedDepartures = ferryDataService.mergeWithScheduledData(
+          realtimeDepartures,
+          scheduledData
+        );
+        setDepartures(mergedDepartures);
+        setScheduleLoading(false);
+      }).catch(err => {
+        console.error('Error loading schedule data:', err);
+        setScheduleLoading(false);
+        // Continue showing real-time data even if schedule fails
+      });
+      
       setError(null);
     } catch (err) {
       console.error('Error fetching ferry data:', err);
@@ -40,8 +58,8 @@ const useFerryData = () => {
       if (!departures.outbound.length && !departures.inbound.length) {
         setDepartures({ outbound: [], inbound: [] });
       }
-    } finally {
       setLoading(false);
+      setScheduleLoading(false);
     }
   }, []);
 
@@ -91,6 +109,7 @@ const useFerryData = () => {
   return {
     departures,
     loading,
+    scheduleLoading,
     error,
     lastUpdated,
     refresh: fetchData,

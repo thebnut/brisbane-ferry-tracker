@@ -5,16 +5,23 @@ This is a single-page application that displays real-time ferry departures betwe
 
 ## Key Architecture Decisions
 
+### Progressive Loading Strategy
+The app uses a two-stage loading approach for optimal user experience:
+1. **Real-time data loads first** (fast) - Shows live ferries immediately
+2. **Schedule data loads in background** (slow) - 30MB download that merges seamlessly
+
 ### Data Sources
 1. **Static GTFS Data** (`/api/gtfs-static`)
-   - ZIP file containing scheduled ferry times
-   - Cached in localStorage for 24 hours
+   - ZIP file containing scheduled ferry times (~30MB)
+   - Cached in localStorage for 24 hours (processed data only)
    - Provides base schedule when real-time data unavailable
+   - Loads asynchronously in background
 
 2. **Real-time GTFS-RT Data** (`/api/gtfs-proxy`)
    - Protobuf format real-time updates
    - Shows only actively running services
    - Takes precedence over static data when available
+   - Loads immediately on app start
 
 ### Important Constants
 ```javascript
@@ -46,7 +53,8 @@ See `schedule-filtering-logic.md` for detailed explanation.
 
 ### State Management
 - Uses React hooks (no Redux/Context needed)
-- Custom `useFerryData` hook handles all data fetching
+- Custom `useFerryData` hook handles all data fetching and progressive loading
+- Separate loading states for initial load vs schedule load
 - Auto-refresh every 5 minutes + countdown timer every second
 
 ### Styling
@@ -69,6 +77,9 @@ See `schedule-filtering-logic.md` for detailed explanation.
 
 ### Issue: Cache errors
 **Solution:** Cache only processed departures, not raw GTFS data (30MB → 50KB)
+
+### Issue: Slow initial load
+**Solution:** Progressive loading - show live data immediately while schedule loads in background
 
 ### Issue: Wrong direction ferries showing
 **Solution:** Check stop sequence to ensure ferry goes FROM current stop TO other terminal
@@ -110,6 +121,15 @@ curl http://localhost:5173/api/gtfs-static -o gtfs.zip
 - Vercel serverless functions handle CORS proxy
 - Environment variables not needed (API URLs are public)
 - Static GTFS cache works per-user (localStorage)
+
+## Recent Updates
+1. **Progressive Loading** - Live data shows immediately, schedule loads in background
+2. **TripId-based Merging** - Accurate matching of real-time and scheduled departures
+3. **"More..." Button** - Shows up to 13 departures (5 + 8 more)
+4. **Scheduled Time Display** - Shows "(Sched HH:MM AM/PM)" for live departures
+5. **Dynamic Status Messages** - Different messages based on available data
+6. **First-time Loading Message** - Warns users about initial download time
+7. **Configurable Debug Logging** - Set DEBUG_CONFIG.enableLogging to true
 
 ## Future Enhancements to Consider
 1. Service alerts integration

@@ -467,7 +467,48 @@ class FerryDataService {
     return debugData;
   }
 
-  // Main function to get processed ferry data
+  // Get only real-time departures (fast)
+  async getRealtimeDepartures(tripUpdates, vehiclePositions = []) {
+    // Filter for relevant real-time trips
+    const relevantTrips = this.filterRelevantTrips(tripUpdates);
+    
+    // Process real-time updates into departure objects
+    const realtimeDepartures = this.processTripUpdates(relevantTrips, vehiclePositions);
+    this.log(`Found ${realtimeDepartures.length} real-time departures`);
+    
+    // Group by direction
+    return this.groupByDirection(realtimeDepartures);
+  }
+
+  // Get scheduled departures asynchronously (slow)
+  async getScheduledDeparturesAsync() {
+    try {
+      const scheduledDepartures = await staticGtfsService.getScheduledDepartures();
+      this.log(`Found ${scheduledDepartures.length} scheduled departures from static GTFS`);
+      return scheduledDepartures;
+    } catch (error) {
+      console.error('Error fetching scheduled departures:', error);
+      return [];
+    }
+  }
+
+  // Merge scheduled data with existing real-time grouped data
+  mergeWithScheduledData(groupedRealtimeData, scheduledDepartures) {
+    // Flatten the grouped data to merge
+    const allRealtime = [
+      ...groupedRealtimeData.outbound,
+      ...groupedRealtimeData.inbound
+    ];
+    
+    // Merge scheduled and real-time data
+    const allDepartures = this.mergeDepartures(scheduledDepartures, allRealtime);
+    this.log(`Total merged departures: ${allDepartures.length}`);
+    
+    // Group by direction again
+    return this.groupByDirection(allDepartures);
+  }
+
+  // Main function to get processed ferry data (kept for backward compatibility)
   async getFerryDepartures(tripUpdates, vehiclePositions = []) {
     // Get scheduled departures from static GTFS
     let scheduledDepartures = [];
