@@ -11,6 +11,11 @@ class StaticGTFSService {
     this.cacheExpiry = 24 * 60 * 60 * 1000; // 24 hours
     this.gtfsData = null;
     this.debug = DEBUG_CONFIG.enableLogging;
+    // GitHub Pages URL for pre-processed schedule data
+    // TODO: Update this URL when GitHub Pages is deployed
+    this.githubScheduleUrl = window.location.hostname === 'localhost' 
+      ? '/schedule-data/latest.json'
+      : 'https://thebnut.github.io/brisbane-ferry-tracker/data/latest.json';
   }
 
   // Debug logging helper
@@ -160,12 +165,50 @@ class StaticGTFSService {
   }
 
 
+  // Try to fetch pre-processed schedule from GitHub
+  async fetchGitHubSchedule() {
+    try {
+      this.log('Fetching pre-processed schedule from GitHub...');
+      const response = await fetch(this.githubScheduleUrl);
+      
+      if (!response.ok) {
+        throw new Error(`GitHub schedule fetch failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      this.log(`Received ${data.departureCount} departures from GitHub`);
+      
+      // Convert departure times to Date objects and filter to next 24 hours
+      const now = new Date();
+      const cutoffTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      
+      const departures = data.departures
+        .map(dep => ({
+          ...dep,
+          departureTime: new Date(dep.departureTime)
+        }))
+        .filter(dep => dep.departureTime > now && dep.departureTime < cutoffTime);
+      
+      return departures;
+    } catch (error) {
+      this.log('GitHub schedule fetch failed:', error.message);
+      return null;
+    }
+  }
+
   // Get scheduled departures for our ferry routes
   async getScheduledDepartures() {
     // Check cache first
     const cachedSchedule = this.getCachedSchedule();
     if (cachedSchedule && cachedSchedule.length > 0) {
       return cachedSchedule;
+    }
+
+    // Try GitHub first (fast)
+    const githubSchedule = await this.fetchGitHubSchedule();
+    if (githubSchedule && githubSchedule.length > 0) {
+      this.setCachedSchedule(githubSchedule);
+      return githubSchedule;
     }
 
     // If no cache, fetch GTFS data

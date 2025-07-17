@@ -1,0 +1,15 @@
+{
+  "name": "brisbane-ferry-schedule-processor",
+  "version": "1.0.0",
+  "description": "Processes GTFS data daily to generate ferry schedules",
+  "type": "module",
+  "scripts": {
+    "process": "node process-schedule.js"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "papaparse": "^5.5.3",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0"
+  }
+}
