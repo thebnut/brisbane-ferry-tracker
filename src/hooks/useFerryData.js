@@ -1,0 +1,101 @@
+import { useState, useEffect, useCallback } from 'react';
+import gtfsService from '../services/gtfsService';
+import ferryDataService from '../services/ferryData';
+import { API_CONFIG } from '../utils/constants';
+
+const useFerryData = () => {
+  const [departures, setDepartures] = useState({
+    outbound: [],
+    inbound: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [rawGtfsData, setRawGtfsData] = useState({ tripUpdates: [], vehiclePositions: [] });
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch all GTFS data
+      const { tripUpdates, vehiclePositions } = await gtfsService.getAllData();
+      
+      // Store raw data for debugging
+      setRawGtfsData({ tripUpdates, vehiclePositions });
+      
+      // Process and filter the data
+      const processedDepartures = await ferryDataService.getFerryDepartures(
+        tripUpdates,
+        vehiclePositions
+      );
+
+      setDepartures(processedDepartures);
+      setLastUpdated(new Date());
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching ferry data:', err);
+      setError(err.message || 'Failed to load ferry times');
+      // Keep existing data if available
+      if (!departures.outbound.length && !departures.inbound.length) {
+        setDepartures({ outbound: [], inbound: [] });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial fetch and auto-refresh setup
+  useEffect(() => {
+    fetchData();
+
+    // Set up auto-refresh interval
+    const interval = setInterval(() => {
+      fetchData();
+    }, API_CONFIG.refreshInterval);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  // Set up countdown timer refresh (every second)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      // Force re-render to update countdown displays
+      setDepartures(prev => ({ ...prev }));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Debug export function
+  const exportDebugData = useCallback(() => {
+    const debugData = ferryDataService.exportDebugData(
+      rawGtfsData.tripUpdates,
+      rawGtfsData.vehiclePositions
+    );
+    
+    // Create and download JSON file
+    const dataStr = JSON.stringify(debugData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ferry-debug-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [rawGtfsData]);
+
+  return {
+    departures,
+    loading,
+    error,
+    lastUpdated,
+    refresh: fetchData,
+    exportDebugData
+  };
+};
+
+export default useFerryData;
