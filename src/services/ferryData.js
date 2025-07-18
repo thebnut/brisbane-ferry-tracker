@@ -292,6 +292,15 @@ class FerryDataService {
     realtimeDepartures.forEach(dep => {
       let matched = false;
       
+      // Debug Hawthorne departures specifically
+      if (dep.stopId === "317583") {
+        console.log(`Processing Hawthorne real-time departure:`, {
+          tripId: dep.tripId,
+          time: dep.departureTime,
+          isRealtime: dep.isRealtime
+        });
+      }
+      
       // First try exact tripId match
       if (scheduledByTripId.has(dep.tripId)) {
         this.log(`Found exact tripId match for ${dep.tripId}`);
@@ -321,11 +330,7 @@ class FerryDataService {
           }
           matched = true;
           processedRealtime.add(`${dep.tripId}-${dep.stopId}`);
-        } else {
-          console.log(`Trip ${dep.tripId} exists in schedule but not for stop ${dep.stopId}`);
         }
-      } else {
-        console.log(`No scheduled trip found for real-time trip ${dep.tripId}`);
       }
       
       // If no exact tripId match, try time-based matching with route verification
@@ -560,8 +565,15 @@ class FerryDataService {
     console.log('Merging data:', {
       realtimeCount: allRealtime.length,
       scheduledCount: scheduledDepartures.length,
-      realtimeTripIds: allRealtime.map(d => d.tripId).slice(0, 5),
-      scheduledTripIds: scheduledDepartures.map(d => d.tripId).slice(0, 5)
+      realtimeTripIds: allRealtime.map(d => d.tripId),
+      scheduledTripIds: scheduledDepartures.map(d => d.tripId).slice(0, 5),
+      realtimeStops: allRealtime.map(d => ({ 
+        tripId: d.tripId, 
+        stopId: d.stopId, 
+        direction: d.direction,
+        isRealtime: d.isRealtime,
+        departureTime: d.departureTime
+      }))
     });
     
     // Merge scheduled and real-time data
@@ -582,16 +594,20 @@ class FerryDataService {
     
     // Log grouped results
     console.log('Grouped results:', {
-      outboundSample: grouped.outbound.slice(0, 3).map(d => ({
+      outboundSample: grouped.outbound.slice(0, 5).map(d => ({
         tripId: d.tripId,
         isRealtime: d.isRealtime,
-        stopId: d.stopId
+        stopId: d.stopId,
+        time: d.departureTime
       })),
-      inboundSample: grouped.inbound.slice(0, 3).map(d => ({
+      inboundSample: grouped.inbound.slice(0, 5).map(d => ({
         tripId: d.tripId,
         isRealtime: d.isRealtime,
-        stopId: d.stopId
-      }))
+        stopId: d.stopId,
+        time: d.departureTime
+      })),
+      hawthorneOutbound: grouped.outbound.filter(d => d.stopId === "317583").length,
+      riversideInbound: grouped.inbound.filter(d => d.stopId === "317590").length
     });
     
     return grouped;
