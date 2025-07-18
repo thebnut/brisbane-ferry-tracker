@@ -573,7 +573,9 @@ class FerryDataService {
         direction: d.direction,
         isRealtime: d.isRealtime,
         departureTime: d.departureTime
-      }))
+      })),
+      hawthorneRealtimeCount: allRealtime.filter(d => d.stopId === "317583").length,
+      riversideRealtimeCount: allRealtime.filter(d => d.stopId === "317590").length
     });
     
     // Merge scheduled and real-time data
