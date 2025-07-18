@@ -47,11 +47,3 @@ jobs:
         git commit -m "Update ferry schedule data - $(date +'%Y-%m-%d')"
         git push
     
-    - name: Deploy to GitHub Pages
-      if: steps.changes.outputs.changed == 'true'
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./schedule-data
-        destination_dir: data
-        keep_files: true

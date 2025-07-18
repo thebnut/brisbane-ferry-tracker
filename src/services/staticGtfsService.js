@@ -12,10 +12,9 @@ class StaticGTFSService {
     this.gtfsData = null;
     this.debug = DEBUG_CONFIG.enableLogging;
     // GitHub Pages URL for pre-processed schedule data
-    // TODO: Update this URL when GitHub Pages is deployed
     this.githubScheduleUrl = window.location.hostname === 'localhost' 
       ? '/schedule-data/latest.json'
-      : 'https://thebnut.github.io/brisbane-ferry-tracker/data/latest.json';
+      : 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data/latest.json';
   }
 
   // Debug logging helper
