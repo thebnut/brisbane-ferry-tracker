@@ -15,17 +15,19 @@ const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap }) 
     <div className="bg-gray-100 border-b border-gray-200">
       <div className="container mx-auto px-4 max-w-6xl py-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <span>Last Updated:</span>
-            <span className="font-medium">{formatTime(lastUpdated)}</span>
-            {isLoading && (
-              <span className="ml-2 text-ferry-blue">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-              </span>
-            )}
+          <div className="text-sm text-gray-600">
+            <div>Last Updated:</div>
+            <div className="font-medium flex items-center">
+              {formatTime(lastUpdated)}
+              {isLoading && (
+                <span className="ml-2 text-ferry-blue">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center space-x-2">
             <button
