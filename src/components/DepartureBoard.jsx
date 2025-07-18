@@ -16,9 +16,8 @@ const DepartureBoard = ({ direction, departures, loading }) => {
   if (loading && departures.length === 0) {
     return (
       <div className="mb-8">
-        <h2 className="text-xl font-bold mb-4 flex items-center space-x-2">
-          <span>{getDirectionEmoji()}</span>
-          <span>{getTitle()}</span>
+        <h2 className="text-xl font-bold mb-4">
+          {getTitle()}
         </h2>
         <div className="ferry-card animate-pulse">
           <div className="h-20 bg-gray-200 rounded"></div>
@@ -29,9 +28,8 @@ const DepartureBoard = ({ direction, departures, loading }) => {
 
   return (
     <div className="mb-8">
-      <h2 className="text-xl font-bold mb-4 flex items-center space-x-2 text-charcoal bg-gray-100 rounded-lg p-3">
-        <span className="text-2xl">{getDirectionEmoji()}</span>
-        <span>{getTitle()}</span>
+      <h2 className="text-xl font-bold mb-4 text-charcoal bg-gray-100 rounded-lg p-3">
+        {getTitle()}
       </h2>
       
       {departures.length === 0 ? (
