@@ -314,7 +314,11 @@ class FerryDataService {
           });
           matched = true;
           processedRealtime.add(`${dep.tripId}-${dep.stopId}`);
+        } else {
+          console.log(`Trip ${dep.tripId} exists in schedule but not for stop ${dep.stopId}`);
         }
+      } else {
+        console.log(`No scheduled trip found for real-time trip ${dep.tripId}`);
       }
       
       // If no exact tripId match, try time-based matching with route verification
@@ -546,9 +550,23 @@ class FerryDataService {
       ...groupedRealtimeData.inbound
     ];
     
+    console.log('Merging data:', {
+      realtimeCount: allRealtime.length,
+      scheduledCount: scheduledDepartures.length,
+      realtimeTripIds: allRealtime.map(d => d.tripId).slice(0, 5),
+      scheduledTripIds: scheduledDepartures.map(d => d.tripId).slice(0, 5)
+    });
+    
     // Merge scheduled and real-time data
     const allDepartures = this.mergeDepartures(scheduledDepartures, allRealtime);
     this.log(`Total merged departures: ${allDepartures.length}`);
+    
+    // Log sample of merged data
+    console.log('Sample merged departures:', allDepartures.slice(0, 3).map(d => ({
+      tripId: d.tripId,
+      isRealtime: d.isRealtime,
+      time: d.departureTime
+    })));
     
     // Group by direction again
     return this.groupByDirection(allDepartures);
