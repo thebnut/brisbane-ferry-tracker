@@ -109,6 +109,29 @@ function determineDirection(currentStopId, allStopTimes, currentIndex, trip) {
 function buildStopConnectivity(trips, stopTimes, stops, routes) {
   console.log('Building stop connectivity data...');
   
+  // Master list of ferry stop names
+  const FERRY_STOP_NAMES = [
+    'Apollo Road',
+    'Bretts Wharf',
+    'Bulimba',
+    'Guyatt Park',
+    'Hawthorne',
+    'Maritime Museum',
+    'Milton',
+    'Mowbray Park',
+    'New Farm Park',
+    'North Quay',
+    'Northshore Hamilton',
+    'QUT Gardens Point',
+    'Regatta',
+    'Riverside',
+    'South Bank',
+    'Sydney Street',
+    'Teneriffe',
+    'UQ St Lucia',
+    'West End'
+  ];
+  
   // Filter for ferry stops only
   const ferryStopIds = new Set();
   const ferryStops = {};
@@ -180,23 +203,45 @@ function buildStopConnectivity(trips, stopTimes, stops, routes) {
   });
   
   // Build ferry stops data with names and coordinates
+  // Only include stops that match our master ferry stop list
   stops.forEach(stop => {
     if (ferryStopIds.has(stop.stop_id)) {
-      ferryStops[stop.stop_id] = {
-        name: stop.stop_name,
-        lat: parseFloat(stop.stop_lat),
-        lng: parseFloat(stop.stop_lon),
-        validDestinations: stopConnectivity[stop.stop_id] 
-          ? Array.from(stopConnectivity[stop.stop_id]).sort()
-          : []
-      };
+      // Check if this stop name contains any of our ferry stop names
+      const stopNameLower = stop.stop_name.toLowerCase();
+      const isFerryStop = FERRY_STOP_NAMES.some(ferryName => 
+        stopNameLower.includes(ferryName.toLowerCase())
+      ) && stopNameLower.includes('ferry');
+      
+      if (isFerryStop) {
+        ferryStops[stop.stop_id] = {
+          name: stop.stop_name,
+          lat: parseFloat(stop.stop_lat),
+          lng: parseFloat(stop.stop_lon),
+          validDestinations: stopConnectivity[stop.stop_id] 
+            ? Array.from(stopConnectivity[stop.stop_id]).sort()
+            : []
+        };
+      }
     }
   });
   
-  // Convert connectivity Sets to Arrays
+  // Filter connectivity to only include ferry stops
+  const ferryStopIdSet = new Set(Object.keys(ferryStops));
+  Object.keys(ferryStops).forEach(stopId => {
+    if (ferryStops[stopId].validDestinations) {
+      ferryStops[stopId].validDestinations = ferryStops[stopId].validDestinations
+        .filter(destId => ferryStopIdSet.has(destId));
+    }
+  });
+  
+  // Convert connectivity Sets to Arrays (only for ferry stops)
   const connectivityArray = {};
   Object.entries(stopConnectivity).forEach(([stopId, destinations]) => {
-    connectivityArray[stopId] = Array.from(destinations).sort();
+    if (ferryStopIdSet.has(stopId)) {
+      connectivityArray[stopId] = Array.from(destinations)
+        .filter(destId => ferryStopIdSet.has(destId))
+        .sort();
+    }
   });
   
   console.log(`Found ${Object.keys(ferryStops).length} ferry stops with connectivity data`);
