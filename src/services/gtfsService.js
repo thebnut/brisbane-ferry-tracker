@@ -18,12 +18,8 @@ class GTFSService {
         throw new Error('Live data not available on GitHub Pages deployment');
       }
       
-      // Use proxy in development or when deployed to Vercel
-      if (import.meta.env.DEV || window.location.hostname.includes('vercel')) {
-        url = `/api/gtfs-proxy?endpoint=${encodeURIComponent(endpoint)}`;
-      } else {
-        url = `${this.baseUrl}${endpoint}`;
-      }
+      // Always use proxy to avoid CORS issues (except on localhost where we might test direct access)
+      url = `/api/gtfs-proxy?endpoint=${encodeURIComponent(endpoint)}`;
       
       const response = await fetch(url);
       
