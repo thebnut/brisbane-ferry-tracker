@@ -32,6 +32,24 @@ export const DEBUG_CONFIG = {
   enableLogging: false // Set to true to enable debug logging
 };
 
+// LocalStorage keys
+export const STORAGE_KEYS = {
+  SCHEDULE_CACHE: 'brisbane-ferry-schedule-cache',
+  SELECTED_STOPS: 'brisbane-ferry-selected-stops'
+};
+
+// Default stops for backward compatibility
+export const DEFAULT_STOPS = {
+  outbound: {
+    id: STOPS.bulimba,
+    name: 'Bulimba'
+  },
+  inbound: {
+    id: STOPS.riverside,
+    name: 'Riverside'
+  }
+};
+
 // GTFS-RT OccupancyStatus enum mappings
 export const OCCUPANCY_STATUS = {
   0: { text: 'Empty', icon: '⚪', color: 'gray' },

@@ -1,4 +1,4 @@
-import { STOPS, ROUTES, DEBUG_CONFIG } from '../utils/constants';
+import { STOPS, ROUTES, DEBUG_CONFIG, DEFAULT_STOPS } from '../utils/constants';
 import { startOfDay, endOfDay } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import staticGtfsService from './staticGtfsService';
@@ -7,6 +7,7 @@ class FerryDataService {
   constructor() {
     this.timezone = 'Australia/Brisbane';
     this.debug = DEBUG_CONFIG.enableLogging;
+    this.selectedStops = DEFAULT_STOPS;
   }
 
   // Debug logging helper
@@ -14,9 +15,14 @@ class FerryDataService {
     if (this.debug) console.log(...args);
   }
 
-  // Filter trip updates for Bulimba/Riverside stops and ferry routes
+  // Set selected stops
+  setSelectedStops(stops) {
+    this.selectedStops = stops;
+  }
+
+  // Filter trip updates for selected stops and ferry routes
   filterRelevantTrips(tripUpdates) {
-    const relevantStopIds = [STOPS.bulimba, STOPS.riverside, STOPS.apolloRoad];
+    const relevantStopIds = [this.selectedStops.outbound.id, this.selectedStops.inbound.id];
     const relevantRouteIds = [ROUTES.expressCityCat, ROUTES.allStopsCityCat];
     
     this.log('Total trip updates to filter:', tripUpdates.length);
@@ -66,16 +72,16 @@ class FerryDataService {
         trip.routeId.startsWith(routeId)
       );
       
-      // Check if trip has BOTH Bulimba AND Riverside stops
-      const hasBulimba = stopTimeUpdates.some(update => 
-        update.stopId === STOPS.bulimba
+      // Check if trip has BOTH selected stops
+      const hasOutboundStop = stopTimeUpdates.some(update => 
+        update.stopId === this.selectedStops.outbound.id
       );
-      const hasRiverside = stopTimeUpdates.some(update => 
-        update.stopId === STOPS.riverside
+      const hasInboundStop = stopTimeUpdates.some(update => 
+        update.stopId === this.selectedStops.inbound.id
       );
       
-      // Only include trips that go between our two terminals
-      if (isRelevantRoute && hasBulimba && hasRiverside) {
+      // Only include trips that go between our two selected stops
+      if (isRelevantRoute && hasOutboundStop && hasInboundStop) {
         // Sort stops to ensure correct order before logging
         const sortedStops = [...stopTimeUpdates].sort((a, b) => {
           const seqA = parseInt(a.stopSequence) || 0;
@@ -86,10 +92,10 @@ class FerryDataService {
         // Debug: log the sorted stop sequence for trips that pass initial filter
         this.log(`Trip ${trip.tripId} sorted stop sequence: ${sortedStops.map(s => `${s.stopId}(${s.stopSequence})`).join(' -> ')}`);
       }
-      return isRelevantRoute && hasBulimba && hasRiverside;
+      return isRelevantRoute && hasOutboundStop && hasInboundStop;
     });
     
-    this.log(`Filtered to ${filtered.length} trips that go between Bulimba and Riverside`);
+    this.log(`Filtered to ${filtered.length} trips that go between ${this.selectedStops.outbound.name} and ${this.selectedStops.inbound.name}`);
     return filtered;
   }
 
@@ -208,12 +214,12 @@ class FerryDataService {
     
     const remainingStops = allStopTimes.slice(currentIndex + 1);
     
-    if (currentStopId === STOPS.bulimba) {
-      // For Bulimba → Riverside: Check if Riverside appears in remaining stops
-      return remainingStops.some(stop => stop.stopId === STOPS.riverside);
-    } else if (currentStopId === STOPS.riverside) {
-      // For Riverside → Bulimba: Check if Bulimba appears in remaining stops
-      return remainingStops.some(stop => stop.stopId === STOPS.bulimba);
+    if (currentStopId === this.selectedStops.outbound.id) {
+      // For outbound: Check if inbound stop appears in remaining stops
+      return remainingStops.some(stop => stop.stopId === this.selectedStops.inbound.id);
+    } else if (currentStopId === this.selectedStops.inbound.id) {
+      // For inbound: Check if outbound stop appears in remaining stops
+      return remainingStops.some(stop => stop.stopId === this.selectedStops.outbound.id);
     }
     
     return false;
@@ -222,30 +228,30 @@ class FerryDataService {
   // Determine direction based on stop order
   determineDirection(currentStopId, allStops, currentIndex) {
     // Look for the other terminal in the stop list
-    const hasRiversideAfter = allStops.slice(currentIndex + 1).some(s => s.stopId === STOPS.riverside);
-    const hasBulimbaAfter = allStops.slice(currentIndex + 1).some(s => s.stopId === STOPS.bulimba);
+    const hasInboundAfter = allStops.slice(currentIndex + 1).some(s => s.stopId === this.selectedStops.inbound.id);
+    const hasOutboundAfter = allStops.slice(currentIndex + 1).some(s => s.stopId === this.selectedStops.outbound.id);
     
-    if (currentStopId === STOPS.bulimba && hasRiversideAfter) {
-      return 'outbound'; // Bulimba to Riverside
-    } else if (currentStopId === STOPS.riverside && hasBulimbaAfter) {
-      return 'inbound'; // Riverside to Bulimba
+    if (currentStopId === this.selectedStops.outbound.id && hasInboundAfter) {
+      return 'outbound'; // From outbound stop to inbound stop
+    } else if (currentStopId === this.selectedStops.inbound.id && hasOutboundAfter) {
+      return 'inbound'; // From inbound stop to outbound stop
     }
     
     // Default based on current stop
-    return currentStopId === STOPS.bulimba ? 'outbound' : 'inbound';
+    return currentStopId === this.selectedStops.outbound.id ? 'outbound' : 'inbound';
   }
 
   // Group departures by direction
   groupByDirection(departures) {
     const grouped = {
-      outbound: [], // Bulimba to Riverside
-      inbound: []   // Riverside to Bulimba
+      outbound: [], // From outbound stop to inbound stop
+      inbound: []   // From inbound stop to outbound stop
     };
 
     departures.forEach(departure => {
-      if (departure.direction === 'outbound' && departure.stopId === STOPS.bulimba) {
+      if (departure.direction === 'outbound' && departure.stopId === this.selectedStops.outbound.id) {
         grouped.outbound.push(departure);
-      } else if (departure.direction === 'inbound' && departure.stopId === STOPS.riverside) {
+      } else if (departure.direction === 'inbound' && departure.stopId === this.selectedStops.inbound.id) {
         grouped.inbound.push(departure);
       }
     });

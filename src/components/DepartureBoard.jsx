@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
 import DepartureItem from './DepartureItem';
 
-const DepartureBoard = ({ direction, departures, loading, onDepartureClick }) => {
+const DepartureBoard = ({ direction, departures, loading, selectedStops, onDepartureClick }) => {
   const [showMore, setShowMore] = useState(false);
   const getDirectionEmoji = () => {
     return direction === 'outbound' ? '→' : '←';
   };
 
   const getTitle = () => {
+    if (!selectedStops) {
+      return direction === 'outbound' 
+        ? 'BULIMBA → RIVERSIDE' 
+        : 'RIVERSIDE → BULIMBA';
+    }
+    
     return direction === 'outbound' 
-      ? 'BULIMBA → RIVERSIDE' 
-      : 'RIVERSIDE → BULIMBA';
+      ? `${selectedStops.outbound.name.toUpperCase()} → ${selectedStops.inbound.name.toUpperCase()}` 
+      : `${selectedStops.inbound.name.toUpperCase()} → ${selectedStops.outbound.name.toUpperCase()}`;
   };
 
   if (loading && departures.length === 0) {

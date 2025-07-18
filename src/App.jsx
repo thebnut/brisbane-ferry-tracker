@@ -6,12 +6,25 @@ import LoadingSpinner from './components/LoadingSpinner';
 import ErrorMessage from './components/ErrorMessage';
 import FerryMap from './components/FerryMap';
 import FerryDetailsModal from './components/FerryDetailsModal';
+import StopSelectorModal from './components/StopSelectorModal';
 import useFerryData from './hooks/useFerryData';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
+import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
 
 function App() {
-  const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData();
+  // Load saved stops or use defaults
+  const [selectedStops, setSelectedStops] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
+    return saved ? JSON.parse(saved) : DEFAULT_STOPS;
+  });
+  
+  // Show stop selector on first visit
+  const [showStopSelector, setShowStopSelector] = useState(() => {
+    return !localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
+  });
+
+  const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData(selectedStops);
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
   const [showMap, setShowMap] = useState(false);
   // Determine default tab based on time of day
@@ -28,6 +41,15 @@ function App() {
   
   const [activeTab, setActiveTab] = useState(getDefaultTab()); // 'outbound' | 'inbound' - for mobile tabs
   const [selectedDeparture, setSelectedDeparture] = useState(null);
+  
+  // Handle stop selection change
+  const handleStopChange = (newStops) => {
+    setSelectedStops(newStops);
+    localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, JSON.stringify(newStops));
+    setShowStopSelector(false);
+    // Force data refresh with new stops
+    refresh();
+  };
   
   // Filter departures based on selected mode
   const filteredDepartures = useMemo(() => {
@@ -51,7 +73,10 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
+      <Navigation 
+        selectedStops={selectedStops}
+        onOpenSettings={() => setShowStopSelector(true)}
+      />
       
       <StatusBar 
         lastUpdated={lastUpdated}
@@ -162,6 +187,7 @@ function App() {
                 vehiclePositions={vehiclePositions}
                 tripUpdates={tripUpdates}
                 departures={filteredDepartures}
+                selectedStops={selectedStops}
                 onHide={() => setShowMap(false)}
               />
             )}
@@ -178,7 +204,7 @@ function App() {
                       : 'bg-white text-gray-700 hover:bg-gray-50'
                   )}
                 >
-                  To Riverside
+                  To {selectedStops.inbound.name}
                 </button>
                 <button
                   onClick={() => setActiveTab('inbound')}
@@ -189,7 +215,7 @@ function App() {
                       : 'bg-white text-gray-700 hover:bg-gray-50'
                   )}
                 >
-                  To Bulimba
+                  To {selectedStops.outbound.name}
                 </button>
               </div>
             </div>
@@ -200,12 +226,14 @@ function App() {
                 direction="outbound"
                 departures={filteredDepartures.outbound}
                 loading={loading}
+                selectedStops={selectedStops}
                 onDepartureClick={setSelectedDeparture}
               />
               <DepartureBoard 
                 direction="inbound"
                 departures={filteredDepartures.inbound}
                 loading={loading}
+                selectedStops={selectedStops}
                 onDepartureClick={setSelectedDeparture}
               />
             </div>
@@ -216,6 +244,7 @@ function App() {
                 direction={activeTab}
                 departures={activeTab === 'outbound' ? filteredDepartures.outbound : filteredDepartures.inbound}
                 loading={loading}
+                selectedStops={selectedStops}
                 onDepartureClick={setSelectedDeparture}
               />
             </div>
@@ -236,9 +265,18 @@ function App() {
           departure={selectedDeparture}
           vehiclePositions={vehiclePositions}
           tripUpdates={tripUpdates}
+          selectedStops={selectedStops}
           onClose={() => setSelectedDeparture(null)}
         />
       )}
+      
+      {/* Stop Selector Modal */}
+      <StopSelectorModal
+        isOpen={showStopSelector}
+        onClose={() => setShowStopSelector(false)}
+        currentStops={selectedStops}
+        onSave={handleStopChange}
+      />
     </div>
   );
 }

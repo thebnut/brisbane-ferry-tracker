@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import gtfsService from '../services/gtfsService';
 import ferryDataService from '../services/ferryData';
-import { API_CONFIG } from '../utils/constants';
+import { API_CONFIG, DEFAULT_STOPS } from '../utils/constants';
 
-const useFerryData = () => {
+const useFerryData = (selectedStops = DEFAULT_STOPS) => {
   const [departures, setDepartures] = useState({
     outbound: [],
     inbound: []
@@ -17,6 +17,9 @@ const useFerryData = () => {
   const fetchData = useCallback(async () => {
     try {
       setError(null);
+
+      // Set selected stops in the service
+      ferryDataService.setSelectedStops(selectedStops);
 
       // First, fetch real-time GTFS data (fast)
       const { tripUpdates, vehiclePositions } = await gtfsService.getAllData();
@@ -61,7 +64,7 @@ const useFerryData = () => {
       setLoading(false);
       setScheduleLoading(false);
     }
-  }, []);
+  }, [selectedStops]);
 
   // Initial fetch and auto-refresh setup
   useEffect(() => {

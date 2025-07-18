@@ -1,0 +1,238 @@
+import React, { useState, useEffect } from 'react';
+import staticGtfsService from '../services/staticGtfsService';
+import { DEFAULT_STOPS } from '../utils/constants';
+
+const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
+  const [selectedOrigin, setSelectedOrigin] = useState(currentStops?.outbound?.id || DEFAULT_STOPS.outbound.id);
+  const [selectedDestination, setSelectedDestination] = useState(currentStops?.inbound?.id || DEFAULT_STOPS.inbound.id);
+  const [availableStops, setAvailableStops] = useState([]);
+  const [validDestinations, setValidDestinations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Load stops when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadStops();
+    }
+  }, [isOpen]);
+
+  // Load available stops
+  const loadStops = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Make sure schedule data is loaded first
+      if (!staticGtfsService.hasStopsData()) {
+        await staticGtfsService.getScheduledDepartures();
+      }
+      
+      const stops = staticGtfsService.getAvailableStops();
+      if (stops.length === 0) {
+        setError('Ferry stop data not available. Please try again later.');
+        return;
+      }
+      
+      setAvailableStops(stops);
+      
+      // Get valid destinations for current origin
+      const destinations = staticGtfsService.getValidDestinations(selectedOrigin);
+      setValidDestinations(destinations);
+      
+      // Check if current destination is still valid
+      if (!destinations.includes(selectedDestination)) {
+        setSelectedDestination(destinations[0] || '');
+      }
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Error loading stops:', err);
+      setError('Failed to load ferry stop data. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  // Update valid destinations when origin changes
+  useEffect(() => {
+    if (selectedOrigin && availableStops.length > 0) {
+      const destinations = staticGtfsService.getValidDestinations(selectedOrigin);
+      setValidDestinations(destinations);
+      
+      // Reset destination if not valid for new origin
+      if (!destinations.includes(selectedDestination)) {
+        setSelectedDestination(destinations[0] || '');
+      }
+    }
+  }, [selectedOrigin, availableStops]);
+
+  // Handle save
+  const handleSave = () => {
+    const originStop = availableStops.find(s => s.id === selectedOrigin);
+    const destinationStop = availableStops.find(s => s.id === selectedDestination);
+    
+    if (originStop && destinationStop) {
+      onSave({
+        outbound: {
+          id: selectedOrigin,
+          name: originStop.name
+        },
+        inbound: {
+          id: selectedDestination,
+          name: destinationStop.name
+        }
+      });
+    }
+  };
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-lg shadow-xl max-w-md w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-6 border-b">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-charcoal">
+              Select Ferry Stops
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ferry-blue"></div>
+            </div>
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+              {error}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Origin Stop */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  From (Origin Stop)
+                </label>
+                <select
+                  value={selectedOrigin}
+                  onChange={(e) => setSelectedOrigin(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-blue focus:border-ferry-blue"
+                >
+                  {availableStops.map(stop => (
+                    <option key={stop.id} value={stop.id}>
+                      {stop.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Destination Stop */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  To (Destination Stop)
+                </label>
+                <select
+                  value={selectedDestination}
+                  onChange={(e) => setSelectedDestination(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-blue focus:border-ferry-blue"
+                  disabled={validDestinations.length === 0}
+                >
+                  {validDestinations.length > 0 ? (
+                    validDestinations.map(stopId => {
+                      const stop = availableStops.find(s => s.id === stopId);
+                      return stop ? (
+                        <option key={stop.id} value={stop.id}>
+                          {stop.name}
+                        </option>
+                      ) : null;
+                    })
+                  ) : (
+                    <option value="">No direct connections available</option>
+                  )}
+                </select>
+                {validDestinations.length === 0 && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    No ferries run directly from the selected origin stop
+                  </p>
+                )}
+              </div>
+
+              {/* Route Preview */}
+              {selectedOrigin && selectedDestination && (
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">Selected Route:</span>
+                  </p>
+                  <p className="text-lg font-semibold text-ferry-blue mt-1">
+                    {availableStops.find(s => s.id === selectedOrigin)?.name} → {availableStops.find(s => s.id === selectedDestination)?.name}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {!loading && !error && (
+          <div className="p-6 border-t bg-gray-50 flex justify-end space-x-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!selectedOrigin || !selectedDestination}
+              className="px-4 py-2 bg-ferry-blue text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Save
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default StopSelectorModal;

@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { SERVICE_TYPES, API_CONFIG, STOPS, getOccupancyInfo, getVehicleStatusInfo } from '../utils/constants';
 import FerryDetailMap from './FerryDetailMap';
 
-const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, onClose }) => {
+const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedStops, onClose }) => {
   if (!departure) return null;
 
   // Get service info
@@ -32,8 +32,12 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, onClose }
   const minutesUntil = differenceInMinutes(departureTimeZoned, currentTimeZoned);
   
   // Get destination info
-  const destinationStop = departure.direction === 'outbound' ? 'Riverside' : 'Bulimba';
-  const destinationStopId = departure.direction === 'outbound' ? STOPS.riverside : STOPS.bulimba;
+  const destinationStop = departure.direction === 'outbound' 
+    ? (selectedStops?.inbound?.name || 'Riverside') 
+    : (selectedStops?.outbound?.name || 'Bulimba');
+  const destinationStopId = departure.direction === 'outbound' 
+    ? (selectedStops?.inbound?.id || STOPS.riverside) 
+    : (selectedStops?.outbound?.id || STOPS.bulimba);
   
   // Find destination arrival time from trip update
   const destinationArrival = useMemo(() => {
@@ -99,7 +103,9 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, onClose }
                     )}
                   </div>
                   <p className="text-sm text-gray-600 mb-1">
-                    {departure.direction === 'outbound' ? 'Bulimba → Riverside' : 'Riverside → Bulimba'}
+                    {departure.direction === 'outbound' 
+                      ? `${selectedStops?.outbound?.name || 'Bulimba'} → ${selectedStops?.inbound?.name || 'Riverside'}` 
+                      : `${selectedStops?.inbound?.name || 'Riverside'} → ${selectedStops?.outbound?.name || 'Bulimba'}`}
                   </p>
                   <p className="text-xs text-gray-500">
                     Trip #{departure.tripId} • {vehiclePosition?.vehicle?.vehicle?.id ? `Vehicle ${vehiclePosition.vehicle.vehicle.id}` : 'No vehicle ID'}
@@ -123,7 +129,7 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, onClose }
           <h3 className="text-lg font-semibold mb-4">Schedule Information</h3>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">Departure from {departure.direction === 'outbound' ? 'Bulimba' : 'Riverside'}</p>
+              <p className="text-sm text-gray-600 mb-1">Departure from {departure.direction === 'outbound' ? (selectedStops?.outbound?.name || 'Bulimba') : (selectedStops?.inbound?.name || 'Riverside')}</p>
               <p className="text-2xl font-bold">
                 {format(departureTimeZoned, 'h:mm a')}
               </p>

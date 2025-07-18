@@ -1,15 +1,17 @@
 import JSZip from 'jszip';
 import Papa from 'papaparse';
-import { STOPS, ROUTES, DEBUG_CONFIG } from '../utils/constants';
+import { STOPS, ROUTES, DEBUG_CONFIG, STORAGE_KEYS } from '../utils/constants';
 import { startOfDay, endOfDay, format, parse, isAfter, isBefore, addMinutes } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
 class StaticGTFSService {
   constructor() {
     this.timezone = 'Australia/Brisbane';
-    this.scheduleCacheKey = 'brisbane-ferry-schedule-cache';
+    this.scheduleCacheKey = STORAGE_KEYS.SCHEDULE_CACHE;
     this.cacheExpiry = 24 * 60 * 60 * 1000; // 24 hours
     this.gtfsData = null;
+    this.ferryStops = null;
+    this.stopConnectivity = null;
     this.debug = DEBUG_CONFIG.enableLogging;
     // GitHub Pages URL for pre-processed schedule data
     this.githubScheduleUrl = window.location.hostname === 'localhost' 
@@ -177,6 +179,17 @@ class StaticGTFSService {
       const data = await response.json();
       this.log(`Received ${data.departureCount} departures from GitHub`);
       
+      // Store ferry stops and connectivity data if available
+      if (data.ferryStops) {
+        this.ferryStops = data.ferryStops;
+        this.log(`Loaded ${Object.keys(data.ferryStops).length} ferry stops`);
+      }
+      
+      if (data.stopConnectivity) {
+        this.stopConnectivity = data.stopConnectivity;
+        this.log('Loaded stop connectivity data');
+      }
+      
       // Convert departure times to Date objects and filter to next 24 hours
       const now = new Date();
       const cutoffTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -342,6 +355,48 @@ class StaticGTFSService {
     
     // Default based on current stop
     return currentStopId === STOPS.bulimba ? 'outbound' : 'inbound';
+  }
+
+  // Get all available ferry stops
+  getAvailableStops() {
+    if (!this.ferryStops) {
+      return [];
+    }
+    
+    // Return array of stop objects with id and name
+    return Object.entries(this.ferryStops).map(([id, stop]) => ({
+      id,
+      name: stop.name,
+      lat: stop.lat,
+      lng: stop.lng
+    }));
+  }
+
+  // Get valid destinations for a given origin stop
+  getValidDestinations(originStopId) {
+    if (!this.stopConnectivity || !this.stopConnectivity[originStopId]) {
+      return [];
+    }
+    
+    // Return array of valid destination stop IDs
+    return this.stopConnectivity[originStopId] || [];
+  }
+
+  // Get stop info by ID
+  getStopInfo(stopId) {
+    if (!this.ferryStops || !this.ferryStops[stopId]) {
+      return null;
+    }
+    
+    return {
+      id: stopId,
+      ...this.ferryStops[stopId]
+    };
+  }
+
+  // Check if stops data is loaded
+  hasStopsData() {
+    return !!(this.ferryStops && this.stopConnectivity);
   }
 
 }
