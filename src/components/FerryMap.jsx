@@ -117,7 +117,7 @@ function FerryMap({ vehiclePositions, tripUpdates, departures }) {
       <div className="rounded-lg overflow-hidden border border-gray-200" style={{ height: '400px' }}>
         <MapContainer
           center={mapCenter}
-          zoom={14}
+          zoom={13}
           style={{ height: '100%', width: '100%' }}
           scrollWheelZoom={false}
         >
