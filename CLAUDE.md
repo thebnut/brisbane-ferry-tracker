@@ -7,10 +7,13 @@ This is a single-page application that displays real-time ferry departures betwe
 
 ### Primary Production Deployment: Vercel
 **URL**: https://brisbane-ferry-tracker.vercel.app/
+**Custom Domain**: https://ferry.lifemap.au/
 - ✅ **Full functionality** - Live tracking + schedule data
 - ✅ **Real-time updates** via CORS proxy
 - ✅ **GitHub-hosted schedule** loaded first (fast)
 - ✅ **Automatic fallback** to local GTFS processing
+- ✅ **Ferry details modal** with comprehensive information
+- ✅ **Interactive map** with live ferry positions
 
 ### Secondary Deployment: GitHub Pages
 **URL**: https://thebnut.github.io/brisbane-ferry-tracker/
@@ -68,9 +71,28 @@ ROUTES = {
   expressCityCat: "F11",    // Express service
   allStopsCityCat: "F1"     // All-stops service
 }
+
+// GTFS-RT Occupancy Status Values
+OCCUPANCY_STATUS = {
+  0: 'Empty',
+  1: 'Many seats available',
+  2: 'Few seats available',
+  3: 'Standing room only',
+  4: 'Crushed standing room only',
+  5: 'Full',
+  6: 'Not accepting passengers'
+}
+
+// GTFS-RT Vehicle Status Values
+VEHICLE_STATUS = {
+  0: 'Approaching stop',
+  1: 'Stopped at terminal',
+  2: 'In transit'
+}
 ```
 
 Note: Real-time routes may have suffixes like "F11-4055", so we use `startsWith()` for matching.
+Note: GTFS-RT may send numeric or string enum values - the app handles both formats.
 
 ### Critical Filtering Logic
 The app filters departures to show ONLY ferries that actually travel between the two terminals:
@@ -115,6 +137,12 @@ See `schedule-filtering-logic.md` for detailed explanation.
 ### Issue: Wrong direction ferries showing
 **Solution:** Check stop sequence to ensure ferry goes FROM current stop TO other terminal
 
+### Issue: CORS errors on custom domain
+**Solution:** Always use the proxy endpoint (`/api/gtfs-proxy`) for all deployments. The app now automatically uses the proxy to avoid CORS issues regardless of domain.
+
+### Issue: Numeric enum values showing instead of text
+**Solution:** Use `getOccupancyInfo()` and `getVehicleStatusInfo()` helper functions that handle both numeric and string enum values from GTFS-RT.
+
 ## Testing & Debugging
 
 ### Key Debug Points
@@ -126,6 +154,8 @@ See `schedule-filtering-logic.md` for detailed explanation.
 1. Early morning (4-5 AM): Should show scheduled times
 2. Peak hours: Should show mix of live and scheduled
 3. Late night: Should show next day's first services
+4. After 12:30 PM on mobile: Should default to "To Bulimba" tab
+5. Click any departure: Should show detailed modal with all available info
 
 ### Local Development
 ```bash
@@ -181,15 +211,36 @@ npm run build
 | API costs | Minimal | None |
 
 ## Recent Updates
-1. **Live Ferry Map** - Interactive map showing real-time ferry positions
-2. **GitHub Pages Schedule Caching** - Pre-processed schedule data served from GitHub
-3. **Progressive Loading** - Live data shows immediately, schedule loads in background
-4. **TripId-based Merging** - Accurate matching of real-time and scheduled departures
-5. **"More..." Button** - Shows up to 13 departures (5 + 8 more)
-6. **Scheduled Time Display** - Shows "(Sched HH:MM AM/PM)" for live departures
-7. **Dynamic Status Messages** - Different messages based on available data
-8. **First-time Loading Message** - Warns users about initial download time
-9. **Configurable Debug Logging** - Set DEBUG_CONFIG.enableLogging to true
+1. **Ferry Details Modal** - Click/tap any departure to see comprehensive ferry information
+   - Live position map (when GPS available)
+   - Schedule vs actual times
+   - Journey duration and delays
+   - Occupancy and vehicle status
+   - Keyboard accessible (ESC to close)
+2. **GTFS-RT Enum Handling** - Proper display of numeric enum values:
+   - Occupancy status (0-6): Empty, Many seats, Few seats, Standing room, etc.
+   - Vehicle status (0-2): Approaching stop, Stopped at terminal, In transit
+3. **Smart Mobile Tab Selection** - Automatically shows relevant direction based on time:
+   - Before 12:30 PM: Shows "To Riverside" (outbound)
+   - After 12:30 PM: Shows "To Bulimba" (inbound)
+4. **Custom Domain Support** - ferry.lifemap.au works with proper CORS handling
+5. **Map Improvements**:
+   - CartoDB Positron tiles for modern, minimal appearance
+   - Removed river overlay for cleaner look
+   - Map button in status bar
+   - Hide button in map header
+   - Smaller, cleaner ferry icons
+6. **Mobile-Responsive Tabs** - Departure boards use tabs on mobile instead of stacking
+7. **Previous Updates**:
+   - Live Ferry Map with real-time positions
+   - GitHub Pages Schedule Caching
+   - Progressive Loading strategy
+   - TripId-based Merging
+   - "More..." Button (5 + 8 more)
+   - Scheduled Time Display
+   - Dynamic Status Messages
+   - First-time Loading Message
+   - Configurable Debug Logging
 
 ## Future Enhancements to Consider
 1. Service alerts integration
