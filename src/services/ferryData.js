@@ -305,13 +305,20 @@ class FerryDataService {
           this.log(`  Trip ${dep.tripId} at stop ${dep.stopId}: ${timeDiff.toFixed(1)} min difference`);
           
           // Replace scheduled with real-time data
-          const timeKey = `${matchingScheduled.stopId}-${Math.floor(matchingScheduled.departureTime.getTime() / 60000)}`;
+          // Use the REAL-TIME departure time for the key, not the scheduled time
+          const timeKey = `${dep.stopId}-${Math.floor(dep.departureTime.getTime() / 60000)}`;
           merged.set(timeKey, {
             ...dep,
             isRealtime: true,
             isScheduled: false,
             scheduledTime: matchingScheduled.departureTime // Keep reference to original scheduled time
           });
+          
+          // Also remove the old scheduled entry if it has a different time
+          const scheduledTimeKey = `${matchingScheduled.stopId}-${Math.floor(matchingScheduled.departureTime.getTime() / 60000)}`;
+          if (scheduledTimeKey !== timeKey) {
+            merged.delete(scheduledTimeKey);
+          }
           matched = true;
           processedRealtime.add(`${dep.tripId}-${dep.stopId}`);
         } else {
@@ -565,11 +572,29 @@ class FerryDataService {
     console.log('Sample merged departures:', allDepartures.slice(0, 3).map(d => ({
       tripId: d.tripId,
       isRealtime: d.isRealtime,
-      time: d.departureTime
+      time: d.departureTime,
+      stopId: d.stopId,
+      direction: d.direction
     })));
     
     // Group by direction again
-    return this.groupByDirection(allDepartures);
+    const grouped = this.groupByDirection(allDepartures);
+    
+    // Log grouped results
+    console.log('Grouped results:', {
+      outboundSample: grouped.outbound.slice(0, 3).map(d => ({
+        tripId: d.tripId,
+        isRealtime: d.isRealtime,
+        stopId: d.stopId
+      })),
+      inboundSample: grouped.inbound.slice(0, 3).map(d => ({
+        tripId: d.tripId,
+        isRealtime: d.isRealtime,
+        stopId: d.stopId
+      }))
+    });
+    
+    return grouped;
   }
 
   // Main function to get processed ferry data (kept for backward compatibility)
