@@ -59,7 +59,7 @@ const terminalIcon = L.divIcon({
   iconAnchor: [10, 20]
 });
 
-function FerryMap({ vehiclePositions, tripUpdates, departures }) {
+function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
   // Process vehicle positions to get ferry locations
   const ferryLocations = vehiclePositions
     .filter(vp => {
@@ -109,10 +109,18 @@ function FerryMap({ vehiclePositions, tripUpdates, departures }) {
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-      <h2 className="text-lg font-bold text-charcoal mb-3 flex items-center">
-        <span className="mr-2">🗺️</span>
-        Live Ferry Positions
-      </h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-bold text-charcoal flex items-center">
+          <span className="mr-2">🗺️</span>
+          Live Ferry Positions
+        </h2>
+        <button
+          onClick={onHide}
+          className="text-gray-500 hover:text-gray-700 transition-colors px-3 py-1 rounded-lg hover:bg-gray-100"
+        >
+          <span className="text-sm font-medium">Hide</span>
+        </button>
+      </div>
       
       <div className="rounded-lg overflow-hidden border border-gray-200" style={{ height: '400px' }}>
         <MapContainer

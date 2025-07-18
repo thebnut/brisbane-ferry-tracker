@@ -42,6 +42,8 @@ function App() {
         lastUpdated={lastUpdated}
         isLoading={loading}
         onRefresh={refresh}
+        showMap={showMap}
+        onToggleMap={() => setShowMap(!showMap)}
       />
       
       {/* Schedule loading indicator */}
@@ -68,24 +70,8 @@ function App() {
           <LoadingSpinner />
         ) : (
           <>
-            {/* Map Toggle and Service Filter */}
+            {/* Service Filter */}
             <div className="mb-6">
-              {/* Map Toggle */}
-              <div className="flex justify-center mb-4">
-                <button
-                  onClick={() => setShowMap(!showMap)}
-                  className={clsx(
-                    'flex items-center space-x-2 rounded-full px-5 py-2.5 transition-all transform hover:scale-105',
-                    showMap
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'bg-white border border-gray-300 text-gray-700 hover:border-blue-600'
-                  )}
-                >
-                  <span className="text-lg">🗺️</span>
-                  <span className="font-medium">{showMap ? 'Hide Map' : 'Show Live Map'}</span>
-                </button>
-              </div>
-              
               {/* Service Filter */}
               <div className="flex flex-wrap gap-3 justify-center text-sm mb-4">
                 {/* All filter */}
@@ -161,6 +147,7 @@ function App() {
                 vehiclePositions={vehiclePositions}
                 tripUpdates={tripUpdates}
                 departures={filteredDepartures}
+                onHide={() => setShowMap(false)}
               />
             )}
             
