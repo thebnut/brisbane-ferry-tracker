@@ -322,8 +322,7 @@ class FerryDataService {
           matched = true;
           processedRealtime.add(`${dep.tripId}-${dep.stopId}`);
         } else {
-          console.log(`Trip ${dep.tripId} exists in schedule but not for stop ${dep.stopId}. Schedule has stops:`, 
-            scheduledTrips.map(s => s.stopId));
+          console.log(`Trip ${dep.tripId} exists in schedule but not for stop ${dep.stopId}`);
         }
       } else {
         console.log(`No scheduled trip found for real-time trip ${dep.tripId}`);
@@ -500,28 +499,50 @@ class FerryDataService {
       const allScheduledDepartures = await staticGtfsService.getScheduledDepartures();
       this.log(`Found ${allScheduledDepartures.length} total scheduled departures from static GTFS`);
       
-      // Simply filter for departures from our selected stops
-      // Don't try to validate full trip sequences - trust that if a departure
-      // is from one of our stops, it's relevant
-      const filteredDepartures = allScheduledDepartures
-        .filter(dep => {
-          return dep.stopId === this.selectedStops.outbound.id || 
-                 dep.stopId === this.selectedStops.inbound.id;
-        })
-        .map(dep => ({
-          ...dep,
-          // Assign direction based on which stop this departure is from
-          direction: dep.stopId === this.selectedStops.outbound.id ? 'outbound' : 'inbound'
-        }));
+      // We need to check trip sequences to ensure destination comes after origin
+      // Group departures by tripId
+      const departuresByTrip = {};
+      allScheduledDepartures.forEach(dep => {
+        if (!departuresByTrip[dep.tripId]) {
+          departuresByTrip[dep.tripId] = [];
+        }
+        departuresByTrip[dep.tripId].push(dep);
+      });
       
-      console.log(`Filtered to ${filteredDepartures.length} departures for selected stops`);
-      console.log('Sample filtered departures:', filteredDepartures.slice(0, 5).map(d => ({
-        tripId: d.tripId,
-        stopId: d.stopId,
-        direction: d.direction
-      })));
+      // Filter for trips that go from origin to destination
+      const validDepartures = [];
       
-      return filteredDepartures;
+      Object.entries(departuresByTrip).forEach(([tripId, tripDepartures]) => {
+        // Sort by stop sequence
+        tripDepartures.sort((a, b) => (a.stopSequence || 0) - (b.stopSequence || 0));
+        
+        // Find if this trip has both our stops
+        const outboundIndex = tripDepartures.findIndex(dep => dep.stopId === this.selectedStops.outbound.id);
+        const inboundIndex = tripDepartures.findIndex(dep => dep.stopId === this.selectedStops.inbound.id);
+        
+        // If trip has both stops and goes in the right direction
+        if (outboundIndex !== -1 && inboundIndex !== -1 && inboundIndex > outboundIndex) {
+          // This trip goes from outbound to inbound stop
+          const outboundDep = tripDepartures[outboundIndex];
+          validDepartures.push({
+            ...outboundDep,
+            direction: 'outbound'
+          });
+        }
+        
+        // Also check the reverse direction
+        if (outboundIndex !== -1 && inboundIndex !== -1 && outboundIndex > inboundIndex) {
+          // This trip goes from inbound to outbound stop
+          const inboundDep = tripDepartures[inboundIndex];
+          validDepartures.push({
+            ...inboundDep,
+            direction: 'inbound'
+          });
+        }
+      });
+      
+      this.log(`Filtered to ${validDepartures.length} valid departures for selected route`);
+      return validDepartures;
     } catch (error) {
       console.error('Error fetching scheduled departures:', error);
       return [];
@@ -539,14 +560,8 @@ class FerryDataService {
     console.log('Merging data:', {
       realtimeCount: allRealtime.length,
       scheduledCount: scheduledDepartures.length,
-      realtimeTripIds: allRealtime.map(d => d.tripId),
-      scheduledTripIds: scheduledDepartures.map(d => d.tripId).slice(0, 10),
-      realtimeDetails: allRealtime.map(d => ({
-        tripId: d.tripId,
-        stopId: d.stopId,
-        direction: d.direction,
-        isRealtime: d.isRealtime
-      }))
+      realtimeTripIds: allRealtime.map(d => d.tripId).slice(0, 5),
+      scheduledTripIds: scheduledDepartures.map(d => d.tripId).slice(0, 5)
     });
     
     // Merge scheduled and real-time data
