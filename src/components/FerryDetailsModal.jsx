@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { format, differenceInMinutes } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
-import { SERVICE_TYPES, API_CONFIG, STOPS } from '../utils/constants';
+import { SERVICE_TYPES, API_CONFIG, STOPS, getOccupancyInfo } from '../utils/constants';
 import FerryDetailMap from './FerryDetailMap';
 
 const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, onClose }) => {
@@ -166,18 +166,17 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, onClose }
                 </div>
               )}
               
-              {vehiclePosition.vehicle?.occupancyStatus && (
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Occupancy</p>
-                  <p className="text-lg font-semibold">
-                    {vehiclePosition.vehicle.occupancyStatus === 'MANY_SEATS_AVAILABLE' && '🟢 Many seats'}
-                    {vehiclePosition.vehicle.occupancyStatus === 'FEW_SEATS_AVAILABLE' && '🟡 Few seats'}
-                    {vehiclePosition.vehicle.occupancyStatus === 'STANDING_ROOM_ONLY' && '🟠 Standing room'}
-                    {vehiclePosition.vehicle.occupancyStatus === 'CRUSHED_STANDING_ROOM_ONLY' && '🔴 Very full'}
-                    {vehiclePosition.vehicle.occupancyStatus === 'FULL' && '🔴 Full'}
-                  </p>
-                </div>
-              )}
+              {vehiclePosition.vehicle?.occupancyStatus !== null && vehiclePosition.vehicle?.occupancyStatus !== undefined && (() => {
+                const occupancyInfo = getOccupancyInfo(vehiclePosition.vehicle.occupancyStatus);
+                return occupancyInfo ? (
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600">Occupancy</p>
+                    <p className="text-lg font-semibold">
+                      {occupancyInfo.icon} {occupancyInfo.text}
+                    </p>
+                  </div>
+                ) : null;
+              })()}
               
               {vehiclePosition.vehicle?.currentStatus && (
                 <div className="text-center">

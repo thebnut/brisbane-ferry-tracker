@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { STOPS } from '../utils/constants';
+import { STOPS, getOccupancyInfo } from '../utils/constants';
 import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
@@ -149,16 +149,12 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
                   <p>Route: {ferry.routeId}</p>
                   <p>Direction: {ferry.direction === 'outbound' ? 'To Riverside' : 'To Bulimba'}</p>
                   {ferry.speed && <p>Speed: {Math.round(ferry.speed * 3.6)} km/h</p>}
-                  {ferry.occupancy && (
-                    <p>Occupancy: {
-                      ferry.occupancy === 'MANY_SEATS_AVAILABLE' ? '🟢 Many seats' :
-                      ferry.occupancy === 'FEW_SEATS_AVAILABLE' ? '🟡 Few seats' :
-                      ferry.occupancy === 'STANDING_ROOM_ONLY' ? '🟠 Standing room' :
-                      ferry.occupancy === 'CRUSHED_STANDING_ROOM_ONLY' ? '🔴 Very full' :
-                      ferry.occupancy === 'FULL' ? '🔴 Full' :
-                      ferry.occupancy.replace(/_/g, ' ')
-                    }</p>
-                  )}
+                  {ferry.occupancy !== null && ferry.occupancy !== undefined && (() => {
+                    const occupancyInfo = getOccupancyInfo(ferry.occupancy);
+                    return occupancyInfo ? (
+                      <p>Occupancy: {occupancyInfo.icon} {occupancyInfo.text}</p>
+                    ) : null;
+                  })()}
                   {ferry.departureTime && (
                     <p>Next departure: {format(toZonedTime(ferry.departureTime, 'Australia/Brisbane'), 'h:mm a')}</p>
                   )}

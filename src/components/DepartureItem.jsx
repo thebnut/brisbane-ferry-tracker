@@ -2,7 +2,7 @@ import React from 'react';
 import { format, differenceInMinutes } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
-import { SERVICE_TYPES, API_CONFIG } from '../utils/constants';
+import { SERVICE_TYPES, API_CONFIG, getOccupancyInfo } from '../utils/constants';
 
 const DepartureItem = ({ departure, onClick }) => {
   // Get service info based on route ID prefix (remove suffix like -4055)
@@ -90,11 +90,14 @@ const DepartureItem = ({ departure, onClick }) => {
         )}>
           {getCountdownText()}
         </div>
-        {typeof departure.occupancy === 'string' && departure.occupancy ? (
-          <p className="text-xs text-gray-500 mt-2">
-            {departure.occupancy.replace(/_/g, ' ').toLowerCase()}
-          </p>
-        ) : null}
+        {(() => {
+          const occupancyInfo = getOccupancyInfo(departure.occupancy);
+          return occupancyInfo ? (
+            <p className="text-xs text-gray-500 mt-2">
+              {occupancyInfo.icon} {occupancyInfo.text}
+            </p>
+          ) : null;
+        })()}
       </div>
     </div>
   );
