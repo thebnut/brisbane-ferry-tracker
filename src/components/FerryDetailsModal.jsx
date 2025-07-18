@@ -80,28 +80,31 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, onClose }
         )}>
           <div className="flex items-start justify-between">
             <div>
-              <div className="flex items-center space-x-3 mb-2">
+              <div className="flex items-center space-x-3">
                 <span className="text-4xl">{serviceInfo.icon}</span>
-                <div>
-                  <h2 className="text-2xl font-bold text-charcoal">
-                    {serviceInfo.name} Ferry
-                  </h2>
-                  <p className="text-sm text-gray-600">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h2 className="text-2xl font-bold text-charcoal">
+                      {serviceInfo.name} Ferry
+                    </h2>
+                    {hasLiveData ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                        <span className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
+                        LIVE
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+                        SCHEDULED
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600 mb-1">
                     {departure.direction === 'outbound' ? 'Bulimba → Riverside' : 'Riverside → Bulimba'}
                   </p>
+                  <p className="text-xs text-gray-500">
+                    Trip #{departure.tripId} • {vehiclePosition?.vehicle?.vehicle?.id ? `Vehicle ${vehiclePosition.vehicle.vehicle.id}` : 'No vehicle ID'}
+                  </p>
                 </div>
-              </div>
-              <div className="flex items-center space-x-2 mt-2">
-                {hasLiveData ? (
-                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                    LIVE TRACKING
-                  </span>
-                ) : (
-                  <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium">
-                    SCHEDULED
-                  </span>
-                )}
-                <span className="text-sm text-gray-500">Trip #{departure.tripId}</span>
               </div>
             </div>
             <button
