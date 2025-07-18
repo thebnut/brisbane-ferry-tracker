@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { STOPS } from '../utils/constants';
@@ -22,26 +22,32 @@ const TERMINAL_LOCATIONS = {
 
 // Create custom ferry icon
 const createFerryIcon = (isExpress, direction) => {
-  const rotation = direction === 'outbound' ? 315 : 135; // NW for outbound, SE for inbound
+  const rotation = direction === 'outbound' ? 0 : 180; // 0 for outbound (to Riverside), 180 for inbound (to Bulimba)
+  const color = isExpress ? '#FF6B6B' : '#4ECDC4'; // Red for express, teal for all-stops
   
   return L.divIcon({
     html: `
       <div style="
-        transform: rotate(${rotation}deg);
-        width: 30px;
-        height: 30px;
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
       ">
-        <span style="font-size: 24px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.5));">
-          ${isExpress ? '🚤' : '🚢'}
-        </span>
+        <svg width="28" height="28" viewBox="0 0 28 28" style="transform: rotate(${rotation}deg);">
+          <defs>
+            <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3"/>
+            </filter>
+          </defs>
+          <circle cx="14" cy="14" r="12" fill="${color}" stroke="white" stroke-width="2" filter="url(#shadow)"/>
+          <path d="M14 7 L18 17.5 L14 15.5 L10 17.5 Z" fill="white"/>
+        </svg>
       </div>
     `,
     className: 'ferry-marker',
-    iconSize: [30, 30],
-    iconAnchor: [15, 15]
+    iconSize: [28, 28],
+    iconAnchor: [14, 14]
   });
 };
 
@@ -100,16 +106,6 @@ function FerryMap({ vehiclePositions, tripUpdates, departures }) {
   // Map center (between terminals)
   const mapCenter = [-27.4597, 153.0376];
   
-  // River path approximation
-  const riverPath = [
-    [-27.4447, 153.0576], // Bulimba
-    [-27.4480, 153.0520],
-    [-27.4520, 153.0460],
-    [-27.4580, 153.0400],
-    [-27.4640, 153.0340],
-    [-27.4700, 153.0280],
-    [-27.4747, 153.0177]  // Riverside
-  ];
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
@@ -126,31 +122,9 @@ function FerryMap({ vehiclePositions, tripUpdates, departures }) {
           scrollWheelZoom={false}
         >
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
           />
-          
-          {/* River path */}
-          <Polyline 
-            positions={riverPath}
-            color="#0066CC"
-            weight={3}
-            opacity={0.5}
-            dashArray="10, 10"
-          />
-          
-          {/* Terminal markers */}
-          <Marker position={[TERMINAL_LOCATIONS.bulimba.lat, TERMINAL_LOCATIONS.bulimba.lng]} icon={terminalIcon}>
-            <Popup>
-              <strong>{TERMINAL_LOCATIONS.bulimba.name}</strong>
-            </Popup>
-          </Marker>
-          
-          <Marker position={[TERMINAL_LOCATIONS.riverside.lat, TERMINAL_LOCATIONS.riverside.lng]} icon={terminalIcon}>
-            <Popup>
-              <strong>{TERMINAL_LOCATIONS.riverside.name}</strong>
-            </Popup>
-          </Marker>
           
           {/* Ferry markers */}
           {ferryLocations.map(ferry => (
@@ -188,11 +162,22 @@ function FerryMap({ vehiclePositions, tripUpdates, departures }) {
       </div>
       
       <div className="mt-3 text-sm text-gray-600">
-        <p className="flex items-center">
-          <span className="mr-2">🚤</span>Express ferries
-          <span className="mx-4">🚢</span>All-stops ferries
-          <span className="mx-4">📍</span>Terminals
-        </p>
+        <div className="flex items-center justify-center space-x-6">
+          <div className="flex items-center">
+            <svg width="20" height="20" viewBox="0 0 40 40" className="mr-2">
+              <circle cx="20" cy="20" r="18" fill="#FF6B6B" stroke="white" stroke-width="2"/>
+              <path d="M20 10 L26 25 L20 22 L14 25 Z" fill="white"/>
+            </svg>
+            <span>Express ferries</span>
+          </div>
+          <div className="flex items-center">
+            <svg width="20" height="20" viewBox="0 0 40 40" className="mr-2">
+              <circle cx="20" cy="20" r="18" fill="#4ECDC4" stroke="white" stroke-width="2"/>
+              <path d="M20 10 L26 25 L20 22 L14 25 Z" fill="white"/>
+            </svg>
+            <span>All-stops ferries</span>
+          </div>
+        </div>
         {ferryLocations.length === 0 && (
           <p className="mt-2 text-center text-gray-500">No ferries currently between terminals</p>
         )}

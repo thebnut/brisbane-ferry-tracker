@@ -12,6 +12,7 @@ function App() {
   const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData();
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
   const [showMap, setShowMap] = useState(false);
+  const [activeTab, setActiveTab] = useState('outbound'); // 'outbound' | 'inbound' - for mobile tabs
   
   // Filter departures based on selected mode
   const filteredDepartures = useMemo(() => {
@@ -163,7 +164,36 @@ function App() {
               />
             )}
             
-            <div className="grid md:grid-cols-2 gap-8">
+            {/* Mobile Tabs - visible on small screens */}
+            <div className="md:hidden mb-4">
+              <div className="flex rounded-lg overflow-hidden border border-gray-200">
+                <button
+                  onClick={() => setActiveTab('outbound')}
+                  className={clsx(
+                    'flex-1 py-3 px-4 text-sm font-semibold transition-colors',
+                    activeTab === 'outbound'
+                      ? 'bg-ferry-blue text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  )}
+                >
+                  To Riverside
+                </button>
+                <button
+                  onClick={() => setActiveTab('inbound')}
+                  className={clsx(
+                    'flex-1 py-3 px-4 text-sm font-semibold transition-colors',
+                    activeTab === 'inbound'
+                      ? 'bg-ferry-blue text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  )}
+                >
+                  To Bulimba
+                </button>
+              </div>
+            </div>
+            
+            {/* Desktop Grid - hidden on small screens */}
+            <div className="hidden md:grid md:grid-cols-2 gap-8">
               <DepartureBoard 
                 direction="outbound"
                 departures={filteredDepartures.outbound}
@@ -172,6 +202,15 @@ function App() {
               <DepartureBoard 
                 direction="inbound"
                 departures={filteredDepartures.inbound}
+                loading={loading}
+              />
+            </div>
+            
+            {/* Mobile Single Board - visible on small screens */}
+            <div className="md:hidden">
+              <DepartureBoard 
+                direction={activeTab}
+                departures={activeTab === 'outbound' ? filteredDepartures.outbound : filteredDepartures.inbound}
                 loading={loading}
               />
             </div>
