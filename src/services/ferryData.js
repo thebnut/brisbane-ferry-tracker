@@ -23,7 +23,6 @@ class FerryDataService {
   // Filter trip updates for selected stops and ferry routes
   filterRelevantTrips(tripUpdates) {
     const relevantStopIds = [this.selectedStops.outbound.id, this.selectedStops.inbound.id];
-    const relevantRouteIds = [ROUTES.expressCityCat, ROUTES.allStopsCityCat];
     
     this.log('Total trip updates to filter:', tripUpdates.length);
     
@@ -66,11 +65,8 @@ class FerryDataService {
       const trip = entity.tripUpdate.trip;
       const stopTimeUpdates = entity.tripUpdate.stopTimeUpdate || [];
       
-      // Check if this trip is on a ferry route
-      // Route IDs in GTFS may have suffixes like -4055
-      const isRelevantRoute = trip && trip.routeId && relevantRouteIds.some(routeId => 
-        trip.routeId.startsWith(routeId)
-      );
+      // Check if this trip is on a ferry route (any route starting with 'F')
+      const isRelevantRoute = trip && trip.routeId && trip.routeId.startsWith('F');
       
       // Check if trip has BOTH selected stops
       const hasOutboundStop = stopTimeUpdates.some(update => 
@@ -489,9 +485,24 @@ class FerryDataService {
   // Get scheduled departures asynchronously (slow)
   async getScheduledDeparturesAsync() {
     try {
-      const scheduledDepartures = await staticGtfsService.getScheduledDepartures();
-      this.log(`Found ${scheduledDepartures.length} scheduled departures from static GTFS`);
-      return scheduledDepartures;
+      const allScheduledDepartures = await staticGtfsService.getScheduledDepartures();
+      this.log(`Found ${allScheduledDepartures.length} total scheduled departures from static GTFS`);
+      
+      // Filter for selected stops and assign correct direction
+      const filteredDepartures = allScheduledDepartures
+        .filter(dep => {
+          // Check if departure is from one of our selected stops
+          return dep.stopId === this.selectedStops.outbound.id || 
+                 dep.stopId === this.selectedStops.inbound.id;
+        })
+        .map(dep => ({
+          ...dep,
+          // Assign direction based on which stop this departure is from
+          direction: dep.stopId === this.selectedStops.outbound.id ? 'outbound' : 'inbound'
+        }));
+      
+      this.log(`Filtered to ${filteredDepartures.length} departures for selected stops`);
+      return filteredDepartures;
     } catch (error) {
       console.error('Error fetching scheduled departures:', error);
       return [];

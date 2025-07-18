@@ -288,8 +288,9 @@ async function processGTFSData() {
   const activeServicesByDate = getActiveServiceIds(calendar, calendarDates, todayStart, endDate);
   
   const departures = [];
-  const relevantStopIds = [STOPS.bulimba, STOPS.riverside];
-  const relevantRouteIds = [ROUTES.expressCityCat, ROUTES.allStopsCityCat];
+  // Process ALL ferry stops and routes
+  const ferryStopIds = new Set();
+  const ferryRouteIds = new Set();
 
   // Create a map of trip_id to stop times for faster lookup
   const stopTimesByTrip = new Map();
@@ -300,21 +301,23 @@ async function processGTFSData() {
     stopTimesByTrip.get(st.trip_id).push(st);
   });
 
-  // Get relevant trips
+  // First, identify all ferry routes and stops
+  routes.forEach(route => {
+    if (route.route_id.startsWith('F')) {
+      ferryRouteIds.add(route.route_id);
+    }
+  });
+  
+  // Get all trips for ferry routes
   const relevantTrips = trips.filter(trip => {
     // Check if service is active on any day in our range
     const serviceActiveOnAnyDay = Array.from(activeServicesByDate.values())
       .some(services => services.includes(trip.service_id));
     
     if (!serviceActiveOnAnyDay) return false;
-    if (!relevantRouteIds.some(routeId => trip.route_id === routeId || trip.route_id.startsWith(routeId))) return false;
     
-    // Check if this trip has both Bulimba and Riverside stops
-    const tripStopTimes = stopTimesByTrip.get(trip.trip_id) || [];
-    const hasBulimba = tripStopTimes.some(st => st.stop_id === STOPS.bulimba);
-    const hasRiverside = tripStopTimes.some(st => st.stop_id === STOPS.riverside);
-    
-    return hasBulimba && hasRiverside;
+    // Include all ferry routes (starting with 'F')
+    return trip.route_id.startsWith('F');
   });
 
   console.log(`Found ${relevantTrips.length} relevant trips`);
@@ -324,9 +327,7 @@ async function processGTFSData() {
     const tripStopTimes = stopTimesByTrip.get(trip.trip_id) || [];
     
     tripStopTimes.forEach((stopTime, index) => {
-      if (!relevantStopIds.includes(stopTime.stop_id)) {
-        return;
-      }
+      // Include all stops (we'll filter for ferry terminals later)
 
       // Parse departure time for each day the service runs
       activeServicesByDate.forEach((services, dateStr) => {
@@ -349,21 +350,9 @@ async function processGTFSData() {
 
         // Include all departures for the day (from midnight to end of period)
         if (departureZoned >= todayStart && departureZoned <= endDate) {
-          // Check if this departure goes to the other terminal
-          const remainingStops = tripStopTimes.slice(index + 1);
-          let goesToOtherTerminal = false;
-          
-          if (stopTime.stop_id === STOPS.bulimba) {
-            goesToOtherTerminal = remainingStops.some(st => st.stop_id === STOPS.riverside);
-          } else if (stopTime.stop_id === STOPS.riverside) {
-            goesToOtherTerminal = remainingStops.some(st => st.stop_id === STOPS.bulimba);
-          }
-          
-          if (!goesToOtherTerminal) {
-            return;
-          }
-          
-          const direction = determineDirection(stopTime.stop_id, tripStopTimes, index, trip);
+          // For schedule data, include all ferry stops (no specific direction filtering)
+          // The client will filter based on selected stops
+          const direction = 'outbound'; // Generic direction for schedule data
           
           departures.push({
             tripId: trip.trip_id,

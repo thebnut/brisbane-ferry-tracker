@@ -209,7 +209,7 @@ class StaticGTFSService {
   }
 
   // Get scheduled departures for our ferry routes
-  async getScheduledDepartures() {
+  async getScheduledDepartures(selectedStops = null) {
     // Check cache first
     const cachedSchedule = this.getCachedSchedule();
     if (cachedSchedule && cachedSchedule.length > 0) {
