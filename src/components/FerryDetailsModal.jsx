@@ -43,13 +43,24 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
   const destinationArrival = useMemo(() => {
     if (!tripUpdate?.tripUpdate?.stopTimeUpdate) return null;
     
-    const destStop = tripUpdate.tripUpdate.stopTimeUpdate.find(
-      stu => stu.stopId === destinationStopId
+    const stopUpdates = tripUpdate.tripUpdate.stopTimeUpdate;
+    
+    // Sort by stop sequence
+    const sortedStops = [...stopUpdates].sort((a, b) => 
+      (parseInt(a.stopSequence) || 0) - (parseInt(b.stopSequence) || 0)
     );
+    
+    // Find the departure stop index
+    const departureIndex = sortedStops.findIndex(stu => stu.stopId === departure.stopId);
+    if (departureIndex === -1) return null;
+    
+    // Find destination stop AFTER the departure
+    const remainingStops = sortedStops.slice(departureIndex + 1);
+    const destStop = remainingStops.find(stu => stu.stopId === destinationStopId);
     
     if (!destStop?.arrival?.time) return null;
     return new Date(destStop.arrival.time * 1000);
-  }, [tripUpdate, destinationStopId]);
+  }, [tripUpdate, destinationStopId, departure.stopId]);
   
   // Handle escape key
   useEffect(() => {

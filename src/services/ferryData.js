@@ -488,21 +488,50 @@ class FerryDataService {
       const allScheduledDepartures = await staticGtfsService.getScheduledDepartures();
       this.log(`Found ${allScheduledDepartures.length} total scheduled departures from static GTFS`);
       
-      // Filter for selected stops and assign correct direction
-      const filteredDepartures = allScheduledDepartures
-        .filter(dep => {
-          // Check if departure is from one of our selected stops
-          return dep.stopId === this.selectedStops.outbound.id || 
-                 dep.stopId === this.selectedStops.inbound.id;
-        })
-        .map(dep => ({
-          ...dep,
-          // Assign direction based on which stop this departure is from
-          direction: dep.stopId === this.selectedStops.outbound.id ? 'outbound' : 'inbound'
-        }));
+      // We need to check trip sequences to ensure destination comes after origin
+      // Group departures by tripId
+      const departuresByTrip = {};
+      allScheduledDepartures.forEach(dep => {
+        if (!departuresByTrip[dep.tripId]) {
+          departuresByTrip[dep.tripId] = [];
+        }
+        departuresByTrip[dep.tripId].push(dep);
+      });
       
-      this.log(`Filtered to ${filteredDepartures.length} departures for selected stops`);
-      return filteredDepartures;
+      // Filter for trips that go from origin to destination
+      const validDepartures = [];
+      
+      Object.entries(departuresByTrip).forEach(([tripId, tripDepartures]) => {
+        // Sort by stop sequence
+        tripDepartures.sort((a, b) => (a.stopSequence || 0) - (b.stopSequence || 0));
+        
+        // Find if this trip has both our stops
+        const outboundIndex = tripDepartures.findIndex(dep => dep.stopId === this.selectedStops.outbound.id);
+        const inboundIndex = tripDepartures.findIndex(dep => dep.stopId === this.selectedStops.inbound.id);
+        
+        // If trip has both stops and goes in the right direction
+        if (outboundIndex !== -1 && inboundIndex !== -1 && inboundIndex > outboundIndex) {
+          // This trip goes from outbound to inbound stop
+          const outboundDep = tripDepartures[outboundIndex];
+          validDepartures.push({
+            ...outboundDep,
+            direction: 'outbound'
+          });
+        }
+        
+        // Also check the reverse direction
+        if (outboundIndex !== -1 && inboundIndex !== -1 && outboundIndex > inboundIndex) {
+          // This trip goes from inbound to outbound stop
+          const inboundDep = tripDepartures[inboundIndex];
+          validDepartures.push({
+            ...inboundDep,
+            direction: 'inbound'
+          });
+        }
+      });
+      
+      this.log(`Filtered to ${validDepartures.length} valid departures for selected route`);
+      return validDepartures;
     } catch (error) {
       console.error('Error fetching scheduled departures:', error);
       return [];
