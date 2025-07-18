@@ -183,7 +183,10 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, onClose }
                 <div className="text-center">
                   <p className="text-sm text-gray-600">Status</p>
                   <p className="text-lg font-semibold">
-                    {vehiclePosition.vehicle.currentStatus.replace(/_/g, ' ')}
+                    {typeof vehiclePosition.vehicle.currentStatus === 'string' 
+                      ? vehiclePosition.vehicle.currentStatus.replace(/_/g, ' ')
+                      : String(vehiclePosition.vehicle.currentStatus)
+                    }
                   </p>
                 </div>
               )}
