@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { STOPS } from '../utils/constants';
@@ -79,16 +79,6 @@ function FerryDetailMap({ departure, vehiclePosition, hasLiveData }) {
     zoom = 14;
   }
   
-  // River path
-  const riverPath = [
-    [-27.4447, 153.0576], // Bulimba
-    [-27.4480, 153.0520],
-    [-27.4520, 153.0460],
-    [-27.4580, 153.0400],
-    [-27.4640, 153.0340],
-    [-27.4700, 153.0280],
-    [-27.4747, 153.0177]  // Riverside
-  ];
   
   // Determine which terminals to highlight
   const originTerminal = departure.direction === 'outbound' ? 'bulimba' : 'riverside';
@@ -106,13 +96,6 @@ function FerryDetailMap({ departure, vehiclePosition, hasLiveData }) {
         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
       />
       
-      {/* River path */}
-      <Polyline 
-        positions={riverPath}
-        color="#0066CC"
-        weight={4}
-        opacity={0.6}
-      />
       
       {/* Terminal markers */}
       <Marker 

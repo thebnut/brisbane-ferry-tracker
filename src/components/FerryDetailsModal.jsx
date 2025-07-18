@@ -191,18 +191,18 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, onClose }
         )}
         
         {/* Map */}
-        <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4">
-            {hasLiveData ? 'Live Position' : 'Route Map'}
-          </h3>
-          <div className="rounded-lg overflow-hidden border border-gray-200" style={{ height: '300px' }}>
-            <FerryDetailMap 
-              departure={departure}
-              vehiclePosition={vehiclePosition}
-              hasLiveData={hasLiveData}
-            />
+        {hasLiveData && (
+          <div className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Live Position</h3>
+            <div className="rounded-lg overflow-hidden border border-gray-200" style={{ height: '300px' }}>
+              <FerryDetailMap 
+                departure={departure}
+                vehiclePosition={vehiclePosition}
+                hasLiveData={hasLiveData}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
