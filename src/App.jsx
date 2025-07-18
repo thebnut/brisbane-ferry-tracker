@@ -5,6 +5,7 @@ import DepartureBoard from './components/DepartureBoard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorMessage from './components/ErrorMessage';
 import FerryMap from './components/FerryMap';
+import FerryDetailsModal from './components/FerryDetailsModal';
 import useFerryData from './hooks/useFerryData';
 import clsx from 'clsx';
 
@@ -13,6 +14,7 @@ function App() {
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
   const [showMap, setShowMap] = useState(false);
   const [activeTab, setActiveTab] = useState('outbound'); // 'outbound' | 'inbound' - for mobile tabs
+  const [selectedDeparture, setSelectedDeparture] = useState(null);
   
   // Filter departures based on selected mode
   const filteredDepartures = useMemo(() => {
@@ -185,11 +187,13 @@ function App() {
                 direction="outbound"
                 departures={filteredDepartures.outbound}
                 loading={loading}
+                onDepartureClick={setSelectedDeparture}
               />
               <DepartureBoard 
                 direction="inbound"
                 departures={filteredDepartures.inbound}
                 loading={loading}
+                onDepartureClick={setSelectedDeparture}
               />
             </div>
             
@@ -199,6 +203,7 @@ function App() {
                 direction={activeTab}
                 departures={activeTab === 'outbound' ? filteredDepartures.outbound : filteredDepartures.inbound}
                 loading={loading}
+                onDepartureClick={setSelectedDeparture}
               />
             </div>
           </>
@@ -211,6 +216,16 @@ function App() {
           <p className="mt-2">Updates every 5 minutes • Shows next 24 hours • All times in Brisbane time</p>
         </div>
       </footer>
+      
+      {/* Ferry Details Modal */}
+      {selectedDeparture && (
+        <FerryDetailsModal
+          departure={selectedDeparture}
+          vehiclePositions={vehiclePositions}
+          tripUpdates={tripUpdates}
+          onClose={() => setSelectedDeparture(null)}
+        />
+      )}
     </div>
   );
 }

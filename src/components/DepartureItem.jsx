@@ -4,7 +4,7 @@ import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { SERVICE_TYPES, API_CONFIG } from '../utils/constants';
 
-const DepartureItem = ({ departure }) => {
+const DepartureItem = ({ departure, onClick }) => {
   // Get service info based on route ID prefix (remove suffix like -4055)
   const routePrefix = departure.routeId.split('-')[0];
   const serviceInfo = SERVICE_TYPES[routePrefix] || SERVICE_TYPES.F1;
@@ -26,10 +26,12 @@ const DepartureItem = ({ departure }) => {
   };
 
   return (
-    <div className={clsx(
-      'ferry-card flex items-center justify-between p-5 mb-3 transition-all',
-      serviceInfo.isExpress && 'border-2 border-golden bg-gradient-to-r from-yellow-50 to-white shadow-lg hover:shadow-xl transform hover:scale-[1.02]'
-    )}>
+    <div 
+      onClick={() => onClick(departure)}
+      className={clsx(
+        'ferry-card flex items-center justify-between p-5 mb-3 transition-all cursor-pointer hover:shadow-md',
+        serviceInfo.isExpress && 'border-2 border-golden bg-gradient-to-r from-yellow-50 to-white shadow-lg hover:shadow-xl transform hover:scale-[1.02]'
+      )}>
       <div className="flex items-center space-x-4">
         <span className={clsx(
           'text-4xl',

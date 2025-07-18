@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import DepartureItem from './DepartureItem';
 
-const DepartureBoard = ({ direction, departures, loading }) => {
+const DepartureBoard = ({ direction, departures, loading, onDepartureClick }) => {
   const [showMore, setShowMore] = useState(false);
   const getDirectionEmoji = () => {
     return direction === 'outbound' ? '→' : '←';
@@ -42,7 +42,8 @@ const DepartureBoard = ({ direction, departures, loading }) => {
           {departures.slice(0, showMore ? 13 : 5).map((departure) => (
             <DepartureItem 
               key={`${departure.tripId}-${departure.stopId}-${departure.departureTime.getTime()}`} 
-              departure={departure} 
+              departure={departure}
+              onClick={onDepartureClick}
             />
           ))}
           {departures.length > 5 && (
