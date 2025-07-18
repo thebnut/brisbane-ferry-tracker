@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import staticGtfsService from '../services/staticGtfsService';
 import { DEFAULT_STOPS } from '../utils/constants';
+import { FERRY_STOPS, TEMPORARY_CONNECTIVITY } from '../utils/ferryStops';
 
 const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const [selectedOrigin, setSelectedOrigin] = useState(currentStops?.outbound?.id || DEFAULT_STOPS.outbound.id);
@@ -23,26 +24,46 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       setLoading(true);
       setError(null);
       
-      // Make sure schedule data is loaded first
+      // Try to load from static GTFS service first
+      let stops = [];
+      let useTemporaryData = true;
+      
       if (!staticGtfsService.hasStopsData()) {
-        await staticGtfsService.getScheduledDepartures();
+        try {
+          await staticGtfsService.getScheduledDepartures();
+        } catch (e) {
+          console.warn('Could not load schedule data, using temporary stops');
+        }
       }
       
-      const stops = staticGtfsService.getAvailableStops();
-      if (stops.length === 0) {
-        setError('Ferry stop data not available. Please try again later.');
-        return;
+      stops = staticGtfsService.getAvailableStops();
+      if (stops.length > 0) {
+        useTemporaryData = false;
+      } else {
+        // Use temporary ferry stops data as fallback
+        stops = Object.entries(FERRY_STOPS).map(([id, stop]) => ({
+          id,
+          name: stop.name,
+          lat: stop.lat,
+          lng: stop.lng
+        })).sort((a, b) => a.name.localeCompare(b.name));
       }
       
       setAvailableStops(stops);
       
-      // Get valid destinations for current origin
-      const destinations = staticGtfsService.getValidDestinations(selectedOrigin);
+      // Get valid destinations
+      let destinations = [];
+      if (useTemporaryData) {
+        destinations = TEMPORARY_CONNECTIVITY[selectedOrigin] || [];
+      } else {
+        destinations = staticGtfsService.getValidDestinations(selectedOrigin);
+      }
+      
       setValidDestinations(destinations);
       
       // Check if current destination is still valid
-      if (!destinations.includes(selectedDestination)) {
-        setSelectedDestination(destinations[0] || '');
+      if (!destinations.includes(selectedDestination) && destinations.length > 0) {
+        setSelectedDestination(destinations[0]);
       }
       
       setLoading(false);
@@ -56,12 +77,21 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   // Update valid destinations when origin changes
   useEffect(() => {
     if (selectedOrigin && availableStops.length > 0) {
-      const destinations = staticGtfsService.getValidDestinations(selectedOrigin);
+      // Check if we're using temporary data
+      const hasRealData = staticGtfsService.hasStopsData();
+      let destinations = [];
+      
+      if (hasRealData) {
+        destinations = staticGtfsService.getValidDestinations(selectedOrigin);
+      } else {
+        destinations = TEMPORARY_CONNECTIVITY[selectedOrigin] || [];
+      }
+      
       setValidDestinations(destinations);
       
       // Reset destination if not valid for new origin
-      if (!destinations.includes(selectedDestination)) {
-        setSelectedDestination(destinations[0] || '');
+      if (!destinations.includes(selectedDestination) && destinations.length > 0) {
+        setSelectedDestination(destinations[0]);
       }
     }
   }, [selectedOrigin, availableStops]);
@@ -205,6 +235,15 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                   </p>
                   <p className="text-lg font-semibold text-ferry-blue mt-1">
                     {availableStops.find(s => s.id === selectedOrigin)?.name} → {availableStops.find(s => s.id === selectedDestination)?.name}
+                  </p>
+                </div>
+              )}
+              
+              {/* Temporary data notice */}
+              {!staticGtfsService.hasStopsData() && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-xs text-amber-800">
+                    Note: Using temporary stop data. Full connectivity information will be available after the next schedule update.
                   </p>
                 </div>
               )}
