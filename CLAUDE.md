@@ -3,6 +3,22 @@
 ## Project Overview
 This is a single-page application that displays real-time ferry departures between Bulimba and Riverside ferry terminals in Brisbane. It combines static GTFS schedule data with real-time GTFS-RT updates to show accurate ferry times even when services aren't actively running.
 
+## Current Deployment Status
+
+### Primary Production Deployment: Vercel
+**URL**: https://brisbane-ferry-tracker.vercel.app/
+- ✅ **Full functionality** - Live tracking + schedule data
+- ✅ **Real-time updates** via CORS proxy
+- ✅ **GitHub-hosted schedule** loaded first (fast)
+- ✅ **Automatic fallback** to local GTFS processing
+
+### Secondary Deployment: GitHub Pages
+**URL**: https://thebnut.github.io/brisbane-ferry-tracker/
+- ✅ **Schedule data only** (no live tracking)
+- ❌ **No CORS proxy** (cannot access TransLink API)
+- ✅ **Daily updates** via GitHub Actions
+- 💡 **Use case**: Schedule reference when Vercel is down
+
 ## Key Architecture Decisions
 
 ### Progressive Loading Strategy
@@ -123,10 +139,36 @@ curl http://localhost:5173/api/gtfs-static -o gtfs.zip
 3. Real-time updates every 5 minutes
 4. Countdown timers update every second (force re-render)
 
-## Deployment Notes
-- Vercel serverless functions handle CORS proxy
-- Environment variables not needed (API URLs are public)
-- Static GTFS cache works per-user (localStorage)
+## Deployment Architecture
+
+### Data Flow
+1. **Schedule Data**: GitHub Actions → GitHub Pages → Both deployments
+2. **Live Data**: TransLink API → Vercel Proxy → Vercel deployment only
+
+### GitHub Repository Structure
+- **Main branch**: Contains both source code and GitHub Pages build
+- **schedule-data/**: Updated daily by GitHub Action
+- **schedule-processor/**: Node.js app that generates schedule JSON
+- **.github/workflows/**: Runs daily at 3 AM Brisbane time
+
+### Deployment Commands
+```bash
+# Deploy to Vercel (primary)
+vercel --prod
+
+# Build for GitHub Pages
+npm run build
+# Copy dist/* to root and commit
+```
+
+### Key Differences Between Deployments
+| Feature | Vercel | GitHub Pages |
+|---------|--------|--------------|
+| Live ferry tracking | ✅ | ❌ |
+| Schedule data | ✅ | ✅ |
+| CORS proxy | ✅ | ❌ |
+| Auto-refresh | ✅ | ✅ |
+| API costs | Minimal | None |
 
 ## Recent Updates
 1. **GitHub Pages Schedule Caching** - Pre-processed schedule data served from GitHub
