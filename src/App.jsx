@@ -7,13 +7,26 @@ import ErrorMessage from './components/ErrorMessage';
 import FerryMap from './components/FerryMap';
 import FerryDetailsModal from './components/FerryDetailsModal';
 import useFerryData from './hooks/useFerryData';
+import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 
 function App() {
   const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData();
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
   const [showMap, setShowMap] = useState(false);
-  const [activeTab, setActiveTab] = useState('outbound'); // 'outbound' | 'inbound' - for mobile tabs
+  // Determine default tab based on time of day
+  const getDefaultTab = () => {
+    const now = new Date();
+    const brisbanTime = toZonedTime(now, 'Australia/Brisbane');
+    const hours = brisbanTime.getHours();
+    const minutes = brisbanTime.getMinutes();
+    const totalMinutes = hours * 60 + minutes;
+    
+    // After 12:30 PM (750 minutes) until midnight, default to inbound
+    return totalMinutes >= 750 ? 'inbound' : 'outbound';
+  };
+  
+  const [activeTab, setActiveTab] = useState(getDefaultTab()); // 'outbound' | 'inbound' - for mobile tabs
   const [selectedDeparture, setSelectedDeparture] = useState(null);
   
   // Filter departures based on selected mode
