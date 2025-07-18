@@ -65,3 +65,25 @@ export const getOccupancyInfo = (occupancyValue) => {
     color: 'gray' 
   };
 };
+
+// GTFS-RT VehicleStopStatus enum mappings
+export const VEHICLE_STATUS = {
+  0: 'Approaching stop',
+  1: 'Stopped at terminal',
+  2: 'In transit',
+  // String mappings
+  'INCOMING_AT': 'Approaching stop',
+  'STOPPED_AT': 'Stopped at terminal',
+  'IN_TRANSIT_TO': 'In transit'
+};
+
+// Helper function to get vehicle status display
+export const getVehicleStatusInfo = (statusValue) => {
+  if (statusValue === null || statusValue === undefined) return null;
+  
+  const text = VEHICLE_STATUS[statusValue];
+  if (text) return text;
+  
+  // Fallback for unknown values
+  return String(statusValue).replace(/_/g, ' ').toLowerCase();
+};

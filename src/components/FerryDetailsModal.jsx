@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { format, differenceInMinutes } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
-import { SERVICE_TYPES, API_CONFIG, STOPS, getOccupancyInfo } from '../utils/constants';
+import { SERVICE_TYPES, API_CONFIG, STOPS, getOccupancyInfo, getVehicleStatusInfo } from '../utils/constants';
 import FerryDetailMap from './FerryDetailMap';
 
 const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, onClose }) => {
@@ -178,14 +178,11 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, onClose }
                 ) : null;
               })()}
               
-              {vehiclePosition.vehicle?.currentStatus && (
+              {vehiclePosition.vehicle?.currentStatus !== null && vehiclePosition.vehicle?.currentStatus !== undefined && (
                 <div className="text-center">
                   <p className="text-sm text-gray-600">Status</p>
                   <p className="text-lg font-semibold">
-                    {typeof vehiclePosition.vehicle.currentStatus === 'string' 
-                      ? vehiclePosition.vehicle.currentStatus.replace(/_/g, ' ')
-                      : String(vehiclePosition.vehicle.currentStatus)
-                    }
+                    {getVehicleStatusInfo(vehiclePosition.vehicle.currentStatus)}
                   </p>
                 </div>
               )}
