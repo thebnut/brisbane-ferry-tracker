@@ -10,6 +10,14 @@ class GTFSService {
     try {
       let url;
       
+      // Check if we're on GitHub Pages (no CORS proxy available)
+      const isGitHubPages = window.location.hostname.includes('github.io');
+      
+      if (isGitHubPages) {
+        console.warn(`Cannot fetch live data on GitHub Pages due to CORS. Endpoint: ${endpoint}`);
+        throw new Error('Live data not available on GitHub Pages deployment');
+      }
+      
       // Use proxy in development or when deployed to Vercel
       if (import.meta.env.DEV || window.location.hostname.includes('vercel')) {
         url = `/api/gtfs-proxy?endpoint=${encodeURIComponent(endpoint)}`;

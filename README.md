@@ -64,7 +64,7 @@ VITE_GTFS_API_BASE=https://gtfsrt.api.translink.com.au/api/realtime/SEQ/
 
 ## Deployment
 
-### Deploy to Vercel
+### Deploy to Vercel (Recommended - Full Features)
 
 1. Install Vercel CLI:
 ```bash
@@ -76,7 +76,24 @@ npm i -g vercel
 vercel --prod
 ```
 
-The app includes a serverless function (`/api/gtfs-proxy`) to handle CORS for the TransLink API.
+**Features**: 
+- ✅ Live ferry tracking
+- ✅ Real-time updates
+- ✅ CORS proxy for TransLink API
+- ✅ Full functionality
+
+The app includes serverless functions to handle CORS for the TransLink API.
+
+### Deploy to GitHub Pages (Schedule Only)
+
+The app is also deployed to GitHub Pages, but with limited functionality:
+
+**Features**:
+- ✅ Schedule data (updated daily)
+- ❌ No live ferry tracking (CORS limitation)
+- ❌ No real-time updates
+
+**URL**: https://thebnut.github.io/brisbane-ferry-tracker/
 
 ### Manual Deployment
 
@@ -86,6 +103,8 @@ npm run build
 ```
 
 2. The `dist` folder contains the static files ready for deployment to any static hosting service.
+
+**Note**: Without a CORS proxy, only schedule data will be available.
 
 ## Project Structure
 

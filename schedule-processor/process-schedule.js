@@ -199,8 +199,8 @@ async function processGTFSData() {
         departureDate.setHours(hours, minutes, 0, 0);
         const departureZoned = toZonedTime(departureDate, TIMEZONE);
 
-        // Only include departures within our time window
-        if (departureZoned >= nowZoned && departureZoned <= endDate) {
+        // Include all departures for the day (from midnight to end of period)
+        if (departureZoned >= todayStart && departureZoned <= endDate) {
           // Check if this departure goes to the other terminal
           const remainingStops = tripStopTimes.slice(index + 1);
           let goesToOtherTerminal = false;

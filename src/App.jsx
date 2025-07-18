@@ -106,8 +106,9 @@ function App() {
               {(() => {
                 const hasScheduled = departures.outbound.some(d => d.isScheduled) || departures.inbound.some(d => d.isScheduled);
                 const hasRealtime = departures.outbound.some(d => d.isRealtime) || departures.inbound.some(d => d.isRealtime);
+                const isGitHubPages = window.location.hostname.includes('github.io');
                 
-                if (hasScheduled || hasRealtime || scheduleLoading) {
+                if (hasScheduled || hasRealtime || scheduleLoading || isGitHubPages) {
                   return (
                     <div className="text-center text-sm text-gray-600 bg-blue-50 rounded-lg p-2">
                       <span className="inline-flex items-center space-x-2">
@@ -115,7 +116,9 @@ function App() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span>
-                          {scheduleLoading && hasRealtime 
+                          {isGitHubPages 
+                            ? "Showing scheduled times only • Live tracking requires Vercel deployment"
+                            : scheduleLoading && hasRealtime 
                             ? "Showing live departures only • Schedule data loading..."
                             : hasRealtime && hasScheduled 
                             ? "Showing live departures and scheduled times"
