@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import Papa from 'papaparse';
 import { format, parse, isAfter, isBefore, addMinutes, startOfDay, addDays } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -345,8 +345,15 @@ async function processGTFSData() {
           departureDate.setDate(departureDate.getDate() + 1);
         }
         
+        // Set the time (this creates a date in local timezone, which we'll treat as Brisbane time)
         departureDate.setHours(hours, minutes, 0, 0);
-        const departureZoned = toZonedTime(departureDate, TIMEZONE);
+        
+        // Convert from Brisbane time to UTC for storage
+        // fromZonedTime treats the input date as if it's in the specified timezone
+        const departureUTC = fromZonedTime(departureDate, TIMEZONE);
+        
+        // For filtering, we need the Brisbane time
+        const departureZoned = toZonedTime(departureUTC, TIMEZONE);
 
         // Include all departures for the day (from midnight to end of period)
         if (departureZoned >= todayStart && departureZoned <= endDate) {
@@ -358,7 +365,7 @@ async function processGTFSData() {
             tripId: trip.trip_id,
             routeId: trip.route_id,
             serviceId: trip.service_id,
-            departureTime: departureDate.toISOString(),
+            departureTime: departureUTC.toISOString(),
             stopId: stopTime.stop_id,
             direction: direction,
             headsign: trip.trip_headsign,
