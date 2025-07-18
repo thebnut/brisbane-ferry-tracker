@@ -11,16 +11,22 @@ The app uses a two-stage loading approach for optimal user experience:
 2. **Schedule data loads in background** (slow) - 30MB download that merges seamlessly
 
 ### Data Sources
-1. **Static GTFS Data** (`/api/gtfs-static`)
-   - ZIP file containing scheduled ferry times (~30MB)
-   - Cached in localStorage for 24 hours (processed data only)
-   - Provides base schedule when real-time data unavailable
-   - Loads asynchronously in background
+1. **Pre-processed Schedule Data** (Primary)
+   - GitHub Pages hosted JSON (`https://thebnut.github.io/brisbane-ferry-tracker/data/latest.json`)
+   - Generated daily at 3 AM Brisbane time via GitHub Actions
+   - ~50KB filtered data (vs 30MB raw GTFS)
+   - Cached in localStorage for 24 hours
+   - Fallback to local development path when on localhost
 
-2. **Real-time GTFS-RT Data** (`/api/gtfs-proxy`)
+2. **Static GTFS Data** (`/api/gtfs-static`) - Fallback only
+   - ZIP file containing full schedule (~30MB)
+   - Used only if GitHub data unavailable
+   - Processed client-side
+
+3. **Real-time GTFS-RT Data** (`/api/gtfs-proxy`)
    - Protobuf format real-time updates
    - Shows only actively running services
-   - Takes precedence over static data when available
+   - Takes precedence over scheduled data when available
    - Loads immediately on app start
 
 ### Important Constants
@@ -123,13 +129,14 @@ curl http://localhost:5173/api/gtfs-static -o gtfs.zip
 - Static GTFS cache works per-user (localStorage)
 
 ## Recent Updates
-1. **Progressive Loading** - Live data shows immediately, schedule loads in background
-2. **TripId-based Merging** - Accurate matching of real-time and scheduled departures
-3. **"More..." Button** - Shows up to 13 departures (5 + 8 more)
-4. **Scheduled Time Display** - Shows "(Sched HH:MM AM/PM)" for live departures
-5. **Dynamic Status Messages** - Different messages based on available data
-6. **First-time Loading Message** - Warns users about initial download time
-7. **Configurable Debug Logging** - Set DEBUG_CONFIG.enableLogging to true
+1. **GitHub Pages Schedule Caching** - Pre-processed schedule data served from GitHub
+2. **Progressive Loading** - Live data shows immediately, schedule loads in background
+3. **TripId-based Merging** - Accurate matching of real-time and scheduled departures
+4. **"More..." Button** - Shows up to 13 departures (5 + 8 more)
+5. **Scheduled Time Display** - Shows "(Sched HH:MM AM/PM)" for live departures
+6. **Dynamic Status Messages** - Different messages based on available data
+7. **First-time Loading Message** - Warns users about initial download time
+8. **Configurable Debug Logging** - Set DEBUG_CONFIG.enableLogging to true
 
 ## Future Enhancements to Consider
 1. Service alerts integration

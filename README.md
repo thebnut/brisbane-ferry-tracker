@@ -118,13 +118,19 @@ src/
 ### Progressive Loading
 The app uses a two-stage loading approach for optimal user experience:
 1. **Immediate Display**: Real-time ferry data loads first, showing live departures instantly
-2. **Background Loading**: Schedule data (30MB) loads in the background and merges seamlessly
+2. **Background Loading**: Schedule data loads in the background and merges seamlessly
 
 ### Data Sources
-The app combines two data sources for comprehensive coverage:
+The app combines multiple data sources for comprehensive coverage:
 
-1. **Real-time GTFS-RT**: Shows live ferry positions and delays (only available for actively running services)
-2. **Static GTFS Schedule**: Shows scheduled times from the timetable (used when ferries aren't running yet)
+1. **Pre-processed Schedule** (Primary): Daily generated schedule data hosted on GitHub Pages
+   - Processed daily at 3 AM Brisbane time via GitHub Actions
+   - Only ~50KB instead of 30MB GTFS file
+   - Filtered to show only Bulimba-Riverside services
+   
+2. **Real-time GTFS-RT**: Shows live ferry positions and delays (only available for actively running services)
+
+3. **Static GTFS Schedule** (Fallback): Full timetable data processed client-side if GitHub data unavailable
 
 ### Ferry Filtering
 The app intelligently filters ferry services to show only those traveling between Bulimba and Riverside:
