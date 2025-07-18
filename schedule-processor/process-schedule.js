@@ -119,18 +119,29 @@ function buildStopConnectivity(trips, stopTimes, stops, routes) {
   const ferryRouteIds = new Set(ferryRoutes.map(r => r.route_id));
   
   // Get all trips for ferry routes
-  const ferryTrips = trips.filter(trip => 
-    ferryRouteIds.has(trip.route_id) || 
-    Array.from(ferryRouteIds).some(routeId => trip.route_id.startsWith(routeId))
-  );
+  const ferryTrips = trips.filter(trip => {
+    // Only include ferry routes
+    if (!trip.route_id.startsWith('F')) return false;
+    
+    return ferryRouteIds.has(trip.route_id) || 
+      Array.from(ferryRouteIds).some(routeId => trip.route_id.startsWith(routeId));
+  });
   
   // Create a map of trip patterns (unique stop sequences)
   const tripPatterns = new Map(); // key: route_id-direction_id, value: Set of stop sequences
   
+  // Create stopTimesByTrip map for efficiency
+  const stopTimesByTripMap = new Map();
+  stopTimes.forEach(st => {
+    if (!stopTimesByTripMap.has(st.trip_id)) {
+      stopTimesByTripMap.set(st.trip_id, []);
+    }
+    stopTimesByTripMap.get(st.trip_id).push(st);
+  });
+  
   // Process each ferry trip to find stop patterns
   ferryTrips.forEach(trip => {
-    const tripStopTimes = stopTimes
-      .filter(st => st.trip_id === trip.trip_id)
+    const tripStopTimes = (stopTimesByTripMap.get(trip.trip_id) || [])
       .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
     
     if (tripStopTimes.length === 0) return;
