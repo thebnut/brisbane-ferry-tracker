@@ -26,6 +26,15 @@ The app uses a two-stage loading approach for optimal user experience:
 1. **Real-time data loads first** (fast) - Shows live ferries immediately
 2. **Schedule data loads in background** (slow) - 30MB download that merges seamlessly
 
+### Live Ferry Map
+Interactive map showing real-time ferry positions:
+- Uses Leaflet + React Leaflet for mapping
+- Displays ferry locations from VehiclePositions GTFS-RT feed
+- Shows only ferries traveling between Bulimba and Riverside
+- Updates every 5 minutes with live data
+- Visual indicators for Express (🚤) vs All-stops (🚢) services
+- Popups show speed, occupancy, and next departure
+
 ### Data Sources
 1. **Pre-processed Schedule Data** (Primary)
    - GitHub Pages hosted JSON (`https://thebnut.github.io/brisbane-ferry-tracker/data/latest.json`)
@@ -165,20 +174,22 @@ npm run build
 | Feature | Vercel | GitHub Pages |
 |---------|--------|--------------|
 | Live ferry tracking | ✅ | ❌ |
+| Live ferry map | ✅ | ❌ |
 | Schedule data | ✅ | ✅ |
 | CORS proxy | ✅ | ❌ |
 | Auto-refresh | ✅ | ✅ |
 | API costs | Minimal | None |
 
 ## Recent Updates
-1. **GitHub Pages Schedule Caching** - Pre-processed schedule data served from GitHub
-2. **Progressive Loading** - Live data shows immediately, schedule loads in background
-3. **TripId-based Merging** - Accurate matching of real-time and scheduled departures
-4. **"More..." Button** - Shows up to 13 departures (5 + 8 more)
-5. **Scheduled Time Display** - Shows "(Sched HH:MM AM/PM)" for live departures
-6. **Dynamic Status Messages** - Different messages based on available data
-7. **First-time Loading Message** - Warns users about initial download time
-8. **Configurable Debug Logging** - Set DEBUG_CONFIG.enableLogging to true
+1. **Live Ferry Map** - Interactive map showing real-time ferry positions
+2. **GitHub Pages Schedule Caching** - Pre-processed schedule data served from GitHub
+3. **Progressive Loading** - Live data shows immediately, schedule loads in background
+4. **TripId-based Merging** - Accurate matching of real-time and scheduled departures
+5. **"More..." Button** - Shows up to 13 departures (5 + 8 more)
+6. **Scheduled Time Display** - Shows "(Sched HH:MM AM/PM)" for live departures
+7. **Dynamic Status Messages** - Different messages based on available data
+8. **First-time Loading Message** - Warns users about initial download time
+9. **Configurable Debug Logging** - Set DEBUG_CONFIG.enableLogging to true
 
 ## Future Enhancements to Consider
 1. Service alerts integration

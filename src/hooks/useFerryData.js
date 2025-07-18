@@ -108,6 +108,8 @@ const useFerryData = () => {
 
   return {
     departures,
+    vehiclePositions: rawGtfsData.vehiclePositions,
+    tripUpdates: rawGtfsData.tripUpdates,
     loading,
     scheduleLoading,
     error,

@@ -4,12 +4,14 @@ import StatusBar from './components/StatusBar';
 import DepartureBoard from './components/DepartureBoard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorMessage from './components/ErrorMessage';
+import FerryMap from './components/FerryMap';
 import useFerryData from './hooks/useFerryData';
 import clsx from 'clsx';
 
 function App() {
-  const { departures, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData();
+  const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData();
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
+  const [showMap, setShowMap] = useState(false);
   
   // Filter departures based on selected mode
   const filteredDepartures = useMemo(() => {
@@ -65,8 +67,25 @@ function App() {
           <LoadingSpinner />
         ) : (
           <>
-            {/* Service Filter */}
+            {/* Map Toggle and Service Filter */}
             <div className="mb-6">
+              {/* Map Toggle */}
+              <div className="flex justify-center mb-4">
+                <button
+                  onClick={() => setShowMap(!showMap)}
+                  className={clsx(
+                    'flex items-center space-x-2 rounded-full px-5 py-2.5 transition-all transform hover:scale-105',
+                    showMap
+                      ? 'bg-blue-600 text-white shadow-lg'
+                      : 'bg-white border border-gray-300 text-gray-700 hover:border-blue-600'
+                  )}
+                >
+                  <span className="text-lg">🗺️</span>
+                  <span className="font-medium">{showMap ? 'Hide Map' : 'Show Live Map'}</span>
+                </button>
+              </div>
+              
+              {/* Service Filter */}
               <div className="flex flex-wrap gap-3 justify-center text-sm mb-4">
                 {/* All filter */}
                 <button
@@ -134,6 +153,15 @@ function App() {
                 return null;
               })()}
             </div>
+            
+            {/* Ferry Map */}
+            {showMap && vehiclePositions.length > 0 && (
+              <FerryMap 
+                vehiclePositions={vehiclePositions}
+                tripUpdates={tripUpdates}
+                departures={filteredDepartures}
+              />
+            )}
             
             <div className="grid md:grid-cols-2 gap-8">
               <DepartureBoard 
