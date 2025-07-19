@@ -52,6 +52,15 @@ function App() {
     refresh();
   };
   
+  // Check if there are any express services in the next 13 departures
+  const hasExpressServices = useMemo(() => {
+    const allDepartures = [...departures.outbound.slice(0, 13), ...departures.inbound.slice(0, 13)];
+    return allDepartures.some(dep => {
+      const routePrefix = dep.routeId.split('-')[0];
+      return routePrefix === 'F11';
+    });
+  }, [departures]);
+  
   // Filter departures based on selected mode
   const filteredDepartures = useMemo(() => {
     if (filterMode === 'all') {
@@ -85,6 +94,9 @@ function App() {
         onRefresh={refresh}
         showMap={showMap}
         onToggleMap={() => setShowMap(!showMap)}
+        filterMode={filterMode}
+        onFilterChange={setFilterMode}
+        hasExpressServices={hasExpressServices}
       />
       
       {/* Schedule loading indicator */}
@@ -111,45 +123,8 @@ function App() {
           <LoadingSpinner />
         ) : (
           <>
-            {/* Service Filter */}
+            {/* Status indicator */}
             <div className="mb-6">
-              {/* Service Filter */}
-              <div className="flex flex-wrap gap-3 justify-center text-sm mb-4">
-                {/* All filter */}
-                <button
-                  onClick={() => setFilterMode('all')}
-                  className={clsx(
-                    'flex items-center space-x-2 rounded-full px-5 py-2.5 transition-all duration-300 transform hover:scale-105 hover:rotate-1',
-                    filterMode === 'all'
-                      ? 'bg-ferry-aqua text-white shadow-xl ring-2 ring-ferry-orange ring-opacity-50 scale-105'
-                      : 'bg-white/90 backdrop-blur-sm border-2 border-ferry-aqua/50 text-ferry-aqua hover:border-ferry-orange hover:shadow-lg'
-                  )}
-                >
-                  <span className="text-lg animate-bounce-soft">🚢</span>
-                  <span className="font-bold">All Services</span>
-                </button>
-                
-                {/* Express filter */}
-                <button
-                  onClick={() => setFilterMode('express')}
-                  className={clsx(
-                    'flex items-center space-x-2 rounded-full px-5 py-2.5 transition-all duration-300 transform hover:scale-105 hover:-rotate-1',
-                    filterMode === 'express'
-                      ? 'bg-gradient-to-r from-ferry-orange to-ferry-sunset text-white shadow-xl ring-2 ring-ferry-orange ring-opacity-50 scale-105 animate-glow'
-                      : 'bg-gradient-to-r from-ferry-orange-light to-white border-2 border-ferry-orange text-ferry-orange hover:from-ferry-orange hover:to-ferry-sunset hover:text-white hover:shadow-lg'
-                  )}
-                >
-                  <span className="text-xl animate-bounce-soft">🚤</span>
-                  <span className="font-black">EXPRESS</span>
-                  <svg className="w-5 h-5 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                  <span className="text-xs opacity-90">Only</span>
-                </button>
-                
-              </div>
-              
-              {/* Status indicator */}
               {(() => {
                 const hasScheduled = departures.outbound.some(d => d.isScheduled) || departures.inbound.some(d => d.isScheduled);
                 const hasRealtime = departures.outbound.some(d => d.isRealtime) || departures.inbound.some(d => d.isRealtime);

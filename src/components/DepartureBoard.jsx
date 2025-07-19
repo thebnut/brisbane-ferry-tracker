@@ -14,9 +14,12 @@ const DepartureBoard = ({ direction, departures, loading, selectedStops, onDepar
         : 'Riverside → Bulimba';
     }
     
+    // Remove "ferry terminal" from stop names for cleaner display
+    const cleanStopName = (name) => name.replace(' ferry terminal', '');
+    
     return direction === 'outbound' 
-      ? `${selectedStops.outbound.name} → ${selectedStops.inbound.name}` 
-      : `${selectedStops.inbound.name} → ${selectedStops.outbound.name}`;
+      ? `${cleanStopName(selectedStops.outbound.name)} → ${cleanStopName(selectedStops.inbound.name)}` 
+      : `${cleanStopName(selectedStops.inbound.name)} → ${cleanStopName(selectedStops.outbound.name)}`;
   };
 
   if (loading && departures.length === 0) {

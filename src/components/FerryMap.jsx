@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaf
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { STOPS, getOccupancyInfo } from '../utils/constants';
-import { format } from 'date-fns';
+import { format, isTomorrow, isAfter, startOfDay, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
 // Fix Leaflet default icon issue with Vite
@@ -155,9 +155,21 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
                       <p>Occupancy: {occupancyInfo.icon} {occupancyInfo.text}</p>
                     ) : null;
                   })()}
-                  {ferry.departureTime && (
-                    <p>Next departure: {format(toZonedTime(ferry.departureTime, 'Australia/Brisbane'), 'h:mm a')}</p>
-                  )}
+                  {ferry.departureTime && (() => {
+                    const departureTimeZoned = toZonedTime(ferry.departureTime, 'Australia/Brisbane');
+                    const currentTimeZoned = toZonedTime(new Date(), 'Australia/Brisbane');
+                    const tomorrowStart = startOfDay(addDays(currentTimeZoned, 1));
+                    const isNotToday = isAfter(departureTimeZoned, tomorrowStart) || isTomorrow(departureTimeZoned);
+                    
+                    return (
+                      <p>
+                        Next departure: {format(departureTimeZoned, 'h:mm a')}
+                        {isNotToday && (
+                          <span className="text-ferry-orange"> ({format(departureTimeZoned, 'dd/MM')})</span>
+                        )}
+                      </p>
+                    );
+                  })()}
                 </div>
               </Popup>
             </Marker>

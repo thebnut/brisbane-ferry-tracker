@@ -1,7 +1,7 @@
 # Brisbane Ferry Tracker - Project Guide for Claude
 
 ## Project Overview
-This is a single-page application that displays real-time ferry departures between Bulimba and Riverside ferry terminals in Brisbane. It combines static GTFS schedule data with real-time GTFS-RT updates to show accurate ferry times even when services aren't actively running.
+This is a single-page application that displays real-time ferry departures between any two Brisbane ferry terminals. Users can select their origin and destination stops from all available ferry terminals. It combines static GTFS schedule data with real-time GTFS-RT updates to show accurate ferry times even when services aren't actively running.
 
 ## Current Deployment Status
 
@@ -14,6 +14,9 @@ This is a single-page application that displays real-time ferry departures betwe
 - ✅ **Automatic fallback** to local GTFS processing
 - ✅ **Ferry details modal** with comprehensive information
 - ✅ **Interactive map** with live ferry positions
+- ✅ **Service filter buttons** in header bar (All/Express)
+- ✅ **Dynamic stop selector** for any ferry terminal pair
+- ✅ **GPS-based ferry direction** indicators on maps
 
 ### Secondary Deployment: GitHub Pages
 **URL**: https://thebnut.github.io/brisbane-ferry-tracker/
@@ -377,6 +380,59 @@ The app has three distinct data availability states for ferry departures, now cl
 - "GPS" badge: Appears when `hasLiveData === true` (GPS position available)
 - Both badges can appear independently, providing clear visibility into data availability
 - GPS-dependent features (map, speed, occupancy) only show when GPS badge is present
+
+## Puppeteer MCP Testing Notes
+
+### Selector Syntax
+When using Puppeteer MCP commands, note these selector limitations:
+- ❌ Pseudo-selectors like `:has-text()` or `:contains()` don't work
+- ❌ jQuery-style selectors are not supported
+- ✅ Use standard CSS selectors or evaluate scripts to find elements by text
+
+### Working Examples
+```javascript
+// Finding elements by text content
+const button = Array.from(document.querySelectorAll('button')).find(btn => 
+  btn.textContent.includes('Cancel')
+);
+
+// Clicking multiple elements
+const moreButtons = Array.from(document.querySelectorAll('button')).filter(btn => 
+  btn.textContent.includes('More')
+);
+moreButtons.forEach(btn => btn.click());
+```
+
+### Browser Context Issues
+- The browser frame can become detached after navigation errors
+- Solution: Pass empty `launchOptions: {}` to restart the browser context
+- Example: `mcp__puppeteer__puppeteer_navigate` with `launchOptions: {}`
+
+## Current App Status (January 2025)
+
+### Latest Features
+1. **Service Filter in Header** (January 2025)
+   - All Services and Express filter buttons moved to header bar
+   - Buttons match Map/Refresh button styling
+   - Conditionally hidden when no express services available
+   - Improves content area clarity and maintains filter visibility while scrolling
+
+2. **Ferry Vessel Names** (January 2025)
+   - Displays human-readable vessel names (e.g., "Mooroolbin II")
+   - Extracted from vehicle ID by taking last segment after underscore
+   - Preserves Roman numerals in uppercase
+
+3. **Enhanced Status Badges** (January 2025)
+   - Separate LIVE and GPS badges for clarity
+   - LIVE badge: Real-time schedule updates available
+   - GPS badge: Live position tracking available
+   - Both can appear independently
+
+### UI/UX Improvements
+- **Header Bar**: Compact design with Last Updated, service filters, Map, and Refresh
+- **Mobile Responsive**: Filter buttons scale appropriately on small screens
+- **Smart Visibility**: UI elements hide when not relevant (e.g., no express services)
+- **Progressive Enhancement**: Core functionality works even without all data sources
 
 ## Future Enhancements to Consider
 1. Service alerts integration

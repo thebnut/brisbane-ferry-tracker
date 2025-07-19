@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { format, differenceInMinutes } from 'date-fns';
+import { format, differenceInMinutes, isTomorrow, isAfter, startOfDay, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { SERVICE_TYPES, API_CONFIG, STOPS, getOccupancyInfo, getVehicleStatusInfo } from '../utils/constants';
@@ -60,6 +60,10 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
   const departureTimeZoned = toZonedTime(departure.departureTime, API_CONFIG.timezone);
   const currentTimeZoned = toZonedTime(new Date(), API_CONFIG.timezone);
   const minutesUntil = differenceInMinutes(departureTimeZoned, currentTimeZoned);
+  
+  // Check if departure is tomorrow or later
+  const tomorrowStart = startOfDay(addDays(currentTimeZoned, 1));
+  const isDepartureNotToday = isAfter(departureTimeZoned, tomorrowStart) || isTomorrow(departureTimeZoned);
   
   // Get destination info
   const destinationStop = departure.direction === 'outbound' 
@@ -183,6 +187,11 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
               <p className="text-sm text-gray-600 mb-1">Departure from {departure.direction === 'outbound' ? (selectedStops?.outbound?.name || 'Bulimba') : (selectedStops?.inbound?.name || 'Riverside')}</p>
               <p className="text-2xl font-bold">
                 {format(departureTimeZoned, 'h:mm a')}
+                {isDepartureNotToday && (
+                  <span className="text-lg text-ferry-orange font-medium ml-2">
+                    ({format(departureTimeZoned, 'dd/MM')})
+                  </span>
+                )}
               </p>
               {departure.isRealtime && departure.scheduledTime && (
                 <p className="text-sm text-gray-500 mt-1">
@@ -201,7 +210,20 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
               {(departure.destinationArrivalTime || destinationArrival) ? (
                 <>
                   <p className="text-2xl font-bold">
-                    {format(toZonedTime(departure.destinationArrivalTime || destinationArrival, API_CONFIG.timezone), 'h:mm a')}
+                    {(() => {
+                      const arrivalTime = toZonedTime(departure.destinationArrivalTime || destinationArrival, API_CONFIG.timezone);
+                      const isArrivalNotToday = isAfter(arrivalTime, tomorrowStart) || isTomorrow(arrivalTime);
+                      return (
+                        <>
+                          {format(arrivalTime, 'h:mm a')}
+                          {isArrivalNotToday && (
+                            <span className="text-lg text-ferry-orange font-medium ml-2">
+                              ({format(arrivalTime, 'dd/MM')})
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
                     Journey time: {differenceInMinutes(

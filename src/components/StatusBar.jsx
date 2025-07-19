@@ -4,7 +4,7 @@ import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { API_CONFIG } from '../utils/constants';
 
-const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap }) => {
+const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap, filterMode, onFilterChange, hasExpressServices }) => {
   const formatTime = (date) => {
     if (!date) return 'Never';
     const zonedDate = toZonedTime(date, API_CONFIG.timezone);
@@ -14,7 +14,7 @@ const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap }) 
   return (
     <div className="bg-gradient-to-r from-white to-ferry-orange-light/50 border-b border-ferry-orange/20 backdrop-blur-sm">
       <div className="container mx-auto px-4 max-w-6xl py-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm text-charcoal">
             <div className="flex items-center space-x-1">
               <svg className="w-4 h-4 text-ferry-orange" fill="currentColor" viewBox="0 0 20 20">
@@ -34,6 +34,38 @@ const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap }) 
               )}
             </div>
           </div>
+          
+          {/* Service Filter Buttons - Only show if we have express services or if express filter is active */}
+          {(hasExpressServices || filterMode === 'express') && (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => onFilterChange && onFilterChange('all')}
+                className={clsx(
+                  'flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all duration-300 active:scale-95 shadow-md text-sm sm:text-base',
+                  filterMode === 'all'
+                    ? 'bg-ferry-aqua text-white hover:bg-ferry-aqua-light hover:shadow-lg'
+                    : 'bg-white text-ferry-aqua border-2 border-ferry-aqua hover:bg-ferry-aqua hover:text-white'
+                )}
+              >
+                <span className="text-sm sm:text-base">🚢</span>
+                <span>All</span>
+              </button>
+              
+              <button
+                onClick={() => onFilterChange && onFilterChange('express')}
+                className={clsx(
+                  'flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all duration-300 active:scale-95 shadow-md text-sm sm:text-base',
+                  filterMode === 'express'
+                    ? 'bg-ferry-orange text-white hover:bg-ferry-orange-dark hover:shadow-lg'
+                    : 'bg-white text-ferry-orange border-2 border-ferry-orange hover:bg-ferry-orange hover:text-white'
+                )}
+              >
+                <span className="text-sm sm:text-base">🚤</span>
+                <span>Express</span>
+              </button>
+            </div>
+          )}
+          
           <div className="flex items-center space-x-2">
             <button
               onClick={onToggleMap}
