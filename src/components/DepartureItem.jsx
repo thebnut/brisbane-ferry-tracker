@@ -1,5 +1,5 @@
 import React from 'react';
-import { format, differenceInMinutes } from 'date-fns';
+import { format, differenceInMinutes, isTomorrow, isAfter, startOfDay, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { SERVICE_TYPES, API_CONFIG, getOccupancyInfo } from '../utils/constants';
@@ -12,6 +12,10 @@ const DepartureItem = ({ departure, onClick }) => {
   const departureTimeZoned = toZonedTime(departure.departureTime, API_CONFIG.timezone);
   const currentTimeZoned = toZonedTime(new Date(), API_CONFIG.timezone);
   const minutesUntil = differenceInMinutes(departureTimeZoned, currentTimeZoned);
+  
+  // Check if departure is tomorrow or later
+  const tomorrowStart = startOfDay(addDays(currentTimeZoned, 1));
+  const isNotToday = isAfter(departureTimeZoned, tomorrowStart) || isTomorrow(departureTimeZoned);
   
   const getCountdownColor = () => {
     if (minutesUntil < 1) return 'bg-gradient-to-r from-red-500 to-ferry-orange text-white border-0 animate-pulse';
@@ -71,6 +75,11 @@ const DepartureItem = ({ departure, onClick }) => {
             serviceInfo.isExpress ? 'text-xl text-charcoal' : 'text-lg'
           )}>
             {format(departureTimeZoned, 'h:mm a')}
+            {isNotToday && (
+              <span className="text-sm text-ferry-orange font-medium ml-1">
+                ({format(departureTimeZoned, 'dd/MM')})
+              </span>
+            )}
             {departure.isRealtime && departure.scheduledTime && (
               <span className="text-xs text-gray-500 font-normal ml-2">
                 (Sched {format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')})
