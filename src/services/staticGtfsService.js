@@ -48,11 +48,28 @@ class StaticGTFSService {
     return null;
   }
 
+  // Check if cached data has a generated timestamp
+  getCachedGeneratedTime() {
+    try {
+      const cached = localStorage.getItem(this.scheduleCacheKey);
+      if (cached) {
+        const cachedData = JSON.parse(cached);
+        if (cachedData.generated) {
+          return new Date(cachedData.generated).getTime();
+        }
+      }
+    } catch (error) {
+      this.log('Error reading cached generated time:', error.message);
+    }
+    return null;
+  }
+
   // Save processed schedule data to cache
-  setCachedSchedule(departures) {
+  setCachedSchedule(departures, generated = null) {
     try {
       localStorage.setItem(this.scheduleCacheKey, JSON.stringify({
         timestamp: Date.now(),
+        generated: generated || new Date().toISOString(),
         departures: departures
       }));
       this.log('Cached ferry schedule successfully');
@@ -201,7 +218,11 @@ class StaticGTFSService {
         }))
         .filter(dep => dep.departureTime > now && dep.departureTime < cutoffTime);
       
-      return departures;
+      // Return both departures and generated timestamp
+      return {
+        departures: departures,
+        generated: data.generated
+      };
     } catch (error) {
       this.log('GitHub schedule fetch failed:', error.message);
       return null;
@@ -210,17 +231,41 @@ class StaticGTFSService {
 
   // Get scheduled departures for our ferry routes
   async getScheduledDepartures(selectedStops = null) {
-    // Check cache first
+    // Get cached generated time if available
+    const cachedGeneratedTime = this.getCachedGeneratedTime();
+    
+    // Always try to fetch from GitHub first to check if there's newer data
+    const githubResult = await this.fetchGitHubSchedule();
+    
+    if (githubResult && githubResult.departures && githubResult.departures.length > 0) {
+      // Compare generated timestamps if we have cached data
+      if (cachedGeneratedTime) {
+        const githubGeneratedTime = new Date(githubResult.generated).getTime();
+        
+        if (githubGeneratedTime > cachedGeneratedTime) {
+          this.log(`GitHub has newer data (${githubResult.generated} > cached), updating cache`);
+          this.setCachedSchedule(githubResult.departures, githubResult.generated);
+          return githubResult.departures;
+        } else {
+          this.log('Cache is up to date, using cached data');
+          const cachedSchedule = this.getCachedSchedule();
+          if (cachedSchedule && cachedSchedule.length > 0) {
+            return cachedSchedule;
+          }
+        }
+      } else {
+        // No cached generated time, save the new data
+        this.log('No cached generated timestamp, saving GitHub data');
+        this.setCachedSchedule(githubResult.departures, githubResult.generated);
+        return githubResult.departures;
+      }
+    }
+    
+    // If GitHub fetch failed, try cache
     const cachedSchedule = this.getCachedSchedule();
     if (cachedSchedule && cachedSchedule.length > 0) {
+      this.log('GitHub fetch failed, using cached data');
       return cachedSchedule;
-    }
-
-    // Try GitHub first (fast)
-    const githubSchedule = await this.fetchGitHubSchedule();
-    if (githubSchedule && githubSchedule.length > 0) {
-      this.setCachedSchedule(githubSchedule);
-      return githubSchedule;
     }
 
     // If no cache, fetch GTFS data
