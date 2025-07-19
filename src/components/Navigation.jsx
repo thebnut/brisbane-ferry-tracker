@@ -9,7 +9,7 @@ const Navigation = ({ selectedStops, onOpenSettings }) => {
             <img 
               src="/brisbaneferry_logo.png" 
               alt="Brisbane Ferry Logo" 
-              className="h-10 md:h-12 w-auto"
+              className="h-14 md:h-16 w-auto"
             />
             <div className="flex-1">
               <h1 className="text-lg md:text-xl font-bold text-ferry-blue">Brisbane Ferry Tracker</h1>
