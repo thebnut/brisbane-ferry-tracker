@@ -10,13 +10,13 @@ const DepartureBoard = ({ direction, departures, loading, selectedStops, onDepar
   const getTitle = () => {
     if (!selectedStops) {
       return direction === 'outbound' 
-        ? 'BULIMBA → RIVERSIDE' 
-        : 'RIVERSIDE → BULIMBA';
+        ? 'Bulimba → Riverside' 
+        : 'Riverside → Bulimba';
     }
     
     return direction === 'outbound' 
-      ? `${selectedStops.outbound.name.toUpperCase()} → ${selectedStops.inbound.name.toUpperCase()}` 
-      : `${selectedStops.inbound.name.toUpperCase()} → ${selectedStops.outbound.name.toUpperCase()}`;
+      ? `${selectedStops.outbound.name} → ${selectedStops.inbound.name}` 
+      : `${selectedStops.inbound.name} → ${selectedStops.outbound.name}`;
   };
 
   if (loading && departures.length === 0) {
@@ -34,7 +34,7 @@ const DepartureBoard = ({ direction, departures, loading, selectedStops, onDepar
 
   return (
     <div className="mb-8">
-      <h2 className="text-xl font-bold mb-4 text-ferry-blue bg-gradient-to-r from-white to-ferry-orange-light rounded-xl p-4 shadow-md border border-ferry-orange/20">
+      <h2 className="text-base font-semibold mb-4 text-ferry-aqua bg-gradient-to-r from-white/80 to-ferry-orange-light/50 rounded-xl px-4 py-3 shadow-sm border border-ferry-orange/10 backdrop-blur-sm">
         {getTitle()}
       </h2>
       

@@ -14,7 +14,7 @@ const LoadingSpinner = () => {
         </div>
         <div className="absolute top-0 left-0 h-20 w-20 rounded-full border-4 border-ferry-orange border-t-transparent animate-spin"></div>
       </div>
-      <p className="mt-4 text-ferry-blue font-bold text-lg">Loading ferry times...</p>
+      <p className="mt-4 text-ferry-aqua font-bold text-lg">Loading ferry times...</p>
       {isFirstLoad && (
         <p className="mt-2 text-sm text-ferry-orange text-center max-w-xs">
           First time loading may take a moment while we download the ferry schedule

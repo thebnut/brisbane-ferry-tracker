@@ -11,6 +11,8 @@ export default {
         'cream': '#FDF5E6',
         'golden': '#F5B800',
         'ferry-blue': '#0066CC',
+        'ferry-aqua': '#00A8CC',
+        'ferry-aqua-light': '#5DCCDB',
         'ferry-light-blue': '#E6F2FF',
         'ferry-orange': '#FF6B35',
         'ferry-orange-light': '#FFE5D9',

@@ -22,7 +22,7 @@ const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap }) 
               </svg>
               <span>Last Updated:</span>
             </div>
-            <div className="font-semibold flex items-center text-ferry-blue">
+            <div className="font-semibold flex items-center text-ferry-aqua">
               {formatTime(lastUpdated)}
               {isLoading && (
                 <span className="ml-2 text-ferry-orange">

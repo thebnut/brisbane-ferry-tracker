@@ -12,18 +12,18 @@ const Navigation = ({ selectedStops, onOpenSettings }) => {
               className="h-14 md:h-16 w-auto"
             />
             <div className="flex-1">
-              <h1 className="text-lg md:text-xl font-bold text-ferry-blue">Brisbane Ferry Tracker</h1>
+              <h1 className="text-lg md:text-xl font-bold text-ferry-aqua">Brisbane Ferry Tracker</h1>
               <p className="text-xs text-charcoal italic hidden sm:block">The quickest way to get live City Cat info!</p>
             </div>
           </div>
           <div className="flex items-center space-x-2 md:space-x-3">
             <div className="flex items-center space-x-1 md:space-x-2">
-              <span className="text-xs md:text-sm font-semibold text-ferry-blue bg-white/90 backdrop-blur-sm px-3 md:px-4 py-1.5 rounded-full shadow-md border border-ferry-orange/20">
+              <span className="text-xs md:text-sm font-semibold text-ferry-aqua bg-white/90 backdrop-blur-sm px-3 md:px-4 py-1.5 rounded-full shadow-md border border-ferry-orange/20">
                 {selectedStops?.outbound?.name || 'Bulimba'} ⟷ {selectedStops?.inbound?.name || 'Riverside'}
               </span>
               <button
                 onClick={onOpenSettings}
-                className="p-1.5 md:p-2 hover:bg-ferry-orange hover:text-white text-ferry-blue rounded-lg transition-all duration-300 hover:rotate-45 hover:shadow-lg"
+                className="p-1.5 md:p-2 hover:bg-ferry-orange hover:text-white text-ferry-aqua rounded-lg transition-all duration-300 hover:rotate-45 hover:shadow-lg"
                 title="Change stops"
               >
                 <svg className="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

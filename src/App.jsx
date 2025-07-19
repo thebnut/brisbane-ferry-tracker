@@ -121,8 +121,8 @@ function App() {
                   className={clsx(
                     'flex items-center space-x-2 rounded-full px-5 py-2.5 transition-all duration-300 transform hover:scale-105 hover:rotate-1',
                     filterMode === 'all'
-                      ? 'bg-ferry-blue text-white shadow-xl ring-2 ring-ferry-orange ring-opacity-50 scale-105'
-                      : 'bg-white/90 backdrop-blur-sm border-2 border-ferry-blue/50 text-ferry-blue hover:border-ferry-orange hover:shadow-lg'
+                      ? 'bg-ferry-aqua text-white shadow-xl ring-2 ring-ferry-orange ring-opacity-50 scale-105'
+                      : 'bg-white/90 backdrop-blur-sm border-2 border-ferry-aqua/50 text-ferry-aqua hover:border-ferry-orange hover:shadow-lg'
                   )}
                 >
                   <span className="text-lg animate-bounce-soft">🚢</span>
@@ -157,7 +157,7 @@ function App() {
                 
                 if (hasScheduled || hasRealtime || scheduleLoading || isGitHubPages) {
                   return (
-                    <div className="text-center text-sm text-gray-600 bg-blue-50 rounded-lg p-2">
+                    <div className="text-center text-sm text-gray-600 bg-ferry-aqua/10 rounded-lg p-2">
                       <span className="inline-flex items-center space-x-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -202,7 +202,7 @@ function App() {
                     'flex-1 py-4 px-4 text-sm font-bold transition-all duration-300 rounded-lg',
                     activeTab === 'outbound'
                       ? 'bg-ferry-orange text-white shadow-md scale-[1.02]'
-                      : 'text-ferry-blue hover:bg-ferry-orange-light active:scale-95'
+                      : 'text-ferry-aqua hover:bg-ferry-orange-light active:scale-95'
                   )}
                 >
                   <span className="block text-xs opacity-75 mb-1">To</span>
@@ -214,7 +214,7 @@ function App() {
                     'flex-1 py-4 px-4 text-sm font-bold transition-all duration-300 rounded-lg',
                     activeTab === 'inbound'
                       ? 'bg-ferry-orange text-white shadow-md scale-[1.02]'
-                      : 'text-ferry-blue hover:bg-ferry-orange-light active:scale-95'
+                      : 'text-ferry-aqua hover:bg-ferry-orange-light active:scale-95'
                   )}
                 >
                   <span className="block text-xs opacity-75 mb-1">To</span>
