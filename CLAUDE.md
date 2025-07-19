@@ -156,6 +156,12 @@ git checkout develop
 ### Issue: Numeric enum values showing instead of text
 **Solution:** Use `getOccupancyInfo()` and `getVehicleStatusInfo()` helper functions that handle both numeric and string enum values from GTFS-RT.
 
+### Issue: LIVE tags not showing for non-Bulimba/Riverside routes
+**Solution:** The app originally had hardcoded stop IDs. Now fixed to use dynamic selectedStops:
+- `ferryData.js`: Uses `this.selectedStops` instead of hardcoded `STOPS.bulimba`/`STOPS.riverside`
+- `staticGtfsService.js`: Accepts selectedStops parameter and uses it throughout
+- Critical: Always pass selectedStops when calling `getScheduledDepartures()`
+
 ## Testing & Debugging
 
 ### Key Debug Points
@@ -167,8 +173,9 @@ git checkout develop
 1. Early morning (4-5 AM): Should show scheduled times
 2. Peak hours: Should show mix of live and scheduled
 3. Late night: Should show next day's first services
-4. After 12:30 PM on mobile: Should default to "To Bulimba" tab
+4. After 12:30 PM on mobile: Should default to inbound tab (return journey)
 5. Click any departure: Should show detailed modal with all available info
+6. Test with different stop pairs: Hawthorne-Riverside, Bulimba-Northshore Hamilton, etc.
 
 ### Local Development
 ```bash

@@ -165,6 +165,44 @@ Key features:
 - **Stop sequence ordering**: Ensures correct direction determination
 - **Smart merging**: Matches real-time updates with scheduled times using tripId
 
+## Application Architecture
+
+The Brisbane Ferry Tracker uses a sophisticated data pipeline to deliver real-time ferry information:
+
+### Data Flow Overview
+
+```
+TransLink APIs → Processing → Frontend Display
+```
+
+1. **Schedule Data Pipeline**:
+   - GitHub Actions runs daily at 3 AM Brisbane time
+   - Downloads full GTFS ZIP (30MB) from TransLink
+   - Processes and filters ferry-only data
+   - Generates optimized JSON (3MB) with next 48 hours of departures
+   - Publishes to GitHub Pages CDN for fast, reliable access
+
+2. **Real-time Data Pipeline**:
+   - Frontend fetches GTFS-RT updates every 5 minutes
+   - Vercel proxy handles CORS for TransLink API
+   - Protobuf data parsed client-side
+   - Live positions and delays merged with schedule
+
+3. **Progressive Loading Strategy**:
+   - Real-time data loads first (< 1 second)
+   - Schedule data loads in background
+   - Users see live ferries immediately
+   - Schedule fills in gaps seamlessly
+
+### Key Architecture Decisions
+
+- **Pre-processed Schedules**: Reduces client processing from 30MB to 3MB
+- **Smart Caching**: Validates GitHub timestamp before using cached data
+- **Dynamic Stop Selection**: All processing adapts to user-selected terminals
+- **Two-stage Loading**: Optimizes perceived performance
+
+For detailed architecture documentation, see [app-architecture.md](./app-architecture.md).
+
 ## API Integration
 
 The app uses TransLink's GTFS-RT (General Transit Feed Specification - Realtime) API to fetch live ferry data. Key endpoints:
