@@ -283,7 +283,12 @@ class StaticGTFSService {
     const activeServices = this.getActiveServiceIds(nowZoned);
     
     const departures = [];
-    const relevantStopIds = [STOPS.bulimba, STOPS.riverside];
+    // Use selectedStops if provided, otherwise fall back to default
+    const stops = selectedStops || { 
+      outbound: { id: STOPS.bulimba, name: 'Bulimba' }, 
+      inbound: { id: STOPS.riverside, name: 'Riverside' } 
+    };
+    const relevantStopIds = [stops.outbound.id, stops.inbound.id];
     const relevantRouteIds = [ROUTES.expressCityCat, ROUTES.allStopsCityCat];
 
     // Get relevant trips - but we need to check if they go between our terminals
@@ -291,12 +296,12 @@ class StaticGTFSService {
       if (!activeServices.includes(trip.service_id)) return false;
       if (!relevantRouteIds.some(routeId => trip.route_id === routeId || trip.route_id.startsWith(routeId))) return false;
       
-      // Check if this trip has both Bulimba and Riverside stops
+      // Check if this trip has both selected stops
       const tripStopTimes = this.gtfsData.stopTimes.filter(st => st.trip_id === trip.trip_id);
-      const hasBulimba = tripStopTimes.some(st => st.stop_id === STOPS.bulimba);
-      const hasRiverside = tripStopTimes.some(st => st.stop_id === STOPS.riverside);
+      const hasOutboundStop = tripStopTimes.some(st => st.stop_id === stops.outbound.id);
+      const hasInboundStop = tripStopTimes.some(st => st.stop_id === stops.inbound.id);
       
-      return hasBulimba && hasRiverside;
+      return hasOutboundStop && hasInboundStop;
     });
 
     // Process stop times for relevant trips
@@ -329,12 +334,12 @@ class StaticGTFSService {
           const remainingStops = tripStopTimes.slice(index + 1);
           let goesToOtherTerminal = false;
           
-          if (stopTime.stop_id === STOPS.bulimba) {
-            // For Bulimba → Riverside: Check if Riverside appears later
-            goesToOtherTerminal = remainingStops.some(st => st.stop_id === STOPS.riverside);
-          } else if (stopTime.stop_id === STOPS.riverside) {
-            // For Riverside → Bulimba: Check if Bulimba appears later
-            goesToOtherTerminal = remainingStops.some(st => st.stop_id === STOPS.bulimba);
+          if (stopTime.stop_id === stops.outbound.id) {
+            // For outbound → inbound: Check if inbound appears later
+            goesToOtherTerminal = remainingStops.some(st => st.stop_id === stops.inbound.id);
+          } else if (stopTime.stop_id === stops.inbound.id) {
+            // For inbound → outbound: Check if outbound appears later
+            goesToOtherTerminal = remainingStops.some(st => st.stop_id === stops.outbound.id);
           }
           
           if (!goesToOtherTerminal) {
@@ -342,7 +347,7 @@ class StaticGTFSService {
           }
           
           // Determine direction based on stop sequence
-          const direction = this.determineDirection(stopTime.stop_id, tripStopTimes, index, trip);
+          const direction = this.determineDirection(stopTime.stop_id, tripStopTimes, index, trip, stops);
           
           departures.push({
             tripId: trip.trip_id,
@@ -373,33 +378,44 @@ class StaticGTFSService {
   }
 
   // Determine direction based on trip headsign or stop sequence
-  determineDirection(currentStopId, allStopTimes, currentIndex, trip) {
-    // Try to use headsign first
-    if (trip.trip_headsign) {
+  determineDirection(currentStopId, allStopTimes, currentIndex, trip, stops) {
+    // If no stops provided, use defaults
+    if (!stops) {
+      stops = { 
+        outbound: { id: STOPS.bulimba, name: 'Bulimba' }, 
+        inbound: { id: STOPS.riverside, name: 'Riverside' } 
+      };
+    }
+    
+    // Try to use headsign first (if it contains destination stop name)
+    if (trip.trip_headsign && stops.inbound.name && stops.outbound.name) {
       const headsign = trip.trip_headsign.toLowerCase();
-      if (headsign.includes('riverside')) {
-        return 'outbound';
-      } else if (headsign.includes('bulimba')) {
-        return 'inbound';
+      const inboundName = stops.inbound.name.toLowerCase();
+      const outboundName = stops.outbound.name.toLowerCase();
+      
+      if (headsign.includes(inboundName)) {
+        return 'outbound'; // Going TO inbound stop
+      } else if (headsign.includes(outboundName)) {
+        return 'inbound'; // Going TO outbound stop
       }
     }
 
     // Fall back to checking stop sequence
-    const hasRiversideAfter = allStopTimes.slice(currentIndex + 1).some(st => 
-      st.stop_id === STOPS.riverside
+    const hasInboundAfter = allStopTimes.slice(currentIndex + 1).some(st => 
+      st.stop_id === stops.inbound.id
     );
-    const hasBulimbaAfter = allStopTimes.slice(currentIndex + 1).some(st => 
-      st.stop_id === STOPS.bulimba
+    const hasOutboundAfter = allStopTimes.slice(currentIndex + 1).some(st => 
+      st.stop_id === stops.outbound.id
     );
     
-    if (currentStopId === STOPS.bulimba && hasRiversideAfter) {
+    if (currentStopId === stops.outbound.id && hasInboundAfter) {
       return 'outbound';
-    } else if (currentStopId === STOPS.riverside && hasBulimbaAfter) {
+    } else if (currentStopId === stops.inbound.id && hasOutboundAfter) {
       return 'inbound';
     }
     
     // Default based on current stop
-    return currentStopId === STOPS.bulimba ? 'outbound' : 'inbound';
+    return currentStopId === stops.outbound.id ? 'outbound' : 'inbound';
   }
 
   // Get all available ferry stops

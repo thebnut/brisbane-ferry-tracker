@@ -140,8 +140,8 @@ class FerryDataService {
       
       // Process each stop in the trip
       stopTimeUpdates.forEach((stopUpdate, index) => {
-        // Only process Bulimba and Riverside stops
-        if (stopUpdate.stopId !== STOPS.bulimba && stopUpdate.stopId !== STOPS.riverside) {
+        // Only process selected stops
+        if (stopUpdate.stopId !== this.selectedStops.outbound.id && stopUpdate.stopId !== this.selectedStops.inbound.id) {
           return;
         }
 
@@ -501,7 +501,7 @@ class FerryDataService {
   // Get scheduled departures asynchronously (slow)
   async getScheduledDeparturesAsync() {
     try {
-      const allScheduledDepartures = await staticGtfsService.getScheduledDepartures();
+      const allScheduledDepartures = await staticGtfsService.getScheduledDepartures(this.selectedStops);
       this.log(`Found ${allScheduledDepartures.length} total scheduled departures from static GTFS`);
       
       // We need to check trip sequences to ensure destination comes after origin
@@ -620,7 +620,7 @@ class FerryDataService {
     // Get scheduled departures from static GTFS
     let scheduledDepartures = [];
     try {
-      scheduledDepartures = await staticGtfsService.getScheduledDepartures();
+      scheduledDepartures = await staticGtfsService.getScheduledDepartures(this.selectedStops);
       this.log(`Found ${scheduledDepartures.length} scheduled departures from static GTFS`);
     } catch (error) {
       console.error('Error fetching scheduled departures:', error);

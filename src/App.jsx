@@ -13,7 +13,7 @@ import clsx from 'clsx';
 import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
 
 function App() {
-  // v1.1.0 - Dynamic stop selector with smart cache validation (2025-07-19)
+  // v1.1.1 - Fixed LIVE tags for all stop combinations (2025-07-19)
   // Load saved stops or use defaults
   const [selectedStops, setSelectedStops] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
