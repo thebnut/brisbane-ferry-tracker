@@ -158,13 +158,16 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
             
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-sm text-gray-600 mb-1">Arrival at {destinationStop}</p>
-              {destinationArrival ? (
+              {(departure.destinationArrivalTime || destinationArrival) ? (
                 <>
                   <p className="text-2xl font-bold">
-                    {format(toZonedTime(destinationArrival, API_CONFIG.timezone), 'h:mm a')}
+                    {format(toZonedTime(departure.destinationArrivalTime || destinationArrival, API_CONFIG.timezone), 'h:mm a')}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
-                    Journey time: {differenceInMinutes(destinationArrival, departure.departureTime)} mins
+                    Journey time: {differenceInMinutes(
+                      departure.destinationArrivalTime || destinationArrival, 
+                      departure.departureTime
+                    )} mins
                   </p>
                 </>
               ) : (

@@ -346,6 +346,28 @@ class StaticGTFSService {
             return; // Skip this departure
           }
           
+          // Find the destination stop to get arrival time
+          let destinationArrivalTime = null;
+          const destinationStopId = stopTime.stop_id === stops.outbound.id ? stops.inbound.id : stops.outbound.id;
+          const destinationStop = remainingStops.find(st => st.stop_id === destinationStopId);
+          
+          if (destinationStop && destinationStop.arrival_time) {
+            // Parse arrival time
+            const arrivalParts = destinationStop.arrival_time.split(':');
+            let arrivalHours = parseInt(arrivalParts[0]);
+            const arrivalMinutes = parseInt(arrivalParts[1]);
+            
+            // Handle times after midnight
+            let arrivalDate = new Date(todayStart);
+            if (arrivalHours >= 24) {
+              arrivalHours -= 24;
+              arrivalDate.setDate(arrivalDate.getDate() + 1);
+            }
+            
+            arrivalDate.setHours(arrivalHours, arrivalMinutes, 0, 0);
+            destinationArrivalTime = arrivalDate;
+          }
+          
           // Determine direction based on stop sequence
           const direction = this.determineDirection(stopTime.stop_id, tripStopTimes, index, trip, stops);
           
@@ -354,6 +376,7 @@ class StaticGTFSService {
             routeId: trip.route_id,
             serviceId: trip.service_id,
             departureTime: departureDate,
+            destinationArrivalTime: destinationArrivalTime, // Add arrival time
             stopId: stopTime.stop_id,
             direction: direction,
             headsign: trip.trip_headsign,
