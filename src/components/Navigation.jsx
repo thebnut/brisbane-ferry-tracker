@@ -22,10 +22,12 @@ const Navigation = ({ selectedStops, onOpenSettings }) => {
               className="flex items-center space-x-2 text-xs md:text-sm font-semibold text-ferry-aqua bg-white/90 backdrop-blur-sm pl-3 pr-2 md:pl-4 md:pr-3 py-1.5 rounded-full shadow-md border border-ferry-orange/20 hover:shadow-lg hover:border-ferry-orange/40 transition-all duration-300 group"
               title="Change stops"
             >
-              <span>
-                {(selectedStops?.outbound?.name || 'Bulimba').replace(/\s*ferry terminal\s*/gi, '').trim()} 
-                {' '}⟷{' '}
-                {(selectedStops?.inbound?.name || 'Riverside').replace(/\s*ferry terminal\s*/gi, '').trim()}
+              <span className="flex items-center space-x-2">
+                <span>{(selectedStops?.outbound?.name || 'Bulimba').replace(/\s*ferry terminal\s*/gi, '').trim()}</span>
+                <svg className="w-4 h-4 text-ferry-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                <span>{(selectedStops?.inbound?.name || 'Riverside').replace(/\s*ferry terminal\s*/gi, '').trim()}</span>
               </span>
               <svg className="w-4 md:w-5 h-4 md:h-5 text-ferry-aqua/70 group-hover:text-ferry-orange group-hover:rotate-45 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
