@@ -65,14 +65,17 @@ DATA SOURCES                          PROCESSING                         FRONTEN
     │ (CORS handling) │         │ 2. Check sequences  │ │          │          │
     └─────────────────┘         │ 3. Merge RT+sched  │ │          ▼          │
                                │ 4. Group by dir     │ │  ┌───────────────┐  │
-                               └─────────┬───────────┘ │  │ Components    │  │
-                                         │             │  │               │  │
+                               │ 5. Calculate arrival│ │  │ Components    │  │
+                               └─────────┬───────────┘ │  │               │  │
                                          │             │  │ - StopSelector│  │
                                          └─────────────┼──►│ - Navigation  │  │
                                                        │  │ - StatusBar   │  │
+                                                       │  │   (+ filters) │  │
                                                        │  │ - Departure   │  │
                                                        │  │   Board       │  │
                                                        │  │ - Ferry Map   │  │
+                                                       │  │ - Details     │  │
+                                                       │  │   Modal       │  │
                                                        │  └───────────────┘  │
                                                        └─────────────────────┘
 ```
@@ -145,10 +148,12 @@ DATA SOURCES                          PROCESSING                         FRONTEN
   2. Validates trip sequences (destination must come after origin)
   3. Merges real-time and scheduled data using tripId
   4. Groups departures by direction (outbound/inbound)
+  5. Calculates destination arrival times from trip data
 - **Key Methods**:
   - `filterRelevantTrips()` - Initial filtering for selected stops
   - `checkDestination()` - Validates ferry continues to destination
   - `mergeDepartures()` - Combines schedule and real-time data
+  - `processGitHubDepartures()` - Processes pre-aggregated schedule data
 
 #### useFerryData Hook
 - **Orchestration**:
@@ -159,6 +164,13 @@ DATA SOURCES                          PROCESSING                         FRONTEN
   5. Provides loading states to UI
 
 ### UI Components
+
+#### StatusBar
+- Displays last update time and loading state
+- Contains Map and Refresh buttons
+- **NEW**: Service filter buttons (All/Express)
+- Filter buttons conditionally shown when express services available
+- Responsive design with mobile-friendly button sizing
 
 #### StopSelectorModal
 - Shows all 19 Brisbane ferry terminals
@@ -171,12 +183,21 @@ DATA SOURCES                          PROCESSING                         FRONTEN
 - Shows next 5 departures (expandable to 13)
 - Real-time countdown timers
 - Live/Scheduled status indicators
+- Service type badges (All-stops/EXPRESS)
 
 #### FerryMap
 - Interactive Leaflet map
 - Shows live ferry positions from VehiclePositions
 - Updates every 5 minutes
 - Displays occupancy and speed
+- Ferry icons rotate based on GPS bearing (not fixed direction)
+
+#### FerryDetailsModal
+- Comprehensive ferry information display
+- Live position map when GPS available
+- Separate LIVE and GPS status badges
+- Human-readable vessel names (e.g., "Mooroolbin II")
+- Journey duration and delay information
 
 ## Storage & Caching
 
