@@ -144,6 +144,11 @@ git checkout develop
 - Verify GTFS data is being fetched
 - Check if cached data exists in localStorage
 
+### Issue: Localhost showing fewer departures than Vercel
+**Cause:** Stale schedule data in `public/schedule-data/latest.json`
+**Solution:** Copy current data: `cp schedule-data/latest.json public/schedule-data/latest.json`
+**Long-term:** Configure Vite to serve from root schedule-data or sync automatically
+
 ### Issue: Cache errors
 **Solution:** Cache only processed departures, not raw GTFS data (30MB → 50KB)
 
@@ -411,18 +416,30 @@ moreButtons.forEach(btn => btn.click());
 ## Current App Status (January 2025)
 
 ### Latest Features
-1. **Service Filter in Header** (January 2025)
+1. **Date Display for Tomorrow's Departures** (January 2025)
+   - Shows (DD/MM) in orange after time for next-day services
+   - Helps prevent confusion for late-night ferry services
+   - Applied to DepartureItem, FerryDetailsModal, and FerryMap
+   - Uses Australian date format
+
+2. **Clean Stop Names** (January 2025)
+   - Removed "ferry terminal" from all stop name displays
+   - Departure board headers: "Riverside → Hawthorne" instead of "Riverside ferry terminal → Hawthorne ferry terminal"
+   - Mobile tab headers: "To Riverside" instead of "To Riverside ferry terminal"
+   - Navigation bar already had this implemented
+
+3. **Service Filter in Header** (January 2025)
    - All Services and Express filter buttons moved to header bar
    - Buttons match Map/Refresh button styling
    - Conditionally hidden when no express services available
    - Improves content area clarity and maintains filter visibility while scrolling
 
-2. **Ferry Vessel Names** (January 2025)
+4. **Ferry Vessel Names** (January 2025)
    - Displays human-readable vessel names (e.g., "Mooroolbin II")
    - Extracted from vehicle ID by taking last segment after underscore
    - Preserves Roman numerals in uppercase
 
-3. **Enhanced Status Badges** (January 2025)
+5. **Enhanced Status Badges** (January 2025)
    - Separate LIVE and GPS badges for clarity
    - LIVE badge: Real-time schedule updates available
    - GPS badge: Live position tracking available
@@ -431,6 +448,7 @@ moreButtons.forEach(btn => btn.click());
 ### UI/UX Improvements
 - **Header Bar**: Compact design with Last Updated, service filters, Map, and Refresh
 - **Mobile Responsive**: Filter buttons scale appropriately on small screens
+- **Clean Interface**: Removed redundant "ferry terminal" text throughout
 - **Smart Visibility**: UI elements hide when not relevant (e.g., no express services)
 - **Progressive Enhancement**: Core functionality works even without all data sources
 
