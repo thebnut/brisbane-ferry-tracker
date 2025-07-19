@@ -181,7 +181,7 @@ function App() {
                   )}
                 >
                   <span className="block text-xs opacity-75 mb-1">To</span>
-                  {selectedStops.inbound.name}
+                  {selectedStops.inbound.name.replace(' ferry terminal', '')}
                 </button>
                 <button
                   onClick={() => setActiveTab('inbound')}
@@ -193,7 +193,7 @@ function App() {
                   )}
                 >
                   <span className="block text-xs opacity-75 mb-1">To</span>
-                  {selectedStops.outbound.name}
+                  {selectedStops.outbound.name.replace(' ferry terminal', '')}
                 </button>
               </div>
             </div>
