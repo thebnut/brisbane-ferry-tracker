@@ -12,6 +12,27 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
   const routePrefix = departure.routeId.split('-')[0];
   const serviceInfo = SERVICE_TYPES[routePrefix] || SERVICE_TYPES.F1;
   
+  // Helper function to extract ferry name from vehicle ID
+  const formatVehicleName = (vehicleId) => {
+    if (!vehicleId) return null;
+    
+    // Split by underscore and take the last part
+    const parts = vehicleId.split('_');
+    if (parts.length < 2) return `Vehicle ${vehicleId}`;
+    
+    const name = parts[parts.length - 1];
+    
+    // Title case but preserve Roman numerals
+    return name.split(' ').map(word => {
+      // Check if word is a Roman numeral (all I, V, X)
+      if (/^[IVX]+$/i.test(word)) {
+        return word.toUpperCase();
+      }
+      // Otherwise, capitalize first letter
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }).join(' ');
+  };
+  
   // Debug logging
   console.log('FerryDetailsModal - departure data:', {
     tripId: departure.tripId,
@@ -111,16 +132,26 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
                     <h2 className="text-2xl font-bold text-charcoal">
                       {serviceInfo.name} Ferry
                     </h2>
-                    {hasLiveData ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                        <span className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
-                        LIVE
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2.5 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
-                        SCHEDULED
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {departure.isRealtime ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                          <span className="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
+                          LIVE
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+                          SCHEDULED
+                        </span>
+                      )}
+                      {hasLiveData && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                          <svg className="w-3 h-3 mr-1.5 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                          </svg>
+                          GPS
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="text-sm text-gray-600 mb-1">
                     {departure.direction === 'outbound' 
@@ -128,7 +159,7 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
                       : `${selectedStops?.inbound?.name || 'Riverside'} → ${selectedStops?.outbound?.name || 'Bulimba'}`}
                   </p>
                   <p className="text-xs text-gray-500">
-                    Trip #{departure.tripId} • {vehiclePosition?.vehicle?.vehicle?.id ? `Vehicle ${vehiclePosition.vehicle.vehicle.id}` : 'No vehicle ID'}
+                    Trip #{departure.tripId} • {formatVehicleName(vehiclePosition?.vehicle?.vehicle?.id) || 'No vehicle ID'}
                   </p>
                 </div>
               </div>

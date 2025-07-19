@@ -21,8 +21,8 @@ const TERMINAL_LOCATIONS = {
 };
 
 // Create custom ferry icon
-const createFerryIcon = (isExpress, direction) => {
-  const rotation = direction === 'outbound' ? 0 : 180; // 0 for outbound (to Riverside), 180 for inbound (to Bulimba)
+const createFerryIcon = (isExpress, bearing) => {
+  const rotation = bearing || 0; // Use actual bearing from GPS, default to 0 if not available
   const color = isExpress ? '#FF6B6B' : '#4ECDC4'; // Red for express, teal for all-stops
   
   return L.divIcon({
@@ -139,7 +139,7 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
             <Marker
               key={ferry.id}
               position={[ferry.lat, ferry.lng]}
-              icon={createFerryIcon(ferry.isExpress, ferry.direction)}
+              icon={createFerryIcon(ferry.isExpress, ferry.bearing)}
             >
               <Popup>
                 <div className="text-sm">

@@ -346,6 +346,38 @@ vercel --prod
 
 **Key Learning**: When using pre-processed data (GitHub), ensure client-side processing matches what the GTFS fallback path does. Don't assume pre-processed data is ready to use directly.
 
+### Ferry Data Status Levels
+The app has three distinct data availability states for ferry departures, now clearly indicated by badge combinations:
+
+1. **Scheduled Only**
+   - Source: GTFS static schedule data
+   - Shows: Planned departure/arrival times
+   - Badges: "SCHEDULED" (gray)
+   - No real-time updates
+
+2. **Live (Schedule Updates Only)**
+   - Source: GTFS-RT TripUpdates feed
+   - Shows: Real-time departure delays/updates
+   - Badges: "LIVE" (green with pulse) only
+   - Has `isRealtime: true` but no GPS position
+   - Common when ferry is at terminal or GPS unavailable
+
+3. **Live (Full GPS Tracking)**
+   - Source: GTFS-RT TripUpdates + VehiclePositions feeds
+   - Shows: Everything above PLUS:
+     - Live position on map
+     - Current speed
+     - Occupancy status
+     - Vehicle status (approaching/stopped/in transit)
+   - Badges: "LIVE" (green with pulse) + "GPS" (green with pulse, location icon)
+   - Has both `isRealtime: true` AND `position` data
+
+**Badge Logic**:
+- "LIVE" badge: Appears when `departure.isRealtime === true` (real-time schedule updates)
+- "GPS" badge: Appears when `hasLiveData === true` (GPS position available)
+- Both badges can appear independently, providing clear visibility into data availability
+- GPS-dependent features (map, speed, occupancy) only show when GPS badge is present
+
 ## Future Enhancements to Consider
 1. Service alerts integration
 2. Walking time to terminal
