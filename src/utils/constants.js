@@ -29,7 +29,7 @@ export const API_CONFIG = {
 
 // Debug configuration
 export const DEBUG_CONFIG = {
-  enableLogging: true // Set to true to enable debug logging
+  enableLogging: false // Set to true to enable debug logging
 };
 
 // LocalStorage keys
