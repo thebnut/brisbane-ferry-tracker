@@ -315,6 +315,37 @@ vercel --prod
    - First-time Loading Message
    - Configurable Debug Logging
 
+## Common Data Flow Issues & Solutions
+
+### Issue: Scheduled Departures Not Showing Arrival Times
+**Problem**: Scheduled ferries showed "Arrival time not available" instead of actual arrival times.
+
+**Root Causes**:
+1. **GitHub Schedule Data Structure**: The schedule processor generates ALL ferry departures for ALL stops without pre-calculating arrival times for specific stop pairs
+2. **Missing Client-Side Processing**: The app was using raw GitHub data without:
+   - Filtering for selected stops
+   - Calculating arrival times from trip data
+   - Verifying trips go between selected terminals
+3. **Double Filtering**: After processing, ferryData.js was applying additional filtering that removed all scheduled departures
+
+**Solution**:
+1. **Added `processGitHubDepartures` method** in staticGtfsService.js:
+   - Groups departures by tripId to find complete trips
+   - Filters for selected stops and ferry routes
+   - Finds destination stops and calculates arrival times
+   - Only includes trips that go between selected terminals
+
+2. **Skip Double Filtering** in ferryData.js:
+   - Check if departures already have `direction` property (indicates processing)
+   - Skip additional filtering for pre-processed departures
+
+3. **GTFS Time Handling**:
+   - GTFS uses "arrival_time" and "departure_time" fields
+   - If arrival_time is missing, fall back to departure_time
+   - For schedule data, arrival ≈ departure - 1 minute at ferry stops
+
+**Key Learning**: When using pre-processed data (GitHub), ensure client-side processing matches what the GTFS fallback path does. Don't assume pre-processed data is ready to use directly.
+
 ## Future Enhancements to Consider
 1. Service alerts integration
 2. Walking time to terminal

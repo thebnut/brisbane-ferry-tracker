@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import Papa from 'papaparse';
 import { STOPS, ROUTES, DEBUG_CONFIG, STORAGE_KEYS } from '../utils/constants';
 import { startOfDay, endOfDay, format, parse, isAfter, isBefore, addMinutes } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 
 class StaticGTFSService {
   constructor() {
@@ -37,7 +37,8 @@ class StaticGTFSService {
           return data.departures
             .map(dep => ({
               ...dep,
-              departureTime: new Date(dep.departureTime) // Convert string back to Date
+              departureTime: new Date(dep.departureTime), // Convert string back to Date
+              destinationArrivalTime: dep.destinationArrivalTime ? new Date(dep.destinationArrivalTime) : null // Convert arrival time if exists
             }))
             .filter(dep => dep.departureTime > now);
         }
@@ -211,22 +212,93 @@ class StaticGTFSService {
       const now = new Date();
       const cutoffTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       
-      const departures = data.departures
+      const allDepartures = data.departures
         .map(dep => ({
           ...dep,
-          departureTime: new Date(dep.departureTime)
+          departureTime: new Date(dep.departureTime),
+          destinationArrivalTime: dep.destinationArrivalTime ? new Date(dep.destinationArrivalTime) : null // Convert arrival time if exists
         }))
         .filter(dep => dep.departureTime > now && dep.departureTime < cutoffTime);
       
       // Return both departures and generated timestamp
       return {
-        departures: departures,
-        generated: data.generated
+        departures: allDepartures,
+        generated: data.generated,
+        allDepartures: allDepartures // Keep reference to all departures for arrival time calculation
       };
     } catch (error) {
       this.log('GitHub schedule fetch failed:', error.message);
       return null;
     }
+  }
+
+  // Process GitHub departures to calculate arrival times and filter for selected stops
+  processGitHubDepartures(allDepartures, selectedStops) {
+    if (!selectedStops) {
+      selectedStops = { 
+        outbound: { id: STOPS.bulimba, name: 'Bulimba' }, 
+        inbound: { id: STOPS.riverside, name: 'Riverside' } 
+      };
+    }
+    
+    const relevantStopIds = [selectedStops.outbound.id, selectedStops.inbound.id];
+    const relevantRouteIds = [ROUTES.expressCityCat, ROUTES.allStopsCityCat];
+    
+    // Group departures by tripId for efficient lookup
+    const departuresByTrip = new Map();
+    allDepartures.forEach(dep => {
+      if (!departuresByTrip.has(dep.tripId)) {
+        departuresByTrip.set(dep.tripId, []);
+      }
+      departuresByTrip.get(dep.tripId).push(dep);
+    });
+    
+    // Process departures from selected stops
+    const processedDepartures = [];
+    
+    allDepartures.forEach(dep => {
+      // Only process departures from selected stops on ferry routes
+      if (!relevantStopIds.includes(dep.stopId)) return;
+      if (!relevantRouteIds.some(routeId => dep.routeId === routeId || dep.routeId.startsWith(routeId))) return;
+      
+      // Get all stops for this trip
+      const tripStops = departuresByTrip.get(dep.tripId) || [];
+      
+      // Sort by stop sequence
+      tripStops.sort((a, b) => a.stopSequence - b.stopSequence);
+      
+      // Find current stop index
+      const currentIndex = tripStops.findIndex(s => s.stopId === dep.stopId && s.stopSequence === dep.stopSequence);
+      if (currentIndex === -1) return;
+      
+      // Check if trip goes to the other terminal
+      const remainingStops = tripStops.slice(currentIndex + 1);
+      const destinationStopId = dep.stopId === selectedStops.outbound.id 
+        ? selectedStops.inbound.id 
+        : selectedStops.outbound.id;
+      
+      const destinationStop = remainingStops.find(s => s.stopId === destinationStopId);
+      if (!destinationStop) return; // Trip doesn't go to the other terminal
+      
+      // Calculate arrival time from destination stop's departure time
+      const destinationArrivalTime = new Date(destinationStop.departureTime);
+      
+      // Determine direction
+      const direction = dep.stopId === selectedStops.outbound.id ? 'outbound' : 'inbound';
+      
+      if (this.debug) {
+        console.log(`GitHub departure: Trip ${dep.tripId} from ${dep.stopId} to ${destinationStopId}, arrival: ${destinationArrivalTime.toISOString()}`);
+      }
+      
+      processedDepartures.push({
+        ...dep,
+        destinationArrivalTime,
+        direction
+      });
+    });
+    
+    this.log(`Processed ${processedDepartures.length} departures from GitHub data for selected stops`);
+    return processedDepartures;
   }
 
   // Get scheduled departures for our ferry routes
@@ -244,20 +316,21 @@ class StaticGTFSService {
         
         if (githubGeneratedTime > cachedGeneratedTime) {
           this.log(`GitHub has newer data (${githubResult.generated} > cached), updating cache`);
-          this.setCachedSchedule(githubResult.departures, githubResult.generated);
-          return githubResult.departures;
+          const processedDepartures = this.processGitHubDepartures(githubResult.allDepartures || githubResult.departures, selectedStops);
+          this.setCachedSchedule(processedDepartures, githubResult.generated);
+          return processedDepartures;
         } else {
-          this.log('Cache is up to date, using cached data');
-          const cachedSchedule = this.getCachedSchedule();
-          if (cachedSchedule && cachedSchedule.length > 0) {
-            return cachedSchedule;
-          }
+          this.log('Cache is up to date, processing cached data for selected stops');
+          // Need to process GitHub data even when using cache
+          const processedDepartures = this.processGitHubDepartures(githubResult.allDepartures || githubResult.departures, selectedStops);
+          return processedDepartures;
         }
       } else {
         // No cached generated time, save the new data
         this.log('No cached generated timestamp, saving GitHub data');
-        this.setCachedSchedule(githubResult.departures, githubResult.generated);
-        return githubResult.departures;
+        const processedDepartures = this.processGitHubDepartures(githubResult.allDepartures || githubResult.departures, selectedStops);
+        this.setCachedSchedule(processedDepartures, githubResult.generated);
+        return processedDepartures;
       }
     }
     
@@ -326,7 +399,9 @@ class StaticGTFSService {
         }
         
         departureDate.setHours(hours, minutes, 0, 0);
-        const departureZoned = toZonedTime(departureDate, this.timezone);
+        // Convert from Brisbane time to UTC for storage
+        const departureUTC = fromZonedTime(departureDate, this.timezone);
+        const departureZoned = toZonedTime(departureUTC, this.timezone);
 
         // Only include future departures within 24 hours
         if (departureZoned > nowZoned && departureZoned < addMinutes(nowZoned, 24 * 60)) {
@@ -351,21 +426,33 @@ class StaticGTFSService {
           const destinationStopId = stopTime.stop_id === stops.outbound.id ? stops.inbound.id : stops.outbound.id;
           const destinationStop = remainingStops.find(st => st.stop_id === destinationStopId);
           
-          if (destinationStop && destinationStop.arrival_time) {
-            // Parse arrival time
-            const arrivalParts = destinationStop.arrival_time.split(':');
-            let arrivalHours = parseInt(arrivalParts[0]);
-            const arrivalMinutes = parseInt(arrivalParts[1]);
+          if (destinationStop) {
+            // Use arrival_time if available, otherwise fall back to departure_time - 1 minute
+            const timeToUse = destinationStop.arrival_time || destinationStop.departure_time;
             
-            // Handle times after midnight
-            let arrivalDate = new Date(todayStart);
-            if (arrivalHours >= 24) {
-              arrivalHours -= 24;
-              arrivalDate.setDate(arrivalDate.getDate() + 1);
+            if (timeToUse) {
+              // Parse time
+              const timeParts = timeToUse.split(':');
+              let hours = parseInt(timeParts[0]);
+              const minutes = parseInt(timeParts[1]);
+              
+              // Handle times after midnight
+              let arrivalDate = new Date(todayStart);
+              if (hours >= 24) {
+                hours -= 24;
+                arrivalDate.setDate(arrivalDate.getDate() + 1);
+              }
+              
+              arrivalDate.setHours(hours, minutes, 0, 0);
+              
+              // If using departure_time as fallback, subtract 1 minute
+              if (!destinationStop.arrival_time && destinationStop.departure_time) {
+                arrivalDate.setMinutes(arrivalDate.getMinutes() - 1);
+              }
+              
+              // Convert from Brisbane time to UTC for consistency
+              destinationArrivalTime = fromZonedTime(arrivalDate, this.timezone);
             }
-            
-            arrivalDate.setHours(arrivalHours, arrivalMinutes, 0, 0);
-            destinationArrivalTime = arrivalDate;
           }
           
           // Determine direction based on stop sequence
@@ -375,7 +462,7 @@ class StaticGTFSService {
             tripId: trip.trip_id,
             routeId: trip.route_id,
             serviceId: trip.service_id,
-            departureTime: departureDate,
+            departureTime: departureUTC,
             destinationArrivalTime: destinationArrivalTime, // Add arrival time
             stopId: stopTime.stop_id,
             direction: direction,

@@ -12,6 +12,15 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
   const routePrefix = departure.routeId.split('-')[0];
   const serviceInfo = SERVICE_TYPES[routePrefix] || SERVICE_TYPES.F1;
   
+  // Debug logging
+  console.log('FerryDetailsModal - departure data:', {
+    tripId: departure.tripId,
+    isRealtime: departure.isRealtime,
+    destinationArrivalTime: departure.destinationArrivalTime,
+    hasDestinationArrivalTime: !!departure.destinationArrivalTime,
+    departureTime: departure.departureTime
+  });
+  
   // Find matching vehicle position
   const vehiclePosition = useMemo(() => {
     return vehiclePositions.find(vp => vp.vehicle?.trip?.tripId === departure.tripId);
@@ -171,7 +180,7 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
                   </p>
                 </>
               ) : (
-                <p className="text-lg text-gray-500">Estimated ~7-10 mins</p>
+                <p className="text-lg text-gray-500">Arrival time not available</p>
               )}
             </div>
           </div>

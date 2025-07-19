@@ -1,5 +1,5 @@
 import { STOPS, ROUTES, DEBUG_CONFIG, DEFAULT_STOPS } from '../utils/constants';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import staticGtfsService from './staticGtfsService';
 
@@ -175,6 +175,32 @@ class FerryDataService {
         // Determine direction based on stop sequence
         const direction = this.determineDirection(stopUpdate.stopId, stopTimeUpdates, index);
         
+        // Calculate destination arrival time
+        let destinationArrivalTime = null;
+        const currentStopId = stopUpdate.stopId;
+        const destinationStopId = currentStopId === this.selectedStops.outbound.id 
+          ? this.selectedStops.inbound.id 
+          : this.selectedStops.outbound.id;
+        
+        // Find the destination stop in the remaining stops
+        for (let i = index + 1; i < stopTimeUpdates.length; i++) {
+          if (stopTimeUpdates[i].stopId === destinationStopId) {
+            const arrivalTime = stopTimeUpdates[i].arrival?.time 
+              ? new Date(stopTimeUpdates[i].arrival.time * 1000)
+              : stopTimeUpdates[i].departure?.time 
+                ? new Date(stopTimeUpdates[i].departure.time * 1000)
+                : null;
+            
+            if (arrivalTime) {
+              destinationArrivalTime = arrivalTime;
+              if (this.debug) {
+                console.log(`Found destination arrival time for trip ${trip.tripId}: ${format(toZonedTime(arrivalTime, this.timezone), 'h:mm a')}`);
+              }
+            }
+            break;
+          }
+        }
+        
         departures.push({
           tripId: trip.tripId,
           routeId: trip.routeId,
@@ -184,7 +210,8 @@ class FerryDataService {
           isRealtime: stopUpdate.scheduleRelationship !== 'SCHEDULED',
           delay: stopUpdate.departure?.delay || 0,
           vehicleId: vehiclePosition?.vehicle?.vehicle?.id,
-          occupancy: vehiclePosition?.vehicle?.occupancyStatus
+          occupancy: vehiclePosition?.vehicle?.occupancyStatus,
+          destinationArrivalTime: destinationArrivalTime
         });
       });
     });
@@ -273,6 +300,10 @@ class FerryDataService {
     
     // Index scheduled departures by tripId and by time
     scheduledDepartures.forEach(dep => {
+      if (this.debug && dep.destinationArrivalTime) {
+        console.log(`Scheduled departure has arrival time: Trip ${dep.tripId}, arrival: ${dep.destinationArrivalTime}`);
+      }
+      
       // Store by tripId for exact matching
       if (!scheduledByTripId.has(dep.tripId)) {
         scheduledByTripId.set(dep.tripId, []);
@@ -284,7 +315,8 @@ class FerryDataService {
       merged.set(timeKey, {
         ...dep,
         isRealtime: false,
-        isScheduled: true
+        isScheduled: true,
+        destinationArrivalTime: dep.destinationArrivalTime // Preserve destination arrival time
       });
     });
     
@@ -320,8 +352,18 @@ class FerryDataService {
             ...dep,
             isRealtime: true,
             isScheduled: false,
-            scheduledTime: matchingScheduled.departureTime // Keep reference to original scheduled time
+            scheduledTime: matchingScheduled.departureTime, // Keep reference to original scheduled time
+            destinationArrivalTime: dep.destinationArrivalTime || matchingScheduled.destinationArrivalTime // Preserve destination arrival time from scheduled data or real-time
           });
+          
+          if (this.debug) {
+            console.log(`Merged departure with destinationArrivalTime:`, {
+              tripId: dep.tripId,
+              realtime: dep.destinationArrivalTime,
+              scheduled: matchingScheduled.destinationArrivalTime,
+              final: dep.destinationArrivalTime || matchingScheduled.destinationArrivalTime
+            });
+          }
           
           // Also remove the old scheduled entry if it has a different time
           const scheduledTimeKey = `${matchingScheduled.stopId}-${Math.floor(matchingScheduled.departureTime.getTime() / 60000)}`;
@@ -350,7 +392,8 @@ class FerryDataService {
               ...dep,
               isRealtime: true,
               isScheduled: false,
-              scheduledTime: existing.departureTime
+              scheduledTime: existing.departureTime,
+              destinationArrivalTime: dep.destinationArrivalTime || existing.destinationArrivalTime // Preserve destination arrival time from either source
             });
             matched = true;
             processedRealtime.add(`${dep.tripId}-${dep.stopId}`);
@@ -504,7 +547,14 @@ class FerryDataService {
       const allScheduledDepartures = await staticGtfsService.getScheduledDepartures(this.selectedStops);
       this.log(`Found ${allScheduledDepartures.length} total scheduled departures from static GTFS`);
       
-      // We need to check trip sequences to ensure destination comes after origin
+      // If departures already have direction set (from processGitHubDepartures), 
+      // they're already filtered correctly
+      if (allScheduledDepartures.length > 0 && allScheduledDepartures[0].direction) {
+        this.log('Departures already processed with directions, skipping additional filtering');
+        return allScheduledDepartures;
+      }
+      
+      // Otherwise, we need to check trip sequences to ensure destination comes after origin
       // Group departures by tripId
       const departuresByTrip = {};
       allScheduledDepartures.forEach(dep => {
