@@ -8,16 +8,44 @@
   }
   
   body {
-    @apply bg-gray-50 text-charcoal;
+    @apply bg-gradient-to-br from-ferry-orange-light via-white to-ferry-light-blue text-charcoal;
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  
+  /* Custom selection colors */
+  ::selection {
+    @apply bg-ferry-orange text-white;
   }
 }
 
 @layer components {
   .ferry-card {
-    @apply bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow;
+    @apply bg-white/90 backdrop-blur-sm rounded-xl shadow-md p-4 
+           hover:shadow-xl hover:shadow-ferry-orange/20 
+           transition-all duration-300 
+           border border-transparent hover:border-ferry-orange/30;
   }
   
   .countdown-badge {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+           transition-all duration-300;
+  }
+  
+  .btn-primary {
+    @apply px-4 py-2 rounded-lg font-medium 
+           bg-ferry-orange text-white 
+           hover:bg-ferry-orange-dark 
+           active:scale-95 active:animate-squish
+           transition-all duration-200
+           shadow-md hover:shadow-lg;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 rounded-lg font-medium 
+           bg-white text-ferry-orange border-2 border-ferry-orange
+           hover:bg-ferry-orange hover:text-white
+           active:scale-95 
+           transition-all duration-200;
   }
 }

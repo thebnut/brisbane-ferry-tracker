@@ -2,7 +2,7 @@ import React from 'react';
 
 const Navigation = ({ selectedStops, onOpenSettings }) => {
   return (
-    <nav className="bg-gradient-to-r from-white to-ferry-light-blue shadow-lg sticky top-0 z-50 border-b-2 border-ferry-blue">
+    <nav className="bg-gradient-to-r from-white via-ferry-orange-light to-ferry-light-blue shadow-xl sticky top-0 z-50 border-b-2 border-ferry-orange/50 animate-gradient bg-[length:200%_100%]">
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex items-center justify-between py-3">
           <div className="flex items-center space-x-3 md:space-x-4">
@@ -18,12 +18,12 @@ const Navigation = ({ selectedStops, onOpenSettings }) => {
           </div>
           <div className="flex items-center space-x-2 md:space-x-3">
             <div className="flex items-center space-x-1 md:space-x-2">
-              <span className="text-xs md:text-sm font-medium text-charcoal bg-white px-2 md:px-3 py-1 rounded-full shadow-sm">
+              <span className="text-xs md:text-sm font-semibold text-ferry-blue bg-white/90 backdrop-blur-sm px-3 md:px-4 py-1.5 rounded-full shadow-md border border-ferry-orange/20">
                 {selectedStops?.outbound?.name || 'Bulimba'} ⟷ {selectedStops?.inbound?.name || 'Riverside'}
               </span>
               <button
                 onClick={onOpenSettings}
-                className="p-1.5 md:p-2 hover:bg-ferry-blue hover:text-white text-ferry-blue rounded-lg transition-all duration-200"
+                className="p-1.5 md:p-2 hover:bg-ferry-orange hover:text-white text-ferry-blue rounded-lg transition-all duration-300 hover:rotate-45 hover:shadow-lg"
                 title="Change stops"
               >
                 <svg className="w-4 md:w-5 h-4 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +34,7 @@ const Navigation = ({ selectedStops, onOpenSettings }) => {
                 </svg>
               </button>
             </div>
-            <span className="text-xs text-ferry-blue font-semibold bg-green-100 px-2 md:px-3 py-1 rounded-full animate-pulse">
+            <span className="text-xs text-white font-bold bg-ferry-orange px-3 md:px-4 py-1.5 rounded-full animate-pulse shadow-lg animate-glow">
               LIVE
             </span>
           </div>

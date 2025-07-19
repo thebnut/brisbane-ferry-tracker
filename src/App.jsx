@@ -13,7 +13,7 @@ import clsx from 'clsx';
 import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
 
 function App() {
-  // v1.1.3 - Added Google Analytics tracking (2025-07-19)
+  // v1.2.0 - Modern orange-themed redesign with animations (2025-07-19)
   // Load saved stops or use defaults
   const [selectedStops, setSelectedStops] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
@@ -119,32 +119,32 @@ function App() {
                 <button
                   onClick={() => setFilterMode('all')}
                   className={clsx(
-                    'flex items-center space-x-2 rounded-full px-5 py-2.5 transition-all transform hover:scale-105',
+                    'flex items-center space-x-2 rounded-full px-5 py-2.5 transition-all duration-300 transform hover:scale-105 hover:rotate-1',
                     filterMode === 'all'
-                      ? 'bg-ferry-blue text-white shadow-lg ring-2 ring-ferry-blue ring-opacity-50'
-                      : 'bg-white border border-gray-300 text-gray-700 hover:border-ferry-blue opacity-70'
+                      ? 'bg-ferry-blue text-white shadow-xl ring-2 ring-ferry-orange ring-opacity-50 scale-105'
+                      : 'bg-white/90 backdrop-blur-sm border-2 border-ferry-blue/50 text-ferry-blue hover:border-ferry-orange hover:shadow-lg'
                   )}
                 >
-                  <span className="text-lg">🚢</span>
-                  <span className="font-semibold">All Services</span>
+                  <span className="text-lg animate-bounce-soft">🚢</span>
+                  <span className="font-bold">All Services</span>
                 </button>
                 
                 {/* Express filter */}
                 <button
                   onClick={() => setFilterMode('express')}
                   className={clsx(
-                    'flex items-center space-x-2 rounded-full px-5 py-2.5 transition-all transform hover:scale-105',
+                    'flex items-center space-x-2 rounded-full px-5 py-2.5 transition-all duration-300 transform hover:scale-105 hover:-rotate-1',
                     filterMode === 'express'
-                      ? 'bg-gradient-to-r from-golden to-yellow-500 text-white shadow-lg ring-2 ring-golden ring-opacity-50'
-                      : 'bg-gradient-to-r from-yellow-50 to-white border-2 border-golden text-charcoal hover:from-yellow-100 opacity-70'
+                      ? 'bg-gradient-to-r from-ferry-orange to-ferry-sunset text-white shadow-xl ring-2 ring-ferry-orange ring-opacity-50 scale-105 animate-glow'
+                      : 'bg-gradient-to-r from-ferry-orange-light to-white border-2 border-ferry-orange text-ferry-orange hover:from-ferry-orange hover:to-ferry-sunset hover:text-white hover:shadow-lg'
                   )}
                 >
-                  <span className="text-xl">🚤</span>
-                  <span className="font-bold">EXPRESS</span>
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <span className="text-xl animate-bounce-soft">🚤</span>
+                  <span className="font-black">EXPRESS</span>
+                  <svg className="w-5 h-5 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
-                  <span className="text-xs opacity-80">Only</span>
+                  <span className="text-xs opacity-90">Only</span>
                 </button>
                 
               </div>
@@ -194,29 +194,31 @@ function App() {
             )}
             
             {/* Mobile Tabs - visible on small screens */}
-            <div className="md:hidden mb-4">
-              <div className="flex rounded-lg overflow-hidden border border-gray-200">
+            <div className="md:hidden mb-6">
+              <div className="flex rounded-xl overflow-hidden border-2 border-ferry-orange/30 shadow-lg bg-white/90 backdrop-blur-sm p-1">
                 <button
                   onClick={() => setActiveTab('outbound')}
                   className={clsx(
-                    'flex-1 py-3 px-4 text-sm font-semibold transition-colors',
+                    'flex-1 py-4 px-4 text-sm font-bold transition-all duration-300 rounded-lg',
                     activeTab === 'outbound'
-                      ? 'bg-ferry-blue text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                      ? 'bg-ferry-orange text-white shadow-md scale-[1.02]'
+                      : 'text-ferry-blue hover:bg-ferry-orange-light active:scale-95'
                   )}
                 >
-                  To {selectedStops.inbound.name}
+                  <span className="block text-xs opacity-75 mb-1">To</span>
+                  {selectedStops.inbound.name}
                 </button>
                 <button
                   onClick={() => setActiveTab('inbound')}
                   className={clsx(
-                    'flex-1 py-3 px-4 text-sm font-semibold transition-colors',
+                    'flex-1 py-4 px-4 text-sm font-bold transition-all duration-300 rounded-lg',
                     activeTab === 'inbound'
-                      ? 'bg-ferry-blue text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                      ? 'bg-ferry-orange text-white shadow-md scale-[1.02]'
+                      : 'text-ferry-blue hover:bg-ferry-orange-light active:scale-95'
                   )}
                 >
-                  To {selectedStops.outbound.name}
+                  <span className="block text-xs opacity-75 mb-1">To</span>
+                  {selectedStops.outbound.name}
                 </button>
               </div>
             </div>

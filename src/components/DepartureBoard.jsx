@@ -34,7 +34,7 @@ const DepartureBoard = ({ direction, departures, loading, selectedStops, onDepar
 
   return (
     <div className="mb-8">
-      <h2 className="text-xl font-bold mb-4 text-charcoal bg-gray-100 rounded-lg p-3">
+      <h2 className="text-xl font-bold mb-4 text-ferry-blue bg-gradient-to-r from-white to-ferry-orange-light rounded-xl p-4 shadow-md border border-ferry-orange/20">
         {getTitle()}
       </h2>
       
@@ -55,7 +55,7 @@ const DepartureBoard = ({ direction, departures, loading, selectedStops, onDepar
           {departures.length > 5 && (
             <button
               onClick={() => setShowMore(!showMore)}
-              className="w-full mt-3 py-2 text-ferry-blue font-medium hover:text-blue-700 transition-colors"
+              className="w-full mt-4 py-3 bg-gradient-to-r from-white to-ferry-orange-light text-ferry-orange font-bold hover:from-ferry-orange-light hover:to-ferry-orange hover:text-white rounded-lg transition-all duration-300 border-2 border-ferry-orange/30"
             >
               {showMore ? 'Show Less' : `More... (${Math.min(departures.length - 5, 8)} more)`}
             </button>

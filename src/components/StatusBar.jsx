@@ -12,15 +12,20 @@ const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap }) 
   };
 
   return (
-    <div className="bg-gray-100 border-b border-gray-200">
+    <div className="bg-gradient-to-r from-white to-ferry-orange-light/50 border-b border-ferry-orange/20 backdrop-blur-sm">
       <div className="container mx-auto px-4 max-w-6xl py-3">
         <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            <div>Last Updated:</div>
-            <div className="font-medium flex items-center">
+          <div className="text-sm text-charcoal">
+            <div className="flex items-center space-x-1">
+              <svg className="w-4 h-4 text-ferry-orange" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+              </svg>
+              <span>Last Updated:</span>
+            </div>
+            <div className="font-semibold flex items-center text-ferry-blue">
               {formatTime(lastUpdated)}
               {isLoading && (
-                <span className="ml-2 text-ferry-blue">
+                <span className="ml-2 text-ferry-orange">
                   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -33,10 +38,10 @@ const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap }) 
             <button
               onClick={onToggleMap}
               className={clsx(
-                'flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all',
+                'flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 active:scale-95 shadow-md',
                 showMap
-                  ? 'bg-ferry-blue text-white hover:bg-blue-700'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:border-ferry-blue'
+                  ? 'bg-ferry-orange text-white hover:bg-ferry-orange-dark hover:shadow-lg'
+                  : 'bg-white text-ferry-orange border-2 border-ferry-orange hover:bg-ferry-orange hover:text-white'
               )}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -48,10 +53,10 @@ const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap }) 
               onClick={onRefresh}
               disabled={isLoading}
               className={clsx(
-                'flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all',
+                'flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 shadow-md',
                 isLoading
                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-ferry-blue text-white hover:bg-blue-700 active:scale-95'
+                  : 'bg-ferry-orange text-white hover:bg-ferry-orange-dark hover:shadow-lg active:scale-95 active:animate-squish'
               )}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -14,8 +14,9 @@ const DepartureItem = ({ departure, onClick }) => {
   const minutesUntil = differenceInMinutes(departureTimeZoned, currentTimeZoned);
   
   const getCountdownColor = () => {
-    if (minutesUntil <= 5) return 'bg-red-100 text-red-800 border-red-300';
-    if (minutesUntil <= 15) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    if (minutesUntil < 1) return 'bg-gradient-to-r from-red-500 to-ferry-orange text-white border-0 animate-pulse';
+    if (minutesUntil <= 5) return 'bg-ferry-orange text-white border-ferry-orange animate-pulse';
+    if (minutesUntil <= 15) return 'bg-ferry-sunset text-white border-ferry-sunset';
     return 'bg-green-100 text-green-800 border-green-300';
   };
 
@@ -29,13 +30,15 @@ const DepartureItem = ({ departure, onClick }) => {
     <div 
       onClick={() => onClick(departure)}
       className={clsx(
-        'ferry-card flex items-center justify-between p-5 mb-3 transition-all cursor-pointer hover:shadow-md',
-        serviceInfo.isExpress && 'border-2 border-golden bg-gradient-to-r from-yellow-50 to-white shadow-lg hover:shadow-xl transform hover:scale-[1.02]'
+        'ferry-card flex items-center justify-between p-5 mb-3 transition-all duration-300 cursor-pointer hover:scale-[1.02] group',
+        serviceInfo.isExpress 
+          ? 'border-2 border-ferry-orange bg-gradient-to-r from-ferry-orange-light to-white shadow-lg hover:shadow-xl hover:shadow-ferry-orange/30 animate-glow' 
+          : 'hover:border-ferry-orange/50'
       )}>
       <div className="flex items-center space-x-4">
         <span className={clsx(
-          'text-4xl',
-          serviceInfo.isExpress && 'animate-pulse'
+          'text-4xl transition-transform duration-300 group-hover:scale-110',
+          serviceInfo.isExpress ? 'animate-float' : 'group-hover:rotate-6'
         )}>{serviceInfo.icon}</span>
         <div>
           <div className="flex items-center space-x-2">
@@ -47,17 +50,17 @@ const DepartureItem = ({ departure, onClick }) => {
               {serviceInfo.name}
             </span>
             {departure.isRealtime ? (
-              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+              <span className="px-2.5 py-1 bg-ferry-orange text-white rounded-full text-xs font-bold animate-pulse shadow-md">
                 LIVE
               </span>
             ) : departure.isScheduled ? (
-              <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+              <span className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
                 Scheduled
               </span>
             ) : null}
             {serviceInfo.isExpress && (
-              <span className="text-golden">
-                <svg className="w-5 h-5 inline-block" fill="currentColor" viewBox="0 0 20 20">
+              <span className="text-ferry-orange">
+                <svg className="w-5 h-5 inline-block animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
               </span>
@@ -84,9 +87,10 @@ const DepartureItem = ({ departure, onClick }) => {
       
       <div className="text-right">
         <div className={clsx(
-          'countdown-badge border',
+          'countdown-badge border-2 shadow-md',
           getCountdownColor(),
-          serviceInfo.isExpress && minutesUntil <= 15 && 'font-bold text-base'
+          serviceInfo.isExpress && minutesUntil <= 15 && 'font-bold text-base scale-110',
+          'transition-all duration-300'
         )}>
           {getCountdownText()}
         </div>
