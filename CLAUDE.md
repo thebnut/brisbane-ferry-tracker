@@ -124,6 +124,12 @@ See `schedule-filtering-logic.md` for detailed explanation.
 
 ## Common Issues & Solutions
 
+### Issue: Wrong branch for development
+**Solution:** Always work on `develop` branch
+```bash
+git checkout develop
+```
+
 ### Issue: No departures showing
 **Causes:**
 1. Outside service hours (check if showing scheduled times)
@@ -210,30 +216,56 @@ Always check if GitHub has newer data before using cache:
 2. **Live Data**: TransLink API → Vercel Proxy → Vercel deployment only
 
 ### GitHub Repository Structure
-- **Main branch**: Contains both source code and GitHub Pages build
-- **schedule-data/**: Updated daily by GitHub Action
+- **`main` branch**: Production code → Deploys to ferry.lifemap.au
+- **`develop` branch**: Pre-production code → Deploys to brisbane-ferry-tracker.vercel.app
+- **schedule-data/**: Updated daily by GitHub Action (on main branch)
 - **schedule-processor/**: Node.js app that generates schedule JSON
 - **.github/workflows/**: Runs daily at 3 AM Brisbane time
 
-### Deployment Commands
+### Development Workflow
 ```bash
-# Deploy to Vercel (primary)
-vercel --prod
+# Daily development (you should be on develop branch)
+git checkout develop
+git add .
+git commit -m "Feature: description"
+git push
+# Auto-deploys to brisbane-ferry-tracker.vercel.app for testing
 
-# Build for GitHub Pages
-npm run build
-# Copy dist/* to root and commit
+# Release to production
+git checkout main
+git merge develop
+git push
+# Auto-deploys to ferry.lifemap.au
+
+# Return to development
+git checkout develop
 ```
 
+### Manual Deployment Commands (if needed)
+```bash
+# Deploy current branch to Vercel
+vercel
+
+# Deploy to production specifically
+vercel --prod
+```
+
+### Environment URLs
+| Environment | URL | Branch | Purpose |
+|------------|-----|--------|---------|
+| Production | https://ferry.lifemap.au | `main` | Live site for end users |
+| Pre-production | https://brisbane-ferry-tracker.vercel.app | `develop` | Testing new features |
+| Local Dev | http://localhost:5173 | `develop` | Active development |
+
 ### Key Differences Between Deployments
-| Feature | Vercel | GitHub Pages |
-|---------|--------|--------------|
-| Live ferry tracking | ✅ | ❌ |
-| Live ferry map | ✅ | ❌ |
-| Schedule data | ✅ | ✅ |
-| CORS proxy | ✅ | ❌ |
-| Auto-refresh | ✅ | ✅ |
-| API costs | Minimal | None |
+| Feature | Production (ferry.lifemap.au) | Pre-prod (vercel.app) | GitHub Pages |
+|---------|-------------------------------|----------------------|--------------|
+| Live ferry tracking | ✅ | ✅ | ❌ |
+| Live ferry map | ✅ | ✅ | ❌ |
+| Schedule data | ✅ | ✅ | ✅ |
+| CORS proxy | ✅ | ✅ | ❌ |
+| Auto-refresh | ✅ | ✅ | ✅ |
+| Branch | `main` | `develop` | `main` |
 
 ## Recent Updates
 1. **Dynamic Stop Selector** - Users can choose any ferry terminal pair
