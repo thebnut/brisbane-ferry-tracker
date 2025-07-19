@@ -1,20 +1,21 @@
 # Brisbane Ferry Tracker
 
-A real-time ferry departure tracker for Brisbane's Bulimba ⟷ Riverside ferry route, built with React, Vite, and Tailwind CSS.
+A real-time ferry departure tracker for Brisbane's ferry network, allowing users to track services between any two ferry terminals. Built with React, Vite, and Tailwind CSS.
 
 ## Features
 
-- 🚤 Live departure times for Express (F11) and All-stops (F1) CityCat services
-- 🎯 Accurate filtering to show only ferries traveling between Bulimba and Riverside
+- 🚤 Live departure times for all Brisbane ferry services (CityCat, CityHopper, Cross River)
+- 🎯 Dynamic stop selector - choose any ferry terminal pair
 - ⏱️ Real-time countdown timers for next departures
 - 📅 Shows scheduled times when real-time data unavailable (early mornings)
-- 🔄 Auto-refresh every 5 minutes
+- 🔄 Auto-refresh every 5 minutes with smart cache validation
 - 🎛️ Interactive filter for Express-only view
 - 📱 Fully responsive design
 - ⚡ Progressive loading - see live ferries instantly while schedule loads
 - 📊 "More..." button to expand from 5 to 13 departures per direction
 - 🕐 Shows scheduled time in brackets for live departures
 - 📢 Dynamic status messages based on available data
+- ⚙️ Settings gear to change selected stops anytime
 
 ## Tech Stack
 
@@ -144,18 +145,18 @@ The app combines multiple data sources for comprehensive coverage:
 
 1. **Pre-processed Schedule** (Primary): Daily generated schedule data hosted on GitHub Pages
    - Processed daily at 3 AM Brisbane time via GitHub Actions
-   - Only ~50KB instead of 30MB GTFS file
-   - Filtered to show only Bulimba-Riverside services
+   - Includes all ferry stops and connectivity data
+   - Smart cache validation ensures bug fixes are delivered immediately
    
 2. **Real-time GTFS-RT**: Shows live ferry positions and delays (only available for actively running services)
 
 3. **Static GTFS Schedule** (Fallback): Full timetable data processed client-side if GitHub data unavailable
 
 ### Ferry Filtering
-The app intelligently filters ferry services to show only those traveling between Bulimba and Riverside:
+The app intelligently filters ferry services to show only those traveling between your selected terminals:
 
-- ✅ Shows: Ferries departing Bulimba that will arrive at Riverside
-- ✅ Shows: Ferries departing Riverside that will arrive at Bulimba  
+- ✅ Shows: Ferries departing your origin that will arrive at your destination
+- ✅ Shows: Ferries departing your destination that will arrive at your origin  
 - ❌ Excludes: Ferries that stop at one terminal but don't continue to the other
 - ❌ Excludes: Ferries traveling in the opposite direction (e.g., already been to destination)
 

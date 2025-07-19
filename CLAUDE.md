@@ -94,13 +94,20 @@ VEHICLE_STATUS = {
 Note: Real-time routes may have suffixes like "F11-4055", so we use `startsWith()` for matching.
 Note: GTFS-RT may send numeric or string enum values - the app handles both formats.
 
-### Critical Filtering Logic
-The app filters departures to show ONLY ferries that actually travel between the two terminals:
+### Dynamic Stop Selector
+Users can now select any ferry terminal pair (not just Bulimba-Riverside):
+- On first visit: Modal prompts to select origin and destination stops
+- Selections persist in localStorage
+- Only shows destinations with direct ferry connections from selected origin
+- Settings gear icon allows changing stops anytime
 
-1. **Initial Filter**: Trip must contain BOTH Bulimba AND Riverside stops
+### Critical Filtering Logic
+The app filters departures to show ONLY ferries that actually travel between the selected terminals:
+
+1. **Initial Filter**: Trip must contain BOTH selected stops
 2. **Direction Filter**: For each departure, verify the ferry goes TO the other terminal
-   - Bulimba departures: Must have Riverside AFTER current position
-   - Riverside departures: Must have Bulimba AFTER current position
+   - Origin departures: Must have destination AFTER current position
+   - Destination departures: Must have origin AFTER current position
 
 See `schedule-filtering-logic.md` for detailed explanation.
 
@@ -174,9 +181,27 @@ curl http://localhost:5173/api/gtfs-static -o gtfs.zip
 
 ## Performance Considerations
 1. Static GTFS ZIP is ~30MB - fetched once and cached
-2. Schedule cache expires after 24 hours
+2. Schedule cache expires after 24 hours (but validates against GitHub's timestamp)
 3. Real-time updates every 5 minutes
 4. Countdown timers update every second (force re-render)
+
+## Critical Implementation Notes
+
+### Timezone Handling in Schedule Processor
+**CRITICAL**: GTFS schedule times are in local timezone (Brisbane). When processing:
+```javascript
+// WRONG - causes 10-hour offset
+const departureZoned = toZonedTime(departureDate, TIMEZONE);
+
+// CORRECT - converts Brisbane time to UTC for storage
+const departureUTC = fromZonedTime(departureDate, TIMEZONE);
+```
+
+### Cache Validation
+Always check if GitHub has newer data before using cache:
+- Compare `generated` timestamps between cache and GitHub
+- Prevents users being stuck with buggy data for 24 hours
+- Implemented in `staticGtfsService.getScheduledDepartures()`
 
 ## Deployment Architecture
 
@@ -211,27 +236,36 @@ npm run build
 | API costs | Minimal | None |
 
 ## Recent Updates
-1. **Ferry Details Modal** - Click/tap any departure to see comprehensive ferry information
+1. **Dynamic Stop Selector** - Users can choose any ferry terminal pair
+   - Modal on first visit to select origin/destination
+   - Only shows destinations with direct connections
+   - Settings gear to change stops anytime
+   - Persists selection in localStorage
+2. **Smart Cache Validation** - Prevents stale data issues
+   - Checks GitHub's `generated` timestamp before using cache
+   - Ensures users get bug fixes immediately (not after 24h cache expiry)
+   - Falls back to cache if GitHub unavailable
+3. **Ferry Details Modal** - Click/tap any departure to see comprehensive ferry information
    - Live position map (when GPS available)
    - Schedule vs actual times
    - Journey duration and delays
    - Occupancy and vehicle status
    - Keyboard accessible (ESC to close)
-2. **GTFS-RT Enum Handling** - Proper display of numeric enum values:
+4. **GTFS-RT Enum Handling** - Proper display of numeric enum values:
    - Occupancy status (0-6): Empty, Many seats, Few seats, Standing room, etc.
    - Vehicle status (0-2): Approaching stop, Stopped at terminal, In transit
-3. **Smart Mobile Tab Selection** - Automatically shows relevant direction based on time:
-   - Before 12:30 PM: Shows "To Riverside" (outbound)
-   - After 12:30 PM: Shows "To Bulimba" (inbound)
-4. **Custom Domain Support** - ferry.lifemap.au works with proper CORS handling
-5. **Map Improvements**:
+5. **Smart Mobile Tab Selection** - Automatically shows relevant direction based on time:
+   - Before 12:30 PM: Shows "To [Destination]" (outbound)
+   - After 12:30 PM: Shows "To [Origin]" (inbound)
+6. **Custom Domain Support** - ferry.lifemap.au works with proper CORS handling
+7. **Map Improvements**:
    - CartoDB Positron tiles for modern, minimal appearance
    - Removed river overlay for cleaner look
    - Map button in status bar
    - Hide button in map header
    - Smaller, cleaner ferry icons
-6. **Mobile-Responsive Tabs** - Departure boards use tabs on mobile instead of stacking
-7. **Previous Updates**:
+8. **Mobile-Responsive Tabs** - Departure boards use tabs on mobile instead of stacking
+9. **Previous Updates**:
    - Live Ferry Map with real-time positions
    - GitHub Pages Schedule Caching
    - Progressive Loading strategy
