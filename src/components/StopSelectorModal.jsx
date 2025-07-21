@@ -10,6 +10,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const [validDestinations, setValidDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [rememberSelection, setRememberSelection] = useState(true);
   
   // Helper function to remove 'ferry terminal' from stop names
   const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
@@ -114,7 +115,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
           id: selectedDestination,
           name: destinationStop.name
         }
-      });
+      }, rememberSelection);
     }
   };
 
@@ -242,6 +243,34 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                   </p>
                 </div>
               )}
+
+              {/* Regular Commuter Settings */}
+              <div className="border-t pt-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Regular Commuter Settings</h3>
+                <div className="space-y-3">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-sm text-gray-700">Remember selection</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={rememberSelection}
+                      onClick={() => setRememberSelection(!rememberSelection)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ferry-orange focus:ring-offset-2 ${
+                        rememberSelection ? 'bg-ferry-orange' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          rememberSelection ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </label>
+                  <p className="text-xs text-gray-500">
+                    Your stop selection will be saved for next time. You can always change it later using the settings icon.
+                  </p>
+                </div>
+              </div>
               
               {/* Temporary data notice */}
               {!staticGtfsService.hasStopsData() && (

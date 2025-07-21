@@ -20,7 +20,7 @@ function App() {
     return saved ? JSON.parse(saved) : DEFAULT_STOPS;
   });
   
-  // Show stop selector on first visit
+  // Show stop selector if no saved stops
   const [showStopSelector, setShowStopSelector] = useState(() => {
     return !localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
   });
@@ -38,9 +38,11 @@ function App() {
   const [selectedDeparture, setSelectedDeparture] = useState(null);
   
   // Handle stop selection change
-  const handleStopChange = (newStops) => {
+  const handleStopChange = (newStops, rememberSelection = true) => {
     setSelectedStops(newStops);
-    localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, JSON.stringify(newStops));
+    if (rememberSelection) {
+      localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, JSON.stringify(newStops));
+    }
     setShowStopSelector(false);
     // Force data refresh with new stops
     refresh();
