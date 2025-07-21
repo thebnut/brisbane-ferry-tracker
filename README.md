@@ -8,14 +8,20 @@ A real-time ferry departure tracker for Brisbane's ferry network, allowing users
 - 🎯 Dynamic stop selector - choose any ferry terminal pair
 - ⏱️ Real-time countdown timers for next departures
 - 📅 Shows scheduled times when real-time data unavailable (early mornings)
+- 🗓️ Tomorrow's departures show date (DD/MM) for clarity
 - 🔄 Auto-refresh every 5 minutes with smart cache validation
-- 🎛️ Interactive filter for Express-only view
-- 📱 Fully responsive design
+- 🎛️ Service filters (All/Express) in header bar, hidden when no express services
+- 🗺️ Interactive map showing live ferry positions and occupancy
+- 📱 Fully responsive design with mobile-optimized tabs
 - ⚡ Progressive loading - see live ferries instantly while schedule loads
 - 📊 "More..." button to expand from 5 to 13 departures per direction
+- 🚢 Clean interface - stop names without "ferry terminal" suffix
+- 🏷️ Ferry vessel names displayed (e.g., "Mooroolbin II")
+- 🟢 Separate LIVE and GPS status badges
 - 🕐 Shows scheduled time in brackets for live departures
 - 📢 Dynamic status messages based on available data
 - ⚙️ Settings gear to change selected stops anytime
+- 🧭 GPS-based ferry direction indicators on maps
 
 ## Tech Stack
 
@@ -25,8 +31,11 @@ A real-time ferry departure tracker for Brisbane's ferry network, allowing users
 - **Deployment**: Vercel
 - **Key Libraries**: 
   - `gtfs-realtime-bindings` - For parsing GTFS protobuf data
-  - `date-fns` - For time calculations
+  - `date-fns` & `date-fns-tz` - For time calculations and timezone handling
+  - `react-leaflet` - Interactive ferry position maps
   - `clsx` - For conditional styling
+  - `jszip` - For processing GTFS schedule files
+  - `papaparse` - For parsing CSV data from GTFS
 
 ## Development
 
@@ -112,10 +121,13 @@ npm run build
 ```
 src/
 ├── components/          # React components
-│   ├── Navigation.jsx   # App header
-│   ├── StatusBar.jsx    # Update status and refresh
+│   ├── Navigation.jsx   # App header with stop selector
+│   ├── StatusBar.jsx    # Update status, filters, map & refresh
 │   ├── DepartureBoard.jsx # Direction-specific departures
 │   ├── DepartureItem.jsx  # Individual ferry display
+│   ├── FerryMap.jsx    # Live ferry positions map
+│   ├── FerryDetailsModal.jsx # Detailed ferry info modal
+│   ├── StopSelectorModal.jsx # Terminal selection
 │   └── ...
 ├── services/           # API and data services
 │   ├── gtfsService.js  # GTFS-RT data fetching
@@ -131,6 +143,7 @@ src/
 ## Technical Documentation
 
 - [CLAUDE.md](./CLAUDE.md) - Development guide for AI assistants
+- [app-architecture.md](./app-architecture.md) - Detailed system architecture and data flow
 - [schedule-filtering-logic.md](./schedule-filtering-logic.md) - Detailed explanation of ferry filtering algorithm
 
 ## How It Works

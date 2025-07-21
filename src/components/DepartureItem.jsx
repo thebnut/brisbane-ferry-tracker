@@ -25,8 +25,12 @@ const DepartureItem = ({ departure, onClick }) => {
   };
 
   const getCountdownText = () => {
+    // Don't show countdown for trips more than 1 hour away
+    if (minutesUntil > 60) return null;
+    
     if (minutesUntil < 1) return 'Departing';
     if (minutesUntil === 1) return 'in 1 min';
+    
     return `in ${minutesUntil} mins`;
   };
 
@@ -34,7 +38,7 @@ const DepartureItem = ({ departure, onClick }) => {
     <div 
       onClick={() => onClick(departure)}
       className={clsx(
-        'ferry-card flex items-center justify-between p-5 mb-3 transition-all duration-300 cursor-pointer hover:scale-[1.02] group',
+        'ferry-card flex items-center justify-between p-5 mb-3 min-h-[6rem] transition-all duration-300 cursor-pointer hover:scale-[1.02] group',
         serviceInfo.isExpress 
           ? 'border-2 border-ferry-orange bg-gradient-to-r from-ferry-orange-light to-white shadow-lg hover:shadow-xl hover:shadow-ferry-orange/30 animate-glow' 
           : 'hover:border-ferry-orange/50'
@@ -80,37 +84,39 @@ const DepartureItem = ({ departure, onClick }) => {
                 ({format(departureTimeZoned, 'dd/MM')})
               </span>
             )}
-            {departure.isRealtime && departure.scheduledTime && (
-              <span className="text-xs text-gray-500 font-normal ml-2">
-                (Sched {format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')})
-              </span>
-            )}
           </p>
-          {departure.delay > 0 && (
-            <p className="text-sm text-red-600">
-              {Math.round(departure.delay / 60)} min late
-            </p>
-          )}
+          <p className={clsx(
+            "text-xs mt-0.5",
+            departure.isRealtime ? "text-gray-500" : "invisible"
+          )}>
+            {!departure.isRealtime 
+              ? "Placeholder"
+              : departure.delay > 0 && departure.scheduledTime
+                ? `Scheduled: ${format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')}`
+                : "On time"}
+          </p>
         </div>
       </div>
       
       <div className="text-right">
-        <div className={clsx(
-          'countdown-badge border-2 shadow-md',
-          getCountdownColor(),
-          serviceInfo.isExpress && minutesUntil <= 15 && 'font-bold text-base scale-110',
-          'transition-all duration-300'
-        )}>
-          {getCountdownText()}
-        </div>
         {(() => {
-          const occupancyInfo = getOccupancyInfo(departure.occupancy);
-          return occupancyInfo ? (
-            <p className="text-xs text-gray-500 mt-2">
-              {occupancyInfo.icon} {occupancyInfo.text}
-            </p>
+          const countdownText = getCountdownText();
+          return countdownText ? (
+            <div className={clsx(
+              'countdown-badge border-2 shadow-md',
+              getCountdownColor(),
+              serviceInfo.isExpress && minutesUntil <= 15 && 'font-bold text-base scale-110',
+              'transition-all duration-300'
+            )}>
+              {countdownText}
+            </div>
           ) : null;
         })()}
+        {departure.delay > 0 && (
+          <p className="text-xs text-red-600 mt-1">
+            {Math.round(departure.delay / 60)} min late
+          </p>
+        )}
       </div>
     </div>
   );
