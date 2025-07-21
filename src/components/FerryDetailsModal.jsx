@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { format, differenceInMinutes, isTomorrow, isAfter, startOfDay, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
-import { SERVICE_TYPES, API_CONFIG, STOPS, getOccupancyInfo, getVehicleStatusInfo } from '../utils/constants';
+import { SERVICE_TYPES, API_CONFIG, STOPS, getVehicleStatusInfo } from '../utils/constants';
 import FerryDetailMap from './FerryDetailMap';
 
 const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedStops, onClose }) => {
@@ -163,7 +163,7 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
                       : `${selectedStops?.inbound?.name || 'Riverside'} → ${selectedStops?.outbound?.name || 'Bulimba'}`}
                   </p>
                   <p className="text-xs text-gray-500">
-                    Trip #{departure.tripId} • {formatVehicleName(vehiclePosition?.vehicle?.vehicle?.id) || 'No vehicle ID'}
+                    Vehicle: {formatVehicleName(vehiclePosition?.vehicle?.vehicle?.id) || 'Unknown'}{vehiclePosition?.vehicle?.currentStatus !== null && vehiclePosition?.vehicle?.currentStatus !== undefined ? ` | ${getVehicleStatusInfo(vehiclePosition.vehicle.currentStatus)}` : ''}
                   </p>
                 </div>
               </div>
@@ -252,42 +252,6 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
             </div>
           </div>
         </div>
-        
-        {/* Live Data */}
-        {hasLiveData && (
-          <div className="p-6 border-b">
-            <h3 className="text-lg font-semibold mb-4">Live Information</h3>
-            <div className="grid md:grid-cols-3 gap-4">
-              {position.speed !== undefined && (
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Current Speed</p>
-                  <p className="text-2xl font-bold">{Math.round(position.speed * 3.6)} km/h</p>
-                </div>
-              )}
-              
-              {vehiclePosition.vehicle?.occupancyStatus !== null && vehiclePosition.vehicle?.occupancyStatus !== undefined && (() => {
-                const occupancyInfo = getOccupancyInfo(vehiclePosition.vehicle.occupancyStatus);
-                return occupancyInfo ? (
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600">Occupancy</p>
-                    <p className="text-lg font-semibold">
-                      {occupancyInfo.icon} {occupancyInfo.text}
-                    </p>
-                  </div>
-                ) : null;
-              })()}
-              
-              {vehiclePosition.vehicle?.currentStatus !== null && vehiclePosition.vehicle?.currentStatus !== undefined && (
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Status</p>
-                  <p className="text-lg font-semibold">
-                    {getVehicleStatusInfo(vehiclePosition.vehicle.currentStatus)}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
         
         {/* Map */}
         {hasLiveData && (

@@ -456,6 +456,31 @@ moreButtons.forEach(btn => btn.click());
 
 ## Recent UI/UX Updates (January 2025)
 
+### Ferry Details Modal Simplification
+1. **Removed Live Information Section**
+   - Eliminated separate Speed, Occupancy, and Status display
+   - Cleaner, more focused interface
+   - Less redundant information
+
+2. **Updated Vehicle Display**
+   - Removed "Trip #" from header
+   - New format: "Vehicle: [name] | [status]"
+   - Status integrated inline with vehicle name
+   - Example: "Vehicle: Meeandah | In Transit"
+
+### Map Marker Updates
+1. **Removed Directional Arrows**
+   - Ferry markers now show as simple pulsing dots
+   - No bearing/rotation indicators
+   - Cleaner, less cluttered map appearance
+   
+2. **Visual Design**
+   - Pulsing animation every 2 seconds
+   - Red dots for express ferries
+   - Teal dots for all-stops ferries
+   - White borders with drop shadows
+   - Consistent design across main map and detail map
+
 ### Time Display Improvements
 1. **Hour Display for Long Countdowns**
    - Ferries > 60 minutes away show hours (e.g., "in 1 hr 28 mins")

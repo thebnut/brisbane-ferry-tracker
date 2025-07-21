@@ -11,17 +11,16 @@ A real-time ferry departure tracker for Brisbane's ferry network, allowing users
 - 🗓️ Tomorrow's departures show date (DD/MM) for clarity
 - 🔄 Auto-refresh every 5 minutes with smart cache validation
 - 🎛️ Service filters (All/Express) in header bar, hidden when no express services
-- 🗺️ Interactive map showing live ferry positions and occupancy
+- 🗺️ Interactive map showing live ferry positions with pulsing markers
 - 📱 Fully responsive design with mobile-optimized tabs
 - ⚡ Progressive loading - see live ferries instantly while schedule loads
 - 📊 "More..." button to expand from 5 to 13 departures per direction
 - 🚢 Clean interface - stop names without "ferry terminal" suffix
 - 🏷️ Ferry vessel names displayed (e.g., "Mooroolbin II")
 - 🟢 Separate LIVE and GPS status badges
-- 🕐 Shows scheduled time in brackets for live departures
+- 🕐 Shows scheduled departure time for on-time ferries
 - 📢 Dynamic status messages based on available data
 - ⚙️ Settings gear to change selected stops anytime
-- 🧭 GPS-based ferry direction indicators on maps
 
 ## Tech Stack
 

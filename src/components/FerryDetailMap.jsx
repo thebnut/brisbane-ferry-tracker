@@ -11,8 +11,7 @@ const TERMINAL_LOCATIONS = {
 };
 
 // Create custom ferry icon
-const createFerryIcon = (isExpress, bearing) => {
-  const rotation = bearing || 0; // Use actual bearing from GPS
+const createFerryIcon = (isExpress) => {
   const color = isExpress ? '#FF6B6B' : '#4ECDC4';
   
   return L.divIcon({
@@ -24,14 +23,20 @@ const createFerryIcon = (isExpress, bearing) => {
         align-items: center;
         justify-content: center;
       ">
-        <svg width="36" height="36" viewBox="0 0 36 36" style="transform: rotate(${rotation}deg);">
+        <style>
+          @keyframes pulse-detail {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
+          }
+        </style>
+        <svg width="36" height="36" viewBox="0 0 36 36" style="animation: pulse-detail 2s infinite;">
           <defs>
             <filter id="shadow-detail" x="-50%" y="-50%" width="200%" height="200%">
               <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.3"/>
             </filter>
           </defs>
-          <circle cx="18" cy="18" r="16" fill="${color}" stroke="white" stroke-width="2" filter="url(#shadow-detail)"/>
-          <path d="M18 8 L23 20 L18 17.5 L13 20 Z" fill="white"/>
+          <circle cx="18" cy="18" r="14" fill="${color}" stroke="white" stroke-width="2.5" filter="url(#shadow-detail)"/>
         </svg>
       </div>
     `,
@@ -111,7 +116,7 @@ function FerryDetailMap({ departure, vehiclePosition, hasLiveData }) {
       {hasLiveData && position && (
         <Marker
           position={[position.latitude, position.longitude]}
-          icon={createFerryIcon(isExpress, position.bearing)}
+          icon={createFerryIcon(isExpress)}
         />
       )}
     </MapContainer>

@@ -21,8 +21,7 @@ const TERMINAL_LOCATIONS = {
 };
 
 // Create custom ferry icon
-const createFerryIcon = (isExpress, bearing) => {
-  const rotation = bearing || 0; // Use actual bearing from GPS, default to 0 if not available
+const createFerryIcon = (isExpress) => {
   const color = isExpress ? '#FF6B6B' : '#4ECDC4'; // Red for express, teal for all-stops
   
   return L.divIcon({
@@ -34,14 +33,20 @@ const createFerryIcon = (isExpress, bearing) => {
         align-items: center;
         justify-content: center;
       ">
-        <svg width="28" height="28" viewBox="0 0 28 28" style="transform: rotate(${rotation}deg);">
+        <style>
+          @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
+          }
+        </style>
+        <svg width="28" height="28" viewBox="0 0 28 28" style="animation: pulse 2s infinite;">
           <defs>
             <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
               <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3"/>
             </filter>
           </defs>
-          <circle cx="14" cy="14" r="12" fill="${color}" stroke="white" stroke-width="2" filter="url(#shadow)"/>
-          <path d="M14 7 L18 17.5 L14 15.5 L10 17.5 Z" fill="white"/>
+          <circle cx="14" cy="14" r="10" fill="${color}" stroke="white" stroke-width="2" filter="url(#shadow)"/>
         </svg>
       </div>
     `,
@@ -139,7 +144,7 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
             <Marker
               key={ferry.id}
               position={[ferry.lat, ferry.lng]}
-              icon={createFerryIcon(ferry.isExpress, ferry.bearing)}
+              icon={createFerryIcon(ferry.isExpress)}
             >
               <Popup>
                 <div className="text-sm">
@@ -180,16 +185,14 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
       <div className="mt-3 text-sm text-gray-600">
         <div className="flex items-center justify-center space-x-6">
           <div className="flex items-center">
-            <svg width="20" height="20" viewBox="0 0 40 40" className="mr-2">
-              <circle cx="20" cy="20" r="18" fill="#FF6B6B" stroke="white" stroke-width="2"/>
-              <path d="M20 10 L26 25 L20 22 L14 25 Z" fill="white"/>
+            <svg width="20" height="20" viewBox="0 0 20 20" className="mr-2">
+              <circle cx="10" cy="10" r="7" fill="#FF6B6B" stroke="white" stroke-width="1.5"/>
             </svg>
             <span>Express ferries</span>
           </div>
           <div className="flex items-center">
-            <svg width="20" height="20" viewBox="0 0 40 40" className="mr-2">
-              <circle cx="20" cy="20" r="18" fill="#4ECDC4" stroke="white" stroke-width="2"/>
-              <path d="M20 10 L26 25 L20 22 L14 25 Z" fill="white"/>
+            <svg width="20" height="20" viewBox="0 0 20 20" className="mr-2">
+              <circle cx="10" cy="10" r="7" fill="#4ECDC4" stroke="white" stroke-width="1.5"/>
             </svg>
             <span>All-stops ferries</span>
           </div>
