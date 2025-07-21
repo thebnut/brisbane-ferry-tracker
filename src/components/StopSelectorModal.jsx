@@ -10,7 +10,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const [validDestinations, setValidDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [rememberSelection, setRememberSelection] = useState(true);
+  const [rememberSelection, setRememberSelection] = useState(false);
   
   // Helper function to remove 'ferry terminal' from stop names
   const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
