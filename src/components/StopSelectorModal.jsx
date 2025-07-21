@@ -10,6 +10,9 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const [validDestinations, setValidDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Helper function to remove 'ferry terminal' from stop names
+  const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
 
   // Load stops when modal opens
   useEffect(() => {
@@ -150,9 +153,10 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-6 border-b">
+        <div className="p-6 border-b bg-gradient-to-r from-ferry-orange-light to-white">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-charcoal">
+            <h2 className="text-2xl font-bold text-charcoal flex items-center gap-2">
+              <span className="text-3xl">🛥️</span>
               Select Ferry Stops
             </h2>
             <button
@@ -170,7 +174,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
         <div className="p-6">
           {loading ? (
             <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ferry-blue"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ferry-orange"></div>
             </div>
           ) : error ? (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
@@ -186,11 +190,11 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                 <select
                   value={selectedOrigin}
                   onChange={(e) => setSelectedOrigin(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-blue focus:border-ferry-blue"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-orange focus:border-ferry-orange transition-colors"
                 >
                   {availableStops.map(stop => (
                     <option key={stop.id} value={stop.id}>
-                      {stop.name}
+                      {cleanStopName(stop.name)}
                     </option>
                   ))}
                 </select>
@@ -204,7 +208,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                 <select
                   value={selectedDestination}
                   onChange={(e) => setSelectedDestination(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-blue focus:border-ferry-blue"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-orange focus:border-ferry-orange transition-colors"
                   disabled={validDestinations.length === 0}
                 >
                   {validDestinations.length > 0 ? (
@@ -212,7 +216,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                       const stop = availableStops.find(s => s.id === stopId);
                       return stop ? (
                         <option key={stop.id} value={stop.id}>
-                          {stop.name}
+                          {cleanStopName(stop.name)}
                         </option>
                       ) : null;
                     })
@@ -229,12 +233,12 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
 
               {/* Route Preview */}
               {selectedOrigin && selectedDestination && (
-                <div className="bg-blue-50 rounded-lg p-4">
+                <div className="bg-ferry-orange-light rounded-lg p-4 border border-ferry-orange/20">
                   <p className="text-sm text-gray-700">
                     <span className="font-medium">Selected Route:</span>
                   </p>
-                  <p className="text-lg font-semibold text-ferry-blue mt-1">
-                    {availableStops.find(s => s.id === selectedOrigin)?.name} → {availableStops.find(s => s.id === selectedDestination)?.name}
+                  <p className="text-lg font-semibold text-ferry-orange mt-1">
+                    {cleanStopName(availableStops.find(s => s.id === selectedOrigin)?.name)} → {cleanStopName(availableStops.find(s => s.id === selectedDestination)?.name)}
                   </p>
                 </div>
               )}
@@ -256,14 +260,14 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
           <div className="p-6 border-t bg-gray-50 flex justify-end space-x-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all hover:scale-105"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={!selectedOrigin || !selectedDestination}
-              className="px-4 py-2 bg-ferry-blue text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-ferry-orange text-white rounded-lg hover:bg-ferry-orange-dark transition-all hover:scale-105 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Save
             </button>

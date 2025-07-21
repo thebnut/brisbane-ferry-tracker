@@ -13,10 +13,21 @@ class StaticGTFSService {
     this.ferryStops = null;
     this.stopConnectivity = null;
     this.debug = DEBUG_CONFIG.enableLogging;
+    
+    // URL parameter support: Add ?useGitHub=true to use GitHub data on localhost
+    // This helps developers test with the latest production data
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceGitHub = urlParams.get('useGitHub') || urlParams.get('useGithub');
+    
     // GitHub Pages URL for pre-processed schedule data
-    this.githubScheduleUrl = window.location.hostname === 'localhost' 
+    this.githubScheduleUrl = (window.location.hostname === 'localhost' && !forceGitHub)
       ? '/schedule-data/latest.json'
       : 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data/latest.json';
+    
+    // Log the data source for debugging on localhost
+    if (window.location.hostname === 'localhost') {
+      console.log(`Using ${forceGitHub ? 'GitHub' : 'local'} schedule data on localhost`);
+    }
   }
 
   // Debug logging helper

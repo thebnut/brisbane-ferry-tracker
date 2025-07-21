@@ -226,10 +226,24 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
                     })()}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
-                    Journey time: {differenceInMinutes(
-                      departure.destinationArrivalTime || destinationArrival, 
-                      departure.departureTime
-                    )} mins
+                    Journey time: {(() => {
+                      const totalMins = differenceInMinutes(
+                        departure.destinationArrivalTime || destinationArrival, 
+                        departure.departureTime
+                      );
+                      
+                      if (totalMins >= 60) {
+                        const hours = Math.floor(totalMins / 60);
+                        const mins = totalMins % 60;
+                        
+                        if (mins === 0) {
+                          return `${hours} hr${hours > 1 ? 's' : ''}`;
+                        }
+                        return `${hours} hr${hours > 1 ? 's' : ''} ${mins} min${mins > 1 ? 's' : ''}`;
+                      }
+                      
+                      return `${totalMins} min${totalMins !== 1 ? 's' : ''}`;
+                    })()}
                   </p>
                 </>
               ) : (
