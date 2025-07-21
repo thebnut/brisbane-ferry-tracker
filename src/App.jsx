@@ -28,16 +28,10 @@ function App() {
   const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData(selectedStops);
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
   const [showMap, setShowMap] = useState(false);
-  // Determine default tab based on time of day
+  // Determine default tab
   const getDefaultTab = () => {
-    const now = new Date();
-    const brisbanTime = toZonedTime(now, 'Australia/Brisbane');
-    const hours = brisbanTime.getHours();
-    const minutes = brisbanTime.getMinutes();
-    const totalMinutes = hours * 60 + minutes;
-    
-    // After 12:30 PM (750 minutes) until midnight, default to inbound
-    return totalMinutes >= 750 ? 'inbound' : 'outbound';
+    // Always default to outbound (first departure board)
+    return 'outbound';
   };
   
   const [activeTab, setActiveTab] = useState(getDefaultTab()); // 'outbound' | 'inbound' - for mobile tabs
