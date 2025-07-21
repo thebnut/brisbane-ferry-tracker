@@ -229,7 +229,7 @@ The app uses TransLink's GTFS-RT (General Transit Feed Specification - Realtime)
 
 ### Branch Strategy
 
-- **`main`** - Production branch → Deploys to https://ferry.lifemap.au
+- **`main`** - Production branch → Deploys to https://ferry.lifemap.au and https://www.brisbaneferry.com
 - **`develop`** - Pre-production branch → Deploys to https://brisbane-ferry-tracker.vercel.app
 
 ### Making Changes

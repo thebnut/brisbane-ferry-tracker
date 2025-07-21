@@ -7,7 +7,9 @@ This is a single-page application that displays real-time ferry departures betwe
 
 ### Primary Production Deployment: Vercel
 **URL**: https://brisbane-ferry-tracker.vercel.app/
-**Custom Domain**: https://ferry.lifemap.au/
+**Custom Domains**: 
+- https://ferry.lifemap.au/
+- https://www.brisbaneferry.com/
 - ✅ **Full functionality** - Live tracking + schedule data
 - ✅ **Real-time updates** via CORS proxy
 - ✅ **GitHub-hosted schedule** loaded first (fast)
@@ -231,7 +233,7 @@ Always check if GitHub has newer data before using cache:
 2. **Live Data**: TransLink API → Vercel Proxy → Vercel deployment only
 
 ### GitHub Repository Structure
-- **`main` branch**: Production code → Deploys to ferry.lifemap.au
+- **`main` branch**: Production code → Deploys to ferry.lifemap.au and www.brisbaneferry.com
 - **`develop` branch**: Pre-production code → Deploys to brisbane-ferry-tracker.vercel.app
 - **schedule-data/**: Updated daily by GitHub Action (on main branch)
 - **schedule-processor/**: Node.js app that generates schedule JSON
@@ -250,7 +252,7 @@ git push
 git checkout main
 git merge develop
 git push
-# Auto-deploys to ferry.lifemap.au
+# Auto-deploys to ferry.lifemap.au and www.brisbaneferry.com
 
 # Return to development
 git checkout develop
@@ -268,12 +270,12 @@ vercel --prod
 ### Environment URLs
 | Environment | URL | Branch | Purpose |
 |------------|-----|--------|---------|
-| Production | https://ferry.lifemap.au | `main` | Live site for end users |
+| Production | https://ferry.lifemap.au<br>https://www.brisbaneferry.com | `main` | Live site for end users |
 | Pre-production | https://brisbane-ferry-tracker.vercel.app | `develop` | Testing new features |
 | Local Dev | http://localhost:5173 | `develop` | Active development |
 
 ### Key Differences Between Deployments
-| Feature | Production (ferry.lifemap.au) | Pre-prod (vercel.app) | GitHub Pages |
+| Feature | Production (ferry.lifemap.au / brisbaneferry.com) | Pre-prod (vercel.app) | GitHub Pages |
 |---------|-------------------------------|----------------------|--------------|
 | Live ferry tracking | ✅ | ✅ | ❌ |
 | Live ferry map | ✅ | ✅ | ❌ |
@@ -304,7 +306,7 @@ vercel --prod
 5. **Smart Mobile Tab Selection** - Automatically shows relevant direction based on time:
    - Before 12:30 PM: Shows "To [Destination]" (outbound)
    - After 12:30 PM: Shows "To [Origin]" (inbound)
-6. **Custom Domain Support** - ferry.lifemap.au works with proper CORS handling
+6. **Custom Domain Support** - ferry.lifemap.au and www.brisbaneferry.com work with proper CORS handling
 7. **Map Improvements**:
    - CartoDB Positron tiles for modern, minimal appearance
    - Removed river overlay for cleaner look
@@ -452,9 +454,96 @@ moreButtons.forEach(btn => btn.click());
 - **Smart Visibility**: UI elements hide when not relevant (e.g., no express services)
 - **Progressive Enhancement**: Core functionality works even without all data sources
 
+## Recent UI/UX Updates (January 2025)
+
+### Time Display Improvements
+1. **Hour Display for Long Countdowns**
+   - Ferries > 60 minutes away show hours (e.g., "in 1 hr 28 mins")
+   - Cleaner display for ferries > 1 hour away (no countdown shown)
+   - Journey times in modal also show hours when applicable
+
+2. **Mobile Text Clipping Fix**
+   - Scheduled time moved to separate line to prevent clipping
+   - Format: "Scheduled: X:XX PM" on its own line
+   - Better readability on small screens
+
+3. **Departure Item Alignment**
+   - Fixed vertical misalignment between columns on desktop
+   - Added minimum height (`min-h-[6rem]`) to all departure items
+   - Consistent spacing with invisible placeholder for scheduled time
+   - Removed occupancy status display for cleaner interface
+   - Moved delay information to right side
+
+4. **Stop Selector Modal Improvements**
+   - Orange theme matching app design
+   - Removed "ferry terminal" from stop names
+   - Added ferry emoji (🛥️) to header
+   - Improved focus states and animations
+
+5. **"On Time" Status**
+   - Shows "Sched Dept: [time]" for real-time ferries with no delay (January 2025)
+   - Previously showed "On time" - changed to show scheduled departure time
+   - Helps passengers know when ferry will depart even if it arrives early
+   - Falls back to "On time" only if scheduled time unavailable
+
+### Logo and Branding Updates
+1. **New Logo**: BrisbaneFerry Departure Boards
+   - Replaced old logo with bf.com_logo.png
+   - Significantly larger display (h-16 md:h-28)
+   - Left-aligned positioning
+   - Removed separate "Brisbane Ferry Tracker" text
+   - Compact header with minimal padding (py-1)
+
+2. **Mobile Logo Handling**
+   - Added max-width constraint to prevent squishing
+   - Responsive sizing: smaller on mobile (h-16) vs desktop (h-28)
+
+### Developer Features
+1. **URL Parameter for GitHub Data**
+   - Add `?useGitHub=true` to use production data on localhost
+   - Helps test with latest schedule without modifying code
+   - Console logging shows which data source is active
+
+2. **Return Leg Focus Feature** (Removed but documented)
+   - Previously auto-switched to inbound tab after 12:30 PM
+   - Removed January 2025 based on user feedback
+   - Full implementation details in `returnLegFocus.md`
+   - Can be reimplemented as user-configurable option
+
+## Important Implementation Details
+
+### Mobile Tab Behavior
+- Always defaults to outbound (first departure board)
+- No automatic switching based on time of day
+- Users can manually switch between tabs
+
+### Stop Name Cleaning
+- `cleanStopName()` function removes " ferry terminal" suffix
+- Applied consistently across:
+  - DepartureBoard headers
+  - StopSelectorModal dropdowns and preview
+  - Mobile tab headers
+
+### Countdown Timer Logic
+```javascript
+// Don't show countdown for trips more than 1 hour away
+if (minutesUntil > 60) return null;
+```
+
+### Status Display Priority
+1. If not real-time: Show invisible placeholder
+2. If real-time with delay: Show "Scheduled: X:XX PM"
+3. If real-time without delay: Show "Sched Dept: X:XX PM" (shows scheduled departure time)
+4. If real-time but no scheduled time available: Show "On time"
+
 ## Future Enhancements to Consider
 1. Service alerts integration
 2. Walking time to terminal
 3. Favorite routes
 4. Push notifications for imminent departures
 5. Historical reliability data
+6. User settings/preferences modal
+7. Reimplement return leg focus as optional feature
+8. Dark mode support
+9. PWA capabilities for offline access
+10. Trip planning (multi-stop journeys)
