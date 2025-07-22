@@ -535,6 +535,13 @@ moreButtons.forEach(btn => btn.click());
    - Full implementation details in `returnLegFocus.md`
    - Can be reimplemented as user-configurable option
 
+3. **Remember Selection Toggle Persistence** (Fixed January 2025)
+   - Issue: Toggle state wasn't persisting across page reloads
+   - Solution: Store the preference itself in localStorage
+   - Modal shows if: no saved stops OR remember preference is false
+   - When remember is turned OFF, also clears reverse preference
+   - Consistent behavior with both toggle states now persisting
+
 ## Important Implementation Details
 
 ### Mobile Tab Behavior
