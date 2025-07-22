@@ -10,7 +10,9 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const [validDestinations, setValidDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [rememberSelection, setRememberSelection] = useState(false);
+  const [rememberSelection, setRememberSelection] = useState(() => {
+    return localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION) === 'true';
+  });
   const [reverseAfterLunch, setReverseAfterLunch] = useState(() => {
     return localStorage.getItem(STORAGE_KEYS.REVERSE_AFTER_LUNCH) === 'true';
   });
@@ -109,6 +111,13 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
     const destinationStop = availableStops.find(s => s.id === selectedDestination);
     
     if (originStop && destinationStop) {
+      // Save the remember preference itself
+      if (rememberSelection) {
+        localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true');
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.REMEMBER_SELECTION);
+      }
+      
       onSave({
         outbound: {
           id: selectedOrigin,
@@ -258,10 +267,17 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                       role="switch"
                       aria-checked={rememberSelection}
                       onClick={() => {
-                        setRememberSelection(!rememberSelection);
-                        // Reset reverse after lunch when turning off remember
-                        if (rememberSelection) {
+                        const newValue = !rememberSelection;
+                        setRememberSelection(newValue);
+                        
+                        // Save the preference immediately
+                        if (newValue) {
+                          localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true');
+                        } else {
+                          localStorage.removeItem(STORAGE_KEYS.REMEMBER_SELECTION);
+                          // Reset reverse after lunch when turning off remember
                           setReverseAfterLunch(false);
+                          localStorage.removeItem(STORAGE_KEYS.REVERSE_AFTER_LUNCH);
                         }
                       }}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ferry-orange focus:ring-offset-2 ${

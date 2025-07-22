@@ -33,10 +33,15 @@ function App() {
     return DEFAULT_STOPS;
   });
   
-  // Show stop selector if no permanently saved stops
+  // Show stop selector if no permanently saved stops OR remember preference is false
   const [showStopSelector, setShowStopSelector] = useState(() => {
-    // Always show modal if user hasn't saved permanently
-    return !localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
+    // Show modal if:
+    // 1. User hasn't saved stops permanently OR
+    // 2. User has turned off "Remember selection" preference
+    const hasRememberPreference = localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION) === 'true';
+    const hasSavedStops = localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
+    
+    return !hasSavedStops || !hasRememberPreference;
   });
 
   const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData(selectedStops);

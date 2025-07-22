@@ -50,7 +50,8 @@ export const STORAGE_KEYS = {
   SCHEDULE_CACHE: 'brisbane-ferry-schedule-cache',
   SELECTED_STOPS: 'brisbane-ferry-selected-stops',
   SELECTED_STOPS_SESSION: 'brisbane-ferry-selected-stops-session',
-  REVERSE_AFTER_LUNCH: 'brisbane-ferry-reverse-after-lunch'
+  REVERSE_AFTER_LUNCH: 'brisbane-ferry-reverse-after-lunch',
+  REMEMBER_SELECTION: 'brisbane-ferry-remember-selection'
 };
 
 // Default stops for backward compatibility
