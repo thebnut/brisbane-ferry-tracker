@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import staticGtfsService from '../services/staticGtfsService';
-import { DEFAULT_STOPS } from '../utils/constants';
+import { DEFAULT_STOPS, STORAGE_KEYS } from '../utils/constants';
 import { FERRY_STOPS, TEMPORARY_CONNECTIVITY } from '../utils/ferryStops';
 
 const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
@@ -11,6 +11,9 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rememberSelection, setRememberSelection] = useState(false);
+  const [reverseAfterLunch, setReverseAfterLunch] = useState(() => {
+    return localStorage.getItem(STORAGE_KEYS.REVERSE_AFTER_LUNCH) === 'true';
+  });
   
   // Helper function to remove 'ferry terminal' from stop names
   const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
@@ -115,7 +118,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
           id: selectedDestination,
           name: destinationStop.name
         }
-      }, rememberSelection);
+      }, rememberSelection, reverseAfterLunch);
     }
   };
 
@@ -254,7 +257,13 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                       type="button"
                       role="switch"
                       aria-checked={rememberSelection}
-                      onClick={() => setRememberSelection(!rememberSelection)}
+                      onClick={() => {
+                        setRememberSelection(!rememberSelection);
+                        // Reset reverse after lunch when turning off remember
+                        if (rememberSelection) {
+                          setReverseAfterLunch(false);
+                        }
+                      }}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ferry-orange focus:ring-offset-2 ${
                         rememberSelection ? 'bg-ferry-orange' : 'bg-gray-200'
                       }`}
@@ -269,6 +278,33 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                   <p className="text-xs text-gray-500">
                     Your stop selection will be saved for next time. You can always change it later using the settings icon.
                   </p>
+                  
+                  {/* Reverse direction toggle - only visible when remember is on */}
+                  {rememberSelection && (
+                    <>
+                      <label className="flex items-center justify-between cursor-pointer mt-4">
+                        <span className="text-sm text-gray-700">Reverse direction after lunch</span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={reverseAfterLunch}
+                          onClick={() => setReverseAfterLunch(!reverseAfterLunch)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ferry-orange focus:ring-offset-2 ${
+                            reverseAfterLunch ? 'bg-ferry-orange' : 'bg-gray-200'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              reverseAfterLunch ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        The main view will show the reverse direction after 12:30pm each day. This helps regular commuters see their return journey in the afternoon.
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
               

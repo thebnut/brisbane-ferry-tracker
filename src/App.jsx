@@ -16,12 +16,25 @@ function App() {
   // v1.2.0 - Modern orange-themed redesign with animations (2025-07-19)
   // Load saved stops or use defaults
   const [selectedStops, setSelectedStops] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
-    return saved ? JSON.parse(saved) : DEFAULT_STOPS;
+    // Check localStorage first (permanent storage)
+    const savedPermanent = localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
+    if (savedPermanent) {
+      return JSON.parse(savedPermanent);
+    }
+    
+    // Check sessionStorage (temporary storage)
+    const savedSession = sessionStorage.getItem(STORAGE_KEYS.SELECTED_STOPS_SESSION);
+    if (savedSession) {
+      return JSON.parse(savedSession);
+    }
+    
+    // Use defaults if nothing saved
+    return DEFAULT_STOPS;
   });
   
-  // Show stop selector if no saved stops
+  // Show stop selector if no permanently saved stops
   const [showStopSelector, setShowStopSelector] = useState(() => {
+    // Always show modal if user hasn't saved permanently
     return !localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
   });
 
@@ -30,19 +43,46 @@ function App() {
   const [showMap, setShowMap] = useState(false);
   // Determine default tab
   const getDefaultTab = () => {
-    // Always default to outbound (first departure board)
-    return 'outbound';
+    // Check if reverse after lunch is enabled
+    const reverseAfterLunch = localStorage.getItem(STORAGE_KEYS.REVERSE_AFTER_LUNCH) === 'true';
+    
+    if (!reverseAfterLunch) {
+      return 'outbound';
+    }
+    
+    // Original time-based logic
+    const now = new Date();
+    const brisbanTime = toZonedTime(now, 'Australia/Brisbane');
+    const hours = brisbanTime.getHours();
+    const minutes = brisbanTime.getMinutes();
+    const totalMinutes = hours * 60 + minutes;
+    
+    // After 12:30 PM (750 minutes) until midnight, default to inbound
+    return totalMinutes >= 750 ? 'inbound' : 'outbound';
   };
   
   const [activeTab, setActiveTab] = useState(getDefaultTab()); // 'outbound' | 'inbound' - for mobile tabs
   const [selectedDeparture, setSelectedDeparture] = useState(null);
   
   // Handle stop selection change
-  const handleStopChange = (newStops, rememberSelection = true) => {
+  const handleStopChange = (newStops, rememberSelection = true, reverseAfterLunch = false) => {
     setSelectedStops(newStops);
+    
     if (rememberSelection) {
+      // Save permanently to localStorage
       localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, JSON.stringify(newStops));
+      // Save reverse after lunch preference
+      localStorage.setItem(STORAGE_KEYS.REVERSE_AFTER_LUNCH, reverseAfterLunch.toString());
+      // Clear sessionStorage since we're saving permanently
+      sessionStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS_SESSION);
+    } else {
+      // Save only to sessionStorage (cleared when browser closes)
+      sessionStorage.setItem(STORAGE_KEYS.SELECTED_STOPS_SESSION, JSON.stringify(newStops));
+      // Make sure localStorage is cleared
+      localStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS);
+      localStorage.removeItem(STORAGE_KEYS.REVERSE_AFTER_LUNCH);
     }
+    
     setShowStopSelector(false);
     // Force data refresh with new stops
     refresh();
