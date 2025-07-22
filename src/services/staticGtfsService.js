@@ -26,7 +26,7 @@ class StaticGTFSService {
     
     // Log the data source for debugging on localhost
     if (window.location.hostname === 'localhost') {
-      console.log(`Using ${forceGitHub ? 'GitHub' : 'local'} schedule data on localhost`);
+      console.log(`📍 Using ${forceGitHub ? 'GitHub' : 'local'} schedule data`);
     }
   }
 
@@ -298,7 +298,8 @@ class StaticGTFSService {
       const direction = dep.stopId === selectedStops.outbound.id ? 'outbound' : 'inbound';
       
       if (this.debug) {
-        console.log(`GitHub departure: Trip ${dep.tripId} from ${dep.stopId} to ${destinationStopId}, arrival: ${destinationArrivalTime.toISOString()}`);
+        // Commented out verbose logging
+        // console.log(`GitHub departure: Trip ${dep.tripId} from ${dep.stopId} to ${destinationStopId}, arrival: ${destinationArrivalTime.toISOString()}`);
       }
       
       processedDepartures.push({
@@ -308,7 +309,10 @@ class StaticGTFSService {
       });
     });
     
-    this.log(`Processed ${processedDepartures.length} departures from GitHub data for selected stops`);
+    // Summary log only
+    if (this.debug && processedDepartures.length > 50) {
+      this.log(`Processed ${processedDepartures.length} departures from GitHub data`);
+    }
     return processedDepartures;
   }
 

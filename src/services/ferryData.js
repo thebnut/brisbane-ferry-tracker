@@ -44,7 +44,8 @@ class FerryDataService {
             if (update.stopId) {
               // Log first few stops from ferry routes to see the pattern
               if (ferryRoutes.size <= 3 && stopTimeUpdates.indexOf(update) < 3) {
-                this.log(`Sample stop on ${routeId}: ${update.stopId}`);
+                // Commented out verbose logging
+                // this.log(`Sample stop on ${routeId}: ${update.stopId}`);
               }
               
               if (relevantStopIds.includes(update.stopId)) {
@@ -86,7 +87,8 @@ class FerryDataService {
         });
         
         // Debug: log the sorted stop sequence for trips that pass initial filter
-        this.log(`Trip ${trip.tripId} sorted stop sequence: ${sortedStops.map(s => `${s.stopId}(${s.stopSequence})`).join(' -> ')}`);
+        // Commented out verbose logging
+        // this.log(`Trip ${trip.tripId} sorted stop sequence: ${sortedStops.map(s => `${s.stopId}(${s.stopSequence})`).join(' -> ')}`);
       }
       return isRelevantRoute && hasOutboundStop && hasInboundStop;
     });
@@ -133,9 +135,10 @@ class FerryDataService {
 
       // Log stop sequence for debugging
       if (trip.routeId.startsWith('F11') || trip.routeId.startsWith('F1')) {
-        this.log(`Trip ${trip.tripId} sorted stop sequence:`, 
-          stopTimeUpdates.map(s => `${s.stopId}(seq:${s.stopSequence})`).join(' -> ')
-        );
+        // Commented out verbose logging
+        // this.log(`Trip ${trip.tripId} sorted stop sequence:`, 
+        //   stopTimeUpdates.map(s => `${s.stopId}(seq:${s.stopSequence})`).join(' -> ')
+        // );
       }
       
       // Process each stop in the trip
@@ -216,7 +219,10 @@ class FerryDataService {
       });
     });
 
-    this.log(`Total departures found: ${departures.length}`);
+    // Summary log only for large results
+    if (this.debug && departures.length > 20) {
+      this.log(`Found ${departures.length} total departures`);
+    }
     return departures;
   }
 
@@ -296,12 +302,16 @@ class FerryDataService {
     const scheduledByTripId = new Map();
     const processedRealtime = new Set();
     
-    this.log(`Merging ${scheduledDepartures.length} scheduled with ${realtimeDepartures.length} realtime departures`);
+    // Only log if we have significant data
+    if (this.debug && (scheduledDepartures.length > 20 || realtimeDepartures.length > 5)) {
+      this.log(`Merging ${realtimeDepartures.length} realtime + ${scheduledDepartures.length} scheduled departures`);
+    }
     
     // Index scheduled departures by tripId and by time
     scheduledDepartures.forEach(dep => {
       if (this.debug && dep.destinationArrivalTime) {
-        console.log(`Scheduled departure has arrival time: Trip ${dep.tripId}, arrival: ${dep.destinationArrivalTime}`);
+        // Commented out verbose logging
+        // console.log(`Scheduled departure has arrival time: Trip ${dep.tripId}, arrival: ${dep.destinationArrivalTime}`);
       }
       
       // Store by tripId for exact matching
