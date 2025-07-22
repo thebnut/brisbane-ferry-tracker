@@ -72,7 +72,9 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
         })).sort((a, b) => a.name.localeCompare(b.name));
       }
       
-      setAvailableStops(stops);
+      // Sort stops alphabetically by name
+      const sortedStops = [...stops].sort((a, b) => a.name.localeCompare(b.name));
+      setAvailableStops(sortedStops);
       
       // Get valid destinations
       let destinations = [];
@@ -239,14 +241,15 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                   disabled={validDestinations.length === 0}
                 >
                   {validDestinations.length > 0 ? (
-                    validDestinations.map(stopId => {
-                      const stop = availableStops.find(s => s.id === stopId);
-                      return stop ? (
+                    validDestinations
+                      .map(stopId => availableStops.find(s => s.id === stopId))
+                      .filter(stop => stop !== undefined)
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map(stop => (
                         <option key={stop.id} value={stop.id}>
                           {cleanStopName(stop.name)}
                         </option>
-                      ) : null;
-                    })
+                      ))
                   ) : (
                     <option value="">No direct connections available</option>
                   )}
