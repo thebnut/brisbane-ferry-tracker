@@ -11,6 +11,7 @@ import useFerryData from './hooks/useFerryData';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 function App() {
   // v1.2.0 - Modern orange-themed redesign with animations (2025-07-19)
@@ -291,6 +292,9 @@ function App() {
         currentStops={selectedStops}
         onSave={handleStopChange}
       />
+      
+      {/* Vercel Speed Insights */}
+      <SpeedInsights />
     </div>
   );
 }
