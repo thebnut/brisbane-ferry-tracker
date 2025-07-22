@@ -17,6 +17,20 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
     return localStorage.getItem(STORAGE_KEYS.REVERSE_AFTER_LUNCH) === 'true';
   });
   
+  // Check if user is on mobile device
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    // Check window width on mount and resize
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // md breakpoint in Tailwind
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
   // Helper function to remove 'ferry terminal' from stop names
   const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
 
@@ -295,8 +309,8 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                     Your stop selection will be saved for next time. You can always change it later using the settings icon.
                   </p>
                   
-                  {/* Reverse direction toggle - only visible when remember is on */}
-                  {rememberSelection && (
+                  {/* Reverse direction toggle - only visible when remember is on AND on mobile */}
+                  {rememberSelection && isMobile && (
                     <>
                       <label className="flex items-center justify-between cursor-pointer mt-4">
                         <span className="text-sm text-gray-700">Reverse direction after lunch</span>
@@ -317,7 +331,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                         </button>
                       </label>
                       <p className="text-xs text-gray-500 mt-1">
-                        On Mobile, the direction will reverse after 12:30pm each day. This helps regular commuters see their return journey in the afternoon.
+                        The direction will reverse after 12:30pm each day. This helps regular commuters see their return journey in the afternoon.
                       </p>
                     </>
                   )}
