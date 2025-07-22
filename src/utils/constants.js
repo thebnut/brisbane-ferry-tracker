@@ -29,7 +29,20 @@ export const API_CONFIG = {
 
 // Debug configuration
 export const DEBUG_CONFIG = {
-  enableLogging: false // Set to true to enable debug logging
+  enableLogging: (() => {
+    // Enable debug logging for localhost and develop environments
+    const hostname = window.location.hostname;
+    const isDevelopment = hostname === 'localhost' || 
+                         hostname === '127.0.0.1' ||
+                         hostname.includes('brisbane-ferry-tracker.vercel.app');
+    
+    // Log debug mode status
+    if (isDevelopment) {
+      console.log(`🐛 Debug mode enabled for ${hostname}`);
+    }
+    
+    return isDevelopment;
+  })()
 };
 
 // LocalStorage keys
