@@ -317,7 +317,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                         </button>
                       </label>
                       <p className="text-xs text-gray-500 mt-1">
-                        The main view will show the reverse direction after 12:30pm each day. This helps regular commuters see their return journey in the afternoon.
+                        On Mobile, the direction will reverse after 12:30pm each day. This helps regular commuters see their return journey in the afternoon.
                       </p>
                     </>
                   )}
