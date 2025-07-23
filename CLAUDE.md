@@ -542,6 +542,17 @@ moreButtons.forEach(btn => btn.click());
    - When remember is turned OFF, also clears reverse preference
    - Consistent behavior with both toggle states now persisting
 
+4. **Dropdown Headers for Quick Stop Changes** (Added January 2025)
+   - **Desktop**: Origin and destination shown as dropdowns in board headers
+   - **Mobile**: Dropdowns replace tabs, with switch direction button (⇄)
+   - **Temporary selections**: Changes via dropdowns don't persist if "Remember selection" is ON
+   - **Validation**: Destinations update based on selected origin
+   - **Components**:
+     - `StopDropdown`: Reusable styled dropdown component
+     - `BoardHeader`: Desktop header with two dropdowns
+     - `MobileBoardHeader`: Mobile header with dropdowns and switch button
+   - **State Management**: `temporaryStops` state tracks session-based selections
+
 ## Important Implementation Details
 
 ### Mobile Tab Behavior
