@@ -85,16 +85,13 @@ const DepartureItem = ({ departure, onClick }) => {
               </span>
             )}
           </p>
-          <p className={clsx(
-            "text-xs mt-0.5",
-            departure.isRealtime ? "text-gray-500" : "invisible"
-          )}>
-            {!departure.isRealtime 
-              ? "Placeholder"
-              : departure.scheduledTime && format(departureTimeZoned, 'h:mm a') !== format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')
+          {departure.isRealtime && (
+            <p className="text-xs mt-0.5 text-gray-500">
+              {departure.scheduledTime && format(departureTimeZoned, 'h:mm a') !== format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')
                 ? `Scheduled: ${format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')}`
                 : "On time"}
-          </p>
+            </p>
+          )}
         </div>
       </div>
       
