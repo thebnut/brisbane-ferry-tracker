@@ -10,8 +10,6 @@ import StopSelectorModal from './components/StopSelectorModal';
 import MobileBoardHeader from './components/MobileBoardHeader';
 import useFerryData from './hooks/useFerryData';
 import staticGtfsService from './services/staticGtfsService';
-import { toZonedTime } from 'date-fns-tz';
-import clsx from 'clsx';
 import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
@@ -62,36 +60,19 @@ function App() {
   const [showMap, setShowMap] = useState(false);
   // Determine default tab
   const getDefaultTab = () => {
-    // Check if reverse after lunch is enabled
-    const reverseAfterLunch = localStorage.getItem(STORAGE_KEYS.REVERSE_AFTER_LUNCH) === 'true';
-    
-    if (!reverseAfterLunch) {
-      return 'outbound';
-    }
-    
-    // Original time-based logic
-    const now = new Date();
-    const brisbanTime = toZonedTime(now, 'Australia/Brisbane');
-    const hours = brisbanTime.getHours();
-    const minutes = brisbanTime.getMinutes();
-    const totalMinutes = hours * 60 + minutes;
-    
-    // After 12:30 PM (750 minutes) until midnight, default to inbound
-    return totalMinutes >= 750 ? 'inbound' : 'outbound';
+    return 'outbound';
   };
   
   const [activeTab, setActiveTab] = useState(getDefaultTab()); // 'outbound' | 'inbound' - for mobile tabs
   const [selectedDeparture, setSelectedDeparture] = useState(null);
   
   // Handle stop selection change
-  const handleStopChange = (newStops, rememberSelection = true, reverseAfterLunch = false) => {
+  const handleStopChange = (newStops, rememberSelection = true) => {
     setSelectedStops(newStops);
     
     if (rememberSelection) {
       // Save permanently to localStorage
       localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, JSON.stringify(newStops));
-      // Save reverse after lunch preference
-      localStorage.setItem(STORAGE_KEYS.REVERSE_AFTER_LUNCH, reverseAfterLunch.toString());
       // Clear sessionStorage since we're saving permanently
       sessionStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS_SESSION);
     } else {
@@ -99,7 +80,6 @@ function App() {
       sessionStorage.setItem(STORAGE_KEYS.SELECTED_STOPS_SESSION, JSON.stringify(newStops));
       // Make sure localStorage is cleared
       localStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS);
-      localStorage.removeItem(STORAGE_KEYS.REVERSE_AFTER_LUNCH);
     }
     
     setShowStopSelector(false);

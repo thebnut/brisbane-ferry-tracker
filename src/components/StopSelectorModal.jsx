@@ -13,23 +13,6 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const [rememberSelection, setRememberSelection] = useState(() => {
     return localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION) === 'true';
   });
-  const [reverseAfterLunch, setReverseAfterLunch] = useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.REVERSE_AFTER_LUNCH) === 'true';
-  });
-  
-  // Check if user is on mobile device
-  const [isMobile, setIsMobile] = useState(false);
-  
-  useEffect(() => {
-    // Check window width on mount and resize
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768); // md breakpoint in Tailwind
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
   
   // Helper function to remove 'ferry terminal' from stop names
   const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
@@ -143,7 +126,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
           id: selectedDestination,
           name: destinationStop.name
         }
-      }, rememberSelection, reverseAfterLunch);
+      }, rememberSelection);
     }
   };
 
@@ -292,9 +275,6 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                           localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true');
                         } else {
                           localStorage.removeItem(STORAGE_KEYS.REMEMBER_SELECTION);
-                          // Reset reverse after lunch when turning off remember
-                          setReverseAfterLunch(false);
-                          localStorage.removeItem(STORAGE_KEYS.REVERSE_AFTER_LUNCH);
                         }
                       }}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ferry-orange focus:ring-offset-2 ${
@@ -311,33 +291,6 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                   <p className="text-xs text-gray-500">
                     Your stop selection will be saved for next time. You can always change it later using the settings icon.
                   </p>
-                  
-                  {/* Reverse direction toggle - only visible when remember is on AND on mobile */}
-                  {rememberSelection && isMobile && (
-                    <>
-                      <label className="flex items-center justify-between cursor-pointer mt-4">
-                        <span className="text-sm text-gray-700">Reverse direction after lunch</span>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={reverseAfterLunch}
-                          onClick={() => setReverseAfterLunch(!reverseAfterLunch)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ferry-orange focus:ring-offset-2 ${
-                            reverseAfterLunch ? 'bg-ferry-orange' : 'bg-gray-200'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              reverseAfterLunch ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      </label>
-                      <p className="text-xs text-gray-500 mt-1">
-                        The direction will reverse after 12:30pm each day. This helps regular commuters see their return journey in the afternoon.
-                      </p>
-                    </>
-                  )}
                 </div>
               </div>
               
