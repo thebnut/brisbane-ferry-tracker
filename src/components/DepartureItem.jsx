@@ -17,23 +17,6 @@ const DepartureItem = ({ departure, onClick }) => {
   const tomorrowStart = startOfDay(addDays(currentTimeZoned, 1));
   const isNotToday = isAfter(departureTimeZoned, tomorrowStart) || isTomorrow(departureTimeZoned);
   
-  // Memoize status text to prevent rendering issues on mobile
-  const statusText = React.useMemo(() => {
-    if (!departure.isRealtime) return null;
-    
-    if (!departure.scheduledTime) return "On time";
-    
-    // Compare timestamps directly, not formatted strings
-    const actualTime = departure.departureTime.getTime();
-    const scheduledTime = new Date(departure.scheduledTime).getTime();
-    
-    // Allow for small differences (< 60 seconds) to be considered "on time"
-    if (Math.abs(actualTime - scheduledTime) < 60000) {
-      return "On time";
-    }
-    
-    return `Scheduled: ${format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')}`;
-  }, [departure.isRealtime, departure.departureTime, departure.scheduledTime]);
   
   const getCountdownColor = () => {
     if (minutesUntil < 1) return 'bg-gradient-to-r from-red-500 to-ferry-orange text-white border-0 animate-pulse';
@@ -103,10 +86,22 @@ const DepartureItem = ({ departure, onClick }) => {
               </span>
             )}
           </p>
-          {departure.isRealtime && statusText && (
-            <p className="text-xs mt-0.5 text-gray-500" key={`status-${departure.tripId}-${departure.departureTime.getTime()}`}>
-              {statusText}
-            </p>
+          {departure.isRealtime && (
+            departure.scheduledTime && Math.abs(departure.departureTime.getTime() - new Date(departure.scheduledTime).getTime()) >= 60000 ? (
+              <p 
+                className="text-xs mt-0.5 text-gray-500" 
+                style={{ transform: 'translateZ(0)', willChange: 'contents' }}
+              >
+                Scheduled: {format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')}
+              </p>
+            ) : (
+              <p 
+                className="text-xs mt-0.5 text-gray-500" 
+                style={{ transform: 'translateZ(0)', willChange: 'contents' }}
+              >
+                On time
+              </p>
+            )
           )}
         </div>
       </div>
