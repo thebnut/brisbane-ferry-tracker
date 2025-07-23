@@ -91,7 +91,7 @@ const DepartureItem = ({ departure, onClick }) => {
           )}>
             {!departure.isRealtime 
               ? "Placeholder"
-              : departure.delay > 0 && departure.scheduledTime
+              : departure.scheduledTime && format(departureTimeZoned, 'h:mm a') !== format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')
                 ? `Scheduled: ${format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')}`
                 : "On time"}
           </p>
