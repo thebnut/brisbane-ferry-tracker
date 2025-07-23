@@ -16,9 +16,6 @@ const DepartureBoard = ({
   isMobile = false
 }) => {
   const [showMore, setShowMore] = useState(false);
-  const getDirectionEmoji = () => {
-    return direction === 'outbound' ? '→' : '←';
-  };
 
   const getTitle = () => {
     if (!selectedStops) {

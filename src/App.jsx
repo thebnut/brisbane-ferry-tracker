@@ -135,7 +135,7 @@ function App() {
     };
     
     loadStops();
-  }, []);
+  }, [currentStops.outbound.id]);
   
   // Update valid destinations when origin changes
   useEffect(() => {
