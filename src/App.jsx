@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Navigation from './components/Navigation';
 import StatusBar from './components/StatusBar';
 import DepartureBoard from './components/DepartureBoard';
@@ -7,7 +7,9 @@ import ErrorMessage from './components/ErrorMessage';
 import FerryMap from './components/FerryMap';
 import FerryDetailsModal from './components/FerryDetailsModal';
 import StopSelectorModal from './components/StopSelectorModal';
+import MobileBoardHeader from './components/MobileBoardHeader';
 import useFerryData from './hooks/useFerryData';
+import staticGtfsService from './services/staticGtfsService';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
@@ -44,7 +46,18 @@ function App() {
     return !hasSavedStops || !hasRememberPreference;
   });
 
-  const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData(selectedStops);
+  // Temporary stops for dropdown selections (session-based)
+  const [temporaryStops, setTemporaryStops] = useState(null);
+  
+  // Available stops for dropdowns
+  const [availableStops, setAvailableStops] = useState([]);
+  const [validDestinations, setValidDestinations] = useState([]);
+  const [stopsLoading, setStopsLoading] = useState(true);
+  
+  // Use temporary stops if set, otherwise use saved stops
+  const currentStops = temporaryStops || selectedStops;
+  
+  const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData(currentStops);
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
   const [showMap, setShowMap] = useState(false);
   // Determine default tab
@@ -90,8 +103,89 @@ function App() {
     }
     
     setShowStopSelector(false);
+    // Clear temporary stops when saving permanent selection
+    setTemporaryStops(null);
     // Force data refresh with new stops
     refresh();
+  };
+  
+  // Load available stops on mount
+  useEffect(() => {
+    const loadStops = async () => {
+      try {
+        setStopsLoading(true);
+        
+        // Try to get stops from static GTFS service
+        if (!staticGtfsService.hasStopsData()) {
+          await staticGtfsService.getScheduledDepartures();
+        }
+        
+        const stops = staticGtfsService.getAvailableStops();
+        setAvailableStops(stops);
+        
+        // Get valid destinations for current origin
+        const destinations = staticGtfsService.getValidDestinations(currentStops.outbound.id);
+        setValidDestinations(destinations);
+        
+        setStopsLoading(false);
+      } catch (error) {
+        console.error('Error loading stops:', error);
+        setStopsLoading(false);
+      }
+    };
+    
+    loadStops();
+  }, []);
+  
+  // Update valid destinations when origin changes
+  useEffect(() => {
+    if (availableStops.length > 0 && currentStops) {
+      const destinations = staticGtfsService.getValidDestinations(currentStops.outbound.id);
+      setValidDestinations(destinations);
+    }
+  }, [currentStops?.outbound?.id, availableStops]);
+  
+  // Handlers for dropdown changes
+  const handleTemporaryOriginChange = (originId) => {
+    const originStop = availableStops.find(s => s.id === originId);
+    if (!originStop) return;
+    
+    // Get valid destinations for new origin
+    const destinations = staticGtfsService.getValidDestinations(originId);
+    
+    // Check if current destination is still valid
+    let destinationId = currentStops.inbound.id;
+    let destinationStop = currentStops.inbound;
+    
+    if (!destinations.includes(destinationId) && destinations.length > 0) {
+      // Current destination not valid, pick the first valid one
+      destinationId = destinations[0];
+      destinationStop = availableStops.find(s => s.id === destinationId);
+    }
+    
+    setTemporaryStops({
+      outbound: { id: originId, name: originStop.name },
+      inbound: destinationStop
+    });
+  };
+  
+  const handleTemporaryDestinationChange = (destinationId) => {
+    const destinationStop = availableStops.find(s => s.id === destinationId);
+    if (!destinationStop) return;
+    
+    setTemporaryStops({
+      outbound: currentStops.outbound,
+      inbound: { id: destinationId, name: destinationStop.name }
+    });
+  };
+  
+  const handleSwitchDirection = () => {
+    setTemporaryStops({
+      outbound: currentStops.inbound,
+      inbound: currentStops.outbound
+    });
+    // Also switch the active tab on mobile
+    setActiveTab(activeTab === 'outbound' ? 'inbound' : 'outbound');
   };
   
   // Check if there are any express services in the next 13 departures
@@ -126,7 +220,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation 
-        selectedStops={selectedStops}
+        selectedStops={currentStops}
         onOpenSettings={() => setShowStopSelector(true)}
       />
       
@@ -205,39 +299,23 @@ function App() {
                 vehiclePositions={vehiclePositions}
                 tripUpdates={tripUpdates}
                 departures={filteredDepartures}
-                selectedStops={selectedStops}
+                selectedStops={currentStops}
                 onHide={() => setShowMap(false)}
               />
             )}
             
-            {/* Mobile Tabs - visible on small screens */}
-            <div className="md:hidden mb-6">
-              <div className="flex rounded-xl overflow-hidden border-2 border-ferry-orange/30 shadow-lg bg-white/90 backdrop-blur-sm p-1">
-                <button
-                  onClick={() => setActiveTab('outbound')}
-                  className={clsx(
-                    'flex-1 py-4 px-4 text-sm font-bold transition-all duration-300 rounded-lg',
-                    activeTab === 'outbound'
-                      ? 'bg-ferry-orange text-white shadow-md scale-[1.02]'
-                      : 'text-ferry-aqua hover:bg-ferry-orange-light active:scale-95'
-                  )}
-                >
-                  <span className="block text-xs opacity-75 mb-1">To</span>
-                  {selectedStops.inbound.name.replace(' ferry terminal', '')}
-                </button>
-                <button
-                  onClick={() => setActiveTab('inbound')}
-                  className={clsx(
-                    'flex-1 py-4 px-4 text-sm font-bold transition-all duration-300 rounded-lg',
-                    activeTab === 'inbound'
-                      ? 'bg-ferry-orange text-white shadow-md scale-[1.02]'
-                      : 'text-ferry-aqua hover:bg-ferry-orange-light active:scale-95'
-                  )}
-                >
-                  <span className="block text-xs opacity-75 mb-1">To</span>
-                  {selectedStops.outbound.name.replace(' ferry terminal', '')}
-                </button>
-              </div>
+            {/* Mobile Board Header - visible on small screens */}
+            <div className="md:hidden">
+              <MobileBoardHeader
+                originStop={currentStops.outbound}
+                destinationStop={currentStops.inbound}
+                availableStops={availableStops}
+                validDestinations={validDestinations}
+                onOriginChange={handleTemporaryOriginChange}
+                onDestinationChange={handleTemporaryDestinationChange}
+                onSwitchDirection={handleSwitchDirection}
+                loading={stopsLoading}
+              />
             </div>
             
             {/* Desktop Grid - hidden on small screens */}
@@ -246,15 +324,25 @@ function App() {
                 direction="outbound"
                 departures={filteredDepartures.outbound}
                 loading={loading}
-                selectedStops={selectedStops}
+                selectedStops={currentStops}
                 onDepartureClick={setSelectedDeparture}
+                availableStops={availableStops}
+                validDestinations={validDestinations}
+                onOriginChange={handleTemporaryOriginChange}
+                onDestinationChange={handleTemporaryDestinationChange}
+                stopsLoading={stopsLoading}
               />
               <DepartureBoard 
                 direction="inbound"
                 departures={filteredDepartures.inbound}
                 loading={loading}
-                selectedStops={selectedStops}
+                selectedStops={currentStops}
                 onDepartureClick={setSelectedDeparture}
+                availableStops={availableStops}
+                validDestinations={validDestinations}
+                onOriginChange={handleTemporaryOriginChange}
+                onDestinationChange={handleTemporaryDestinationChange}
+                stopsLoading={stopsLoading}
               />
             </div>
             
@@ -264,8 +352,14 @@ function App() {
                 direction={activeTab}
                 departures={activeTab === 'outbound' ? filteredDepartures.outbound : filteredDepartures.inbound}
                 loading={loading}
-                selectedStops={selectedStops}
+                selectedStops={currentStops}
                 onDepartureClick={setSelectedDeparture}
+                availableStops={availableStops}
+                validDestinations={validDestinations}
+                onOriginChange={handleTemporaryOriginChange}
+                onDestinationChange={handleTemporaryDestinationChange}
+                stopsLoading={stopsLoading}
+                isMobile={true}
               />
             </div>
           </>
@@ -285,7 +379,7 @@ function App() {
           departure={selectedDeparture}
           vehiclePositions={vehiclePositions}
           tripUpdates={tripUpdates}
-          selectedStops={selectedStops}
+          selectedStops={currentStops}
           onClose={() => setSelectedDeparture(null)}
         />
       )}

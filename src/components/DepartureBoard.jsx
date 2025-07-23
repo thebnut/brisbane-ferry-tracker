@@ -1,7 +1,20 @@
 import React, { useState } from 'react';
 import DepartureItem from './DepartureItem';
+import BoardHeader from './BoardHeader';
 
-const DepartureBoard = ({ direction, departures, loading, selectedStops, onDepartureClick }) => {
+const DepartureBoard = ({ 
+  direction, 
+  departures, 
+  loading, 
+  selectedStops, 
+  onDepartureClick,
+  availableStops = [],
+  validDestinations = [],
+  onOriginChange,
+  onDestinationChange,
+  stopsLoading = false,
+  isMobile = false
+}) => {
   const [showMore, setShowMore] = useState(false);
   const getDirectionEmoji = () => {
     return direction === 'outbound' ? '→' : '←';
@@ -25,9 +38,22 @@ const DepartureBoard = ({ direction, departures, loading, selectedStops, onDepar
   if (loading && departures.length === 0) {
     return (
       <div className="mb-8">
-        <h2 className="text-xl font-bold mb-4">
-          {getTitle()}
-        </h2>
+        {!isMobile && availableStops.length > 0 && onOriginChange && onDestinationChange ? (
+          <BoardHeader
+            direction={direction}
+            originStop={selectedStops.outbound}
+            destinationStop={selectedStops.inbound}
+            availableStops={availableStops}
+            validDestinations={validDestinations}
+            onOriginChange={onOriginChange}
+            onDestinationChange={onDestinationChange}
+            loading={stopsLoading}
+          />
+        ) : (
+          <h2 className="text-base font-semibold mb-4 text-ferry-aqua bg-gradient-to-r from-white/80 to-ferry-orange-light/50 rounded-xl px-4 py-3 shadow-sm border border-ferry-orange/10 backdrop-blur-sm">
+            {getTitle()}
+          </h2>
+        )}
         <div className="ferry-card animate-pulse">
           <div className="h-20 bg-gray-200 rounded"></div>
         </div>
@@ -37,9 +63,22 @@ const DepartureBoard = ({ direction, departures, loading, selectedStops, onDepar
 
   return (
     <div className="mb-8">
-      <h2 className="text-base font-semibold mb-4 text-ferry-aqua bg-gradient-to-r from-white/80 to-ferry-orange-light/50 rounded-xl px-4 py-3 shadow-sm border border-ferry-orange/10 backdrop-blur-sm">
-        {getTitle()}
-      </h2>
+      {!isMobile && availableStops.length > 0 && onOriginChange && onDestinationChange ? (
+        <BoardHeader
+          direction={direction}
+          originStop={selectedStops.outbound}
+          destinationStop={selectedStops.inbound}
+          availableStops={availableStops}
+          validDestinations={validDestinations}
+          onOriginChange={onOriginChange}
+          onDestinationChange={onDestinationChange}
+          loading={stopsLoading}
+        />
+      ) : (
+        <h2 className="text-base font-semibold mb-4 text-ferry-aqua bg-gradient-to-r from-white/80 to-ferry-orange-light/50 rounded-xl px-4 py-3 shadow-sm border border-ferry-orange/10 backdrop-blur-sm">
+          {getTitle()}
+        </h2>
+      )}
       
       {departures.length === 0 ? (
         <div className="ferry-card text-center py-8 text-gray-500">
