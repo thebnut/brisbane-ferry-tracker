@@ -93,9 +93,7 @@ const DepartureItem = ({ departure, onClick }) => {
               ? "Placeholder"
               : departure.delay > 0 && departure.scheduledTime
                 ? `Scheduled: ${format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')}`
-                : departure.scheduledTime
-                  ? `Sched Dept: ${format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')}`
-                  : "On time"}
+                : "On time"}
           </p>
         </div>
       </div>
