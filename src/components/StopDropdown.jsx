@@ -6,7 +6,8 @@ const StopDropdown = ({
   options, 
   disabled = false, 
   placeholder = "Select stop",
-  className = "" 
+  className = "",
+  compact = false
 }) => {
   // Helper function to remove 'ferry terminal' from stop names
   const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
@@ -16,7 +17,7 @@ const StopDropdown = ({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
-      className={`px-3 py-2 bg-white border border-gray-300 rounded-lg text-ferry-aqua font-semibold
+      className={`${compact ? 'px-2 py-1.5 text-sm' : 'px-3 py-2'} bg-white border border-gray-300 rounded-lg text-ferry-aqua font-semibold
                   hover:border-ferry-orange focus:border-ferry-orange focus:ring-2 focus:ring-ferry-orange focus:ring-opacity-20
                   transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     >
