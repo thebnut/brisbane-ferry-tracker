@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { STOPS, getOccupancyInfo } from '../utils/constants';
+import { STOPS, SERVICE_TYPES, getOccupancyInfo } from '../utils/constants';
 import { format, isTomorrow, isAfter, startOfDay, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
@@ -20,9 +20,26 @@ const TERMINAL_LOCATIONS = {
   riverside: { lat: -27.4747, lng: 153.0177, name: 'Eagle Street Pier (Riverside)' }
 };
 
+// Helper function to get color from SERVICE_TYPES
+const getServiceColor = (routeId) => {
+  const routePrefix = routeId.split('-')[0];
+  const serviceInfo = SERVICE_TYPES[routePrefix];
+  
+  if (!serviceInfo) return '#9CA3AF'; // Light gray for unknown routes
+  
+  // Map Tailwind colors to hex
+  const colorMap = {
+    'bg-ferry-orange': '#FF6B6B', // Red for express
+    'bg-ferry-aqua': '#4ECDC4',   // Teal for all-stops
+    'bg-gray-500': '#6B7280'       // Gray for cross-river
+  };
+  
+  return colorMap[serviceInfo.color] || '#9CA3AF';
+};
+
 // Create custom ferry icon
-const createFerryIcon = (isExpress) => {
-  const color = isExpress ? '#FF6B6B' : '#4ECDC4'; // Red for express, teal for all-stops
+const createFerryIcon = (routeId) => {
+  const color = getServiceColor(routeId);
   
   return L.divIcon({
     html: `
@@ -71,9 +88,9 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
       const vehicle = vp.vehicle;
       if (!vehicle || !vehicle.position || !vehicle.trip) return false;
       
-      // Only show ferries on our routes
+      // Show all ferries with valid route IDs
       const routeId = vehicle.trip.routeId;
-      return routeId && (routeId.startsWith('F1') || routeId.startsWith('F11'));
+      return routeId; // Show all ferries
     })
     .map(vp => {
       const vehicle = vp.vehicle;
@@ -96,7 +113,7 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
         speed: position.speed,
         tripId: trip.tripId,
         routeId: trip.routeId,
-        isExpress: trip.routeId.startsWith('F11'),
+        routePrefix: trip.routeId.split('-')[0],
         direction: matchingDeparture?.direction || 'unknown',
         currentStopSequence: vehicle.currentStopSequence,
         currentStatus: vehicle.currentStatus,
@@ -144,12 +161,12 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
             <Marker
               key={ferry.id}
               position={[ferry.lat, ferry.lng]}
-              icon={createFerryIcon(ferry.isExpress)}
+              icon={createFerryIcon(ferry.routeId)}
             >
               <Popup>
                 <div className="text-sm">
                   <p className="font-bold">
-                    {ferry.isExpress ? 'EXPRESS' : 'All-stops'} Ferry
+                    {SERVICE_TYPES[ferry.routePrefix]?.name || 'Unknown'} Ferry
                   </p>
                   <p>Route: {ferry.routeId}</p>
                   <p>Direction: {ferry.direction === 'outbound' ? 'To Riverside' : 'To Bulimba'}</p>
@@ -183,22 +200,40 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
       </div>
       
       <div className="mt-3 text-sm text-gray-600">
-        <div className="flex items-center justify-center space-x-6">
-          <div className="flex items-center">
-            <svg width="20" height="20" viewBox="0 0 20 20" className="mr-2">
-              <circle cx="10" cy="10" r="7" fill="#FF6B6B" stroke="white" stroke-width="1.5"/>
-            </svg>
-            <span>Express ferries</span>
-          </div>
-          <div className="flex items-center">
-            <svg width="20" height="20" viewBox="0 0 20 20" className="mr-2">
-              <circle cx="10" cy="10" r="7" fill="#4ECDC4" stroke="white" stroke-width="1.5"/>
-            </svg>
-            <span>All-stops ferries</span>
-          </div>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          {/* Get unique service types from visible ferries */}
+          {(() => {
+            const visibleServiceTypes = [...new Set(ferryLocations.map(f => f.routePrefix))]
+              .map(prefix => ({ prefix, info: SERVICE_TYPES[prefix] }))
+              .filter(item => item.info);
+            
+            // Add unknown type if there are ferries with unknown routes
+            const hasUnknownTypes = ferryLocations.some(f => !SERVICE_TYPES[f.routePrefix]);
+            
+            return (
+              <>
+                {visibleServiceTypes.map(({ prefix, info }) => (
+                  <div key={prefix} className="flex items-center">
+                    <svg width="20" height="20" viewBox="0 0 20 20" className="mr-2">
+                      <circle cx="10" cy="10" r="7" fill={getServiceColor(prefix)} stroke="white" strokeWidth="1.5"/>
+                    </svg>
+                    <span>{info.icon} {info.name}</span>
+                  </div>
+                ))}
+                {hasUnknownTypes && (
+                  <div className="flex items-center">
+                    <svg width="20" height="20" viewBox="0 0 20 20" className="mr-2">
+                      <circle cx="10" cy="10" r="7" fill="#9CA3AF" stroke="white" strokeWidth="1.5"/>
+                    </svg>
+                    <span>🚢 Other ferries</span>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
         {ferryLocations.length === 0 && (
-          <p className="mt-2 text-center text-gray-500">No ferries currently between terminals</p>
+          <p className="mt-2 text-center text-gray-500">No active ferries visible</p>
         )}
       </div>
     </div>
