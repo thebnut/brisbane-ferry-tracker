@@ -121,6 +121,7 @@ See `schedule-filtering-logic.md` for detailed explanation.
 - Custom `useFerryData` hook handles all data fetching and progressive loading
 - Separate loading states for initial load vs schedule load
 - Auto-refresh every 5 minutes + countdown timer every second
+- **Two-tier state architecture for stop selections** - see `state-architecture.md` for details
 
 ### Styling
 - Tailwind CSS v3 (not v4 - important for compatibility)
@@ -551,7 +552,7 @@ moreButtons.forEach(btn => btn.click());
      - `StopDropdown`: Reusable styled dropdown component
      - `BoardHeader`: Desktop header with two dropdowns
      - `MobileBoardHeader`: Mobile header with dropdowns and switch button
-   - **State Management**: `temporaryStops` state tracks session-based selections
+   - **State Management**: `temporaryStops` state tracks session-based selections (see `state-architecture.md`)
 
 ## Important Implementation Details
 

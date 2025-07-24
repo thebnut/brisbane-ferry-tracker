@@ -45,7 +45,7 @@ function App() {
   });
 
   // Temporary stops for dropdown selections (session-based)
-  const [temporaryStops, setTemporaryStops] = useState(null);
+  const [temporaryStops, setTemporaryStops] = useState(selectedStops);
   
   // Available stops for dropdowns
   const [availableStops, setAvailableStops] = useState([]);
@@ -83,8 +83,8 @@ function App() {
     }
     
     setShowStopSelector(false);
-    // Clear temporary stops when saving permanent selection
-    setTemporaryStops(null);
+    // Update temporary stops to match the new selection
+    setTemporaryStops(newStops);
     // Force data refresh with new stops
     refresh();
   };
@@ -164,8 +164,7 @@ function App() {
       outbound: currentStops.inbound,
       inbound: currentStops.outbound
     });
-    // Also switch the active tab on mobile
-    setActiveTab(activeTab === 'outbound' ? 'inbound' : 'outbound');
+    // Don't switch active tab - mobile always shows outbound
   };
   
   // Check if there are any express services in the next 13 departures
