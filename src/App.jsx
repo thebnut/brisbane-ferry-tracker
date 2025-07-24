@@ -4,7 +4,7 @@ import StatusBar from './components/StatusBar';
 import DepartureBoard from './components/DepartureBoard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorMessage from './components/ErrorMessage';
-import FerryMap from './components/FerryMap';
+import FerryMapModal from './components/FerryMapModal';
 import FerryDetailsModal from './components/FerryDetailsModal';
 import StopSelectorModal from './components/StopSelectorModal';
 import MobileBoardHeader from './components/MobileBoardHeader';
@@ -199,7 +199,10 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation 
-        onOpenSettings={() => setShowStopSelector(true)}
+        onOpenSettings={() => {
+          setShowMap(false); // Close map modal first
+          setShowStopSelector(true);
+        }}
       />
       
       <StatusBar 
@@ -271,16 +274,6 @@ function App() {
               })()}
             </div>
             
-            {/* Ferry Map */}
-            {showMap && vehiclePositions.length > 0 && (
-              <FerryMap 
-                vehiclePositions={vehiclePositions}
-                tripUpdates={tripUpdates}
-                departures={filteredDepartures}
-                selectedStops={currentStops}
-                onHide={() => setShowMap(false)}
-              />
-            )}
             
             {/* Mobile Board Header - visible on small screens */}
             <div className="md:hidden">
@@ -361,6 +354,16 @@ function App() {
           onClose={() => setSelectedDeparture(null)}
         />
       )}
+      
+      {/* Ferry Map Modal */}
+      <FerryMapModal
+        isOpen={showMap && vehiclePositions.length > 0}
+        onClose={() => setShowMap(false)}
+        vehiclePositions={vehiclePositions}
+        tripUpdates={tripUpdates}
+        departures={filteredDepartures}
+        selectedStops={currentStops}
+      />
       
       {/* Stop Selector Modal */}
       <StopSelectorModal
