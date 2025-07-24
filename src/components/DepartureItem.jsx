@@ -9,6 +9,31 @@ const DepartureItem = ({ departure, onClick }) => {
   const routePrefix = departure.routeId.split('-')[0];
   const serviceInfo = SERVICE_TYPES[routePrefix] || SERVICE_TYPES.F1;
   
+  // Force initial render to complete before animations
+  const [isInitialRender, setIsInitialRender] = React.useState(true);
+  React.useEffect(() => {
+    const timer = requestAnimationFrame(() => {
+      setIsInitialRender(false);
+    });
+    return () => cancelAnimationFrame(timer);
+  }, []);
+  
+  // Pre-calculate status text to avoid rendering issues
+  const statusText = React.useMemo(() => {
+    if (!departure.isRealtime) return null;
+    if (!departure.scheduledTime) return "On time";
+    
+    const actualTime = departure.departureTime.getTime();
+    const scheduledTime = new Date(departure.scheduledTime).getTime();
+    const timeDiff = Math.abs(actualTime - scheduledTime);
+    
+    if (timeDiff >= 60000) {
+      return `Scheduled: ${format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')}`;
+    }
+    
+    return "On time";
+  }, [departure.isRealtime, departure.scheduledTime, departure.departureTime, departure.tripId]);
+  
   const departureTimeZoned = toZonedTime(departure.departureTime, API_CONFIG.timezone);
   const currentTimeZoned = toZonedTime(new Date(), API_CONFIG.timezone);
   const minutesUntil = differenceInMinutes(departureTimeZoned, currentTimeZoned);
@@ -39,7 +64,9 @@ const DepartureItem = ({ departure, onClick }) => {
     <div 
       onClick={() => onClick(departure)}
       className={clsx(
-        'ferry-card flex items-center justify-between p-5 mb-3 min-h-[6rem] transition-all duration-300 cursor-pointer hover:scale-[1.02] group',
+        'ferry-card flex items-center justify-between p-5 mb-3 min-h-[6rem] cursor-pointer hover:scale-[1.02] group',
+        // Disable transitions on initial render to prevent text overlap
+        isInitialRender ? '' : 'transition-all duration-300',
         serviceInfo.isExpress 
           ? 'border-2 border-ferry-orange bg-gradient-to-r from-ferry-orange-light to-white shadow-lg hover:shadow-xl hover:shadow-ferry-orange/30 animate-glow' 
           : 'hover:border-ferry-orange/50'
@@ -49,7 +76,11 @@ const DepartureItem = ({ departure, onClick }) => {
           'text-4xl transition-transform duration-300 group-hover:scale-110',
           serviceInfo.isExpress ? 'animate-float' : 'group-hover:rotate-6'
         )}>{serviceInfo.icon}</span>
-        <div>
+        <div style={{ 
+          // Ensure proper layout calculation on mobile
+          isolation: 'isolate',
+          willChange: 'auto'
+        }}>
           <div className="flex items-center space-x-2">
             <span className={clsx(
               'px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm',
@@ -86,22 +117,23 @@ const DepartureItem = ({ departure, onClick }) => {
               </span>
             )}
           </p>
-          {departure.isRealtime && (
-            departure.scheduledTime && Math.abs(departure.departureTime.getTime() - new Date(departure.scheduledTime).getTime()) >= 60000 ? (
-              <p 
-                className="text-xs mt-0.5 text-gray-500" 
-                style={{ transform: 'translateZ(0)', willChange: 'contents' }}
-              >
-                Scheduled: {format(toZonedTime(departure.scheduledTime, API_CONFIG.timezone), 'h:mm a')}
-              </p>
-            ) : (
-              <p 
-                className="text-xs mt-0.5 text-gray-500" 
-                style={{ transform: 'translateZ(0)', willChange: 'contents' }}
-              >
-                On time
-              </p>
-            )
+          {statusText && (
+            <p 
+              className="text-xs mt-0.5 text-gray-500"
+              key={`status-${departure.tripId}-${departure.departureTime.getTime()}`}
+              style={{ 
+                // Force proper text rendering on mobile
+                WebkitFontSmoothing: 'antialiased',
+                MozOsxFontSmoothing: 'grayscale',
+                // Ensure text doesn't overlap
+                position: 'relative',
+                zIndex: 1,
+                // Force layout calculation
+                contain: 'layout style'
+              }}
+            >
+              {statusText}
+            </p>
           )}
         </div>
       </div>
