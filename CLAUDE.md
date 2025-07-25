@@ -121,6 +121,7 @@ See `schedule-filtering-logic.md` for detailed explanation.
 - Custom `useFerryData` hook handles all data fetching and progressive loading
 - Separate loading states for initial load vs schedule load
 - Auto-refresh every 5 minutes + countdown timer every second
+- **Two-tier state architecture for stop selections** - see `state-architecture.md` for details
 
 ### Styling
 - Tailwind CSS v3 (not v4 - important for compatibility)
@@ -534,6 +535,24 @@ moreButtons.forEach(btn => btn.click());
    - Removed January 2025 based on user feedback
    - Full implementation details in `returnLegFocus.md`
    - Can be reimplemented as user-configurable option
+
+3. **Remember Selection Toggle Persistence** (Fixed January 2025)
+   - Issue: Toggle state wasn't persisting across page reloads
+   - Solution: Store the preference itself in localStorage
+   - Modal shows if: no saved stops OR remember preference is false
+   - When remember is turned OFF, also clears reverse preference
+   - Consistent behavior with both toggle states now persisting
+
+4. **Dropdown Headers for Quick Stop Changes** (Added January 2025)
+   - **Desktop**: Origin and destination shown as dropdowns in board headers
+   - **Mobile**: Dropdowns replace tabs, with switch direction button (⇄)
+   - **Temporary selections**: Changes via dropdowns don't persist if "Remember selection" is ON
+   - **Validation**: Destinations update based on selected origin
+   - **Components**:
+     - `StopDropdown`: Reusable styled dropdown component
+     - `BoardHeader`: Desktop header with two dropdowns
+     - `MobileBoardHeader`: Mobile header with dropdowns and switch button
+   - **State Management**: `temporaryStops` state tracks session-based selections (see `state-architecture.md`)
 
 ## Important Implementation Details
 

@@ -3,6 +3,25 @@
 ## Overview
 This feature automatically switches the mobile tab view to show the return journey (inbound) after 12:30 PM, assuming users are more likely to be looking for their return trip in the afternoon.
 
+## Current Implementation (Re-added January 2025 as optional feature)
+
+### Location
+- `src/components/StopSelectorModal.jsx` - Toggle UI and state management
+- `src/App.jsx` - `getDefaultTab()` function and preference handling
+- `src/utils/constants.js` - Storage key definition
+
+### How it works
+1. Feature is hidden by default
+2. Only visible when "Remember selection" is turned ON
+3. User can enable "Reverse direction after lunch" toggle
+4. When enabled, the app switches to inbound tab after 12:30 PM
+5. Preference is saved to localStorage only when remember is enabled
+
+### UI/UX
+- Toggle appears conditionally in "Regular Commuter Settings" section
+- Help text: "The main view will show the reverse direction after 12:30pm each day."
+- Automatically disabled when "Remember selection" is turned OFF
+
 ## Previous Implementation (Removed January 2025)
 
 ### Location

@@ -14,6 +14,8 @@ export const SERVICE_TYPES = {
   F11: { name: 'EXPRESS', icon: '🚤', color: 'bg-ferry-orange', borderColor: 'border-ferry-orange', isExpress: true },
   F1: { name: 'All-stops', icon: '🛥️', color: 'bg-ferry-aqua', borderColor: 'border-ferry-aqua', isExpress: false },
   F21: { name: 'Cross-river', icon: '⛴️', color: 'bg-gray-500', borderColor: 'border-gray-500', isExpress: false }
+  // Add more ferry types as needed (e.g., CityHopper routes)
+  // F4: { name: 'CityHopper', icon: '⛴️', color: 'bg-purple-500', borderColor: 'border-purple-500', isExpress: false }
 };
 
 export const API_CONFIG = {
@@ -29,13 +31,28 @@ export const API_CONFIG = {
 
 // Debug configuration
 export const DEBUG_CONFIG = {
-  enableLogging: false // Set to true to enable debug logging
+  enableLogging: (() => {
+    // Enable debug logging for localhost and develop environments
+    const hostname = window.location.hostname;
+    const isDevelopment = hostname === 'localhost' || 
+                         hostname === '127.0.0.1' ||
+                         hostname.includes('brisbane-ferry-tracker.vercel.app');
+    
+    // Log debug mode status
+    if (isDevelopment) {
+      console.log(`🐛 Debug mode enabled for ${hostname}`);
+    }
+    
+    return isDevelopment;
+  })()
 };
 
 // LocalStorage keys
 export const STORAGE_KEYS = {
   SCHEDULE_CACHE: 'brisbane-ferry-schedule-cache',
-  SELECTED_STOPS: 'brisbane-ferry-selected-stops'
+  SELECTED_STOPS: 'brisbane-ferry-selected-stops',
+  SELECTED_STOPS_SESSION: 'brisbane-ferry-selected-stops-session',
+  REMEMBER_SELECTION: 'brisbane-ferry-remember-selection'
 };
 
 // Default stops for backward compatibility

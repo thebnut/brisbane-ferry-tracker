@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import staticGtfsService from '../services/staticGtfsService';
-import { DEFAULT_STOPS } from '../utils/constants';
+import { DEFAULT_STOPS, STORAGE_KEYS } from '../utils/constants';
 import { FERRY_STOPS, TEMPORARY_CONNECTIVITY } from '../utils/ferryStops';
 
 const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
@@ -10,6 +10,9 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const [validDestinations, setValidDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [rememberSelection, setRememberSelection] = useState(() => {
+    return localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION) === 'true';
+  });
   
   // Helper function to remove 'ferry terminal' from stop names
   const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
@@ -52,7 +55,9 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
         })).sort((a, b) => a.name.localeCompare(b.name));
       }
       
-      setAvailableStops(stops);
+      // Sort stops alphabetically by name
+      const sortedStops = [...stops].sort((a, b) => a.name.localeCompare(b.name));
+      setAvailableStops(sortedStops);
       
       // Get valid destinations
       let destinations = [];
@@ -105,6 +110,13 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
     const destinationStop = availableStops.find(s => s.id === selectedDestination);
     
     if (originStop && destinationStop) {
+      // Save the remember preference itself
+      if (rememberSelection) {
+        localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true');
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.REMEMBER_SELECTION);
+      }
+      
       onSave({
         outbound: {
           id: selectedOrigin,
@@ -114,7 +126,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
           id: selectedDestination,
           name: destinationStop.name
         }
-      });
+      }, rememberSelection);
     }
   };
 
@@ -212,14 +224,15 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                   disabled={validDestinations.length === 0}
                 >
                   {validDestinations.length > 0 ? (
-                    validDestinations.map(stopId => {
-                      const stop = availableStops.find(s => s.id === stopId);
-                      return stop ? (
+                    validDestinations
+                      .map(stopId => availableStops.find(s => s.id === stopId))
+                      .filter(stop => stop !== undefined)
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map(stop => (
                         <option key={stop.id} value={stop.id}>
                           {cleanStopName(stop.name)}
                         </option>
-                      ) : null;
-                    })
+                      ))
                   ) : (
                     <option value="">No direct connections available</option>
                   )}
@@ -242,6 +255,44 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                   </p>
                 </div>
               )}
+
+              {/* Regular Commuter Settings */}
+              <div className="border-t pt-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Regular Commuter Settings</h3>
+                <div className="space-y-3">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-sm text-gray-700">Remember selection</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={rememberSelection}
+                      onClick={() => {
+                        const newValue = !rememberSelection;
+                        setRememberSelection(newValue);
+                        
+                        // Save the preference immediately
+                        if (newValue) {
+                          localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true');
+                        } else {
+                          localStorage.removeItem(STORAGE_KEYS.REMEMBER_SELECTION);
+                        }
+                      }}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ferry-orange focus:ring-offset-2 ${
+                        rememberSelection ? 'bg-ferry-orange' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          rememberSelection ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </label>
+                  <p className="text-xs text-gray-500">
+                    Your stop selection will be saved for next time. You can always change it later using the settings icon.
+                  </p>
+                </div>
+              </div>
               
               {/* Temporary data notice */}
               {!staticGtfsService.hasStopsData() && (
