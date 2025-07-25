@@ -56,7 +56,7 @@ const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap, fi
               <button
                 onClick={() => onFilterChange && onFilterChange(filterMode === 'all' ? 'express' : 'all')}
                 className={clsx(
-                  'flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition-all duration-300 active:scale-95 shadow-md text-sm sm:text-base',
+                  'flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 active:scale-95 shadow-md text-sm sm:text-base',
                   filterMode === 'express'
                     ? 'bg-ferry-aqua text-white hover:bg-ferry-aqua-light hover:shadow-lg'
                     : 'bg-white text-ferry-orange border-2 border-ferry-orange hover:bg-ferry-orange hover:text-white'
