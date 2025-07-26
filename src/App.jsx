@@ -8,6 +8,7 @@ import FerryMapModal from './components/FerryMapModal';
 import FerryDetailsModal from './components/FerryDetailsModal';
 import StopSelectorModal from './components/StopSelectorModal';
 import MobileBoardHeader from './components/MobileBoardHeader';
+import DepartureTimeDropdown from './components/DepartureTimeDropdown';
 import useFerryData from './hooks/useFerryData';
 import staticGtfsService from './services/staticGtfsService';
 import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
@@ -55,7 +56,22 @@ function App() {
   // Use temporary stops if set, otherwise use saved stops
   const currentStops = temporaryStops || selectedStops;
   
-  const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData(currentStops);
+  // Departure time filter state (session-based)
+  const [selectedDepartureTime, setSelectedDepartureTime] = useState(() => {
+    const saved = sessionStorage.getItem(STORAGE_KEYS.DEPARTURE_TIME);
+    return saved ? new Date(saved) : null;
+  });
+  
+  // Save departure time to session storage
+  useEffect(() => {
+    if (selectedDepartureTime) {
+      sessionStorage.setItem(STORAGE_KEYS.DEPARTURE_TIME, selectedDepartureTime.toISOString());
+    } else {
+      sessionStorage.removeItem(STORAGE_KEYS.DEPARTURE_TIME);
+    }
+  }, [selectedDepartureTime]);
+  
+  const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData(currentStops, selectedDepartureTime);
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
   const [showMap, setShowMap] = useState(false);
   // Determine default tab
@@ -85,6 +101,8 @@ function App() {
     setShowStopSelector(false);
     // Update temporary stops to match the new selection
     setTemporaryStops(newStops);
+    // Clear departure time when changing stops
+    setSelectedDepartureTime(null);
     // Force data refresh with new stops
     refresh();
   };
@@ -249,7 +267,7 @@ function App() {
                 
                 if (hasScheduled || hasRealtime || scheduleLoading || isGitHubPages) {
                   return (
-                    <div className="text-center text-sm text-gray-600 bg-ferry-aqua/10 rounded-lg p-2">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between text-sm text-gray-600 bg-ferry-aqua/10 rounded-lg p-3 gap-3">
                       <span className="inline-flex items-center space-x-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -267,6 +285,15 @@ function App() {
                           }
                         </span>
                       </span>
+                      
+                      {/* Desktop departure time dropdown */}
+                      <div className="hidden md:block">
+                        <DepartureTimeDropdown
+                          value={selectedDepartureTime}
+                          onChange={setSelectedDepartureTime}
+                          disabled={loading}
+                        />
+                      </div>
                     </div>
                   );
                 }
@@ -331,6 +358,8 @@ function App() {
                 onDestinationChange={handleTemporaryDestinationChange}
                 stopsLoading={stopsLoading}
                 isMobile={true}
+                selectedDepartureTime={selectedDepartureTime}
+                onDepartureTimeChange={setSelectedDepartureTime}
               />
             </div>
           </>

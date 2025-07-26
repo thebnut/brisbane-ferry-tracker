@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import DepartureItem from './DepartureItem';
 import BoardHeader from './BoardHeader';
+import DepartureTimeDropdown from './DepartureTimeDropdown';
 
 const DepartureBoard = ({ 
   direction, 
@@ -13,7 +14,9 @@ const DepartureBoard = ({
   onOriginChange,
   onDestinationChange,
   stopsLoading = false,
-  isMobile = false
+  isMobile = false,
+  selectedDepartureTime,
+  onDepartureTimeChange
 }) => {
   const [showMore, setShowMore] = useState(false);
 
@@ -72,9 +75,17 @@ const DepartureBoard = ({
           loading={stopsLoading}
         />
       ) : (
-        <h2 className="text-base font-semibold mb-4 text-ferry-aqua bg-gradient-to-r from-white/80 to-ferry-orange-light/50 rounded-xl px-4 py-3 shadow-sm border border-ferry-orange/10 backdrop-blur-sm">
-          {getTitle()}
-        </h2>
+        <div className="flex items-center justify-between gap-2 text-base font-semibold mb-4 text-ferry-aqua bg-gradient-to-r from-white/80 to-ferry-orange-light/50 rounded-xl px-4 py-3 shadow-sm border border-ferry-orange/10 backdrop-blur-sm">
+          <span className="flex-shrink">{getTitle()}</span>
+          {isMobile && onDepartureTimeChange && (
+            <DepartureTimeDropdown
+              value={selectedDepartureTime}
+              onChange={onDepartureTimeChange}
+              disabled={loading}
+              compact={true}
+            />
+          )}
+        </div>
       )}
       
       {departures.length === 0 ? (
