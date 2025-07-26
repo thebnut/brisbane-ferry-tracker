@@ -28,7 +28,7 @@ export const generateTimeSlots = () => {
   }
   
   // Add separator if we have today's slots and will have tomorrow's slots
-  if (slots.length > 0 && slots.length < 16) {
+  if (slots.length > 0 && slots.length < 10) {
     slots.push({
       type: 'separator',
       value: null,
@@ -41,8 +41,8 @@ export const generateTimeSlots = () => {
   const tomorrow = addHours(startOfHour(now), 24);
   currentTime = setHours(tomorrow, 5);
   
-  // Continue until we have max 16 slots (including the separator)
-  while (slots.length < 16) {
+  // Continue until we have max 10 slots (including the separator)
+  while (slots.length < 10) {
     slots.push({
       type: 'slot',
       value: currentTime,
@@ -52,7 +52,7 @@ export const generateTimeSlots = () => {
     currentTime = addHours(currentTime, 2);
   }
   
-  return slots.slice(0, 16); // Ensure max 16 slots
+  return slots.slice(0, 10); // Ensure max 10 slots
 };
 
 export const formatTimeSlot = (date) => {
