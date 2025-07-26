@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { STOPS, SERVICE_TYPES } from '../utils/constants';
 import { FERRY_STOPS } from '../utils/ferryStops';
+import staticGtfsService from '../services/staticGtfsService';
 
 // Fix Leaflet default icon issue with Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -83,6 +84,13 @@ const terminalIcon = L.divIcon({
 function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
   // Helper to get stop name from ID
   const getStopName = (stopId) => {
+    // Try to get from dynamic service first (has complete stop list)
+    const stopInfo = staticGtfsService.getStopInfo(stopId);
+    if (stopInfo) {
+      return stopInfo.name;
+    }
+    
+    // Fall back to hardcoded data
     return FERRY_STOPS[stopId]?.name || `Stop ${stopId}`;
   };
   // Process vehicle positions to get ferry locations
