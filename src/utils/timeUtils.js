@@ -32,7 +32,7 @@ export const generateTimeSlots = () => {
     slots.push({
       type: 'separator',
       value: null,
-      label: 'Tmw...',
+      label: 'Tomorrow',
       isToday: false
     });
   }
