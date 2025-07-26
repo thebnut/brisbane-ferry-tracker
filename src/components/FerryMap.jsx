@@ -97,8 +97,10 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
       if (!vehicle || !vehicle.position || !vehicle.trip) return false;
       
       // Show all ferries with valid ferry route IDs (starting with F)
+      // Filter out Queensland Rail trips (containing "QR")
       const routeId = vehicle.trip.routeId;
-      return routeId && routeId.startsWith('F');
+      const tripId = vehicle.trip.tripId;
+      return routeId && routeId.startsWith('F') && !tripId.includes('QR');
     })
     .map(vp => {
       const vehicle = vp.vehicle;
