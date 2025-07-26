@@ -85,6 +85,11 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
   useEffect(() => {
     preloadStopData();
   }, []);
+  
+  // Helper to check if a stop ID is a ferry stop
+  const isFerryStop = (stopId) => {
+    return stopId && stopId.toString().startsWith('3');
+  };
   // Process vehicle positions to get ferry locations
   const ferryLocations = vehiclePositions
     .filter(vp => {
@@ -124,6 +129,10 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
         currentStop = currentStopUpdate?.stopId;
         nextStop = nextStopUpdate?.stopId;
         
+        // Filter to only ferry stops (IDs starting with 3)
+        currentStop = isFerryStop(currentStop) ? currentStop : null;
+        nextStop = isFerryStop(nextStop) ? nextStop : null;
+        
         // If we don't have current stop but have sequence, it might be between stops
         if (!currentStop && currentStopSequence > 0) {
           // Find the last stop (one before current sequence)
@@ -131,6 +140,8 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
             parseInt(stu.stopSequence) === currentStopSequence - 1
           );
           currentStop = lastStopUpdate?.stopId;
+          // Filter to only ferry stops
+          currentStop = isFerryStop(currentStop) ? currentStop : null;
         }
       }
       
