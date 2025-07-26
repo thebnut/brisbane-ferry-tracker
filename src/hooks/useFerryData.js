@@ -67,6 +67,12 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
     }
   }, [selectedStops, departureTimeFilter]);
 
+  // Clear departures when filters change for immediate feedback
+  useEffect(() => {
+    setDepartures({ outbound: [], inbound: [] });
+    setLoading(true);
+  }, [selectedStops, departureTimeFilter]);
+
   // Initial fetch and auto-refresh setup
   useEffect(() => {
     fetchData();
