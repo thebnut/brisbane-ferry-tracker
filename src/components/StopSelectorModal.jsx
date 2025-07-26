@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import staticGtfsService from '../services/staticGtfsService';
 import { DEFAULT_STOPS, STORAGE_KEYS } from '../utils/constants';
 import { FERRY_STOPS, TEMPORARY_CONNECTIVITY } from '../utils/ferryStops';
+import StopSelectorMap from './StopSelectorMap';
 
 const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const [selectedOrigin, setSelectedOrigin] = useState(currentStops?.outbound?.id || DEFAULT_STOPS.outbound.id);
@@ -13,6 +14,17 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const [rememberSelection, setRememberSelection] = useState(() => {
     return localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION) === 'true';
   });
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
+  const [selectionMode, setSelectionMode] = useState('origin'); // 'origin' or 'destination' for map
+  
+  // Reset selection mode when origin changes
+  useEffect(() => {
+    if (selectedOrigin) {
+      setSelectionMode('destination');
+    } else {
+      setSelectionMode('origin');
+    }
+  }, [selectedOrigin]);
   
   // Helper function to remove 'ferry terminal' from stop names
   const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
@@ -161,7 +173,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-lg shadow-xl max-w-md w-full"
+        className="bg-white rounded-lg shadow-xl max-w-2xl w-full"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -194,8 +206,34 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Origin Stop */}
-              <div>
+              {/* View Toggle */}
+              <div className="flex rounded-lg overflow-hidden border-2 border-ferry-orange/30">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-ferry-orange text-white'
+                      : 'bg-white text-ferry-orange hover:bg-ferry-orange-light'
+                  }`}
+                >
+                  List View
+                </button>
+                <button
+                  onClick={() => setViewMode('map')}
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                    viewMode === 'map'
+                      ? 'bg-ferry-orange text-white'
+                      : 'bg-white text-ferry-orange hover:bg-ferry-orange-light'
+                  }`}
+                >
+                  Map View
+                </button>
+              </div>
+              
+              {viewMode === 'list' ? (
+                <>
+                  {/* Origin Stop */}
+                  <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   From (Origin Stop)
                 </label>
@@ -243,6 +281,62 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                   </p>
                 )}
               </div>
+                </>
+              ) : (
+                <>
+                  {/* Map View */}
+                  <div>
+                    <div className="mb-3 p-3 rounded-lg bg-ferry-orange-light border border-ferry-orange/20">
+                      <p className="text-sm text-gray-700 font-medium">
+                        {selectionMode === 'origin' 
+                          ? '👆 Click on the map to select your ORIGIN stop (where you\'re starting from)' 
+                          : '👆 Now click on the map to select your DESTINATION stop (where you\'re going to)'}
+                      </p>
+                    </div>
+                    <StopSelectorMap
+                      stops={availableStops}
+                      selectedOrigin={selectedOrigin}
+                      selectedDestination={selectedDestination}
+                      validDestinations={validDestinations}
+                      onOriginSelect={(stopId) => {
+                        if (stopId === selectedOrigin) {
+                          // Deselecting origin
+                          setSelectedOrigin(null);
+                          setSelectedDestination(null);
+                        } else {
+                          setSelectedOrigin(stopId);
+                        }
+                      }}
+                      onDestinationSelect={(stopId) => {
+                        setSelectedDestination(stopId);
+                      }}
+                      selectionMode={selectionMode}
+                    />
+                    
+                    {/* Map Legend */}
+                    <div className="mt-3 flex flex-wrap gap-3 text-xs">
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded-full bg-ferry-orange"></div>
+                        <span>Available stops</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span>Origin</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                        <span>Destination</span>
+                      </div>
+                      {selectionMode === 'destination' && (
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                          <span>No direct connection</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Route Preview */}
               {selectedOrigin && selectedDestination && (
