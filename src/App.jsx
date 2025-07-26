@@ -390,7 +390,7 @@ function App() {
         onClose={() => setShowMap(false)}
         vehiclePositions={vehiclePositions}
         tripUpdates={tripUpdates}
-        departures={filteredDepartures}
+        departures={departures}
         selectedStops={currentStops}
       />
       
