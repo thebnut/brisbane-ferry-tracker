@@ -9,6 +9,7 @@ import FerryDetailsModal from './components/FerryDetailsModal';
 import StopSelectorModal from './components/StopSelectorModal';
 import MobileBoardHeader from './components/MobileBoardHeader';
 import DepartureTimeDropdown from './components/DepartureTimeDropdown';
+import FeedbackModal from './components/FeedbackModal';
 import useFerryData from './hooks/useFerryData';
 import staticGtfsService from './services/staticGtfsService';
 import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
@@ -74,6 +75,7 @@ function App() {
   const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData(currentStops, selectedDepartureTime);
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
   const [showMap, setShowMap] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   // Determine default tab
   const getDefaultTab = () => {
     return 'outbound';
@@ -370,6 +372,14 @@ function App() {
         <div className="container mx-auto px-4 max-w-6xl text-center text-sm text-gray-600">
           <p>Data provided by TransLink Queensland</p>
           <p className="mt-2">Updates every 5 minutes • Shows next 24 hours • All times in Brisbane time</p>
+          <p className="mt-4">
+            <button
+              onClick={() => setShowFeedback(true)}
+              className="text-ferry-orange hover:text-ferry-orange/80 transition-colors font-medium"
+            >
+              💬 Send Feedback & Ideas
+            </button>
+          </p>
         </div>
       </footer>
       
@@ -400,6 +410,12 @@ function App() {
         onClose={() => setShowStopSelector(false)}
         currentStops={selectedStops}
         onSave={handleStopChange}
+      />
+      
+      {/* Feedback Modal */}
+      <FeedbackModal
+        isOpen={showFeedback}
+        onClose={() => setShowFeedback(false)}
       />
       
       {/* Vercel Speed Insights */}
