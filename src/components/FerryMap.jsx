@@ -2,9 +2,8 @@ import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { STOPS, SERVICE_TYPES, getOccupancyInfo } from '../utils/constants';
-import { format, isTomorrow, isAfter, startOfDay, addDays } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
+import { STOPS, SERVICE_TYPES } from '../utils/constants';
+import { getStopNameSync, preloadStopData } from '../utils/stopNames';
 
 // Fix Leaflet default icon issue with Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -25,7 +24,7 @@ const getServiceColor = (routeId) => {
   const routePrefix = routeId.split('-')[0];
   const serviceInfo = SERVICE_TYPES[routePrefix];
   
-  if (!serviceInfo) return '#9CA3AF'; // Light gray for unknown routes
+  if (!serviceInfo) return '#6B7280'; // Same gray as cross-river for unknown routes
   
   // Map Tailwind colors to hex
   const colorMap = {
@@ -34,7 +33,7 @@ const getServiceColor = (routeId) => {
     'bg-gray-500': '#6B7280'       // Gray for cross-river
   };
   
-  return colorMap[serviceInfo.color] || '#9CA3AF';
+  return colorMap[serviceInfo.color] || '#6B7280';
 };
 
 // Create custom ferry icon
@@ -82,48 +81,87 @@ const terminalIcon = L.divIcon({
 });
 
 function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
+  // Preload stop data on component mount
+  useEffect(() => {
+    preloadStopData();
+  }, []);
+  
+  // Helper to check if a stop ID is a ferry stop
+  const isFerryStop = (stopId) => {
+    return stopId && stopId.toString().startsWith('3');
+  };
   // Process vehicle positions to get ferry locations
   const ferryLocations = vehiclePositions
     .filter(vp => {
       const vehicle = vp.vehicle;
       if (!vehicle || !vehicle.position || !vehicle.trip) return false;
       
-      // Show all ferries with valid route IDs
+      // Show all ferries with valid ferry route IDs (starting with F)
+      // Filter out Queensland Rail trips (containing "QR")
       const routeId = vehicle.trip.routeId;
-      return routeId; // Show all ferries
+      const tripId = vehicle.trip.tripId;
+      return routeId && routeId.startsWith('F') && !tripId.includes('QR');
     })
     .map(vp => {
       const vehicle = vp.vehicle;
       const position = vehicle.position;
       const trip = vehicle.trip;
       
-      // Find matching departure to get direction
-      const matchingDeparture = [...departures.outbound, ...departures.inbound]
-        .find(d => d.tripId === trip.tripId);
+      // Find the trip update to get stop sequence
+      const tripUpdate = tripUpdates.find(tu => 
+        tu.tripUpdate?.trip?.tripId === trip.tripId
+      );
       
-      // Determine if ferry is between our terminals
-      const relevantStops = [STOPS.bulimba, STOPS.riverside];
-      const isBetweenTerminals = matchingDeparture !== undefined;
+      const stopTimeUpdates = tripUpdate?.tripUpdate?.stopTimeUpdate || [];
+      const currentStopSequence = vehicle.currentStopSequence || 0;
+      
+      // Find current/last stop and next stop
+      let currentStop = null;
+      let nextStop = null;
+      
+      if (stopTimeUpdates.length > 0) {
+        // Find stops based on stop sequence
+        const currentStopUpdate = stopTimeUpdates.find(stu => 
+          parseInt(stu.stopSequence) === currentStopSequence
+        );
+        const nextStopUpdate = stopTimeUpdates.find(stu => 
+          parseInt(stu.stopSequence) === currentStopSequence + 1
+        );
+        
+        currentStop = currentStopUpdate?.stopId;
+        nextStop = nextStopUpdate?.stopId;
+        
+        // Filter to only ferry stops (IDs starting with 3)
+        currentStop = isFerryStop(currentStop) ? currentStop : null;
+        nextStop = isFerryStop(nextStop) ? nextStop : null;
+        
+        // If we don't have current stop but have sequence, it might be between stops
+        if (!currentStop && currentStopSequence > 0) {
+          // Find the last stop (one before current sequence)
+          const lastStopUpdate = stopTimeUpdates.find(stu => 
+            parseInt(stu.stopSequence) === currentStopSequence - 1
+          );
+          currentStop = lastStopUpdate?.stopId;
+          // Filter to only ferry stops
+          currentStop = isFerryStop(currentStop) ? currentStop : null;
+        }
+      }
       
       return {
         id: vehicle.vehicle?.id || trip.tripId,
         lat: position.latitude,
         lng: position.longitude,
         bearing: position.bearing,
-        speed: position.speed,
         tripId: trip.tripId,
         routeId: trip.routeId,
         routePrefix: trip.routeId.split('-')[0],
-        direction: matchingDeparture?.direction || 'unknown',
-        currentStopSequence: vehicle.currentStopSequence,
+        currentStopSequence: currentStopSequence,
         currentStatus: vehicle.currentStatus,
-        occupancy: vehicle.occupancyStatus,
-        nextStop: matchingDeparture?.stopId,
-        departureTime: matchingDeparture?.departureTime,
-        isBetweenTerminals
+        currentStop: currentStop,
+        nextStop: nextStop,
+        vehicleName: vehicle.vehicle?.label || vehicle.vehicle?.id?.split('_').pop() || 'Unknown'
       };
-    })
-    .filter(ferry => ferry.isBetweenTerminals); // Only show ferries going between our terminals
+    });
 
   // Map center (between terminals)
   const mapCenter = [-27.4597, 153.0376];
@@ -166,32 +204,30 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
               <Popup>
                 <div className="text-sm">
                   <p className="font-bold">
-                    {SERVICE_TYPES[ferry.routePrefix]?.name || 'Unknown'} Ferry
+                    {SERVICE_TYPES[ferry.routePrefix]?.name || 'Ferry'}
                   </p>
-                  <p>Route: {ferry.routeId}</p>
-                  <p>Direction: {ferry.direction === 'outbound' ? 'To Riverside' : 'To Bulimba'}</p>
-                  {ferry.speed && <p>Speed: {Math.round(ferry.speed * 3.6)} km/h</p>}
-                  {ferry.occupancy !== null && ferry.occupancy !== undefined && (() => {
-                    const occupancyInfo = getOccupancyInfo(ferry.occupancy);
-                    return occupancyInfo ? (
-                      <p>Occupancy: {occupancyInfo.icon} {occupancyInfo.text}</p>
-                    ) : null;
-                  })()}
-                  {ferry.departureTime && (() => {
-                    const departureTimeZoned = toZonedTime(ferry.departureTime, 'Australia/Brisbane');
-                    const currentTimeZoned = toZonedTime(new Date(), 'Australia/Brisbane');
-                    const tomorrowStart = startOfDay(addDays(currentTimeZoned, 1));
-                    const isNotToday = isAfter(departureTimeZoned, tomorrowStart) || isTomorrow(departureTimeZoned);
-                    
-                    return (
-                      <p>
-                        Next departure: {format(departureTimeZoned, 'h:mm a')}
-                        {isNotToday && (
-                          <span className="text-ferry-orange"> ({format(departureTimeZoned, 'dd/MM')})</span>
-                        )}
-                      </p>
-                    );
-                  })()}
+                  <p>Vehicle: {ferry.vehicleName}</p>
+                  <p className="text-xs text-gray-500">Trip: {ferry.tripId}</p>
+                  
+                  {/* Show current/last stop */}
+                  {ferry.currentStop && (
+                    <p className="mt-2">
+                      {ferry.currentStatus === 1 ? 'At: ' : 'Last: '}
+                      <span className="font-medium">{getStopNameSync(ferry.currentStop)}</span>
+                    </p>
+                  )}
+                  
+                  {/* Show next stop */}
+                  {ferry.nextStop && (
+                    <p>
+                      Next: <span className="font-medium">{getStopNameSync(ferry.nextStop)}</span>
+                    </p>
+                  )}
+                  
+                  {/* If no stop info available */}
+                  {!ferry.currentStop && !ferry.nextStop && (
+                    <p className="mt-2 text-gray-500">No stop information available</p>
+                  )}
                 </div>
               </Popup>
             </Marker>
@@ -207,8 +243,9 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
               .map(prefix => ({ prefix, info: SERVICE_TYPES[prefix] }))
               .filter(item => item.info);
             
-            // Add unknown type if there are ferries with unknown routes
+            // Add unknown type if there are ferries with unknown routes AND F21 is not already visible
             const hasUnknownTypes = ferryLocations.some(f => !SERVICE_TYPES[f.routePrefix]);
+            const hasF21Visible = visibleServiceTypes.some(item => item.prefix === 'F21');
             
             return (
               <>
@@ -220,12 +257,12 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
                     <span>{info.icon} {info.name}</span>
                   </div>
                 ))}
-                {hasUnknownTypes && (
+                {hasUnknownTypes && !hasF21Visible && (
                   <div className="flex items-center">
                     <svg width="20" height="20" viewBox="0 0 20 20" className="mr-2">
-                      <circle cx="10" cy="10" r="7" fill="#9CA3AF" stroke="white" strokeWidth="1.5"/>
+                      <circle cx="10" cy="10" r="7" fill="#6B7280" stroke="white" strokeWidth="1.5"/>
                     </svg>
-                    <span>🚢 Other ferries</span>
+                    <span>⛴️ Cross-river ferries</span>
                   </div>
                 )}
               </>

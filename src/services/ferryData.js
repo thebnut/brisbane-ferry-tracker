@@ -8,6 +8,7 @@ class FerryDataService {
     this.timezone = 'Australia/Brisbane';
     this.debug = DEBUG_CONFIG.enableLogging;
     this.selectedStops = DEFAULT_STOPS;
+    this.departureTimeFilter = null;
   }
 
   // Debug logging helper
@@ -18,6 +19,11 @@ class FerryDataService {
   // Set selected stops
   setSelectedStops(stops) {
     this.selectedStops = stops;
+  }
+  
+  // Set departure time filter
+  setDepartureTimeFilter(time) {
+    this.departureTimeFilter = time;
   }
 
   // Filter trip updates for selected stops and ferry routes
@@ -278,6 +284,11 @@ class FerryDataService {
     };
 
     departures.forEach(departure => {
+      // Filter by departure time if filter is set
+      if (this.departureTimeFilter && departure.departureTime < this.departureTimeFilter) {
+        return; // Skip departures before the selected time
+      }
+      
       if (departure.direction === 'outbound' && departure.stopId === this.selectedStops.outbound.id) {
         grouped.outbound.push(departure);
       } else if (departure.direction === 'inbound' && departure.stopId === this.selectedStops.inbound.id) {

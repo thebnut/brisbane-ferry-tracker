@@ -3,7 +3,7 @@ import gtfsService from '../services/gtfsService';
 import ferryDataService from '../services/ferryData';
 import { API_CONFIG, DEFAULT_STOPS } from '../utils/constants';
 
-const useFerryData = (selectedStops = DEFAULT_STOPS) => {
+const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null) => {
   const [departures, setDepartures] = useState({
     outbound: [],
     inbound: []
@@ -18,8 +18,9 @@ const useFerryData = (selectedStops = DEFAULT_STOPS) => {
     try {
       setError(null);
 
-      // Set selected stops in the service
+      // Set selected stops and departure time filter in the service
       ferryDataService.setSelectedStops(selectedStops);
+      ferryDataService.setDepartureTimeFilter(departureTimeFilter);
 
       // First, fetch real-time GTFS data (fast)
       const { tripUpdates, vehiclePositions } = await gtfsService.getAllData();
@@ -64,7 +65,13 @@ const useFerryData = (selectedStops = DEFAULT_STOPS) => {
       setLoading(false);
       setScheduleLoading(false);
     }
-  }, [selectedStops]);
+  }, [selectedStops, departureTimeFilter]);
+
+  // Clear departures when filters change for immediate feedback
+  useEffect(() => {
+    setDepartures({ outbound: [], inbound: [] });
+    setLoading(true);
+  }, [selectedStops, departureTimeFilter]);
 
   // Initial fetch and auto-refresh setup
   useEffect(() => {

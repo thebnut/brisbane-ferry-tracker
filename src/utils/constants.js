@@ -52,7 +52,8 @@ export const STORAGE_KEYS = {
   SCHEDULE_CACHE: 'brisbane-ferry-schedule-cache',
   SELECTED_STOPS: 'brisbane-ferry-selected-stops',
   SELECTED_STOPS_SESSION: 'brisbane-ferry-selected-stops-session',
-  REMEMBER_SELECTION: 'brisbane-ferry-remember-selection'
+  REMEMBER_SELECTION: 'brisbane-ferry-remember-selection',
+  DEPARTURE_TIME: 'brisbane-ferry-departure-time'
 };
 
 // Default stops for backward compatibility

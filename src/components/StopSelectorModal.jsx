@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import staticGtfsService from '../services/staticGtfsService';
 import { DEFAULT_STOPS, STORAGE_KEYS } from '../utils/constants';
 import { FERRY_STOPS, TEMPORARY_CONNECTIVITY } from '../utils/ferryStops';
+import StopSelectorMap from './StopSelectorMap';
 
 const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const [selectedOrigin, setSelectedOrigin] = useState(currentStops?.outbound?.id || DEFAULT_STOPS.outbound.id);
@@ -13,6 +14,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const [rememberSelection, setRememberSelection] = useState(() => {
     return localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION) === 'true';
   });
+  const [mapModalOpen, setMapModalOpen] = useState(null); // null, 'origin', or 'destination'
   
   // Helper function to remove 'ferry terminal' from stop names
   const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
@@ -199,17 +201,28 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   From (Origin Stop)
                 </label>
-                <select
-                  value={selectedOrigin}
-                  onChange={(e) => setSelectedOrigin(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-orange focus:border-ferry-orange transition-colors"
-                >
-                  {availableStops.map(stop => (
-                    <option key={stop.id} value={stop.id}>
-                      {cleanStopName(stop.name)}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    value={selectedOrigin}
+                    onChange={(e) => setSelectedOrigin(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-orange focus:border-ferry-orange transition-colors"
+                  >
+                    {availableStops.map(stop => (
+                      <option key={stop.id} value={stop.id}>
+                        {cleanStopName(stop.name)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setMapModalOpen('origin')}
+                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-ferry-orange-light hover:border-ferry-orange transition-colors"
+                    title="Select from map"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               {/* Destination Stop */}
@@ -217,26 +230,38 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   To (Destination Stop)
                 </label>
-                <select
-                  value={selectedDestination}
-                  onChange={(e) => setSelectedDestination(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-orange focus:border-ferry-orange transition-colors"
-                  disabled={validDestinations.length === 0}
-                >
-                  {validDestinations.length > 0 ? (
-                    validDestinations
-                      .map(stopId => availableStops.find(s => s.id === stopId))
-                      .filter(stop => stop !== undefined)
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map(stop => (
-                        <option key={stop.id} value={stop.id}>
-                          {cleanStopName(stop.name)}
-                        </option>
-                      ))
-                  ) : (
-                    <option value="">No direct connections available</option>
-                  )}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    value={selectedDestination}
+                    onChange={(e) => setSelectedDestination(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-orange focus:border-ferry-orange transition-colors"
+                    disabled={validDestinations.length === 0}
+                  >
+                    {validDestinations.length > 0 ? (
+                      validDestinations
+                        .map(stopId => availableStops.find(s => s.id === stopId))
+                        .filter(stop => stop !== undefined)
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map(stop => (
+                          <option key={stop.id} value={stop.id}>
+                            {cleanStopName(stop.name)}
+                          </option>
+                        ))
+                    ) : (
+                      <option value="">No direct connections available</option>
+                    )}
+                  </select>
+                  <button
+                    onClick={() => setMapModalOpen('destination')}
+                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-ferry-orange-light hover:border-ferry-orange transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={validDestinations.length === 0}
+                    title="Select from map"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                  </button>
+                </div>
                 {validDestinations.length === 0 && (
                   <p className="text-sm text-gray-500 mt-1">
                     No ferries run directly from the selected origin stop
@@ -325,6 +350,91 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
           </div>
         )}
       </div>
+      
+      {/* Map Modal Overlay */}
+      {mapModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-60 flex items-center justify-center p-4"
+          onClick={() => setMapModalOpen(null)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-3xl w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Map Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Select {mapModalOpen === 'origin' ? 'Origin' : 'Destination'} Stop
+              </h3>
+              <button
+                onClick={() => setMapModalOpen(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Instructions */}
+            <div className="mb-4 p-3 rounded-lg bg-ferry-orange-light border border-ferry-orange/20">
+              <p className="text-sm text-gray-700">
+                👆 Click on a stop to select it as your {mapModalOpen === 'origin' ? 'origin (starting point)' : 'destination'}.
+                {mapModalOpen === 'destination' && selectedOrigin && validDestinations.length > 0 && (
+                  <span className="block mt-1 text-xs">Gray stops have no direct connection from your selected origin.</span>
+                )}
+              </p>
+            </div>
+            
+            {/* Map */}
+            <StopSelectorMap
+              stops={availableStops}
+              selectedOrigin={mapModalOpen === 'origin' ? selectedOrigin : null}
+              selectedDestination={mapModalOpen === 'destination' ? selectedDestination : null}
+              validDestinations={mapModalOpen === 'destination' ? validDestinations : availableStops.map(s => s.id)}
+              onOriginSelect={(stopId) => {
+                if (mapModalOpen === 'origin') {
+                  setSelectedOrigin(stopId);
+                  setMapModalOpen(null);
+                }
+              }}
+              onDestinationSelect={(stopId) => {
+                if (mapModalOpen === 'destination') {
+                  setSelectedDestination(stopId);
+                  setMapModalOpen(null);
+                }
+              }}
+              selectionMode={mapModalOpen}
+            />
+            
+            {/* Map Legend */}
+            <div className="mt-4 flex flex-wrap gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-ferry-orange"></div>
+                <span>Available stops</span>
+              </div>
+              {mapModalOpen === 'origin' && selectedOrigin && (
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  <span>Currently selected</span>
+                </div>
+              )}
+              {mapModalOpen === 'destination' && selectedDestination && (
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                  <span>Currently selected</span>
+                </div>
+              )}
+              {mapModalOpen === 'destination' && validDestinations.length < availableStops.length && (
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                  <span>No direct connection</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
