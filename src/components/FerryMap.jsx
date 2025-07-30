@@ -261,7 +261,7 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
                     <svg width="20" height="20" viewBox="0 0 20 20" className="mr-2">
                       <circle cx="10" cy="10" r="7" fill="#9CA3AF" stroke="white" strokeWidth="1.5"/>
                     </svg>
-                    <span>🚢 Other ferries</span>
+                    <span>⛴️ Cross-river ferries</span>
                   </div>
                 )}
               </>
