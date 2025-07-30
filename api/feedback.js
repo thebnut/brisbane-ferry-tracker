@@ -19,6 +19,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Check if environment variables are set
+  if (!process.env.N8N_WEBHOOK_URL || !process.env.N8N_AUTH_TOKEN) {
+    console.error('Missing environment variables: N8N_WEBHOOK_URL or N8N_AUTH_TOKEN');
+    return res.status(500).json({ 
+      error: 'Server configuration error. Please contact support.' 
+    });
+  }
+
   try {
     const { feedback, email, name } = req.body;
 
@@ -48,6 +56,7 @@ export default async function handler(req, res) {
     };
 
     // Send to n8n webhook
+    console.log('Sending feedback to n8n webhook...');
     const response = await fetch(process.env.N8N_WEBHOOK_URL, {
       method: 'POST',
       headers: {
@@ -58,8 +67,13 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      console.error('n8n webhook error:', response.status, response.statusText);
-      throw new Error('Failed to submit feedback to webhook');
+      const responseText = await response.text();
+      console.error('n8n webhook error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText
+      });
+      throw new Error(`Webhook responded with ${response.status}: ${responseText || response.statusText}`);
     }
 
     // Return success
@@ -69,9 +83,15 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Feedback submission error:', error);
+    console.error('Feedback submission error:', {
+      message: error.message,
+      stack: error.stack,
+      webhookUrl: process.env.N8N_WEBHOOK_URL ? 'Set' : 'Not set',
+      authToken: process.env.N8N_AUTH_TOKEN ? 'Set' : 'Not set'
+    });
     return res.status(500).json({ 
-      error: 'Failed to submit feedback. Please try again later.' 
+      error: 'Failed to submit feedback. Please try again later.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 }
