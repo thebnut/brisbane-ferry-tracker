@@ -24,7 +24,7 @@ const getServiceColor = (routeId) => {
   const routePrefix = routeId.split('-')[0];
   const serviceInfo = SERVICE_TYPES[routePrefix];
   
-  if (!serviceInfo) return '#9CA3AF'; // Light gray for unknown routes
+  if (!serviceInfo) return '#6B7280'; // Same gray as cross-river for unknown routes
   
   // Map Tailwind colors to hex
   const colorMap = {
@@ -33,7 +33,7 @@ const getServiceColor = (routeId) => {
     'bg-gray-500': '#6B7280'       // Gray for cross-river
   };
   
-  return colorMap[serviceInfo.color] || '#9CA3AF';
+  return colorMap[serviceInfo.color] || '#6B7280';
 };
 
 // Create custom ferry icon
@@ -243,8 +243,9 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
               .map(prefix => ({ prefix, info: SERVICE_TYPES[prefix] }))
               .filter(item => item.info);
             
-            // Add unknown type if there are ferries with unknown routes
+            // Add unknown type if there are ferries with unknown routes AND F21 is not already visible
             const hasUnknownTypes = ferryLocations.some(f => !SERVICE_TYPES[f.routePrefix]);
+            const hasF21Visible = visibleServiceTypes.some(item => item.prefix === 'F21');
             
             return (
               <>
@@ -256,10 +257,10 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
                     <span>{info.icon} {info.name}</span>
                   </div>
                 ))}
-                {hasUnknownTypes && (
+                {hasUnknownTypes && !hasF21Visible && (
                   <div className="flex items-center">
                     <svg width="20" height="20" viewBox="0 0 20 20" className="mr-2">
-                      <circle cx="10" cy="10" r="7" fill="#9CA3AF" stroke="white" strokeWidth="1.5"/>
+                      <circle cx="10" cy="10" r="7" fill="#6B7280" stroke="white" strokeWidth="1.5"/>
                     </svg>
                     <span>⛴️ Cross-river ferries</span>
                   </div>
