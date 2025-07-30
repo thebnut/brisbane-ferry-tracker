@@ -12,13 +12,13 @@ const MobileBoardHeader = ({
   loading = false
 }) => {
   return (
-    <div className="flex items-center space-x-2 mb-6 rounded-xl overflow-hidden border-2 border-ferry-orange/30 shadow-lg bg-white/90 backdrop-blur-sm px-3 py-2">
+    <div className="flex items-center justify-center space-x-2 mb-6 rounded-xl overflow-hidden border-2 border-ferry-orange/30 shadow-lg bg-white/90 backdrop-blur-sm px-3 py-2">
       <StopDropdown
         value={originStop.id}
         onChange={onOriginChange}
         options={availableStops}
         disabled={loading}
-        className="flex-1"
+        className="min-w-0 max-w-[140px]"
         compact={true}
       />
       
@@ -37,7 +37,7 @@ const MobileBoardHeader = ({
         onChange={onDestinationChange}
         options={availableStops.filter(stop => validDestinations.includes(stop.id))}
         disabled={loading || validDestinations.length === 0}
-        className="flex-1"
+        className="min-w-0 max-w-[140px]"
         compact={true}
       />
     </div>
