@@ -12,7 +12,7 @@ const MobileBoardHeader = ({
   loading = false
 }) => {
   return (
-    <div className="flex items-center space-x-1 mb-6 rounded-xl overflow-hidden border-2 border-ferry-orange/30 shadow-lg bg-white/90 backdrop-blur-sm p-1.5">
+    <div className="flex items-center space-x-2 mb-6 rounded-xl overflow-hidden border-2 border-ferry-orange/30 shadow-lg bg-white/90 backdrop-blur-sm px-3 py-2">
       <StopDropdown
         value={originStop.id}
         onChange={onOriginChange}
