@@ -512,6 +512,19 @@ moreButtons.forEach(btn => btn.click());
    - Helps passengers know when ferry will depart even if it arrives early
    - Falls back to "On time" only if scheduled time unavailable
 
+6. **Nearest Stop Feature** (January 2025)
+   - Added "Nearest Stop" button to stop selector map
+   - Uses browser geolocation API to find user's location
+   - Calculates distance to all ferry stops using Haversine formula
+   - Highlights nearest stop with green border and animation
+   - Shows user location as blue pulsing marker on map
+   - Displays distance to nearest stop (e.g., "150m" or "1.2km")
+   - Auto-selects nearest stop based on current selection mode (origin/destination)
+   - Handles permission denial gracefully with clear error messages
+   - Warns if nearest stop is > 5km away
+   - Requires HTTPS for geolocation access
+   - No location data is stored or transmitted
+
 ### Logo and Branding Updates
 1. **New Logo**: BrisbaneFerry Departure Boards
    - Replaced old logo with bf.com_logo.png
