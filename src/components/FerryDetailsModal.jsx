@@ -36,6 +36,11 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
     return formattedName;
   };
   
+  // Find matching vehicle position
+  const vehiclePosition = useMemo(() => {
+    return vehiclePositions.find(vp => vp.vehicle?.trip?.tripId === departure.tripId);
+  }, [vehiclePositions, departure.tripId]);
+  
   // Get vessel theme info
   const vesselName = formatVehicleName(vehiclePosition?.vehicle?.vehicle?.id);
   const vesselInfo = formatVesselWithTheme(vesselName);
@@ -49,11 +54,6 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
     hasDestinationArrivalTime: !!departure.destinationArrivalTime,
     departureTime: departure.departureTime
   });
-  
-  // Find matching vehicle position
-  const vehiclePosition = useMemo(() => {
-    return vehiclePositions.find(vp => vp.vehicle?.trip?.tripId === departure.tripId);
-  }, [vehiclePositions, departure.tripId]);
   
   // Find matching trip update
   const tripUpdate = useMemo(() => {
