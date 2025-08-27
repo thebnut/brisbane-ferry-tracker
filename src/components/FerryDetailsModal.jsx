@@ -3,6 +3,7 @@ import { format, differenceInMinutes, isTomorrow, isAfter, startOfDay, addDays }
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { SERVICE_TYPES, API_CONFIG, STOPS, getVehicleStatusInfo } from '../utils/constants';
+import { getVesselTheme, formatVesselWithTheme } from '../utils/vesselThemes';
 import FerryDetailMap from './FerryDetailMap';
 
 const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedStops, onClose }) => {
@@ -23,7 +24,7 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
     const name = parts[parts.length - 1];
     
     // Title case but preserve Roman numerals
-    return name.split(' ').map(word => {
+    const formattedName = name.split(' ').map(word => {
       // Check if word is a Roman numeral (all I, V, X)
       if (/^[IVX]+$/i.test(word)) {
         return word.toUpperCase();
@@ -31,7 +32,14 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
       // Otherwise, capitalize first letter
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
     }).join(' ');
+    
+    return formattedName;
   };
+  
+  // Get vessel theme info
+  const vesselName = formatVehicleName(vehiclePosition?.vehicle?.vehicle?.id);
+  const vesselInfo = formatVesselWithTheme(vesselName);
+  const vesselTheme = vesselInfo?.theme;
   
   // Debug logging
   console.log('FerryDetailsModal - departure data:', {
@@ -162,9 +170,20 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
                       ? `${selectedStops?.outbound?.name || 'Bulimba'} → ${selectedStops?.inbound?.name || 'Riverside'}` 
                       : `${selectedStops?.inbound?.name || 'Riverside'} → ${selectedStops?.outbound?.name || 'Bulimba'}`}
                   </p>
-                  <p className="text-xs text-gray-500">
-                    Vehicle: {formatVehicleName(vehiclePosition?.vehicle?.vehicle?.id) || 'Unknown'}{vehiclePosition?.vehicle?.currentStatus !== null && vehiclePosition?.vehicle?.currentStatus !== undefined ? ` | ${getVehicleStatusInfo(vehiclePosition.vehicle.currentStatus)}` : ''}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-gray-500">
+                      Vehicle: {vesselInfo?.displayName || 'Unknown'}{vehiclePosition?.vehicle?.currentStatus !== null && vehiclePosition?.vehicle?.currentStatus !== undefined ? ` | ${getVehicleStatusInfo(vehiclePosition.vehicle.currentStatus)}` : ''}
+                    </p>
+                    {vesselTheme && (
+                      <span className={clsx(
+                        'text-xs px-2 py-0.5 rounded-full font-medium',
+                        vesselTheme.bgColor,
+                        'text-white'
+                      )}>
+                        {vesselTheme.character} CityDog
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -178,6 +197,26 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
             </button>
           </div>
         </div>
+        
+        {/* Themed Ferry Message */}
+        {vesselTheme && (
+          <div className={clsx(
+            'px-6 py-4 border-b',
+            'bg-gradient-to-r',
+            vesselTheme.character === 'Bluey' ? 'from-blue-50 to-blue-100' : 'from-orange-50 to-orange-100'
+          )}>
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-2xl">{vesselTheme.dogEmoji}</span>
+              <p className={clsx(
+                'text-lg font-semibold',
+                vesselTheme.textColor
+              )}>
+                {vesselTheme.message}
+              </p>
+              <span className="text-2xl">{vesselTheme.dogEmoji}</span>
+            </div>
+          </div>
+        )}
         
         {/* Schedule Information */}
         <div className="p-6 border-b">

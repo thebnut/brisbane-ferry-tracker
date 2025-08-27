@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { STOPS, SERVICE_TYPES } from '../utils/constants';
 import { getStopNameSync, preloadStopData } from '../utils/stopNames';
+import { getVesselTheme } from '../utils/vesselThemes';
 
 // Fix Leaflet default icon issue with Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -36,15 +37,17 @@ const getServiceColor = (routeId) => {
   return colorMap[serviceInfo.color] || '#6B7280';
 };
 
-// Create custom ferry icon
-const createFerryIcon = (routeId) => {
-  const color = getServiceColor(routeId);
+// Create custom ferry icon with optional theme
+const createFerryIcon = (routeId, vesselName = null) => {
+  const vesselTheme = vesselName ? getVesselTheme(vesselName) : null;
+  const color = vesselTheme ? vesselTheme.mapColor : getServiceColor(routeId);
+  const emoji = vesselTheme ? vesselTheme.dogEmoji : null;
   
   return L.divIcon({
     html: `
       <div style="
-        width: 28px;
-        height: 28px;
+        width: ${vesselTheme ? '36px' : '28px'};
+        height: ${vesselTheme ? '36px' : '28px'};
         display: flex;
         align-items: center;
         justify-content: center;
@@ -56,19 +59,40 @@ const createFerryIcon = (routeId) => {
             100% { opacity: 1; transform: scale(1); }
           }
         </style>
-        <svg width="28" height="28" viewBox="0 0 28 28" style="animation: pulse 2s infinite;">
-          <defs>
-            <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-              <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3"/>
-            </filter>
-          </defs>
-          <circle cx="14" cy="14" r="10" fill="${color}" stroke="white" stroke-width="2" filter="url(#shadow)"/>
-        </svg>
+        ${vesselTheme ? `
+          <div style="position: relative;">
+            <svg width="36" height="36" viewBox="0 0 36 36" style="animation: pulse 2s infinite;">
+              <defs>
+                <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3"/>
+                </filter>
+              </defs>
+              <circle cx="18" cy="18" r="14" fill="${color}" stroke="white" stroke-width="3" filter="url(#shadow)"/>
+            </svg>
+            <div style="
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              font-size: 16px;
+              line-height: 1;
+            ">${emoji}</div>
+          </div>
+        ` : `
+          <svg width="28" height="28" viewBox="0 0 28 28" style="animation: pulse 2s infinite;">
+            <defs>
+              <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3"/>
+              </filter>
+            </defs>
+            <circle cx="14" cy="14" r="10" fill="${color}" stroke="white" stroke-width="2" filter="url(#shadow)"/>
+          </svg>
+        `}
       </div>
     `,
     className: 'ferry-marker',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14]
+    iconSize: vesselTheme ? [36, 36] : [28, 28],
+    iconAnchor: vesselTheme ? [18, 18] : [14, 14]
   });
 };
 
@@ -199,14 +223,25 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
             <Marker
               key={ferry.id}
               position={[ferry.lat, ferry.lng]}
-              icon={createFerryIcon(ferry.routeId)}
+              icon={createFerryIcon(ferry.routeId, ferry.vehicleName)}
             >
               <Popup>
                 <div className="text-sm">
                   <p className="font-bold">
                     {SERVICE_TYPES[ferry.routePrefix]?.name || 'Ferry'}
                   </p>
-                  <p>Vehicle: {ferry.vehicleName}</p>
+                  <p>Vehicle: {ferry.vehicleName}{(() => {
+                    const theme = getVesselTheme(ferry.vehicleName);
+                    return theme ? ` ${theme.dogEmoji}` : '';
+                  })()}</p>
+                  {(() => {
+                    const theme = getVesselTheme(ferry.vehicleName);
+                    return theme ? (
+                      <p className="text-xs font-semibold" style={{ color: theme.color }}>
+                        {theme.description}
+                      </p>
+                    ) : null;
+                  })()}
                   <p className="text-xs text-gray-500">Trip: {ferry.tripId}</p>
                   
                   {/* Show current/last stop */}
