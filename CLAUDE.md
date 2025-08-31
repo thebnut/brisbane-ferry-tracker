@@ -1,5 +1,12 @@
 # Brisbane Ferry Tracker - Project Guide for Claude
 
+## Documentation Structure
+- **Main Guide**: This file (CLAUDE.md) - Core project information and current status
+- **Supporting Docs**: `/docs/` folder - Additional technical documentation including:
+  - Architecture documents (app-architecture.md, state-architecture.md)
+  - Implementation plans and specifications
+  - Historical feature documentation
+
 ## Project Overview
 This is a single-page application that displays real-time ferry departures between any two Brisbane ferry terminals. Users can select their origin and destination stops from all available ferry terminals. It combines static GTFS schedule data with real-time GTFS-RT updates to show accurate ferry times even when services aren't actively running.
 
@@ -114,14 +121,14 @@ The app filters departures to show ONLY ferries that actually travel between the
    - Origin departures: Must have destination AFTER current position
    - Destination departures: Must have origin AFTER current position
 
-See `schedule-filtering-logic.md` for detailed explanation.
+See `docs/schedule-filtering-logic.md` for detailed explanation.
 
 ### State Management
 - Uses React hooks (no Redux/Context needed)
 - Custom `useFerryData` hook handles all data fetching and progressive loading
 - Separate loading states for initial load vs schedule load
 - Auto-refresh every 5 minutes + countdown timer every second
-- **Two-tier state architecture for stop selections** - see `state-architecture.md` for details
+- **Two-tier state architecture for stop selections** - see `docs/state-architecture.md` for details
 
 ### Styling
 - Tailwind CSS v3 (not v4 - important for compatibility)
@@ -174,6 +181,17 @@ git checkout develop
 - Critical: Always pass selectedStops when calling `getScheduledDepartures()`
 
 ## Testing & Debugging
+
+### Visual Testing Protocol
+**IMPORTANT**: Always perform visual testing on the Vercel deployment, not localhost:
+- **Development**: https://brisbane-ferry-tracker.vercel.app (develop branch)
+- **Production**: https://ferry.lifemap.au or https://www.brisbaneferry.com (main branch)
+
+This ensures testing includes:
+- Real-world network latency
+- Vercel's serverless functions and CORS proxy
+- Production build optimizations
+- Actual deployment environment behavior
 
 ### Key Debug Points
 1. `ferryData.js:filterRelevantTrips()` - Shows which trips pass initial filter
@@ -258,6 +276,17 @@ git push
 # Return to development
 git checkout develop
 ```
+
+### Post-Deployment Checklist
+After deploying new features to production:
+1. **Update README.md** with latest implementation details:
+   - New features added to Features section
+   - Update technical documentation references if new docs added
+   - Update environment variables if new ones required
+   - Ensure all component paths and architecture descriptions are current
+2. **Update this CLAUDE.md** if significant architecture changes made
+3. **Test deployment** using Playwright for visual validation and console errors
+4. **Verify** all documentation links work correctly
 
 ### Manual Deployment Commands (if needed)
 ```bash
@@ -524,13 +553,14 @@ moreButtons.forEach(btn => btn.click());
    - Warns if nearest stop is > 5km away
    - Requires HTTPS for geolocation access
    - No location data is stored or transmitted
+   - See `docs/nearest_stop_prd.md` and `docs/nearest_stop_trd.md` for implementation details
 
 ### Logo and Branding Updates
-1. **New Logo**: BrisbaneFerry Departure Boards
-   - Replaced old logo with bf.com_logo.png
+1. **New Logo**: BrisbaneFerry Departure Boards with Integrated Text
+   - Using bf.com_logo_text.png with text built into the logo image
    - Significantly larger display (h-16 md:h-28)
    - Left-aligned positioning
-   - Removed separate "Brisbane Ferry Tracker" text
+   - Increased mobile max-width to 280px for text readability
    - Compact header with minimal padding (py-1)
 
 2. **Mobile Logo Handling**
@@ -546,7 +576,7 @@ moreButtons.forEach(btn => btn.click());
 2. **Return Leg Focus Feature** (Removed but documented)
    - Previously auto-switched to inbound tab after 12:30 PM
    - Removed January 2025 based on user feedback
-   - Full implementation details in `returnLegFocus.md`
+   - Full implementation details in `docs/returnLegFocus.md`
    - Can be reimplemented as user-configurable option
 
 3. **Remember Selection Toggle Persistence** (Fixed January 2025)
@@ -565,7 +595,7 @@ moreButtons.forEach(btn => btn.click());
      - `StopDropdown`: Reusable styled dropdown component
      - `BoardHeader`: Desktop header with two dropdowns
      - `MobileBoardHeader`: Mobile header with dropdowns and switch button
-   - **State Management**: `temporaryStops` state tracks session-based selections (see `state-architecture.md`)
+   - **State Management**: `temporaryStops` state tracks session-based selections (see `docs/state-architecture.md`)
 
 ## Important Implementation Details
 

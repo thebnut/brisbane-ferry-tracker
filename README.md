@@ -4,23 +4,31 @@ A real-time ferry departure tracker for Brisbane's ferry network, allowing users
 
 ## Features
 
-- 🚤 Live departure times for all Brisbane ferry services (CityCat, CityHopper, Cross River)
-- 🎯 Dynamic stop selector - choose any ferry terminal pair
+### Core Functionality
+- 🚤 Live departure times for all Brisbane ferry services (CityCat, CityHopper, Cross River, CityDog)
+- 🎯 Map-based stop selector with interactive terminal selection
+- 📍 **Nearest Stop** feature - finds closest ferry terminal using GPS
 - ⏱️ Real-time countdown timers for next departures
 - 📅 Shows scheduled times when real-time data unavailable (early mornings)
 - 🗓️ Tomorrow's departures show date (DD/MM) for clarity
 - 🔄 Auto-refresh every 5 minutes with smart cache validation
+
+### User Interface
+- 🗺️ Interactive map showing live ferry positions with SVG icons
 - 🎛️ Service filters (All/Express) in header bar, hidden when no express services
-- 🗺️ Interactive map showing live ferry positions with pulsing markers
-- 📱 Fully responsive design with mobile-optimized tabs
+- 📱 Fully responsive design with mobile-optimized tabs and dropdowns
 - ⚡ Progressive loading - see live ferries instantly while schedule loads
 - 📊 "More..." button to expand from 5 to 13 departures per direction
 - 🚢 Clean interface - stop names without "ferry terminal" suffix
-- 🏷️ Ferry vessel names displayed (e.g., "Mooroolbin II")
+- 💬 User feedback form for suggestions and bug reports
+
+### Real-time Information
+- 🏷️ Ferry vessel names displayed (e.g., "Mooroolbin II", "Bluey", "Bingo")
 - 🟢 Separate LIVE and GPS status badges
 - 🕐 Shows scheduled departure time for on-time ferries
 - 📢 Dynamic status messages based on available data
 - ⚙️ Settings gear to change selected stops anytime
+- 🛥️ Cross-river ferry categorization in map legend
 
 ## Tech Stack
 
@@ -69,6 +77,7 @@ Create a `.env.local` file for local development:
 
 ```env
 VITE_GTFS_API_BASE=https://gtfsrt.api.translink.com.au/api/realtime/SEQ/
+VITE_N8N_WEBHOOK_URL=your_n8n_webhook_url_here  # Optional: for feedback form
 ```
 
 ## Deployment
@@ -90,8 +99,9 @@ vercel --prod
 - ✅ Real-time updates
 - ✅ CORS proxy for TransLink API
 - ✅ Full functionality
+- ✅ User feedback form with webhook integration
 
-The app includes serverless functions to handle CORS for the TransLink API.
+The app includes serverless functions to handle CORS for the TransLink API and user feedback submission.
 
 ### Deploy to GitHub Pages (Schedule Only)
 
@@ -142,8 +152,11 @@ src/
 ## Technical Documentation
 
 - [CLAUDE.md](./CLAUDE.md) - Development guide for AI assistants
-- [app-architecture.md](./app-architecture.md) - Detailed system architecture and data flow
-- [schedule-filtering-logic.md](./schedule-filtering-logic.md) - Detailed explanation of ferry filtering algorithm
+- [docs/app-architecture.md](./docs/app-architecture.md) - Detailed system architecture and data flow
+- [docs/schedule-filtering-logic.md](./docs/schedule-filtering-logic.md) - Ferry filtering algorithm explanation
+- [docs/state-architecture.md](./docs/state-architecture.md) - State management architecture
+- [docs/nearest_stop_prd.md](./docs/nearest_stop_prd.md) - Nearest Stop feature specification
+- [docs/nearest_stop_trd.md](./docs/nearest_stop_trd.md) - Nearest Stop technical details
 
 ## How It Works
 
@@ -213,7 +226,7 @@ TransLink APIs → Processing → Frontend Display
 - **Dynamic Stop Selection**: All processing adapts to user-selected terminals
 - **Two-stage Loading**: Optimizes perceived performance
 
-For detailed architecture documentation, see [app-architecture.md](./app-architecture.md).
+For detailed architecture documentation, see [docs/app-architecture.md](./docs/app-architecture.md).
 
 ## API Integration
 

@@ -7,9 +7,9 @@ const Navigation = ({ onOpenSettings }) => {
         <div className="flex items-center justify-between py-1">
           <div className="flex items-start">
             <img 
-              src="/bf.com_logo.png" 
+              src="/bf.com_logo_text.png" 
               alt="Brisbane Ferry Tracker" 
-              className="h-16 md:h-28 w-auto max-w-[200px] md:max-w-none"
+              className="h-16 md:h-28 w-auto max-w-[280px] md:max-w-none"
             />
           </div>
           <div className="flex items-center space-x-2 md:space-x-3">
