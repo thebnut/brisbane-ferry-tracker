@@ -1,3 +1,6 @@
+// Mode-specific constants have been moved to configuration
+// See src/config/modes/ferry.config.js for ferry-specific values
+// These exports remain for backward compatibility during migration
 export const STOPS = {
   bulimba: "317584",        // Bulimba ferry terminal
   riverside: "317590",      // Riverside ferry terminal
@@ -18,6 +21,7 @@ export const SERVICE_TYPES = {
   // F4: { name: 'CityHopper', icon: '⛴️', color: 'bg-purple-500', borderColor: 'border-purple-500', isExpress: false }
 };
 
+// Shared API configuration (mode-agnostic)
 export const API_CONFIG = {
   baseUrl: import.meta.env.VITE_GTFS_API_BASE || 'https://gtfsrt.api.translink.com.au/api/realtime/SEQ/',
   endpoints: {
@@ -25,8 +29,8 @@ export const API_CONFIG = {
     vehiclePositions: 'VehiclePositions',
     serviceAlerts: 'Alerts'
   },
-  refreshInterval: 5 * 60 * 1000, // 5 minutes
   timezone: 'Australia/Brisbane'
+  // refreshInterval moved to mode configuration
 };
 
 // Debug configuration
@@ -57,6 +61,7 @@ export const STORAGE_KEYS = {
 };
 
 // Default stops for backward compatibility
+// New code should use mode configuration instead
 export const DEFAULT_STOPS = {
   outbound: {
     id: STOPS.bulimba,
