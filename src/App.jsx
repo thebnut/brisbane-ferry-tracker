@@ -12,27 +12,50 @@ import DepartureTimeDropdown from './components/DepartureTimeDropdown';
 import FeedbackModal from './components/FeedbackModal';
 import useFerryData from './hooks/useFerryData';
 import staticGtfsService from './services/staticGtfsService';
-import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
+import { STORAGE_KEYS } from './utils/constants';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { ModeProvider, useMode } from './config';
 
+// Main App component wrapped with ModeProvider
 function App() {
+  return (
+    <ModeProvider>
+      <AppContent />
+    </ModeProvider>
+  );
+}
+
+// Actual app content that uses mode configuration
+function AppContent() {
   // v1.2.0 - Modern orange-themed redesign with animations (2025-07-19)
-  // Load saved stops or use defaults
+  const mode = useMode();
+  const defaultStops = mode.data.stops.defaults;
+
+  // Load saved stops or use mode defaults
   const [selectedStops, setSelectedStops] = useState(() => {
     // Check localStorage first (permanent storage)
     const savedPermanent = localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
     if (savedPermanent) {
       return JSON.parse(savedPermanent);
     }
-    
+
     // Check sessionStorage (temporary storage)
     const savedSession = sessionStorage.getItem(STORAGE_KEYS.SELECTED_STOPS_SESSION);
     if (savedSession) {
       return JSON.parse(savedSession);
     }
-    
-    // Use defaults if nothing saved
-    return DEFAULT_STOPS;
+
+    // Use mode-specific defaults if nothing saved
+    return {
+      outbound: {
+        id: defaultStops.origin,
+        name: mode.data.stops.list.find(s => s.id === defaultStops.origin)?.name || 'Origin'
+      },
+      inbound: {
+        id: defaultStops.destination,
+        name: mode.data.stops.list.find(s => s.id === defaultStops.destination)?.name || 'Destination'
+      }
+    };
   });
   
   // Show stop selector if no permanently saved stops OR remember preference is false
