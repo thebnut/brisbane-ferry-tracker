@@ -7,6 +7,7 @@ import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 class StaticGTFSService {
   constructor() {
     this.timezone = 'Australia/Brisbane';
+    this.mode = 'ferry'; // Default mode, will be updated from ModeProvider
     this.scheduleCacheKey = STORAGE_KEYS.SCHEDULE_CACHE;
     this.cacheExpiry = 24 * 60 * 60 * 1000; // 24 hours
     this.gtfsData = null;
@@ -19,15 +20,48 @@ class StaticGTFSService {
     const urlParams = new URLSearchParams(window.location.search);
     const forceGitHub = urlParams.get('useGitHub') || urlParams.get('useGithub');
     
-    // GitHub Pages URL for pre-processed schedule data
-    this.githubScheduleUrl = (window.location.hostname === 'localhost' && !forceGitHub)
-      ? '/schedule-data/latest.json'
-      : 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data/latest.json';
+    // Mode will be set later, use ferry as default
+    this.updateScheduleUrls(forceGitHub);
     
     // Log the data source for debugging on localhost
     if (window.location.hostname === 'localhost') {
       console.log(`📍 Using ${forceGitHub ? 'GitHub' : 'local'} schedule data`);
     }
+  }
+
+  // Set the mode for this service
+  setMode(mode) {
+    this.mode = mode;
+    // Update cache key to be mode-specific
+    this.scheduleCacheKey = `${STORAGE_KEYS.SCHEDULE_CACHE}_${mode}`;
+    // Update URLs when mode changes
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceGitHub = urlParams.get('useGitHub') || urlParams.get('useGithub');
+    this.updateScheduleUrls(forceGitHub);
+  }
+
+  // Update schedule URLs based on mode
+  updateScheduleUrls(forceGitHub) {
+    const basePath = 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data';
+
+    // Determine the correct path based on mode
+    if (window.location.hostname === 'localhost' && !forceGitHub) {
+      // Local development - check if mode-specific directory exists
+      this.githubScheduleUrl = `/schedule-data/${this.mode}/latest.json`;
+      // Fallback to root for ferry mode (backward compatibility)
+      if (this.mode === 'ferry') {
+        this.fallbackScheduleUrl = '/schedule-data/latest.json';
+      }
+    } else {
+      // Production or forced GitHub
+      this.githubScheduleUrl = `${basePath}/${this.mode}/latest.json`;
+      // Fallback to root for ferry mode (backward compatibility)
+      if (this.mode === 'ferry') {
+        this.fallbackScheduleUrl = `${basePath}/latest.json`;
+      }
+    }
+
+    this.log(`Schedule URL for ${this.mode}: ${this.githubScheduleUrl}`);
   }
 
   // Debug logging helper
@@ -198,9 +232,15 @@ class StaticGTFSService {
   // Try to fetch pre-processed schedule from GitHub
   async fetchGitHubSchedule() {
     try {
-      this.log('Fetching pre-processed schedule from GitHub...');
-      const response = await fetch(this.githubScheduleUrl);
-      
+      this.log(`Fetching pre-processed ${this.mode} schedule from GitHub...`);
+      let response = await fetch(this.githubScheduleUrl);
+
+      // Try fallback URL if primary fails (for ferry backward compatibility)
+      if (!response.ok && this.fallbackScheduleUrl) {
+        this.log(`Primary URL failed, trying fallback for ${this.mode}...`);
+        response = await fetch(this.fallbackScheduleUrl);
+      }
+
       if (!response.ok) {
         throw new Error(`GitHub schedule fetch failed: ${response.status}`);
       }
@@ -583,6 +623,60 @@ class StaticGTFSService {
   // Check if stops data is loaded
   hasStopsData() {
     return !!(this.ferryStops && this.stopConnectivity);
+  }
+
+  // Get schedule metadata including route allow-set
+  async getScheduleMetadata() {
+    try {
+      // Try to get from cache first
+      const cached = localStorage.getItem(this.scheduleCacheKey);
+      if (cached) {
+        const data = JSON.parse(cached);
+        if (data.routeAllowSet) {
+          return {
+            mode: data.mode || this.mode,
+            routeAllowSet: data.routeAllowSet,
+            generated: data.generated,
+            stops: data.stops || data.ferryStops
+          };
+        }
+      }
+
+      // Fetch fresh metadata
+      const response = await fetch(this.githubScheduleUrl);
+      if (!response.ok && this.fallbackScheduleUrl) {
+        const fallbackResponse = await fetch(this.fallbackScheduleUrl);
+        if (fallbackResponse.ok) {
+          const data = await fallbackResponse.json();
+          return {
+            mode: data.mode || this.mode,
+            routeAllowSet: data.routeAllowSet || [],
+            generated: data.generated,
+            stops: data.stops || data.ferryStops
+          };
+        }
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          mode: data.mode || this.mode,
+          routeAllowSet: data.routeAllowSet || [],
+          generated: data.generated,
+          stops: data.stops || data.ferryStops
+        };
+      }
+    } catch (error) {
+      console.error('Failed to get schedule metadata:', error);
+    }
+
+    // Return empty metadata as fallback
+    return {
+      mode: this.mode,
+      routeAllowSet: [],
+      generated: null,
+      stops: {}
+    };
   }
 
 }

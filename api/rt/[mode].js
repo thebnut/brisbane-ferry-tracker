@@ -4,6 +4,7 @@
  * Filters by transit mode (ferry, train, bus)
  */
 
+import GtfsRealtimeBindings from 'gtfs-realtime-bindings';
 import { gtfsCache } from '../../lib/gtfsCache.js';
 
 // Mode configurations - minimal for now, will expand with config system
@@ -44,11 +45,50 @@ async function fetchGTFSRT(endpoint) {
 /**
  * Filter GTFS-RT entities by route type
  */
-function filterByMode(data, modeConfig) {
-  // This is a simplified filter - in production we'd parse the protobuf
-  // and filter the entities properly
-  // For now, we'll pass through the raw data
-  return data;
+function filterByMode(buffer, modeConfig) {
+  try {
+    // Parse the protobuf data
+    const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(
+      new Uint8Array(buffer)
+    );
+
+    // Log original entity count
+    console.log(`Original entities: ${feed.entity.length}`);
+
+    // Filter entities by route
+    const filteredEntities = feed.entity.filter(entity => {
+      // Check TripUpdate entities
+      if (entity.tripUpdate?.trip?.routeId) {
+        return modeConfig.routeFilter(entity.tripUpdate.trip.routeId);
+      }
+      // Check VehiclePosition entities
+      if (entity.vehicle?.trip?.routeId) {
+        return modeConfig.routeFilter(entity.vehicle.trip.routeId);
+      }
+      // Keep all alerts (they might be system-wide)
+      if (entity.alert) {
+        return true;
+      }
+      // Filter out entities without route information
+      return false;
+    });
+
+    console.log(`Filtered entities: ${filteredEntities.length} (${modeConfig.routeType})`);
+
+    // Create new feed with filtered entities
+    const filteredFeed = {
+      header: feed.header,
+      entity: filteredEntities
+    };
+
+    // Encode back to protobuf
+    const message = GtfsRealtimeBindings.transit_realtime.FeedMessage.create(filteredFeed);
+    return GtfsRealtimeBindings.transit_realtime.FeedMessage.encode(message).finish();
+  } catch (error) {
+    console.error('Error filtering GTFS data:', error);
+    // Return original data if filtering fails
+    return buffer;
+  }
 }
 
 export default async function handler(req, res) {
@@ -82,6 +122,15 @@ export default async function handler(req, res) {
   // Create cache key
   const cacheKey = `${mode}:${endpoint}`;
 
+  // Log request for monitoring
+  console.log({
+    action: 'request',
+    mode,
+    endpoint,
+    timestamp: new Date().toISOString(),
+    ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress
+  });
+
   try {
     // Check cache first
     const cached = await gtfsCache.get(cacheKey);
@@ -100,14 +149,27 @@ export default async function handler(req, res) {
     console.log(`Cache miss for ${cacheKey}, fetching from TransLink...`);
     const data = await fetchGTFSRT(endpoint);
 
-    // Filter by mode (simplified for now)
+    // Filter by mode
     const filtered = filterByMode(data, modeConfig);
 
     // Store in cache
     await gtfsCache.set(cacheKey, filtered);
 
+    // Count entities for monitoring
+    let entityCount = 0;
+    try {
+      const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(
+        new Uint8Array(filtered)
+      );
+      entityCount = feed.entity.length;
+    } catch (e) {
+      console.error('Could not count entities:', e);
+    }
+
     // Add cache headers
     res.setHeader('X-Cache', 'MISS');
+    res.setHeader('X-Mode', mode);
+    res.setHeader('X-Entities-Count', entityCount);
     res.setHeader('Cache-Control', `s-maxage=${modeConfig.ttl}, stale-while-revalidate`);
 
     // Return data
@@ -116,12 +178,14 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error(`Error fetching GTFS-RT for ${mode}:`, error);
+    console.error('Stack trace:', error.stack);
 
     // Try to return stale cache if available
     const stale = await gtfsCache.get(cacheKey);
     if (stale) {
       console.log('Returning stale cache due to error');
       res.setHeader('X-Cache', 'STALE');
+      res.setHeader('X-Error', 'true');
       res.setHeader('Content-Type', 'application/octet-stream');
       return res.status(200).send(Buffer.from(stale.data));
     }
@@ -129,7 +193,9 @@ export default async function handler(req, res) {
     // No cache available - return error
     res.status(500).json({
       error: 'Failed to fetch transit data',
-      details: error.message
+      details: error.message,
+      mode: mode,
+      endpoint: endpoint
     });
   }
 }

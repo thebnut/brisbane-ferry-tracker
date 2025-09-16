@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import gtfsService from '../services/gtfsService';
 import ferryDataService from '../services/ferryData';
+import staticGtfsService from '../services/staticGtfsService';
 import { API_CONFIG, DEFAULT_STOPS } from '../utils/constants';
 import { useModeConfig } from '../config';
 
@@ -23,6 +24,7 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
       // Set mode configuration in services
       if (modeConfig) {
         gtfsService.setMode(modeConfig.mode.id);
+        staticGtfsService.setMode(modeConfig.mode.id);
         ferryDataService.setModeConfig(modeConfig);
         await ferryDataService.loadRouteAllowSet();
       }
