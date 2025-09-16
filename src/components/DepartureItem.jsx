@@ -2,13 +2,21 @@ import React from 'react';
 import { format, differenceInMinutes, isTomorrow, isAfter, startOfDay, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
-import { SERVICE_TYPES, API_CONFIG, getOccupancyInfo } from '../utils/constants';
+import { API_CONFIG, getOccupancyInfo } from '../utils/constants';
 import { getVesselTheme } from '../utils/vesselThemes';
+import { useMode } from '../config';
 
 const DepartureItem = ({ departure, onClick }) => {
-  // Get service info based on route ID prefix (remove suffix like -4055)
-  const routePrefix = departure.routeId.split('-')[0];
-  const serviceInfo = SERVICE_TYPES[routePrefix] || SERVICE_TYPES.F1;
+  const mode = useMode();
+
+  // Get service type from mode configuration
+  const serviceInfo = mode?.getServiceType ? mode.getServiceType(departure.routeId) : {
+    name: 'Service',
+    color: 'bg-ferry-aqua',
+    textColor: 'text-white',
+    borderColor: 'border-ferry-aqua',
+    icon: '🛥️'
+  };
   
   // Check for themed vessel
   const vesselName = React.useMemo(() => {

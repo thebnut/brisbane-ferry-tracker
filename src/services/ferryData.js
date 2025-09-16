@@ -9,6 +9,26 @@ class FerryDataService {
     this.debug = DEBUG_CONFIG.enableLogging;
     this.selectedStops = DEFAULT_STOPS;
     this.departureTimeFilter = null;
+    this.routeAllowSet = null; // Will be loaded from schedule data
+    this.modeConfig = null; // Will be set from ModeProvider
+  }
+
+  // Set mode configuration
+  setModeConfig(config) {
+    this.modeConfig = config;
+  }
+
+  // Load route allow-set from schedule data
+  async loadRouteAllowSet() {
+    try {
+      const scheduleMetadata = await staticGtfsService.getScheduleMetadata();
+      if (scheduleMetadata && scheduleMetadata.routeAllowSet) {
+        this.routeAllowSet = new Set(scheduleMetadata.routeAllowSet);
+        this.log('Loaded route allow-set with', this.routeAllowSet.size, 'routes');
+      }
+    } catch (error) {
+      console.warn('Failed to load route allow-set:', error);
+    }
   }
 
   // Debug logging helper
@@ -26,21 +46,27 @@ class FerryDataService {
     this.departureTimeFilter = time;
   }
 
-  // Filter trip updates for selected stops and ferry routes
+  // Filter trip updates for selected stops and mode routes
   filterRelevantTrips(tripUpdates) {
     const relevantStopIds = [this.selectedStops.outbound.id, this.selectedStops.inbound.id];
-    
+
     this.log('Total trip updates to filter:', tripUpdates.length);
-    
-    // Let's see what ferry routes we have
-    const ferryRoutes = new Set();
+
+    // Use route allow-set for fast filtering if available
+    const routeFilter = this.routeAllowSet
+      ? (routeId) => this.routeAllowSet.has(routeId)
+      : this.modeConfig?.data?.gtfs?.routeFilter ||
+        ((routeId) => routeId && routeId.startsWith('F')); // Fallback to ferry prefix
+
+    // Track routes and stops for debugging
+    const modeRoutes = new Set();
     const stopsFound = new Set();
-    
+
     tripUpdates.forEach(entity => {
       if (entity.tripUpdate && entity.tripUpdate.trip && entity.tripUpdate.trip.routeId) {
         const routeId = entity.tripUpdate.trip.routeId;
-        if (routeId.startsWith('F')) {
-          ferryRoutes.add(routeId);
+        if (routeFilter(routeId)) {
+          modeRoutes.add(routeId);
         }
         
         // Check stops - let's see ALL ferry stops

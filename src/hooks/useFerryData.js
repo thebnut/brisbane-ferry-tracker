@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import gtfsService from '../services/gtfsService';
 import ferryDataService from '../services/ferryData';
 import { API_CONFIG, DEFAULT_STOPS } from '../utils/constants';
+import { useModeConfig } from '../config';
 
 const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null) => {
+  const modeConfig = useModeConfig();
   const [departures, setDepartures] = useState({
     outbound: [],
     inbound: []
@@ -17,6 +19,13 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
   const fetchData = useCallback(async () => {
     try {
       setError(null);
+
+      // Set mode configuration in services
+      if (modeConfig) {
+        gtfsService.setMode(modeConfig.mode.id);
+        ferryDataService.setModeConfig(modeConfig);
+        await ferryDataService.loadRouteAllowSet();
+      }
 
       // Set selected stops and departure time filter in the service
       ferryDataService.setSelectedStops(selectedStops);
@@ -65,7 +74,7 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
       setLoading(false);
       setScheduleLoading(false);
     }
-  }, [selectedStops, departureTimeFilter]);
+  }, [selectedStops, departureTimeFilter, modeConfig]);
 
   // Clear departures when filters change for immediate feedback
   useEffect(() => {

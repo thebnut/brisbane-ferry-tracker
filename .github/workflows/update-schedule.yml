@@ -1,42 +1,61 @@
-name: Update Ferry Schedule
+name: Update Transit Schedule
 
 on:
   schedule:
     # Run daily at 3:00 AM Brisbane time (17:00 UTC)
     - cron: '0 17 * * *'
   workflow_dispatch: # Allow manual triggering
+    inputs:
+      mode:
+        description: 'Transit mode to process (ferry, train, bus, or all)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - ferry
+          - train
+          - bus
+          - all
 
 jobs:
   update-schedule:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+    strategy:
+      matrix:
+        mode: [ferry] # Start with ferry only, expand later to [ferry, train, bus]
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-        
+
     - name: Install dependencies
       run: |
         cd schedule-processor
         npm install
-        
-    - name: Run schedule processor
+
+    - name: Run schedule processor for ${{ matrix.mode }}
       run: |
         cd schedule-processor
-        node process-schedule.js
-        
+        # If manual trigger with specific mode, only process that mode
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.mode }}" != "all" && "${{ github.event.inputs.mode }}" != "${{ matrix.mode }}" ]]; then
+          echo "Skipping ${{ matrix.mode }} (manual trigger for ${{ github.event.inputs.mode }} only)"
+          exit 0
+        fi
+        node process-schedule.js --mode ${{ matrix.mode }}
+
     - name: Commit and push if changed
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         cd ${{ github.workspace }}
         git add schedule-data/
-        git diff --staged --quiet || (git commit -m "Update ferry schedule data [skip ci]" && git push)
+        git diff --staged --quiet || (git commit -m "Update ${{ matrix.mode }} schedule data [skip ci]" && git push)

@@ -4,22 +4,35 @@ import { API_CONFIG } from '../utils/constants';
 class GTFSService {
   constructor() {
     this.baseUrl = API_CONFIG.baseUrl;
+    this.mode = 'ferry'; // Default to ferry, will be updated from ModeProvider
+    this.useServerlessCache = import.meta.env.VITE_USE_CACHE !== 'false';
+  }
+
+  setMode(mode) {
+    this.mode = mode;
   }
 
   async fetchFeed(endpoint) {
     try {
       let url;
-      
+
       // Check if we're on GitHub Pages (no CORS proxy available)
       const isGitHubPages = window.location.hostname.includes('github.io');
-      
+
       if (isGitHubPages) {
         console.warn(`Cannot fetch live data on GitHub Pages due to CORS. Endpoint: ${endpoint}`);
         throw new Error('Live data not available on GitHub Pages deployment');
       }
-      
-      // Always use proxy to avoid CORS issues (except on localhost where we might test direct access)
-      url = `/api/gtfs-proxy?endpoint=${encodeURIComponent(endpoint)}`;
+
+      // Use serverless cache if enabled
+      if (this.useServerlessCache) {
+        url = `/api/rt/${this.mode}?endpoint=${encodeURIComponent(endpoint)}`;
+        console.log(`Using serverless cache for ${this.mode} mode`);
+      } else {
+        // Fallback to direct proxy
+        url = `/api/gtfs-proxy?endpoint=${encodeURIComponent(endpoint)}`;
+        console.log('Using direct GTFS proxy (cache disabled)');
+      }
       
       const response = await fetch(url);
       

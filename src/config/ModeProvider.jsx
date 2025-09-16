@@ -149,6 +149,7 @@ export function useMode() {
  */
 export function useModeConfig(path) {
   const config = useMode();
+  if (!path) return config; // Return full config if no path specified
   return path.split('.').reduce((obj, key) => obj?.[key], config);
 }
 
