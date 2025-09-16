@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import gtfsService from '../services/gtfsService';
 import ferryDataService from '../services/ferryData';
+import staticGtfsService from '../services/staticGtfsService';
 import { API_CONFIG, DEFAULT_STOPS } from '../utils/constants';
 import { useModeConfig } from '../config';
 
 const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null) => {
   const modeConfig = useModeConfig();
-  const modeId = modeConfig?.mode?.id;
+  const modeId = modeConfig?.mode?.id || 'ferry'; // Default to ferry if not set
   const [departures, setDepartures] = useState({
     outbound: [],
     inbound: []
@@ -16,17 +17,17 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [rawGtfsData, setRawGtfsData] = useState({ tripUpdates: [], vehiclePositions: [] });
+  const [routeAllowSetLoaded, setRouteAllowSetLoaded] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
       setError(null);
 
       // Set mode configuration in services
-      if (modeConfig) {
-        gtfsService.setMode(modeConfig.mode.id);
-        ferryDataService.setModeConfig(modeConfig);
-        await ferryDataService.loadRouteAllowSet();
-      }
+      gtfsService.setMode(modeId);
+      staticGtfsService.setMode(modeId);
+
+      // Note: Route allow-set is loaded in a separate effect to prevent loops
 
       // Set selected stops and departure time filter in the service
       ferryDataService.setSelectedStops(selectedStops);
@@ -81,7 +82,7 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
   useEffect(() => {
     setDepartures({ outbound: [], inbound: [] });
     setLoading(true);
-  }, [selectedStops, departureTimeFilter]);
+  }, [selectedStops, departureTimeFilter, modeId]);
 
   // Initial fetch and auto-refresh setup
   useEffect(() => {
@@ -95,6 +96,28 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
     // Cleanup interval on unmount
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  // Load route allow-set once per mode change
+  useEffect(() => {
+    if (modeConfig && modeConfig.mode && modeConfig.mode.id && !routeAllowSetLoaded) {
+      console.log('Loading route allow-set for mode:', modeConfig.mode.id);
+      ferryDataService.setModeConfig(modeConfig);
+      ferryDataService.loadRouteAllowSet()
+        .then(() => {
+          setRouteAllowSetLoaded(true);
+          console.log('Route allow-set loaded successfully');
+        })
+        .catch(err => {
+          console.error('Failed to load route allow-set:', err);
+          // Continue without route allow-set - will use fallback filtering
+        });
+    }
+  }, [modeConfig?.mode?.id]); // Only reload when mode ID changes
+
+  // Reset route allow-set loaded flag when mode changes
+  useEffect(() => {
+    setRouteAllowSetLoaded(false);
+  }, [modeId]);
 
   // Set up countdown timer refresh (every second)
   useEffect(() => {
