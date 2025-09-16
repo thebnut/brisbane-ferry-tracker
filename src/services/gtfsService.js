@@ -6,6 +6,9 @@ class GTFSService {
     this.baseUrl = API_CONFIG.baseUrl;
     this.mode = 'ferry'; // Default to ferry, will be updated from ModeProvider
     this.useServerlessCache = import.meta.env.VITE_USE_CACHE !== 'false';
+    this.requestsInFlight = new Set(); // Track active requests to prevent duplicates
+    this.lastRequestTime = {}; // Track last request time per endpoint
+    this.MIN_REQUEST_INTERVAL = 5000; // 5 seconds minimum between same endpoint requests
   }
 
   setMode(mode) {
@@ -13,6 +16,23 @@ class GTFSService {
   }
 
   async fetchFeed(endpoint) {
+    // Check if request is already in flight
+    if (this.requestsInFlight.has(endpoint)) {
+      console.log(`Request already in flight for ${endpoint}, skipping`);
+      return null;
+    }
+
+    // Check throttling
+    const now = Date.now();
+    const lastRequest = this.lastRequestTime[endpoint] || 0;
+    if (now - lastRequest < this.MIN_REQUEST_INTERVAL) {
+      console.log(`Throttling ${endpoint} request - too soon since last request`);
+      return null;
+    }
+
+    this.requestsInFlight.add(endpoint);
+    this.lastRequestTime[endpoint] = now;
+
     try {
       let url;
 
@@ -48,14 +68,18 @@ class GTFSService {
       return feed;
     } catch (error) {
       console.error(`Error fetching ${endpoint}:`, error);
-      throw new Error(`Failed to fetch ${endpoint}: ${error.message}`);
+      // Don't throw - return null to allow graceful degradation
+      return null;
+    } finally {
+      // Always remove from in-flight set
+      this.requestsInFlight.delete(endpoint);
     }
   }
 
   async getTripUpdates() {
     try {
       const feed = await this.fetchFeed(API_CONFIG.endpoints.tripUpdates);
-      return feed.entity || [];
+      return feed?.entity || [];
     } catch (error) {
       console.error('Error getting trip updates:', error);
       return [];
@@ -65,7 +89,7 @@ class GTFSService {
   async getVehiclePositions() {
     try {
       const feed = await this.fetchFeed(API_CONFIG.endpoints.vehiclePositions);
-      return feed.entity || [];
+      return feed?.entity || [];
     } catch (error) {
       console.error('Error getting vehicle positions:', error);
       return [];
@@ -75,7 +99,7 @@ class GTFSService {
   async getServiceAlerts() {
     try {
       const feed = await this.fetchFeed(API_CONFIG.endpoints.serviceAlerts);
-      return feed.entity || [];
+      return feed?.entity || [];
     } catch (error) {
       console.error('Error getting service alerts:', error);
       return [];
