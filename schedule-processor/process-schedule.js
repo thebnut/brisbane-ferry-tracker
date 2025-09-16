@@ -163,8 +163,8 @@ function buildStopConnectivity(trips, stopTimes, stops, modeRouteIds) {
     'West End'
   ];
   
-  // Filter for ferry stops only
-  const ferryStopIds = new Set();
+  // Filter for mode stops only
+  const modeStopIdsSet = new Set();
   // Filter for mode-specific stops only
   const modeStopIds = new Set();
   const modeStops = {};
@@ -191,8 +191,8 @@ function buildStopConnectivity(trips, stopTimes, stops, modeRouteIds) {
     stopTimesByTripMap.get(st.trip_id).push(st);
   });
   
-  // Process each ferry trip to find stop patterns
-  ferryTrips.forEach(trip => {
+  // Process each mode trip to find stop patterns
+  modeTrips.forEach(trip => {
     const tripStopTimes = (stopTimesByTripMap.get(trip.trip_id) || [])
       .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
     
@@ -200,7 +200,7 @@ function buildStopConnectivity(trips, stopTimes, stops, modeRouteIds) {
     
     // Extract stop sequence
     const stopSequence = tripStopTimes.map(st => st.stop_id);
-    stopSequence.forEach(stopId => ferryStopIds.add(stopId));
+    stopSequence.forEach(stopId => modeStopIdsSet.add(stopId));
     
     // Store pattern by route and direction
     const patternKey = `${trip.route_id}-${trip.direction_id || '0'}`;
@@ -234,7 +234,7 @@ function buildStopConnectivity(trips, stopTimes, stops, modeRouteIds) {
   // Build ferry stops data with names and coordinates
   // Only include stops that match our master ferry stop list
   stops.forEach(stop => {
-    if (ferryStopIds.has(stop.stop_id)) {
+    if (modeStopIdsSet.has(stop.stop_id)) {
       // Check if this stop name contains any of our ferry stop names
       const stopNameLower = stop.stop_name.toLowerCase();
       const isFerryStop = FERRY_STOP_NAMES.some(ferryName => 
@@ -242,7 +242,7 @@ function buildStopConnectivity(trips, stopTimes, stops, modeRouteIds) {
       ) && stopNameLower.includes('ferry');
       
       if (isFerryStop) {
-        ferryStops[stop.stop_id] = {
+        modeStops[stop.stop_id] = {
           name: stop.stop_name,
           lat: parseFloat(stop.stop_lat),
           lng: parseFloat(stop.stop_lon),
@@ -255,11 +255,11 @@ function buildStopConnectivity(trips, stopTimes, stops, modeRouteIds) {
   });
   
   // Filter connectivity to only include ferry stops
-  const ferryStopIdSet = new Set(Object.keys(ferryStops));
-  Object.keys(ferryStops).forEach(stopId => {
-    if (ferryStops[stopId].validDestinations) {
-      ferryStops[stopId].validDestinations = ferryStops[stopId].validDestinations
-        .filter(destId => ferryStopIdSet.has(destId));
+  const modeStopIdSet = new Set(Object.keys(modeStops));
+  Object.keys(modeStops).forEach(stopId => {
+    if (modeStops[stopId].validDestinations) {
+      modeStops[stopId].validDestinations = modeStops[stopId].validDestinations
+        .filter(destId => modeStopIdSet.has(destId));
     }
   });
   
@@ -335,9 +335,9 @@ async function processGTFSData() {
   const activeServicesByDate = getActiveServiceIds(calendar, calendarDates, todayStart, endDate);
   
   const departures = [];
-  // Process ALL ferry stops and routes
-  const ferryStopIds = new Set();
-  const ferryRouteIds = new Set();
+  // Process ALL mode stops and routes
+  const modeStopIds = new Set();
+  const modeRouteIdsSet = new Set();
 
   // Create a map of trip_id to stop times for faster lookup
   const stopTimesByTrip = new Map();
@@ -348,10 +348,13 @@ async function processGTFSData() {
     stopTimesByTrip.get(st.trip_id).push(st);
   });
 
-  // First, identify all ferry routes and stops
+  // First, identify all mode routes and stops based on route type
   routes.forEach(route => {
-    if (route.route_id.startsWith('F')) {
-      ferryRouteIds.add(route.route_id);
+    // Filter by route type and optional prefix
+    const matchesType = parseInt(route.route_type) === modeConfig.routeType;
+    const matchesPrefix = !modeConfig.routePrefix || route.route_id.startsWith(modeConfig.routePrefix);
+    if (matchesType && matchesPrefix) {
+      modeRouteIdsSet.add(route.route_id);
     }
   });
   
