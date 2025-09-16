@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import gtfsService from '../services/gtfsService';
 import ferryDataService from '../services/ferryData';
 import staticGtfsService from '../services/staticGtfsService';
@@ -18,8 +18,34 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
   const [lastUpdated, setLastUpdated] = useState(null);
   const [rawGtfsData, setRawGtfsData] = useState({ tripUpdates: [], vehiclePositions: [] });
   const [routeAllowSetLoaded, setRouteAllowSetLoaded] = useState(false);
+  const fetchDataRef = useRef(null);
+  const lastFetchTime = useRef(0);
+  const errorCount = useRef(0);
+  const MIN_FETCH_INTERVAL = 5000; // Minimum 5 seconds between fetches
+  const MAX_ERROR_COUNT = 3; // Stop retrying after 3 consecutive errors
+  const ERROR_BACKOFF_TIME = 30000; // 30 seconds backoff after max errors
 
   const fetchData = useCallback(async () => {
+    // Throttle requests - prevent fetching more than once per 5 seconds
+    const now = Date.now();
+    if (now - lastFetchTime.current < MIN_FETCH_INTERVAL) {
+      console.log('Throttling request - too soon since last fetch');
+      return;
+    }
+
+    // Check if we're in error backoff period
+    if (errorCount.current >= MAX_ERROR_COUNT) {
+      const timeSinceLastFetch = now - lastFetchTime.current;
+      if (timeSinceLastFetch < ERROR_BACKOFF_TIME) {
+        console.log(`In error backoff period (${errorCount.current} errors) - skipping fetch`);
+        return;
+      }
+      // Reset error count after backoff period
+      errorCount.current = 0;
+    }
+
+    lastFetchTime.current = now;
+
     try {
       setError(null);
 
@@ -64,11 +90,20 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
         setScheduleLoading(false);
         // Continue showing real-time data even if schedule fails
       });
-      
+
+      // Success - reset error count
+      errorCount.current = 0;
       setError(null);
     } catch (err) {
-      console.error('Error fetching ferry data:', err);
+      errorCount.current++;
+      console.error(`Error fetching ferry data (attempt ${errorCount.current}):`, err);
       setError(err.message || 'Failed to load ferry times');
+
+      // If we've hit max errors, show a more informative message
+      if (errorCount.current >= MAX_ERROR_COUNT) {
+        setError('Multiple failures detected. Will retry in 30 seconds.');
+      }
+
       // Keep existing data if available
       if (!departures.outbound.length && !departures.inbound.length) {
         setDepartures({ outbound: [], inbound: [] });
@@ -78,24 +113,42 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
     }
   }, [selectedStops, departureTimeFilter, modeId]);
 
+  // Store latest fetchData in ref to avoid recreating interval
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  }, [fetchData]);
+
   // Clear departures when filters change for immediate feedback
   useEffect(() => {
     setDepartures({ outbound: [], inbound: [] });
     setLoading(true);
+    // Fetch new data when filters change
+    if (fetchDataRef.current) {
+      fetchDataRef.current();
+    }
   }, [selectedStops, departureTimeFilter, modeId]);
 
-  // Initial fetch and auto-refresh setup
+  // Set up auto-refresh interval ONCE
   useEffect(() => {
-    fetchData();
+    // Initial fetch
+    if (fetchDataRef.current) {
+      fetchDataRef.current();
+    }
 
     // Set up auto-refresh interval
     const interval = setInterval(() => {
-      fetchData();
+      console.log('Auto-refresh triggered');
+      if (fetchDataRef.current) {
+        fetchDataRef.current();
+      }
     }, API_CONFIG.refreshInterval);
 
     // Cleanup interval on unmount
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    return () => {
+      console.log('Cleaning up auto-refresh interval');
+      clearInterval(interval);
+    };
+  }, []); // Empty dependency array - only set up once
 
   // Load route allow-set once per mode change
   useEffect(() => {
