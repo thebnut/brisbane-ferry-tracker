@@ -69,13 +69,13 @@ class FerryDataService {
           modeRoutes.add(routeId);
         }
         
-        // Check stops - let's see ALL ferry stops
+        // Check stops - let's see ALL mode stops
         const stopTimeUpdates = entity.tripUpdate.stopTimeUpdate || [];
-        if (routeId.startsWith('F')) {
+        if (routeFilter(routeId)) {
           stopTimeUpdates.forEach(update => {
             if (update.stopId) {
-              // Log first few stops from ferry routes to see the pattern
-              if (ferryRoutes.size <= 3 && stopTimeUpdates.indexOf(update) < 3) {
+              // Log first few stops from mode routes to see the pattern
+              if (modeRoutes.size <= 3 && stopTimeUpdates.indexOf(update) < 3) {
                 // Commented out verbose logging
                 // this.log(`Sample stop on ${routeId}: ${update.stopId}`);
               }
@@ -89,7 +89,7 @@ class FerryDataService {
       }
     });
     
-    this.log('Ferry routes found:', Array.from(ferryRoutes).sort());
+    this.log('Mode routes found:', Array.from(modeRoutes).sort());
     this.log('Relevant stops found:', Array.from(stopsFound));
     
     const filtered = tripUpdates.filter(entity => {

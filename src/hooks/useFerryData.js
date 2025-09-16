@@ -6,6 +6,7 @@ import { useModeConfig } from '../config';
 
 const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null) => {
   const modeConfig = useModeConfig();
+  const modeId = modeConfig?.mode?.id;
   const [departures, setDepartures] = useState({
     outbound: [],
     inbound: []
@@ -74,7 +75,7 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
       setLoading(false);
       setScheduleLoading(false);
     }
-  }, [selectedStops, departureTimeFilter, modeConfig]);
+  }, [selectedStops, departureTimeFilter, modeId]);
 
   // Clear departures when filters change for immediate feedback
   useEffect(() => {
