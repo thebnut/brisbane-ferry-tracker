@@ -283,4 +283,5 @@ export function getZone(stopId, stopName) {
   return popularStation?.zone || 'Unknown';
 }
 
+export { TRAIN_CONFIG };
 export default TRAIN_CONFIG;
