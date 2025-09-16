@@ -22,12 +22,16 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
     try {
       setError(null);
 
-      // Set mode configuration in services
-      if (modeConfig) {
+      // Set mode configuration in services (only if fully loaded)
+      if (modeConfig && modeConfig.mode && modeConfig.mode.id) {
         gtfsService.setMode(modeConfig.mode.id);
         staticGtfsService.setMode(modeConfig.mode.id);
         ferryDataService.setModeConfig(modeConfig);
         await ferryDataService.loadRouteAllowSet();
+      } else {
+        // If no mode config yet, use default ferry mode
+        gtfsService.setMode('ferry');
+        staticGtfsService.setMode('ferry');
       }
 
       // Set selected stops and departure time filter in the service
@@ -83,7 +87,7 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
   useEffect(() => {
     setDepartures({ outbound: [], inbound: [] });
     setLoading(true);
-  }, [selectedStops, departureTimeFilter]);
+  }, [selectedStops, departureTimeFilter, modeId]);
 
   // Initial fetch and auto-refresh setup
   useEffect(() => {

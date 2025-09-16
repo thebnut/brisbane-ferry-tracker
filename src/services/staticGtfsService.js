@@ -44,6 +44,9 @@ class StaticGTFSService {
   updateScheduleUrls(forceGitHub) {
     const basePath = 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data';
 
+    // Clear fallback URL first
+    this.fallbackScheduleUrl = null;
+
     // Determine the correct path based on mode
     if (window.location.hostname === 'localhost' && !forceGitHub) {
       // Local development - check if mode-specific directory exists
@@ -55,7 +58,7 @@ class StaticGTFSService {
     } else {
       // Production or forced GitHub
       this.githubScheduleUrl = `${basePath}/${this.mode}/latest.json`;
-      // Fallback to root for ferry mode (backward compatibility)
+      // Always use fallback for ferry mode until we have mode-specific data
       if (this.mode === 'ferry') {
         this.fallbackScheduleUrl = `${basePath}/latest.json`;
       }
