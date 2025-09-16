@@ -135,20 +135,24 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
       fetchDataRef.current();
     }
 
+    // Get refresh interval from mode config, default to 5 minutes
+    const refreshInterval = modeConfig?.data?.api?.refreshInterval || 300000; // 5 minutes default
+    console.log(`Setting up auto-refresh with interval: ${refreshInterval}ms (${refreshInterval / 1000}s)`);
+
     // Set up auto-refresh interval
     const interval = setInterval(() => {
       console.log('Auto-refresh triggered');
       if (fetchDataRef.current) {
         fetchDataRef.current();
       }
-    }, API_CONFIG.refreshInterval);
+    }, refreshInterval);
 
     // Cleanup interval on unmount
     return () => {
       console.log('Cleaning up auto-refresh interval');
       clearInterval(interval);
     };
-  }, []); // Empty dependency array - only set up once
+  }, [modeConfig?.data?.api?.refreshInterval]); // Re-setup if refresh interval changes
 
   // Load route allow-set once per mode change
   useEffect(() => {
