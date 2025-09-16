@@ -14,6 +14,11 @@ class StaticGTFSService {
     this.ferryStops = null;
     this.stopConnectivity = null;
     this.debug = DEBUG_CONFIG.enableLogging;
+
+    // Circuit breaker for failed fetches to prevent infinite 404 loops
+    this.fetchFailures = new Map(); // mode -> { count, lastAttempt }
+    this.maxFailures = 3;
+    this.retryBackoff = 30000; // 30 seconds
     
     // URL parameter support: Add ?useGitHub=true to use GitHub data on localhost
     // This helps developers test with the latest production data
@@ -234,19 +239,32 @@ class StaticGTFSService {
 
   // Try to fetch pre-processed schedule from GitHub
   async fetchGitHubSchedule() {
+    // Check circuit breaker to prevent infinite 404 loops
+    const failureInfo = this.fetchFailures.get(this.mode);
+    if (failureInfo) {
+      const timeSinceLastAttempt = Date.now() - failureInfo.lastAttempt;
+      if (failureInfo.count >= this.maxFailures && timeSinceLastAttempt < this.retryBackoff) {
+        this.log(`Circuit breaker active for ${this.mode} - skipping fetch (${failureInfo.count} failures)`);
+        return null;
+      }
+    }
+
     try {
       this.log(`Fetching pre-processed ${this.mode} schedule from GitHub...`);
       let response = await fetch(this.githubScheduleUrl);
 
       // Try fallback URL if primary fails (for ferry backward compatibility)
       if (!response.ok && this.fallbackScheduleUrl) {
-        this.log(`Primary URL failed, trying fallback for ${this.mode}...`);
+        this.log(`Primary URL failed (${response.status}), trying fallback for ${this.mode}...`);
         response = await fetch(this.fallbackScheduleUrl);
       }
 
       if (!response.ok) {
         throw new Error(`GitHub schedule fetch failed: ${response.status}`);
       }
+
+      // Success - reset circuit breaker
+      this.fetchFailures.delete(this.mode);
       
       const data = await response.json();
       this.log(`Received ${data.departureCount} departures from GitHub`);
@@ -281,7 +299,14 @@ class StaticGTFSService {
         allDepartures: allDepartures // Keep reference to all departures for arrival time calculation
       };
     } catch (error) {
-      this.log('GitHub schedule fetch failed:', error.message);
+      // Increment failure count for circuit breaker
+      const currentFailures = this.fetchFailures.get(this.mode) || { count: 0, lastAttempt: 0 };
+      this.fetchFailures.set(this.mode, {
+        count: currentFailures.count + 1,
+        lastAttempt: Date.now()
+      });
+
+      this.log(`GitHub schedule fetch failed (attempt ${currentFailures.count + 1}):`, error.message);
       return null;
     }
   }
@@ -630,6 +655,39 @@ class StaticGTFSService {
 
   // Get schedule metadata including route allow-set
   async getScheduleMetadata() {
+    // Check circuit breaker first
+    const failureInfo = this.fetchFailures.get(this.mode);
+    if (failureInfo) {
+      const timeSinceLastAttempt = Date.now() - failureInfo.lastAttempt;
+      if (failureInfo.count >= this.maxFailures && timeSinceLastAttempt < this.retryBackoff) {
+        this.log(`Circuit breaker active for ${this.mode} metadata - using cache or defaults`);
+        // Return from cache if available
+        const cached = localStorage.getItem(this.scheduleCacheKey);
+        if (cached) {
+          try {
+            const data = JSON.parse(cached);
+            if (data.routeAllowSet) {
+              return {
+                mode: data.mode || this.mode,
+                routeAllowSet: data.routeAllowSet,
+                generated: data.generated,
+                stops: data.stops || data.ferryStops
+              };
+            }
+          } catch (e) {
+            // Ignore cache parse errors
+          }
+        }
+        // Return empty metadata to prevent further attempts
+        return {
+          mode: this.mode,
+          routeAllowSet: [],
+          generated: null,
+          stops: {}
+        };
+      }
+    }
+
     try {
       // Try to get from cache first
       const cached = localStorage.getItem(this.scheduleCacheKey);
@@ -651,6 +709,8 @@ class StaticGTFSService {
         const fallbackResponse = await fetch(this.fallbackScheduleUrl);
         if (fallbackResponse.ok) {
           const data = await fallbackResponse.json();
+          // Success with fallback - reset circuit breaker
+          this.fetchFailures.delete(this.mode);
           return {
             mode: data.mode || this.mode,
             routeAllowSet: data.routeAllowSet || [],
@@ -662,6 +722,8 @@ class StaticGTFSService {
 
       if (response.ok) {
         const data = await response.json();
+        // Success - reset circuit breaker
+        this.fetchFailures.delete(this.mode);
         return {
           mode: data.mode || this.mode,
           routeAllowSet: data.routeAllowSet || [],
@@ -670,7 +732,13 @@ class StaticGTFSService {
         };
       }
     } catch (error) {
-      console.error('Failed to get schedule metadata:', error);
+      // Increment failure count
+      const currentFailures = this.fetchFailures.get(this.mode) || { count: 0, lastAttempt: 0 };
+      this.fetchFailures.set(this.mode, {
+        count: currentFailures.count + 1,
+        lastAttempt: Date.now()
+      });
+      console.error(`Failed to get schedule metadata (attempt ${currentFailures.count + 1}):`, error);
     }
 
     // Return empty metadata as fallback
