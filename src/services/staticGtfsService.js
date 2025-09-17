@@ -21,8 +21,8 @@ class StaticGTFSService {
     
     // GitHub Pages URL for pre-processed schedule data
     this.githubScheduleUrl = (window.location.hostname === 'localhost' && !forceGitHub)
-      ? '/schedule-data/latest.json'
-      : 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data/latest.json';
+      ? '/schedule-data/ferry/latest.json'
+      : 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data/ferry/latest.json';
     
     // Log the data source for debugging on localhost
     if (window.location.hostname === 'localhost') {
