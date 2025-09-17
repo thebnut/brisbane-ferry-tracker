@@ -56,9 +56,11 @@ class StaticGTFSServiceTransit {
   updateScheduleUrls(forceGitHub) {
     // For train and bus modes, use transit infrastructure
     const useTransitInfrastructure = this.mode === 'train' || this.mode === 'bus';
-    const basePath = useTransitInfrastructure
-      ? 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data-transit'
-      : 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data';
+
+    // Check if we're on Vercel (preview or production)
+    const isVercel = window.location.hostname.includes('vercel.app') ||
+                     window.location.hostname.includes('brisbaneferry.com') ||
+                     window.location.hostname.includes('ferry.lifemap.au');
 
     if (window.location.hostname === 'localhost' && !forceGitHub) {
       // Use local paths on localhost (unless forced to use GitHub)
@@ -66,8 +68,16 @@ class StaticGTFSServiceTransit {
         ? `/schedule-data-transit/${this.mode}/latest.json`
         : `/schedule-data/${this.mode}/latest.json`;
       this.fallbackScheduleUrl = `/schedule-data/${this.mode}/latest.json`;
+    } else if (isVercel && useTransitInfrastructure) {
+      // On Vercel, try the public folder first for transit data
+      this.githubScheduleUrl = `/schedule-data-transit/${this.mode}/latest.json`;
+      // Fallback to GitHub Pages if not found
+      this.fallbackScheduleUrl = `https://thebnut.github.io/brisbane-ferry-tracker/schedule-data-transit/${this.mode}/latest.json`;
     } else {
-      // Use GitHub Pages URLs for production or when forced
+      // Use GitHub Pages URLs for production
+      const basePath = useTransitInfrastructure
+        ? 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data-transit'
+        : 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data';
       this.githubScheduleUrl = `${basePath}/${this.mode}/latest.json`;
       this.fallbackScheduleUrl = `${basePath}/${this.mode}/latest.json`;
     }
@@ -206,6 +216,17 @@ class StaticGTFSServiceTransit {
       const response = await fetch(this.githubScheduleUrl);
 
       if (!response.ok) {
+        // Try fallback URL if primary fails
+        if (this.fallbackScheduleUrl && this.fallbackScheduleUrl !== this.githubScheduleUrl) {
+          console.log(`🔄 Trying fallback URL: ${this.fallbackScheduleUrl}`);
+          const fallbackResponse = await fetch(this.fallbackScheduleUrl);
+          if (fallbackResponse.ok) {
+            const data = await fallbackResponse.json();
+            this.setCachedData(data);
+            this.fetchFailures.delete(failureKey);
+            return data;
+          }
+        }
         throw new Error(`GitHub fetch failed: ${response.status}`);
       }
 
