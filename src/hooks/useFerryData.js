@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import gtfsService from '../services/gtfsService';
 import ferryDataService from '../services/ferryData';
 import staticGtfsService from '../services/staticGtfsService';
+import staticGtfsServiceTransit from '../services/staticGtfsServiceTransit';
 import { API_CONFIG, DEFAULT_STOPS } from '../utils/constants';
 import { useModeConfig } from '../config';
 
@@ -51,7 +52,12 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
 
       // Set mode configuration in services
       gtfsService.setMode(modeId);
-      staticGtfsService.setMode(modeId);
+
+      // Use appropriate static service based on mode
+      const staticService = (modeId === 'train' || modeId === 'bus')
+        ? staticGtfsServiceTransit
+        : staticGtfsService;
+      staticService.setMode(modeId);
 
       // Note: Route allow-set is loaded in a separate effect to prevent loops
 

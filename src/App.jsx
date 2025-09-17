@@ -30,6 +30,8 @@ function AppContent() {
   // v1.2.0 - Modern orange-themed redesign with animations (2025-07-19)
   const mode = useMode();
   const defaultStops = mode.data.stops.defaults;
+  const modeId = mode?.mode?.id || 'ferry';
+  const showTimeFilter = modeId === 'ferry'; // Only show time filter for ferry mode
 
   // Load saved stops or use mode defaults
   const [selectedStops, setSelectedStops] = useState(() => {
@@ -311,14 +313,16 @@ function AppContent() {
                         </span>
                       </span>
                       
-                      {/* Desktop departure time dropdown */}
-                      <div className="hidden md:block">
-                        <DepartureTimeDropdown
-                          value={selectedDepartureTime}
-                          onChange={setSelectedDepartureTime}
-                          disabled={loading}
-                        />
-                      </div>
+                      {/* Desktop departure time dropdown - only for ferry mode */}
+                      {showTimeFilter && (
+                        <div className="hidden md:block">
+                          <DepartureTimeDropdown
+                            value={selectedDepartureTime}
+                            onChange={setSelectedDepartureTime}
+                            disabled={loading}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 }

@@ -44,8 +44,8 @@ export async function loadModeConfig(mode) {
   try {
     switch (mode) {
       case 'train':
-        const { TRAIN_CONFIG } = await import('./modes/train.config.js');
-        return TRAIN_CONFIG;
+        const trainModule = await import('./modes/train.config.js');
+        return trainModule.default;
 
       case 'bus':
         // Will be implemented in Phase 5

@@ -231,22 +231,37 @@ function buildStopConnectivity(trips, stopTimes, stops, modeRouteIds) {
     });
   });
   
-  // Build ferry stops data with names and coordinates
-  // Only include stops that match our master ferry stop list
+  // Build mode stops data with names and coordinates
   stops.forEach(stop => {
     if (modeStopIdsSet.has(stop.stop_id)) {
-      // Check if this stop name contains any of our ferry stop names
       const stopNameLower = stop.stop_name.toLowerCase();
-      const isFerryStop = FERRY_STOP_NAMES.some(ferryName => 
-        stopNameLower.includes(ferryName.toLowerCase())
-      ) && stopNameLower.includes('ferry');
-      
-      if (isFerryStop) {
+
+      // Mode-specific filtering
+      let includeStop = false;
+
+      if (mode === 'ferry') {
+        // For ferry mode, only include ferry stops
+        const isFerryStop = FERRY_STOP_NAMES.some(ferryName =>
+          stopNameLower.includes(ferryName.toLowerCase())
+        ) && stopNameLower.includes('ferry');
+        includeStop = isFerryStop;
+      } else if (mode === 'train') {
+        // For train mode, include stops with IDs starting with 600 (train stations)
+        includeStop = stop.stop_id.startsWith('600');
+      } else if (mode === 'bus') {
+        // For bus mode, include all stops that aren't ferry or train
+        includeStop = !stopNameLower.includes('ferry') && !stop.stop_id.startsWith('600');
+      } else {
+        // Default: include all stops for unknown modes
+        includeStop = true;
+      }
+
+      if (includeStop) {
         modeStops[stop.stop_id] = {
           name: stop.stop_name,
           lat: parseFloat(stop.stop_lat),
           lng: parseFloat(stop.stop_lon),
-          validDestinations: stopConnectivity[stop.stop_id] 
+          validDestinations: stopConnectivity[stop.stop_id]
             ? Array.from(stopConnectivity[stop.stop_id]).sort()
             : []
         };

@@ -9,6 +9,18 @@ export const TRAIN_CONFIG = {
     domain: 'brisbanetrain.com',
     analyticsId: import.meta.env.VITE_GA_TRAIN || ''
   },
+
+  // Visual Identity
+  branding: {
+    logo: {
+      src: '/assets/train-logo.svg',
+      alt: 'Brisbane Train Tracker',
+      height: 'h-16 md:h-28'
+    },
+    favicon: '/train_favicon.png',
+    tagline: 'Real-time train departures for SEQ',
+    description: 'Track Queensland Rail trains across all 152 stations in South East Queensland'
+  },
   data: {
     gtfs: {
       routeType: 2, // GTFS route_type 2 = Rail/Train
@@ -142,34 +154,43 @@ export const TRAIN_CONFIG = {
       cacheTimeout: 60000,     // 1 minute cache
       staleThreshold: 120000   // 2 minutes
     },
-    features: {
-      showMap: true,
-      showLivePositions: true,
-      showScheduled: true,
-      showOccupancy: true,
-      showDelays: true,
-      showPlatforms: true,        // NEW: Show platform numbers
-      showLines: true,             // NEW: Show train lines
-      showAccessibility: true,     // NEW: Wheelchair access info
-      showParkAndRide: true,       // NEW: Parking availability
-      showTicketZones: true,       // NEW: Fare zones
-      showStationFacilities: true, // NEW: Station amenities
-      multiLineFilter: true,       // NEW: Filter by multiple lines
-      stationSearch: true,         // NEW: Search with 152 stations
-      showTransfers: true,         // NEW: Connection information
-      journeyPlanner: false        // Future: Multi-leg trips
-    },
-    defaultStops: {
-      outbound: {
-        id: '600026',  // Central station
-        name: 'Central'
+    stops: {
+      // Station list will be populated from schedule data or hardcoded popular stations for now
+      list: [
+        { id: '600026', name: 'Central station', lat: -27.4659, lng: 153.0258 },
+        { id: '600001', name: 'Roma Street station', lat: -27.4674, lng: 153.0206 },
+        { id: '600002', name: 'Fortitude Valley station', lat: -27.4558, lng: 153.0353 },
+        { id: '600012', name: 'South Bank station', lat: -27.4757, lng: 153.0214 },
+        { id: '600014', name: 'South Brisbane station', lat: -27.4802, lng: 153.0179 }
+      ],
+      defaults: {
+        origin: '600016',      // Central station, platform 3
+        destination: '600029'  // Roma Street station, platform 8
       },
-      inbound: {
-        id: '600001',  // Roma Street station
-        name: 'Roma Street'
-      }
+      connectivity: {}
     }
   },
+
+  // Feature Flags
+  features: {
+    liveMap: true,
+    vehicleTracking: true,
+    occupancy: true,
+    platforms: true,         // Trains have platforms
+    serviceFilters: true,
+    nearestStop: true,
+    routeSearch: true,       // Important for 398 stations
+    accessibility: true,     // Wheelchair access info
+    departureTime: true,
+    feedback: false,
+    vesselNames: false,      // Trains don't have vessel names
+    showLines: true,         // Show train lines
+    showParkAndRide: true,   // Park & Ride info
+    showTicketZones: true,   // Fare zones
+    multiLineFilter: true,   // Filter by multiple lines
+    stationSearch: true      // Station search functionality
+  },
+
   ui: {
     colors: {
       primary: '#0066CC',      // Queensland Rail blue
@@ -218,38 +239,12 @@ export const TRAIN_CONFIG = {
       animateTrains: true
     },
     branding: {
-      logo: '/assets/train-logo.png',
-      favicon: '/train_favicon.png',
+      logo: null, // Will use text-based branding for now
+      favicon: '/bf_favicon.png', // Reuse ferry favicon temporarily
       tagline: 'Real-time train departures for SEQ',
-      description: 'Track Queensland Rail trains across all 152 stations in South East Queensland'
+      description: 'Track Queensland Rail trains across all 398 stations in South East Queensland'
     }
-  },
-  // Popular stations for quick selection
-  popularStations: [
-    { id: '600026', name: 'Central', zone: '1' },
-    { id: '600001', name: 'Roma Street', zone: '1' },
-    { id: '600002', name: 'Fortitude Valley', zone: '1' },
-    { id: '600012', name: 'South Bank', zone: '1' },
-    { id: '600014', name: 'South Brisbane', zone: '1' },
-    { id: '600059', name: 'Bowen Hills', zone: '1' },
-    { id: '600060', name: 'Eagle Junction', zone: '2' },
-    { id: '600043', name: 'Toowong', zone: '2' },
-    { id: '600050', name: 'Indooroopilly', zone: '3' },
-    { id: '600232', name: 'Chermside', zone: '3' },
-    { id: '600072', name: 'Nundah', zone: '2' },
-    { id: '600210', name: 'Airport Domestic', zone: 'AirTrain' }
-  ],
-  // Major interchange stations
-  interchangeStations: [
-    'Central',
-    'Roma Street',
-    'Fortitude Valley',
-    'Bowen Hills',
-    'Eagle Junction',
-    'Park Road',
-    'South Bank',
-    'South Brisbane'
-  ]
+  }
 };
 
 // Helper function to determine if a route is express
@@ -278,10 +273,8 @@ export function getLineColor(routeId) {
 // Helper function to get zone from stop
 export function getZone(stopId, stopName) {
   // Zone information might be in stop_desc or need separate mapping
-  // For now, return based on popular stations
-  const popularStation = TRAIN_CONFIG.popularStations.find(s => s.id === stopId);
-  return popularStation?.zone || 'Unknown';
+  // For now, return 'Unknown' until we have zone data
+  return 'Unknown';
 }
 
-export { TRAIN_CONFIG };
 export default TRAIN_CONFIG;

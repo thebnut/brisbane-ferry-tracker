@@ -2,6 +2,7 @@ import { STOPS, ROUTES, DEBUG_CONFIG, DEFAULT_STOPS } from '../utils/constants';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import staticGtfsService from './staticGtfsService';
+import staticGtfsServiceTransit from './staticGtfsServiceTransit';
 
 class FerryDataService {
   constructor() {
@@ -11,17 +12,27 @@ class FerryDataService {
     this.departureTimeFilter = null;
     this.routeAllowSet = null; // Will be loaded from schedule data
     this.modeConfig = null; // Will be set from ModeProvider
+    this.gtfsService = staticGtfsService; // Default to regular service
   }
 
   // Set mode configuration
   setModeConfig(config) {
     this.modeConfig = config;
+    // Use transit service for train/bus modes, regular service for ferry
+    const mode = config?.mode?.id;
+    this.gtfsService = (mode === 'train' || mode === 'bus')
+      ? staticGtfsServiceTransit
+      : staticGtfsService;
+    // Set mode on the service
+    if (this.gtfsService && mode) {
+      this.gtfsService.setMode(mode);
+    }
   }
 
   // Load route allow-set from schedule data
   async loadRouteAllowSet() {
     try {
-      const scheduleMetadata = await staticGtfsService.getScheduleMetadata();
+      const scheduleMetadata = await this.gtfsService.getScheduleMetadata();
       if (scheduleMetadata && scheduleMetadata.routeAllowSet) {
         this.routeAllowSet = new Set(scheduleMetadata.routeAllowSet);
         this.log('Loaded route allow-set with', this.routeAllowSet.size, 'routes');
@@ -98,8 +109,13 @@ class FerryDataService {
       const trip = entity.tripUpdate.trip;
       const stopTimeUpdates = entity.tripUpdate.stopTimeUpdate || [];
       
-      // Check if this trip is on a ferry route (any route starting with 'F')
-      const isRelevantRoute = trip && trip.routeId && trip.routeId.startsWith('F');
+      // Check if this trip is on a relevant route for current mode
+      const isRelevantRoute = trip && trip.routeId && (
+        // Use routeAllowSet if available (mode-aware)
+        this.routeAllowSet ? this.routeAllowSet.has(trip.routeId) :
+        // Fallback to ferry routes if no allowSet loaded
+        trip.routeId.startsWith('F')
+      );
       
       // Check if trip has BOTH selected stops
       const hasOutboundStop = stopTimeUpdates.some(update => 
@@ -186,13 +202,13 @@ class FerryDataService {
         // Only include departures in the next 24 hours
         const departureZoned = toZonedTime(departureTime, this.timezone);
         
-        // Debug logging
-        if (trip.routeId.startsWith('F11') || trip.routeId.startsWith('F1')) {
+        // Debug logging for relevant routes
+        if (this.debug) {
           this.log(`Checking departure: Route ${trip.routeId}, Stop ${stopUpdate.stopId}, Time: ${departureZoned.toLocaleString('en-AU', { timeZone: this.timezone })}`);
         }
         
         if (departureZoned < nowZoned || departureZoned > cutoffTime) {
-          if (trip.routeId.startsWith('F11') || trip.routeId.startsWith('F1')) {
+          if (this.debug) {
             this.log(`  -> Filtered out: ${departureZoned < nowZoned ? 'in the past' : 'beyond 24 hours'}`);
           }
           return;
@@ -201,7 +217,7 @@ class FerryDataService {
         // Check if this departure actually goes to the other terminal
         const goesToOtherTerminal = this.checkDestination(stopUpdate.stopId, stopTimeUpdates, index);
         if (!goesToOtherTerminal) {
-          if (trip.routeId.startsWith('F11') || trip.routeId.startsWith('F1')) {
+          if (this.debug) {
             this.log(`  -> Filtered out: Not a direct service to the other terminal`);
           }
           return;
@@ -591,7 +607,7 @@ class FerryDataService {
   // Get scheduled departures asynchronously (slow)
   async getScheduledDeparturesAsync() {
     try {
-      const allScheduledDepartures = await staticGtfsService.getScheduledDepartures(this.selectedStops);
+      const allScheduledDepartures = await this.gtfsService.getScheduledDepartures(this.selectedStops);
       this.log(`Found ${allScheduledDepartures.length} total scheduled departures from static GTFS`);
       
       // If departures already have direction set (from processGitHubDepartures), 
@@ -717,7 +733,7 @@ class FerryDataService {
     // Get scheduled departures from static GTFS
     let scheduledDepartures = [];
     try {
-      scheduledDepartures = await staticGtfsService.getScheduledDepartures(this.selectedStops);
+      scheduledDepartures = await this.gtfsService.getScheduledDepartures(this.selectedStops);
       this.log(`Found ${scheduledDepartures.length} scheduled departures from static GTFS`);
     } catch (error) {
       console.error('Error fetching scheduled departures:', error);

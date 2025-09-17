@@ -1,10 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import staticGtfsService from '../services/staticGtfsService';
+import staticGtfsServiceTransit from '../services/staticGtfsServiceTransit';
 import { DEFAULT_STOPS, STORAGE_KEYS } from '../utils/constants';
 import { FERRY_STOPS, TEMPORARY_CONNECTIVITY } from '../utils/ferryStops';
 import StopSelectorMap from './StopSelectorMap';
+import { useModeConfig, useModeLabels, useMode } from '../config';
 
 const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
+  const config = useModeConfig();
+  const labels = useModeLabels();
+  const modeConfig = useMode();
+
+  // Use appropriate service based on mode - useMode() returns the full config
+  const modeId = modeConfig?.mode?.id || 'ferry';
+  const isTrainMode = modeId === 'train';
+  const gtfsService = isTrainMode ? staticGtfsServiceTransit : staticGtfsService;
+
+  // Debug logging
+  console.log(`📍 StopSelectorModal: Mode ID = ${modeId}, isTrainMode = ${isTrainMode}`);
+  if (isTrainMode) {
+    console.log('🚂 Train mode active - using transit service');
+  }
   const [selectedOrigin, setSelectedOrigin] = useState(currentStops?.outbound?.id || DEFAULT_STOPS.outbound.id);
   const [selectedDestination, setSelectedDestination] = useState(currentStops?.inbound?.id || DEFAULT_STOPS.inbound.id);
   const [availableStops, setAvailableStops] = useState([]);
@@ -16,8 +32,15 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   });
   const [mapModalOpen, setMapModalOpen] = useState(null); // null, 'origin', or 'destination'
   
-  // Helper function to remove 'ferry terminal' from stop names
-  const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
+  // Helper function to remove suffixes from stop names based on mode
+  const cleanStopName = (name) => {
+    if (!name) return '';
+    return name
+      .replace(/\s+ferry\s+terminal$/i, '')
+      .replace(/\s+train\s+station$/i, '')
+      .replace(/\s+station$/i, '')
+      .replace(/\s+bus\s+stop$/i, '');
+  };
 
   // Load stops when modal opens
   useEffect(() => {
@@ -32,19 +55,38 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       setLoading(true);
       setError(null);
       
-      // Try to load from static GTFS service first
+      // Try to load from appropriate GTFS service first
       let stops = [];
       let useTemporaryData = true;
-      
-      if (!staticGtfsService.hasStopsData()) {
+
+      // Set mode on the service - modeId is already defined above
+      console.log(`🎯 Setting mode on service: ${modeId}, using ${isTrainMode ? 'transit' : 'regular'} service`);
+      gtfsService.setMode(modeId);
+
+      // Always try to load schedule data for train/bus modes to ensure stops are available
+      if (modeId === 'train' || modeId === 'bus') {
+        console.log(`📍 Loading ${modeId} schedule data...`);
         try {
-          await staticGtfsService.getScheduledDepartures();
+          // Load the schedule data which will populate stops
+          await gtfsService.getScheduledDepartures();
+          // After loading, the service should have stops data
+          stops = gtfsService.getAvailableStops();
+          console.log(`✅ Loaded ${stops.length} ${modeId} stops`);
+        } catch (e) {
+          console.error(`❌ Could not load ${modeId} schedule data:`, e);
+          stops = [];
+        }
+      } else if (!gtfsService.hasStopsData()) {
+        // For ferry mode, only load if not already loaded
+        try {
+          await gtfsService.getScheduledDepartures();
         } catch (e) {
           console.warn('Could not load schedule data, using temporary stops');
         }
+        stops = gtfsService.getAvailableStops();
+      } else {
+        stops = gtfsService.getAvailableStops();
       }
-      
-      stops = staticGtfsService.getAvailableStops();
       if (stops.length > 0) {
         useTemporaryData = false;
       } else {
@@ -66,7 +108,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       if (useTemporaryData) {
         destinations = TEMPORARY_CONNECTIVITY[selectedOrigin] || [];
       } else {
-        destinations = staticGtfsService.getValidDestinations(selectedOrigin);
+        destinations = gtfsService.getValidDestinations(selectedOrigin);
       }
       
       setValidDestinations(destinations);
@@ -79,7 +121,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       setLoading(false);
     } catch (err) {
       console.error('Error loading stops:', err);
-      setError('Failed to load ferry stop data. Please try again.');
+      setError(`Failed to load ${modeId} stop data. Please try again.`);
       setLoading(false);
     }
   };
@@ -88,11 +130,11 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   useEffect(() => {
     if (selectedOrigin && availableStops.length > 0) {
       // Check if we're using temporary data
-      const hasRealData = staticGtfsService.hasStopsData();
+      const hasRealData = gtfsService.hasStopsData();
       let destinations = [];
-      
+
       if (hasRealData) {
-        destinations = staticGtfsService.getValidDestinations(selectedOrigin);
+        destinations = gtfsService.getValidDestinations(selectedOrigin);
       } else {
         destinations = TEMPORARY_CONNECTIVITY[selectedOrigin] || [];
       }
@@ -170,8 +212,8 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
         <div className="p-6 border-b bg-gradient-to-r from-ferry-orange-light to-white">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-charcoal flex items-center gap-2">
-              <span className="text-3xl">🛥️</span>
-              Select Ferry Stops
+              <span className="text-3xl">{config?.mode?.id === 'train' ? '🚂' : '🛥️'}</span>
+              Select {labels?.stopTypePlural || 'Stops'}
             </h2>
             <button
               onClick={onClose}
@@ -199,7 +241,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
               {/* Origin Stop */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  From (Origin Stop)
+                  From (Origin {labels?.stopType || 'Stop'})
                 </label>
                 <div className="flex gap-2">
                   <select
@@ -228,7 +270,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
               {/* Destination Stop */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  To (Destination Stop)
+                  To (Destination {labels?.stopType || 'Stop'})
                 </label>
                 <div className="flex gap-2">
                   <select
@@ -264,7 +306,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                 </div>
                 {validDestinations.length === 0 && (
                   <p className="text-sm text-gray-500 mt-1">
-                    No ferries run directly from the selected origin stop
+                    No {labels?.vehicleTypePlural?.toLowerCase() || 'services'} run directly from the selected origin {labels?.stopType?.toLowerCase() || 'stop'}
                   </p>
                 )}
               </div>

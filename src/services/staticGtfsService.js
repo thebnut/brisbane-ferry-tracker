@@ -269,10 +269,11 @@ class StaticGTFSService {
       const data = await response.json();
       this.log(`Received ${data.departureCount} departures from GitHub`);
       
-      // Store ferry stops and connectivity data if available
-      if (data.ferryStops) {
-        this.ferryStops = data.ferryStops;
-        this.log(`Loaded ${Object.keys(data.ferryStops).length} ferry stops`);
+      // Store stops metadata and connectivity data (support both new and legacy keys)
+      const stopsData = data.stops || data.ferryStops;
+      if (stopsData) {
+        this.ferryStops = stopsData;
+        this.log(`Loaded ${Object.keys(stopsData).length} stops for ${this.mode}`);
       }
       
       if (data.stopConnectivity) {
@@ -314,15 +315,20 @@ class StaticGTFSService {
   // Process GitHub departures to calculate arrival times and filter for selected stops
   processGitHubDepartures(allDepartures, selectedStops) {
     if (!selectedStops) {
-      selectedStops = { 
-        outbound: { id: STOPS.bulimba, name: 'Bulimba' }, 
-        inbound: { id: STOPS.riverside, name: 'Riverside' } 
+      selectedStops = {
+        outbound: { id: STOPS.bulimba, name: 'Bulimba' },
+        inbound: { id: STOPS.riverside, name: 'Riverside' }
       };
     }
-    
+
     const relevantStopIds = [selectedStops.outbound.id, selectedStops.inbound.id];
-    const relevantRouteIds = [ROUTES.expressCityCat, ROUTES.allStopsCityCat];
-    
+
+    // For train mode, don't filter by route - all routes are relevant
+    // For ferry mode, filter to ferry routes only
+    const relevantRouteIds = this.mode === 'ferry'
+      ? [ROUTES.expressCityCat, ROUTES.allStopsCityCat]
+      : null; // No route filtering for train mode
+
     // Group departures by tripId for efficient lookup
     const departuresByTrip = new Map();
     allDepartures.forEach(dep => {
@@ -336,9 +342,13 @@ class StaticGTFSService {
     const processedDepartures = [];
     
     allDepartures.forEach(dep => {
-      // Only process departures from selected stops on ferry routes
+      // Only process departures from selected stops
       if (!relevantStopIds.includes(dep.stopId)) return;
-      if (!relevantRouteIds.some(routeId => dep.routeId === routeId || dep.routeId.startsWith(routeId))) return;
+
+      // For ferry mode, filter to ferry routes only
+      if (relevantRouteIds && !relevantRouteIds.some(routeId => dep.routeId === routeId || dep.routeId.startsWith(routeId))) {
+        return;
+      }
       
       // Get all stops for this trip
       const tripStops = departuresByTrip.get(dep.tripId) || [];

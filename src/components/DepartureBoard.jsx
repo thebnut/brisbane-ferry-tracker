@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import DepartureItem from './DepartureItem';
 import BoardHeader from './BoardHeader';
 import DepartureTimeDropdown from './DepartureTimeDropdown';
+import { useMode } from '../config';
 
-const DepartureBoard = ({ 
-  direction, 
-  departures, 
-  loading, 
-  selectedStops, 
+const DepartureBoard = ({
+  direction,
+  departures,
+  loading,
+  selectedStops,
   onDepartureClick,
   availableStops = [],
   validDestinations = [],
@@ -19,6 +20,9 @@ const DepartureBoard = ({
   onDepartureTimeChange
 }) => {
   const [showMore, setShowMore] = useState(false);
+  const mode = useMode();
+  const modeId = mode?.mode?.id || 'ferry';
+  const showTimeFilter = modeId === 'ferry'; // Only show time filter for ferry mode
 
   const getTitle = () => {
     if (!selectedStops) {
@@ -27,8 +31,16 @@ const DepartureBoard = ({
         : 'Riverside → Bulimba';
     }
     
-    // Remove "ferry terminal" from stop names for cleaner display
-    const cleanStopName = (name) => name.replace(' ferry terminal', '');
+    // Remove mode-specific suffixes from stop names for cleaner display
+    const cleanStopName = (name) => {
+      let cleaned = name;
+      // Remove mode-specific suffixes
+      cleaned = cleaned.replace(' ferry terminal', '');
+      cleaned = cleaned.replace(' train station', '');
+      cleaned = cleaned.replace(' bus stop', '');
+      cleaned = cleaned.replace(' station', '');
+      return cleaned;
+    };
     
     return direction === 'outbound' 
       ? `${cleanStopName(selectedStops.outbound.name)} → ${cleanStopName(selectedStops.inbound.name)}` 
@@ -52,7 +64,7 @@ const DepartureBoard = ({
         ) : (
           <div className="flex items-center justify-between gap-2 text-base font-semibold mb-4 text-ferry-aqua bg-gradient-to-r from-white/80 to-ferry-orange-light/50 rounded-xl px-4 py-3 shadow-sm border border-ferry-orange/10 backdrop-blur-sm">
             <span className="flex-shrink">{getTitle()}</span>
-            {isMobile && onDepartureTimeChange && (
+            {isMobile && showTimeFilter && onDepartureTimeChange && (
               <DepartureTimeDropdown
                 value={selectedDepartureTime}
                 onChange={onDepartureTimeChange}
@@ -90,7 +102,7 @@ const DepartureBoard = ({
       ) : (
         <div className="flex items-center justify-between gap-2 text-base font-semibold mb-4 text-ferry-aqua bg-gradient-to-r from-white/80 to-ferry-orange-light/50 rounded-xl px-4 py-3 shadow-sm border border-ferry-orange/10 backdrop-blur-sm">
           <span className="flex-shrink">{getTitle()}</span>
-          {isMobile && onDepartureTimeChange && (
+          {isMobile && showTimeFilter && onDepartureTimeChange && (
             <DepartureTimeDropdown
               value={selectedDepartureTime}
               onChange={onDepartureTimeChange}
