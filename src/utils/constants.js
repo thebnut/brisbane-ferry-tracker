@@ -32,11 +32,13 @@ export const API_CONFIG = {
 // Debug configuration
 export const DEBUG_CONFIG = {
   enableLogging: (() => {
-    // Enable debug logging for localhost and develop environments
+    // Enable debug logging for localhost, develop environments AND production domains
     const hostname = window.location.hostname;
-    const isDevelopment = hostname === 'localhost' || 
+    const isDevelopment = hostname === 'localhost' ||
                          hostname === '127.0.0.1' ||
-                         hostname.includes('brisbane-ferry-tracker.vercel.app');
+                         hostname.includes('brisbane-ferry-tracker.vercel.app') ||
+                         hostname.includes('brisbaneferry.com') ||
+                         hostname.includes('ferry.lifemap.au');
     
     // Log debug mode status
     if (isDevelopment) {
