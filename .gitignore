@@ -30,3 +30,8 @@ dist-ssr
 
 # Vercel
 .vercel
+
+# Generated schedule artefacts (dev/testing)
+schedule-data-dev/
+schedule-data-transit/
+schedule-processor/output/

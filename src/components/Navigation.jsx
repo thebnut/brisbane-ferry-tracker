@@ -1,15 +1,24 @@
 import React from 'react';
+import { useModeConfig } from '../config';
 
 const Navigation = ({ onOpenSettings }) => {
+  const config = useModeConfig();
+  const branding = config?.branding || {
+    logo: {
+      src: '/bf.com_logo_text.png',
+      alt: 'Brisbane Ferry Tracker',
+      height: 'h-16 md:h-28'
+    }
+  };
   return (
     <nav className="bg-gradient-to-r from-white via-ferry-orange-light to-ferry-light-blue shadow-xl sticky top-0 z-50 border-b-2 border-ferry-orange/50 animate-gradient bg-[length:200%_100%]">
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex items-center justify-between py-1">
           <div className="flex items-start">
-            <img 
-              src="/bf.com_logo.png" 
-              alt="Brisbane Ferry Tracker" 
-              className="h-16 md:h-28 w-auto max-w-[200px] md:max-w-none"
+            <img
+              src={branding.logo.src}
+              alt={branding.logo.alt}
+              className={`${branding.logo.height} w-auto max-w-[280px] md:max-w-none`}
             />
           </div>
           <div className="flex items-center space-x-2 md:space-x-3">

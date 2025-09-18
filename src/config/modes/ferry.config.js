@@ -8,7 +8,7 @@ export const FERRY_CONFIG = {
     name: 'Brisbane Ferry Tracker',
     shortName: 'Ferry',
     domain: 'brisbaneferry.com',
-    analyticsId: process.env.REACT_APP_GA_FERRY || ''
+    analyticsId: import.meta.env.VITE_GA_FERRY || ''
   },
 
   // Visual Identity
