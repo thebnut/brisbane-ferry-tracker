@@ -1,0 +1,62 @@
+name: Update Transit Schedule (Dev)
+
+on:
+  workflow_dispatch:
+    inputs:
+      modes:
+        description: "Space separated list of modes to process (ferry train bus)"
+        required: false
+        default: "ferry train"
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate mode schedules
+        env:
+          MODE_INPUT: ${{ github.event.inputs.modes }}
+        run: |
+          set -euo pipefail
+          MODES="${MODE_INPUT:-ferry train}"
+          if [ "$MODES" = "all" ]; then
+            MODES="ferry train bus"
+          fi
+
+          mkdir -p schedule-data-dev
+
+          for MODE in $MODES; do
+            echo "➡️ Generating schedule for $MODE"
+            node schedule-processor/process-schedule.js --mode "$MODE"
+            mkdir -p "schedule-data-dev/$MODE"
+            if [ -f "schedule-data/$MODE/latest.json" ]; then
+              cp "schedule-data/$MODE/latest.json" "schedule-data-dev/$MODE/latest.json"
+            else
+              echo "⚠️ No schedule-data/$MODE/latest.json produced"
+            fi
+          done
+
+      - name: Upload dev schedules
+        uses: actions/upload-artifact@v4
+        with:
+          name: transit-schedule-dev
+          path: schedule-data-dev
+          if-no-files-found: warn
+
+      - name: Cleanup generated schedules
+        run: |
+          rm -rf schedule-data-dev
+          rm -rf schedule-data/ferry schedule-data/train schedule-data/bus
+          rm -f schedule-data/latest.json
+          git checkout -- schedule-data
