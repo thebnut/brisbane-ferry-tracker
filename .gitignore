@@ -34,4 +34,6 @@ dist-ssr
 # Generated schedule artefacts (dev/testing)
 schedule-data-dev/
 schedule-data-transit/
+!public/schedule-data-dev/
+!public/schedule-data-dev/**
 schedule-processor/output/
