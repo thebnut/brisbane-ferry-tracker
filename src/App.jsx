@@ -29,6 +29,7 @@ function App() {
 function AppContent() {
   // v1.2.0 - Modern orange-themed redesign with animations (2025-07-19)
   const mode = useMode();
+  const modeId = mode?.mode?.id || 'ferry';
   const computeModeDefaultStops = () => {
     const defaults = mode.data?.stops?.defaults;
     const list = mode.data?.stops?.list || [];
