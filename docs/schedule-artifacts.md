@@ -3,7 +3,7 @@
 | Purpose | Branch Source | Workflow | Output Path | Notes |
 |---------|---------------|----------|-------------|-------|
 | Production ferry schedule | `main` | `Update Ferry Schedule` | `schedule-data/latest.json` | Current brisbaneferry.com deployment. Do not modify without release approval. |
-| Multi-mode dev schedules | `transit-foundation` (and feature branches) | `Update Transit Schedule (Dev)` | `schedule-data-dev/<mode>/latest.json` (artifact) | Used for Vercel preview builds and multi-mode testing. Artifact download only; not committed to git. |
+| Multi-mode dev schedules | `transit-foundation` (and feature branches) | `Update Transit Schedule (Dev)` | `schedule-data-dev/<mode>/latest.json` (artifact) | Used for Vercel preview builds and multi-mode testing. Set `VITE_TRANSIT_ENV=dev` and optionally `VITE_TRANSIT_DEV_BASE` to point clients at these files. |
 
 ## Usage
 1. Trigger the **Update Transit Schedule (Dev)** workflow via GitHub Actions.

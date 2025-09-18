@@ -9,6 +9,8 @@ class StaticGTFSService {
     this.timezone = 'Australia/Brisbane';
     this.mode = 'ferry'; // Default mode, will be updated from ModeProvider
     this.scheduleCacheKey = STORAGE_KEYS.SCHEDULE_CACHE;
+    this.transitEnv = import.meta.env.VITE_TRANSIT_ENV || 'prod';
+    this.devScheduleBase = import.meta.env.VITE_TRANSIT_DEV_BASE || '';
     this.cacheExpiry = 24 * 60 * 60 * 1000; // 24 hours
     this.gtfsData = null;
     this.ferryStops = null;
@@ -47,28 +49,39 @@ class StaticGTFSService {
 
   // Update schedule URLs based on mode
   updateScheduleUrls(forceGitHub) {
-    const basePath = 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data';
+    const prodBasePath = 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data';
 
-    // Clear fallback URL first
-    this.fallbackScheduleUrl = null;
+    // Default (production) paths
+    let primaryUrl;
+    let fallbackUrl = null;
 
-    // Determine the correct path based on mode
     if (window.location.hostname === 'localhost' && !forceGitHub) {
-      // Local development - check if mode-specific directory exists
-      this.githubScheduleUrl = `/schedule-data/${this.mode}/latest.json`;
-      // Fallback to root for ferry mode (backward compatibility)
+      primaryUrl = `/schedule-data/${this.mode}/latest.json`;
       if (this.mode === 'ferry') {
-        this.fallbackScheduleUrl = '/schedule-data/latest.json';
+        fallbackUrl = '/schedule-data/latest.json';
       }
     } else {
-      // Production or forced GitHub
-      this.githubScheduleUrl = `${basePath}/${this.mode}/latest.json`;
-      // Always use fallback for ferry mode until we have mode-specific data
+      primaryUrl = `${prodBasePath}/${this.mode}/latest.json`;
       if (this.mode === 'ferry') {
-        this.fallbackScheduleUrl = `${basePath}/latest.json`;
+        fallbackUrl = `${prodBasePath}/latest.json`;
       }
     }
 
+    // Development overrides (use schedule-data-dev or custom base)
+    if (this.transitEnv === 'dev') {
+      const trimmedBase = this.devScheduleBase.replace(/\/$/, '');
+      const devUrl = trimmedBase
+        ? `${trimmedBase}/${this.mode}/latest.json`
+        : `/schedule-data-dev/${this.mode}/latest.json`;
+
+      this.githubScheduleUrl = devUrl;
+      this.fallbackScheduleUrl = primaryUrl;
+      this.log(`Schedule URL for ${this.mode} (dev env): ${this.githubScheduleUrl} (fallback ${this.fallbackScheduleUrl})`);
+      return;
+    }
+
+    this.githubScheduleUrl = primaryUrl;
+    this.fallbackScheduleUrl = fallbackUrl;
     this.log(`Schedule URL for ${this.mode}: ${this.githubScheduleUrl}`);
   }
 
