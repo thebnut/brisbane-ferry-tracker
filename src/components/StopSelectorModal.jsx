@@ -11,6 +11,10 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const modeStopList = Array.isArray(modeConfig?.data?.stops?.list)
     ? modeConfig.data.stops.list
     : [];
+  const selectStopsLabel = modeConfig?.ui?.labels?.selectStops || 'Select Stops';
+  const fromLabel = modeConfig?.ui?.labels?.fromLabel || 'From (Origin Stop)';
+  const toLabel = modeConfig?.ui?.labels?.toLabel || 'To (Destination Stop)';
+  const modeIcon = modeConfig?.branding?.icon || modeConfig?.branding?.icons?.mode || '🛥️';
 
   const [selectedOrigin, setSelectedOrigin] = useState(currentStops?.outbound?.id || DEFAULT_STOPS.outbound.id);
   const [selectedDestination, setSelectedDestination] = useState(currentStops?.inbound?.id || DEFAULT_STOPS.inbound.id);
@@ -195,8 +199,8 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
         <div className="p-6 border-b bg-gradient-to-r from-ferry-orange-light to-white">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-charcoal flex items-center gap-2">
-              <span className="text-3xl">🛥️</span>
-              Select Ferry Stops
+              <span className="text-3xl">{modeIcon}</span>
+              {selectStopsLabel}
             </h2>
             <button
               onClick={onClose}
@@ -224,7 +228,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
               {/* Origin Stop */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  From (Origin Stop)
+                  {fromLabel}
                 </label>
                 <div className="flex gap-2">
                   <select
@@ -253,7 +257,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
               {/* Destination Stop */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  To (Destination Stop)
+                  {toLabel}
                 </label>
                 <div className="flex gap-2">
                   <select

@@ -12,7 +12,7 @@ import DepartureTimeDropdown from './components/DepartureTimeDropdown';
 import FeedbackModal from './components/FeedbackModal';
 import useFerryData from './hooks/useFerryData';
 import staticGtfsService from './services/staticGtfsService';
-import { STORAGE_KEYS } from './utils/constants';
+import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { ModeProvider, useMode } from './config';
 
@@ -29,33 +29,38 @@ function App() {
 function AppContent() {
   // v1.2.0 - Modern orange-themed redesign with animations (2025-07-19)
   const mode = useMode();
-  const defaultStops = mode.data.stops.defaults;
+  const computeModeDefaultStops = () => {
+    const defaults = mode.data?.stops?.defaults;
+    const list = mode.data?.stops?.list || [];
+    if (!defaults) return DEFAULT_STOPS;
+
+    const findName = (id) => list.find(stop => stop.id === id)?.name || '';
+
+    return {
+      outbound: {
+        id: defaults.origin,
+        name: findName(defaults.origin) || DEFAULT_STOPS.outbound.name
+      },
+      inbound: {
+        id: defaults.destination,
+        name: findName(defaults.destination) || DEFAULT_STOPS.inbound.name
+      }
+    };
+  };
 
   // Load saved stops or use mode defaults
   const [selectedStops, setSelectedStops] = useState(() => {
-    // Check localStorage first (permanent storage)
     const savedPermanent = localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
     if (savedPermanent) {
       return JSON.parse(savedPermanent);
     }
 
-    // Check sessionStorage (temporary storage)
     const savedSession = sessionStorage.getItem(STORAGE_KEYS.SELECTED_STOPS_SESSION);
     if (savedSession) {
       return JSON.parse(savedSession);
     }
 
-    // Use mode-specific defaults if nothing saved
-    return {
-      outbound: {
-        id: defaultStops.origin,
-        name: mode.data.stops.list.find(s => s.id === defaultStops.origin)?.name || 'Origin'
-      },
-      inbound: {
-        id: defaultStops.destination,
-        name: mode.data.stops.list.find(s => s.id === defaultStops.destination)?.name || 'Destination'
-      }
-    };
+    return computeModeDefaultStops();
   });
   
   // Show stop selector if no permanently saved stops OR remember preference is false
@@ -96,7 +101,8 @@ function AppContent() {
   }, [selectedDepartureTime]);
   
   const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData(currentStops, selectedDepartureTime);
-  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
+  const filters = useMemo(() => mode.services?.filters || [], [mode]);
+  const [activeFilterId, setActiveFilterId] = useState(filters[0]?.id || null);
   const [showMap, setShowMap] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   // Determine default tab
@@ -131,18 +137,31 @@ function AppContent() {
     // Force data refresh with new stops
     refresh();
   };
-  
+
+  // Reset defaults when mode changes and no saved selection exists
+  useEffect(() => {
+    const savedPermanent = localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
+    const savedSession = sessionStorage.getItem(STORAGE_KEYS.SELECTED_STOPS_SESSION);
+    if (!savedPermanent && !savedSession) {
+      const defaults = computeModeDefaultStops();
+      setSelectedStops(defaults);
+      setTemporaryStops(defaults);
+    }
+  }, [modeId]);
+
   // Load available stops on mount
   useEffect(() => {
     const loadStops = async () => {
       try {
         setStopsLoading(true);
+        staticGtfsService.setMode(modeId);
+        staticGtfsService.setModeConfig(mode);
         
         // Try to get stops from static GTFS service
         if (!staticGtfsService.hasStopsData()) {
           await staticGtfsService.getScheduledDepartures();
         }
-        
+
         const stops = staticGtfsService.getAvailableStops();
         setAvailableStops(stops);
         
@@ -158,15 +177,15 @@ function AppContent() {
     };
     
     loadStops();
-  }, [currentStops.outbound.id]);
-  
+  }, [currentStops.outbound.id, modeId]);
+
   // Update valid destinations when origin changes
   useEffect(() => {
     if (availableStops.length > 0 && currentStops) {
       const destinations = staticGtfsService.getValidDestinations(currentStops.outbound.id);
       setValidDestinations(destinations);
     }
-  }, [currentStops?.outbound?.id, availableStops]);
+  }, [currentStops?.outbound?.id, availableStops, modeId]);
   
   // Handlers for dropdown changes
   const handleTemporaryOriginChange = (originId) => {
@@ -210,34 +229,41 @@ function AppContent() {
     // Don't switch active tab - mobile always shows outbound
   };
   
-  // Check if there are any express services in the next 13 departures
-  const hasExpressServices = useMemo(() => {
-    const allDepartures = [...departures.outbound.slice(0, 13), ...departures.inbound.slice(0, 13)];
-    return allDepartures.some(dep => {
-      const routePrefix = dep.routeId.split('-')[0];
-      return routePrefix === 'F11';
+  const combinedDepartures = useMemo(() => (
+    [...departures.outbound, ...departures.inbound]
+  ), [departures]);
+
+  const availableFilters = useMemo(() => {
+    if (filters.length <= 1) return filters;
+    return filters.filter((filter, index) => {
+      if (!filter?.predicate || index === 0) return true;
+      return combinedDepartures.some(dep => filter.predicate(dep));
     });
-  }, [departures]);
-  
-  // Filter departures based on selected mode
-  const filteredDepartures = useMemo(() => {
-    if (filterMode === 'all') {
-      return departures;
+  }, [filters, combinedDepartures]);
+
+  useEffect(() => {
+    if (availableFilters.length === 0) {
+      setActiveFilterId(null);
+      return;
     }
-    
-    const filterFunc = (dep) => {
-      const routePrefix = dep.routeId.split('-')[0];
-      if (filterMode === 'express') {
-        return routePrefix === 'F11';
-      }
-      return true;
-    };
-    
-    return {
-      outbound: departures.outbound.filter(filterFunc),
-      inbound: departures.inbound.filter(filterFunc)
-    };
-  }, [departures, filterMode]);
+    if (!availableFilters.some(filter => filter.id === activeFilterId)) {
+      setActiveFilterId(availableFilters[0].id);
+    }
+  }, [availableFilters, activeFilterId]);
+
+  const activeFilter = useMemo(() => {
+    if (!availableFilters.length) return null;
+    return availableFilters.find(filter => filter.id === activeFilterId) || availableFilters[0];
+  }, [availableFilters, activeFilterId]);
+
+  const filterPredicate = useMemo(() => {
+    return activeFilter?.predicate || (() => true);
+  }, [activeFilter]);
+
+  const filteredDepartures = useMemo(() => ({
+    outbound: departures.outbound.filter(dep => filterPredicate(dep)),
+    inbound: departures.inbound.filter(dep => filterPredicate(dep))
+  }), [departures, filterPredicate]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -254,9 +280,9 @@ function AppContent() {
         onRefresh={refresh}
         showMap={showMap}
         onToggleMap={() => setShowMap(!showMap)}
-        filterMode={filterMode}
-        onFilterChange={setFilterMode}
-        hasExpressServices={hasExpressServices}
+        filters={availableFilters}
+        activeFilterId={activeFilter?.id || availableFilters[0]?.id || null}
+        onFilterChange={setActiveFilterId}
       />
       
       {/* Schedule loading indicator */}

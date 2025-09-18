@@ -49,6 +49,11 @@ const ROUTES = {
 
 const TIMEZONE = 'Australia/Brisbane';
 
+function extractPlatformFromName(name = '') {
+  const match = name.match(/platform\s*(\w+)/i);
+  return match ? match[1] : null;
+}
+
 // Parse CSV content
 function parseCSV(content) {
   const result = Papa.parse(content, {
@@ -217,10 +222,12 @@ function buildStopConnectivity(trips, stopTimes, stops, modeRouteIds) {
 
     const destinations = connectivity.get(stop.stop_id) || new Set();
 
+    const platform = stop.platform_code || extractPlatformFromName(stop.stop_name);
     modeStops[stop.stop_id] = {
       name: stop.stop_name,
       lat: parseFloat(stop.stop_lat),
       lng: parseFloat(stop.stop_lon),
+      platform,
       validDestinations: Array.from(destinations).sort()
     };
 
@@ -263,6 +270,16 @@ async function processGTFSData() {
   const calendar = parseCSV(await zip.file('calendar.txt').async('string'));
   const calendarDates = parseCSV(await zip.file('calendar_dates.txt').async('string'));
   const stops = parseCSV(await zip.file('stops.txt').async('string'));
+  const stopsMap = new Map(stops.map(stop => [stop.stop_id, stop]));
+  const stopPlatformMap = new Map();
+  stops.forEach(stop => {
+    if (stop.stop_id) {
+      const platform = stop.platform_code || extractPlatformFromName(stop.stop_name);
+      if (platform) {
+        stopPlatformMap.set(stop.stop_id, platform);
+      }
+    }
+  });
 
   // Get mode-specific routes
   const modeRoutes = routes.filter(route => {
@@ -361,17 +378,20 @@ async function processGTFSData() {
         if (departureZoned >= todayStart && departureZoned <= endDate) {
           // For schedule data, include all ferry stops (no specific direction filtering)
           // The client will filter based on selected stops
-          const direction = 'outbound'; // Generic direction for schedule data
-          
-          departures.push({
-            tripId: trip.trip_id,
-            routeId: trip.route_id,
-            serviceId: trip.service_id,
-            departureTime: departureUTC.toISOString(),
-            stopId: stopTime.stop_id,
-            direction: direction,
-            headsign: trip.trip_headsign,
-            isScheduled: true,
+        const direction = 'outbound'; // Generic direction for schedule data
+        const platformCode = stopPlatformMap.get(stopTime.stop_id) || null;
+
+        departures.push({
+          tripId: trip.trip_id,
+          routeId: trip.route_id,
+          serviceId: trip.service_id,
+          departureTime: departureUTC.toISOString(),
+          platformCode,
+          stopId: stopTime.stop_id,
+          stopName: stopsMap.get(stopTime.stop_id)?.stop_name || stopTime.stop_id,
+          direction: direction,
+          headsign: trip.trip_headsign,
+          isScheduled: true,
             stopSequence: parseInt(stopTime.stop_sequence)
           });
         }

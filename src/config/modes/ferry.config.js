@@ -162,7 +162,10 @@ export const FERRY_CONFIG = {
         id: 'express',
         label: 'Express only',
         icon: '🚤',
-        predicate: (routeId) => routeId === 'F11' || routeId?.includes('F11')
+        predicate: (departure) => {
+          const routeId = departure?.routeId;
+          return routeId === 'F11' || routeId?.startsWith('F11');
+        }
       }
     ]
   },

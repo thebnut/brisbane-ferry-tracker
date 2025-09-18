@@ -4,7 +4,7 @@ import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { API_CONFIG } from '../utils/constants';
 
-const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap, filterMode, onFilterChange, hasExpressServices }) => {
+const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap, filters = [], activeFilterId, onFilterChange }) => {
   const formatTime = (date) => {
     if (!date) return 'Never';
     const zonedDate = toZonedTime(date, API_CONFIG.timezone);
@@ -51,20 +51,34 @@ const StatusBar = ({ lastUpdated, isLoading, onRefresh, showMap, onToggleMap, fi
           
           {/* Action Buttons - Right side */}
           <div className="flex items-center space-x-2">
-            {/* Service Filter Button - Only show if we have express services or if express filter is active */}
-            {(hasExpressServices || filterMode === 'express') && (
-              <button
-                onClick={() => onFilterChange && onFilterChange(filterMode === 'all' ? 'express' : 'all')}
-                className={clsx(
-                  'flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 active:scale-95 shadow-md text-sm sm:text-base',
-                  filterMode === 'express'
-                    ? 'bg-ferry-aqua text-white hover:bg-ferry-aqua-light hover:shadow-lg'
-                    : 'bg-white text-ferry-orange border-2 border-ferry-orange hover:bg-ferry-orange hover:text-white'
-                )}
-              >
-                <span className="text-sm sm:text-base">{filterMode === 'express' ? '🚢' : '🚤'}</span>
-                <span>{filterMode === 'express' ? 'All Ferries' : 'Express only'}</span>
-              </button>
+            {filters.length > 1 && (
+              <div className="flex items-center space-x-2">
+                {filters.map(filter => {
+                  const isActive = filter.id === activeFilterId;
+                  const baseClasses = 'flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 active:scale-95 shadow-md text-sm sm:text-base';
+                  const inactiveClasses = 'bg-white text-ferry-orange border-2 border-ferry-orange hover:bg-ferry-orange hover:text-white';
+                  const activeFallbackClasses = 'bg-ferry-aqua text-white border-2 border-ferry-aqua hover:bg-ferry-aqua-light';
+                  const buttonStyle = isActive && filter.color
+                    ? { backgroundColor: filter.color, borderColor: filter.color, color: '#ffffff' }
+                    : undefined;
+                  return (
+                    <button
+                      key={filter.id}
+                      onClick={() => onFilterChange && onFilterChange(filter.id)}
+                      className={clsx(
+                        baseClasses,
+                        isActive
+                          ? (filter.color ? 'text-white border-2' : activeFallbackClasses)
+                          : inactiveClasses
+                      )}
+                      style={buttonStyle}
+                    >
+                      {filter.icon && <span>{filter.icon}</span>}
+                      <span>{filter.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
             <button
               onClick={onToggleMap}

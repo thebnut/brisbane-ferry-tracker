@@ -355,7 +355,8 @@ class StaticGTFSService {
         departureTime: dep.departureTime instanceof Date ? dep.departureTime : new Date(dep.departureTime),
         destinationArrivalTime: dep.destinationArrivalTime
           ? (dep.destinationArrivalTime instanceof Date ? dep.destinationArrivalTime : new Date(dep.destinationArrivalTime))
-          : null
+          : null,
+        platformCode: dep.platformCode || this.modeStops?.[dep.stopId]?.platform || null
       });
       departuresByTrip.set(dep.tripId, list);
     });
@@ -399,6 +400,8 @@ class StaticGTFSService {
     const destinationArrivalTime = destinationStop
       ? (destinationStop.destinationArrivalTime || destinationStop.departureTime)
       : null;
+    const stopInfo = this.modeStops?.[originStop.stopId];
+    const originPlatform = stopInfo?.platform || originStop.platformCode || null;
 
     return {
       tripId: originStop.tripId,
@@ -409,10 +412,12 @@ class StaticGTFSService {
         ? (destinationArrivalTime instanceof Date ? destinationArrivalTime : new Date(destinationArrivalTime))
         : null,
       stopId: originStop.stopId,
+      stopName: stopInfo?.name || originStop.stopName || '',
       direction,
       headsign: originStop.headsign,
       isScheduled: true,
-      stopSequence: originStop.stopSequence
+      stopSequence: originStop.stopSequence,
+      platformCode: originPlatform
     };
   }
 

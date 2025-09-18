@@ -16,6 +16,10 @@ class FerryDataService {
   // Set mode configuration
   setModeConfig(config) {
     this.modeConfig = config;
+    if (!this.selectedStops || this.selectedStops === DEFAULT_STOPS) {
+      this.selectedStops = this.getDefaultStopsFromConfig();
+    }
+    staticGtfsService.setModeConfig(config);
   }
 
   // Load route allow-set from schedule data
@@ -40,6 +44,32 @@ class FerryDataService {
   setSelectedStops(stops) {
     this.selectedStops = stops;
   }
+
+  getDefaultStopsFromConfig() {
+    const defaults = this.modeConfig?.data?.stops?.defaults;
+    const list = this.modeConfig?.data?.stops?.list || [];
+    if (!defaults) return DEFAULT_STOPS;
+
+    const findName = (id) => {
+      const match = list.find(stop => stop.id === id);
+      if (match) return match.name;
+      if (this.modeConfig?.data?.stops?.map) {
+        return this.modeConfig.data.stops.map[id]?.name || '';
+      }
+      return '';
+    };
+
+    return {
+      outbound: {
+        id: defaults.origin,
+        name: findName(defaults.origin) || DEFAULT_STOPS.outbound.name
+      },
+      inbound: {
+        id: defaults.destination,
+        name: findName(defaults.destination) || DEFAULT_STOPS.inbound.name
+      }
+    };
+  }
   
   // Set departure time filter
   setDepartureTimeFilter(time) {
@@ -53,7 +83,7 @@ class FerryDataService {
     this.log('Total trip updates to filter:', tripUpdates.length);
 
     // Use route allow-set for fast filtering if available
-    const routeFilter = this.routeAllowSet
+    const modeRouteFilter = this.routeAllowSet
       ? (routeId) => this.routeAllowSet.has(routeId)
       : this.modeConfig?.data?.gtfs?.routeFilter ||
         ((routeId) => routeId && routeId.startsWith('F')); // Fallback to ferry prefix
@@ -98,8 +128,8 @@ class FerryDataService {
       const trip = entity.tripUpdate.trip;
       const stopTimeUpdates = entity.tripUpdate.stopTimeUpdate || [];
       
-      // Check if this trip is on a ferry route (any route starting with 'F')
-      const isRelevantRoute = trip && trip.routeId && trip.routeId.startsWith('F');
+      // Check if this trip is on a relevant route for current mode
+      const isRelevantRoute = trip && trip.routeId && modeRouteFilter(trip.routeId);
       
       // Check if trip has BOTH selected stops
       const hasOutboundStop = stopTimeUpdates.some(update => 

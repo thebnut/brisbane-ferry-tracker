@@ -17,6 +17,10 @@ const DepartureItem = ({ departure, onClick }) => {
     borderColor: 'border-ferry-aqua',
     icon: '🛥️'
   };
+
+  const platformCode = mode?.mode?.id === 'train'
+    ? departure.platformCode || mode?.data?.stops?.list?.find?.((stop) => stop.id === departure.stopId)?.platform
+    : null;
   
   // Check for themed vessel
   const vesselName = React.useMemo(() => {
@@ -115,6 +119,11 @@ const DepartureItem = ({ departure, onClick }) => {
             )}>
               {serviceInfo.name}
             </span>
+            {platformCode && (
+              <span className="px-2 py-0.5 text-xs font-semibold text-gray-700 bg-gray-100 border border-gray-200 rounded-full">
+                Platform {platformCode}
+              </span>
+            )}
             {departure.isRealtime ? (
               <span className="px-2.5 py-1 bg-ferry-orange text-white rounded-full text-xs font-bold animate-pulse shadow-md">
                 LIVE
