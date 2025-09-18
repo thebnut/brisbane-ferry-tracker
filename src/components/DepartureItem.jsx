@@ -2,12 +2,38 @@ import React from 'react';
 import { format, differenceInMinutes, isTomorrow, isAfter, startOfDay, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
-import { SERVICE_TYPES, API_CONFIG, getOccupancyInfo } from '../utils/constants';
+import { API_CONFIG, getOccupancyInfo } from '../utils/constants';
+import { getVesselTheme } from '../utils/vesselThemes';
+import { useMode } from '../config';
 
 const DepartureItem = ({ departure, onClick }) => {
-  // Get service info based on route ID prefix (remove suffix like -4055)
-  const routePrefix = departure.routeId.split('-')[0];
-  const serviceInfo = SERVICE_TYPES[routePrefix] || SERVICE_TYPES.F1;
+  const mode = useMode();
+
+  // Get service type from mode configuration
+  const serviceInfo = mode?.getServiceType ? mode.getServiceType(departure.routeId) : {
+    name: 'Service',
+    color: 'bg-ferry-aqua',
+    textColor: 'text-white',
+    borderColor: 'border-ferry-aqua',
+    icon: '🛥️'
+  };
+  
+  // Check for themed vessel
+  const vesselName = React.useMemo(() => {
+    if (!departure.vehicleId) return null;
+    const parts = departure.vehicleId.split('_');
+    if (parts.length < 2) return null;
+    const name = parts[parts.length - 1];
+    // Title case but preserve Roman numerals
+    return name.split(' ').map(word => {
+      if (/^[IVX]+$/i.test(word)) {
+        return word.toUpperCase();
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }).join(' ');
+  }, [departure.vehicleId]);
+  
+  const vesselTheme = getVesselTheme(vesselName);
   
   // Force initial render to complete before animations
   const [isInitialRender, setIsInitialRender] = React.useState(true);
@@ -103,6 +129,18 @@ const DepartureItem = ({ departure, onClick }) => {
                 <svg className="w-5 h-5 inline-block animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
+              </span>
+            )}
+            {vesselTheme && (
+              <span className="relative group/theme">
+                <span className="text-2xl cursor-help">{vesselTheme.dogEmoji}</span>
+                <span className={clsx(
+                  'absolute left-1/2 -translate-x-1/2 bottom-full mb-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap opacity-0 group-hover/theme:opacity-100 transition-opacity pointer-events-none z-10',
+                  vesselTheme.bgColor,
+                  'text-white'
+                )}>
+                  {vesselTheme.description}
+                </span>
               </span>
             )}
           </div>

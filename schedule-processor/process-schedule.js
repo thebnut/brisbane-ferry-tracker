@@ -8,6 +8,34 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Parse command line arguments
+const args = process.argv.slice(2);
+const modeIndex = args.indexOf('--mode');
+const mode = modeIndex !== -1 ? args[modeIndex + 1] : 'ferry';
+
+console.log(`Processing schedule for mode: ${mode}`);
+
+// Mode configurations
+const MODE_CONFIGS = {
+  ferry: {
+    routeType: 4,
+    routePrefix: 'F',
+    outputDir: 'schedule-data/ferry',
+  },
+  train: {
+    routeType: 2,
+    routePrefix: null, // Trains don't have a consistent prefix
+    outputDir: 'schedule-data/train',
+  },
+  bus: {
+    routeType: 3,
+    routePrefix: null, // Buses use numeric route IDs
+    outputDir: 'schedule-data/bus',
+  }
+};
+
+const modeConfig = MODE_CONFIGS[mode] || MODE_CONFIGS.ferry;
+
 // Constants
 const STOPS = {
   bulimba: "317584",
@@ -105,11 +133,11 @@ function determineDirection(currentStopId, allStopTimes, currentIndex, trip) {
   return currentStopId === STOPS.bulimba ? 'outbound' : 'inbound';
 }
 
-// Build ferry stop connectivity data
-function buildStopConnectivity(trips, stopTimes, stops, routes) {
-  console.log('Building stop connectivity data...');
-  
-  // Master list of ferry stop names
+// Build mode stop connectivity data
+function buildStopConnectivity(trips, stopTimes, stops, modeRouteIds) {
+  console.log(`Building ${mode} stop connectivity data...`);
+
+  // Master list of ferry stop names (only used for ferry mode)
   const FERRY_STOP_NAMES = [
     'Apollo Road',
     'Bretts Wharf',
@@ -137,20 +165,18 @@ function buildStopConnectivity(trips, stopTimes, stops, routes) {
   
   // Filter for ferry stops only
   const ferryStopIds = new Set();
-  const ferryStops = {};
+  // Filter for mode-specific stops only
+  const modeStopIds = new Set();
+  const modeStops = {};
   const stopConnectivity = {};
-  
-  // Get all ferry routes
-  const ferryRoutes = routes.filter(route => route.route_id.startsWith('F'));
-  const ferryRouteIds = new Set(ferryRoutes.map(r => r.route_id));
-  
-  // Get all trips for ferry routes
-  const ferryTrips = trips.filter(trip => {
-    // Only include ferry routes
-    if (!trip.route_id.startsWith('F')) return false;
-    
-    return ferryRouteIds.has(trip.route_id) || 
-      Array.from(ferryRouteIds).some(routeId => trip.route_id.startsWith(routeId));
+
+  // Generate route allow-set for filtering
+  const routeAllowSet = Array.from(modeRouteIds);
+  console.log(`Found ${routeAllowSet.length} ${mode} routes:`, routeAllowSet.slice(0, 10), '...');
+
+  // Get all trips for mode routes
+  const modeTrips = trips.filter(trip => {
+    return modeRouteIds.has(trip.route_id);
   });
   
   // Create a map of trip patterns (unique stop sequences)
@@ -237,26 +263,29 @@ function buildStopConnectivity(trips, stopTimes, stops, routes) {
     }
   });
   
-  // Convert connectivity Sets to Arrays (only for ferry stops)
+  // Convert connectivity Sets to Arrays (only for mode stops)
   const connectivityArray = {};
   Object.entries(stopConnectivity).forEach(([stopId, destinations]) => {
-    if (ferryStopIdSet.has(stopId)) {
+    if (modeStopIdSet.has(stopId)) {
       connectivityArray[stopId] = Array.from(destinations)
-        .filter(destId => ferryStopIdSet.has(destId))
+        .filter(destId => modeStopIdSet.has(destId))
         .sort();
     }
   });
-  
-  console.log(`Found ${Object.keys(ferryStops).length} ferry stops with connectivity data`);
-  
+
+  console.log(`Found ${Object.keys(modeStops).length} ${mode} stops with connectivity data`);
+
   return {
-    ferryStops,
-    stopConnectivity: connectivityArray
+    modeStops,
+    stopConnectivity: connectivityArray,
+    routeAllowSet
   };
 }
 
 // Main processing function
 async function processGTFSData() {
+  // Get mode routes first to use throughout processing
+  let modeRouteIds = new Set();
   console.log('Fetching GTFS data...');
   
   // Fetch the GTFS ZIP file
@@ -279,6 +308,21 @@ async function processGTFSData() {
   const calendar = parseCSV(await zip.file('calendar.txt').async('string'));
   const calendarDates = parseCSV(await zip.file('calendar_dates.txt').async('string'));
   const stops = parseCSV(await zip.file('stops.txt').async('string'));
+
+  // Get mode-specific routes
+  const modeRoutes = routes.filter(route => {
+    // Filter by route_type
+    if (route.route_type !== undefined && route.route_type !== null) {
+      return parseInt(route.route_type) === modeConfig.routeType;
+    }
+    // Fallback to prefix filtering for ferry
+    if (mode === 'ferry') {
+      return route.route_id.startsWith('F');
+    }
+    return false;
+  });
+  modeRouteIds = new Set(modeRoutes.map(r => r.route_id));
+  console.log(`Found ${modeRouteIds.size} ${mode} routes`);
 
   // Process departures for next 48 hours
   const now = new Date();
@@ -311,16 +355,16 @@ async function processGTFSData() {
     }
   });
   
-  // Get all trips for ferry routes
+  // Get all trips for mode routes
   const relevantTrips = trips.filter(trip => {
     // Check if service is active on any day in our range
     const serviceActiveOnAnyDay = Array.from(activeServicesByDate.values())
       .some(services => services.includes(trip.service_id));
-    
+
     if (!serviceActiveOnAnyDay) return false;
-    
-    // Include all ferry routes (starting with 'F')
-    return trip.route_id.startsWith('F');
+
+    // Filter by route allow-set
+    return modeRouteIds.has(trip.route_id);
   });
 
   console.log(`Found ${relevantTrips.length} relevant trips`);
@@ -386,34 +430,46 @@ async function processGTFSData() {
   console.log(`Processed ${departures.length} scheduled departures`);
   
   // Build stop connectivity data
-  const { ferryStops, stopConnectivity } = buildStopConnectivity(trips, stopTimes, stops, routes);
-  
+  const { modeStops, stopConnectivity, routeAllowSet } = buildStopConnectivity(trips, stopTimes, stops, modeRouteIds);
+
   // Create output
   const output = {
     generated: now.toISOString(),
+    mode: mode,
+    routeType: modeConfig.routeType,
+    routeAllowSet: routeAllowSet,
     timezone: TIMEZONE,
     validFrom: nowZoned.toISOString(),
     validTo: endDate.toISOString(),
     departureCount: departures.length,
     departures: departures,
-    ferryStops: ferryStops,
+    stops: modeStops, // Use 'stops' for consistency across modes
     stopConnectivity: stopConnectivity
   };
-  
-  // Save to file
-  const outputDir = path.join(__dirname, '..', 'schedule-data');
+
+  // Save to mode-specific directory
+  const outputDir = path.join(__dirname, '..', modeConfig.outputDir);
   await fs.mkdir(outputDir, { recursive: true });
-  
+
   const filename = `schedule-${format(nowZoned, 'yyyy-MM-dd')}.json`;
   const filepath = path.join(outputDir, filename);
-  
+
   await fs.writeFile(filepath, JSON.stringify(output, null, 2));
-  console.log(`Schedule saved to ${filepath}`);
-  
+  console.log(`${mode} schedule saved to ${filepath}`);
+
   // Also save as latest.json for easy access
   const latestPath = path.join(outputDir, 'latest.json');
   await fs.writeFile(latestPath, JSON.stringify(output, null, 2));
-  console.log(`Schedule also saved as latest.json`);
+  console.log(`${mode} schedule also saved as latest.json`);
+
+  // For backward compatibility, also save ferry data to root schedule-data
+  if (mode === 'ferry') {
+    const rootOutputDir = path.join(__dirname, '..', 'schedule-data');
+    await fs.mkdir(rootOutputDir, { recursive: true });
+    const rootLatestPath = path.join(rootOutputDir, 'latest.json');
+    await fs.writeFile(rootLatestPath, JSON.stringify(output, null, 2));
+    console.log('Ferry schedule also saved to root schedule-data for backward compatibility');
+  }
   
   return output;
 }
