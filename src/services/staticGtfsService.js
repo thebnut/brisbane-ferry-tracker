@@ -80,12 +80,14 @@ class StaticGTFSService {
         ? `${trimmedBase}/${this.mode}/latest.json`
         : `/schedule-data-dev/${this.mode}/latest.json`;
 
-      this.githubScheduleUrl = devUrl;
+      this.devScheduleUrl = devUrl;
+      this.githubScheduleUrl = null;
       this.fallbackScheduleUrl = primaryUrl;
-      this.log(`Schedule URL for ${this.mode} (dev env): ${this.githubScheduleUrl} (fallback ${this.fallbackScheduleUrl})`);
+      this.log(`Schedule URL for ${this.mode} (dev env): ${this.devScheduleUrl} (fallback ${this.fallbackScheduleUrl})`);
       return;
     }
 
+    this.devScheduleUrl = null;
     this.githubScheduleUrl = primaryUrl;
     this.fallbackScheduleUrl = fallbackUrl;
     this.log(`Schedule URL for ${this.mode}: ${this.githubScheduleUrl}`);
@@ -268,18 +270,34 @@ class StaticGTFSService {
       }
     }
 
-    try {
-      this.log(`Fetching pre-processed ${this.mode} schedule from GitHub...`);
-      let response = await fetch(this.githubScheduleUrl);
+    const fetchSchedule = async (url) => {
+      if (!url) return null;
+      this.log(`Fetching pre-processed ${this.mode} schedule from ${url}...`);
+      const response = await fetch(url);
+      if (!response.ok) {
+        this.log(`Schedule fetch failed from ${url} (${response.status})`);
+        return null;
+      }
+      return response;
+    };
 
-      // Try fallback URL if primary fails (for ferry backward compatibility)
-      if (!response.ok && this.fallbackScheduleUrl) {
-        this.log(`Primary URL failed (${response.status}), trying fallback for ${this.mode}...`);
-        response = await fetch(this.fallbackScheduleUrl);
+    try {
+      let response = null;
+
+      if (this.devScheduleUrl) {
+        response = await fetchSchedule(this.devScheduleUrl);
       }
 
-      if (!response.ok) {
-        throw new Error(`GitHub schedule fetch failed: ${response.status}`);
+      if (!response && this.githubScheduleUrl) {
+        response = await fetchSchedule(this.githubScheduleUrl);
+      }
+
+      if (!response && this.fallbackScheduleUrl) {
+        response = await fetchSchedule(this.fallbackScheduleUrl);
+      }
+
+      if (!response) {
+        throw new Error('No schedule source available');
       }
 
       // Success - reset circuit breaker
