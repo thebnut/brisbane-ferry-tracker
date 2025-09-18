@@ -1,5 +1,5 @@
 {
-  "generated": "2025-09-18T20:58:23.863Z",
+  "generated": "2025-09-18T23:26:36.770Z",
   "mode": "ferry",
   "routeType": 4,
   "routeAllowSet": [
@@ -13,7 +13,7 @@
     "SMBI-3779"
   ],
   "timezone": "Australia/Brisbane",
-  "validFrom": "2025-09-19T06:58:23.863Z",
+  "validFrom": "2025-09-19T09:26:36.770Z",
   "validTo": "2025-09-21T00:00:00.000Z",
   "departureCount": 7124,
   "departures": [
