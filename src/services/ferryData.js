@@ -95,13 +95,13 @@ class FerryDataService {
     tripUpdates.forEach(entity => {
       if (entity.tripUpdate && entity.tripUpdate.trip && entity.tripUpdate.trip.routeId) {
         const routeId = entity.tripUpdate.trip.routeId;
-        if (routeFilter(routeId)) {
+        if (modeRouteFilter(routeId)) {
           modeRoutes.add(routeId);
         }
         
         // Check stops - let's see ALL mode stops
         const stopTimeUpdates = entity.tripUpdate.stopTimeUpdate || [];
-        if (routeFilter(routeId)) {
+        if (modeRouteFilter(routeId)) {
           stopTimeUpdates.forEach(update => {
             if (update.stopId) {
               // Log first few stops from mode routes to see the pattern
