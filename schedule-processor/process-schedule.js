@@ -164,120 +164,75 @@ function buildStopConnectivity(trips, stopTimes, stops, modeRouteIds) {
   ];
   
   // Filter for ferry stops only
-  const ferryStopIds = new Set();
-  // Filter for mode-specific stops only
-  const modeStopIds = new Set();
+  const stopIdSet = new Set();
+  const connectivity = new Map();
+
+  const stopTimesByTrip = new Map();
+  stopTimes.forEach(st => {
+    if (!stopTimesByTrip.has(st.trip_id)) {
+      stopTimesByTrip.set(st.trip_id, []);
+    }
+    stopTimesByTrip.get(st.trip_id).push(st);
+  });
+
+  trips.forEach(trip => {
+    if (!modeRouteIds.has(trip.route_id)) return;
+
+    const tripStopTimes = (stopTimesByTrip.get(trip.trip_id) || [])
+      .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
+
+    if (!tripStopTimes.length) return;
+
+    const stopSequence = tripStopTimes.map(st => st.stop_id);
+    stopSequence.forEach(stopId => stopIdSet.add(stopId));
+
+    stopSequence.forEach((originStop, originIndex) => {
+      const destinations = connectivity.get(originStop) || new Set();
+      for (let i = originIndex + 1; i < stopSequence.length; i++) {
+        destinations.add(stopSequence[i]);
+      }
+      connectivity.set(originStop, destinations);
+    });
+  });
+
   const modeStops = {};
   const stopConnectivity = {};
 
-  // Generate route allow-set for filtering
-  const routeAllowSet = Array.from(modeRouteIds);
-  console.log(`Found ${routeAllowSet.length} ${mode} routes:`, routeAllowSet.slice(0, 10), '...');
-
-  // Get all trips for mode routes
-  const modeTrips = trips.filter(trip => {
-    return modeRouteIds.has(trip.route_id);
-  });
-  
-  // Create a map of trip patterns (unique stop sequences)
-  const tripPatterns = new Map(); // key: route_id-direction_id, value: Set of stop sequences
-  
-  // Create stopTimesByTrip map for efficiency
-  const stopTimesByTripMap = new Map();
-  stopTimes.forEach(st => {
-    if (!stopTimesByTripMap.has(st.trip_id)) {
-      stopTimesByTripMap.set(st.trip_id, []);
-    }
-    stopTimesByTripMap.get(st.trip_id).push(st);
-  });
-  
-  // Process each ferry trip to find stop patterns
-  ferryTrips.forEach(trip => {
-    const tripStopTimes = (stopTimesByTripMap.get(trip.trip_id) || [])
-      .sort((a, b) => parseInt(a.stop_sequence) - parseInt(b.stop_sequence));
-    
-    if (tripStopTimes.length === 0) return;
-    
-    // Extract stop sequence
-    const stopSequence = tripStopTimes.map(st => st.stop_id);
-    stopSequence.forEach(stopId => ferryStopIds.add(stopId));
-    
-    // Store pattern by route and direction
-    const patternKey = `${trip.route_id}-${trip.direction_id || '0'}`;
-    if (!tripPatterns.has(patternKey)) {
-      tripPatterns.set(patternKey, new Set());
-    }
-    
-    // Store as JSON string to handle array comparison in Set
-    tripPatterns.get(patternKey).add(JSON.stringify(stopSequence));
-  });
-  
-  // Build connectivity map from patterns
-  tripPatterns.forEach((patterns, routeKey) => {
-    patterns.forEach(patternJson => {
-      const stopSequence = JSON.parse(patternJson);
-      
-      // For each stop in the sequence, add all subsequent stops as destinations
-      stopSequence.forEach((originStop, originIndex) => {
-        if (!stopConnectivity[originStop]) {
-          stopConnectivity[originStop] = new Set();
-        }
-        
-        // Add all stops after this one as valid destinations
-        for (let i = originIndex + 1; i < stopSequence.length; i++) {
-          stopConnectivity[originStop].add(stopSequence[i]);
-        }
-      });
-    });
-  });
-  
-  // Build ferry stops data with names and coordinates
-  // Only include stops that match our master ferry stop list
   stops.forEach(stop => {
-    if (ferryStopIds.has(stop.stop_id)) {
-      // Check if this stop name contains any of our ferry stop names
-      const stopNameLower = stop.stop_name.toLowerCase();
-      const isFerryStop = FERRY_STOP_NAMES.some(ferryName => 
-        stopNameLower.includes(ferryName.toLowerCase())
-      ) && stopNameLower.includes('ferry');
-      
-      if (isFerryStop) {
-        ferryStops[stop.stop_id] = {
-          name: stop.stop_name,
-          lat: parseFloat(stop.stop_lat),
-          lng: parseFloat(stop.stop_lon),
-          validDestinations: stopConnectivity[stop.stop_id] 
-            ? Array.from(stopConnectivity[stop.stop_id]).sort()
-            : []
-        };
-      }
+    if (!stopIdSet.has(stop.stop_id)) return;
+
+    const stopNameLower = stop.stop_name.toLowerCase();
+    let includeStop = false;
+
+    if (mode === 'ferry') {
+      includeStop = FERRY_STOP_NAMES.some(name => stopNameLower.includes(name.toLowerCase()))
+        && stopNameLower.includes('ferry');
+    } else if (mode === 'train') {
+      includeStop = stop.stop_id.startsWith('6');
+    } else {
+      includeStop = true;
     }
-  });
-  
-  // Filter connectivity to only include ferry stops
-  const ferryStopIdSet = new Set(Object.keys(ferryStops));
-  Object.keys(ferryStops).forEach(stopId => {
-    if (ferryStops[stopId].validDestinations) {
-      ferryStops[stopId].validDestinations = ferryStops[stopId].validDestinations
-        .filter(destId => ferryStopIdSet.has(destId));
-    }
-  });
-  
-  // Convert connectivity Sets to Arrays (only for mode stops)
-  const connectivityArray = {};
-  Object.entries(stopConnectivity).forEach(([stopId, destinations]) => {
-    if (modeStopIdSet.has(stopId)) {
-      connectivityArray[stopId] = Array.from(destinations)
-        .filter(destId => modeStopIdSet.has(destId))
-        .sort();
-    }
+
+    if (!includeStop) return;
+
+    const destinations = connectivity.get(stop.stop_id) || new Set();
+
+    modeStops[stop.stop_id] = {
+      name: stop.stop_name,
+      lat: parseFloat(stop.stop_lat),
+      lng: parseFloat(stop.stop_lon),
+      validDestinations: Array.from(destinations).sort()
+    };
+
+    stopConnectivity[stop.stop_id] = Array.from(destinations).sort();
   });
 
+  const routeAllowSet = Array.from(modeRouteIds);
   console.log(`Found ${Object.keys(modeStops).length} ${mode} stops with connectivity data`);
 
   return {
     modeStops,
-    stopConnectivity: connectivityArray,
+    stopConnectivity,
     routeAllowSet
   };
 }

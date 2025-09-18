@@ -52,6 +52,9 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
       // Set mode configuration in services
       gtfsService.setMode(modeId);
       staticGtfsService.setMode(modeId);
+      if (modeConfig) {
+        staticGtfsService.setModeConfig(modeConfig);
+      }
 
       // Note: Route allow-set is loaded in a separate effect to prevent loops
 
@@ -158,6 +161,7 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
   useEffect(() => {
     if (modeConfig && modeConfig.mode && modeConfig.mode.id && !routeAllowSetLoaded) {
       console.log('Loading route allow-set for mode:', modeConfig.mode.id);
+      staticGtfsService.setModeConfig(modeConfig);
       ferryDataService.setModeConfig(modeConfig);
       ferryDataService.loadRouteAllowSet()
         .then(() => {

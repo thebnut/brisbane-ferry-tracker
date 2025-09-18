@@ -44,10 +44,8 @@ export async function loadModeConfig(mode) {
   try {
     switch (mode) {
       case 'train':
-        // Will be implemented in Phase 3
-        console.warn('Train mode not yet implemented, falling back to ferry');
-        const { FERRY_CONFIG: TRAIN_FALLBACK } = await import('./modes/ferry.config.js');
-        return TRAIN_FALLBACK;
+        const { default: TRAIN_CONFIG } = await import('./modes/train.config.js');
+        return TRAIN_CONFIG;
 
       case 'bus':
         // Will be implemented in Phase 5

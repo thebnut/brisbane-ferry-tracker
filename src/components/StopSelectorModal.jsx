@@ -2,9 +2,16 @@ import React, { useState, useEffect } from 'react';
 import staticGtfsService from '../services/staticGtfsService';
 import { DEFAULT_STOPS, STORAGE_KEYS } from '../utils/constants';
 import { FERRY_STOPS, TEMPORARY_CONNECTIVITY } from '../utils/ferryStops';
+import { useModeConfig } from '../config';
 import StopSelectorMap from './StopSelectorMap';
 
 const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
+  const modeConfig = useModeConfig();
+  const modeId = modeConfig?.mode?.id || 'ferry';
+  const modeStopList = Array.isArray(modeConfig?.data?.stops?.list)
+    ? modeConfig.data.stops.list
+    : [];
+
   const [selectedOrigin, setSelectedOrigin] = useState(currentStops?.outbound?.id || DEFAULT_STOPS.outbound.id);
   const [selectedDestination, setSelectedDestination] = useState(currentStops?.inbound?.id || DEFAULT_STOPS.inbound.id);
   const [availableStops, setAvailableStops] = useState([]);
@@ -16,8 +23,13 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   });
   const [mapModalOpen, setMapModalOpen] = useState(null); // null, 'origin', or 'destination'
   
-  // Helper function to remove 'ferry terminal' from stop names
-  const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
+  // Helper function to remove mode-specific suffixes from stop names
+  const cleanStopName = (name = '') => name
+    .replace(/\s+ferry\s+terminal$/i, '')
+    .replace(/\s+train\s+station$/i, '')
+    .replace(/\s+station$/i, '')
+    .replace(/\s+platform\s+\d+$/i, '')
+    .trim();
 
   // Load stops when modal opens
   useEffect(() => {
@@ -47,14 +59,17 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       stops = staticGtfsService.getAvailableStops();
       if (stops.length > 0) {
         useTemporaryData = false;
-      } else {
-        // Use temporary ferry stops data as fallback
+      } else if (modeStopList.length > 0) {
+        stops = modeStopList.map(stop => ({ ...stop }));
+      } else if (modeId === 'ferry') {
         stops = Object.entries(FERRY_STOPS).map(([id, stop]) => ({
           id,
           name: stop.name,
           lat: stop.lat,
           lng: stop.lng
-        })).sort((a, b) => a.name.localeCompare(b.name));
+        }));
+      } else {
+        stops = [];
       }
       
       // Sort stops alphabetically by name
@@ -64,7 +79,13 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       // Get valid destinations
       let destinations = [];
       if (useTemporaryData) {
-        destinations = TEMPORARY_CONNECTIVITY[selectedOrigin] || [];
+        if (modeId === 'ferry') {
+          destinations = TEMPORARY_CONNECTIVITY[selectedOrigin] || [];
+        } else {
+          destinations = sortedStops
+            .map(stop => stop.id)
+            .filter(id => id !== selectedOrigin);
+        }
       } else {
         destinations = staticGtfsService.getValidDestinations(selectedOrigin);
       }
@@ -79,7 +100,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       setLoading(false);
     } catch (err) {
       console.error('Error loading stops:', err);
-      setError('Failed to load ferry stop data. Please try again.');
+      setError('Failed to load stop data. Please try again.');
       setLoading(false);
     }
   };
@@ -93,8 +114,12 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       
       if (hasRealData) {
         destinations = staticGtfsService.getValidDestinations(selectedOrigin);
-      } else {
+      } else if (modeId === 'ferry') {
         destinations = TEMPORARY_CONNECTIVITY[selectedOrigin] || [];
+      } else {
+        destinations = modeStopList
+          .map(stop => stop.id)
+          .filter(id => id !== selectedOrigin);
       }
       
       setValidDestinations(destinations);

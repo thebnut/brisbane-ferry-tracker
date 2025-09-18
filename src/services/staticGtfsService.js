@@ -13,7 +13,9 @@ class StaticGTFSService {
     this.devScheduleBase = import.meta.env.VITE_TRANSIT_DEV_BASE || '';
     this.cacheExpiry = 24 * 60 * 60 * 1000; // 24 hours
     this.gtfsData = null;
-    this.ferryStops = null;
+    this.modeStops = null;
+    this.routeAllowSet = null;
+    this.modeConfig = null;
     this.stopConnectivity = null;
     this.debug = DEBUG_CONFIG.enableLogging;
 
@@ -45,6 +47,10 @@ class StaticGTFSService {
     const urlParams = new URLSearchParams(window.location.search);
     const forceGitHub = urlParams.get('useGitHub') || urlParams.get('useGithub');
     this.updateScheduleUrls(forceGitHub);
+  }
+
+  setModeConfig(config) {
+    this.modeConfig = config;
   }
 
   // Update schedule URLs based on mode
@@ -97,7 +103,7 @@ class StaticGTFSService {
       if (cached) {
         const data = JSON.parse(cached);
         if (Date.now() - data.timestamp < this.cacheExpiry) {
-          this.log('Using cached ferry schedule');
+          this.log('Using cached schedule');
           // Filter out past departures from cache and convert dates
           const now = new Date();
           return data.departures
@@ -139,7 +145,7 @@ class StaticGTFSService {
         generated: generated || new Date().toISOString(),
         departures: departures
       }));
-      this.log('Cached ferry schedule successfully');
+      this.log('Cached schedule successfully');
     } catch (error) {
       console.error('Error saving schedule cache:', error);
     }
@@ -282,15 +288,21 @@ class StaticGTFSService {
       const data = await response.json();
       this.log(`Received ${data.departureCount} departures from GitHub`);
       
-      // Store ferry stops and connectivity data if available
-      if (data.ferryStops) {
-        this.ferryStops = data.ferryStops;
-        this.log(`Loaded ${Object.keys(data.ferryStops).length} ferry stops`);
+      // Store stops/connectivity data if available
+      const stopsData = data.stops || data.modeStops || data.ferryStops;
+      if (stopsData) {
+        this.modeStops = stopsData;
+        this.log(`Loaded ${Object.keys(stopsData).length} stops for ${this.mode}`);
       }
-      
+
       if (data.stopConnectivity) {
         this.stopConnectivity = data.stopConnectivity;
         this.log('Loaded stop connectivity data');
+      }
+
+      if (Array.isArray(data.routeAllowSet)) {
+        this.routeAllowSet = new Set(data.routeAllowSet);
+        this.log(`Loaded route allow-set with ${this.routeAllowSet.size} routes`);
       }
       
       // Convert departure times to Date objects and filter to next 24 hours
@@ -326,75 +338,108 @@ class StaticGTFSService {
 
   // Process GitHub departures to calculate arrival times and filter for selected stops
   processGitHubDepartures(allDepartures, selectedStops) {
-    if (!selectedStops) {
-      selectedStops = { 
-        outbound: { id: STOPS.bulimba, name: 'Bulimba' }, 
-        inbound: { id: STOPS.riverside, name: 'Riverside' } 
-      };
+    const stops = this.resolveSelectedStops(selectedStops);
+    if (!stops) {
+      return [];
     }
-    
-    const relevantStopIds = [selectedStops.outbound.id, selectedStops.inbound.id];
-    const relevantRouteIds = [ROUTES.expressCityCat, ROUTES.allStopsCityCat];
-    
-    // Group departures by tripId for efficient lookup
+
+    const outboundId = stops.outbound.id;
+    const inboundId = stops.inbound.id;
+    const routeAllowSet = this.routeAllowSet;
+
     const departuresByTrip = new Map();
     allDepartures.forEach(dep => {
-      if (!departuresByTrip.has(dep.tripId)) {
-        departuresByTrip.set(dep.tripId, []);
-      }
-      departuresByTrip.get(dep.tripId).push(dep);
-    });
-    
-    // Process departures from selected stops
-    const processedDepartures = [];
-    
-    allDepartures.forEach(dep => {
-      // Only process departures from selected stops on ferry routes
-      if (!relevantStopIds.includes(dep.stopId)) return;
-      if (!relevantRouteIds.some(routeId => dep.routeId === routeId || dep.routeId.startsWith(routeId))) return;
-      
-      // Get all stops for this trip
-      const tripStops = departuresByTrip.get(dep.tripId) || [];
-      
-      // Sort by stop sequence
-      tripStops.sort((a, b) => a.stopSequence - b.stopSequence);
-      
-      // Find current stop index
-      const currentIndex = tripStops.findIndex(s => s.stopId === dep.stopId && s.stopSequence === dep.stopSequence);
-      if (currentIndex === -1) return;
-      
-      // Check if trip goes to the other terminal
-      const remainingStops = tripStops.slice(currentIndex + 1);
-      const destinationStopId = dep.stopId === selectedStops.outbound.id 
-        ? selectedStops.inbound.id 
-        : selectedStops.outbound.id;
-      
-      const destinationStop = remainingStops.find(s => s.stopId === destinationStopId);
-      if (!destinationStop) return; // Trip doesn't go to the other terminal
-      
-      // Calculate arrival time from destination stop's departure time
-      const destinationArrivalTime = new Date(destinationStop.departureTime);
-      
-      // Determine direction
-      const direction = dep.stopId === selectedStops.outbound.id ? 'outbound' : 'inbound';
-      
-      if (this.debug) {
-        // Commented out verbose logging
-        // console.log(`GitHub departure: Trip ${dep.tripId} from ${dep.stopId} to ${destinationStopId}, arrival: ${destinationArrivalTime.toISOString()}`);
-      }
-      
-      processedDepartures.push({
+      const list = departuresByTrip.get(dep.tripId) || [];
+      list.push({
         ...dep,
-        destinationArrivalTime,
-        direction
+        departureTime: dep.departureTime instanceof Date ? dep.departureTime : new Date(dep.departureTime),
+        destinationArrivalTime: dep.destinationArrivalTime
+          ? (dep.destinationArrivalTime instanceof Date ? dep.destinationArrivalTime : new Date(dep.destinationArrivalTime))
+          : null
       });
+      departuresByTrip.set(dep.tripId, list);
     });
-    
-    // Summary log only
-    if (this.debug && processedDepartures.length > 50) {
-      this.log(`Processed ${processedDepartures.length} departures from GitHub data`);
+
+    const processedDepartures = [];
+    departuresByTrip.forEach(tripStops => {
+      if (!tripStops.length) return;
+      const routeId = tripStops[0].routeId;
+      if (routeAllowSet && routeId && !routeAllowSet.has(routeId)) {
+        return;
+      }
+
+      tripStops.sort((a, b) => (a.stopSequence || 0) - (b.stopSequence || 0));
+
+      const outboundIndex = tripStops.findIndex(stop => stop.stopId === outboundId);
+      const inboundIndex = tripStops.findIndex(stop => stop.stopId === inboundId);
+
+      if (outboundIndex !== -1 && inboundIndex !== -1) {
+        if (outboundIndex < inboundIndex) {
+          const origin = tripStops[outboundIndex];
+          const destination = tripStops[inboundIndex];
+          processedDepartures.push(this.buildScheduledDeparture(origin, destination, 'outbound'));
+        }
+        if (inboundIndex < outboundIndex) {
+          const origin = tripStops[inboundIndex];
+          const destination = tripStops[outboundIndex];
+          processedDepartures.push(this.buildScheduledDeparture(origin, destination, 'inbound'));
+        }
+      }
+    });
+
+    processedDepartures.sort((a, b) => a.departureTime - b.departureTime);
+
+    if (this.debug && processedDepartures.length) {
+      this.log(`Processed ${processedDepartures.length} departures for ${this.mode}`);
     }
     return processedDepartures;
+  }
+
+  buildScheduledDeparture(originStop, destinationStop, direction) {
+    const destinationArrivalTime = destinationStop
+      ? (destinationStop.destinationArrivalTime || destinationStop.departureTime)
+      : null;
+
+    return {
+      tripId: originStop.tripId,
+      routeId: originStop.routeId,
+      serviceId: originStop.serviceId,
+      departureTime: originStop.departureTime,
+      destinationArrivalTime: destinationArrivalTime
+        ? (destinationArrivalTime instanceof Date ? destinationArrivalTime : new Date(destinationArrivalTime))
+        : null,
+      stopId: originStop.stopId,
+      direction,
+      headsign: originStop.headsign,
+      isScheduled: true,
+      stopSequence: originStop.stopSequence
+    };
+  }
+
+  resolveSelectedStops(selectedStops) {
+    if (selectedStops && selectedStops.outbound && selectedStops.inbound) {
+      return selectedStops;
+    }
+
+    const defaults = this.modeConfig?.data?.stops?.defaults;
+    if (!defaults) return null;
+
+    const findName = (id) => {
+      if (!id) return '';
+      if (Array.isArray(this.modeConfig?.data?.stops?.list)) {
+        const match = this.modeConfig.data.stops.list.find(stop => stop.id === id);
+        if (match) return match.name;
+      }
+      if (this.modeStops && this.modeStops[id]) {
+        return this.modeStops[id].name;
+      }
+      return '';
+    };
+
+    return {
+      outbound: { id: defaults.origin, name: findName(defaults.origin) },
+      inbound: { id: defaults.destination, name: findName(defaults.destination) }
+    };
   }
 
   // Get scheduled departures for our ferry routes
@@ -435,6 +480,11 @@ class StaticGTFSService {
     if (cachedSchedule && cachedSchedule.length > 0) {
       this.log('GitHub fetch failed, using cached data');
       return cachedSchedule;
+    }
+
+    if (this.mode !== 'ferry') {
+      this.log('No schedule data available from GitHub/cache for non-ferry mode');
+      return [];
     }
 
     // If no cache, fetch GTFS data
@@ -626,22 +676,33 @@ class StaticGTFSService {
 
   // Get all available ferry stops
   getAvailableStops() {
-    if (!this.ferryStops) {
-      return [];
+    if (this.modeStops) {
+      return Object.entries(this.modeStops).map(([id, stop]) => ({
+        id,
+        name: stop.name,
+        lat: stop.lat,
+        lng: stop.lng
+      }));
     }
-    
-    // Return array of stop objects with id and name
-    return Object.entries(this.ferryStops).map(([id, stop]) => ({
-      id,
-      name: stop.name,
-      lat: stop.lat,
-      lng: stop.lng
-    }));
+
+    if (Array.isArray(this.modeConfig?.data?.stops?.list)) {
+      return this.modeConfig.data.stops.list;
+    }
+
+    return [];
   }
 
   // Get valid destinations for a given origin stop
   getValidDestinations(originStopId) {
     if (!this.stopConnectivity || !this.stopConnectivity[originStopId]) {
+      if (this.modeStops) {
+        return Object.keys(this.modeStops).filter(id => id !== originStopId);
+      }
+      if (Array.isArray(this.modeConfig?.data?.stops?.list)) {
+        return this.modeConfig.data.stops.list
+          .map(stop => stop.id)
+          .filter(id => id !== originStopId);
+      }
       return [];
     }
     
@@ -651,19 +712,19 @@ class StaticGTFSService {
 
   // Get stop info by ID
   getStopInfo(stopId) {
-    if (!this.ferryStops || !this.ferryStops[stopId]) {
+    if (!this.modeStops || !this.modeStops[stopId]) {
       return null;
     }
     
     return {
       id: stopId,
-      ...this.ferryStops[stopId]
+      ...this.modeStops[stopId]
     };
   }
 
   // Check if stops data is loaded
   hasStopsData() {
-    return !!(this.ferryStops && this.stopConnectivity);
+    return !!this.modeStops;
   }
 
   // Get schedule metadata including route allow-set
@@ -684,7 +745,7 @@ class StaticGTFSService {
                 mode: data.mode || this.mode,
                 routeAllowSet: data.routeAllowSet,
                 generated: data.generated,
-                stops: data.stops || data.ferryStops
+                stops: data.stops || data.modeStops
               };
             }
           } catch (e) {
@@ -711,7 +772,7 @@ class StaticGTFSService {
             mode: data.mode || this.mode,
             routeAllowSet: data.routeAllowSet,
             generated: data.generated,
-            stops: data.stops || data.ferryStops
+            stops: data.stops || data.modeStops
           };
         }
       }
@@ -728,7 +789,7 @@ class StaticGTFSService {
             mode: data.mode || this.mode,
             routeAllowSet: data.routeAllowSet || [],
             generated: data.generated,
-            stops: data.stops || data.ferryStops
+            stops: data.stops || data.modeStops
           };
         }
       }
@@ -741,7 +802,7 @@ class StaticGTFSService {
           mode: data.mode || this.mode,
           routeAllowSet: data.routeAllowSet || [],
           generated: data.generated,
-          stops: data.stops || data.ferryStops
+          stops: data.stops || data.modeStops
         };
       }
     } catch (error) {
