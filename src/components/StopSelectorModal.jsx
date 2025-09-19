@@ -61,6 +61,19 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       }
       
       stops = staticGtfsService.getAvailableStops();
+      if (modeId === 'train') {
+        const grouped = new Map();
+        stops.forEach(stop => {
+          const key = stop.name.replace(/,\s*platform.*$/i, '');
+          if (!grouped.has(key)) {
+            grouped.set(key, {
+              id: stop.id,
+              name: `${key} (all platforms)`
+            });
+          }
+        });
+        stops = Array.from(grouped.values());
+      }
       if (stops.length > 0) {
         useTemporaryData = false;
       } else if (modeStopList.length > 0) {
