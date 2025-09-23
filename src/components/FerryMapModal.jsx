@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import FerryMap from './FerryMap';
 
-const FerryMapModal = ({ isOpen, onClose, vehiclePositions, tripUpdates, departures, selectedStops }) => {
+const FerryMapModal = ({ isOpen, onClose, vehiclePositions, tripUpdates }) => {
   // Handle ESC key press
   useEffect(() => {
     const handleEscape = (e) => {
@@ -46,8 +46,6 @@ const FerryMapModal = ({ isOpen, onClose, vehiclePositions, tripUpdates, departu
         <FerryMap
           vehiclePositions={vehiclePositions}
           tripUpdates={tripUpdates}
-          departures={departures}
-          selectedStops={selectedStops}
           onHide={onClose}
         />
       </div>

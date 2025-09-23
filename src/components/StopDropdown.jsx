@@ -29,10 +29,14 @@ const StopDropdown = ({
         <option value="">{placeholder}</option>
       ) : (
         options
-          .sort((a, b) => a.name.localeCompare(b.name))
+          .sort((a, b) => {
+            const nameA = (a.displayName || a.name || '').toLowerCase();
+            const nameB = (b.displayName || b.name || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+          })
           .map(stop => (
             <option key={stop.id} value={stop.id}>
-              {cleanStopName(stop.name)}
+              {cleanStopName(stop.displayName || stop.name)}
             </option>
           ))
       )}

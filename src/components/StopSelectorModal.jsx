@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import staticGtfsService from '../services/staticGtfsService';
 import { DEFAULT_STOPS, STORAGE_KEYS } from '../utils/constants';
 import { FERRY_STOPS, TEMPORARY_CONNECTIVITY } from '../utils/ferryStops';
@@ -8,9 +8,11 @@ import StopSelectorMap from './StopSelectorMap';
 const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const modeConfig = useModeConfig();
   const modeId = modeConfig?.mode?.id || 'ferry';
-  const modeStopList = Array.isArray(modeConfig?.data?.stops?.list)
-    ? modeConfig.data.stops.list
-    : [];
+  const modeStopList = useMemo(() => (
+    Array.isArray(modeConfig?.data?.stops?.list)
+      ? modeConfig.data.stops.list
+      : []
+  ), [modeConfig]);
   const selectStopsLabel = modeConfig?.ui?.labels?.selectStops || 'Select Stops';
   const fromLabel = modeConfig?.ui?.labels?.fromLabel || 'From (Origin Stop)';
   const toLabel = modeConfig?.ui?.labels?.toLabel || 'To (Destination Stop)';
@@ -36,14 +38,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
     .trim();
 
   // Load stops when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      loadStops();
-    }
-  }, [isOpen]);
-
-  // Load available stops
-  const loadStops = async () => {
+  const loadStops = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -55,25 +50,12 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       if (!staticGtfsService.hasStopsData()) {
         try {
           await staticGtfsService.getScheduledDepartures();
-        } catch (e) {
-          console.warn('Could not load schedule data, using temporary stops');
+        } catch (error) {
+          console.warn('Could not load schedule data, using temporary stops', error);
         }
       }
       
       stops = staticGtfsService.getAvailableStops();
-      if (modeId === 'train') {
-        const grouped = new Map();
-        stops.forEach(stop => {
-          const key = stop.name.replace(/,\s*platform.*$/i, '');
-          if (!grouped.has(key)) {
-            grouped.set(key, {
-              id: stop.id,
-              name: `${key} (all platforms)`
-            });
-          }
-        });
-        stops = Array.from(grouped.values());
-      }
       if (stops.length > 0) {
         useTemporaryData = false;
       } else if (modeStopList.length > 0) {
@@ -90,7 +72,11 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       }
       
       // Sort stops alphabetically by name
-      const sortedStops = [...stops].sort((a, b) => a.name.localeCompare(b.name));
+      const sortedStops = [...stops].sort((a, b) => {
+        const nameA = (a.displayName || a.name || '').toLowerCase();
+        const nameB = (b.displayName || b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
       setAvailableStops(sortedStops);
       
       // Get valid destinations
@@ -120,7 +106,13 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       setError('Failed to load stop data. Please try again.');
       setLoading(false);
     }
-  };
+  }, [modeId, modeStopList, selectedDestination, selectedOrigin]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadStops();
+    }
+  }, [isOpen, loadStops]);
 
   // Update valid destinations when origin changes
   useEffect(() => {
@@ -146,7 +138,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
         setSelectedDestination(destinations[0]);
       }
     }
-  }, [selectedOrigin, availableStops]);
+  }, [selectedOrigin, availableStops, modeId, modeStopList, selectedDestination]);
 
   // Handle save
   const handleSave = () => {
@@ -154,6 +146,17 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
     const destinationStop = availableStops.find(s => s.id === selectedDestination);
     
     if (originStop && destinationStop) {
+      const normalizedOrigin = staticGtfsService.normalizeStopSelection(originStop) || {
+        id: selectedOrigin,
+        name: originStop.name,
+        stopIds: originStop.stopIds || [selectedOrigin]
+      };
+      const normalizedDestination = staticGtfsService.normalizeStopSelection(destinationStop) || {
+        id: selectedDestination,
+        name: destinationStop.name,
+        stopIds: destinationStop.stopIds || [selectedDestination]
+      };
+
       // Save the remember preference itself
       if (rememberSelection) {
         localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true');
@@ -162,14 +165,8 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       }
       
       onSave({
-        outbound: {
-          id: selectedOrigin,
-          name: originStop.name
-        },
-        inbound: {
-          id: selectedDestination,
-          name: destinationStop.name
-        }
+        outbound: normalizedOrigin,
+        inbound: normalizedDestination
       }, rememberSelection);
     }
   };
@@ -251,7 +248,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                   >
                     {availableStops.map(stop => (
                       <option key={stop.id} value={stop.id}>
-                        {cleanStopName(stop.name)}
+                        {cleanStopName(stop.displayName || stop.name)}
                       </option>
                     ))}
                   </select>
@@ -283,10 +280,14 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                       validDestinations
                         .map(stopId => availableStops.find(s => s.id === stopId))
                         .filter(stop => stop !== undefined)
-                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .sort((a, b) => {
+                          const nameA = (a?.displayName || a?.name || '').toLowerCase();
+                          const nameB = (b?.displayName || b?.name || '').toLowerCase();
+                          return nameA.localeCompare(nameB);
+                        })
                         .map(stop => (
                           <option key={stop.id} value={stop.id}>
-                            {cleanStopName(stop.name)}
+                            {cleanStopName(stop.displayName || stop.name)}
                           </option>
                         ))
                     ) : (

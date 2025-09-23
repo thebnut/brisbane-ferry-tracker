@@ -4,6 +4,13 @@ import { FERRY_STOPS } from './ferryStops';
 // Cache for CSV data
 let csvStopData = null;
 
+const cleanStopLabel = (name = '') => name
+  .replace(/\s+station\s*\(all platforms\)/i, ' (all platforms)')
+  .replace(/\s+ferry\s+terminal$/i, '')
+  .replace(/\s+train\s+station$/i, '')
+  .replace(/\s+station$/i, '')
+  .trim();
+
 // Load and parse CSV data
 const loadCSVData = async () => {
   if (csvStopData) return csvStopData;
@@ -40,8 +47,8 @@ export const getStopName = async (stopId) => {
   
   // Try dynamic service first (most up-to-date)
   const stopInfo = staticGtfsService.getStopInfo(stopId);
-  if (stopInfo?.name) {
-    return stopInfo.name.replace(' ferry terminal', '');
+  if (stopInfo?.name || stopInfo?.displayName) {
+    return cleanStopLabel(stopInfo.displayName || stopInfo.name);
   }
   
   // Try CSV data (complete backup)
@@ -49,13 +56,13 @@ export const getStopName = async (stopId) => {
     await loadCSVData();
   }
   if (csvStopData && csvStopData[stopId]) {
-    return csvStopData[stopId].replace(' ferry terminal', '');
+    return cleanStopLabel(csvStopData[stopId]);
   }
   
   // Fall back to hardcoded data
   const hardcodedName = FERRY_STOPS[stopId]?.name;
   if (hardcodedName) {
-    return hardcodedName.replace(' ferry terminal', '');
+    return cleanStopLabel(hardcodedName);
   }
   
   // Last resort
@@ -68,19 +75,19 @@ export const getStopNameSync = (stopId) => {
   
   // Try dynamic service first
   const stopInfo = staticGtfsService.getStopInfo(stopId);
-  if (stopInfo?.name) {
-    return stopInfo.name.replace(' ferry terminal', '');
+  if (stopInfo?.name || stopInfo?.displayName) {
+    return cleanStopLabel(stopInfo.displayName || stopInfo.name);
   }
   
   // Try CSV data if already loaded
   if (csvStopData && csvStopData[stopId]) {
-    return csvStopData[stopId].replace(' ferry terminal', '');
+    return cleanStopLabel(csvStopData[stopId]);
   }
   
   // Fall back to hardcoded data
   const hardcodedName = FERRY_STOPS[stopId]?.name;
   if (hardcodedName) {
-    return hardcodedName.replace(' ferry terminal', '');
+    return cleanStopLabel(hardcodedName);
   }
   
   return `Stop ${stopId}`;

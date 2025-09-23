@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Navigation from './components/Navigation';
 import StatusBar from './components/StatusBar';
 import DepartureBoard from './components/DepartureBoard';
@@ -30,7 +30,7 @@ function AppContent() {
   // v1.2.0 - Modern orange-themed redesign with animations (2025-07-19)
   const mode = useMode();
   const modeId = mode?.mode?.id || 'ferry';
-  const computeModeDefaultStops = () => {
+  const computeModeDefaultStops = useCallback(() => {
     const defaults = mode.data?.stops?.defaults;
     const list = mode.data?.stops?.list || [];
     if (!defaults) return DEFAULT_STOPS;
@@ -47,7 +47,7 @@ function AppContent() {
         name: findName(defaults.destination) || DEFAULT_STOPS.inbound.name
       }
     };
-  };
+  }, [mode]);
 
   // Load saved stops or use mode defaults
   const [selectedStops, setSelectedStops] = useState(() => {
@@ -111,7 +111,7 @@ function AppContent() {
     return 'outbound';
   };
   
-  const [activeTab, setActiveTab] = useState(getDefaultTab()); // 'outbound' | 'inbound' - for mobile tabs
+  const [activeTab] = useState(getDefaultTab()); // 'outbound' | 'inbound' - for mobile tabs
   const [selectedDeparture, setSelectedDeparture] = useState(null);
   
   // Handle stop selection change
@@ -139,6 +139,33 @@ function AppContent() {
     refresh();
   };
 
+  const normalizeStopForState = (stop, fallbackId = null) => {
+    if (!stop) return null;
+    const selectionInput = typeof stop === 'string'
+      ? { id: stop }
+      : stop;
+
+    const normalized = staticGtfsService.normalizeStopSelection(selectionInput);
+    if (normalized) {
+      return {
+        id: normalized.id,
+        name: normalized.name,
+        displayName: normalized.displayName || normalized.name,
+        stopIds: normalized.stopIds || (normalized.id ? [normalized.id] : []),
+        isGroup: !!normalized.isGroup
+      };
+    }
+
+    const id = selectionInput.id || fallbackId;
+    return {
+      id,
+      name: selectionInput.name || '',
+      displayName: selectionInput.displayName || selectionInput.name || '',
+      stopIds: selectionInput.stopIds || (id ? [id] : []),
+      isGroup: !!selectionInput.isGroup
+    };
+  };
+
   // Reset defaults when mode changes and no saved selection exists
   useEffect(() => {
     const savedPermanent = localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
@@ -148,7 +175,7 @@ function AppContent() {
       setSelectedStops(defaults);
       setTemporaryStops(defaults);
     }
-  }, [modeId]);
+  }, [modeId, computeModeDefaultStops]);
 
   // Load available stops on mount
   useEffect(() => {
@@ -178,7 +205,7 @@ function AppContent() {
     };
     
     loadStops();
-  }, [currentStops.outbound.id, modeId]);
+  }, [currentStops.outbound.id, modeId, mode]);
 
   // Update valid destinations when origin changes
   useEffect(() => {
@@ -186,7 +213,7 @@ function AppContent() {
       const destinations = staticGtfsService.getValidDestinations(currentStops.outbound.id);
       setValidDestinations(destinations);
     }
-  }, [currentStops?.outbound?.id, availableStops, modeId]);
+  }, [currentStops, availableStops, modeId]);
   
   // Handlers for dropdown changes
   const handleTemporaryOriginChange = (originId) => {
@@ -207,8 +234,8 @@ function AppContent() {
     }
     
     setTemporaryStops({
-      outbound: { id: originId, name: originStop.name },
-      inbound: destinationStop
+      outbound: normalizeStopForState(originStop, originId),
+      inbound: normalizeStopForState(destinationStop, destinationId)
     });
   };
   
@@ -217,8 +244,8 @@ function AppContent() {
     if (!destinationStop) return;
     
     setTemporaryStops({
-      outbound: currentStops.outbound,
-      inbound: { id: destinationId, name: destinationStop.name }
+      outbound: normalizeStopForState(currentStops.outbound, currentStops.outbound?.id),
+      inbound: normalizeStopForState(destinationStop, destinationId)
     });
   };
   
@@ -450,8 +477,6 @@ function AppContent() {
         onClose={() => setShowMap(false)}
         vehiclePositions={vehiclePositions}
         tripUpdates={tripUpdates}
-        departures={departures}
-        selectedStops={currentStops}
       />
       
       {/* Stop Selector Modal */}

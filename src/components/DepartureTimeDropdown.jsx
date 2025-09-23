@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import clsx from 'clsx';
-import { generateTimeSlots, formatTimeSlot } from '../utils/timeUtils';
+import { generateTimeSlots } from '../utils/timeUtils';
 
 const DepartureTimeDropdown = ({ 
   value, 

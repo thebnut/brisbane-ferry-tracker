@@ -1,8 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { detectMode, loadModeConfig } from './modeDetector';
-
-// Create context for mode configuration
-const ModeContext = createContext(null);
+import { ModeContext } from './modeContext';
 
 /**
  * ModeProvider component that provides mode configuration to the entire app
@@ -15,80 +13,71 @@ export function ModeProvider({ children, overrideMode = null }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    async function loadConfig() {
-      try {
-        setLoading(true);
-        setError(null);
+  const loadConfig = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        // Determine which mode to use
-        const mode = overrideMode || detectMode();
-        console.log(`Loading configuration for mode: ${mode}`);
+      const mode = overrideMode || detectMode();
+      console.log(`Loading configuration for mode: ${mode}`);
 
-        // Load the configuration
-        const modeConfig = await loadModeConfig(mode);
+      const modeConfig = await loadModeConfig(mode);
 
-        // Add computed properties
-        const enrichedConfig = {
-          ...modeConfig,
-          // Add helper methods
-          getServiceType: (routeId) => {
-            return modeConfig.data.gtfs.routeCategories[routeId] || {
-              id: 'unknown',
-              name: 'Unknown',
-              icon: '🚌',
-              color: 'bg-gray-500',
-              borderColor: 'border-gray-500',
-              isExpress: false,
-              priority: 999
-            };
-          },
-          isExpressRoute: (routeId) => {
-            const serviceType = modeConfig.data.gtfs.routeCategories[routeId];
-            return serviceType?.isExpress || false;
-          },
-          formatStopName: (name) => {
-            if (modeConfig.ui.labels.noStopsSuffix) {
-              // Remove "ferry terminal", "train station", "bus stop" suffixes
-              return name
-                .replace(/\s+ferry\s+terminal$/i, '')
-                .replace(/\s+train\s+station$/i, '')
-                .replace(/\s+railway\s+station$/i, '')
-                .replace(/\s+bus\s+stop$/i, '')
-                .replace(/\s+stop\s+\d+$/i, ''); // Remove "Stop 1", "Stop 2", etc.
-            }
-            return name;
+      const enrichedConfig = {
+        ...modeConfig,
+        getServiceType: (routeId) => {
+          return modeConfig.data.gtfs.routeCategories[routeId] || {
+            id: 'unknown',
+            name: 'Unknown',
+            icon: '🚌',
+            color: 'bg-gray-500',
+            borderColor: 'border-gray-500',
+            isExpress: false,
+            priority: 999,
+          };
+        },
+        isExpressRoute: (routeId) => {
+          const serviceType = modeConfig.data.gtfs.routeCategories[routeId];
+          return serviceType?.isExpress || false;
+        },
+        formatStopName: (name) => {
+          if (modeConfig.ui.labels.noStopsSuffix) {
+            return name
+              .replace(/\s+ferry\s+terminal$/i, '')
+              .replace(/\s+train\s+station$/i, '')
+              .replace(/\s+railway\s+station$/i, '')
+              .replace(/\s+bus\s+stop$/i, '')
+              .replace(/\s+stop\s+\d+$/i, '');
           }
-        };
+          return name;
+        },
+      };
 
-        setConfig(enrichedConfig);
-      } catch (err) {
-        console.error('Failed to load mode configuration:', err);
-        setError(err.message);
-        // Don't leave the app in a broken state - load ferry as fallback
-        try {
-          const { FERRY_CONFIG } = await import('./modes/ferry.config.js');
-          setConfig(FERRY_CONFIG);
-        } catch (fallbackErr) {
-          console.error('Failed to load fallback configuration:', fallbackErr);
-        }
-      } finally {
-        setLoading(false);
+      setConfig(enrichedConfig);
+    } catch (err) {
+      console.error('Failed to load mode configuration:', err);
+      setError(err.message);
+      try {
+        const { FERRY_CONFIG } = await import('./modes/ferry.config.js');
+        setConfig(FERRY_CONFIG);
+      } catch (fallbackErr) {
+        console.error('Failed to load fallback configuration:', fallbackErr);
       }
+    } finally {
+      setLoading(false);
     }
-
-    loadConfig();
   }, [overrideMode]);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   const contextValue = useMemo(() => ({
     config,
     loading,
     error,
-    reload: () => {
-      setConfig(null);
-      loadConfig();
-    }
-  }), [config, loading, error]);
+    reload: loadConfig,
+  }), [config, loading, error, loadConfig]);
 
   if (loading) {
     // Show a loading state while configuration loads
@@ -131,61 +120,4 @@ export function ModeProvider({ children, overrideMode = null }) {
  * Hook to access the mode configuration
  * @returns {Object} Mode configuration object
  */
-export function useMode() {
-  const context = useContext(ModeContext);
-  if (!context) {
-    throw new Error('useMode must be used within ModeProvider');
-  }
-  if (!context.config) {
-    throw new Error('Mode configuration not loaded');
-  }
-  return context.config;
-}
-
-/**
- * Hook to access a specific configuration path
- * @param {string} path - Dot-separated path to config value (e.g., 'ui.labels.stop')
- * @returns {any} Configuration value at the specified path
- */
-export function useModeConfig(path) {
-  const config = useMode();
-  if (!path) return config; // Return full config if no path specified
-  return path.split('.').reduce((obj, key) => obj?.[key], config);
-}
-
-/**
- * Hook to check if a feature is enabled
- * @param {string} feature - Feature name
- * @returns {boolean} Whether the feature is enabled
- */
-export function useModeFeature(feature) {
-  const config = useMode();
-  return config.features[feature] ?? false;
-}
-
-/**
- * Hook to get mode-specific labels
- * @returns {Object} UI labels for the current mode
- */
-export function useModeLabels() {
-  const config = useMode();
-  return config.ui.labels;
-}
-
-/**
- * Hook to get mode branding
- * @returns {Object} Branding configuration for the current mode
- */
-export function useModeBranding() {
-  const config = useMode();
-  return config.branding;
-}
-
-/**
- * Hook to get data configuration
- * @returns {Object} Data configuration for the current mode
- */
-export function useModeData() {
-  const config = useMode();
-  return config.data;
-}
+export default ModeProvider;

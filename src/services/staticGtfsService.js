@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import Papa from 'papaparse';
 import { STOPS, ROUTES, DEBUG_CONFIG, STORAGE_KEYS } from '../utils/constants';
-import { startOfDay, endOfDay, format, parse, isAfter, isBefore, addMinutes } from 'date-fns';
+import { startOfDay, format, parse, isAfter, isBefore, addMinutes } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 
 class StaticGTFSService {
@@ -17,6 +17,9 @@ class StaticGTFSService {
     this.routeAllowSet = null;
     this.modeConfig = null;
     this.stopConnectivity = null;
+    this.stopGroups = null;
+    this.stopGroupsById = null;
+    this.stopIdToGroup = null;
     this.debug = DEBUG_CONFIG.enableLogging;
 
     // Circuit breaker for failed fetches to prevent infinite 404 loops
@@ -47,6 +50,13 @@ class StaticGTFSService {
     const urlParams = new URLSearchParams(window.location.search);
     const forceGitHub = urlParams.get('useGitHub') || urlParams.get('useGithub');
     this.updateScheduleUrls(forceGitHub);
+
+    // Reset cached stop metadata when switching modes
+    this.modeStops = null;
+    this.stopConnectivity = null;
+    this.stopGroups = null;
+    this.stopGroupsById = null;
+    this.stopIdToGroup = null;
   }
 
   setModeConfig(config) {
@@ -93,6 +103,241 @@ class StaticGTFSService {
     this.log(`Schedule URL for ${this.mode}: ${this.githubScheduleUrl}`);
   }
 
+  // Clean station name by removing platform/platform-specific suffixes
+  cleanStopGroupName(name = '') {
+    return name
+      .replace(/,\s*platform\s+\d+.*/i, '')
+      .replace(/\s+platform\s+\d+$/i, '')
+      .trim();
+  }
+
+  // Generate a stable slug for grouped station IDs
+  slugifyGroupName(name = '') {
+    const base = name.toLowerCase().trim();
+    const slug = base
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, '');
+    return slug || base || 'station';
+  }
+
+  // Build grouped stop metadata for modes with platform-level stops (e.g. trains)
+  buildStopGroups() {
+    // Only build groups for train mode for now
+    if (this.mode !== 'train' || !this.modeStops) {
+      this.stopGroups = null;
+      this.rebuildStopGroupIndexes();
+      return;
+    }
+
+    const stopEntries = Object.entries(this.modeStops);
+    if (stopEntries.length === 0) {
+      this.stopGroups = null;
+      this.rebuildStopGroupIndexes();
+      return;
+    }
+
+    const groups = new Map();
+    const stopIdToGroup = {};
+
+    stopEntries.forEach(([stopId, stopData]) => {
+      if (!stopData || !stopData.name) {
+        return;
+      }
+
+      const groupName = this.cleanStopGroupName(stopData.name) || stopData.name;
+      const slug = this.slugifyGroupName(groupName);
+      const groupId = `group:${this.mode}:${slug}`;
+
+      if (!groups.has(groupId)) {
+        groups.set(groupId, {
+          id: groupId,
+          name: `${groupName} (all platforms)`,
+          displayName: groupName,
+          stopIds: [],
+          primaryStopId: stopId,
+          lat: stopData.lat,
+          lng: stopData.lng,
+          platformCodes: new Set(),
+          validStopIds: new Set(),
+          validDestinations: new Set()
+        });
+      }
+
+      const group = groups.get(groupId);
+      group.stopIds.push(stopId);
+      if (typeof stopData.lat === 'number' && typeof stopData.lng === 'number') {
+        // Use first stop's coordinates as representative (platforms are colocated)
+        group.lat ??= stopData.lat;
+        group.lng ??= stopData.lng;
+      }
+      if (stopData.platform) {
+        group.platformCodes.add(stopData.platform);
+      }
+      stopIdToGroup[stopId] = groupId;
+    });
+
+    // Build destination mappings for each group
+    groups.forEach(group => {
+      group.stopIds.forEach(stopId => {
+        const directDestinations = this.stopConnectivity?.[stopId]
+          || this.modeStops?.[stopId]?.validDestinations
+          || [];
+
+        directDestinations.forEach(destStopId => {
+          group.validStopIds.add(destStopId);
+          const destGroupId = stopIdToGroup[destStopId] || this.stopIdToGroup?.[destStopId];
+          group.validDestinations.add(destGroupId || destStopId);
+        });
+      });
+    });
+
+    const stopGroups = Array.from(groups.values()).map(group => ({
+      id: group.id,
+      name: group.name,
+      displayName: group.displayName,
+      stopIds: [...group.stopIds],
+      primaryStopId: group.primaryStopId,
+      lat: group.lat,
+      lng: group.lng,
+      platformCodes: [...group.platformCodes],
+      validStopIds: [...group.validStopIds],
+      validDestinations: [...group.validDestinations]
+    }));
+
+    this.stopGroups = stopGroups;
+    this.rebuildStopGroupIndexes();
+  }
+
+  rebuildStopGroupIndexes() {
+    if (!Array.isArray(this.stopGroups) || this.stopGroups.length === 0) {
+      this.stopGroupsById = null;
+      this.stopIdToGroup = null;
+      return;
+    }
+
+    this.stopGroupsById = this.stopGroups.reduce((acc, group) => {
+      acc[group.id] = group;
+      return acc;
+    }, {});
+
+    const stopIdToGroup = {};
+    this.stopGroups.forEach(group => {
+      (group.stopIds || []).forEach(stopId => {
+        stopIdToGroup[stopId] = group.id;
+      });
+    });
+    this.stopIdToGroup = stopIdToGroup;
+  }
+
+  // Get list of actual stop IDs for a given selection ID (group or platform)
+  getStopIdsForId(selectionId) {
+    if (!selectionId) {
+      return [];
+    }
+
+    if (this.stopGroupsById && this.stopGroupsById[selectionId]) {
+      return this.stopGroupsById[selectionId].stopIds || [];
+    }
+
+    if (this.modeStops && this.modeStops[selectionId]) {
+      return [selectionId];
+    }
+
+    return [];
+  }
+
+  // Expand a selection object into the set of concrete stop IDs it represents
+  getStopIdsForSelection(selection) {
+    if (!selection) {
+      return [];
+    }
+
+    if (Array.isArray(selection.stopIds) && selection.stopIds.length > 0) {
+      return selection.stopIds;
+    }
+
+    if (selection.id) {
+      const ids = this.getStopIdsForId(selection.id);
+      if (ids.length > 0) {
+        return ids;
+      }
+    }
+
+    if (selection.primaryStopId) {
+      return [selection.primaryStopId];
+    }
+
+    if (selection.id) {
+      return [selection.id];
+    }
+
+    return [];
+  }
+
+  // Normalize a selected stop object, mapping platform IDs to their grouped station entry when available
+  normalizeStopSelection(selection) {
+    if (!selection) {
+      return null;
+    }
+
+    const selectionId = typeof selection === 'string' ? selection : selection.id;
+    const providedName = typeof selection === 'string' ? '' : selection.name;
+
+    if (this.stopGroupsById && this.stopGroupsById[selectionId]) {
+      return { ...this.stopGroupsById[selectionId], isGroup: true };
+    }
+
+    const groupId = this.stopIdToGroup?.[selectionId];
+    if (groupId && this.stopGroupsById && this.stopGroupsById[groupId]) {
+      return { ...this.stopGroupsById[groupId], isGroup: true };
+    }
+
+    const stopInfo = this.modeStops?.[selectionId];
+    if (stopInfo) {
+      return {
+        id: selectionId,
+        name: stopInfo.name,
+        displayName: stopInfo.name,
+        stopIds: [selectionId],
+        primaryStopId: selectionId,
+        lat: stopInfo.lat,
+        lng: stopInfo.lng,
+        platformCodes: stopInfo.platform ? [stopInfo.platform] : [],
+        validStopIds: stopInfo.validDestinations || [],
+        validDestinations: (stopInfo.validDestinations || []).map(destId => this.stopIdToGroup?.[destId] || destId),
+        isGroup: false
+      };
+    }
+
+    if (selectionId) {
+      return {
+        id: selectionId,
+        name: providedName || selectionId,
+        displayName: providedName || selectionId,
+        stopIds: [selectionId],
+        primaryStopId: selectionId,
+        platformCodes: [],
+        validStopIds: [],
+        validDestinations: [],
+        isGroup: false
+      };
+    }
+
+    return null;
+  }
+
+  normalizeSelectedStops(selectedStops) {
+    if (!selectedStops || !selectedStops.outbound || !selectedStops.inbound) {
+      return selectedStops;
+    }
+
+    return {
+      outbound: this.normalizeStopSelection(selectedStops.outbound),
+      inbound: this.normalizeStopSelection(selectedStops.inbound)
+    };
+  }
+
   // Debug logging helper
   log(...args) {
     if (this.debug) console.log(...args);
@@ -106,6 +351,23 @@ class StaticGTFSService {
         const data = JSON.parse(cached);
         if (Date.now() - data.timestamp < this.cacheExpiry) {
           this.log('Using cached schedule');
+
+          if (data.modeStops) {
+            this.modeStops = data.modeStops;
+          }
+          if (data.stopConnectivity) {
+            this.stopConnectivity = data.stopConnectivity;
+          }
+          if (Array.isArray(data.stopGroups) || data.stopGroups === null) {
+            this.stopGroups = data.stopGroups;
+            this.rebuildStopGroupIndexes();
+          }
+          if (Array.isArray(data.routeAllowSet)) {
+            this.routeAllowSet = new Set(data.routeAllowSet);
+          } else if (data.routeAllowSet === null) {
+            this.routeAllowSet = null;
+          }
+
           // Filter out past departures from cache and convert dates
           const now = new Date();
           return data.departures
@@ -142,11 +404,18 @@ class StaticGTFSService {
   // Save processed schedule data to cache
   setCachedSchedule(departures, generated = null) {
     try {
-      localStorage.setItem(this.scheduleCacheKey, JSON.stringify({
+      const payload = {
         timestamp: Date.now(),
         generated: generated || new Date().toISOString(),
-        departures: departures
-      }));
+        departures: departures,
+        mode: this.mode,
+        modeStops: this.modeStops,
+        stopConnectivity: this.stopConnectivity,
+        stopGroups: this.stopGroups,
+        routeAllowSet: this.routeAllowSet ? Array.from(this.routeAllowSet) : null
+      };
+
+      localStorage.setItem(this.scheduleCacheKey, JSON.stringify(payload));
       this.log('Cached schedule successfully');
     } catch (error) {
       console.error('Error saving schedule cache:', error);
@@ -318,6 +587,10 @@ class StaticGTFSService {
         this.log('Loaded stop connectivity data');
       }
 
+      if (stopsData || data.stopConnectivity) {
+        this.buildStopGroups();
+      }
+
       if (Array.isArray(data.routeAllowSet)) {
         this.routeAllowSet = new Set(data.routeAllowSet);
         this.log(`Loaded route allow-set with ${this.routeAllowSet.size} routes`);
@@ -356,13 +629,20 @@ class StaticGTFSService {
 
   // Process GitHub departures to calculate arrival times and filter for selected stops
   processGitHubDepartures(allDepartures, selectedStops) {
-    const stops = this.resolveSelectedStops(selectedStops);
-    if (!stops) {
+    const normalizedStops = this.normalizeSelectedStops(this.resolveSelectedStops(selectedStops));
+    if (!normalizedStops) {
       return [];
     }
 
-    const outboundId = stops.outbound.id;
-    const inboundId = stops.inbound.id;
+    const outboundStopIds = this.getStopIdsForSelection(normalizedStops.outbound);
+    const inboundStopIds = this.getStopIdsForSelection(normalizedStops.inbound);
+
+    if (!outboundStopIds.length || !inboundStopIds.length) {
+      return [];
+    }
+
+    const outboundSet = new Set(outboundStopIds);
+    const inboundSet = new Set(inboundStopIds);
     const routeAllowSet = this.routeAllowSet;
 
     const departuresByTrip = new Map();
@@ -380,6 +660,24 @@ class StaticGTFSService {
     });
 
     const processedDepartures = [];
+
+    const addDepartureIfMatch = (tripStops, originSet, targetSet, direction) => {
+      for (let i = 0; i < tripStops.length; i++) {
+        const origin = tripStops[i];
+        if (!originSet.has(origin.stopId)) {
+          continue;
+        }
+
+        const destination = tripStops.slice(i + 1).find(stop => targetSet.has(stop.stopId));
+        if (destination) {
+          processedDepartures.push(
+            this.buildScheduledDeparture(origin, destination, direction, normalizedStops)
+          );
+          return; // Only need the first valid pairing per direction
+        }
+      }
+    };
+
     departuresByTrip.forEach(tripStops => {
       if (!tripStops.length) return;
       const routeId = tripStops[0].routeId;
@@ -389,21 +687,8 @@ class StaticGTFSService {
 
       tripStops.sort((a, b) => (a.stopSequence || 0) - (b.stopSequence || 0));
 
-      const outboundIndex = tripStops.findIndex(stop => stop.stopId === outboundId);
-      const inboundIndex = tripStops.findIndex(stop => stop.stopId === inboundId);
-
-      if (outboundIndex !== -1 && inboundIndex !== -1) {
-        if (outboundIndex < inboundIndex) {
-          const origin = tripStops[outboundIndex];
-          const destination = tripStops[inboundIndex];
-          processedDepartures.push(this.buildScheduledDeparture(origin, destination, 'outbound'));
-        }
-        if (inboundIndex < outboundIndex) {
-          const origin = tripStops[inboundIndex];
-          const destination = tripStops[outboundIndex];
-          processedDepartures.push(this.buildScheduledDeparture(origin, destination, 'inbound'));
-        }
-      }
+      addDepartureIfMatch(tripStops, outboundSet, inboundSet, 'outbound');
+      addDepartureIfMatch(tripStops, inboundSet, outboundSet, 'inbound');
     });
 
     processedDepartures.sort((a, b) => a.departureTime - b.departureTime);
@@ -414,12 +699,19 @@ class StaticGTFSService {
     return processedDepartures;
   }
 
-  buildScheduledDeparture(originStop, destinationStop, direction) {
+  buildScheduledDeparture(originStop, destinationStop, direction, selectedStopsMeta = null) {
     const destinationArrivalTime = destinationStop
       ? (destinationStop.destinationArrivalTime || destinationStop.departureTime)
       : null;
     const stopInfo = this.modeStops?.[originStop.stopId];
     const originPlatform = stopInfo?.platform || originStop.platformCode || null;
+
+    const originSelection = direction === 'outbound'
+      ? selectedStopsMeta?.outbound
+      : selectedStopsMeta?.inbound;
+    const destinationSelection = direction === 'outbound'
+      ? selectedStopsMeta?.inbound
+      : selectedStopsMeta?.outbound;
 
     return {
       tripId: originStop.tripId,
@@ -435,13 +727,15 @@ class StaticGTFSService {
       headsign: originStop.headsign,
       isScheduled: true,
       stopSequence: originStop.stopSequence,
-      platformCode: originPlatform
+      platformCode: originPlatform,
+      originSelectionId: originSelection?.id || null,
+      destinationSelectionId: destinationSelection?.id || null
     };
   }
 
   resolveSelectedStops(selectedStops) {
     if (selectedStops && selectedStops.outbound && selectedStops.inbound) {
-      return selectedStops;
+      return this.normalizeSelectedStops(selectedStops);
     }
 
     const defaults = this.modeConfig?.data?.stops?.defaults;
@@ -459,10 +753,10 @@ class StaticGTFSService {
       return '';
     };
 
-    return {
+    return this.normalizeSelectedStops({
       outbound: { id: defaults.origin, name: findName(defaults.origin) },
       inbound: { id: defaults.destination, name: findName(defaults.destination) }
-    };
+    });
   }
 
   // Get scheduled departures for our ferry routes
@@ -525,12 +819,14 @@ class StaticGTFSService {
     const activeServices = this.getActiveServiceIds(nowZoned);
     
     const departures = [];
-    // Use selectedStops if provided, otherwise fall back to default
-    const stops = selectedStops || { 
-      outbound: { id: STOPS.bulimba, name: 'Bulimba' }, 
-      inbound: { id: STOPS.riverside, name: 'Riverside' } 
+    const fallbackStops = {
+      outbound: { id: STOPS.bulimba, name: 'Bulimba' },
+      inbound: { id: STOPS.riverside, name: 'Riverside' }
     };
-    const relevantStopIds = [stops.outbound.id, stops.inbound.id];
+    const resolvedStops = this.normalizeSelectedStops(selectedStops || fallbackStops);
+    const outboundStopIds = this.getStopIdsForSelection(resolvedStops.outbound);
+    const inboundStopIds = this.getStopIdsForSelection(resolvedStops.inbound);
+    const relevantStopIds = [...new Set([...outboundStopIds, ...inboundStopIds])];
     const relevantRouteIds = [ROUTES.expressCityCat, ROUTES.allStopsCityCat];
 
     // Get relevant trips - but we need to check if they go between our terminals
@@ -540,8 +836,8 @@ class StaticGTFSService {
       
       // Check if this trip has both selected stops
       const tripStopTimes = this.gtfsData.stopTimes.filter(st => st.trip_id === trip.trip_id);
-      const hasOutboundStop = tripStopTimes.some(st => st.stop_id === stops.outbound.id);
-      const hasInboundStop = tripStopTimes.some(st => st.stop_id === stops.inbound.id);
+      const hasOutboundStop = tripStopTimes.some(st => outboundStopIds.includes(st.stop_id));
+      const hasInboundStop = tripStopTimes.some(st => inboundStopIds.includes(st.stop_id));
       
       return hasOutboundStop && hasInboundStop;
     });
@@ -578,12 +874,12 @@ class StaticGTFSService {
           const remainingStops = tripStopTimes.slice(index + 1);
           let goesToOtherTerminal = false;
           
-          if (stopTime.stop_id === stops.outbound.id) {
+          if (outboundStopIds.includes(stopTime.stop_id)) {
             // For outbound → inbound: Check if inbound appears later
-            goesToOtherTerminal = remainingStops.some(st => st.stop_id === stops.inbound.id);
-          } else if (stopTime.stop_id === stops.inbound.id) {
+            goesToOtherTerminal = remainingStops.some(st => inboundStopIds.includes(st.stop_id));
+          } else if (inboundStopIds.includes(stopTime.stop_id)) {
             // For inbound → outbound: Check if outbound appears later
-            goesToOtherTerminal = remainingStops.some(st => st.stop_id === stops.outbound.id);
+            goesToOtherTerminal = remainingStops.some(st => outboundStopIds.includes(st.stop_id));
           }
           
           if (!goesToOtherTerminal) {
@@ -592,8 +888,9 @@ class StaticGTFSService {
           
           // Find the destination stop to get arrival time
           let destinationArrivalTime = null;
-          const destinationStopId = stopTime.stop_id === stops.outbound.id ? stops.inbound.id : stops.outbound.id;
-          const destinationStop = remainingStops.find(st => st.stop_id === destinationStopId);
+          const originIsOutbound = outboundStopIds.includes(stopTime.stop_id);
+          const targetStopIds = originIsOutbound ? inboundStopIds : outboundStopIds;
+          const destinationStop = remainingStops.find(st => targetStopIds.includes(st.stop_id));
           
           if (destinationStop) {
             // Use arrival_time if available, otherwise fall back to departure_time - 1 minute
@@ -625,7 +922,7 @@ class StaticGTFSService {
           }
           
           // Determine direction based on stop sequence
-          const direction = this.determineDirection(stopTime.stop_id, tripStopTimes, index, trip, stops);
+          const direction = this.determineDirection(stopTime.stop_id, tripStopTimes, index, trip, resolvedStops);
           
           departures.push({
             tripId: trip.trip_id,
@@ -660,51 +957,76 @@ class StaticGTFSService {
   determineDirection(currentStopId, allStopTimes, currentIndex, trip, stops) {
     // If no stops provided, use defaults
     if (!stops) {
-      stops = { 
-        outbound: { id: STOPS.bulimba, name: 'Bulimba' }, 
-        inbound: { id: STOPS.riverside, name: 'Riverside' } 
-      };
+      stops = this.normalizeSelectedStops({
+        outbound: { id: STOPS.bulimba, name: 'Bulimba' },
+        inbound: { id: STOPS.riverside, name: 'Riverside' }
+      });
     }
-    
+
+    const outboundStopIds = new Set(this.getStopIdsForSelection(stops.outbound));
+    const inboundStopIds = new Set(this.getStopIdsForSelection(stops.inbound));
+
+    const outboundName = (stops.outbound.displayName || stops.outbound.name || '').toLowerCase();
+    const inboundName = (stops.inbound.displayName || stops.inbound.name || '').toLowerCase();
+
     // Try to use headsign first (if it contains destination stop name)
-    if (trip.trip_headsign && stops.inbound.name && stops.outbound.name) {
+    if (trip.trip_headsign && inboundName && outboundName) {
       const headsign = trip.trip_headsign.toLowerCase();
-      const inboundName = stops.inbound.name.toLowerCase();
-      const outboundName = stops.outbound.name.toLowerCase();
-      
-      if (headsign.includes(inboundName)) {
+
+      if (inboundName && headsign.includes(inboundName)) {
         return 'outbound'; // Going TO inbound stop
-      } else if (headsign.includes(outboundName)) {
+      }
+      if (outboundName && headsign.includes(outboundName)) {
         return 'inbound'; // Going TO outbound stop
       }
     }
 
     // Fall back to checking stop sequence
-    const hasInboundAfter = allStopTimes.slice(currentIndex + 1).some(st => 
-      st.stop_id === stops.inbound.id
-    );
-    const hasOutboundAfter = allStopTimes.slice(currentIndex + 1).some(st => 
-      st.stop_id === stops.outbound.id
-    );
-    
-    if (currentStopId === stops.outbound.id && hasInboundAfter) {
+    const remainingStops = allStopTimes.slice(currentIndex + 1);
+    const hasInboundAfter = remainingStops.some(st => inboundStopIds.has(st.stop_id));
+    const hasOutboundAfter = remainingStops.some(st => outboundStopIds.has(st.stop_id));
+
+    if (outboundStopIds.has(currentStopId) && hasInboundAfter) {
       return 'outbound';
-    } else if (currentStopId === stops.inbound.id && hasOutboundAfter) {
+    }
+    if (inboundStopIds.has(currentStopId) && hasOutboundAfter) {
       return 'inbound';
     }
-    
+
     // Default based on current stop
-    return currentStopId === stops.outbound.id ? 'outbound' : 'inbound';
+    if (outboundStopIds.has(currentStopId)) {
+      return 'outbound';
+    }
+    if (inboundStopIds.has(currentStopId)) {
+      return 'inbound';
+    }
+
+    return 'outbound';
   }
 
   // Get all available ferry stops
   getAvailableStops() {
+    if (this.stopGroups && this.stopGroups.length > 0) {
+      return this.stopGroups.map(group => ({
+        id: group.id,
+        name: group.name,
+        lat: group.lat,
+        lng: group.lng,
+        stopIds: group.stopIds,
+        platformCodes: group.platformCodes,
+        isGroup: true
+      }));
+    }
+
     if (this.modeStops) {
       return Object.entries(this.modeStops).map(([id, stop]) => ({
         id,
         name: stop.name,
         lat: stop.lat,
-        lng: stop.lng
+        lng: stop.lng,
+        stopIds: [id],
+        platformCodes: stop.platform ? [stop.platform] : [],
+        isGroup: false
       }));
     }
 
@@ -717,32 +1039,84 @@ class StaticGTFSService {
 
   // Get valid destinations for a given origin stop
   getValidDestinations(originStopId) {
-    if (!this.stopConnectivity || !this.stopConnectivity[originStopId]) {
-      if (this.modeStops) {
-        return Object.keys(this.modeStops).filter(id => id !== originStopId);
-      }
-      if (Array.isArray(this.modeConfig?.data?.stops?.list)) {
-        return this.modeConfig.data.stops.list
-          .map(stop => stop.id)
-          .filter(id => id !== originStopId);
-      }
+    if (!originStopId) {
       return [];
     }
-    
-    // Return array of valid destination stop IDs
-    return this.stopConnectivity[originStopId] || [];
+
+    const originStopIds = this.getStopIdsForId(originStopId);
+    const destinationStopIds = new Set();
+
+    if (originStopIds.length > 0 && this.stopConnectivity) {
+      originStopIds.forEach(stopId => {
+        const connectedStops = this.stopConnectivity?.[stopId] || [];
+        connectedStops.forEach(destStopId => destinationStopIds.add(destStopId));
+      });
+    } else if (this.stopConnectivity && this.stopConnectivity[originStopId]) {
+      this.stopConnectivity[originStopId].forEach(destStopId => destinationStopIds.add(destStopId));
+    }
+
+    if (destinationStopIds.size === 0) {
+      if (this.modeStops) {
+        const originSet = new Set(originStopIds.length > 0 ? originStopIds : [originStopId]);
+        Object.keys(this.modeStops).forEach(id => {
+          if (!originSet.has(id)) {
+            destinationStopIds.add(id);
+          }
+        });
+      } else if (Array.isArray(this.modeConfig?.data?.stops?.list)) {
+        const originSet = new Set(originStopIds.length > 0 ? originStopIds : [originStopId]);
+        this.modeConfig.data.stops.list.forEach(stop => {
+          if (!originSet.has(stop.id)) {
+            destinationStopIds.add(stop.id);
+          }
+        });
+      }
+    }
+
+    let destinations = Array.from(destinationStopIds);
+
+    if (this.stopGroups && this.stopGroups.length > 0) {
+      const groupedDestinations = new Set();
+      destinations.forEach(destId => {
+        const groupId = this.stopIdToGroup?.[destId];
+        groupedDestinations.add(groupId || destId);
+      });
+      destinations = Array.from(groupedDestinations);
+    }
+
+    const originGroupIds = new Set();
+    originGroupIds.add(originStopId);
+    originStopIds.forEach(id => {
+      const groupId = this.stopIdToGroup?.[id];
+      if (groupId) {
+        originGroupIds.add(groupId);
+      }
+    });
+
+    return destinations.filter(id => !originGroupIds.has(id));
   }
 
   // Get stop info by ID
   getStopInfo(stopId) {
-    if (!this.modeStops || !this.modeStops[stopId]) {
-      return null;
+    if (this.stopGroupsById && this.stopGroupsById[stopId]) {
+      return this.stopGroupsById[stopId];
     }
-    
-    return {
-      id: stopId,
-      ...this.modeStops[stopId]
-    };
+
+    if (this.modeStops && this.modeStops[stopId]) {
+      return {
+        id: stopId,
+        ...this.modeStops[stopId]
+      };
+    }
+
+    if (Array.isArray(this.modeConfig?.data?.stops?.list)) {
+      const match = this.modeConfig.data.stops.list.find(stop => stop.id === stopId);
+      if (match) {
+        return match;
+      }
+    }
+
+    return null;
   }
 
   // Check if stops data is loaded
@@ -752,6 +1126,37 @@ class StaticGTFSService {
 
   // Get schedule metadata including route allow-set
   async getScheduleMetadata() {
+    const toMetadataResponse = (data) => {
+      if (!data) return null;
+
+      if (data.stops || data.modeStops) {
+        this.modeStops = data.stops || data.modeStops;
+      }
+      if (data.stopConnectivity) {
+        this.stopConnectivity = data.stopConnectivity;
+      }
+
+      if (Array.isArray(data.stopGroups)) {
+        this.stopGroups = data.stopGroups;
+        this.rebuildStopGroupIndexes();
+      } else if (!this.stopGroups) {
+        this.buildStopGroups();
+      }
+
+      if (Array.isArray(data.routeAllowSet)) {
+        this.routeAllowSet = new Set(data.routeAllowSet);
+      }
+
+      return {
+        mode: data.mode || this.mode,
+        routeAllowSet: Array.isArray(data.routeAllowSet) ? data.routeAllowSet : Array.from(this.routeAllowSet || []),
+        generated: data.generated,
+        stops: data.stops || data.modeStops,
+        stopGroups: data.stopGroups || this.stopGroups,
+        stopConnectivity: data.stopConnectivity || this.stopConnectivity
+      };
+    };
+
     // Check circuit breaker first
     const failureInfo = this.fetchFailures.get(this.mode);
     if (failureInfo) {
@@ -763,15 +1168,11 @@ class StaticGTFSService {
         if (cached) {
           try {
             const data = JSON.parse(cached);
-            if (data.routeAllowSet) {
-              return {
-                mode: data.mode || this.mode,
-                routeAllowSet: data.routeAllowSet,
-                generated: data.generated,
-                stops: data.stops || data.modeStops
-              };
+            const response = toMetadataResponse(data);
+            if (response) {
+              return response;
             }
-          } catch (e) {
+          } catch {
             // Ignore cache parse errors
           }
         }
@@ -780,7 +1181,9 @@ class StaticGTFSService {
           mode: this.mode,
           routeAllowSet: [],
           generated: null,
-          stops: {}
+          stops: {},
+          stopGroups: null,
+          stopConnectivity: null
         };
       }
     }
@@ -790,13 +1193,9 @@ class StaticGTFSService {
       const cached = localStorage.getItem(this.scheduleCacheKey);
       if (cached) {
         const data = JSON.parse(cached);
-        if (data.routeAllowSet) {
-          return {
-            mode: data.mode || this.mode,
-            routeAllowSet: data.routeAllowSet,
-            generated: data.generated,
-            stops: data.stops || data.modeStops
-          };
+        const response = toMetadataResponse(data);
+        if (response) {
+          return response;
         }
       }
 
@@ -808,12 +1207,10 @@ class StaticGTFSService {
           const data = await fallbackResponse.json();
           // Success with fallback - reset circuit breaker
           this.fetchFailures.delete(this.mode);
-          return {
-            mode: data.mode || this.mode,
-            routeAllowSet: data.routeAllowSet || [],
-            generated: data.generated,
-            stops: data.stops || data.modeStops
-          };
+          const responseData = toMetadataResponse(data);
+          if (responseData) {
+            return responseData;
+          }
         }
       }
 
@@ -821,12 +1218,10 @@ class StaticGTFSService {
         const data = await response.json();
         // Success - reset circuit breaker
         this.fetchFailures.delete(this.mode);
-        return {
-          mode: data.mode || this.mode,
-          routeAllowSet: data.routeAllowSet || [],
-          generated: data.generated,
-          stops: data.stops || data.modeStops
-        };
+        const responseData = toMetadataResponse(data);
+        if (responseData) {
+          return responseData;
+        }
       }
     } catch (error) {
       // Increment failure count
@@ -843,7 +1238,9 @@ class StaticGTFSService {
       mode: this.mode,
       routeAllowSet: [],
       generated: null,
-      stops: {}
+      stops: {},
+      stopGroups: this.stopGroups,
+      stopConnectivity: this.stopConnectivity
     };
   }
 

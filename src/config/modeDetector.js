@@ -43,20 +43,23 @@ export function detectMode() {
 export async function loadModeConfig(mode) {
   try {
     switch (mode) {
-      case 'train':
+      case 'train': {
         const { default: TRAIN_CONFIG } = await import('./modes/train.config.js');
         return TRAIN_CONFIG;
+      }
 
-      case 'bus':
+      case 'bus': {
         // Will be implemented in Phase 5
         console.warn('Bus mode not yet implemented, falling back to ferry');
         const { FERRY_CONFIG: BUS_FALLBACK } = await import('./modes/ferry.config.js');
         return BUS_FALLBACK;
+      }
 
       case 'ferry':
-      default:
+      default: {
         const { FERRY_CONFIG } = await import('./modes/ferry.config.js');
         return FERRY_CONFIG;
+      }
     }
   } catch (error) {
     console.error(`Failed to load config for mode: ${mode}`, error);

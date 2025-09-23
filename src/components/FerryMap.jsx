@@ -72,15 +72,7 @@ const createFerryIcon = (routeId) => {
   });
 };
 
-// Terminal icon
-const terminalIcon = L.divIcon({
-  html: '<div style="font-size: 20px;">📍</div>',
-  className: 'terminal-marker',
-  iconSize: [20, 20],
-  iconAnchor: [10, 20]
-});
-
-function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
+function FerryMap({ vehiclePositions, tripUpdates, onHide }) {
   // Preload stop data on component mount
   useEffect(() => {
     preloadStopData();

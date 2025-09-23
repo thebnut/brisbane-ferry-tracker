@@ -9,8 +9,8 @@ export default defineConfig({
       '/api/gtfs-proxy': {
         target: 'https://gtfsrt.api.translink.com.au',
         changeOrigin: true,
-        configure: (proxy, options) => {
-          proxy.on('proxyReq', (proxyReq, req, res) => {
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
             // Extract endpoint from query parameter
             const url = new URL(req.url, 'http://localhost');
             const endpoint = url.searchParams.get('endpoint');
@@ -24,7 +24,7 @@ export default defineConfig({
       '/api/gtfs-static': {
         target: 'https://gtfsrt.api.translink.com.au',
         changeOrigin: true,
-        rewrite: (path) => '/GTFS/SEQ_GTFS.zip'
+        rewrite: () => '/GTFS/SEQ_GTFS.zip'
       }
     }
   }

@@ -108,13 +108,16 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
       }
 
       // Keep existing data if available
-      if (!departures.outbound.length && !departures.inbound.length) {
-        setDepartures({ outbound: [], inbound: [] });
-      }
+      setDepartures(prev => {
+        if (!prev.outbound.length && !prev.inbound.length) {
+          return { outbound: [], inbound: [] };
+        }
+        return prev;
+      });
       setLoading(false);
       setScheduleLoading(false);
     }
-  }, [selectedStops, departureTimeFilter, modeId]);
+  }, [selectedStops, departureTimeFilter, modeId, modeConfig]);
 
   // Store latest fetchData in ref to avoid recreating interval
   useEffect(() => {
@@ -173,7 +176,7 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
           // Continue without route allow-set - will use fallback filtering
         });
     }
-  }, [modeConfig?.mode?.id]); // Only reload when mode ID changes
+  }, [modeConfig, routeAllowSetLoaded]); // Reload when mode config changes
 
   // Reset route allow-set loaded flag when mode changes
   useEffect(() => {

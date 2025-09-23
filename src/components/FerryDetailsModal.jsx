@@ -1,15 +1,15 @@
-import React, { useEffect, useMemo } from 'react';
-import { format, differenceInMinutes, isTomorrow, isAfter, startOfDay, addDays } from 'date-fns';
+import React, { useEffect } from 'react';
+import { format, isTomorrow, isAfter, startOfDay, addDays, differenceInMinutes } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { SERVICE_TYPES, API_CONFIG, STOPS, getVehicleStatusInfo } from '../utils/constants';
 import FerryDetailMap from './FerryDetailMap';
 
 const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedStops, onClose }) => {
-  if (!departure) return null;
+  const hasDeparture = Boolean(departure);
 
   // Get service info
-  const routePrefix = departure.routeId.split('-')[0];
+  const routePrefix = departure?.routeId?.split('-')[0] || 'F1';
   const serviceInfo = SERVICE_TYPES[routePrefix] || SERVICE_TYPES.F1;
   
   // Helper function to extract ferry name from vehicle ID
@@ -42,76 +42,83 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
     departureTime: departure.departureTime
   });
   
-  // Find matching vehicle position
-  const vehiclePosition = useMemo(() => {
-    return vehiclePositions.find(vp => vp.vehicle?.trip?.tripId === departure.tripId);
-  }, [vehiclePositions, departure.tripId]);
-  
-  // Find matching trip update
-  const tripUpdate = useMemo(() => {
-    return tripUpdates.find(tu => tu.tripUpdate?.trip?.tripId === departure.tripId);
-  }, [tripUpdates, departure.tripId]);
+  const vehiclePosition = hasDeparture
+    ? vehiclePositions.find(vp => vp.vehicle?.trip?.tripId === departure.tripId)
+    : null;
+
+  const tripUpdate = hasDeparture
+    ? tripUpdates.find(tu => tu.tripUpdate?.trip?.tripId === departure.tripId)
+    : null;
   
   // Get live position data
   const position = vehiclePosition?.vehicle?.position;
   const hasLiveData = !!position;
-  
-  // Format times
-  const departureTimeZoned = toZonedTime(departure.departureTime, API_CONFIG.timezone);
+
+  const departureTimeZoned = hasDeparture
+    ? toZonedTime(departure.departureTime, API_CONFIG.timezone)
+    : null;
   const currentTimeZoned = toZonedTime(new Date(), API_CONFIG.timezone);
-  const minutesUntil = differenceInMinutes(departureTimeZoned, currentTimeZoned);
   
   // Check if departure is tomorrow or later
   const tomorrowStart = startOfDay(addDays(currentTimeZoned, 1));
-  const isDepartureNotToday = isAfter(departureTimeZoned, tomorrowStart) || isTomorrow(departureTimeZoned);
+  const isDepartureNotToday = departureTimeZoned
+    ? isAfter(departureTimeZoned, tomorrowStart) || isTomorrow(departureTimeZoned)
+    : false;
   
   // Get destination info
-  const destinationStop = departure.direction === 'outbound' 
+  const destinationStop = departure?.direction === 'outbound' 
     ? (selectedStops?.inbound?.name || 'Riverside') 
     : (selectedStops?.outbound?.name || 'Bulimba');
-  const destinationStopId = departure.direction === 'outbound' 
+  const destinationStopId = departure?.direction === 'outbound' 
     ? (selectedStops?.inbound?.id || STOPS.riverside) 
     : (selectedStops?.outbound?.id || STOPS.bulimba);
   
-  // Find destination arrival time from trip update
-  const destinationArrival = useMemo(() => {
-    if (!tripUpdate?.tripUpdate?.stopTimeUpdate) return null;
-    
+  const destinationArrival = (() => {
+    if (!tripUpdate?.tripUpdate?.stopTimeUpdate || !hasDeparture) {
+      return null;
+    }
+
     const stopUpdates = tripUpdate.tripUpdate.stopTimeUpdate;
-    
-    // Sort by stop sequence
-    const sortedStops = [...stopUpdates].sort((a, b) => 
-      (parseInt(a.stopSequence) || 0) - (parseInt(b.stopSequence) || 0)
+    const sortedStops = [...stopUpdates].sort((a, b) =>
+      (parseInt(a.stopSequence, 10) || 0) - (parseInt(b.stopSequence, 10) || 0)
     );
-    
-    // Find the departure stop index
+
     const departureIndex = sortedStops.findIndex(stu => stu.stopId === departure.stopId);
     if (departureIndex === -1) return null;
-    
-    // Find destination stop AFTER the departure
+
     const remainingStops = sortedStops.slice(departureIndex + 1);
     const destStop = remainingStops.find(stu => stu.stopId === destinationStopId);
-    
+
     if (!destStop?.arrival?.time) return null;
     return new Date(destStop.arrival.time * 1000);
-  }, [tripUpdate, destinationStopId, departure.stopId]);
+  })();
   
   // Handle escape key
   useEffect(() => {
+    if (!hasDeparture) {
+      return undefined;
+    }
     const handleEscape = (e) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
+  }, [hasDeparture, onClose]);
   
   // Prevent body scroll when modal is open
   useEffect(() => {
+    if (!hasDeparture) {
+      return undefined;
+    }
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = 'auto';
     };
-  }, []);
+  }, [hasDeparture]);
+
+  if (!hasDeparture) {
+    return null;
+  }
 
   return (
     <div 

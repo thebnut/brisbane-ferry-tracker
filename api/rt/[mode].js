@@ -44,7 +44,7 @@ async function fetchGTFSRT(endpoint) {
 /**
  * Filter GTFS-RT entities by route type
  */
-function filterByMode(data, modeConfig) {
+function filterByMode(data) {
   // This is a simplified filter - in production we'd parse the protobuf
   // and filter the entities properly
   // For now, we'll pass through the raw data

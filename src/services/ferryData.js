@@ -1,5 +1,5 @@
 import { STOPS, ROUTES, DEBUG_CONFIG, DEFAULT_STOPS } from '../utils/constants';
-import { startOfDay, endOfDay, format } from 'date-fns';
+import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import staticGtfsService from './staticGtfsService';
 
@@ -7,7 +7,7 @@ class FerryDataService {
   constructor() {
     this.timezone = 'Australia/Brisbane';
     this.debug = DEBUG_CONFIG.enableLogging;
-    this.selectedStops = DEFAULT_STOPS;
+    this.selectedStops = this.normalizeStopsPair(DEFAULT_STOPS);
     this.departureTimeFilter = null;
     this.routeAllowSet = null; // Will be loaded from schedule data
     this.modeConfig = null; // Will be set from ModeProvider
@@ -42,7 +42,66 @@ class FerryDataService {
 
   // Set selected stops
   setSelectedStops(stops) {
-    this.selectedStops = stops;
+    this.selectedStops = this.normalizeStopsPair(stops);
+  }
+
+  normalizeStopsPair(stops) {
+    if (!stops || !stops.outbound || !stops.inbound) {
+      return stops;
+    }
+
+    const normalized = staticGtfsService.normalizeSelectedStops(stops) || stops;
+
+    const ensureStopIds = (selection) => {
+      if (!selection) return null;
+      if (Array.isArray(selection.stopIds) && selection.stopIds.length > 0) {
+        return selection;
+      }
+      const inferredIds = staticGtfsService.getStopIdsForSelection(selection);
+      if (inferredIds.length > 0) {
+        return { ...selection, stopIds: inferredIds };
+      }
+      if (selection.id) {
+        return { ...selection, stopIds: [selection.id] };
+      }
+      return selection;
+    };
+
+    return {
+      outbound: ensureStopIds(normalized.outbound),
+      inbound: ensureStopIds(normalized.inbound)
+    };
+  }
+
+  getSelection(direction) {
+    return this.selectedStops?.[direction] || null;
+  }
+
+  getSelectionStopIds(direction) {
+    const selection = this.getSelection(direction);
+    if (!selection) return [];
+    return staticGtfsService.getStopIdsForSelection(selection);
+  }
+
+  isStopInDirection(direction, stopId) {
+    if (!stopId) return false;
+    return this.getSelectionStopIds(direction).includes(stopId);
+  }
+
+  getRelevantStopIds() {
+    const outboundIds = this.getSelectionStopIds('outbound');
+    const inboundIds = this.getSelectionStopIds('inbound');
+    return Array.from(new Set([...outboundIds, ...inboundIds]));
+  }
+
+  getTargetStopIdsForStop(stopId) {
+    if (this.isStopInDirection('outbound', stopId)) {
+      return this.getSelectionStopIds('inbound');
+    }
+    if (this.isStopInDirection('inbound', stopId)) {
+      return this.getSelectionStopIds('outbound');
+    }
+    return [];
   }
 
   getDefaultStopsFromConfig() {
@@ -59,7 +118,7 @@ class FerryDataService {
       return '';
     };
 
-    return {
+    const defaultsPair = {
       outbound: {
         id: defaults.origin,
         name: findName(defaults.origin) || DEFAULT_STOPS.outbound.name
@@ -69,6 +128,8 @@ class FerryDataService {
         name: findName(defaults.destination) || DEFAULT_STOPS.inbound.name
       }
     };
+
+    return this.normalizeStopsPair(defaultsPair);
   }
   
   // Set departure time filter
@@ -78,7 +139,7 @@ class FerryDataService {
 
   // Filter trip updates for selected stops and mode routes
   filterRelevantTrips(tripUpdates) {
-    const relevantStopIds = [this.selectedStops.outbound.id, this.selectedStops.inbound.id];
+    const relevantStopIds = this.getRelevantStopIds();
 
     this.log('Total trip updates to filter:', tripUpdates.length);
 
@@ -133,25 +194,12 @@ class FerryDataService {
       
       // Check if trip has BOTH selected stops
       const hasOutboundStop = stopTimeUpdates.some(update => 
-        update.stopId === this.selectedStops.outbound.id
+        this.isStopInDirection('outbound', update.stopId)
       );
       const hasInboundStop = stopTimeUpdates.some(update => 
-        update.stopId === this.selectedStops.inbound.id
+        this.isStopInDirection('inbound', update.stopId)
       );
       
-      // Only include trips that go between our two selected stops
-      if (isRelevantRoute && hasOutboundStop && hasInboundStop) {
-        // Sort stops to ensure correct order before logging
-        const sortedStops = [...stopTimeUpdates].sort((a, b) => {
-          const seqA = parseInt(a.stopSequence) || 0;
-          const seqB = parseInt(b.stopSequence) || 0;
-          return seqA - seqB;
-        });
-        
-        // Debug: log the sorted stop sequence for trips that pass initial filter
-        // Commented out verbose logging
-        // this.log(`Trip ${trip.tripId} sorted stop sequence: ${sortedStops.map(s => `${s.stopId}(${s.stopSequence})`).join(' -> ')}`);
-      }
       return isRelevantRoute && hasOutboundStop && hasInboundStop;
     });
     
@@ -206,7 +254,7 @@ class FerryDataService {
       // Process each stop in the trip
       stopTimeUpdates.forEach((stopUpdate, index) => {
         // Only process selected stops
-        if (stopUpdate.stopId !== this.selectedStops.outbound.id && stopUpdate.stopId !== this.selectedStops.inbound.id) {
+        if (!this.isStopInDirection('outbound', stopUpdate.stopId) && !this.isStopInDirection('inbound', stopUpdate.stopId)) {
           return;
         }
 
@@ -243,13 +291,11 @@ class FerryDataService {
         // Calculate destination arrival time
         let destinationArrivalTime = null;
         const currentStopId = stopUpdate.stopId;
-        const destinationStopId = currentStopId === this.selectedStops.outbound.id 
-          ? this.selectedStops.inbound.id 
-          : this.selectedStops.outbound.id;
-        
+        const targetStopIds = this.getTargetStopIdsForStop(currentStopId);
+
         // Find the destination stop in the remaining stops
         for (let i = index + 1; i < stopTimeUpdates.length; i++) {
-          if (stopTimeUpdates[i].stopId === destinationStopId) {
+          if (targetStopIds.includes(stopTimeUpdates[i].stopId)) {
             const arrivalTime = stopTimeUpdates[i].arrival?.time 
               ? new Date(stopTimeUpdates[i].arrival.time * 1000)
               : stopTimeUpdates[i].departure?.time 
@@ -276,7 +322,13 @@ class FerryDataService {
           delay: stopUpdate.departure?.delay || 0,
           vehicleId: vehiclePosition?.vehicle?.vehicle?.id,
           occupancy: vehiclePosition?.vehicle?.occupancyStatus,
-          destinationArrivalTime: destinationArrivalTime
+          destinationArrivalTime: destinationArrivalTime,
+          originSelectionId: this.isStopInDirection('outbound', stopUpdate.stopId)
+            ? this.getSelection('outbound')?.id || null
+            : this.getSelection('inbound')?.id || null,
+          destinationSelectionId: this.isStopInDirection('outbound', stopUpdate.stopId)
+            ? this.getSelection('inbound')?.id || null
+            : this.getSelection('outbound')?.id || null
         });
       });
     });
@@ -305,12 +357,12 @@ class FerryDataService {
     
     const remainingStops = allStopTimes.slice(currentIndex + 1);
     
-    if (currentStopId === this.selectedStops.outbound.id) {
+    if (this.isStopInDirection('outbound', currentStopId)) {
       // For outbound: Check if inbound stop appears in remaining stops
-      return remainingStops.some(stop => stop.stopId === this.selectedStops.inbound.id);
-    } else if (currentStopId === this.selectedStops.inbound.id) {
+      return remainingStops.some(stop => this.isStopInDirection('inbound', stop.stopId));
+    } else if (this.isStopInDirection('inbound', currentStopId)) {
       // For inbound: Check if outbound stop appears in remaining stops
-      return remainingStops.some(stop => stop.stopId === this.selectedStops.outbound.id);
+      return remainingStops.some(stop => this.isStopInDirection('outbound', stop.stopId));
     }
     
     return false;
@@ -318,18 +370,19 @@ class FerryDataService {
 
   // Determine direction based on stop order
   determineDirection(currentStopId, allStops, currentIndex) {
-    // Look for the other terminal in the stop list
-    const hasInboundAfter = allStops.slice(currentIndex + 1).some(s => s.stopId === this.selectedStops.inbound.id);
-    const hasOutboundAfter = allStops.slice(currentIndex + 1).some(s => s.stopId === this.selectedStops.outbound.id);
-    
-    if (currentStopId === this.selectedStops.outbound.id && hasInboundAfter) {
-      return 'outbound'; // From outbound stop to inbound stop
-    } else if (currentStopId === this.selectedStops.inbound.id && hasOutboundAfter) {
-      return 'inbound'; // From inbound stop to outbound stop
+    const remainingStops = allStops.slice(currentIndex + 1);
+    const hasInboundAfter = remainingStops.some(s => this.isStopInDirection('inbound', s.stopId));
+    const hasOutboundAfter = remainingStops.some(s => this.isStopInDirection('outbound', s.stopId));
+
+    if (this.isStopInDirection('outbound', currentStopId)) {
+      return hasInboundAfter ? 'outbound' : 'inbound';
     }
-    
-    // Default based on current stop
-    return currentStopId === this.selectedStops.outbound.id ? 'outbound' : 'inbound';
+
+    if (this.isStopInDirection('inbound', currentStopId)) {
+      return hasOutboundAfter ? 'inbound' : 'outbound';
+    }
+
+    return 'outbound';
   }
 
   // Group departures by direction
@@ -345,9 +398,9 @@ class FerryDataService {
         return; // Skip departures before the selected time
       }
       
-      if (departure.direction === 'outbound' && departure.stopId === this.selectedStops.outbound.id) {
+      if (departure.direction === 'outbound' && this.isStopInDirection('outbound', departure.stopId)) {
         grouped.outbound.push(departure);
-      } else if (departure.direction === 'inbound' && departure.stopId === this.selectedStops.inbound.id) {
+      } else if (departure.direction === 'inbound' && this.isStopInDirection('inbound', departure.stopId)) {
         grouped.inbound.push(departure);
       }
     });
@@ -454,8 +507,6 @@ class FerryDataService {
       
       // If no exact tripId match, try time-based matching with route verification
       if (!matched) {
-        const timeKey = `${dep.stopId}-${Math.floor(dep.departureTime.getTime() / 60000)}`;
-        
         // Look within a 10-minute window for same route
         for (let i = -10; i <= 10; i++) {
           const checkKey = `${dep.stopId}-${Math.floor(dep.departureTime.getTime() / 60000) + i}`;
@@ -643,14 +694,16 @@ class FerryDataService {
       
       // Filter for trips that go from origin to destination
       const validDepartures = [];
+      const outboundStopIds = new Set(this.getSelectionStopIds('outbound'));
+      const inboundStopIds = new Set(this.getSelectionStopIds('inbound'));
       
-      Object.entries(departuresByTrip).forEach(([tripId, tripDepartures]) => {
+      Object.values(departuresByTrip).forEach((tripDepartures) => {
         // Sort by stop sequence
         tripDepartures.sort((a, b) => (a.stopSequence || 0) - (b.stopSequence || 0));
         
         // Find if this trip has both our stops
-        const outboundIndex = tripDepartures.findIndex(dep => dep.stopId === this.selectedStops.outbound.id);
-        const inboundIndex = tripDepartures.findIndex(dep => dep.stopId === this.selectedStops.inbound.id);
+        const outboundIndex = tripDepartures.findIndex(dep => outboundStopIds.has(dep.stopId));
+        const inboundIndex = tripDepartures.findIndex(dep => inboundStopIds.has(dep.stopId));
         
         // If trip has both stops and goes in the right direction
         if (outboundIndex !== -1 && inboundIndex !== -1 && inboundIndex > outboundIndex) {
@@ -658,7 +711,9 @@ class FerryDataService {
           const outboundDep = tripDepartures[outboundIndex];
           validDepartures.push({
             ...outboundDep,
-            direction: 'outbound'
+            direction: 'outbound',
+            originSelectionId: this.getSelection('outbound')?.id || null,
+            destinationSelectionId: this.getSelection('inbound')?.id || null
           });
         }
         
@@ -668,7 +723,9 @@ class FerryDataService {
           const inboundDep = tripDepartures[inboundIndex];
           validDepartures.push({
             ...inboundDep,
-            direction: 'inbound'
+            direction: 'inbound',
+            originSelectionId: this.getSelection('inbound')?.id || null,
+            destinationSelectionId: this.getSelection('outbound')?.id || null
           });
         }
       });
