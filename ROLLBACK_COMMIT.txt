@@ -1,0 +1,10 @@
+ede9efcbb4cd2be7e2fd588455cc691d4c9b36de
+Created: 2025-10-28
+Purpose: Safe rollback point before mode-abstraction-v2 implementation
+Branch: main
+Description: Stable production ferry-only version
+
+To rollback if needed:
+git checkout main
+git reset --hard ede9efcbb4cd2be7e2fd588455cc691d4c9b36de
+git push origin main --force
