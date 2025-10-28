@@ -5,7 +5,8 @@ class GTFSService {
   constructor() {
     this.baseUrl = API_CONFIG.baseUrl;
     this.mode = 'ferry'; // Default to ferry, will be updated from ModeProvider
-    this.useServerlessCache = import.meta.env.VITE_USE_CACHE !== 'false';
+    // TEMP: Disable serverless cache until Phase 2 (Vercel Functions not configured yet)
+    this.useServerlessCache = false; // TODO: Re-enable in Phase 2: import.meta.env.VITE_USE_CACHE !== 'false';
     this.requestsInFlight = new Set(); // Track active requests to prevent duplicates
     this.lastRequestTime = {}; // Track last request time per endpoint
     this.MIN_REQUEST_INTERVAL = 5000; // 5 seconds minimum between same endpoint requests

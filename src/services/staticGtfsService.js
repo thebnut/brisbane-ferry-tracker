@@ -49,24 +49,24 @@ class StaticGTFSService {
   updateScheduleUrls(forceGitHub) {
     const basePath = 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data';
 
-    // Clear fallback URL first
-    this.fallbackScheduleUrl = null;
-
-    // Determine the correct path based on mode
-    if (window.location.hostname === 'localhost' && !forceGitHub) {
-      // Local development - check if mode-specific directory exists
-      this.githubScheduleUrl = `/schedule-data/${this.mode}/latest.json`;
-      // Fallback to root for ferry mode (backward compatibility)
-      if (this.mode === 'ferry') {
-        this.fallbackScheduleUrl = '/schedule-data/latest.json';
+    // For ferry mode, use the main schedule-data/latest.json (no mode subdirectory yet)
+    // For other modes, use mode-specific paths when they exist
+    if (this.mode === 'ferry') {
+      // Ferry mode: use root schedule path (legacy/current structure)
+      if (window.location.hostname === 'localhost' && !forceGitHub) {
+        this.githubScheduleUrl = '/schedule-data/latest.json';
+      } else {
+        this.githubScheduleUrl = `${basePath}/latest.json`;
       }
+      this.fallbackScheduleUrl = null; // No fallback needed
     } else {
-      // Production or forced GitHub
-      this.githubScheduleUrl = `${basePath}/${this.mode}/latest.json`;
-      // Always use fallback for ferry mode until we have mode-specific data
-      if (this.mode === 'ferry') {
-        this.fallbackScheduleUrl = `${basePath}/latest.json`;
+      // Train/bus modes: use mode-specific paths (future)
+      if (window.location.hostname === 'localhost' && !forceGitHub) {
+        this.githubScheduleUrl = `/schedule-data/${this.mode}/latest.json`;
+      } else {
+        this.githubScheduleUrl = `${basePath}/${this.mode}/latest.json`;
       }
+      this.fallbackScheduleUrl = null;
     }
 
     this.log(`Schedule URL for ${this.mode}: ${this.githubScheduleUrl}`);
