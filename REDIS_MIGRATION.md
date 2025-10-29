@@ -22,8 +22,10 @@ Migrated from deprecated `@vercel/kv` to `@vercel/redis` with Vercel Marketplace
 
 **Added:**
 ```json
-"@vercel/redis": "^1.0.0"
+"redis": "^4.7.0"
 ```
+
+**Why**: Using native Redis protocol with Redis Cloud via Vercel Marketplace
 
 ### 2. API Endpoint Updates
 
@@ -36,12 +38,15 @@ import { kv } from '@vercel/kv';
 
 **New Import:**
 ```javascript
-import { createClient } from '@vercel/redis';
+import { createClient } from 'redis';
 
+// Connects using native Redis protocol
 const redis = createClient({
-  url: process.env.REDIS_URL,
-  token: process.env.REDIS_TOKEN,
+  url: process.env.REDIS_URL
 });
+
+// node-redis v4 requires explicit connection
+redis.connect().catch(console.error);
 ```
 
 ### 3. Cache Function Updates
@@ -58,7 +63,7 @@ async function cacheRoute(key, data) {
 }
 ```
 
-**New (Redis):**
+**New (node-redis v4):**
 ```javascript
 async function getCachedRoute(key) {
   const cached = await redis.get(key);
@@ -66,11 +71,14 @@ async function getCachedRoute(key) {
 }
 
 async function cacheRoute(key, data) {
-  await redis.set(key, JSON.stringify(data), { ex: CACHE_TTL });
+  // node-redis v4 uses setEx(key, seconds, value)
+  await redis.setEx(key, CACHE_TTL, JSON.stringify(data));
 }
 ```
 
-**Key Difference**: Redis stores values as strings, so we need to `JSON.stringify()` on write and `JSON.parse()` on read.
+**Key Differences**:
+1. Redis stores values as strings, so we need to `JSON.stringify()` on write and `JSON.parse()` on read
+2. node-redis v4 uses `setEx(key, seconds, value)` instead of `set(key, value, { ex: seconds })`
 
 ---
 
@@ -78,21 +86,17 @@ async function cacheRoute(key, data) {
 
 ### Required Variables
 
-**Production:**
+**Production & Preview:**
+Vercel automatically sets this when you connect Redis Cloud via Marketplace:
 ```bash
 REDIS_URL="redis://default:***@redis-11835.c296.ap-southeast-2-1.ec2.redns.redis-cloud.com:11835"
 ```
 
-**Preview:**
-```bash
-REDIS_URL="redis://default:***@redis-11835.c296.ap-southeast-2-1.ec2.redns.redis-cloud.com:11835"
-```
-
-**Note**: `REDIS_TOKEN` is optional as it can be included in the URL.
+**Note**: This is Redis Cloud's native protocol (redis://), not REST API. Works with standard `redis` npm package.
 
 ### Setup in Vercel
 
-1. ✅ Marketplace Integration: Upstash Redis
+1. ✅ Marketplace Integration: Redis Cloud (redis.com)
 2. ✅ Preview Database: Created
 3. ✅ Production Database: Created
 4. ✅ Environment Variables: Auto-configured

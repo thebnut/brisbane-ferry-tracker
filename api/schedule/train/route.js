@@ -9,17 +9,20 @@
  * Completely separate from ferry production systems
  */
 
-import { createClient } from '@vercel/redis';
+import { createClient } from 'redis';
 import { list, head } from '@vercel/blob';
 
 const CACHE_TTL = 300; // 5 minutes in seconds
 const DEFAULT_HOURS = 24; // Default time window for departures
 
-// Initialize Redis client
+// Initialize Redis Cloud client
+// Uses REDIS_URL from environment (redis://...)
 const redis = createClient({
-  url: process.env.REDIS_URL,
-  token: process.env.REDIS_TOKEN,
+  url: process.env.REDIS_URL
 });
+
+// Connect to Redis (required for node-redis v4+)
+redis.connect().catch(console.error);
 
 export const config = {
   runtime: 'edge', // Use edge runtime for fast response times
@@ -155,7 +158,8 @@ async function getCachedRoute(key) {
 async function cacheRoute(key, data) {
   try {
     // Redis requires string values, so stringify the data
-    await redis.set(key, JSON.stringify(data), { ex: CACHE_TTL });
+    // node-redis v4 uses setEx for setting with expiration
+    await redis.setEx(key, CACHE_TTL, JSON.stringify(data));
     console.log(`[CACHED] ${key} for ${CACHE_TTL}s`);
   } catch (error) {
     console.error('Cache write error:', error);
