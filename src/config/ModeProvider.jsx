@@ -33,7 +33,32 @@ export function ModeProvider({ children, overrideMode = null }) {
           ...modeConfig,
           // Add helper methods
           getServiceType: (routeId) => {
-            return modeConfig.data.gtfs.routeCategories[routeId] || {
+            if (!routeId) {
+              return {
+                id: 'unknown',
+                name: 'Unknown',
+                icon: '🚌',
+                color: 'bg-gray-500',
+                borderColor: 'border-gray-500',
+                isExpress: false,
+                priority: 999
+              };
+            }
+
+            // Try exact match first
+            if (modeConfig.data.gtfs.routeCategories[routeId]) {
+              return modeConfig.data.gtfs.routeCategories[routeId];
+            }
+
+            // Try prefix match (e.g., F11-xxx → F11)
+            for (const [key, value] of Object.entries(modeConfig.data.gtfs.routeCategories)) {
+              if (routeId.startsWith(key)) {
+                return value;
+              }
+            }
+
+            // Fallback
+            return {
               id: 'unknown',
               name: 'Unknown',
               icon: '🚌',

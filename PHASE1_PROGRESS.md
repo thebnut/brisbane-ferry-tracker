@@ -82,16 +82,21 @@ setInterval(refresh, interval); // ✅ Works!
 ## Testing Checklist
 
 ### Pre-Deployment Tests
-- [ ] Dev server starts without errors (http://localhost:5173)
-- [ ] All 19 ferry terminals selectable
-- [ ] Departures load correctly
-- [ ] Live map shows ferries
-- [ ] Countdown timers working
-- [ ] Real-time updates every 5 minutes
-- [ ] No console errors
-- [ ] No infinite loops (monitor DevTools for 10 min)
-- [ ] Memory usage stable (< 100MB after 10 min)
-- [ ] Ferry functionality identical to production
+- [Y] Dev server starts without errors (http://localhost:5173)
+- [Y] All 19 ferry terminals selectable
+When selecting bulimba on apollo road and northshore selectable, no upstream stops
+- [Y] Departures load correctly
+Scheduled (zip) departures not loading, only live
+- [Y] Live map shows ferries
+Live map doesnt load
+- [Y] Countdown timers working
+- [Y] Real-time updates every 5 minutes
+- [N] No console errors
+Errors in console at end of doc
+- [Y] No infinite loops (monitor DevTools for 10 min)
+- [Y] Memory usage stable (< 100MB after 10 min)
+- [N] Ferry functionality identical to production
+The only issues are the that the logo no longer shows (in localhost version or preview on vercel). Also all the ferries are showing as bus icons and rather than all-stops / express / cross river, it shows Unknown for the route type.
 
 ### Performance Tests
 - [ ] Page load < 3 seconds
@@ -186,3 +191,6 @@ git push origin main --force
 ---
 
 *This document will be updated as testing progresses*
+
+One console error:
+www.googletagmanager.com/gtag/js?id=G-MEG3CX0SFC:1  Failed to load resource: net::ERR_BLOCKED_BY_CONTENT_BLOCKER

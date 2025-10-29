@@ -15,11 +15,21 @@ const Navigation = ({ onOpenSettings }) => {
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex items-center justify-between py-1">
           <div className="flex items-start">
-            <img
-              src={branding.logo.src}
-              alt={branding.logo.alt}
-              className={`${branding.logo.height} w-auto max-w-[280px] md:max-w-none`}
-            />
+            {branding.logo.src ? (
+              <img
+                src={branding.logo.src}
+                alt={branding.logo.alt}
+                className={`${branding.logo.height} w-auto max-w-[280px] md:max-w-none`}
+                onError={(e) => {
+                  // If image fails to load, hide it and show text
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'block';
+                }}
+              />
+            ) : null}
+            <h1 className="text-2xl md:text-4xl font-bold text-ferry-orange hidden" style={{ display: branding.logo.src ? 'none' : 'block' }}>
+              {config?.mode?.name || 'Brisbane Ferry Tracker'}
+            </h1>
           </div>
           <div className="flex items-center space-x-2 md:space-x-3">
             <button

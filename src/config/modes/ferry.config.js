@@ -14,11 +14,11 @@ export const FERRY_CONFIG = {
   // Visual Identity
   branding: {
     logo: {
-      src: '/bf.com_logo_text.png',
+      src: '/brisbaneferry_logo.png',
       alt: 'Brisbane Ferry Tracker',
       height: 'h-16 md:h-28'
     },
-    favicon: '/bf_favicon.png',
+    favicon: '/favicon.ico',
     theme: {
       primary: 'ferry-orange',
       secondary: 'ferry-blue',
