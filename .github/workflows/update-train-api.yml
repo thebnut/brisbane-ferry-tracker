@@ -1,0 +1,65 @@
+name: Update Train API Schedules
+
+# Phase 2: API Infrastructure
+# Separate workflow from ferry production (update-schedule.yml)
+# Uploads to Vercel Blob Storage, NOT git repository
+
+on:
+  schedule:
+    # Run daily at 3:30 AM AEST (17:30 UTC)
+    # 30 minutes after ferry update to avoid conflicts
+    - cron: '30 17 * * *'
+  workflow_dispatch: # Allow manual triggering for testing
+
+jobs:
+  update-train-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: mode-abstraction-v2 # Use development branch, not main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install schedule processor dependencies
+        run: |
+          cd schedule-processor
+          npm install
+
+      - name: Generate train route files
+        env:
+          # Vercel Blob Storage token (required)
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: |
+          cd schedule-processor
+          node process-schedule-api.js
+
+      - name: Upload execution summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: train-api-update-log
+          path: schedule-processor/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # Note: NO git commit/push
+      # All data uploaded to Vercel Blob Storage
+      # Ferry production workflow (update-schedule.yml) unchanged
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "✅ Train API schedules updated successfully"
+          echo "📊 Route files uploaded to Vercel Blob Storage"
+          echo "🚢 Ferry production workflow unaffected"
+          echo "🌐 API endpoint: /api/schedule/train/route"
