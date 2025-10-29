@@ -30,33 +30,41 @@ schedule-data/                        🔒 NO CHANGES
 
 ## 🚀 Next Steps: Vercel Infrastructure Setup
 
-### Step 1: Initialize Vercel KV (Redis Cache)
+### Step 1: Initialize Redis (via Vercel Marketplace) ✅ COMPLETE
 
-**Via Vercel Dashboard:**
+**Note**: Vercel KV has been deprecated. We now use Redis via Vercel Marketplace integration.
+
+**Setup via Vercel Marketplace:**
 1. Go to https://vercel.com/dashboard
 2. Select project: `brisbane-ferry-tracker`
-3. Navigate to: **Storage** tab
-4. Click: **Create Database**
-5. Choose: **KV (Redis)**
+3. Navigate to: **Integrations** → **Browse Marketplace**
+4. Search for: **Redis** (Upstash Redis recommended)
+5. Click: **Add Integration**
 6. Configure:
    - Name: `brisbane-transit-cache`
-   - Region: **Sydney** (ap-southeast-2) - closest to Brisbane
-   - Tier: **Free tier** (included in Pro)
-7. Click: **Create**
+   - Region: **ap-southeast-2** (Sydney - closest to Brisbane)
+   - Plan: **Free tier** (30MB storage, $0/month)
+7. Connect to your project
 8. Environment variables auto-created:
-   - `KV_REST_API_URL`
-   - `KV_REST_API_TOKEN`
+   - `REDIS_URL`
+   - `REDIS_TOKEN` (optional, may be included in URL)
 
 **Verification:**
 ```bash
-vercel env ls | grep KV_
+vercel env ls | grep REDIS_
 ```
 
 Expected output:
 ```
-KV_REST_API_URL       Encrypted  Production, Preview, Development
-KV_REST_API_TOKEN     Encrypted  Production, Preview, Development
+REDIS_URL             Encrypted  Production, Preview, Development
+REDIS_TOKEN           Encrypted  Production, Preview, Development
 ```
+
+**Your Redis Setup:**
+- Preview DB: ✅ Created
+- Production DB: ✅ Created
+- Free tier: 30MB (sufficient for 5,000+ routes)
+- Cost: **$0/month** (well within limits)
 
 ---
 

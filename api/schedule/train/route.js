@@ -9,11 +9,17 @@
  * Completely separate from ferry production systems
  */
 
-import { kv } from '@vercel/kv';
+import { createClient } from '@vercel/redis';
 import { list, head } from '@vercel/blob';
 
 const CACHE_TTL = 300; // 5 minutes in seconds
 const DEFAULT_HOURS = 24; // Default time window for departures
+
+// Initialize Redis client
+const redis = createClient({
+  url: process.env.REDIS_URL,
+  token: process.env.REDIS_TOKEN,
+});
 
 export const config = {
   runtime: 'edge', // Use edge runtime for fast response times
@@ -123,11 +129,11 @@ export default async function handler(req) {
 }
 
 /**
- * Get cached route data from Vercel KV
+ * Get cached route data from Redis
  */
 async function getCachedRoute(key) {
   try {
-    const cached = await kv.get(key);
+    const cached = await redis.get(key);
 
     if (!cached) {
       console.log(`[CACHE MISS] ${key}`);
@@ -135,7 +141,8 @@ async function getCachedRoute(key) {
     }
 
     console.log(`[CACHE HIT] ${key}`);
-    return cached;
+    // Redis stores as string, parse back to object
+    return JSON.parse(cached);
   } catch (error) {
     console.error('Cache read error:', error);
     return null; // Fail gracefully
@@ -143,11 +150,12 @@ async function getCachedRoute(key) {
 }
 
 /**
- * Cache route data in Vercel KV
+ * Cache route data in Redis
  */
 async function cacheRoute(key, data) {
   try {
-    await kv.set(key, data, { ex: CACHE_TTL });
+    // Redis requires string values, so stringify the data
+    await redis.set(key, JSON.stringify(data), { ex: CACHE_TTL });
     console.log(`[CACHED] ${key} for ${CACHE_TTL}s`);
   } catch (error) {
     console.error('Cache write error:', error);
