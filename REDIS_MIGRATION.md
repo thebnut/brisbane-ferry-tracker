@@ -79,6 +79,7 @@ async function cacheRoute(key, data) {
 **Key Differences**:
 1. Redis stores values as strings, so we need to `JSON.stringify()` on write and `JSON.parse()` on read
 2. node-redis v4 uses `setEx(key, seconds, value)` instead of `set(key, value, { ex: seconds })`
+3. **Runtime changed from Edge to Node.js** - native Redis requires TCP connections (Node.js only)
 
 ---
 

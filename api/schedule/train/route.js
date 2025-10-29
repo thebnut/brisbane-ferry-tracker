@@ -7,6 +7,10 @@
  *
  * Phase 2: API Infrastructure
  * Completely separate from ferry production systems
+ *
+ * Runtime: Node.js (not Edge)
+ * Reason: Redis Cloud uses native protocol (TCP) which requires Node.js modules
+ * Performance: ~100-200ms response (still fast, benefits from Redis caching)
  */
 
 import { createClient } from 'redis';
@@ -25,7 +29,7 @@ const redis = createClient({
 redis.connect().catch(console.error);
 
 export const config = {
-  runtime: 'edge', // Use edge runtime for fast response times
+  runtime: 'nodejs', // Edge runtime doesn't support native Redis (TCP connections)
 };
 
 /**
