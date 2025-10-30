@@ -14,10 +14,19 @@
  */
 
 import { createClient } from 'redis';
+import https from 'https';
 // Note: Not using @vercel/blob SDK - fetching directly via public URLs
 
 const CACHE_TTL = 300; // 5 minutes in seconds
 const DEFAULT_HOURS = 24; // Default time window for departures
+
+// HTTP agent for connection reuse (reduces latency)
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 5,
+  maxFreeSockets: 2
+});
 
 // Lazy Redis connection (singleton pattern)
 // Avoids reconnecting on every serverless invocation
@@ -108,36 +117,48 @@ export default async function handler(req) {
       }, 400);
     }
 
-    // TEMPORARY: Disable cache for debugging
-    // Check cache first (with timeout)
+    // Optimized parallel fetch: race cache against blob
     const cacheKey = `train:route:${origin}:${destination}:${date}:${hours}`;
-    console.log(`[TIMING] Skipping cache (disabled for debugging) at ${Date.now() - startTime}ms`);
+    console.log(`[TIMING] Starting parallel cache+blob fetch at ${Date.now() - startTime}ms`);
 
-    // const cached = await Promise.race([
-    //   getCachedRoute(cacheKey),
-    //   new Promise(resolve => setTimeout(() => {
-    //     console.log('[CACHE] Timeout after 3s, continuing without cache');
-    //     resolve(null);
-    //   }, 3000))
-    // ]);
+    // Start blob fetch immediately (don't wait for cache)
+    const blobPromise = fetchRouteFromBlob(origin, destination);
 
-    // if (cached) {
-    //   const responseTime = Date.now() - startTime;
-    //   console.log(`[TIMING] Cache hit, returning at ${responseTime}ms`);
-    //   return jsonResponse({
-    //     ...cached,
-    //     meta: {
-    //       cached: true,
-    //       responseTime: `${responseTime}ms`,
-    //       cacheKey
-    //     }
-    //   });
-    // }
+    // Also try cache with aggressive timeout
+    const cachePromise = Promise.race([
+      getCachedRoute(cacheKey),
+      new Promise(resolve => setTimeout(() => {
+        console.log('[CACHE] Timeout after 2s, using blob result');
+        resolve(null);
+      }, 2000))
+    ]).catch(err => {
+      console.error('[CACHE] Error, falling back to blob:', err.message);
+      return null;
+    });
 
-    console.log(`[TIMING] Fetching blob at ${Date.now() - startTime}ms`);
+    // Wait for cache with short timeout, but don't block blob
+    const cached = await Promise.race([
+      cachePromise,
+      new Promise(resolve => setTimeout(() => resolve(null), 500)) // 500ms quick check
+    ]);
 
-    // Fetch from Blob Storage
-    const routeData = await fetchRouteFromBlob(origin, destination);
+    if (cached) {
+      const responseTime = Date.now() - startTime;
+      console.log(`[TIMING] Cache hit in ${responseTime}ms, returning immediately`);
+      return jsonResponse({
+        ...cached,
+        meta: {
+          cached: true,
+          responseTime: `${responseTime}ms`,
+          cacheKey
+        }
+      });
+    }
+
+    console.log(`[TIMING] Cache miss, waiting for blob at ${Date.now() - startTime}ms`);
+
+    // Cache miss - wait for blob
+    const routeData = await blobPromise;
     console.log(`[TIMING] Blob fetched at ${Date.now() - startTime}ms`);
 
     if (!routeData) {
@@ -170,12 +191,11 @@ export default async function handler(req) {
       validUntil: new Date(Date.now() + CACHE_TTL * 1000).toISOString()
     };
 
-    // TEMPORARY: Disable cache write for debugging
-    // Cache the response (async, don't wait)
-    console.log(`[TIMING] Skipping cache write (disabled for debugging) at ${Date.now() - startTime}ms`);
-    // cacheRoute(cacheKey, response).catch(err =>
-    //   console.error('[CACHE] Write failed:', err.message)
-    // );
+    // Cache the response (async, fire-and-forget - don't block response)
+    console.log(`[TIMING] Starting async cache write at ${Date.now() - startTime}ms`);
+    cacheRoute(cacheKey, response).catch(err =>
+      console.error('[CACHE] Write failed:', err.message)
+    );
 
     const responseTime = Date.now() - startTime;
     return jsonResponse({
@@ -250,9 +270,9 @@ async function fetchRouteFromBlob(origin, destination) {
 
     console.log(`[BLOB] Fetching directly: ${blobUrl}`);
 
-    // Fetch directly with timeout
+    // Fetch directly with timeout and connection reuse
     const response = await Promise.race([
-      fetch(blobUrl),
+      fetch(blobUrl, { agent: httpsAgent }),
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Blob fetch timeout after 10s')), 10000)
       )
