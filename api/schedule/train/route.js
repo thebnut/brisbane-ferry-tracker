@@ -108,32 +108,33 @@ export default async function handler(req) {
       }, 400);
     }
 
+    // TEMPORARY: Disable cache for debugging
     // Check cache first (with timeout)
     const cacheKey = `train:route:${origin}:${destination}:${date}:${hours}`;
-    console.log(`[TIMING] Starting cache check at ${Date.now() - startTime}ms`);
+    console.log(`[TIMING] Skipping cache (disabled for debugging) at ${Date.now() - startTime}ms`);
 
-    const cached = await Promise.race([
-      getCachedRoute(cacheKey),
-      new Promise(resolve => setTimeout(() => {
-        console.log('[CACHE] Timeout after 3s, continuing without cache');
-        resolve(null);
-      }, 3000))
-    ]);
+    // const cached = await Promise.race([
+    //   getCachedRoute(cacheKey),
+    //   new Promise(resolve => setTimeout(() => {
+    //     console.log('[CACHE] Timeout after 3s, continuing without cache');
+    //     resolve(null);
+    //   }, 3000))
+    // ]);
 
-    if (cached) {
-      const responseTime = Date.now() - startTime;
-      console.log(`[TIMING] Cache hit, returning at ${responseTime}ms`);
-      return jsonResponse({
-        ...cached,
-        meta: {
-          cached: true,
-          responseTime: `${responseTime}ms`,
-          cacheKey
-        }
-      });
-    }
+    // if (cached) {
+    //   const responseTime = Date.now() - startTime;
+    //   console.log(`[TIMING] Cache hit, returning at ${responseTime}ms`);
+    //   return jsonResponse({
+    //     ...cached,
+    //     meta: {
+    //       cached: true,
+    //       responseTime: `${responseTime}ms`,
+    //       cacheKey
+    //     }
+    //   });
+    // }
 
-    console.log(`[TIMING] Cache miss, fetching blob at ${Date.now() - startTime}ms`);
+    console.log(`[TIMING] Fetching blob at ${Date.now() - startTime}ms`);
 
     // Fetch from Blob Storage
     const routeData = await fetchRouteFromBlob(origin, destination);
@@ -169,11 +170,12 @@ export default async function handler(req) {
       validUntil: new Date(Date.now() + CACHE_TTL * 1000).toISOString()
     };
 
+    // TEMPORARY: Disable cache write for debugging
     // Cache the response (async, don't wait)
-    console.log(`[TIMING] Starting cache write at ${Date.now() - startTime}ms`);
-    cacheRoute(cacheKey, response).catch(err =>
-      console.error('[CACHE] Write failed:', err.message)
-    );
+    console.log(`[TIMING] Skipping cache write (disabled for debugging) at ${Date.now() - startTime}ms`);
+    // cacheRoute(cacheKey, response).catch(err =>
+    //   console.error('[CACHE] Write failed:', err.message)
+    // );
 
     const responseTime = Date.now() - startTime;
     return jsonResponse({
