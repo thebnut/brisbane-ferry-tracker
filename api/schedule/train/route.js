@@ -1,5 +1,6 @@
 /**
  * Train Schedule API - Route Query Endpoint
+ * VERSION: 2.0 - URL Parsing Fixed
  *
  * Query train schedules between two stations with intelligent caching
  *
@@ -81,9 +82,11 @@ async function getRedis() {
   }
 }
 
+// Vercel function configuration
 export const config = {
   runtime: 'nodejs', // Edge runtime doesn't support native Redis (TCP connections)
   maxDuration: 60, // 60 seconds timeout
+  // Force rebuild - Version 2.0
 };
 
 /**
