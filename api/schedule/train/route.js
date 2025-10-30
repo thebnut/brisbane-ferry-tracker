@@ -14,7 +14,7 @@
  */
 
 import { createClient } from 'redis';
-import { list, head } from '@vercel/blob';
+// Note: Not using @vercel/blob SDK - fetching directly via public URLs
 
 const CACHE_TTL = 300; // 5 minutes in seconds
 const DEFAULT_HOURS = 24; // Default time window for departures
@@ -238,28 +238,40 @@ async function cacheRoute(key, data) {
 
 /**
  * Fetch route data from Vercel Blob Storage
+ * Uses direct public URL to bypass head() which was timing out
  */
 async function fetchRouteFromBlob(origin, destination) {
   try {
     const blobKey = `train-${origin}-${destination}.json`;
 
-    // Try to get the blob
-    const blob = await head(blobKey);
+    // Construct direct public blob URL
+    // Pattern from existing blobs: https://qbd1awgw2y6szl69.public.blob.vercel-storage.com/{filename}
+    const blobUrl = `https://qbd1awgw2y6szl69.public.blob.vercel-storage.com/${blobKey}`;
 
-    if (!blob) {
-      console.log(`[BLOB NOT FOUND] ${blobKey}`);
-      return null;
+    console.log(`[BLOB] Fetching directly: ${blobUrl}`);
+
+    // Fetch directly with timeout
+    const response = await Promise.race([
+      fetch(blobUrl),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Blob fetch timeout after 10s')), 10000)
+      )
+    ]);
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`[BLOB NOT FOUND] ${blobKey}`);
+        return null;
+      }
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    // Fetch the actual data
-    const response = await fetch(blob.url);
     const data = await response.json();
-
     console.log(`[BLOB FOUND] ${blobKey} - ${data.departures?.length || 0} departures`);
     return data;
 
   } catch (error) {
-    console.error('Blob fetch error:', error);
+    console.error(`[BLOB ERROR] ${error.message}`);
     return null;
   }
 }
