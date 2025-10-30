@@ -52,8 +52,8 @@ export const TRAIN_CONFIG = {
         stopIds: station.stopIds // All platform IDs for this station
       })),
       defaults: {
-        origin: '600016',   // Central station
-        destination: '600029' // Roma Street station
+        origin: '600005',   // Popular route that exists in blob storage
+        destination: '600014' // Popular route that exists in blob storage
       }
     }
   },
