@@ -5,6 +5,9 @@
     },
     "api/feedback.js": {
       "maxDuration": 10
+    },
+    "api/schedule/train/route.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [

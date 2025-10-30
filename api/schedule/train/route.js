@@ -19,14 +19,58 @@ import { list, head } from '@vercel/blob';
 const CACHE_TTL = 300; // 5 minutes in seconds
 const DEFAULT_HOURS = 24; // Default time window for departures
 
-// Initialize Redis Cloud client
-// Uses REDIS_URL from environment (redis://...)
-const redis = createClient({
-  url: process.env.REDIS_URL
-});
+// Lazy Redis connection (singleton pattern)
+// Avoids reconnecting on every serverless invocation
+let redisClient = null;
+let redisConnecting = false;
 
-// Connect to Redis (required for node-redis v4+)
-redis.connect().catch(console.error);
+async function getRedis() {
+  // Return existing connected client
+  if (redisClient?.isOpen) {
+    return redisClient;
+  }
+
+  // Wait if connection is in progress
+  if (redisConnecting) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return getRedis(); // Retry after waiting
+  }
+
+  try {
+    redisConnecting = true;
+
+    // Create new client with timeout configuration
+    redisClient = createClient({
+      url: process.env.REDIS_URL,
+      socket: {
+        connectTimeout: 5000, // 5 second timeout
+        keepAlive: 5000,
+        reconnectStrategy: (retries) => {
+          // Exponential backoff up to 3 seconds
+          return Math.min(retries * 100, 3000);
+        }
+      }
+    });
+
+    // Connect with timeout
+    await Promise.race([
+      redisClient.connect(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Redis connection timeout')), 5000)
+      )
+    ]);
+
+    console.log('[REDIS] Connected successfully');
+    return redisClient;
+
+  } catch (error) {
+    console.error('[REDIS] Connection failed:', error.message);
+    redisClient = null;
+    throw error;
+  } finally {
+    redisConnecting = false;
+  }
+}
 
 export const config = {
   runtime: 'nodejs', // Edge runtime doesn't support native Redis (TCP connections)
@@ -140,6 +184,7 @@ export default async function handler(req) {
  */
 async function getCachedRoute(key) {
   try {
+    const redis = await getRedis();
     const cached = await redis.get(key);
 
     if (!cached) {
@@ -151,8 +196,8 @@ async function getCachedRoute(key) {
     // Redis stores as string, parse back to object
     return JSON.parse(cached);
   } catch (error) {
-    console.error('Cache read error:', error);
-    return null; // Fail gracefully
+    console.error('[CACHE] Read error:', error.message);
+    return null; // Fail gracefully - continue without cache
   }
 }
 
@@ -161,12 +206,13 @@ async function getCachedRoute(key) {
  */
 async function cacheRoute(key, data) {
   try {
+    const redis = await getRedis();
     // Redis requires string values, so stringify the data
     // node-redis v4 uses setEx for setting with expiration
     await redis.setEx(key, CACHE_TTL, JSON.stringify(data));
     console.log(`[CACHED] ${key} for ${CACHE_TTL}s`);
   } catch (error) {
-    console.error('Cache write error:', error);
+    console.error('[CACHE] Write error:', error.message);
     // Don't fail the request if caching fails
   }
 }
