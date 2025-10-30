@@ -93,11 +93,11 @@ export default async function handler(req) {
   const startTime = Date.now();
 
   try {
-    // Parse URL - Vercel provides full URL in req.url for newer runtime
-    // For compatibility, construct full URL if needed
+    // Parse URL - Vercel provides path in req.url, need to construct full URL
+    const host = req.headers.host || req.headers.Host || 'localhost';
     const url = req.url.startsWith('http')
       ? new URL(req.url)
-      : new URL(req.url, `https://${req.headers.get('host') || 'localhost'}`);
+      : new URL(req.url, `https://${host}`);
 
     const { searchParams } = url;
     const origin = searchParams.get('origin');
