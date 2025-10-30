@@ -108,12 +108,21 @@ export default async function handler(req) {
       }, 400);
     }
 
-    // Check cache first
+    // Check cache first (with timeout)
     const cacheKey = `train:route:${origin}:${destination}:${date}:${hours}`;
-    const cached = await getCachedRoute(cacheKey);
+    console.log(`[TIMING] Starting cache check at ${Date.now() - startTime}ms`);
+
+    const cached = await Promise.race([
+      getCachedRoute(cacheKey),
+      new Promise(resolve => setTimeout(() => {
+        console.log('[CACHE] Timeout after 3s, continuing without cache');
+        resolve(null);
+      }, 3000))
+    ]);
 
     if (cached) {
       const responseTime = Date.now() - startTime;
+      console.log(`[TIMING] Cache hit, returning at ${responseTime}ms`);
       return jsonResponse({
         ...cached,
         meta: {
@@ -124,8 +133,11 @@ export default async function handler(req) {
       });
     }
 
+    console.log(`[TIMING] Cache miss, fetching blob at ${Date.now() - startTime}ms`);
+
     // Fetch from Blob Storage
     const routeData = await fetchRouteFromBlob(origin, destination);
+    console.log(`[TIMING] Blob fetched at ${Date.now() - startTime}ms`);
 
     if (!routeData) {
       return jsonResponse({
@@ -138,7 +150,9 @@ export default async function handler(req) {
     }
 
     // Filter departures by time window
+    console.log(`[TIMING] Filtering departures at ${Date.now() - startTime}ms`);
     const filteredData = filterDeparturesByTime(routeData, hours);
+    console.log(`[TIMING] Filtered ${filteredData.departures.length} departures at ${Date.now() - startTime}ms`);
 
     // Prepare response
     const response = {
@@ -155,8 +169,11 @@ export default async function handler(req) {
       validUntil: new Date(Date.now() + CACHE_TTL * 1000).toISOString()
     };
 
-    // Cache the response
-    await cacheRoute(cacheKey, response);
+    // Cache the response (async, don't wait)
+    console.log(`[TIMING] Starting cache write at ${Date.now() - startTime}ms`);
+    cacheRoute(cacheKey, response).catch(err =>
+      console.error('[CACHE] Write failed:', err.message)
+    );
 
     const responseTime = Date.now() - startTime;
     return jsonResponse({
