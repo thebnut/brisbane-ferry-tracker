@@ -33,30 +33,36 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Try to load from static GTFS service first
+
+      const modeId = mode?.mode?.id;
       let stops = [];
       let useTemporaryData = true;
-      
-      if (!staticGtfsService.hasStopsData()) {
-        try {
-          await staticGtfsService.getScheduledDepartures();
-        } catch (e) {
-          console.warn('Could not load schedule data, using temporary stops');
-        }
-      }
-      
-      stops = staticGtfsService.getAvailableStops();
-      if (stops.length > 0) {
+
+      // Train mode: Use stops from mode config
+      if (modeId === 'train') {
+        stops = mode.data.stops.list || [];
         useTemporaryData = false;
       } else {
-        // Use temporary ferry stops data as fallback
-        stops = Object.entries(FERRY_STOPS).map(([id, stop]) => ({
-          id,
-          name: stop.name,
-          lat: stop.lat,
-          lng: stop.lng
-        })).sort((a, b) => a.name.localeCompare(b.name));
+        // Ferry mode: Try to load from static GTFS service first
+        if (!staticGtfsService.hasStopsData()) {
+          try {
+            await staticGtfsService.getScheduledDepartures();
+          } catch (e) {
+            console.warn('Could not load schedule data, using temporary stops');
+          }
+        }
+
+        stops = staticGtfsService.getAvailableStops();
+        if (stops.length > 0) {
+          useTemporaryData = false;
+        } else {
+          // Use temporary ferry stops data as fallback
+          stops = Object.entries(FERRY_STOPS).map(([id, stop]) => ({
+            id,
+            name: stop.name,
+            lat: stop.lat,
+            lng: stop.lng
+          })).sort((a, b) => a.name.localeCompare(b.name));
       }
       
       // Sort stops alphabetically by name
@@ -65,7 +71,10 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       
       // Get valid destinations
       let destinations = [];
-      if (useTemporaryData) {
+      if (modeId === 'train') {
+        // Train mode: All stations are valid destinations
+        destinations = stops.map(s => s.id);
+      } else if (useTemporaryData) {
         destinations = TEMPORARY_CONNECTIVITY[selectedOrigin] || [];
       } else {
         destinations = staticGtfsService.getValidDestinations(selectedOrigin);
@@ -89,16 +98,23 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   // Update valid destinations when origin changes
   useEffect(() => {
     if (selectedOrigin && availableStops.length > 0) {
-      // Check if we're using temporary data
-      const hasRealData = staticGtfsService.hasStopsData();
+      const modeId = mode?.mode?.id;
       let destinations = [];
-      
-      if (hasRealData) {
-        destinations = staticGtfsService.getValidDestinations(selectedOrigin);
+
+      if (modeId === 'train') {
+        // Train mode: All stations are valid destinations
+        destinations = availableStops.map(s => s.id);
       } else {
-        destinations = TEMPORARY_CONNECTIVITY[selectedOrigin] || [];
+        // Ferry mode: Check if we're using temporary data
+        const hasRealData = staticGtfsService.hasStopsData();
+
+        if (hasRealData) {
+          destinations = staticGtfsService.getValidDestinations(selectedOrigin);
+        } else {
+          destinations = TEMPORARY_CONNECTIVITY[selectedOrigin] || [];
+        }
       }
-      
+
       setValidDestinations(destinations);
       
       // Reset destination if not valid for new origin
