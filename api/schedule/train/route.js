@@ -93,11 +93,17 @@ export default async function handler(req) {
   const startTime = Date.now();
 
   try {
+    console.log('[DEBUG] Handler started, req.url:', req.url);
+    console.log('[DEBUG] req.headers.host:', req.headers?.host);
+
     // Parse URL - Vercel provides path in req.url, need to construct full URL
     const host = req.headers.host || req.headers.Host || 'localhost';
-    const url = req.url.startsWith('http')
-      ? new URL(req.url)
-      : new URL(req.url, `https://${host}`);
+    const fullUrl = req.url.startsWith('http')
+      ? req.url
+      : `https://${host}${req.url}`;
+
+    console.log('[DEBUG] Parsed URL:', fullUrl);
+    const url = new URL(fullUrl);
 
     const { searchParams } = url;
     const origin = searchParams.get('origin');
