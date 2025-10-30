@@ -93,7 +93,13 @@ export default async function handler(req) {
   const startTime = Date.now();
 
   try {
-    const { searchParams } = new URL(req.url);
+    // Parse URL - Vercel provides full URL in req.url for newer runtime
+    // For compatibility, construct full URL if needed
+    const url = req.url.startsWith('http')
+      ? new URL(req.url)
+      : new URL(req.url, `https://${req.headers.get('host') || 'localhost'}`);
+
+    const { searchParams } = url;
     const origin = searchParams.get('origin');
     const destination = searchParams.get('destination');
     const hours = parseInt(searchParams.get('hours') || String(DEFAULT_HOURS), 10);
