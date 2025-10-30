@@ -63,8 +63,9 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
             lat: stop.lat,
             lng: stop.lng
           })).sort((a, b) => a.name.localeCompare(b.name));
+        }
       }
-      
+
       // Sort stops alphabetically by name
       const sortedStops = [...stops].sort((a, b) => a.name.localeCompare(b.name));
       setAvailableStops(sortedStops);
