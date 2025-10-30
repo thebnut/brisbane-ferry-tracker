@@ -7,7 +7,11 @@
       "maxDuration": 10
     },
     "api/schedule/train/route.js": {
-      "maxDuration": 30
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "api/schedule/train/test.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [

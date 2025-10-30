@@ -83,6 +83,7 @@ async function getRedis() {
 
 export const config = {
   runtime: 'nodejs', // Edge runtime doesn't support native Redis (TCP connections)
+  maxDuration: 60, // 60 seconds timeout
 };
 
 /**

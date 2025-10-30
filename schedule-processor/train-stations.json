@@ -1,0 +1,2547 @@
+{
+  "generated": "2025-10-30T08:02:49.699Z",
+  "totalStations": 363,
+  "stations": [
+    {
+      "id": "600365",
+      "name": "Albion station, platform 1",
+      "lat": -27.429359,
+      "lon": 153.040389,
+      "code": "600365"
+    },
+    {
+      "id": "600366",
+      "name": "Albion station, platform 2",
+      "lat": -27.42931,
+      "lon": 153.040437,
+      "code": "600366"
+    },
+    {
+      "id": "600367",
+      "name": "Albion station, platform 3",
+      "lat": -27.429272,
+      "lon": 153.040336,
+      "code": "600367"
+    },
+    {
+      "id": "600368",
+      "name": "Albion station, platform 4",
+      "lat": -27.42924,
+      "lon": 153.040367,
+      "code": "600368"
+    },
+    {
+      "id": "600376",
+      "name": "Alderley station, platform 1",
+      "lat": -27.42327,
+      "lon": 153.000892,
+      "code": "600376"
+    },
+    {
+      "id": "600375",
+      "name": "Alderley station, platform 2",
+      "lat": -27.423306,
+      "lon": 153.000804,
+      "code": "600375"
+    },
+    {
+      "id": "600212",
+      "name": "Altandi station, platform 1",
+      "lat": -27.582799,
+      "lon": 153.063808,
+      "code": "600212"
+    },
+    {
+      "id": "600213",
+      "name": "Altandi station, platform 2",
+      "lat": -27.582624,
+      "lon": 153.06372,
+      "code": "600213"
+    },
+    {
+      "id": "600214",
+      "name": "Altandi station, platform 3",
+      "lat": -27.58279,
+      "lon": 153.063664,
+      "code": "600214"
+    },
+    {
+      "id": "600433",
+      "name": "Ascot station, platform 1",
+      "lat": -27.429443,
+      "lon": 153.06338,
+      "code": "600433"
+    },
+    {
+      "id": "600283",
+      "name": "Auchenflower station, platform 1",
+      "lat": -27.476098,
+      "lon": 152.996936,
+      "code": "600283"
+    },
+    {
+      "id": "600284",
+      "name": "Auchenflower station, platform 2",
+      "lat": -27.476127,
+      "lon": 152.996928,
+      "code": "600284"
+    },
+    {
+      "id": "600285",
+      "name": "Auchenflower station, platform 3",
+      "lat": -27.4761,
+      "lon": 152.996863,
+      "code": "600285"
+    },
+    {
+      "id": "600286",
+      "name": "Auchenflower station, platform 4",
+      "lat": -27.47607,
+      "lon": 152.996875,
+      "code": "600286"
+    },
+    {
+      "id": "600452",
+      "name": "Bald Hills station, platform 1",
+      "lat": -27.320861,
+      "lon": 153.011313,
+      "code": "600452"
+    },
+    {
+      "id": "600453",
+      "name": "Bald Hills station, platform 2",
+      "lat": -27.320967,
+      "lon": 153.011155,
+      "code": "600453"
+    },
+    {
+      "id": "600454",
+      "name": "Bald Hills station, platform 3",
+      "lat": -27.32112,
+      "lon": 153.011349,
+      "code": "600454"
+    },
+    {
+      "id": "600206",
+      "name": "Banoon station, platform 1",
+      "lat": -27.576523,
+      "lon": 153.046707,
+      "code": "600206"
+    },
+    {
+      "id": "600207",
+      "name": "Banoon station, platform 2",
+      "lat": -27.576643,
+      "lon": 153.046617,
+      "code": "600207"
+    },
+    {
+      "id": "600208",
+      "name": "Banoon station, platform 3",
+      "lat": -27.57627,
+      "lon": 153.04624,
+      "code": "600208"
+    },
+    {
+      "id": "600413",
+      "name": "Banyo station, platform 1",
+      "lat": -27.374379,
+      "lon": 153.077503,
+      "code": "600413"
+    },
+    {
+      "id": "600414",
+      "name": "Banyo station, platform 2",
+      "lat": -27.374555,
+      "lon": 153.077396,
+      "code": "600414"
+    },
+    {
+      "id": "600239",
+      "name": "Beenleigh station, platform 1",
+      "lat": -27.717459,
+      "lon": 153.204539,
+      "code": "600239"
+    },
+    {
+      "id": "600240",
+      "name": "Beenleigh station, platform 2",
+      "lat": -27.717539,
+      "lon": 153.204472,
+      "code": "600240"
+    },
+    {
+      "id": "600482",
+      "name": "Beerburrum station, platform 1",
+      "lat": -26.959931,
+      "lon": 152.959007,
+      "code": "600482"
+    },
+    {
+      "id": "600481",
+      "name": "Beerburrum station, platform 2",
+      "lat": -26.959732,
+      "lon": 152.95904,
+      "code": "600481"
+    },
+    {
+      "id": "600485",
+      "name": "Beerwah station, platform 1",
+      "lat": -26.857091,
+      "lon": 152.958355,
+      "code": "600485"
+    },
+    {
+      "id": "600486",
+      "name": "Beerwah station, platform 2",
+      "lat": -26.857053,
+      "lon": 152.958355,
+      "code": "600486"
+    },
+    {
+      "id": "600232",
+      "name": "Bethania station, platform 1",
+      "lat": -27.688088,
+      "lon": 153.15838,
+      "code": "600232"
+    },
+    {
+      "id": "600233",
+      "name": "Bethania station, platform 2",
+      "lat": -27.688189,
+      "lon": 153.158345,
+      "code": "600233"
+    },
+    {
+      "id": "600234",
+      "name": "Bethania station, platform 3",
+      "lat": -27.688124,
+      "lon": 153.158276,
+      "code": "600234"
+    },
+    {
+      "id": "600411",
+      "name": "Bindha station, platform 1",
+      "lat": -27.382943,
+      "lon": 153.072665,
+      "code": "600411"
+    },
+    {
+      "id": "600412",
+      "name": "Bindha station, platform 2",
+      "lat": -27.382906,
+      "lon": 153.072572,
+      "code": "600412"
+    },
+    {
+      "id": "600273",
+      "name": "Birkdale station, platform 1",
+      "lat": -27.494073,
+      "lon": 153.218722,
+      "code": "600273"
+    },
+    {
+      "id": "600085",
+      "name": "Boggo Road station, platform 1",
+      "lat": -27.493617,
+      "lon": 153.030866,
+      "code": "600085"
+    },
+    {
+      "id": "600190",
+      "name": "Boggo Road station, platform 2",
+      "lat": -27.493794,
+      "lon": 153.03081,
+      "code": "600190"
+    },
+    {
+      "id": "600191",
+      "name": "Boggo Road station, platform 3",
+      "lat": -27.493739,
+      "lon": 153.03073,
+      "code": "600191"
+    },
+    {
+      "id": "600192",
+      "name": "Boggo Road station, platform 4",
+      "lat": -27.493889,
+      "lon": 153.03071,
+      "code": "600192"
+    },
+    {
+      "id": "600417",
+      "name": "Boondall station, platform 1",
+      "lat": -27.346311,
+      "lon": 153.067589,
+      "code": "600417"
+    },
+    {
+      "id": "600418",
+      "name": "Boondall station, platform 2",
+      "lat": -27.34639,
+      "lon": 153.067662,
+      "code": "600418"
+    },
+    {
+      "id": "600343",
+      "name": "Booval station, platform 1",
+      "lat": -27.609331,
+      "lon": 152.789665,
+      "code": "600343"
+    },
+    {
+      "id": "600344",
+      "name": "Booval station, platform 2",
+      "lat": -27.609347,
+      "lon": 152.789479,
+      "code": "600344"
+    },
+    {
+      "id": "600005",
+      "name": "Bowen Hills station, platform 1",
+      "lat": -27.445402,
+      "lon": 153.037717,
+      "code": "600005"
+    },
+    {
+      "id": "600000",
+      "name": "Bowen Hills station, platform 2",
+      "lat": -27.44539,
+      "lon": 153.037634,
+      "code": "600000"
+    },
+    {
+      "id": "600002",
+      "name": "Bowen Hills station, platform 3",
+      "lat": -27.445482,
+      "lon": 153.037641,
+      "code": "600002"
+    },
+    {
+      "id": "600007",
+      "name": "Bowen Hills station, platform 4",
+      "lat": -27.445437,
+      "lon": 153.037549,
+      "code": "600007"
+    },
+    {
+      "id": "600458",
+      "name": "Bray Park station, platform 1",
+      "lat": -27.299803,
+      "lon": 152.986252,
+      "code": "600458"
+    },
+    {
+      "id": "600459",
+      "name": "Bray Park station, platform 2",
+      "lat": -27.299699,
+      "lon": 152.986217,
+      "code": "600459"
+    },
+    {
+      "id": "600460",
+      "name": "Bray Park station, platform 3",
+      "lat": -27.29972,
+      "lon": 152.986076,
+      "code": "600460"
+    },
+    {
+      "id": "600341",
+      "name": "Bundamba station, platform 1",
+      "lat": -27.607479,
+      "lon": 152.804772,
+      "code": "600341"
+    },
+    {
+      "id": "600342",
+      "name": "Bundamba station, platform 2",
+      "lat": -27.607476,
+      "lon": 152.804634,
+      "code": "600342"
+    },
+    {
+      "id": "600248",
+      "name": "Buranda station, platform 1",
+      "lat": -27.496491,
+      "lon": 153.040441,
+      "code": "600248"
+    },
+    {
+      "id": "600249",
+      "name": "Buranda station, platform 2",
+      "lat": -27.496544,
+      "lon": 153.040469,
+      "code": "600249"
+    },
+    {
+      "id": "600472",
+      "name": "Burpengary station, platform 1",
+      "lat": -27.162058,
+      "lon": 152.95724,
+      "code": "600472"
+    },
+    {
+      "id": "600473",
+      "name": "Burpengary station, platform 2",
+      "lat": -27.162009,
+      "lon": 152.957243,
+      "code": "600473"
+    },
+    {
+      "id": "600476",
+      "name": "Caboolture station, platform 1",
+      "lat": -27.0827,
+      "lon": 152.953649,
+      "code": "600476"
+    },
+    {
+      "id": "600477",
+      "name": "Caboolture station, platform 2",
+      "lat": -27.082742,
+      "lon": 152.953669,
+      "code": "600477"
+    },
+    {
+      "id": "600478",
+      "name": "Caboolture station, platform 3",
+      "lat": -27.082678,
+      "lon": 152.953866,
+      "code": "600478"
+    },
+    {
+      "id": "600256",
+      "name": "Cannon Hill station, platform 1",
+      "lat": -27.46538,
+      "lon": 153.088239,
+      "code": "600256"
+    },
+    {
+      "id": "600257",
+      "name": "Cannon Hill station, platform 2",
+      "lat": -27.465364,
+      "lon": 153.088341,
+      "code": "600257"
+    },
+    {
+      "id": "600449",
+      "name": "Carseldine station, platform 1",
+      "lat": -27.347236,
+      "lon": 153.028963,
+      "code": "600449"
+    },
+    {
+      "id": "600450",
+      "name": "Carseldine station, platform 2",
+      "lat": -27.34731,
+      "lon": 153.028831,
+      "code": "600450"
+    },
+    {
+      "id": "600451",
+      "name": "Carseldine station, platform 3",
+      "lat": -27.347488,
+      "lon": 153.028885,
+      "code": "600451"
+    },
+    {
+      "id": "600018",
+      "name": "Central station, platform 1",
+      "lat": -27.465841,
+      "lon": 153.026069,
+      "code": "600018"
+    },
+    {
+      "id": "600017",
+      "name": "Central station, platform 2",
+      "lat": -27.465769,
+      "lon": 153.025981,
+      "code": "600017"
+    },
+    {
+      "id": "600016",
+      "name": "Central station, platform 3",
+      "lat": -27.465737,
+      "lon": 153.026028,
+      "code": "600016"
+    },
+    {
+      "id": "600020",
+      "name": "Central station, platform 4",
+      "lat": -27.465687,
+      "lon": 153.025902,
+      "code": "600020"
+    },
+    {
+      "id": "600019",
+      "name": "Central station, platform 5",
+      "lat": -27.465647,
+      "lon": 153.025962,
+      "code": "600019"
+    },
+    {
+      "id": "600024",
+      "name": "Central station, platform 6",
+      "lat": -27.465594,
+      "lon": 153.025827,
+      "code": "600024"
+    },
+    {
+      "id": "600299",
+      "name": "Chelmer station, platform 1",
+      "lat": -27.512172,
+      "lon": 152.972908,
+      "code": "600299"
+    },
+    {
+      "id": "600300",
+      "name": "Chelmer station, platform 2",
+      "lat": -27.51216,
+      "lon": 152.972761,
+      "code": "600300"
+    },
+    {
+      "id": "600301",
+      "name": "Chelmer station, platform 3",
+      "lat": -27.51223,
+      "lon": 152.972761,
+      "code": "600301"
+    },
+    {
+      "id": "600302",
+      "name": "Chelmer station, platform 4",
+      "lat": -27.512188,
+      "lon": 152.972629,
+      "code": "600302"
+    },
+    {
+      "id": "600430",
+      "name": "Clayfield station, platform 1",
+      "lat": -27.418015,
+      "lon": 153.057614,
+      "code": "600430"
+    },
+    {
+      "id": "600277",
+      "name": "Cleveland station, platform 1",
+      "lat": -27.524199,
+      "lon": 153.265926,
+      "code": "600277"
+    },
+    {
+      "id": "600278",
+      "name": "Cleveland station, platform 2",
+      "lat": -27.524287,
+      "lon": 153.265929,
+      "code": "600278"
+    },
+    {
+      "id": "600243",
+      "name": "Coomera station, platform 1",
+      "lat": -27.852816,
+      "lon": 153.317656,
+      "code": "600243"
+    },
+    {
+      "id": "600244",
+      "name": "Coomera station, platform 2",
+      "lat": -27.852886,
+      "lon": 153.317526,
+      "code": "600244"
+    },
+    {
+      "id": "600203",
+      "name": "Coopers Plains station, platform 1",
+      "lat": -27.567159,
+      "lon": 153.035859,
+      "code": "600203"
+    },
+    {
+      "id": "600204",
+      "name": "Coopers Plains station, platform 2",
+      "lat": -27.567254,
+      "lon": 153.035803,
+      "code": "600204"
+    },
+    {
+      "id": "600205",
+      "name": "Coopers Plains station, platform 3",
+      "lat": -27.567139,
+      "lon": 153.035766,
+      "code": "600205"
+    },
+    {
+      "id": "600498",
+      "name": "Cooran station, platform 1",
+      "lat": -26.334098,
+      "lon": 152.822809,
+      "code": "600498"
+    },
+    {
+      "id": "600496",
+      "name": "Cooroy station, platform 1",
+      "lat": -26.41807,
+      "lon": 152.911151,
+      "code": "600496"
+    },
+    {
+      "id": "600251",
+      "name": "Coorparoo station, platform 1",
+      "lat": -27.489617,
+      "lon": 153.055233,
+      "code": "600251"
+    },
+    {
+      "id": "600250",
+      "name": "Coorparoo station, platform 2",
+      "lat": -27.489563,
+      "lon": 153.055126,
+      "code": "600250"
+    },
+    {
+      "id": "600314",
+      "name": "Corinda station, platform 2",
+      "lat": -27.539174,
+      "lon": 152.980089,
+      "code": "600314"
+    },
+    {
+      "id": "600316",
+      "name": "Corinda station, platform 4",
+      "lat": -27.539145,
+      "lon": 152.979978,
+      "code": "600316"
+    },
+    {
+      "id": "600317",
+      "name": "Corinda station, platform 5",
+      "lat": -27.539059,
+      "lon": 152.979986,
+      "code": "600317"
+    },
+    {
+      "id": "600467",
+      "name": "Dakabin station, platform 1",
+      "lat": -27.23045,
+      "lon": 152.975745,
+      "code": "600467"
+    },
+    {
+      "id": "600468",
+      "name": "Dakabin station, platform 2",
+      "lat": -27.230367,
+      "lon": 152.975718,
+      "code": "600468"
+    },
+    {
+      "id": "600321",
+      "name": "Darra station, platform 1",
+      "lat": -27.565959,
+      "lon": 152.952488,
+      "code": "600321"
+    },
+    {
+      "id": "600322",
+      "name": "Darra station, platform 2",
+      "lat": -27.565946,
+      "lon": 152.952571,
+      "code": "600322"
+    },
+    {
+      "id": "600323",
+      "name": "Darra station, platform 3",
+      "lat": -27.565767,
+      "lon": 152.952431,
+      "code": "600323"
+    },
+    {
+      "id": "600324",
+      "name": "Darra station, platform 4",
+      "lat": -27.565749,
+      "lon": 152.952517,
+      "code": "600324"
+    },
+    {
+      "id": "600421",
+      "name": "Deagon station, platform 1",
+      "lat": -27.327813,
+      "lon": 153.063212,
+      "code": "600421"
+    },
+    {
+      "id": "600422",
+      "name": "Deagon station, platform 2",
+      "lat": -27.327903,
+      "lon": 153.063162,
+      "code": "600422"
+    },
+    {
+      "id": "600337",
+      "name": "Dinmore station, platform 1",
+      "lat": -27.596336,
+      "lon": 152.833564,
+      "code": "600337"
+    },
+    {
+      "id": "600338",
+      "name": "Dinmore station, platform 2",
+      "lat": -27.59637,
+      "lon": 152.833429,
+      "code": "600338"
+    },
+    {
+      "id": "600428",
+      "name": "Domestic Airport station, platform 1",
+      "lat": -27.385205,
+      "lon": 153.118904,
+      "code": "600428"
+    },
+    {
+      "id": "600429",
+      "name": "Domestic Airport station, platform 2",
+      "lat": -27.385167,
+      "lon": 153.118843,
+      "code": "600429"
+    },
+    {
+      "id": "600435",
+      "name": "Doomben station, platform 1",
+      "lat": -27.431455,
+      "lon": 153.074687,
+      "code": "600435"
+    },
+    {
+      "id": "600436",
+      "name": "Doomben station, platform 2",
+      "lat": -27.431415,
+      "lon": 153.074792,
+      "code": "600436"
+    },
+    {
+      "id": "600051",
+      "name": "Dutton Park station, platform 1",
+      "lat": -27.50066,
+      "lon": 153.028537,
+      "code": "600051"
+    },
+    {
+      "id": "600193",
+      "name": "Dutton Park station, platform 2",
+      "lat": -27.50071,
+      "lon": 153.028512,
+      "code": "600193"
+    },
+    {
+      "id": "600395",
+      "name": "Eagle Junction station, platform 1",
+      "lat": -27.415535,
+      "lon": 153.049684,
+      "code": "600395"
+    },
+    {
+      "id": "600396",
+      "name": "Eagle Junction station, platform 2",
+      "lat": -27.41542,
+      "lon": 153.049529,
+      "code": "600396"
+    },
+    {
+      "id": "600401",
+      "name": "Eagle Junction station, platform 3",
+      "lat": -27.415427,
+      "lon": 153.049899,
+      "code": "600401"
+    },
+    {
+      "id": "600402",
+      "name": "Eagle Junction station, platform 4",
+      "lat": -27.415319,
+      "lon": 153.049678,
+      "code": "600402"
+    },
+    {
+      "id": "600345",
+      "name": "East Ipswich station, platform 1",
+      "lat": -27.610005,
+      "lon": 152.774933,
+      "code": "600345"
+    },
+    {
+      "id": "600346",
+      "name": "East Ipswich station, platform 2",
+      "lat": -27.609988,
+      "lon": 152.774727,
+      "code": "600346"
+    },
+    {
+      "id": "600339",
+      "name": "Ebbw Vale station, platform 1",
+      "lat": -27.603385,
+      "lon": 152.822071,
+      "code": "600339"
+    },
+    {
+      "id": "600340",
+      "name": "Ebbw Vale station, platform 2",
+      "lat": -27.603418,
+      "lon": 152.822014,
+      "code": "600340"
+    },
+    {
+      "id": "600235",
+      "name": "Edens Landing station, platform 1",
+      "lat": -27.698208,
+      "lon": 153.170404,
+      "code": "600235"
+    },
+    {
+      "id": "600236",
+      "name": "Edens Landing station, platform 2",
+      "lat": -27.698205,
+      "lon": 153.170479,
+      "code": "600236"
+    },
+    {
+      "id": "600479",
+      "name": "Elimbah station, platform 1",
+      "lat": -27.011494,
+      "lon": 152.945527,
+      "code": "600479"
+    },
+    {
+      "id": "600480",
+      "name": "Elimbah station, platform 2",
+      "lat": -27.011081,
+      "lon": 152.945611,
+      "code": "600480"
+    },
+    {
+      "id": "600377",
+      "name": "Enoggera station, platform 1",
+      "lat": -27.420321,
+      "lon": 152.992473,
+      "code": "600377"
+    },
+    {
+      "id": "600378",
+      "name": "Enoggera station, platform 2",
+      "lat": -27.420412,
+      "lon": 152.992414,
+      "code": "600378"
+    },
+    {
+      "id": "600490",
+      "name": "Eudlo station, platform 1",
+      "lat": -26.72585,
+      "lon": 152.956754,
+      "code": "600490"
+    },
+    {
+      "id": "600495",
+      "name": "Eumundi station, platform 1",
+      "lat": -26.480985,
+      "lon": 152.955033,
+      "code": "600495"
+    },
+    {
+      "id": "600003",
+      "name": "Exhibition station, platform 2",
+      "lat": -27.450377,
+      "lon": 153.030774,
+      "code": "600003"
+    },
+    {
+      "id": "600052",
+      "name": "Fairfield station, platform 1",
+      "lat": -27.509462,
+      "lon": 153.028009,
+      "code": "600052"
+    },
+    {
+      "id": "600194",
+      "name": "Fairfield station, platform 2",
+      "lat": -27.509522,
+      "lon": 153.027977,
+      "code": "600194"
+    },
+    {
+      "id": "600389",
+      "name": "Ferny Grove station, platform 1",
+      "lat": -27.401674,
+      "lon": 152.935687,
+      "code": "600389"
+    },
+    {
+      "id": "600390",
+      "name": "Ferny Grove station, platform 2",
+      "lat": -27.401753,
+      "lon": 152.935607,
+      "code": "600390"
+    },
+    {
+      "id": "600014",
+      "name": "Fortitude Valley station, platform 1",
+      "lat": -27.456135,
+      "lon": 153.033762,
+      "code": "600014"
+    },
+    {
+      "id": "600013",
+      "name": "Fortitude Valley station, platform 2",
+      "lat": -27.456111,
+      "lon": 153.033637,
+      "code": "600013"
+    },
+    {
+      "id": "600010",
+      "name": "Fortitude Valley station, platform 3",
+      "lat": -27.456047,
+      "lon": 153.033705,
+      "code": "600010"
+    },
+    {
+      "id": "600011",
+      "name": "Fortitude Valley station, platform 4",
+      "lat": -27.456021,
+      "lon": 153.03358,
+      "code": "600011"
+    },
+    {
+      "id": "600218",
+      "name": "Fruitgrove station, platform 1",
+      "lat": -27.598214,
+      "lon": 153.079848,
+      "code": "600218"
+    },
+    {
+      "id": "600219",
+      "name": "Fruitgrove station, platform 2",
+      "lat": -27.598206,
+      "lon": 153.079828,
+      "code": "600219"
+    },
+    {
+      "id": "600220",
+      "name": "Fruitgrove station, platform 3",
+      "lat": -27.598314,
+      "lon": 153.079779,
+      "code": "600220"
+    },
+    {
+      "id": "600329",
+      "name": "Gailes station, platform 1",
+      "lat": -27.602207,
+      "lon": 152.919087,
+      "code": "600329"
+    },
+    {
+      "id": "600330",
+      "name": "Gailes station, platform 2",
+      "lat": -27.602297,
+      "lon": 152.919042,
+      "code": "600330"
+    },
+    {
+      "id": "600379",
+      "name": "Gaythorne station, platform 1",
+      "lat": -27.419038,
+      "lon": 152.984744,
+      "code": "600379"
+    },
+    {
+      "id": "600380",
+      "name": "Gaythorne station, platform 2",
+      "lat": -27.41908,
+      "lon": 152.984819,
+      "code": "600380"
+    },
+    {
+      "id": "600443",
+      "name": "Geebung station, platform 1",
+      "lat": -27.36874,
+      "lon": 153.047358,
+      "code": "600443"
+    },
+    {
+      "id": "600444",
+      "name": "Geebung station, platform 2",
+      "lat": -27.368928,
+      "lon": 153.047417,
+      "code": "600444"
+    },
+    {
+      "id": "600445",
+      "name": "Geebung station, platform 3",
+      "lat": -27.368733,
+      "lon": 153.047105,
+      "code": "600445"
+    },
+    {
+      "id": "600484",
+      "name": "Glass House Mountains station, platform 1",
+      "lat": -26.899412,
+      "lon": 152.956345,
+      "code": "600484"
+    },
+    {
+      "id": "600483",
+      "name": "Glass House Mountains station, platform 2",
+      "lat": -26.899292,
+      "lon": 152.956273,
+      "code": "600483"
+    },
+    {
+      "id": "600331",
+      "name": "Goodna station, platform 1",
+      "lat": -27.608813,
+      "lon": 152.901277,
+      "code": "600331"
+    },
+    {
+      "id": "600332",
+      "name": "Goodna station, platform 2",
+      "lat": -27.608707,
+      "lon": 152.90131,
+      "code": "600332"
+    },
+    {
+      "id": "600303",
+      "name": "Graceville station, platform 1",
+      "lat": -27.520674,
+      "lon": 152.976024,
+      "code": "600303"
+    },
+    {
+      "id": "600304",
+      "name": "Graceville station, platform 2",
+      "lat": -27.520676,
+      "lon": 152.975915,
+      "code": "600304"
+    },
+    {
+      "id": "600305",
+      "name": "Graceville station, platform 3",
+      "lat": -27.520823,
+      "lon": 152.975982,
+      "code": "600305"
+    },
+    {
+      "id": "600306",
+      "name": "Graceville station, platform 4",
+      "lat": -27.520759,
+      "lon": 152.975841,
+      "code": "600306"
+    },
+    {
+      "id": "600385",
+      "name": "Grovely station, platform 1",
+      "lat": -27.404595,
+      "lon": 152.962519,
+      "code": "600385"
+    },
+    {
+      "id": "600386",
+      "name": "Grovely station, platform 2",
+      "lat": -27.404559,
+      "lon": 152.962543,
+      "code": "600386"
+    },
+    {
+      "id": "600500",
+      "name": "Gympie North station, platform 1",
+      "lat": -26.159443,
+      "lon": 152.682805,
+      "code": "600500"
+    },
+    {
+      "id": "600119",
+      "name": "Helensvale station, platform 1",
+      "lat": -27.9255,
+      "lon": 153.339068,
+      "code": "600119"
+    },
+    {
+      "id": "600245",
+      "name": "Helensvale station, platform 2",
+      "lat": -27.925491,
+      "lon": 153.338919,
+      "code": "600245"
+    },
+    {
+      "id": "600260",
+      "name": "Hemmant station, platform 1",
+      "lat": -27.447316,
+      "lon": 153.127344,
+      "code": "600260"
+    },
+    {
+      "id": "600261",
+      "name": "Hemmant station, platform 2",
+      "lat": -27.447389,
+      "lon": 153.127372,
+      "code": "600261"
+    },
+    {
+      "id": "600432",
+      "name": "Hendra station, platform 1",
+      "lat": -27.421971,
+      "lon": 153.062443,
+      "code": "600432"
+    },
+    {
+      "id": "600237",
+      "name": "Holmview station, platform 1",
+      "lat": -27.709612,
+      "lon": 153.187577,
+      "code": "600237"
+    },
+    {
+      "id": "600238",
+      "name": "Holmview station, platform 2",
+      "lat": -27.709673,
+      "lon": 153.1875,
+      "code": "600238"
+    },
+    {
+      "id": "600295",
+      "name": "Indooroopilly station, platform 1",
+      "lat": -27.503071,
+      "lon": 152.975837,
+      "code": "600295"
+    },
+    {
+      "id": "600296",
+      "name": "Indooroopilly station, platform 2",
+      "lat": -27.503012,
+      "lon": 152.975773,
+      "code": "600296"
+    },
+    {
+      "id": "600297",
+      "name": "Indooroopilly station, platform 3",
+      "lat": -27.50306,
+      "lon": 152.975732,
+      "code": "600297"
+    },
+    {
+      "id": "600298",
+      "name": "Indooroopilly station, platform 4",
+      "lat": -27.502975,
+      "lon": 152.975693,
+      "code": "600298"
+    },
+    {
+      "id": "600426",
+      "name": "International Airport station, platform 1",
+      "lat": -27.402853,
+      "lon": 153.108633,
+      "code": "600426"
+    },
+    {
+      "id": "600427",
+      "name": "International Airport station, platform 2",
+      "lat": -27.402805,
+      "lon": 153.108594,
+      "code": "600427"
+    },
+    {
+      "id": "600347",
+      "name": "Ipswich station, platform 1",
+      "lat": -27.613039,
+      "lon": 152.760794,
+      "code": "600347"
+    },
+    {
+      "id": "600348",
+      "name": "Ipswich station, platform 2",
+      "lat": -27.61292,
+      "lon": 152.760917,
+      "code": "600348"
+    },
+    {
+      "id": "600349",
+      "name": "Ipswich station, platform 3",
+      "lat": -27.612901,
+      "lon": 152.760686,
+      "code": "600349"
+    },
+    {
+      "id": "600350",
+      "name": "Ipswich station, platform 4",
+      "lat": -27.612833,
+      "lon": 152.760837,
+      "code": "600350"
+    },
+    {
+      "id": "600643",
+      "name": "Kallangur station, platform 1",
+      "lat": -27.256734,
+      "lon": 152.999709,
+      "code": "600643"
+    },
+    {
+      "id": "600644",
+      "name": "Kallangur station, platform 2",
+      "lat": -27.256606,
+      "lon": 152.999645,
+      "code": "600644"
+    },
+    {
+      "id": "600355",
+      "name": "Karrabin station, platform 1",
+      "lat": -27.604299,
+      "lon": 152.708954,
+      "code": "600355"
+    },
+    {
+      "id": "600356",
+      "name": "Karrabin station, platform 2",
+      "lat": -27.604385,
+      "lon": 152.709138,
+      "code": "600356"
+    },
+    {
+      "id": "600387",
+      "name": "Keperra station, platform 1",
+      "lat": -27.409128,
+      "lon": 152.95676,
+      "code": "600387"
+    },
+    {
+      "id": "600388",
+      "name": "Keperra station, platform 2",
+      "lat": -27.409291,
+      "lon": 152.956892,
+      "code": "600388"
+    },
+    {
+      "id": "600228",
+      "name": "Kingston station, platform 1",
+      "lat": -27.657283,
+      "lon": 153.117992,
+      "code": "600228"
+    },
+    {
+      "id": "600229",
+      "name": "Kingston station, platform 2",
+      "lat": -27.657385,
+      "lon": 153.117958,
+      "code": "600229"
+    },
+    {
+      "id": "600633",
+      "name": "Kippa-Ring station, platform 1",
+      "lat": -27.225285,
+      "lon": 153.081982,
+      "code": "600633"
+    },
+    {
+      "id": "600634",
+      "name": "Kippa-Ring station, platform 2",
+      "lat": -27.225324,
+      "lon": 153.081809,
+      "code": "600634"
+    },
+    {
+      "id": "600221",
+      "name": "Kuraby station, platform 1",
+      "lat": -27.604958,
+      "lon": 153.091641,
+      "code": "600221"
+    },
+    {
+      "id": "600222",
+      "name": "Kuraby station, platform 2",
+      "lat": -27.605087,
+      "lon": 153.091575,
+      "code": "600222"
+    },
+    {
+      "id": "600223",
+      "name": "Kuraby station, platform 3",
+      "lat": -27.605035,
+      "lon": 153.091491,
+      "code": "600223"
+    },
+    {
+      "id": "600487",
+      "name": "Landsborough station, platform 1",
+      "lat": -26.807956,
+      "lon": 152.966377,
+      "code": "600487"
+    },
+    {
+      "id": "600488",
+      "name": "Landsborough station, platform 2",
+      "lat": -26.808124,
+      "lon": 152.966364,
+      "code": "600488"
+    },
+    {
+      "id": "600461",
+      "name": "Lawnton station, platform 1",
+      "lat": -27.281391,
+      "lon": 152.980982,
+      "code": "600461"
+    },
+    {
+      "id": "600462",
+      "name": "Lawnton station, platform 2",
+      "lat": -27.281536,
+      "lon": 152.981022,
+      "code": "600462"
+    },
+    {
+      "id": "600463",
+      "name": "Lawnton station, platform 3",
+      "lat": -27.281549,
+      "lon": 152.980857,
+      "code": "600463"
+    },
+    {
+      "id": "600263",
+      "name": "Lindum station, platform 1",
+      "lat": -27.441942,
+      "lon": 153.144876,
+      "code": "600263"
+    },
+    {
+      "id": "600262",
+      "name": "Lindum station, platform 2",
+      "lat": -27.441902,
+      "lon": 153.144962,
+      "code": "600262"
+    },
+    {
+      "id": "600230",
+      "name": "Loganlea station, platform 1",
+      "lat": -27.670818,
+      "lon": 153.13812,
+      "code": "600230"
+    },
+    {
+      "id": "600231",
+      "name": "Loganlea station, platform 2",
+      "lat": -27.670838,
+      "lon": 153.138188,
+      "code": "600231"
+    },
+    {
+      "id": "600269",
+      "name": "Lota station, platform 1",
+      "lat": -27.470014,
+      "lon": 153.188519,
+      "code": "600269"
+    },
+    {
+      "id": "600270",
+      "name": "Lota station, platform 2",
+      "lat": -27.470004,
+      "lon": 153.188414,
+      "code": "600270"
+    },
+    {
+      "id": "600637",
+      "name": "Mango Hill East station, platform 1",
+      "lat": -27.233566,
+      "lon": 153.035794,
+      "code": "600637"
+    },
+    {
+      "id": "600638",
+      "name": "Mango Hill East station, platform 2",
+      "lat": -27.233505,
+      "lon": 153.035671,
+      "code": "600638"
+    },
+    {
+      "id": "600639",
+      "name": "Mango Hill station, platform 1",
+      "lat": -27.246037,
+      "lon": 153.028117,
+      "code": "600639"
+    },
+    {
+      "id": "600640",
+      "name": "Mango Hill station, platform 2",
+      "lat": -27.24605,
+      "lon": 153.027972,
+      "code": "600640"
+    },
+    {
+      "id": "600630",
+      "name": "Manly station, platform 1",
+      "lat": -27.457228,
+      "lon": 153.180422,
+      "code": "600630"
+    },
+    {
+      "id": "600631",
+      "name": "Manly station, platform 2",
+      "lat": -27.457253,
+      "lon": 153.180314,
+      "code": "600631"
+    },
+    {
+      "id": "600279",
+      "name": "Milton station, platform 1",
+      "lat": -27.468965,
+      "lon": 153.005197,
+      "code": "600279"
+    },
+    {
+      "id": "600280",
+      "name": "Milton station, platform 2",
+      "lat": -27.46893,
+      "lon": 153.005299,
+      "code": "600280"
+    },
+    {
+      "id": "600281",
+      "name": "Milton station, platform 3",
+      "lat": -27.468814,
+      "lon": 153.005241,
+      "code": "600281"
+    },
+    {
+      "id": "600282",
+      "name": "Milton station, platform 4",
+      "lat": -27.468852,
+      "lon": 153.005125,
+      "code": "600282"
+    },
+    {
+      "id": "600381",
+      "name": "Mitchelton station, platform 1",
+      "lat": -27.411575,
+      "lon": 152.976099,
+      "code": "600381"
+    },
+    {
+      "id": "600382",
+      "name": "Mitchelton station, platform 2",
+      "lat": -27.411677,
+      "lon": 152.976006,
+      "code": "600382"
+    },
+    {
+      "id": "600489",
+      "name": "Mooloolah station, platform 1",
+      "lat": -26.765954,
+      "lon": 152.963262,
+      "code": "600489"
+    },
+    {
+      "id": "600197",
+      "name": "Moorooka station, platform 1",
+      "lat": -27.535845,
+      "lon": 153.014027,
+      "code": "600197"
+    },
+    {
+      "id": "600198",
+      "name": "Moorooka station, platform 2",
+      "lat": -27.535831,
+      "lon": 153.013948,
+      "code": "600198"
+    },
+    {
+      "id": "600474",
+      "name": "Morayfield station, platform 1",
+      "lat": -27.110192,
+      "lon": 152.952586,
+      "code": "600474"
+    },
+    {
+      "id": "600475",
+      "name": "Morayfield station, platform 2",
+      "lat": -27.110234,
+      "lon": 152.9526,
+      "code": "600475"
+    },
+    {
+      "id": "600254",
+      "name": "Morningside station, platform 1",
+      "lat": -27.470874,
+      "lon": 153.069393,
+      "code": "600254"
+    },
+    {
+      "id": "600255",
+      "name": "Morningside station, platform 2",
+      "lat": -27.470954,
+      "lon": 153.069551,
+      "code": "600255"
+    },
+    {
+      "id": "600259",
+      "name": "Murarrie station, platform 1",
+      "lat": -27.464662,
+      "lon": 153.105562,
+      "code": "600259"
+    },
+    {
+      "id": "600258",
+      "name": "Murarrie station, platform 2",
+      "lat": -27.464642,
+      "lon": 153.105656,
+      "code": "600258"
+    },
+    {
+      "id": "600641",
+      "name": "Murrumba Downs station, platform 1",
+      "lat": -27.252525,
+      "lon": 153.011464,
+      "code": "600641"
+    },
+    {
+      "id": "600642",
+      "name": "Murrumba Downs station, platform 2",
+      "lat": -27.252403,
+      "lon": 153.011379,
+      "code": "600642"
+    },
+    {
+      "id": "600493",
+      "name": "Nambour station, platform 1",
+      "lat": -26.625358,
+      "lon": 152.958068,
+      "code": "600493"
+    },
+    {
+      "id": "600632",
+      "name": "Nambour station, platform 2",
+      "lat": -26.625335,
+      "lon": 152.958092,
+      "code": "600632"
+    },
+    {
+      "id": "600469",
+      "name": "Narangba station, platform 1",
+      "lat": -27.202515,
+      "lon": 152.960471,
+      "code": "600469"
+    },
+    {
+      "id": "600471",
+      "name": "Narangba station, platform 3",
+      "lat": -27.202378,
+      "lon": 152.959924,
+      "code": "600471"
+    },
+    {
+      "id": "600185",
+      "name": "Nerang station, platform 1",
+      "lat": -27.994317,
+      "lon": 153.350122,
+      "code": "600185"
+    },
+    {
+      "id": "600120",
+      "name": "Nerang station, platform 2",
+      "lat": -27.994311,
+      "lon": 153.350029,
+      "code": "600120"
+    },
+    {
+      "id": "600373",
+      "name": "Newmarket station, platform 1",
+      "lat": -27.432848,
+      "lon": 153.010747,
+      "code": "600373"
+    },
+    {
+      "id": "600374",
+      "name": "Newmarket station, platform 2",
+      "lat": -27.432949,
+      "lon": 153.01054,
+      "code": "600374"
+    },
+    {
+      "id": "600252",
+      "name": "Norman Park station, platform 1",
+      "lat": -27.481618,
+      "lon": 153.062243,
+      "code": "600252"
+    },
+    {
+      "id": "600253",
+      "name": "Norman Park station, platform 2",
+      "lat": -27.481669,
+      "lon": 153.062273,
+      "code": "600253"
+    },
+    {
+      "id": "600419",
+      "name": "North Boondall station, platform 1",
+      "lat": -27.338552,
+      "lon": 153.060617,
+      "code": "600419"
+    },
+    {
+      "id": "600420",
+      "name": "North Boondall station, platform 2",
+      "lat": -27.338627,
+      "lon": 153.060656,
+      "code": "600420"
+    },
+    {
+      "id": "600407",
+      "name": "Northgate station, platform 1",
+      "lat": -27.393135,
+      "lon": 153.069324,
+      "code": "600407"
+    },
+    {
+      "id": "600408",
+      "name": "Northgate station, platform 2",
+      "lat": -27.393085,
+      "lon": 153.06926,
+      "code": "600408"
+    },
+    {
+      "id": "600409",
+      "name": "Northgate station, platform 3",
+      "lat": -27.39316,
+      "lon": 153.069239,
+      "code": "600409"
+    },
+    {
+      "id": "600410",
+      "name": "Northgate station, platform 4",
+      "lat": -27.393117,
+      "lon": 153.069177,
+      "code": "600410"
+    },
+    {
+      "id": "600415",
+      "name": "Nudgee station, platform 1",
+      "lat": -27.366033,
+      "lon": 153.083469,
+      "code": "600415"
+    },
+    {
+      "id": "600416",
+      "name": "Nudgee station, platform 2",
+      "lat": -27.366135,
+      "lon": 153.083384,
+      "code": "600416"
+    },
+    {
+      "id": "600403",
+      "name": "Nundah station, platform 1",
+      "lat": -27.400946,
+      "lon": 153.0622,
+      "code": "600403"
+    },
+    {
+      "id": "600404",
+      "name": "Nundah station, platform 2",
+      "lat": -27.400897,
+      "lon": 153.062081,
+      "code": "600404"
+    },
+    {
+      "id": "600405",
+      "name": "Nundah station, platform 3",
+      "lat": -27.400812,
+      "lon": 153.062096,
+      "code": "600405"
+    },
+    {
+      "id": "600406",
+      "name": "Nundah station, platform 4",
+      "lat": -27.400806,
+      "lon": 153.061958,
+      "code": "600406"
+    },
+    {
+      "id": "600241",
+      "name": "Ormeau station, platform 1",
+      "lat": -27.799141,
+      "lon": 153.282359,
+      "code": "600241"
+    },
+    {
+      "id": "600242",
+      "name": "Ormeau station, platform 2",
+      "lat": -27.799196,
+      "lon": 153.282438,
+      "code": "600242"
+    },
+    {
+      "id": "600276",
+      "name": "Ormiston station, platform 1",
+      "lat": -27.514525,
+      "lon": 153.255831,
+      "code": "600276"
+    },
+    {
+      "id": "600383",
+      "name": "Oxford Park station, platform 1",
+      "lat": -27.404375,
+      "lon": 152.969026,
+      "code": "600383"
+    },
+    {
+      "id": "600384",
+      "name": "Oxford Park station, platform 2",
+      "lat": -27.404514,
+      "lon": 152.968977,
+      "code": "600384"
+    },
+    {
+      "id": "600318",
+      "name": "Oxley station, platform 1",
+      "lat": -27.552183,
+      "lon": 152.973948,
+      "code": "600318"
+    },
+    {
+      "id": "600319",
+      "name": "Oxley station, platform 2",
+      "lat": -27.552199,
+      "lon": 152.973732,
+      "code": "600319"
+    },
+    {
+      "id": "600320",
+      "name": "Oxley station, platform 3",
+      "lat": -27.552284,
+      "lon": 152.973665,
+      "code": "600320"
+    },
+    {
+      "id": "600491",
+      "name": "Palmwoods station, platform 1",
+      "lat": -26.688683,
+      "lon": 152.960756,
+      "code": "600491"
+    },
+    {
+      "id": "600464",
+      "name": "Petrie station, platform 1",
+      "lat": -27.268172,
+      "lon": 152.981943,
+      "code": "600464"
+    },
+    {
+      "id": "600465",
+      "name": "Petrie station, platform 2",
+      "lat": -27.26824,
+      "lon": 152.982077,
+      "code": "600465"
+    },
+    {
+      "id": "600466",
+      "name": "Petrie station, platform 3",
+      "lat": -27.268368,
+      "lon": 152.981985,
+      "code": "600466"
+    },
+    {
+      "id": "600627",
+      "name": "Petrie station, platform 4",
+      "lat": -27.268526,
+      "lon": 152.982284,
+      "code": "600627"
+    },
+    {
+      "id": "600645",
+      "name": "Petrie station, platform 5",
+      "lat": -27.268594,
+      "lon": 152.982447,
+      "code": "600645"
+    },
+    {
+      "id": "600691",
+      "name": "Pimpama station, platform 1",
+      "lat": -27.81621,
+      "lon": 153.296586,
+      "code": "600691"
+    },
+    {
+      "id": "600692",
+      "name": "Pimpama station, platform 2",
+      "lat": -27.816289,
+      "lon": 153.296503,
+      "code": "600692"
+    },
+    {
+      "id": "600497",
+      "name": "Pomona station, platform 1",
+      "lat": -26.366115,
+      "lon": 152.856666,
+      "code": "600497"
+    },
+    {
+      "id": "600333",
+      "name": "Redbank station, platform 1",
+      "lat": -27.599428,
+      "lon": 152.872686,
+      "code": "600333"
+    },
+    {
+      "id": "600334",
+      "name": "Redbank station, platform 2",
+      "lat": -27.59946,
+      "lon": 152.872518,
+      "code": "600334"
+    },
+    {
+      "id": "600325",
+      "name": "Richlands station, platform 1",
+      "lat": -27.596197,
+      "lon": 152.946944,
+      "code": "600325"
+    },
+    {
+      "id": "600326",
+      "name": "Richlands station, platform 2",
+      "lat": -27.596148,
+      "lon": 152.946756,
+      "code": "600326"
+    },
+    {
+      "id": "600335",
+      "name": "Riverview station, platform 1",
+      "lat": -27.594974,
+      "lon": 152.850543,
+      "code": "600335"
+    },
+    {
+      "id": "600336",
+      "name": "Riverview station, platform 2",
+      "lat": -27.594959,
+      "lon": 152.850487,
+      "code": "600336"
+    },
+    {
+      "id": "600118",
+      "name": "Robina station, platform 1",
+      "lat": -28.071716,
+      "lon": 153.3781,
+      "code": "600118"
+    },
+    {
+      "id": "600246",
+      "name": "Robina station, platform 2",
+      "lat": -28.071734,
+      "lon": 153.377992,
+      "code": "600246"
+    },
+    {
+      "id": "600199",
+      "name": "Rocklea station, platform 1",
+      "lat": -27.544514,
+      "lon": 153.013974,
+      "code": "600199"
+    },
+    {
+      "id": "600200",
+      "name": "Rocklea station, platform 2",
+      "lat": -27.544554,
+      "lon": 153.014024,
+      "code": "600200"
+    },
+    {
+      "id": "600035",
+      "name": "Roma Street station, platform 10",
+      "lat": -27.465,
+      "lon": 153.019596,
+      "code": "600035"
+    },
+    {
+      "id": "600033",
+      "name": "Roma Street station, platform 3",
+      "lat": -27.465887,
+      "lon": 153.019537,
+      "code": "600033"
+    },
+    {
+      "id": "600036",
+      "name": "Roma Street station, platform 4",
+      "lat": -27.465583,
+      "lon": 153.019616,
+      "code": "600036"
+    },
+    {
+      "id": "600034",
+      "name": "Roma Street station, platform 5",
+      "lat": -27.46541,
+      "lon": 153.019624,
+      "code": "600034"
+    },
+    {
+      "id": "600030",
+      "name": "Roma Street station, platform 6",
+      "lat": -27.46544,
+      "lon": 153.019736,
+      "code": "600030"
+    },
+    {
+      "id": "600028",
+      "name": "Roma Street station, platform 7",
+      "lat": -27.465246,
+      "lon": 153.019689,
+      "code": "600028"
+    },
+    {
+      "id": "600029",
+      "name": "Roma Street station, platform 8",
+      "lat": -27.46528,
+      "lon": 153.019804,
+      "code": "600029"
+    },
+    {
+      "id": "600038",
+      "name": "Roma Street station, platform 9",
+      "lat": -27.465057,
+      "lon": 153.01979,
+      "code": "600038"
+    },
+    {
+      "id": "600362",
+      "name": "Rosewood station, platform 1",
+      "lat": -27.643222,
+      "lon": 152.592522,
+      "code": "600362"
+    },
+    {
+      "id": "600363",
+      "name": "Rosewood station, platform 2",
+      "lat": -27.643177,
+      "lon": 152.59265,
+      "code": "600363"
+    },
+    {
+      "id": "600635",
+      "name": "Rothwell station, platform 1",
+      "lat": -27.224071,
+      "lon": 153.0481,
+      "code": "600635"
+    },
+    {
+      "id": "600636",
+      "name": "Rothwell station, platform 2",
+      "lat": -27.224018,
+      "lon": 153.047899,
+      "code": "600636"
+    },
+    {
+      "id": "600215",
+      "name": "Runcorn station, platform 1",
+      "lat": -27.592412,
+      "lon": 153.068614,
+      "code": "600215"
+    },
+    {
+      "id": "600216",
+      "name": "Runcorn station, platform 2",
+      "lat": -27.592535,
+      "lon": 153.0686,
+      "code": "600216"
+    },
+    {
+      "id": "600217",
+      "name": "Runcorn station, platform 3",
+      "lat": -27.592492,
+      "lon": 153.068543,
+      "code": "600217"
+    },
+    {
+      "id": "600424",
+      "name": "Sandgate station, platform 1",
+      "lat": -27.322193,
+      "lon": 153.069043,
+      "code": "600424"
+    },
+    {
+      "id": "600423",
+      "name": "Sandgate station, platform 2",
+      "lat": -27.322217,
+      "lon": 153.069196,
+      "code": "600423"
+    },
+    {
+      "id": "600309",
+      "name": "Sherwood station, platform 1",
+      "lat": -27.53123,
+      "lon": 152.979649,
+      "code": "600309"
+    },
+    {
+      "id": "600310",
+      "name": "Sherwood station, platform 2",
+      "lat": -27.531152,
+      "lon": 152.979492,
+      "code": "600310"
+    },
+    {
+      "id": "600311",
+      "name": "Sherwood station, platform 3",
+      "lat": -27.531351,
+      "lon": 152.979512,
+      "code": "600311"
+    },
+    {
+      "id": "600312",
+      "name": "Sherwood station, platform 4",
+      "lat": -27.531257,
+      "lon": 152.979386,
+      "code": "600312"
+    },
+    {
+      "id": "600425",
+      "name": "Shorncliffe station, platform 1",
+      "lat": -27.327328,
+      "lon": 153.081116,
+      "code": "600425"
+    },
+    {
+      "id": "600006",
+      "name": "South Bank station, platform 1",
+      "lat": -27.481832,
+      "lon": 153.022995,
+      "code": "600006"
+    },
+    {
+      "id": "600188",
+      "name": "South Bank station, platform 2",
+      "lat": -27.481845,
+      "lon": 153.022914,
+      "code": "600188"
+    },
+    {
+      "id": "600189",
+      "name": "South Bank station, platform 3",
+      "lat": -27.48189,
+      "lon": 153.02294,
+      "code": "600189"
+    },
+    {
+      "id": "600012",
+      "name": "South Brisbane station, platform 1",
+      "lat": -27.475067,
+      "lon": 153.018521,
+      "code": "600012"
+    },
+    {
+      "id": "600186",
+      "name": "South Brisbane station, platform 2",
+      "lat": -27.475122,
+      "lon": 153.018455,
+      "code": "600186"
+    },
+    {
+      "id": "600187",
+      "name": "South Brisbane station, platform 3",
+      "lat": -27.47509,
+      "lon": 153.018431,
+      "code": "600187"
+    },
+    {
+      "id": "600089",
+      "name": "Springfield Central station, platform 1",
+      "lat": -27.674192,
+      "lon": 152.902811,
+      "code": "600089"
+    },
+    {
+      "id": "600090",
+      "name": "Springfield Central station, platform 2",
+      "lat": -27.674345,
+      "lon": 152.902841,
+      "code": "600090"
+    },
+    {
+      "id": "600088",
+      "name": "Springfield station, platform 1",
+      "lat": -27.66055,
+      "lon": 152.921296,
+      "code": "600088"
+    },
+    {
+      "id": "600087",
+      "name": "Springfield station, platform 2",
+      "lat": -27.660648,
+      "lon": 152.921424,
+      "code": "600087"
+    },
+    {
+      "id": "600455",
+      "name": "Strathpine station, platform 1",
+      "lat": -27.311016,
+      "lon": 152.989562,
+      "code": "600455"
+    },
+    {
+      "id": "600456",
+      "name": "Strathpine station, platform 2",
+      "lat": -27.311235,
+      "lon": 152.989628,
+      "code": "600456"
+    },
+    {
+      "id": "600457",
+      "name": "Strathpine station, platform 3",
+      "lat": -27.311272,
+      "lon": 152.989487,
+      "code": "600457"
+    },
+    {
+      "id": "600209",
+      "name": "Sunnybank station, platform 1",
+      "lat": -27.580756,
+      "lon": 153.05391,
+      "code": "600209"
+    },
+    {
+      "id": "600210",
+      "name": "Sunnybank station, platform 2",
+      "lat": -27.580885,
+      "lon": 153.053944,
+      "code": "600210"
+    },
+    {
+      "id": "600211",
+      "name": "Sunnybank station, platform 3",
+      "lat": -27.580888,
+      "lon": 153.053804,
+      "code": "600211"
+    },
+    {
+      "id": "600440",
+      "name": "Sunshine station, platform 1",
+      "lat": -27.375693,
+      "lon": 153.056359,
+      "code": "600440"
+    },
+    {
+      "id": "600441",
+      "name": "Sunshine station, platform 2",
+      "lat": -27.375593,
+      "lon": 153.056238,
+      "code": "600441"
+    },
+    {
+      "id": "600442",
+      "name": "Sunshine station, platform 3",
+      "lat": -27.375748,
+      "lon": 153.056183,
+      "code": "600442"
+    },
+    {
+      "id": "600291",
+      "name": "Taringa station, platform 1",
+      "lat": -27.493243,
+      "lon": 152.981426,
+      "code": "600291"
+    },
+    {
+      "id": "600292",
+      "name": "Taringa station, platform 2",
+      "lat": -27.493172,
+      "lon": 152.981428,
+      "code": "600292"
+    },
+    {
+      "id": "600293",
+      "name": "Taringa station, platform 3",
+      "lat": -27.493188,
+      "lon": 152.981371,
+      "code": "600293"
+    },
+    {
+      "id": "600294",
+      "name": "Taringa station, platform 4",
+      "lat": -27.493115,
+      "lon": 152.981372,
+      "code": "600294"
+    },
+    {
+      "id": "600360",
+      "name": "Thagoona station, platform 1",
+      "lat": -27.626825,
+      "lon": 152.629976,
+      "code": "600360"
+    },
+    {
+      "id": "600361",
+      "name": "Thagoona station, platform 2",
+      "lat": -27.626865,
+      "lon": 152.629895,
+      "code": "600361"
+    },
+    {
+      "id": "600351",
+      "name": "Thomas Street station, platform 1",
+      "lat": -27.614828,
+      "lon": 152.745462,
+      "code": "600351"
+    },
+    {
+      "id": "600352",
+      "name": "Thomas Street station, platform 2",
+      "lat": -27.614825,
+      "lon": 152.74538,
+      "code": "600352"
+    },
+    {
+      "id": "600271",
+      "name": "Thorneside station, platform 1",
+      "lat": -27.486124,
+      "lon": 153.192703,
+      "code": "600271"
+    },
+    {
+      "id": "600272",
+      "name": "Thorneside station, platform 2",
+      "lat": -27.486191,
+      "lon": 153.192607,
+      "code": "600272"
+    },
+    {
+      "id": "600397",
+      "name": "Toombul station, platform 1",
+      "lat": -27.407816,
+      "lon": 153.059143,
+      "code": "600397"
+    },
+    {
+      "id": "600398",
+      "name": "Toombul station, platform 2",
+      "lat": -27.407951,
+      "lon": 153.059037,
+      "code": "600398"
+    },
+    {
+      "id": "600399",
+      "name": "Toombul station, platform 3",
+      "lat": -27.407724,
+      "lon": 153.059011,
+      "code": "600399"
+    },
+    {
+      "id": "600400",
+      "name": "Toombul station, platform 4",
+      "lat": -27.407653,
+      "lon": 153.058872,
+      "code": "600400"
+    },
+    {
+      "id": "600287",
+      "name": "Toowong station, platform 1",
+      "lat": -27.485334,
+      "lon": 152.993169,
+      "code": "600287"
+    },
+    {
+      "id": "600288",
+      "name": "Toowong station, platform 2",
+      "lat": -27.485269,
+      "lon": 152.993086,
+      "code": "600288"
+    },
+    {
+      "id": "600289",
+      "name": "Toowong station, platform 3",
+      "lat": -27.485376,
+      "lon": 152.993056,
+      "code": "600289"
+    },
+    {
+      "id": "600290",
+      "name": "Toowong station, platform 4",
+      "lat": -27.48531,
+      "lon": 152.99297,
+      "code": "600290"
+    },
+    {
+      "id": "600499",
+      "name": "Traveston station, platform 1",
+      "lat": -26.320895,
+      "lon": 152.783804,
+      "code": "600499"
+    },
+    {
+      "id": "600224",
+      "name": "Trinder Park station, platform 1",
+      "lat": -27.631755,
+      "lon": 153.097875,
+      "code": "600224"
+    },
+    {
+      "id": "600225",
+      "name": "Trinder Park station, platform 2",
+      "lat": -27.631798,
+      "lon": 153.097882,
+      "code": "600225"
+    },
+    {
+      "id": "600247",
+      "name": "Varsity Lakes station, platform 1",
+      "lat": -28.097154,
+      "lon": 153.399411,
+      "code": "600247"
+    },
+    {
+      "id": "600117",
+      "name": "Varsity Lakes station, platform 2",
+      "lat": -28.097249,
+      "lon": 153.399314,
+      "code": "600117"
+    },
+    {
+      "id": "600437",
+      "name": "Virginia station, platform 1",
+      "lat": -27.382132,
+      "lon": 153.062492,
+      "code": "600437"
+    },
+    {
+      "id": "600438",
+      "name": "Virginia station, platform 2",
+      "lat": -27.382158,
+      "lon": 153.062367,
+      "code": "600438"
+    },
+    {
+      "id": "600439",
+      "name": "Virginia station, platform 3",
+      "lat": -27.382269,
+      "lon": 153.062446,
+      "code": "600439"
+    },
+    {
+      "id": "600327",
+      "name": "Wacol station, platform 1",
+      "lat": -27.589327,
+      "lon": 152.924231,
+      "code": "600327"
+    },
+    {
+      "id": "600328",
+      "name": "Wacol station, platform 2",
+      "lat": -27.589163,
+      "lon": 152.924332,
+      "code": "600328"
+    },
+    {
+      "id": "600358",
+      "name": "Walloon station, platform 1",
+      "lat": -27.607317,
+      "lon": 152.667785,
+      "code": "600358"
+    },
+    {
+      "id": "600359",
+      "name": "Walloon station, platform 2",
+      "lat": -27.607305,
+      "lon": 152.667876,
+      "code": "600359"
+    },
+    {
+      "id": "600275",
+      "name": "Wellington Point station, platform 1",
+      "lat": -27.494311,
+      "lon": 153.242013,
+      "code": "600275"
+    },
+    {
+      "id": "600274",
+      "name": "Wellington Point station, platform 2",
+      "lat": -27.494486,
+      "lon": 153.241936,
+      "code": "600274"
+    },
+    {
+      "id": "600371",
+      "name": "Wilston station, platform 1",
+      "lat": -27.436168,
+      "lon": 153.019219,
+      "code": "600371"
+    },
+    {
+      "id": "600372",
+      "name": "Wilston station, platform 2",
+      "lat": -27.43629,
+      "lon": 153.019151,
+      "code": "600372"
+    },
+    {
+      "id": "600369",
+      "name": "Windsor station, platform 1",
+      "lat": -27.435285,
+      "lon": 153.028996,
+      "code": "600369"
+    },
+    {
+      "id": "600370",
+      "name": "Windsor station, platform 2",
+      "lat": -27.435384,
+      "lon": 153.029017,
+      "code": "600370"
+    },
+    {
+      "id": "600226",
+      "name": "Woodridge station, platform 1",
+      "lat": -27.638053,
+      "lon": 153.103835,
+      "code": "600226"
+    },
+    {
+      "id": "600227",
+      "name": "Woodridge station, platform 2",
+      "lat": -27.638135,
+      "lon": 153.10377,
+      "code": "600227"
+    },
+    {
+      "id": "600391",
+      "name": "Wooloowin station, platform 1",
+      "lat": -27.419606,
+      "lon": 153.043636,
+      "code": "600391"
+    },
+    {
+      "id": "600392",
+      "name": "Wooloowin station, platform 2",
+      "lat": -27.419687,
+      "lon": 153.043603,
+      "code": "600392"
+    },
+    {
+      "id": "600393",
+      "name": "Wooloowin station, platform 3",
+      "lat": -27.419654,
+      "lon": 153.043525,
+      "code": "600393"
+    },
+    {
+      "id": "600394",
+      "name": "Wooloowin station, platform 4",
+      "lat": -27.419585,
+      "lon": 153.043551,
+      "code": "600394"
+    },
+    {
+      "id": "600492",
+      "name": "Woombye station, platform 1",
+      "lat": -26.66075,
+      "lon": 152.962797,
+      "code": "600492"
+    },
+    {
+      "id": "600353",
+      "name": "Wulkuraka station, platform 1",
+      "lat": -27.613639,
+      "lon": 152.732869,
+      "code": "600353"
+    },
+    {
+      "id": "600354",
+      "name": "Wulkuraka station, platform 2",
+      "lat": -27.613605,
+      "lon": 152.732714,
+      "code": "600354"
+    },
+    {
+      "id": "600628",
+      "name": "Wynnum Central station, platform 1",
+      "lat": -27.445224,
+      "lon": 153.170214,
+      "code": "600628"
+    },
+    {
+      "id": "600629",
+      "name": "Wynnum Central station, platform 2",
+      "lat": -27.445269,
+      "lon": 153.170132,
+      "code": "600629"
+    },
+    {
+      "id": "600265",
+      "name": "Wynnum North station, platform 1",
+      "lat": -27.437207,
+      "lon": 153.158588,
+      "code": "600265"
+    },
+    {
+      "id": "600264",
+      "name": "Wynnum North station, platform 2",
+      "lat": -27.437232,
+      "lon": 153.158698,
+      "code": "600264"
+    },
+    {
+      "id": "600266",
+      "name": "Wynnum station, platform 1",
+      "lat": -27.43969,
+      "lon": 153.166196,
+      "code": "600266"
+    },
+    {
+      "id": "600267",
+      "name": "Wynnum station, platform 2",
+      "lat": -27.439728,
+      "lon": 153.166087,
+      "code": "600267"
+    },
+    {
+      "id": "600494",
+      "name": "Yandina station, platform 1",
+      "lat": -26.560603,
+      "lon": 152.95808,
+      "code": "600494"
+    },
+    {
+      "id": "600054",
+      "name": "Yeerongpilly station, platform 2",
+      "lat": -27.5253,
+      "lon": 153.014053,
+      "code": "600054"
+    },
+    {
+      "id": "600196",
+      "name": "Yeerongpilly station, platform 3",
+      "lat": -27.525269,
+      "lon": 153.01391,
+      "code": "600196"
+    },
+    {
+      "id": "600053",
+      "name": "Yeronga station, platform 1",
+      "lat": -27.517787,
+      "lon": 153.016898,
+      "code": "600053"
+    },
+    {
+      "id": "600195",
+      "name": "Yeronga station, platform 2",
+      "lat": -27.517741,
+      "lon": 153.016927,
+      "code": "600195"
+    },
+    {
+      "id": "600446",
+      "name": "Zillmere station, platform 1",
+      "lat": -27.358823,
+      "lon": 153.036877,
+      "code": "600446"
+    },
+    {
+      "id": "600447",
+      "name": "Zillmere station, platform 2",
+      "lat": -27.358945,
+      "lon": 153.036757,
+      "code": "600447"
+    },
+    {
+      "id": "600448",
+      "name": "Zillmere station, platform 3",
+      "lat": -27.358814,
+      "lon": 153.036659,
+      "code": "600448"
+    }
+  ]
+}
