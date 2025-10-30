@@ -1,0 +1,1135 @@
+[
+  {
+    "name": "Albion station",
+    "stopIds": [
+      "600365",
+      "600366",
+      "600367",
+      "600368"
+    ]
+  },
+  {
+    "name": "Alderley station",
+    "stopIds": [
+      "600376",
+      "600375"
+    ]
+  },
+  {
+    "name": "Altandi station",
+    "stopIds": [
+      "600212",
+      "600213",
+      "600214"
+    ]
+  },
+  {
+    "name": "Ascot station",
+    "stopIds": [
+      "600433"
+    ]
+  },
+  {
+    "name": "Auchenflower station",
+    "stopIds": [
+      "600283",
+      "600284",
+      "600285",
+      "600286"
+    ]
+  },
+  {
+    "name": "Bald Hills station",
+    "stopIds": [
+      "600452",
+      "600453",
+      "600454"
+    ]
+  },
+  {
+    "name": "Banoon station",
+    "stopIds": [
+      "600206",
+      "600207",
+      "600208"
+    ]
+  },
+  {
+    "name": "Banyo station",
+    "stopIds": [
+      "600413",
+      "600414"
+    ]
+  },
+  {
+    "name": "Beenleigh station",
+    "stopIds": [
+      "600239",
+      "600240"
+    ]
+  },
+  {
+    "name": "Beerburrum station",
+    "stopIds": [
+      "600482",
+      "600481"
+    ]
+  },
+  {
+    "name": "Beerwah station",
+    "stopIds": [
+      "600485",
+      "600486"
+    ]
+  },
+  {
+    "name": "Bethania station",
+    "stopIds": [
+      "600232",
+      "600233",
+      "600234"
+    ]
+  },
+  {
+    "name": "Bindha station",
+    "stopIds": [
+      "600411",
+      "600412"
+    ]
+  },
+  {
+    "name": "Birkdale station",
+    "stopIds": [
+      "600273"
+    ]
+  },
+  {
+    "name": "Boggo Road station",
+    "stopIds": [
+      "600085",
+      "600190",
+      "600191",
+      "600192"
+    ]
+  },
+  {
+    "name": "Boondall station",
+    "stopIds": [
+      "600417",
+      "600418"
+    ]
+  },
+  {
+    "name": "Booval station",
+    "stopIds": [
+      "600343",
+      "600344"
+    ]
+  },
+  {
+    "name": "Bowen Hills station",
+    "stopIds": [
+      "600005",
+      "600000",
+      "600002",
+      "600007"
+    ]
+  },
+  {
+    "name": "Bray Park station",
+    "stopIds": [
+      "600458",
+      "600459",
+      "600460"
+    ]
+  },
+  {
+    "name": "Bundamba station",
+    "stopIds": [
+      "600341",
+      "600342"
+    ]
+  },
+  {
+    "name": "Buranda station",
+    "stopIds": [
+      "600248",
+      "600249"
+    ]
+  },
+  {
+    "name": "Burpengary station",
+    "stopIds": [
+      "600472",
+      "600473"
+    ]
+  },
+  {
+    "name": "Caboolture station",
+    "stopIds": [
+      "600476",
+      "600477",
+      "600478"
+    ]
+  },
+  {
+    "name": "Cannon Hill station",
+    "stopIds": [
+      "600256",
+      "600257"
+    ]
+  },
+  {
+    "name": "Carseldine station",
+    "stopIds": [
+      "600449",
+      "600450",
+      "600451"
+    ]
+  },
+  {
+    "name": "Central station",
+    "stopIds": [
+      "600018",
+      "600017",
+      "600016",
+      "600020",
+      "600019",
+      "600024"
+    ]
+  },
+  {
+    "name": "Chelmer station",
+    "stopIds": [
+      "600299",
+      "600300",
+      "600301",
+      "600302"
+    ]
+  },
+  {
+    "name": "Clayfield station",
+    "stopIds": [
+      "600430"
+    ]
+  },
+  {
+    "name": "Cleveland station",
+    "stopIds": [
+      "600277",
+      "600278"
+    ]
+  },
+  {
+    "name": "Coomera station",
+    "stopIds": [
+      "600243",
+      "600244"
+    ]
+  },
+  {
+    "name": "Coopers Plains station",
+    "stopIds": [
+      "600203",
+      "600204",
+      "600205"
+    ]
+  },
+  {
+    "name": "Cooran station",
+    "stopIds": [
+      "600498"
+    ]
+  },
+  {
+    "name": "Cooroy station",
+    "stopIds": [
+      "600496"
+    ]
+  },
+  {
+    "name": "Coorparoo station",
+    "stopIds": [
+      "600251",
+      "600250"
+    ]
+  },
+  {
+    "name": "Corinda station",
+    "stopIds": [
+      "600314",
+      "600316",
+      "600317"
+    ]
+  },
+  {
+    "name": "Dakabin station",
+    "stopIds": [
+      "600467",
+      "600468"
+    ]
+  },
+  {
+    "name": "Darra station",
+    "stopIds": [
+      "600321",
+      "600322",
+      "600323",
+      "600324"
+    ]
+  },
+  {
+    "name": "Deagon station",
+    "stopIds": [
+      "600421",
+      "600422"
+    ]
+  },
+  {
+    "name": "Dinmore station",
+    "stopIds": [
+      "600337",
+      "600338"
+    ]
+  },
+  {
+    "name": "Domestic Airport station",
+    "stopIds": [
+      "600428",
+      "600429"
+    ]
+  },
+  {
+    "name": "Doomben station",
+    "stopIds": [
+      "600435",
+      "600436"
+    ]
+  },
+  {
+    "name": "Dutton Park station",
+    "stopIds": [
+      "600051",
+      "600193"
+    ]
+  },
+  {
+    "name": "Eagle Junction station",
+    "stopIds": [
+      "600395",
+      "600396",
+      "600401",
+      "600402"
+    ]
+  },
+  {
+    "name": "East Ipswich station",
+    "stopIds": [
+      "600345",
+      "600346"
+    ]
+  },
+  {
+    "name": "Ebbw Vale station",
+    "stopIds": [
+      "600339",
+      "600340"
+    ]
+  },
+  {
+    "name": "Edens Landing station",
+    "stopIds": [
+      "600235",
+      "600236"
+    ]
+  },
+  {
+    "name": "Elimbah station",
+    "stopIds": [
+      "600479",
+      "600480"
+    ]
+  },
+  {
+    "name": "Enoggera station",
+    "stopIds": [
+      "600377",
+      "600378"
+    ]
+  },
+  {
+    "name": "Eudlo station",
+    "stopIds": [
+      "600490"
+    ]
+  },
+  {
+    "name": "Eumundi station",
+    "stopIds": [
+      "600495"
+    ]
+  },
+  {
+    "name": "Exhibition station",
+    "stopIds": [
+      "600003"
+    ]
+  },
+  {
+    "name": "Fairfield station",
+    "stopIds": [
+      "600052",
+      "600194"
+    ]
+  },
+  {
+    "name": "Ferny Grove station",
+    "stopIds": [
+      "600389",
+      "600390"
+    ]
+  },
+  {
+    "name": "Fortitude Valley station",
+    "stopIds": [
+      "600014",
+      "600013",
+      "600010",
+      "600011"
+    ]
+  },
+  {
+    "name": "Fruitgrove station",
+    "stopIds": [
+      "600218",
+      "600219",
+      "600220"
+    ]
+  },
+  {
+    "name": "Gailes station",
+    "stopIds": [
+      "600329",
+      "600330"
+    ]
+  },
+  {
+    "name": "Gaythorne station",
+    "stopIds": [
+      "600379",
+      "600380"
+    ]
+  },
+  {
+    "name": "Geebung station",
+    "stopIds": [
+      "600443",
+      "600444",
+      "600445"
+    ]
+  },
+  {
+    "name": "Glass House Mountains station",
+    "stopIds": [
+      "600484",
+      "600483"
+    ]
+  },
+  {
+    "name": "Goodna station",
+    "stopIds": [
+      "600331",
+      "600332"
+    ]
+  },
+  {
+    "name": "Graceville station",
+    "stopIds": [
+      "600303",
+      "600304",
+      "600305",
+      "600306"
+    ]
+  },
+  {
+    "name": "Grovely station",
+    "stopIds": [
+      "600385",
+      "600386"
+    ]
+  },
+  {
+    "name": "Gympie North station",
+    "stopIds": [
+      "600500"
+    ]
+  },
+  {
+    "name": "Helensvale station",
+    "stopIds": [
+      "600119",
+      "600245"
+    ]
+  },
+  {
+    "name": "Hemmant station",
+    "stopIds": [
+      "600260",
+      "600261"
+    ]
+  },
+  {
+    "name": "Hendra station",
+    "stopIds": [
+      "600432"
+    ]
+  },
+  {
+    "name": "Holmview station",
+    "stopIds": [
+      "600237",
+      "600238"
+    ]
+  },
+  {
+    "name": "Indooroopilly station",
+    "stopIds": [
+      "600295",
+      "600296",
+      "600297",
+      "600298"
+    ]
+  },
+  {
+    "name": "International Airport station",
+    "stopIds": [
+      "600426",
+      "600427"
+    ]
+  },
+  {
+    "name": "Ipswich station",
+    "stopIds": [
+      "600347",
+      "600348",
+      "600349",
+      "600350"
+    ]
+  },
+  {
+    "name": "Kallangur station",
+    "stopIds": [
+      "600643",
+      "600644"
+    ]
+  },
+  {
+    "name": "Karrabin station",
+    "stopIds": [
+      "600355",
+      "600356"
+    ]
+  },
+  {
+    "name": "Keperra station",
+    "stopIds": [
+      "600387",
+      "600388"
+    ]
+  },
+  {
+    "name": "Kingston station",
+    "stopIds": [
+      "600228",
+      "600229"
+    ]
+  },
+  {
+    "name": "Kippa-Ring station",
+    "stopIds": [
+      "600633",
+      "600634"
+    ]
+  },
+  {
+    "name": "Kuraby station",
+    "stopIds": [
+      "600221",
+      "600222",
+      "600223"
+    ]
+  },
+  {
+    "name": "Landsborough station",
+    "stopIds": [
+      "600487",
+      "600488"
+    ]
+  },
+  {
+    "name": "Lawnton station",
+    "stopIds": [
+      "600461",
+      "600462",
+      "600463"
+    ]
+  },
+  {
+    "name": "Lindum station",
+    "stopIds": [
+      "600263",
+      "600262"
+    ]
+  },
+  {
+    "name": "Loganlea station",
+    "stopIds": [
+      "600230",
+      "600231"
+    ]
+  },
+  {
+    "name": "Lota station",
+    "stopIds": [
+      "600269",
+      "600270"
+    ]
+  },
+  {
+    "name": "Mango Hill East station",
+    "stopIds": [
+      "600637",
+      "600638"
+    ]
+  },
+  {
+    "name": "Mango Hill station",
+    "stopIds": [
+      "600639",
+      "600640"
+    ]
+  },
+  {
+    "name": "Manly station",
+    "stopIds": [
+      "600630",
+      "600631"
+    ]
+  },
+  {
+    "name": "Milton station",
+    "stopIds": [
+      "600279",
+      "600280",
+      "600281",
+      "600282"
+    ]
+  },
+  {
+    "name": "Mitchelton station",
+    "stopIds": [
+      "600381",
+      "600382"
+    ]
+  },
+  {
+    "name": "Mooloolah station",
+    "stopIds": [
+      "600489"
+    ]
+  },
+  {
+    "name": "Moorooka station",
+    "stopIds": [
+      "600197",
+      "600198"
+    ]
+  },
+  {
+    "name": "Morayfield station",
+    "stopIds": [
+      "600474",
+      "600475"
+    ]
+  },
+  {
+    "name": "Morningside station",
+    "stopIds": [
+      "600254",
+      "600255"
+    ]
+  },
+  {
+    "name": "Murarrie station",
+    "stopIds": [
+      "600259",
+      "600258"
+    ]
+  },
+  {
+    "name": "Murrumba Downs station",
+    "stopIds": [
+      "600641",
+      "600642"
+    ]
+  },
+  {
+    "name": "Nambour station",
+    "stopIds": [
+      "600493",
+      "600632"
+    ]
+  },
+  {
+    "name": "Narangba station",
+    "stopIds": [
+      "600469",
+      "600471"
+    ]
+  },
+  {
+    "name": "Nerang station",
+    "stopIds": [
+      "600185",
+      "600120"
+    ]
+  },
+  {
+    "name": "Newmarket station",
+    "stopIds": [
+      "600373",
+      "600374"
+    ]
+  },
+  {
+    "name": "Norman Park station",
+    "stopIds": [
+      "600252",
+      "600253"
+    ]
+  },
+  {
+    "name": "North Boondall station",
+    "stopIds": [
+      "600419",
+      "600420"
+    ]
+  },
+  {
+    "name": "Northgate station",
+    "stopIds": [
+      "600407",
+      "600408",
+      "600409",
+      "600410"
+    ]
+  },
+  {
+    "name": "Nudgee station",
+    "stopIds": [
+      "600415",
+      "600416"
+    ]
+  },
+  {
+    "name": "Nundah station",
+    "stopIds": [
+      "600403",
+      "600404",
+      "600405",
+      "600406"
+    ]
+  },
+  {
+    "name": "Ormeau station",
+    "stopIds": [
+      "600241",
+      "600242"
+    ]
+  },
+  {
+    "name": "Ormiston station",
+    "stopIds": [
+      "600276"
+    ]
+  },
+  {
+    "name": "Oxford Park station",
+    "stopIds": [
+      "600383",
+      "600384"
+    ]
+  },
+  {
+    "name": "Oxley station",
+    "stopIds": [
+      "600318",
+      "600319",
+      "600320"
+    ]
+  },
+  {
+    "name": "Palmwoods station",
+    "stopIds": [
+      "600491"
+    ]
+  },
+  {
+    "name": "Petrie station",
+    "stopIds": [
+      "600464",
+      "600465",
+      "600466",
+      "600627",
+      "600645"
+    ]
+  },
+  {
+    "name": "Pimpama station",
+    "stopIds": [
+      "600691",
+      "600692"
+    ]
+  },
+  {
+    "name": "Pomona station",
+    "stopIds": [
+      "600497"
+    ]
+  },
+  {
+    "name": "Redbank station",
+    "stopIds": [
+      "600333",
+      "600334"
+    ]
+  },
+  {
+    "name": "Richlands station",
+    "stopIds": [
+      "600325",
+      "600326"
+    ]
+  },
+  {
+    "name": "Riverview station",
+    "stopIds": [
+      "600335",
+      "600336"
+    ]
+  },
+  {
+    "name": "Robina station",
+    "stopIds": [
+      "600118",
+      "600246"
+    ]
+  },
+  {
+    "name": "Rocklea station",
+    "stopIds": [
+      "600199",
+      "600200"
+    ]
+  },
+  {
+    "name": "Roma Street station",
+    "stopIds": [
+      "600035",
+      "600033",
+      "600036",
+      "600034",
+      "600030",
+      "600028",
+      "600029",
+      "600038"
+    ]
+  },
+  {
+    "name": "Rosewood station",
+    "stopIds": [
+      "600362",
+      "600363"
+    ]
+  },
+  {
+    "name": "Rothwell station",
+    "stopIds": [
+      "600635",
+      "600636"
+    ]
+  },
+  {
+    "name": "Runcorn station",
+    "stopIds": [
+      "600215",
+      "600216",
+      "600217"
+    ]
+  },
+  {
+    "name": "Sandgate station",
+    "stopIds": [
+      "600424",
+      "600423"
+    ]
+  },
+  {
+    "name": "Sherwood station",
+    "stopIds": [
+      "600309",
+      "600310",
+      "600311",
+      "600312"
+    ]
+  },
+  {
+    "name": "Shorncliffe station",
+    "stopIds": [
+      "600425"
+    ]
+  },
+  {
+    "name": "South Bank station",
+    "stopIds": [
+      "600006",
+      "600188",
+      "600189"
+    ]
+  },
+  {
+    "name": "South Brisbane station",
+    "stopIds": [
+      "600012",
+      "600186",
+      "600187"
+    ]
+  },
+  {
+    "name": "Springfield Central station",
+    "stopIds": [
+      "600089",
+      "600090"
+    ]
+  },
+  {
+    "name": "Springfield station",
+    "stopIds": [
+      "600088",
+      "600087"
+    ]
+  },
+  {
+    "name": "Strathpine station",
+    "stopIds": [
+      "600455",
+      "600456",
+      "600457"
+    ]
+  },
+  {
+    "name": "Sunnybank station",
+    "stopIds": [
+      "600209",
+      "600210",
+      "600211"
+    ]
+  },
+  {
+    "name": "Sunshine station",
+    "stopIds": [
+      "600440",
+      "600441",
+      "600442"
+    ]
+  },
+  {
+    "name": "Taringa station",
+    "stopIds": [
+      "600291",
+      "600292",
+      "600293",
+      "600294"
+    ]
+  },
+  {
+    "name": "Thagoona station",
+    "stopIds": [
+      "600360",
+      "600361"
+    ]
+  },
+  {
+    "name": "Thomas Street station",
+    "stopIds": [
+      "600351",
+      "600352"
+    ]
+  },
+  {
+    "name": "Thorneside station",
+    "stopIds": [
+      "600271",
+      "600272"
+    ]
+  },
+  {
+    "name": "Toombul station",
+    "stopIds": [
+      "600397",
+      "600398",
+      "600399",
+      "600400"
+    ]
+  },
+  {
+    "name": "Toowong station",
+    "stopIds": [
+      "600287",
+      "600288",
+      "600289",
+      "600290"
+    ]
+  },
+  {
+    "name": "Traveston station",
+    "stopIds": [
+      "600499"
+    ]
+  },
+  {
+    "name": "Trinder Park station",
+    "stopIds": [
+      "600224",
+      "600225"
+    ]
+  },
+  {
+    "name": "Varsity Lakes station",
+    "stopIds": [
+      "600247",
+      "600117"
+    ]
+  },
+  {
+    "name": "Virginia station",
+    "stopIds": [
+      "600437",
+      "600438",
+      "600439"
+    ]
+  },
+  {
+    "name": "Wacol station",
+    "stopIds": [
+      "600327",
+      "600328"
+    ]
+  },
+  {
+    "name": "Walloon station",
+    "stopIds": [
+      "600358",
+      "600359"
+    ]
+  },
+  {
+    "name": "Wellington Point station",
+    "stopIds": [
+      "600275",
+      "600274"
+    ]
+  },
+  {
+    "name": "Wilston station",
+    "stopIds": [
+      "600371",
+      "600372"
+    ]
+  },
+  {
+    "name": "Windsor station",
+    "stopIds": [
+      "600369",
+      "600370"
+    ]
+  },
+  {
+    "name": "Woodridge station",
+    "stopIds": [
+      "600226",
+      "600227"
+    ]
+  },
+  {
+    "name": "Wooloowin station",
+    "stopIds": [
+      "600391",
+      "600392",
+      "600393",
+      "600394"
+    ]
+  },
+  {
+    "name": "Woombye station",
+    "stopIds": [
+      "600492"
+    ]
+  },
+  {
+    "name": "Wulkuraka station",
+    "stopIds": [
+      "600353",
+      "600354"
+    ]
+  },
+  {
+    "name": "Wynnum Central station",
+    "stopIds": [
+      "600628",
+      "600629"
+    ]
+  },
+  {
+    "name": "Wynnum North station",
+    "stopIds": [
+      "600265",
+      "600264"
+    ]
+  },
+  {
+    "name": "Wynnum station",
+    "stopIds": [
+      "600266",
+      "600267"
+    ]
+  },
+  {
+    "name": "Yandina station",
+    "stopIds": [
+      "600494"
+    ]
+  },
+  {
+    "name": "Yeerongpilly station",
+    "stopIds": [
+      "600054",
+      "600196"
+    ]
+  },
+  {
+    "name": "Yeronga station",
+    "stopIds": [
+      "600053",
+      "600195"
+    ]
+  },
+  {
+    "name": "Zillmere station",
+    "stopIds": [
+      "600446",
+      "600447",
+      "600448"
+    ]
+  }
+]

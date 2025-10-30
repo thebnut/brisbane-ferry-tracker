@@ -8,6 +8,7 @@ import { useMode } from '../config';
 
 const DepartureItem = ({ departure, onClick }) => {
   const mode = useMode();
+  const modeId = mode?.mode?.id || 'ferry';
 
   // Get service type from mode configuration
   const serviceInfo = mode?.getServiceType ? mode.getServiceType(departure.routeId) : {
@@ -17,6 +18,10 @@ const DepartureItem = ({ departure, onClick }) => {
     borderColor: 'border-ferry-aqua',
     icon: '🛥️'
   };
+
+  // Check if platform/headsign features are enabled
+  const showPlatform = mode?.features?.platforms && departure.platform;
+  const showHeadsign = mode?.features?.headsigns && departure.headsign;
   
   // Check for themed vessel
   const vesselName = React.useMemo(() => {
@@ -144,6 +149,21 @@ const DepartureItem = ({ departure, onClick }) => {
               </span>
             )}
           </div>
+          {/* Platform and Headsign for Train Mode */}
+          {(showPlatform || showHeadsign) && (
+            <div className="flex items-center space-x-2 mt-1">
+              {showPlatform && (
+                <span className="px-2 py-1 bg-blue-600 text-white rounded text-xs font-bold">
+                  Platform {departure.platform}
+                </span>
+              )}
+              {showHeadsign && (
+                <span className="text-xs text-gray-600 italic">
+                  to {departure.headsign}
+                </span>
+              )}
+            </div>
+          )}
           <p className={clsx(
             'font-semibold mt-1',
             serviceInfo.isExpress ? 'text-xl text-charcoal' : 'text-lg'

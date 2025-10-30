@@ -10,7 +10,7 @@ import StopSelectorModal from './components/StopSelectorModal';
 import MobileBoardHeader from './components/MobileBoardHeader';
 import DepartureTimeDropdown from './components/DepartureTimeDropdown';
 import FeedbackModal from './components/FeedbackModal';
-import useFerryData from './hooks/useFerryData';
+import useTransitData from './hooks/useTransitData';
 import staticGtfsService from './services/staticGtfsService';
 import { STORAGE_KEYS } from './utils/constants';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -95,7 +95,7 @@ function AppContent() {
     }
   }, [selectedDepartureTime]);
   
-  const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData(currentStops, selectedDepartureTime);
+  const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useTransitData(currentStops, selectedDepartureTime);
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
   const [showMap, setShowMap] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -137,55 +137,84 @@ function AppContent() {
     const loadStops = async () => {
       try {
         setStopsLoading(true);
-        
-        // Try to get stops from static GTFS service
+
+        const modeId = mode?.mode?.id;
+
+        // Train mode: Use stops from mode config
+        if (modeId === 'train') {
+          const trainStops = mode.data.stops.list || [];
+          setAvailableStops(trainStops);
+          // For trains, all stations can connect to all other stations
+          setValidDestinations(trainStops.map(s => s.id));
+          setStopsLoading(false);
+          return;
+        }
+
+        // Ferry mode: Use static GTFS service
         if (!staticGtfsService.hasStopsData()) {
           await staticGtfsService.getScheduledDepartures();
         }
-        
+
         const stops = staticGtfsService.getAvailableStops();
         setAvailableStops(stops);
-        
+
         // Get valid destinations for current origin
         const destinations = staticGtfsService.getValidDestinations(currentStops.outbound.id);
         setValidDestinations(destinations);
-        
+
         setStopsLoading(false);
       } catch (error) {
         console.error('Error loading stops:', error);
         setStopsLoading(false);
       }
     };
-    
+
     loadStops();
-  }, [currentStops.outbound.id]);
+  }, [currentStops.outbound.id, mode?.mode?.id]);
   
   // Update valid destinations when origin changes
   useEffect(() => {
     if (availableStops.length > 0 && currentStops) {
-      const destinations = staticGtfsService.getValidDestinations(currentStops.outbound.id);
-      setValidDestinations(destinations);
+      const modeId = mode?.mode?.id;
+
+      // Train mode: All stations are valid destinations
+      if (modeId === 'train') {
+        setValidDestinations(availableStops.map(s => s.id));
+      } else {
+        // Ferry mode: Use connectivity data
+        const destinations = staticGtfsService.getValidDestinations(currentStops.outbound.id);
+        setValidDestinations(destinations);
+      }
     }
-  }, [currentStops?.outbound?.id, availableStops]);
+  }, [currentStops?.outbound?.id, availableStops, mode?.mode?.id]);
   
   // Handlers for dropdown changes
   const handleTemporaryOriginChange = (originId) => {
     const originStop = availableStops.find(s => s.id === originId);
     if (!originStop) return;
-    
+
+    const modeId = mode?.mode?.id;
+
     // Get valid destinations for new origin
-    const destinations = staticGtfsService.getValidDestinations(originId);
-    
+    let destinations;
+    if (modeId === 'train') {
+      // Train mode: All stations are valid
+      destinations = availableStops.map(s => s.id);
+    } else {
+      // Ferry mode: Use connectivity
+      destinations = staticGtfsService.getValidDestinations(originId);
+    }
+
     // Check if current destination is still valid
     let destinationId = currentStops.inbound.id;
     let destinationStop = currentStops.inbound;
-    
+
     if (!destinations.includes(destinationId) && destinations.length > 0) {
       // Current destination not valid, pick the first valid one
       destinationId = destinations[0];
       destinationStop = availableStops.find(s => s.id === destinationId);
     }
-    
+
     setTemporaryStops({
       outbound: { id: originId, name: originStop.name },
       inbound: destinationStop

@@ -3,8 +3,10 @@ import staticGtfsService from '../services/staticGtfsService';
 import { DEFAULT_STOPS, STORAGE_KEYS } from '../utils/constants';
 import { FERRY_STOPS, TEMPORARY_CONNECTIVITY } from '../utils/ferryStops';
 import StopSelectorMap from './StopSelectorMap';
+import { useMode } from '../config';
 
 const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
+  const mode = useMode();
   const [selectedOrigin, setSelectedOrigin] = useState(currentStops?.outbound?.id || DEFAULT_STOPS.outbound.id);
   const [selectedDestination, setSelectedDestination] = useState(currentStops?.inbound?.id || DEFAULT_STOPS.inbound.id);
   const [availableStops, setAvailableStops] = useState([]);
@@ -170,8 +172,8 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
         <div className="p-6 border-b bg-gradient-to-r from-ferry-orange-light to-white">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-charcoal flex items-center gap-2">
-              <span className="text-3xl">🛥️</span>
-              Select Ferry Stops
+              <span className="text-3xl">{mode?.branding?.icons?.mode || '🛥️'}</span>
+              {mode?.ui?.labels?.selectStops || 'Select Stops'}
             </h2>
             <button
               onClick={onClose}
