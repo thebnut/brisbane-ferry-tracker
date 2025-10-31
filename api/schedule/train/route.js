@@ -133,48 +133,11 @@ export default async function handler(req) {
       }, 400);
     }
 
-    // Optimized parallel fetch: race cache against blob
-    const cacheKey = `train:route:${origin}:${destination}:${date}:${hours}`;
-    console.log(`[TIMING] Starting parallel cache+blob fetch at ${Date.now() - startTime}ms`);
+    // DISABLE REDIS: Just fetch from blob directly
+    // Redis connection causes 60s timeout after response is sent
+    console.log(`[TIMING] Fetching blob at ${Date.now() - startTime}ms`);
 
-    // Start blob fetch immediately (don't wait for cache)
-    const blobPromise = fetchRouteFromBlob(origin, destination);
-
-    // Also try cache with aggressive timeout
-    const cachePromise = Promise.race([
-      getCachedRoute(cacheKey),
-      new Promise(resolve => setTimeout(() => {
-        console.log('[CACHE] Timeout after 2s, using blob result');
-        resolve(null);
-      }, 2000))
-    ]).catch(err => {
-      console.error('[CACHE] Error, falling back to blob:', err.message);
-      return null;
-    });
-
-    // Wait for cache with short timeout, but don't block blob
-    const cached = await Promise.race([
-      cachePromise,
-      new Promise(resolve => setTimeout(() => resolve(null), 500)) // 500ms quick check
-    ]);
-
-    if (cached) {
-      const responseTime = Date.now() - startTime;
-      console.log(`[TIMING] Cache hit in ${responseTime}ms, returning immediately`);
-      return jsonResponse({
-        ...cached,
-        meta: {
-          cached: true,
-          responseTime: `${responseTime}ms`,
-          cacheKey
-        }
-      });
-    }
-
-    console.log(`[TIMING] Cache miss, waiting for blob at ${Date.now() - startTime}ms`);
-
-    // Cache miss - wait for blob
-    const routeData = await blobPromise;
+    const routeData = await fetchRouteFromBlob(origin, destination);
     console.log(`[TIMING] Blob fetched at ${Date.now() - startTime}ms`);
 
     if (!routeData) {
@@ -212,11 +175,8 @@ export default async function handler(req) {
       validUntil: new Date(Date.now() + CACHE_TTL * 1000).toISOString()
     };
 
-    // Cache the response (async, fire-and-forget - don't block response)
-    console.log(`[TIMING] Starting async cache write at ${Date.now() - startTime}ms`);
-    cacheRoute(cacheKey, response).catch(err =>
-      console.error('[CACHE] Write failed:', err.message)
-    );
+    // REDIS DISABLED - rely on Vercel CDN caching via Cache-Control headers
+    console.log(`[TIMING] Returning response at ${Date.now() - startTime}ms`);
 
     const responseTime = Date.now() - startTime;
     return jsonResponse({
