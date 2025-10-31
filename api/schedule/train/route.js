@@ -178,6 +178,11 @@ export default async function handler(req) {
     console.log(`[TIMING] Blob fetched at ${Date.now() - startTime}ms`);
 
     if (!routeData) {
+      console.log(`[TIMING] Returning 404 at ${Date.now() - startTime}ms`);
+      // Close any pending operations before returning
+      if (redisClient?.isOpen) {
+        redisClient.quit().catch(() => {}); // Best effort close
+      }
       return jsonResponse({
         error: 'Route not found',
         message: 'No direct route exists between these stations',
