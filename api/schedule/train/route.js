@@ -192,33 +192,38 @@ async function fetchStationFromBlob(stationSlug) {
 
 /**
  * Filter departures by time window
- * Handles time-only strings (e.g., "08:52:00") by combining with today's date
+ * Handles time-only strings (e.g., "08:52:00") by combining with today's date in Brisbane timezone
  */
 function filterDeparturesByTime(departures, hours) {
-  const now = new Date();
-  const cutoff = new Date(now.getTime() + (hours * 60 * 60 * 1000));
+  // Get current time in Brisbane
+  const nowBrisbane = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
+  const cutoffBrisbane = new Date(nowBrisbane.getTime() + (hours * 60 * 60 * 1000));
 
-  // Get current date components for Brisbane timezone
-  const brisbaneTime = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
-  const todayYear = brisbaneTime.getFullYear();
-  const todayMonth = brisbaneTime.getMonth();
-  const todayDate = brisbaneTime.getDate();
+  const todayYear = nowBrisbane.getFullYear();
+  const todayMonth = nowBrisbane.getMonth();
+  const todayDate = nowBrisbane.getDate();
+  const currentHour = nowBrisbane.getHours();
 
   return departures.filter(dep => {
     // Parse time string (HH:MM:SS)
     const [depHours, depMinutes, depSeconds] = dep.scheduledDeparture.split(':').map(Number);
 
-    // Create date for today with this time
-    const depTime = new Date(todayYear, todayMonth, todayDate, depHours, depMinutes, depSeconds || 0);
+    // Create departure time for today (in Brisbane timezone context)
+    let depTime = new Date(todayYear, todayMonth, todayDate, depHours, depMinutes, depSeconds || 0);
 
-    // If the departure time is before now, it might be tomorrow
+    // If departure time appears to be in the past, check if it's tomorrow
     // (e.g., at 11:30 PM looking for a 1:00 AM train)
-    if (depTime < now && (now.getHours() >= 20 || depTime.getHours() <= 4)) {
-      // Add one day for late night/early morning services
-      depTime.setDate(depTime.getDate() + 1);
+    if (depTime < nowBrisbane) {
+      // Only roll to tomorrow if we're late evening (>= 8pm) or departure is early morning (<= 4am)
+      if (currentHour >= 20 || depHours <= 4) {
+        depTime = new Date(todayYear, todayMonth, todayDate + 1, depHours, depMinutes, depSeconds || 0);
+      } else {
+        // Departure is genuinely in the past, exclude it
+        return false;
+      }
     }
 
-    return depTime >= now && depTime <= cutoff;
+    return depTime >= nowBrisbane && depTime <= cutoffBrisbane;
   });
 }
 
