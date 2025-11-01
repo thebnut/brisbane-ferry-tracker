@@ -1,5 +1,15 @@
 import trainStationsData from '../../data/trainStations.json';
 
+// Helper function to convert station name to slug
+function toStationSlug(stationName) {
+  return stationName
+    .replace(/\s+station$/i, '') // Remove " station" suffix
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_') // Replace non-alphanumeric with underscore
+    .replace(/^_|_$/g, ''); // Trim leading/trailing underscores
+}
+
 // Train-specific configuration
 export const TRAIN_CONFIG = {
   // Core Identity
@@ -45,15 +55,15 @@ export const TRAIN_CONFIG = {
       staleThreshold: 600000    // 10 minutes
     },
     stops: {
-      // Use imported train stations data
+      // Use imported train stations data with station slugs as IDs
       list: trainStationsData.map(station => ({
-        id: station.stopIds[0], // Use first platform ID as representative
+        id: toStationSlug(station.name), // Use station slug as ID
         name: station.name,
-        stopIds: station.stopIds // All platform IDs for this station
+        stopIds: station.stopIds // All platform IDs for this station (for reference only)
       })),
       defaults: {
-        origin: '600005',   // Popular route that exists in blob storage
-        destination: '600014' // Popular route that exists in blob storage
+        origin: 'BOWEN_HILLS',      // Bowen Hills station slug
+        destination: 'FORTITUDE_VALLEY' // Fortitude Valley station slug
       }
     }
   },

@@ -1,14 +1,13 @@
 /**
  * Train Schedule API - Route Query Endpoint
- * VERSION: 4.0 - Per-Station Architecture (Optimal)
+ * VERSION: 5.0 - Station Slug Architecture (Simplified)
  *
- * Query train schedules between two stations
+ * Query train schedules between two stations using station slugs
  *
- * Usage: /api/schedule/train/route?origin=600016&destination=600029&hours=24
+ * Usage: /api/schedule/train/route?origin=BOWEN_HILLS&destination=FORTITUDE_VALLEY&hours=24
  *
  * Architecture:
- * - Accepts platform IDs (backward compatible)
- * - Maps platforms → stations
+ * - Accepts station slugs directly (e.g., BOWEN_HILLS, FORTITUDE_VALLEY)
  * - Fetches single origin station file (contains ALL routes from that station)
  * - Filters by destination station
  * - Perfect for CDN caching (cache by origin station)
@@ -17,13 +16,11 @@
  * Performance: ~50-150ms response (faster than before!)
  */
 
-import { createClient } from 'redis';
 import https from 'https';
-import { getStationFromPlatform, getRouteKeyFromPlatforms } from './stationMappings.js';
 // Note: Not using @vercel/blob SDK - fetching directly via public URLs
 
-const CACHE_TTL = 300; // 5 minutes in seconds
 const DEFAULT_HOURS = 24; // Default time window for departures
+const CACHE_TTL = 300; // 5 minutes in seconds (for response headers)
 
 // HTTP agent for connection reuse (reduces latency)
 const httpsAgent = new https.Agent({
@@ -33,64 +30,11 @@ const httpsAgent = new https.Agent({
   maxFreeSockets: 2
 });
 
-// Lazy Redis connection (singleton pattern)
-// Avoids reconnecting on every serverless invocation
-let redisClient = null;
-let redisConnecting = false;
-
-async function getRedis() {
-  // Return existing connected client
-  if (redisClient?.isOpen) {
-    return redisClient;
-  }
-
-  // Wait if connection is in progress
-  if (redisConnecting) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return getRedis(); // Retry after waiting
-  }
-
-  try {
-    redisConnecting = true;
-
-    // Create new client with timeout configuration
-    redisClient = createClient({
-      url: process.env.REDIS_URL,
-      socket: {
-        connectTimeout: 5000, // 5 second timeout
-        keepAlive: 5000,
-        reconnectStrategy: (retries) => {
-          // Exponential backoff up to 3 seconds
-          return Math.min(retries * 100, 3000);
-        }
-      }
-    });
-
-    // Connect with timeout
-    await Promise.race([
-      redisClient.connect(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Redis connection timeout')), 5000)
-      )
-    ]);
-
-    console.log('[REDIS] Connected successfully');
-    return redisClient;
-
-  } catch (error) {
-    console.error('[REDIS] Connection failed:', error.message);
-    redisClient = null;
-    throw error;
-  } finally {
-    redisConnecting = false;
-  }
-}
-
 // Vercel function configuration
 export const config = {
-  runtime: 'nodejs', // Edge runtime doesn't support native Redis (TCP connections)
-  maxDuration: 60, // 60 seconds timeout
-  // Force rebuild - Version 4.0 - Per-Station Architecture
+  runtime: 'nodejs',
+  maxDuration: 30, // 30 seconds timeout
+  // Force rebuild - Version 5.0 - Station Slug Architecture
 };
 
 /**
@@ -124,7 +68,7 @@ export default async function handler(req) {
         error: 'Missing required parameters',
         required: ['origin', 'destination'],
         optional: ['hours', 'date'],
-        example: '/api/schedule/train/route?origin=600016&destination=600029&hours=24'
+        example: '/api/schedule/train/route?origin=BOWEN_HILLS&destination=FORTITUDE_VALLEY&hours=24'
       }, 400);
     }
 
@@ -137,39 +81,29 @@ export default async function handler(req) {
       }, 400);
     }
 
-    // STATION LOOKUP: Map platform IDs to stations (backward compatible)
-    console.log(`[TIMING] Looking up stations at ${Date.now() - startTime}ms`);
-    const originStation = getStationFromPlatform(origin);
-    const destStation = getStationFromPlatform(destination);
+    // Station slugs are passed directly (e.g., BOWEN_HILLS, FORTITUDE_VALLEY)
+    const originSlug = origin.toUpperCase();
+    const destSlug = destination.toUpperCase();
 
-    if (!originStation || !destStation) {
-      return jsonResponse({
-        error: 'Invalid station',
-        message: 'One or both platform IDs are not recognized',
-        origin: { platformId: origin, found: !!originStation },
-        destination: { platformId: destination, found: !!destStation }
-      }, 400);
-    }
-
-    console.log(`[STATION] ${originStation.name} → ${destStation.name}`);
-    console.log(`[STATION] Fetching origin station file: train-station-${originStation.slug}.json`);
+    console.log(`[STATION] ${originSlug} → ${destSlug}`);
+    console.log(`[STATION] Fetching origin station file: train-station-${originSlug}.json`);
 
     // Fetch origin station file (contains ALL routes from this station)
     console.log(`[TIMING] Fetching station blob at ${Date.now() - startTime}ms`);
-    const stationData = await fetchStationFromBlob(originStation.slug);
+    const stationData = await fetchStationFromBlob(originSlug);
     console.log(`[TIMING] Station blob fetched at ${Date.now() - startTime}ms`);
 
     if (!stationData) {
       return jsonResponse({
         error: 'Station data not found',
         message: 'Origin station file does not exist',
-        origin: originStation.name,
+        origin: originSlug,
         suggestion: 'This station may not have any departures in the schedule'
       }, 404);
     }
 
     // Extract route to destination from station file
-    const routeData = stationData.routes[destStation.slug];
+    const routeData = stationData.routes[destSlug];
     console.log(`[TIMING] Extracted destination route at ${Date.now() - startTime}ms`);
 
     if (!routeData) {
@@ -177,14 +111,8 @@ export default async function handler(req) {
       return jsonResponse({
         error: 'Route not found',
         message: 'No direct route exists between these stations',
-        origin: {
-          platformId: origin,
-          station: originStation.name
-        },
-        destination: {
-          platformId: destination,
-          station: destStation.name
-        },
+        origin: originSlug,
+        destination: destSlug,
         suggestion: 'Try different stations or check if a transfer is required'
       }, 404);
     }
@@ -197,14 +125,12 @@ export default async function handler(req) {
     // Prepare response with station-level metadata
     const response = {
       origin: {
-        station: originStation.name,
-        slug: originStation.slug,
-        platforms: originStation.platforms,
-        requestedPlatformId: origin
+        ...stationData.station,
+        requestedSlug: originSlug
       },
       destination: {
         ...routeData.destination,
-        requestedPlatformId: destination
+        requestedSlug: destSlug
       },
       departures: filteredDepartures,
       totalDepartures: filteredDepartures.length,
@@ -226,9 +152,9 @@ export default async function handler(req) {
       meta: {
         cached: false,
         responseTime: `${responseTime}ms`,
-        architecture: 'per-station', // Per-station file architecture
-        stationFile: `train-station-${originStation.slug}.json`,
-        version: '4.0'
+        architecture: 'station-slug', // Station slug architecture
+        stationFile: `train-station-${originSlug}.json`,
+        version: '5.0'
       }
     });
 
@@ -240,44 +166,6 @@ export default async function handler(req) {
       message: error.message,
       timestamp: new Date().toISOString()
     }, 500);
-  }
-}
-
-/**
- * Get cached route data from Redis
- */
-async function getCachedRoute(key) {
-  try {
-    const redis = await getRedis();
-    const cached = await redis.get(key);
-
-    if (!cached) {
-      console.log(`[CACHE MISS] ${key}`);
-      return null;
-    }
-
-    console.log(`[CACHE HIT] ${key}`);
-    // Redis stores as string, parse back to object
-    return JSON.parse(cached);
-  } catch (error) {
-    console.error('[CACHE] Read error:', error.message);
-    return null; // Fail gracefully - continue without cache
-  }
-}
-
-/**
- * Cache route data in Redis
- */
-async function cacheRoute(key, data) {
-  try {
-    const redis = await getRedis();
-    // Redis requires string values, so stringify the data
-    // node-redis v4 uses setEx for setting with expiration
-    await redis.setEx(key, CACHE_TTL, JSON.stringify(data));
-    console.log(`[CACHED] ${key} for ${CACHE_TTL}s`);
-  } catch (error) {
-    console.error('[CACHE] Write error:', error.message);
-    // Don't fail the request if caching fails
   }
 }
 
