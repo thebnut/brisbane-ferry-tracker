@@ -110,7 +110,12 @@ export default async function handler(req) {
     // Filter departures by time window
     console.log(`[TIMING] Filtering departures at ${Date.now() - startTime}ms`);
     const filteredDepartures = filterDeparturesByTime(routeData.departures, hours);
-    console.log(`[TIMING] Filtered ${filteredDepartures.length} departures at ${Date.now() - startTime}ms`);
+    console.log(`[TIMING] Filtered ${filteredDepartures.length} departures (before dedup) at ${Date.now() - startTime}ms`);
+
+    // Deduplicate by unique departure time + headsign + platform
+    // (Same service runs on multiple days, we only want today's instance)
+    const uniqueDepartures = deduplicateDepartures(filteredDepartures);
+    console.log(`[TIMING] Deduplicated to ${uniqueDepartures.length} departures at ${Date.now() - startTime}ms`);
 
     // Prepare response with station-level metadata
     const response = {
@@ -122,8 +127,8 @@ export default async function handler(req) {
         ...routeData.destination,
         requestedSlug: destSlug
       },
-      departures: filteredDepartures,
-      totalDepartures: filteredDepartures.length,
+      departures: uniqueDepartures,
+      totalDepartures: uniqueDepartures.length,
       timeWindow: {
         hours,
         from: new Date().toISOString(),
@@ -188,6 +193,28 @@ async function fetchStationFromBlob(stationSlug) {
     console.error(`[BLOB ERROR] ${error.message}`);
     return null;
   }
+}
+
+/**
+ * Deduplicate departures that represent the same service
+ * GTFS data includes multiple service_ids for the same departure (different days of week)
+ * We deduplicate by: time + headsign + origin platform
+ */
+function deduplicateDepartures(departures) {
+  const seen = new Map();
+  const unique = [];
+
+  for (const dep of departures) {
+    // Create unique key from departure time, headsign, and origin platform
+    const key = `${dep.scheduledDeparture}|${dep.headsign}|${dep.platformDetails?.origin?.id || ''}`;
+
+    if (!seen.has(key)) {
+      seen.set(key, true);
+      unique.push(dep);
+    }
+  }
+
+  return unique;
 }
 
 /**
