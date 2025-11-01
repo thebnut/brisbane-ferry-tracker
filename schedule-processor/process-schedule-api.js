@@ -28,6 +28,49 @@ const TIMEZONE = 'Australia/Brisbane';
 const GTFS_URL = 'https://gtfsrt.api.translink.com.au/GTFS/SEQ_GTFS.zip';
 const DAYS_TO_PROCESS = 7; // Process next week of schedules
 
+/**
+ * Build platform-to-station mapping from grouped stations file
+ * @returns {Promise<{platformToStation: Map, stationSlugs: Map, stationPlatforms: Map}>}
+ */
+async function buildStationMappings() {
+  try {
+    const groupedData = JSON.parse(
+      await fs.readFile(path.join(__dirname, 'train-stations-grouped.json'), 'utf-8')
+    );
+
+    const platformToStation = new Map(); // platform ID -> station name
+    const stationSlugs = new Map(); // station name -> URL-safe slug
+    const stationPlatforms = new Map(); // station name -> array of platform IDs
+
+    groupedData.stations.forEach(station => {
+      const stationName = station.name;
+
+      // Create URL-safe slug (e.g., "Bowen Hills station" -> "BOWEN_HILLS")
+      const slug = stationName
+        .replace(/\s+station$/i, '') // Remove " station" suffix
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '_') // Replace non-alphanumeric with underscore
+        .replace(/^_|_$/g, ''); // Trim leading/trailing underscores
+
+      stationSlugs.set(stationName, slug);
+      stationPlatforms.set(stationName, station.stopIds);
+
+      // Map each platform ID to this station
+      station.stopIds.forEach(platformId => {
+        platformToStation.set(platformId, stationName);
+      });
+    });
+
+    console.log(`✅ Built mappings for ${stationSlugs.size} stations, ${platformToStation.size} platforms`);
+
+    return { platformToStation, stationSlugs, stationPlatforms };
+  } catch (error) {
+    console.error('❌ Failed to build station mappings:', error.message);
+    throw error;
+  }
+}
+
 // Parse CSV content
 function parseCSV(content) {
   const result = Papa.parse(content, {
@@ -185,13 +228,17 @@ function getActiveServices(calendar, calendarDates, startDate, endDate) {
 }
 
 /**
- * Generate route pair files
+ * Generate route pair files (STATION-LEVEL aggregation)
+ * Aggregates all platform combinations into station-to-station routes
  */
 async function generateRoutePairs(trainData) {
-  console.log('🔄 Generating route pairs...');
+  console.log('🔄 Generating station-to-station route pairs...');
 
   const startDate = startOfDay(new Date());
   const endDate = addDays(startDate, DAYS_TO_PROCESS);
+
+  // Build station mappings
+  const { platformToStation, stationSlugs, stationPlatforms } = await buildStationMappings();
 
   // Get active services
   const servicesByDate = getActiveServices(
@@ -232,9 +279,10 @@ async function generateRoutePairs(trainData) {
     trainData.routes.map(route => [route.route_id, route])
   );
 
-  // Generate route pairs
+  // Generate STATION-LEVEL route pairs
   const routePairs = new Map();
   let tripsProcessed = 0;
+  let platformPairsAggregated = 0;
 
   for (const trip of trainData.trips) {
     const stops = tripStopSequences.get(trip.trip_id);
@@ -248,35 +296,56 @@ async function generateRoutePairs(trainData) {
     // For each pair of stops in this trip
     for (let i = 0; i < stops.length - 1; i++) {
       for (let j = i + 1; j < stops.length; j++) {
-        const originId = stops[i].stopId;
-        const destId = stops[j].stopId;
-        const pairKey = `${originId}-${destId}`;
+        const originPlatformId = stops[i].stopId;
+        const destPlatformId = stops[j].stopId;
 
-        if (!routePairs.has(pairKey)) {
-          const originStop = stopsMap.get(originId);
-          const destStop = stopsMap.get(destId);
+        // Map platforms to stations
+        const originStation = platformToStation.get(originPlatformId);
+        const destStation = platformToStation.get(destPlatformId);
 
-          routePairs.set(pairKey, {
+        if (!originStation || !destStation) {
+          // Skip if platform not in our mapping (shouldn't happen)
+          continue;
+        }
+
+        // Create STATION-LEVEL pair key using slugs
+        const originSlug = stationSlugs.get(originStation);
+        const destSlug = stationSlugs.get(destStation);
+        const stationPairKey = `${originSlug}-${destSlug}`;
+
+        platformPairsAggregated++;
+
+        // Initialize station pair if first time seeing it
+        if (!routePairs.has(stationPairKey)) {
+          const originStop = stopsMap.get(originPlatformId);
+          const destStop = stopsMap.get(destPlatformId);
+
+          routePairs.set(stationPairKey, {
             origin: {
-              id: originId,
-              name: originStop?.stop_name || 'Unknown',
+              station: originStation,
+              slug: originSlug,
+              allPlatforms: stationPlatforms.get(originStation),
+              // Representative coordinates (from first encountered platform)
               lat: parseFloat(originStop?.stop_lat || '0'),
-              lng: parseFloat(originStop?.stop_lon || '0'),
-              platform: originStop?.platform_code || null
+              lng: parseFloat(originStop?.stop_lon || '0')
             },
             destination: {
-              id: destId,
-              name: destStop?.stop_name || 'Unknown',
+              station: destStation,
+              slug: destSlug,
+              allPlatforms: stationPlatforms.get(destStation),
+              // Representative coordinates (from first encountered platform)
               lat: parseFloat(destStop?.stop_lat || '0'),
-              lng: parseFloat(destStop?.stop_lon || '0'),
-              platform: destStop?.platform_code || null
+              lng: parseFloat(destStop?.stop_lon || '0')
             },
             departures: []
           });
         }
 
-        // Add this departure
-        routePairs.get(pairKey).departures.push({
+        // Add this departure with platform information preserved
+        const originStop = stopsMap.get(originPlatformId);
+        const destStop = stopsMap.get(destPlatformId);
+
+        routePairs.get(stationPairKey).departures.push({
           tripId: trip.trip_id,
           routeId: trip.route_id,
           routeName: route?.route_short_name || route?.route_long_name || 'Unknown',
@@ -284,7 +353,21 @@ async function generateRoutePairs(trainData) {
           scheduledDeparture: stops[i].departure,
           scheduledArrival: stops[j].arrival,
           serviceId: trip.service_id,
-          platform: stopsMap.get(originId)?.platform_code || null
+          // Backward compatible platform field (UI expects this)
+          platform: originStop?.platform_code || null,
+          // Extended platform info for future features
+          platformDetails: {
+            origin: {
+              id: originPlatformId,
+              number: originStop?.platform_code || null,
+              name: originStop?.stop_name || 'Unknown'
+            },
+            destination: {
+              id: destPlatformId,
+              number: destStop?.platform_code || null,
+              name: destStop?.stop_name || 'Unknown'
+            }
+          }
         });
       }
     }
@@ -295,7 +378,9 @@ async function generateRoutePairs(trainData) {
     }
   }
 
-  console.log(`✅ Generated ${routePairs.size} unique route pairs`);
+  console.log(`✅ Generated ${routePairs.size} unique STATION pairs (aggregated from ${platformPairsAggregated} platform pairs)`);
+  console.log(`   Reduction: ${Math.round((1 - routePairs.size / platformPairsAggregated) * 100)}% fewer files`);
+
   return routePairs;
 }
 
@@ -357,10 +442,10 @@ function identifyPopularRoutes(routePairs) {
     .sort((a, b) => b.departureCount - a.departureCount)
     .slice(0, 20);
 
-  console.log('\n🔥 Top 20 Popular Routes:');
+  console.log('\n🔥 Top 20 Popular Station Routes:');
   sorted.forEach((route, i) => {
     console.log(
-      `  ${i + 1}. ${route.origin.name} → ${route.destination.name}: ${route.departureCount} departures`
+      `  ${i + 1}. ${route.origin.station} → ${route.destination.station}: ${route.departureCount} departures`
     );
   });
 
