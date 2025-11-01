@@ -45,13 +45,28 @@ export function ModeProvider({ children, overrideMode = null }) {
               };
             }
 
+            // Check if routeCategories exists (not all modes have it, e.g., train mode)
+            const routeCategories = modeConfig.data?.gtfs?.routeCategories;
+            if (!routeCategories) {
+              // Return default service type for modes without route categories
+              return {
+                id: 'default',
+                name: 'Service',
+                icon: modeConfig.branding?.icons?.standard || '🚆',
+                color: `bg-${modeConfig.branding?.theme?.primary || 'gray-500'}`,
+                borderColor: `border-${modeConfig.branding?.theme?.primary || 'gray-500'}`,
+                isExpress: false,
+                priority: 1
+              };
+            }
+
             // Try exact match first
-            if (modeConfig.data.gtfs.routeCategories[routeId]) {
-              return modeConfig.data.gtfs.routeCategories[routeId];
+            if (routeCategories[routeId]) {
+              return routeCategories[routeId];
             }
 
             // Try prefix match (e.g., F11-xxx → F11)
-            for (const [key, value] of Object.entries(modeConfig.data.gtfs.routeCategories)) {
+            for (const [key, value] of Object.entries(routeCategories)) {
               if (routeId.startsWith(key)) {
                 return value;
               }
@@ -69,7 +84,9 @@ export function ModeProvider({ children, overrideMode = null }) {
             };
           },
           isExpressRoute: (routeId) => {
-            const serviceType = modeConfig.data.gtfs.routeCategories[routeId];
+            const routeCategories = modeConfig.data?.gtfs?.routeCategories;
+            if (!routeCategories) return false;
+            const serviceType = routeCategories[routeId];
             return serviceType?.isExpress || false;
           },
           formatStopName: (name) => {
