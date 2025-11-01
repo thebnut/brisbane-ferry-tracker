@@ -192,13 +192,32 @@ async function fetchStationFromBlob(stationSlug) {
 
 /**
  * Filter departures by time window
+ * Handles time-only strings (e.g., "08:52:00") by combining with today's date
  */
 function filterDeparturesByTime(departures, hours) {
   const now = new Date();
   const cutoff = new Date(now.getTime() + (hours * 60 * 60 * 1000));
 
+  // Get current date components for Brisbane timezone
+  const brisbaneTime = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }));
+  const todayYear = brisbaneTime.getFullYear();
+  const todayMonth = brisbaneTime.getMonth();
+  const todayDate = brisbaneTime.getDate();
+
   return departures.filter(dep => {
-    const depTime = new Date(dep.scheduledDeparture);
+    // Parse time string (HH:MM:SS)
+    const [depHours, depMinutes, depSeconds] = dep.scheduledDeparture.split(':').map(Number);
+
+    // Create date for today with this time
+    const depTime = new Date(todayYear, todayMonth, todayDate, depHours, depMinutes, depSeconds || 0);
+
+    // If the departure time is before now, it might be tomorrow
+    // (e.g., at 11:30 PM looking for a 1:00 AM train)
+    if (depTime < now && (now.getHours() >= 20 || depTime.getHours() <= 4)) {
+      // Add one day for late night/early morning services
+      depTime.setDate(depTime.getDate() + 1);
+    }
+
     return depTime >= now && depTime <= cutoff;
   });
 }
