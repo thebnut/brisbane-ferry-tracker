@@ -218,10 +218,11 @@ function getActiveServices(calendar, calendarDates, startDate, endDate) {
 
 /**
  * Build station connectivity from trip patterns
- * This is the KEY FIX - based on ferry processor logic
+ * NOTE: This builds a connectivity map for reference, but route validation
+ * is done per-trip to ensure correct direction (see generateRoutePairs)
  */
 function buildStationConnectivity(trainData, stationMappings) {
-  console.log('🔗 Building station connectivity from trip patterns...');
+  console.log('🔗 Building trip stop sequences...');
 
   const { platformToStation, stationSlugs } = stationMappings;
 
@@ -366,17 +367,14 @@ async function generateRoutePairs(trainData, stationMappings, stationConnectivit
       }
     });
 
-    // Now create departures ONLY for valid station pairs (using connectivity)
+    // Now create departures ONLY for valid station pairs
+    // IMPORTANT: Don't use global connectivity - validate per-trip to ensure correct direction!
     stationSequence.forEach((originStationData, originIndex) => {
       const originSlug = originStationData.slug;
-      const validDestinations = connectivity[originSlug] || [];
 
-      // Only process destinations that are valid according to connectivity
+      // Only process destinations that come AFTER origin in THIS trip's sequence
       stationSequence.slice(originIndex + 1).forEach(destStationData => {
         const destSlug = destStationData.slug;
-
-        // SKIP if this dest is not in the valid destinations for this origin
-        if (!validDestinations.includes(destSlug)) return;
 
         const pairKey = `${originSlug}-${destSlug}`;
 
