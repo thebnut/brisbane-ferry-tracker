@@ -16,25 +16,15 @@
  * Performance: ~50-150ms response (faster than before!)
  */
 
-import https from 'https';
-// Note: Not using @vercel/blob SDK - fetching directly via public URLs
+// Note: Edge runtime - no Node.js imports needed, uses native fetch
 
 const DEFAULT_HOURS = 24; // Default time window for departures
 const CACHE_TTL = 300; // 5 minutes in seconds (for response headers)
 
-// HTTP agent for connection reuse (reduces latency)
-const httpsAgent = new https.Agent({
-  keepAlive: true,
-  keepAliveMsecs: 30000,
-  maxSockets: 5,
-  maxFreeSockets: 2
-});
-
 // Vercel function configuration
 export const config = {
-  runtime: 'nodejs',
-  maxDuration: 30, // 30 seconds timeout
-  // Force rebuild - Version 5.0 - Station Slug Architecture
+  runtime: 'edge', // Edge runtime for faster cold starts and streaming
+  // Force rebuild - Version 5.1 - Edge Runtime
 };
 
 /**
@@ -180,12 +170,7 @@ async function fetchStationFromBlob(stationSlug) {
 
     console.log(`[BLOB] Fetching station file: ${blobUrl}`);
 
-    const response = await Promise.race([
-      fetch(blobUrl, { agent: httpsAgent }),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Blob fetch timeout after 10s')), 10000)
-      )
-    ]);
+    const response = await fetch(blobUrl);
 
     if (!response.ok) {
       if (response.status === 404) {
