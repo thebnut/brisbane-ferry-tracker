@@ -191,7 +191,7 @@ async function fetchStationFromBlob(stationSlug) {
 }
 
 /**
- * Filter departures by time window
+ * Filter departures by time window and sort chronologically
  * Handles time-only strings (e.g., "08:52:00") by combining with today's date in Brisbane timezone
  */
 function filterDeparturesByTime(departures, hours) {
@@ -204,7 +204,8 @@ function filterDeparturesByTime(departures, hours) {
   const todayDate = nowBrisbane.getDate();
   const currentHour = nowBrisbane.getHours();
 
-  return departures.filter(dep => {
+  // Map departures to include calculated departure time for sorting
+  const departuresWithTimes = departures.map(dep => {
     // Parse time string (HH:MM:SS)
     const [depHours, depMinutes, depSeconds] = dep.scheduledDeparture.split(':').map(Number);
 
@@ -217,14 +218,23 @@ function filterDeparturesByTime(departures, hours) {
       // Only roll to tomorrow if we're late evening (>= 8pm) or departure is early morning (<= 4am)
       if (currentHour >= 20 || depHours <= 4) {
         depTime = new Date(todayYear, todayMonth, todayDate + 1, depHours, depMinutes, depSeconds || 0);
-      } else {
-        // Departure is genuinely in the past, exclude it
-        return false;
       }
     }
 
-    return depTime >= nowBrisbane && depTime <= cutoffBrisbane;
+    return { ...dep, _calculatedTime: depTime };
   });
+
+  // Filter by time window and sort chronologically
+  return departuresWithTimes
+    .filter(dep => {
+      const depTime = dep._calculatedTime;
+      // Exclude if time is genuinely in the past
+      if (depTime < nowBrisbane) return false;
+      // Include if within time window
+      return depTime >= nowBrisbane && depTime <= cutoffBrisbane;
+    })
+    .sort((a, b) => a._calculatedTime - b._calculatedTime)
+    .map(({ _calculatedTime, ...dep }) => dep); // Remove temporary field
 }
 
 /**

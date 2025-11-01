@@ -58,24 +58,26 @@ const useTrainData = (origin, destination, hours = 4) => {
 
       // Transform API response to match expected departure format
       // Convert scheduledDeparture (time string) to departureTime (Date object)
-      const transformedDepartures = (schedule.departures || []).map(dep => {
-        // Parse time string (HH:MM:SS) and create today's date with that time
-        const [hours, minutes, seconds] = dep.scheduledDeparture.split(':').map(Number);
-        const now = new Date();
-        const departureTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, seconds || 0);
+      const transformedDepartures = (schedule.departures || [])
+        .map(dep => {
+          // Parse time string (HH:MM:SS) and create today's date with that time
+          const [hours, minutes, seconds] = dep.scheduledDeparture.split(':').map(Number);
+          const now = new Date();
+          const departureTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, seconds || 0);
 
-        // If departure is before now, assume it's tomorrow (for late-night services)
-        if (departureTime < now && (now.getHours() >= 20 || departureTime.getHours() <= 4)) {
-          departureTime.setDate(departureTime.getDate() + 1);
-        }
+          // If departure is before now, assume it's tomorrow (for late-night services)
+          if (departureTime < now && (now.getHours() >= 20 || departureTime.getHours() <= 4)) {
+            departureTime.setDate(departureTime.getDate() + 1);
+          }
 
-        return {
-          ...dep,
-          departureTime, // Add Date object for UI components
-          stopId: dep.platformDetails?.origin?.id || '', // For compatibility
-          direction: 'outbound' // Train mode is always outbound
-        };
-      });
+          return {
+            ...dep,
+            departureTime, // Add Date object for UI components
+            stopId: dep.platformDetails?.origin?.id || '', // For compatibility
+            direction: 'outbound' // Train mode is always outbound
+          };
+        })
+        .sort((a, b) => a.departureTime - b.departureTime); // Sort chronologically
 
       const transformedData = {
         origin: schedule.origin,
