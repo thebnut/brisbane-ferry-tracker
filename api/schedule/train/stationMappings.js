@@ -5,7 +5,7 @@
  * This allows API to accept platform IDs but query station-level data
  */
 
-import trainStationsGrouped from '../../../schedule-processor/train-stations-grouped.json' with { type: 'json' };
+import trainStationsGrouped from './train-stations-grouped.json' with { type: 'json' };
 
 /**
  * Build platform-to-station mappings
