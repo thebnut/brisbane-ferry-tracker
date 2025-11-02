@@ -76,24 +76,44 @@ const useTrainData = (origin, destination, hours = 4) => {
       }
 
       // Build lookup maps for fast merging
-      const tripUpdateMap = new Map();
+      // Use fuzzy matching because service IDs change daily (40750 vs 40751)
+      // TripId format: "34564240-QR 25_26-40750-DA13"
+      //                 ^^^^^^^  sequence number (stable)
+      //                          ^^^^^^^^ route
+      //                                   ^^^^^ service ID (changes daily!)
+      //                                         ^^^^ block/trip suffix
+
+      // Map by trip sequence number for fuzzy matching
+      const tripUpdateBySequence = new Map();
       tripUpdates.forEach(entity => {
         if (entity.tripUpdate?.trip?.tripId) {
-          tripUpdateMap.set(entity.tripUpdate.trip.tripId, entity.tripUpdate);
+          const tripId = entity.tripUpdate.trip.tripId;
+          const sequence = tripId.split('-')[0]; // First part: "34564240"
+
+          // Store both full tripId and entity
+          if (!tripUpdateBySequence.has(sequence)) {
+            tripUpdateBySequence.set(sequence, []);
+          }
+          tripUpdateBySequence.get(sequence).push({
+            tripId,
+            entity: entity.tripUpdate
+          });
         }
       });
 
       const vehicleMap = new Map();
       vehiclePositions.forEach(entity => {
         if (entity.vehicle?.trip?.tripId) {
-          vehicleMap.set(entity.vehicle.trip.tripId, entity.vehicle);
+          const tripId = entity.vehicle.trip.tripId;
+          const sequence = tripId.split('-')[0];
+          vehicleMap.set(sequence, entity.vehicle);
         }
       });
 
       // DEBUG: Log sample static trip IDs
       const sampleStatic = (schedule.departures || []).slice(0, 3).map(d => d.tripId);
       console.log('[RT-DEBUG] Sample static tripIds:', sampleStatic);
-      console.log('[RT-DEBUG] Sample RT tripIds:', Array.from(tripUpdateMap.keys()).slice(0, 3));
+      console.log('[RT-DEBUG] Sample RT sequences:', Array.from(tripUpdateBySequence.keys()).slice(0, 3));
 
       // Transform API response and merge with realtime data
       // Convert scheduledDeparture (time string) to departureTime (Date object)
@@ -109,9 +129,24 @@ const useTrainData = (origin, destination, hours = 4) => {
             scheduledDepartureTime.setDate(scheduledDepartureTime.getDate() + 1);
           }
 
-          // Look up realtime data for this trip
-          const tripUpdate = tripUpdateMap.get(dep.tripId);
-          const vehicle = vehicleMap.get(dep.tripId);
+          // Look up realtime data for this trip using sequence number
+          const staticSequence = dep.tripId.split('-')[0];
+          const tripUpdateMatches = tripUpdateBySequence.get(staticSequence);
+          const vehicle = vehicleMap.get(staticSequence);
+
+          // Find best matching trip update (there might be multiple for same sequence)
+          let tripUpdate = null;
+          if (tripUpdateMatches && tripUpdateMatches.length > 0) {
+            // If only one match, use it
+            if (tripUpdateMatches.length === 1) {
+              tripUpdate = tripUpdateMatches[0].entity;
+            } else {
+              // Multiple matches - try to find one that matches route/block
+              const staticRoute = dep.tripId.split('-')[1]; // "QR 25_26"
+              const match = tripUpdateMatches.find(m => m.tripId.includes(staticRoute));
+              tripUpdate = match ? match.entity : tripUpdateMatches[0].entity;
+            }
+          }
 
           // If we have realtime data for this trip
           if (tripUpdate) {
