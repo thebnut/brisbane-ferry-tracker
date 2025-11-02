@@ -1,26 +1,29 @@
 /**
- * V7 Data Format Decoder Utilities
+ * V7/V7.1 Data Format Decoder Utilities
  *
- * Converts V7 minified format to client-friendly format:
+ * Converts V7/V7.1 minified format to client-friendly format:
  * - Minutes since midnight → HH:MM:SS
  * - Integer pattern IDs → full pattern objects
  * - Minified field names → readable names
  * - Array-indexed dates → date strings
+ * - V7.1: Platform defaults (pattern) + overrides (trip) → final platform values
  *
- * V7 minified trip format:
+ * V7.1 minified trip format:
  * {
  *   t: "34564095-QR 25_26-40750-1804",  // tripId (kept for realtime)
  *   d: 401,    // departure minutes (06:41)
  *   a: 404,    // arrival minutes (06:44)
  *   p: 142,    // pattern integer ID
- *   s: [404, 406, 408]  // stop times as minutes
+ *   s: [404, 406, 408],  // stop times as minutes
+ *   op: "2",   // OPTIONAL: origin platform override (V7.1)
+ *   ap: "1"    // OPTIONAL: arrival platform override (V7.1)
  * }
  *
  * Expanded format:
  * {
  *   tripId: "34564095-QR 25_26-40750-1804",
- *   departure: { time: "06:41:00", ... },
- *   arrival: { time: "06:44:00", ... },
+ *   departure: { time: "06:41:00", platform: "1" },  // from pattern.op or trip.op
+ *   arrival: { time: "06:44:00", platform: "1" },    // from pattern.dp or trip.ap
  *   patternId: 142,
  *   stopTimes: [{arrival: "06:44:00", departure: "06:44:00"}, ...]
  * }
@@ -63,16 +66,20 @@ export function getDayOffset(startDate, targetDate) {
 export function expandTrip(minTrip, meta = {}, pattern = null, patternMeta = null) {
   if (!minTrip) return null;
 
+  // V7.1: Determine platform from override or pattern default
+  const originPlatform = minTrip.op || pattern?.op || null;
+  const destPlatform = minTrip.ap || pattern?.dp || null;
+
   const expanded = {
     tripId: minTrip.t,
     departure: {
       time: minutesToTime(minTrip.d),
-      // V7 limitation: origin platform not stored (only in GTFS static)
+      platform: originPlatform, // ✨ V7.1: Platform from override or pattern default
       platformDetails: {}
     },
     arrival: {
       time: minutesToTime(minTrip.a),
-      // V7 limitation: destination platform not stored (only in GTFS static)
+      platform: destPlatform, // ✨ V7.1: Platform from override or pattern default
       platformDetails: {}
     },
     patternId: minTrip.p
@@ -133,7 +140,7 @@ export function expandTrip(minTrip, meta = {}, pattern = null, patternMeta = nul
  * @param {object} v7PatternsData - V7 patterns file (optional)
  */
 export function expandStationData(v7StationData, v7PatternsData = null) {
-  if (!v7StationData || !v7StationData.meta || v7StationData.meta.v !== '7.0') {
+  if (!v7StationData || !v7StationData.meta || !isV7Format(v7StationData)) {
     // Already expanded or invalid format
     return v7StationData;
   }
@@ -202,8 +209,8 @@ export function getTripsForDate(v7StationData, destSlug, targetDate, v7PatternsD
 
   const { meta, routes } = v7StationData;
 
-  // Check if this is V7 format
-  if (meta.v !== '7.0') {
+  // Check if this is V7/V7.1 format
+  if (!isV7Format(v7StationData)) {
     // V6 or earlier format - use old logic
     const routeData = routes[destSlug];
     if (!routeData || !routeData.schedules) return [];
@@ -249,17 +256,17 @@ export function getTripsForDate(v7StationData, destSlug, targetDate, v7PatternsD
 }
 
 /**
- * Check if data is V7 format
+ * Check if data is V7/V7.1 format
  */
 export function isV7Format(data) {
-  return data && data.meta && data.meta.v === '7.0';
+  return data && data.meta && (data.meta.v === '7.0' || data.meta.v === '7.1');
 }
 
 /**
  * Convert V7 pattern data to V6-compatible format
  */
 export function expandPatternData(v7PatternsData) {
-  if (!v7PatternsData || !v7PatternsData.meta || v7PatternsData.meta.v !== '7.0') {
+  if (!v7PatternsData || !v7PatternsData.meta || !isV7Format(v7PatternsData)) {
     return v7PatternsData; // Already expanded or invalid
   }
 
