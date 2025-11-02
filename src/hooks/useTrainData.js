@@ -70,10 +70,6 @@ const useTrainData = (origin, destination, hours = 4) => {
         vehiclePositions = realtimeData.vehiclePositions || [];
         setRawGtfsData({ tripUpdates, vehiclePositions });
         console.log(`Fetched ${tripUpdates.length} trip updates, ${vehiclePositions.length} vehicle positions`);
-
-        // DEBUG: Log sample of GTFS-RT trip IDs
-        const sampleRtTripIds = tripUpdates.slice(0, 5).map(e => e.tripUpdate?.trip?.tripId);
-        console.log('[RT-DEBUG] Sample GTFS-RT trip IDs:', sampleRtTripIds);
       } catch (rtError) {
         console.warn('Failed to fetch GTFS-RT data, continuing with static schedule only:', rtError);
         // Continue with static schedule if realtime fails
@@ -87,23 +83,12 @@ const useTrainData = (origin, destination, hours = 4) => {
         }
       });
 
-      // DEBUG: Log total unique trip IDs in GTFS-RT
-      console.log(`[RT-DEBUG] Total unique tripIds in GTFS-RT: ${tripUpdateMap.size}`);
-
       const vehicleMap = new Map();
       vehiclePositions.forEach(entity => {
         if (entity.vehicle?.trip?.tripId) {
           vehicleMap.set(entity.vehicle.trip.tripId, entity.vehicle);
         }
       });
-
-      // DEBUG: Log sample static schedule trip IDs and match status
-      const sampleDepartures = (schedule.departures || []).slice(0, 5);
-      console.log('[RT-DEBUG] Sample static trip IDs:', sampleDepartures.map(d => d.tripId));
-      console.log('[RT-DEBUG] Which have RT data:', sampleDepartures.map(d => ({
-        tripId: d.tripId,
-        hasRtData: tripUpdateMap.has(d.tripId)
-      })));
 
       // Transform API response and merge with realtime data
       // Convert scheduledDeparture (time string) to departureTime (Date object)

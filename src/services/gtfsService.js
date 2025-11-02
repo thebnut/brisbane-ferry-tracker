@@ -7,7 +7,7 @@ class GTFSService {
     this.mode = 'ferry'; // Default to ferry, will be updated from ModeProvider
     // TEMP: Disable serverless cache until Phase 2 (Vercel Functions not configured yet)
     this.useServerlessCache = false; // TODO: Re-enable in Phase 2: import.meta.env.VITE_USE_CACHE !== 'false';
-    this.requestsInFlight = new Set(); // Track active requests to prevent duplicates
+    this.requestsInFlight = new Map(); // Map endpoint -> Promise (share concurrent requests)
     this.lastRequestTime = {}; // Track last request time per endpoint
     this.MIN_REQUEST_INTERVAL = 5000; // 5 seconds minimum between same endpoint requests
   }
@@ -17,10 +17,10 @@ class GTFSService {
   }
 
   async fetchFeed(endpoint) {
-    // Check if request is already in flight
+    // Check if request is already in flight - if so, return the same promise
     if (this.requestsInFlight.has(endpoint)) {
-      console.log(`Request already in flight for ${endpoint}, skipping`);
-      return null;
+      console.log(`Request already in flight for ${endpoint}, sharing existing request`);
+      return this.requestsInFlight.get(endpoint);
     }
 
     // Check throttling
@@ -31,7 +31,19 @@ class GTFSService {
       return null;
     }
 
-    this.requestsInFlight.add(endpoint);
+    // Create and store the promise
+    const requestPromise = this._doFetch(endpoint, now);
+    this.requestsInFlight.set(endpoint, requestPromise);
+
+    // Clean up when done
+    requestPromise.finally(() => {
+      this.requestsInFlight.delete(endpoint);
+    });
+
+    return requestPromise;
+  }
+
+  async _doFetch(endpoint, now) {
     this.lastRequestTime[endpoint] = now;
 
     try {
@@ -54,9 +66,9 @@ class GTFSService {
         url = `/api/gtfs-proxy?endpoint=${encodeURIComponent(endpoint)}`;
         console.log('Using direct GTFS proxy (cache disabled)');
       }
-      
+
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -71,9 +83,6 @@ class GTFSService {
       console.error(`Error fetching ${endpoint}:`, error);
       // Don't throw - return null to allow graceful degradation
       return null;
-    } finally {
-      // Always remove from in-flight set
-      this.requestsInFlight.delete(endpoint);
     }
   }
 
