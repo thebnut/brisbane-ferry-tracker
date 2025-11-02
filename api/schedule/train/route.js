@@ -118,17 +118,14 @@ export default async function handler(req) {
       console.log(`[TIMING] Fetching pattern data for V7 format at ${Date.now() - startTime}ms`);
       const patternData = await fetchPatternFromBlob(originSlug);
 
-      // Get trips for today and potentially tomorrow (for late-night queries)
+      // Get trips for today only - time window filtering handles cross-day lookups
       const today = new Date().toISOString().split('T')[0];
-      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
       const todayTrips = getTripsForDate(stationData, destSlug, today, patternData);
-      const tomorrowTrips = getTripsForDate(stationData, destSlug, tomorrow, patternData);
 
-      console.log(`[V7] Got ${todayTrips.length} trips for today, ${tomorrowTrips.length} for tomorrow`);
+      console.log(`[V7] Got ${todayTrips.length} trips for today`);
 
       // Convert V7 expanded format to V6 departure format
-      allDepartures = [...todayTrips, ...tomorrowTrips].map(trip => ({
+      allDepartures = todayTrips.map(trip => ({
         tripId: trip.tripId,
         scheduledDeparture: trip.departure.time,
         scheduledArrival: trip.arrival.time,
