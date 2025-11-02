@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useModeConfig } from '../config';
+import gtfsService from '../services/gtfsService';
 
 /**
  * Train Data Hook
  *
  * Fetches static train schedule data from the Train API
- * Phase 3: Static schedules only (no real-time tracking)
+ * AND overlays realtime GTFS-RT data for live tracking
  *
  * @param {string} origin - Origin station stop ID
  * @param {string} destination - Destination station stop ID
@@ -17,6 +18,7 @@ const useTrainData = (origin, destination, hours = 4) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [rawGtfsData, setRawGtfsData] = useState({ tripUpdates: [], vehiclePositions: [] });
 
   const fetchDataRef = useRef(null);
   const lastFetchTime = useRef(0);
@@ -48,6 +50,7 @@ const useTrainData = (origin, destination, hours = 4) => {
       const url = `${apiBaseUrl}${apiEndpoint}?origin=${origin}&destination=${destination}&hours=${hours}`;
       console.log('Fetching train schedule:', url);
 
+      // Fetch static schedule
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -56,25 +59,95 @@ const useTrainData = (origin, destination, hours = 4) => {
 
       const schedule = await response.json();
 
-      // Transform API response to match expected departure format
+      // Fetch GTFS-RT data for realtime overlays
+      gtfsService.setMode('train');
+      let tripUpdates = [];
+      let vehiclePositions = [];
+
+      try {
+        const realtimeData = await gtfsService.getAllData();
+        tripUpdates = realtimeData.tripUpdates || [];
+        vehiclePositions = realtimeData.vehiclePositions || [];
+        setRawGtfsData({ tripUpdates, vehiclePositions });
+        console.log(`Fetched ${tripUpdates.length} trip updates, ${vehiclePositions.length} vehicle positions`);
+      } catch (rtError) {
+        console.warn('Failed to fetch GTFS-RT data, continuing with static schedule only:', rtError);
+        // Continue with static schedule if realtime fails
+      }
+
+      // Build lookup maps for fast merging
+      const tripUpdateMap = new Map();
+      tripUpdates.forEach(entity => {
+        if (entity.tripUpdate?.trip?.tripId) {
+          tripUpdateMap.set(entity.tripUpdate.trip.tripId, entity.tripUpdate);
+        }
+      });
+
+      const vehicleMap = new Map();
+      vehiclePositions.forEach(entity => {
+        if (entity.vehicle?.trip?.tripId) {
+          vehicleMap.set(entity.vehicle.trip.tripId, entity.vehicle);
+        }
+      });
+
+      // Transform API response and merge with realtime data
       // Convert scheduledDeparture (time string) to departureTime (Date object)
       const transformedDepartures = (schedule.departures || [])
         .map(dep => {
           // Parse time string (HH:MM:SS) and create today's date with that time
           const [hours, minutes, seconds] = dep.scheduledDeparture.split(':').map(Number);
           const now = new Date();
-          const departureTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, seconds || 0);
+          const scheduledDepartureTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, seconds || 0);
 
           // If departure is before now, assume it's tomorrow (for late-night services)
-          if (departureTime < now && (now.getHours() >= 20 || departureTime.getHours() <= 4)) {
-            departureTime.setDate(departureTime.getDate() + 1);
+          if (scheduledDepartureTime < now && (now.getHours() >= 20 || scheduledDepartureTime.getHours() <= 4)) {
+            scheduledDepartureTime.setDate(scheduledDepartureTime.getDate() + 1);
           }
 
+          // Look up realtime data for this trip
+          const tripUpdate = tripUpdateMap.get(dep.tripId);
+          const vehicle = vehicleMap.get(dep.tripId);
+
+          // If we have realtime data for this trip
+          if (tripUpdate) {
+            // Find the departure stop in the trip update
+            // Match by time proximity (within 5 minutes of scheduled time)
+            const scheduledTimestamp = scheduledDepartureTime.getTime() / 1000;
+            const originStopUpdate = tripUpdate.stopTimeUpdate?.find(stu => {
+              const stopTime = stu.departure?.time || stu.arrival?.time;
+              return stopTime && Math.abs(stopTime - scheduledTimestamp) < 300; // 5 min window
+            });
+
+            if (originStopUpdate?.departure) {
+              const delay = originStopUpdate.departure.delay || 0;
+              const rtTimestamp = originStopUpdate.departure.time;
+              const rtDepartureTime = rtTimestamp
+                ? new Date(rtTimestamp * 1000)
+                : new Date(scheduledDepartureTime.getTime() + delay * 1000);
+
+              return {
+                ...dep,
+                departureTime: rtDepartureTime,
+                scheduledTime: scheduledDepartureTime,
+                isRealtime: true,
+                delay: delay,
+                vehicleId: vehicle?.vehicle?.id,
+                occupancy: vehicle?.occupancyStatus,
+                stopId: dep.platformDetails?.origin?.id || '',
+                direction: 'outbound'
+              };
+            }
+          }
+
+          // No realtime data - return scheduled
           return {
             ...dep,
-            departureTime, // Add Date object for UI components
-            stopId: dep.platformDetails?.origin?.id || '', // For compatibility
-            direction: 'outbound' // Train mode is always outbound
+            departureTime: scheduledDepartureTime,
+            isRealtime: false,
+            isScheduled: true,
+            delay: 0,
+            stopId: dep.platformDetails?.origin?.id || '',
+            direction: 'outbound'
           };
         })
         .sort((a, b) => a.departureTime - b.departureTime); // Sort chronologically
@@ -150,6 +223,8 @@ const useTrainData = (origin, destination, hours = 4) => {
 
   return {
     data,
+    vehiclePositions: rawGtfsData.vehiclePositions,
+    tripUpdates: rawGtfsData.tripUpdates,
     loading,
     error,
     lastUpdated,

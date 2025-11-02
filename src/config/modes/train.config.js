@@ -71,7 +71,7 @@ export const TRAIN_CONFIG = {
   // Feature Flags
   features: {
     liveMap: false,          // No real-time tracking (Phase 4)
-    vehicleTracking: false,  // Phase 4
+    vehicleTracking: true,   // ✅ Enabled - realtime GTFS-RT overlay
     occupancy: false,
     platforms: true,         // Show platform numbers
     headsigns: true,         // Show route destinations
