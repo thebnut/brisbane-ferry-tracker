@@ -509,6 +509,59 @@ async function deleteExistingFiles() {
 }
 
 /**
+ * Save station files locally (only when not in GitHub Actions)
+ */
+async function saveFilesLocally(stationFiles) {
+  // Skip if running in GitHub Actions
+  if (process.env.GITHUB_ACTIONS) {
+    console.log('⏭️  Skipping local file save (running in GitHub Actions)');
+    return;
+  }
+
+  console.log('💾 Saving files locally...');
+
+  const outputDir = path.join(__dirname, 'output', 'train-stations');
+
+  // Create output directory if it doesn't exist
+  await fs.mkdir(outputDir, { recursive: true });
+
+  let saved = 0;
+  let totalDepartures = 0;
+
+  for (const [originSlug, stationData] of stationFiles) {
+    // Count departures
+    const departureCount = Object.values(stationData.routes)
+      .reduce((sum, route) => sum + route.departures.length, 0);
+
+    if (departureCount === 0) {
+      continue;
+    }
+
+    const filename = `train-station-${originSlug}.json`;
+    const filepath = path.join(outputDir, filename);
+
+    const fileData = {
+      station: stationData.station,
+      totalRoutes: Object.keys(stationData.routes).length,
+      routes: stationData.routes,
+      generated: new Date().toISOString()
+    };
+
+    await fs.writeFile(filepath, JSON.stringify(fileData, null, 2));
+
+    saved++;
+    totalDepartures += departureCount;
+
+    if (saved % 20 === 0) {
+      console.log(`  📝 Saved ${saved} files...`);
+    }
+  }
+
+  console.log(`✅ Saved ${saved} files locally to ${outputDir}`);
+  console.log(`   Total departures: ${totalDepartures}`);
+}
+
+/**
  * Upload station files to Vercel Blob Storage
  */
 async function uploadToBlob(stationFiles) {
@@ -577,10 +630,13 @@ async function main() {
     // 6. Group by origin station
     const stationFiles = groupByOriginStation(routePairs);
 
-    // 7. Delete existing files
+    // 7. Save files locally (if not in GitHub Actions)
+    await saveFilesLocally(stationFiles);
+
+    // 8. Delete existing files
     await deleteExistingFiles();
 
-    // 8. Upload to Blob
+    // 9. Upload to Blob
     await uploadToBlob(stationFiles);
 
     console.log('\n✅ Processing complete!\n');
