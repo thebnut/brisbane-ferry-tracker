@@ -19,10 +19,18 @@ const useTransitData = (selectedStops, departureTimeFilter = null) => {
     modeId === 'ferry' ? departureTimeFilter : null
   );
 
-  // For train mode, pass origin/destination; for ferry mode, pass null to skip
-  const trainData = useTrainData(
+  // For train mode, call useTrainData TWICE - once for each direction
+  // Outbound: origin → destination (e.g., Morningside → Roma Street)
+  const trainDataOutbound = useTrainData(
     modeId === 'train' ? selectedStops?.outbound?.id : null,
     modeId === 'train' ? selectedStops?.inbound?.id : null,
+    4 // 4 hours window
+  );
+
+  // Inbound: destination → origin (e.g., Roma Street → Morningside)
+  const trainDataInbound = useTrainData(
+    modeId === 'train' ? selectedStops?.inbound?.id : null,
+    modeId === 'train' ? selectedStops?.outbound?.id : null,
     4 // 4 hours window
   );
 
@@ -31,18 +39,22 @@ const useTransitData = (selectedStops, departureTimeFilter = null) => {
     // Transform train data to match ferry data structure
     return {
       departures: {
-        outbound: trainData.data?.departures || [],
-        inbound: [] // Train mode doesn't have inbound
+        outbound: trainDataOutbound.data?.departures || [],
+        inbound: trainDataInbound.data?.departures || []
       },
       vehiclePositions: [],
       tripUpdates: [],
-      loading: trainData.loading,
+      loading: trainDataOutbound.loading || trainDataInbound.loading,
       scheduleLoading: false,
-      error: trainData.error,
-      lastUpdated: trainData.lastUpdated,
-      refresh: trainData.refresh,
+      error: trainDataOutbound.error || trainDataInbound.error,
+      lastUpdated: trainDataOutbound.lastUpdated || trainDataInbound.lastUpdated,
+      refresh: () => {
+        trainDataOutbound.refresh();
+        trainDataInbound.refresh();
+      },
       exportDebugData: () => {
-        console.log('Train mode debug:', trainData.data);
+        console.log('Train mode debug (outbound):', trainDataOutbound.data);
+        console.log('Train mode debug (inbound):', trainDataInbound.data);
       }
     };
   }
