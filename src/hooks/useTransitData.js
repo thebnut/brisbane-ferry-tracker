@@ -12,16 +12,17 @@ const useTransitData = (selectedStops, departureTimeFilter = null) => {
   const mode = useMode();
   const modeId = mode?.mode?.id || 'ferry';
 
-  // Ferry mode - use existing hook
+  // Only call the hook for the active mode to avoid unnecessary API calls
+  // For ferry mode, pass selectedStops; for train mode, pass null to skip
   const ferryData = useFerryData(
-    selectedStops,
-    departureTimeFilter
+    modeId === 'ferry' ? selectedStops : null,
+    modeId === 'ferry' ? departureTimeFilter : null
   );
 
-  // Train mode - use train hook with origin/destination
+  // For train mode, pass origin/destination; for ferry mode, pass null to skip
   const trainData = useTrainData(
-    selectedStops?.outbound?.id,
-    selectedStops?.inbound?.id,
+    modeId === 'train' ? selectedStops?.outbound?.id : null,
+    modeId === 'train' ? selectedStops?.inbound?.id : null,
     4 // 4 hours window
   );
 

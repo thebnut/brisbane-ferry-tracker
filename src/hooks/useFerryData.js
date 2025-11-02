@@ -26,6 +26,11 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
   const ERROR_BACKOFF_TIME = 30000; // 30 seconds backoff after max errors
 
   const fetchData = useCallback(async () => {
+    // Skip fetching if selectedStops is null (not active mode)
+    if (!selectedStops) {
+      return;
+    }
+
     // Throttle requests - prevent fetching more than once per 5 seconds
     const now = Date.now();
     if (now - lastFetchTime.current < MIN_FETCH_INTERVAL) {
