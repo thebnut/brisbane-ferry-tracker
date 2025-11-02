@@ -128,17 +128,22 @@ export default async function handler(req) {
       allDepartures = todayTrips.map(trip => ({
         tripId: trip.tripId,
         scheduledDeparture: trip.departure.time,
-        scheduledArrival: trip.arrival.time, // Now properly populated from V7 decoder
+        scheduledArrival: trip.arrival.time,
         headsign: trip.headsign || `${trip.routeName} to ${destSlug}`,
         routeName: trip.routeName,
         routeId: trip.routeId,
         patternId: trip.patternId,
-        stopTimes: trip.stopTimes || [], // Now includes station names and platforms
+        platform: trip.departure.platform, // ✨ V7.1: Origin platform from decoder
+        stopTimes: trip.stopTimes || [], // Includes station names and platforms
         platformDetails: {
-          origin: trip.departure.platformDetails || {},
-          destination: trip.arrival.platformDetails || {}
-          // Note: V7 format limitation - origin/destination platforms not stored
-          // Only intermediate stop platforms available in trip.stopTimes
+          origin: {
+            platform: trip.departure.platform, // ✨ V7.1: From pattern default or trip override
+            ...(trip.departure.platformDetails || {})
+          },
+          destination: {
+            platform: trip.arrival.platform, // ✨ V7.1: From pattern default or trip override
+            ...(trip.arrival.platformDetails || {})
+          }
         }
       }));
 
