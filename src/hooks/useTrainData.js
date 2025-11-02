@@ -90,6 +90,11 @@ const useTrainData = (origin, destination, hours = 4) => {
         }
       });
 
+      // DEBUG: Log sample static trip IDs
+      const sampleStatic = (schedule.departures || []).slice(0, 3).map(d => d.tripId);
+      console.log('[RT-DEBUG] Sample static tripIds:', sampleStatic);
+      console.log('[RT-DEBUG] Sample RT tripIds:', Array.from(tripUpdateMap.keys()).slice(0, 3));
+
       // Transform API response and merge with realtime data
       // Convert scheduledDeparture (time string) to departureTime (Date object)
       const transformedDepartures = (schedule.departures || [])
@@ -151,6 +156,10 @@ const useTrainData = (origin, destination, hours = 4) => {
           };
         })
         .sort((a, b) => a.departureTime - b.departureTime); // Sort chronologically
+
+      // DEBUG: Count how many trips matched
+      const realtimeCount = transformedDepartures.filter(d => d.isRealtime).length;
+      console.log(`[RT-DEBUG] Matched ${realtimeCount}/${transformedDepartures.length} trips with realtime data`);
 
       const transformedData = {
         origin: schedule.origin,
