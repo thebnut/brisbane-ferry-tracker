@@ -1,6 +1,6 @@
 /**
  * Train Schedule API - Route Query Endpoint
- * VERSION: 5.0 - Station Slug Architecture (Simplified)
+ * VERSION: 7.0 - V7 Enhanced Format Support
  *
  * Query train schedules between two stations using station slugs
  *
@@ -9,14 +9,15 @@
  * Architecture:
  * - Accepts station slugs directly (e.g., BOWEN_HILLS, FORTITUDE_VALLEY)
  * - Fetches single origin station file (contains ALL routes from that station)
- * - Filters by destination station
+ * - Supports both V6 (verbose) and V7 (minified) data formats
+ * - V7 format: 91% smaller, edge-optimized
  * - Perfect for CDN caching (cache by origin station)
  *
- * Runtime: Node.js (not Edge)
- * Performance: ~50-150ms response (faster than before!)
+ * Runtime: Edge
+ * Performance: ~50-150ms response
  */
 
-// Note: Edge runtime - no Node.js imports needed, uses native fetch
+import { isV7Format, getTripsForDate, minutesToTime } from './v7-decoder.js';
 
 const DEFAULT_HOURS = 24; // Default time window for departures
 const CACHE_TTL = 300; // 5 minutes in seconds (for response headers)
@@ -107,9 +108,51 @@ export default async function handler(req) {
       }, 404);
     }
 
+    // Handle V7 vs V6 format
+    let allDepartures = [];
+    const dataVersion = isV7Format(stationData) ? '7.0' : '6.0';
+    console.log(`[FORMAT] Detected data version: ${dataVersion}`);
+
+    if (dataVersion === '7.0') {
+      // V7 FORMAT: Need to fetch pattern data and expand trips
+      console.log(`[TIMING] Fetching pattern data for V7 format at ${Date.now() - startTime}ms`);
+      const patternData = await fetchPatternFromBlob(originSlug);
+
+      // Get trips for today and potentially tomorrow (for late-night queries)
+      const today = new Date().toISOString().split('T')[0];
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      const todayTrips = getTripsForDate(stationData, destSlug, today, patternData);
+      const tomorrowTrips = getTripsForDate(stationData, destSlug, tomorrow, patternData);
+
+      console.log(`[V7] Got ${todayTrips.length} trips for today, ${tomorrowTrips.length} for tomorrow`);
+
+      // Convert V7 expanded format to V6 departure format
+      allDepartures = [...todayTrips, ...tomorrowTrips].map(trip => ({
+        tripId: trip.tripId,
+        scheduledDeparture: trip.departure.time,
+        scheduledArrival: trip.arrival.time,
+        headsign: trip.headsign || `${trip.routeName} to ${destSlug}`,
+        routeName: trip.routeName,
+        routeId: trip.routeId,
+        patternId: trip.patternId,
+        stopTimes: trip.stopTimes,
+        platformDetails: {
+          origin: trip.departure.platformDetails || {},
+          destination: trip.arrival.platformDetails || {}
+        }
+      }));
+
+      console.log(`[V7] Converted ${allDepartures.length} total trips to departure format`);
+    } else {
+      // V6 FORMAT: Use existing departures array
+      allDepartures = routeData.departures || [];
+      console.log(`[V6] Using ${allDepartures.length} departures from V6 format`);
+    }
+
     // Filter departures by time window
     console.log(`[TIMING] Filtering departures at ${Date.now() - startTime}ms`);
-    const filteredDepartures = filterDeparturesByTime(routeData.departures, hours);
+    const filteredDepartures = filterDeparturesByTime(allDepartures, hours);
     console.log(`[TIMING] Filtered ${filteredDepartures.length} departures (before dedup) at ${Date.now() - startTime}ms`);
 
     // Deduplicate by unique departure time + headsign + platform
@@ -149,7 +192,8 @@ export default async function handler(req) {
         responseTime: `${responseTime}ms`,
         architecture: 'station-slug', // Station slug architecture
         stationFile: `train-station-${originSlug}.json`,
-        version: '5.0'
+        dataVersion: dataVersion, // V6 or V7 format
+        apiVersion: '7.0'
       }
     });
 
@@ -187,6 +231,37 @@ async function fetchStationFromBlob(stationSlug) {
 
     const data = await response.json();
     console.log(`[BLOB FOUND] ${blobKey} - ${data.totalRoutes || 0} routes, ${Object.keys(data.routes || {}).length} destinations`);
+    return data;
+
+  } catch (error) {
+    console.error(`[BLOB ERROR] ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Fetch pattern data from Vercel Blob Storage (V7 format only)
+ * Patterns are separated from trips in V7 for better caching
+ */
+async function fetchPatternFromBlob(stationSlug) {
+  try {
+    const blobKey = `train-patterns-${stationSlug}.json`;
+    const blobUrl = `https://qbd1awgw2y6szl69.public.blob.vercel-storage.com/${blobKey}`;
+
+    console.log(`[BLOB] Fetching pattern file: ${blobUrl}`);
+
+    const response = await fetch(blobUrl);
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`[BLOB NOT FOUND] ${blobKey} - Pattern file does not exist`);
+        return null;
+      }
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log(`[BLOB FOUND] ${blobKey} - ${data.patterns?.length || 0} patterns`);
     return data;
 
   } catch (error) {
