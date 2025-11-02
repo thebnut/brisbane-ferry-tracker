@@ -4,13 +4,21 @@ import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { SERVICE_TYPES, API_CONFIG, STOPS, getVehicleStatusInfo } from '../utils/constants';
 import FerryDetailMap from './FerryDetailMap';
+import { useMode } from '../config';
 
 const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedStops, onClose }) => {
   if (!departure) return null;
 
+  // Get mode configuration
+  const mode = useMode();
+  const modeId = mode?.mode?.id || 'ferry';
+  const isTrainMode = modeId === 'train';
+
   // Get service info
-  const routePrefix = departure.routeId.split('-')[0];
-  const serviceInfo = SERVICE_TYPES[routePrefix] || SERVICE_TYPES.F1;
+  const routePrefix = departure.routeId?.split('-')[0];
+  const serviceInfo = isTrainMode
+    ? (mode?.getServiceType ? mode.getServiceType(departure.routeId) : { name: 'Service', icon: '🚂' })
+    : (SERVICE_TYPES[routePrefix] || SERVICE_TYPES.F1);
   
   // Helper function to extract ferry name from vehicle ID
   const formatVehicleName = (vehicleId) => {
@@ -65,13 +73,24 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
   const tomorrowStart = startOfDay(addDays(currentTimeZoned, 1));
   const isDepartureNotToday = isAfter(departureTimeZoned, tomorrowStart) || isTomorrow(departureTimeZoned);
   
-  // Get destination info
-  const destinationStop = departure.direction === 'outbound' 
-    ? (selectedStops?.inbound?.name || 'Riverside') 
-    : (selectedStops?.outbound?.name || 'Bulimba');
-  const destinationStopId = departure.direction === 'outbound' 
-    ? (selectedStops?.inbound?.id || STOPS.riverside) 
-    : (selectedStops?.outbound?.id || STOPS.bulimba);
+  // Get destination info (train vs ferry)
+  const destinationStop = isTrainMode
+    ? (selectedStops?.destination?.name || departure.headsign?.replace(' station', '') || 'Destination')
+    : (departure.direction === 'outbound'
+      ? (selectedStops?.inbound?.name || 'Riverside')
+      : (selectedStops?.outbound?.name || 'Bulimba'));
+
+  const originStop = isTrainMode
+    ? (selectedStops?.origin?.name || 'Origin')
+    : (departure.direction === 'outbound'
+      ? (selectedStops?.outbound?.name || 'Bulimba')
+      : (selectedStops?.inbound?.name || 'Riverside'));
+
+  const destinationStopId = isTrainMode
+    ? selectedStops?.destination?.id
+    : (departure.direction === 'outbound'
+      ? (selectedStops?.inbound?.id || STOPS.riverside)
+      : (selectedStops?.outbound?.id || STOPS.bulimba));
   
   // Find destination arrival time from trip update
   const destinationArrival = useMemo(() => {
@@ -134,7 +153,7 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
                     <h2 className="text-2xl font-bold text-charcoal">
-                      {serviceInfo.name} Ferry
+                      {isTrainMode ? serviceInfo.name : `${serviceInfo.name} Ferry`}
                     </h2>
                     <div className="flex items-center gap-2">
                       {departure.isRealtime ? (
@@ -158,9 +177,11 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
                     </div>
                   </div>
                   <p className="text-sm text-gray-600 mb-1">
-                    {departure.direction === 'outbound' 
-                      ? `${selectedStops?.outbound?.name || 'Bulimba'} → ${selectedStops?.inbound?.name || 'Riverside'}` 
-                      : `${selectedStops?.inbound?.name || 'Riverside'} → ${selectedStops?.outbound?.name || 'Bulimba'}`}
+                    {isTrainMode
+                      ? `${originStop} → ${destinationStop}`
+                      : (departure.direction === 'outbound'
+                        ? `${selectedStops?.outbound?.name || 'Bulimba'} → ${selectedStops?.inbound?.name || 'Riverside'}`
+                        : `${selectedStops?.inbound?.name || 'Riverside'} → ${selectedStops?.outbound?.name || 'Bulimba'}`)}
                   </p>
                   <p className="text-xs text-gray-500">
                     Vehicle: {formatVehicleName(vehiclePosition?.vehicle?.vehicle?.id) || 'Unknown'}{vehiclePosition?.vehicle?.currentStatus !== null && vehiclePosition?.vehicle?.currentStatus !== undefined ? ` | ${getVehicleStatusInfo(vehiclePosition.vehicle.currentStatus)}` : ''}
@@ -184,7 +205,7 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
           <h3 className="text-lg font-semibold mb-4">Schedule Information</h3>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">Departure from {departure.direction === 'outbound' ? (selectedStops?.outbound?.name || 'Bulimba') : (selectedStops?.inbound?.name || 'Riverside')}</p>
+              <p className="text-sm text-gray-600 mb-1">Departure from {originStop}</p>
               <p className="text-2xl font-bold">
                 {format(departureTimeZoned, 'h:mm a')}
                 {isDepartureNotToday && (
@@ -207,52 +228,95 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
             
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-sm text-gray-600 mb-1">Arrival at {destinationStop}</p>
-              {(departure.destinationArrivalTime || destinationArrival) ? (
-                <>
-                  <p className="text-2xl font-bold">
-                    {(() => {
-                      const arrivalTime = toZonedTime(departure.destinationArrivalTime || destinationArrival, API_CONFIG.timezone);
-                      const isArrivalNotToday = isAfter(arrivalTime, tomorrowStart) || isTomorrow(arrivalTime);
-                      return (
-                        <>
-                          {format(arrivalTime, 'h:mm a')}
-                          {isArrivalNotToday && (
-                            <span className="text-lg text-ferry-orange font-medium ml-2">
-                              ({format(arrivalTime, 'dd/MM')})
-                            </span>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Journey time: {(() => {
-                      const totalMins = differenceInMinutes(
-                        departure.destinationArrivalTime || destinationArrival, 
-                        departure.departureTime
-                      );
-                      
-                      if (totalMins >= 60) {
-                        const hours = Math.floor(totalMins / 60);
-                        const mins = totalMins % 60;
-                        
-                        if (mins === 0) {
-                          return `${hours} hr${hours > 1 ? 's' : ''}`;
-                        }
-                        return `${hours} hr${hours > 1 ? 's' : ''} ${mins} min${mins > 1 ? 's' : ''}`;
-                      }
-                      
-                      return `${totalMins} min${totalMins !== 1 ? 's' : ''}`;
-                    })()}
-                  </p>
-                </>
-              ) : (
-                <p className="text-lg text-gray-500">Arrival time not available</p>
-              )}
+              {(() => {
+                // For trains, use scheduledArrival; for ferries, use destinationArrivalTime
+                const arrivalTimeStr = isTrainMode ? departure.scheduledArrival : (departure.destinationArrivalTime || destinationArrival);
+
+                if (arrivalTimeStr) {
+                  // For trains, scheduledArrival is "HH:MM:SS" string, need to convert to Date
+                  let arrivalTime;
+                  if (isTrainMode && typeof arrivalTimeStr === 'string') {
+                    const [hours, mins] = arrivalTimeStr.split(':').map(Number);
+                    const today = new Date();
+                    arrivalTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, mins);
+                  } else {
+                    arrivalTime = arrivalTimeStr;
+                  }
+
+                  const arrivalTimeZoned = toZonedTime(arrivalTime, API_CONFIG.timezone);
+                  const isArrivalNotToday = isAfter(arrivalTimeZoned, tomorrowStart) || isTomorrow(arrivalTimeZoned);
+
+                  return (
+                    <>
+                      <p className="text-2xl font-bold">
+                        {format(arrivalTimeZoned, 'h:mm a')}
+                        {isArrivalNotToday && (
+                          <span className="text-lg text-ferry-orange font-medium ml-2">
+                            ({format(arrivalTimeZoned, 'dd/MM')})
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Journey time: {(() => {
+                          const totalMins = differenceInMinutes(arrivalTime, departure.departureTime);
+
+                          if (totalMins >= 60) {
+                            const hours = Math.floor(totalMins / 60);
+                            const mins = totalMins % 60;
+
+                            if (mins === 0) {
+                              return `${hours} hr${hours > 1 ? 's' : ''}`;
+                            }
+                            return `${hours} hr${hours > 1 ? 's' : ''} ${mins} min${mins > 1 ? 's' : ''}`;
+                          }
+
+                          return `${totalMins} min${totalMins !== 1 ? 's' : ''}`;
+                        })()}
+                      </p>
+                    </>
+                  );
+                } else {
+                  return <p className="text-lg text-gray-500">Arrival time not available</p>;
+                }
+              })()}
             </div>
           </div>
         </div>
-        
+
+        {/* Intermediate Stops (Train Mode Only) */}
+        {isTrainMode && departure.stopTimes && departure.stopTimes.length > 0 && (
+          <div className="p-6 border-b">
+            <h3 className="text-lg font-semibold mb-4">Intermediate Stops</h3>
+            <div className="space-y-2">
+              {departure.stopTimes.map((stop, index) => (
+                <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-gray-400">●</span>
+                    <div>
+                      <p className="font-medium text-gray-900">{stop.stopName || stop.station}</p>
+                      {stop.platform && (
+                        <p className="text-xs text-gray-500">Platform {stop.platform}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    {stop.arrival && (
+                      <p className="text-sm font-medium text-gray-900">
+                        {(() => {
+                          const [hours, mins] = stop.arrival.split(':').map(Number);
+                          const stopTime = new Date();
+                          stopTime.setHours(hours, mins, 0);
+                          return format(toZonedTime(stopTime, API_CONFIG.timezone), 'h:mm a');
+                        })()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Map */}
         {hasLiveData && (
           <div className="p-6">
