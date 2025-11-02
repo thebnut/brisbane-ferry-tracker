@@ -58,23 +58,57 @@ export function getDayOffset(startDate, targetDate) {
  * @param {object} minTrip - Minified V7 trip
  * @param {object} meta - Metadata with field mappings
  * @param {object} pattern - Pattern object (optional, for stop details)
+ * @param {object} patternMeta - Pattern metadata with stopFields mapping
  */
-export function expandTrip(minTrip, meta = {}, pattern = null) {
+export function expandTrip(minTrip, meta = {}, pattern = null, patternMeta = null) {
   if (!minTrip) return null;
 
   const expanded = {
     tripId: minTrip.t,
     departure: {
-      time: minutesToTime(minTrip.d)
+      time: minutesToTime(minTrip.d),
+      // V7 limitation: origin platform not stored (only in GTFS static)
+      platformDetails: {}
     },
     arrival: {
-      time: minutesToTime(minTrip.a)
+      time: minutesToTime(minTrip.a),
+      // V7 limitation: destination platform not stored (only in GTFS static)
+      platformDetails: {}
     },
     patternId: minTrip.p
   };
 
-  // Expand stop times (array of minutes → array of time strings)
-  if (minTrip.s && Array.isArray(minTrip.s)) {
+  // Expand stop times with station details from pattern
+  if (minTrip.s && Array.isArray(minTrip.s) && pattern && pattern.s) {
+    const stopFields = patternMeta?.stopFields || ['station', 'name', 'platformId', 'platform', 'platformName'];
+
+    expanded.stopTimes = minTrip.s.map((minutes, idx) => {
+      const stopArray = pattern.s[idx];
+      if (!stopArray) {
+        return {
+          arrival: minutesToTime(minutes),
+          departure: minutesToTime(minutes)
+        };
+      }
+
+      // Map array to object using stopFields
+      const stopObj = {};
+      stopFields.forEach((field, fieldIdx) => {
+        stopObj[field] = stopArray[fieldIdx];
+      });
+
+      return {
+        arrival: minutesToTime(minutes),
+        departure: minutesToTime(minutes),
+        stopId: stopObj.platformId,
+        stopName: stopObj.name,
+        platform: stopObj.platform,
+        platformName: stopObj.platformName,
+        station: stopObj.station
+      };
+    });
+  } else if (minTrip.s && Array.isArray(minTrip.s)) {
+    // No pattern data, just times
     expanded.stopTimes = minTrip.s.map(minutes => ({
       arrival: minutesToTime(minutes),
       departure: minutesToTime(minutes)
@@ -200,6 +234,7 @@ export function getTripsForDate(v7StationData, destSlug, targetDate, v7PatternsD
 
   // Build pattern lookup if available
   const patternLookup = new Map();
+  const patternMeta = v7PatternsData?.meta || null;
   if (v7PatternsData && v7PatternsData.patterns) {
     v7PatternsData.patterns.forEach(pattern => {
       patternLookup.set(pattern.i, pattern);
@@ -209,7 +244,7 @@ export function getTripsForDate(v7StationData, destSlug, targetDate, v7PatternsD
   // Expand trips
   return dayTrips.map(minTrip => {
     const pattern = patternLookup.get(minTrip.p);
-    return expandTrip(minTrip, meta, pattern);
+    return expandTrip(minTrip, meta, pattern, patternMeta);
   });
 }
 
