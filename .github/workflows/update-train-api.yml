@@ -35,13 +35,13 @@ jobs:
           cd schedule-processor
           npm install
 
-      - name: Generate train route files
+      - name: Generate train route files (V7.1 Enhanced)
         env:
           # Vercel Blob Storage token (required)
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: |
           cd schedule-processor
-          node process-schedule-api.js
+          node process-schedule-api-station-v7.1.js
 
       - name: Upload execution summary
         if: always()
