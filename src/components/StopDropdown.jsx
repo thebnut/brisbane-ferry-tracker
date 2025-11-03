@@ -9,8 +9,11 @@ const StopDropdown = ({
   className = "",
   compact = false
 }) => {
-  // Helper function to remove 'ferry terminal' from stop names
-  const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
+  // Helper function to remove 'ferry terminal' and 'station' from stop names
+  const cleanStopName = (name) => {
+    if (!name) return '';
+    return name.replace(' ferry terminal', '').replace(/ station$/i, '');
+  };
 
   return (
     <select
