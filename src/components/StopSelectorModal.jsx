@@ -4,6 +4,7 @@ import { DEFAULT_STOPS, STORAGE_KEYS } from '../utils/constants';
 import { FERRY_STOPS, TEMPORARY_CONNECTIVITY } from '../utils/ferryStops';
 import StopSelectorMap from './StopSelectorMap';
 import { useMode } from '../config';
+import trainStationConnectivity from '../data/trainStationConnectivity.json';
 
 const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   const mode = useMode();
@@ -76,8 +77,8 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       // Get valid destinations
       let destinations = [];
       if (modeId === 'train') {
-        // Train mode: All stations are valid destinations
-        destinations = stops.map(s => s.id);
+        // Train mode: Only directly reachable stations (no transfers)
+        destinations = trainStationConnectivity[selectedOrigin] || [];
       } else if (useTemporaryData) {
         destinations = TEMPORARY_CONNECTIVITY[selectedOrigin] || [];
       } else {
@@ -106,8 +107,8 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       let destinations = [];
 
       if (modeId === 'train') {
-        // Train mode: All stations are valid destinations
-        destinations = availableStops.map(s => s.id);
+        // Train mode: Only directly reachable stations (no transfers)
+        destinations = trainStationConnectivity[selectedOrigin] || [];
       } else {
         // Ferry mode: Check if we're using temporary data
         const hasRealData = staticGtfsService.hasStopsData();
