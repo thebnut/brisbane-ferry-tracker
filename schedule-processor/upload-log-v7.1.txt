@@ -26,29 +26,33 @@
 ✅ Processed 6532 trip instances across 8 dates
 ✅ Generated data for 154 origin stations
 ✅ Identified 116964 unique trip patterns across all origins
+🔧 V7.1: Calculating platform defaults for patterns...
+✅ Added platform defaults to 116964 patterns
+🔧 V7.1: Adding platform overrides to exceptional trips...
+✅ Added platform overrides to 1767134 exceptional trips
 📦 Serializing V7 station files...
 ✅ Serialized 154 station files
 💾 Saving V7 station files locally...
-  📝 Saved train-station-REDBANK.json (1.12 MB, 10202 trips)
-  📝 Saved train-station-HOLMVIEW.json (1.36 MB, 10926 trips)
-  📝 Saved train-station-WYNNUM_NORTH.json (1.29 MB, 12029 trips)
-  📝 Saved train-station-NORTH_BOONDALL.json (1.40 MB, 11430 trips)
-  📝 Saved train-station-MORAYFIELD.json (1.11 MB, 9718 trips)
-  📝 Saved train-station-CLAYFIELD.json (0.18 MB, 2108 trips)
-  📝 Saved train-station-MOOLOOLAH.json (0.51 MB, 4260 trips)
-✅ Saved 154 V7 station files locally to /Users/brettthebault/Documents/Dev/BrisFerry/brisbane-ferry-tracker/schedule-processor/output/train-stations-v7
-   Total size: 198.28 MB
+  📝 Saved train-station-REDBANK.json (1.21 MB, 10202 trips)
+  📝 Saved train-station-HOLMVIEW.json (1.46 MB, 10926 trips)
+  📝 Saved train-station-WYNNUM_NORTH.json (1.40 MB, 12029 trips)
+  📝 Saved train-station-NORTH_BOONDALL.json (1.46 MB, 11430 trips)
+  📝 Saved train-station-MORAYFIELD.json (1.18 MB, 9718 trips)
+  📝 Saved train-station-CLAYFIELD.json (0.19 MB, 2108 trips)
+  📝 Saved train-station-MOOLOOLAH.json (0.54 MB, 4260 trips)
+✅ Saved 154 V7 station files locally to /Users/brettthebault/Documents/Dev/BrisFerry/brisbane-ferry-tracker/schedule-processor/output/train-stations-v7.1
+   Total size: 213.46 MB
    Total trips: 1857223
 💾 Saving V7 pattern files locally...
-  📝 Saved train-patterns-REDBANK.json (1475.34 KB, 1471 patterns)
-  📝 Saved train-patterns-HOLMVIEW.json (401.61 KB, 377 patterns)
-  📝 Saved train-patterns-WYNNUM_NORTH.json (333.67 KB, 436 patterns)
-  📝 Saved train-patterns-NORTH_BOONDALL.json (349.14 KB, 331 patterns)
-  📝 Saved train-patterns-MORAYFIELD.json (1076.50 KB, 1125 patterns)
-  📝 Saved train-patterns-CLAYFIELD.json (231.94 KB, 305 patterns)
-  📝 Saved train-patterns-MOOLOOLAH.json (610.91 KB, 650 patterns)
-✅ Saved 154 V7 pattern files locally to /Users/brettthebault/Documents/Dev/BrisFerry/brisbane-ferry-tracker/schedule-processor/output/train-patterns-v7
-   Total size: 100.63 MB
+  📝 Saved train-patterns-REDBANK.json (1501.24 KB, 1471 patterns)
+  📝 Saved train-patterns-HOLMVIEW.json (408.27 KB, 377 patterns)
+  📝 Saved train-patterns-WYNNUM_NORTH.json (341.37 KB, 436 patterns)
+  📝 Saved train-patterns-NORTH_BOONDALL.json (355.00 KB, 331 patterns)
+  📝 Saved train-patterns-MORAYFIELD.json (1096.32 KB, 1125 patterns)
+  📝 Saved train-patterns-CLAYFIELD.json (237.34 KB, 305 patterns)
+  📝 Saved train-patterns-MOOLOOLAH.json (622.37 KB, 650 patterns)
+✅ Saved 154 V7 pattern files locally to /Users/brettthebault/Documents/Dev/BrisFerry/brisbane-ferry-tracker/schedule-processor/output/train-patterns-v7.1
+   Total size: 102.65 MB
    Total patterns: 116964
 🗑️  Deleting existing train files...
    (Skipping delete - will use allowOverwrite instead)
