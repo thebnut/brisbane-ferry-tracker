@@ -11,8 +11,9 @@ import gtfsService from '../services/gtfsService';
  * @param {string} origin - Origin station stop ID
  * @param {string} destination - Destination station stop ID
  * @param {number} hours - Time window in hours (default: 4)
+ * @param {Date|null} departureTimeFilter - Optional filter to show only departures after this time
  */
-const useTrainData = (origin, destination, hours = 4) => {
+const useTrainData = (origin, destination, hours = 4, departureTimeFilter = null) => {
   const modeConfig = useModeConfig();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -190,11 +191,19 @@ const useTrainData = (origin, destination, hours = 4) => {
             direction: 'outbound'
           };
         })
+        .filter(dep => {
+          // Apply departure time filter if set
+          if (!departureTimeFilter) return true;
+          return dep.departureTime >= departureTimeFilter;
+        })
         .sort((a, b) => a.departureTime - b.departureTime); // Sort chronologically
 
       // DEBUG: Count how many trips matched
       const realtimeCount = transformedDepartures.filter(d => d.isRealtime).length;
       console.log(`[RT-DEBUG] Matched ${realtimeCount}/${transformedDepartures.length} trips with realtime data`);
+      if (departureTimeFilter) {
+        console.log(`[FILTER] Filtered departures from time: ${departureTimeFilter.toLocaleTimeString()}`);
+      }
 
       const transformedData = {
         origin: schedule.origin,
@@ -214,7 +223,7 @@ const useTrainData = (origin, destination, hours = 4) => {
     } finally {
       setLoading(false);
     }
-  }, [origin, destination, hours, modeConfig]);
+  }, [origin, destination, hours, departureTimeFilter, modeConfig]);
 
   // Store latest fetchSchedule in ref
   useEffect(() => {

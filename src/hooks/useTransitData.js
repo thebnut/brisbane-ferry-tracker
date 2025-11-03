@@ -24,14 +24,16 @@ const useTransitData = (selectedStops, departureTimeFilter = null) => {
   const trainDataOutbound = useTrainData(
     modeId === 'train' ? selectedStops?.outbound?.id : null,
     modeId === 'train' ? selectedStops?.inbound?.id : null,
-    4 // 4 hours window
+    4, // 4 hours window
+    modeId === 'train' ? departureTimeFilter : null // Departure time filter
   );
 
   // Inbound: destination → origin (e.g., Roma Street → Morningside)
   const trainDataInbound = useTrainData(
     modeId === 'train' ? selectedStops?.inbound?.id : null,
     modeId === 'train' ? selectedStops?.outbound?.id : null,
-    4 // 4 hours window
+    4, // 4 hours window
+    modeId === 'train' ? departureTimeFilter : null // Departure time filter
   );
 
   // Return appropriate data based on mode
