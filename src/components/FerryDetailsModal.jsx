@@ -73,21 +73,27 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
   const tomorrowStart = startOfDay(addDays(currentTimeZoned, 1));
   const isDepartureNotToday = isAfter(departureTimeZoned, tomorrowStart) || isTomorrow(departureTimeZoned);
   
+  // Helper to clean station names (remove 'station' suffix)
+  const cleanStationName = (name) => {
+    if (!name) return name;
+    return name.replace(/ station$/i, '');
+  };
+
   // Get destination info (train vs ferry)
   const destinationStop = isTrainMode
-    ? (selectedStops?.destination?.name || departure.headsign?.replace(' station', '') || 'Destination')
+    ? cleanStationName(selectedStops?.inbound?.name || departure.headsign || 'Destination')
     : (departure.direction === 'outbound'
       ? (selectedStops?.inbound?.name || 'Riverside')
       : (selectedStops?.outbound?.name || 'Bulimba'));
 
   const originStop = isTrainMode
-    ? (selectedStops?.origin?.name || 'Origin')
+    ? cleanStationName(selectedStops?.outbound?.name || 'Origin')
     : (departure.direction === 'outbound'
       ? (selectedStops?.outbound?.name || 'Bulimba')
       : (selectedStops?.inbound?.name || 'Riverside'));
 
   const destinationStopId = isTrainMode
-    ? selectedStops?.destination?.id
+    ? selectedStops?.inbound?.id
     : (departure.direction === 'outbound'
       ? (selectedStops?.inbound?.id || STOPS.riverside)
       : (selectedStops?.outbound?.id || STOPS.bulimba));

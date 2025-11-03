@@ -18,8 +18,11 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   });
   const [mapModalOpen, setMapModalOpen] = useState(null); // null, 'origin', or 'destination'
   
-  // Helper function to remove 'ferry terminal' from stop names
-  const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
+  // Helper function to remove 'ferry terminal' and 'station' from stop names
+  const cleanStopName = (name) => {
+    if (!name) return '';
+    return name.replace(' ferry terminal', '').replace(/ station$/i, '');
+  };
 
   // Load stops when modal opens
   useEffect(() => {

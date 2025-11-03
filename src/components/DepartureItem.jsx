@@ -22,6 +22,30 @@ const DepartureItem = ({ departure, onClick }) => {
   // Check if platform/headsign features are enabled
   const showPlatform = mode?.features?.platforms && departure.platform;
   const showHeadsign = mode?.features?.headsigns && departure.headsign;
+
+  // Helper to clean headsign (remove station codes and 'station' suffix)
+  const cleanHeadsign = React.useMemo(() => {
+    if (!departure.headsign) return null;
+
+    // Format: "ORIGIN_CODE to DESTINATION_CODE" -> extract destination
+    const parts = departure.headsign.split(' to ');
+    if (parts.length > 1) {
+      // Get the destination part and convert to readable format
+      const destination = parts[1]
+        .split('_')
+        .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+        .join(' ')
+        .replace(/ station$/i, ''); // Remove 'station' suffix
+      return destination;
+    }
+
+    // Fallback: just clean up the headsign
+    return departure.headsign
+      .split('_')
+      .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+      .join(' ')
+      .replace(/ station$/i, '');
+  }, [departure.headsign]);
   
   // Check for themed vessel
   const vesselName = React.useMemo(() => {
@@ -157,9 +181,9 @@ const DepartureItem = ({ departure, onClick }) => {
                   Platform {departure.platform}
                 </span>
               )}
-              {showHeadsign && (
+              {showHeadsign && cleanHeadsign && (
                 <span className="text-xs text-gray-600 italic">
-                  to {departure.headsign}
+                  to {cleanHeadsign}
                 </span>
               )}
             </div>
