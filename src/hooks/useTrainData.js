@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useModeConfig } from '../config';
 import gtfsService from '../services/gtfsService';
 
@@ -15,7 +15,7 @@ import gtfsService from '../services/gtfsService';
  */
 const useTrainData = (origin, destination, hours = 4, departureTimeFilter = null) => {
   const modeConfig = useModeConfig();
-  const [data, setData] = useState(null);
+  const [unfilteredData, setUnfilteredData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -28,7 +28,7 @@ const useTrainData = (origin, destination, hours = 4, departureTimeFilter = null
   const fetchSchedule = useCallback(async () => {
     // Don't fetch if origin or destination not selected
     if (!origin || !destination) {
-      setData(null);
+      setUnfilteredData(null);
       setLoading(false);
       return;
     }
@@ -191,19 +191,11 @@ const useTrainData = (origin, destination, hours = 4, departureTimeFilter = null
             direction: 'outbound'
           };
         })
-        .filter(dep => {
-          // Apply departure time filter if set
-          if (!departureTimeFilter) return true;
-          return dep.departureTime >= departureTimeFilter;
-        })
         .sort((a, b) => a.departureTime - b.departureTime); // Sort chronologically
 
       // DEBUG: Count how many trips matched
       const realtimeCount = transformedDepartures.filter(d => d.isRealtime).length;
       console.log(`[RT-DEBUG] Matched ${realtimeCount}/${transformedDepartures.length} trips with realtime data`);
-      if (departureTimeFilter) {
-        console.log(`[FILTER] Filtered departures from time: ${departureTimeFilter.toLocaleTimeString()}`);
-      }
 
       const transformedData = {
         origin: schedule.origin,
@@ -213,17 +205,17 @@ const useTrainData = (origin, destination, hours = 4, departureTimeFilter = null
         meta: schedule.meta || {}
       };
 
-      setData(transformedData);
+      setUnfilteredData(transformedData);
       setLastUpdated(new Date());
       setError(null);
     } catch (err) {
       console.error('Error fetching train schedule:', err);
       setError(err.message || 'Failed to load train schedule');
-      setData(null);
+      setUnfilteredData(null);
     } finally {
       setLoading(false);
     }
-  }, [origin, destination, hours, departureTimeFilter, modeConfig]);
+  }, [origin, destination, hours, modeConfig]);
 
   // Store latest fetchSchedule in ref
   useEffect(() => {
@@ -238,7 +230,7 @@ const useTrainData = (origin, destination, hours = 4, departureTimeFilter = null
         fetchDataRef.current();
       }
     } else {
-      setData(null);
+      setUnfilteredData(null);
       setLoading(false);
     }
   }, [origin, destination, hours]);
@@ -268,11 +260,31 @@ const useTrainData = (origin, destination, hours = 4, departureTimeFilter = null
   useEffect(() => {
     const timer = setInterval(() => {
       // Force re-render to update countdown displays
-      setData(prev => prev ? { ...prev } : null);
+      setUnfilteredData(prev => prev ? { ...prev } : null);
     }, 1000);
 
     return () => clearInterval(timer);
   }, []);
+
+  // Apply departure time filter client-side (instant, no API call)
+  const data = useMemo(() => {
+    if (!unfilteredData) return null;
+
+    // If no filter, return all data
+    if (!departureTimeFilter) return unfilteredData;
+
+    // Filter departures by time
+    const filteredDepartures = unfilteredData.departures.filter(
+      dep => dep.departureTime >= departureTimeFilter
+    );
+
+    console.log(`[FILTER] Client-side filter: showing ${filteredDepartures.length}/${unfilteredData.departures.length} departures from ${departureTimeFilter.toLocaleTimeString()}`);
+
+    return {
+      ...unfilteredData,
+      departures: filteredDepartures
+    };
+  }, [unfilteredData, departureTimeFilter]);
 
   return {
     data,
