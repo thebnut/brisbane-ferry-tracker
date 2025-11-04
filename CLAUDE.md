@@ -1,7 +1,61 @@
-# Brisbane Ferry Tracker - Project Guide for Claude
+# Brisbane Transit Tracker - Project Guide for Claude
 
 ## Project Overview
-This is a single-page application that displays real-time ferry departures between any two Brisbane ferry terminals. Users can select their origin and destination stops from all available ferry terminals. It combines static GTFS schedule data with real-time GTFS-RT updates to show accurate ferry times even when services aren't actively running.
+This is a **dual-mode** transit tracking application that displays real-time departures for **Brisbane trains and ferries**. Users can select any origin and destination station/terminal. The app uses a unified, mode-agnostic architecture that switches seamlessly between ferry and train modes.
+
+### Supported Modes
+- **Ferry Mode:** Real-time ferry departures between Brisbane ferry terminals
+- **Train Mode:** Real-time train departures between Queensland Rail stations (154 stations)
+
+Both modes combine static GTFS schedule data with real-time GTFS-RT updates to show accurate departure times even when services aren't actively running.
+
+## Recent Train Mode Features (November 2025)
+
+### 1. Station Name Cleaning
+- **Problem:** Station names displayed with "station" suffix everywhere (e.g., "Morningside station → Roma Street station")
+- **Solution:** Implemented `cleanStationName()` across all UI components
+- **Result:** Clean display - "Morningside → Roma Street"
+- **Files:** StopDropdown.jsx, StopSelectorModal.jsx, DepartureBoard.jsx, DepartureItem.jsx, FerryDetailsModal.jsx
+
+### 2. Departure Time Filtering
+- **Feature:** "Depart from:" dropdown filters trains by departure time
+- **Optimization:** Client-side filtering using `useMemo` (no API re-fetch)
+- **Performance:** Instant filtering (<1ms) vs 2-5 second API call
+- **Files:** useTrainData.js, useTransitData.js
+
+### 3. Station Connectivity Filtering
+- **Problem:** Destination dropdowns showed ALL 154 stations regardless of direct connections
+- **Solution:** Built connectivity map from GTFS data showing only directly reachable stations
+- **Algorithm:** For each trip, mark all subsequent stations as reachable
+- **Data:** trainStationConnectivity.json (153 stations, 8,003 connections)
+- **Examples:**
+  - Morningside: 42 destinations (Beenleigh line)
+  - Roma Street: 152 destinations (major hub)
+- **Files:** build-train-connectivity.js, StopSelectorModal.jsx, App.jsx
+- **Regeneration:** Run `node schedule-processor/build-train-connectivity.js` when GTFS updates
+
+### 4. Mode-Agnostic Architecture
+- **Config System:** `src/config/` with ferry.config.js and train.config.js
+- **Universal Hooks:** `useTransitData.js` switches between `useFerryData.js` and `useTrainData.js`
+- **Mode Selection:** Via `VITE_MODE` environment variable (default: ferry)
+- **Benefits:** Same UI components work for both ferry and train with mode-specific behavior
+
+**📖 For comprehensive technical documentation, architecture decisions, and implementation details, see [CONTEXT.md](CONTEXT.md)**
+
+## Mode Selection
+
+The app mode is set via environment variable:
+```bash
+# Ferry mode (default)
+VITE_MODE=ferry
+
+# Train mode
+VITE_MODE=train
+```
+
+Vercel deployments use this to determine which domain gets which mode:
+- **ferry.lifemap.au / brisbaneferry.com** → Ferry mode
+- **brisbanetrain.com** → Train mode
 
 ## Current Deployment Status
 
@@ -99,7 +153,38 @@ VEHICLE_STATUS = {
 Note: Real-time routes may have suffixes like "F11-4055", so we use `startsWith()` for matching.
 Note: GTFS-RT may send numeric or string enum values - the app handles both formats.
 
-### Dynamic Stop Selector
+### Train Mode Constants
+
+```javascript
+// Station slug format (from GTFS stop names)
+STATION_SLUGS = {
+  morningside: "MORNINGSIDE",      // Morningside station
+  romaStreet: "ROMA_STREET",       // Roma Street station
+  central: "CENTRAL"                // Central station
+}
+
+// Station connectivity
+// See src/data/trainStationConnectivity.json for full mapping
+// Example: MORNINGSIDE → [NORMAN_PARK, COORPAROO, BURANDA, ...]
+
+// Train API endpoint
+TRAIN_API = "/api/schedule/train/route"
+// Query params: origin={STATION_SLUG}&destination={STATION_SLUG}&hours={HOURS}
+
+// Platform data structure
+{
+  tripId: "34564240-QR_25_26-40750-DA13",
+  scheduledDeparture: "08:34:00",
+  platform: "2",
+  headsign: "ROMA_STREET",
+  platformDetails: {
+    origin: { id: "600123", platform: "2", name: "Morningside station" },
+    destination: { id: "600456", platform: "1", name: "Roma Street station" }
+  }
+}
+```
+
+### Dynamic Stop/Station Selector
 Users can now select any ferry terminal pair (not just Bulimba-Riverside):
 - On first visit: Modal prompts to select origin and destination stops
 - Selections persist in localStorage
@@ -130,13 +215,14 @@ See `schedule-filtering-logic.md` for detailed explanation.
 
 ## Common Issues & Solutions
 
-### Issue: Wrong branch for development
-**Solution:** Always work on `develop` branch
+### Issue: Working on wrong branch
+**Solution:** Use `mode-abstraction-v2` for active development
 ```bash
-git checkout develop
+git checkout mode-abstraction-v2
+git pull origin mode-abstraction-v2
 ```
 
-### Issue: No departures showing
+### Issue: No departures showing (Ferry or Train)
 **Causes:**
 1. Outside service hours (check if showing scheduled times)
 2. Incorrect stop/route filtering
@@ -181,12 +267,28 @@ git checkout develop
 3. `staticGtfsService.js:getScheduledDepartures()` - Shows static schedule processing
 
 ### Test Scenarios
+
+**Ferry Mode:**
 1. Early morning (4-5 AM): Should show scheduled times
 2. Peak hours: Should show mix of live and scheduled
 3. Late night: Should show next day's first services
-4. After 12:30 PM on mobile: Should default to inbound tab (return journey)
-5. Click any departure: Should show detailed modal with all available info
-6. Test with different stop pairs: Hawthorne-Riverside, Bulimba-Northshore Hamilton, etc.
+4. Click any departure: Should show detailed modal with all available info
+5. Test with different terminal pairs: Hawthorne-Riverside, Bulimba-Northshore Hamilton, etc.
+6. Check map shows live ferry positions with pulsing markers
+
+**Train Mode:**
+1. Station connectivity: Select Morningside → Destination shows only Beenleigh line stations
+2. Major hub: Select Roma Street → Destination shows ~152 stations
+3. Time filtering: Select "11AM" from "Depart from:" → Only trains after 11AM show (instant, no reload)
+4. Click departure: Modal shows train details, platform, journey time
+5. Change origin: Destination dropdown updates to show valid connections
+6. Invalid destination: Auto-resets to first valid option
+
+**Both Modes:**
+1. Settings modal: Clean names (no "station" or "ferry terminal" suffix)
+2. Main dropdowns: Same connectivity filtering as modal
+3. Switching modes: VITE_MODE environment variable changes the whole app
+4. Test on Vercel preview deployment before merging to main
 
 ### Local Development
 ```bash
@@ -196,11 +298,19 @@ npm run build   # Test production build
 
 ### API Testing
 ```bash
-# Test real-time data
+# Ferry Mode: Test real-time GTFS-RT data
 curl http://localhost:5173/api/gtfs-proxy?endpoint=TripUpdates
+curl http://localhost:5173/api/gtfs-proxy?endpoint=VehiclePositions
 
-# Test static GTFS
+# Ferry Mode: Test static GTFS
 curl http://localhost:5173/api/gtfs-static -o gtfs.zip
+
+# Train Mode: Test schedule API
+curl "http://localhost:5173/api/schedule/train/route?origin=MORNINGSIDE&destination=ROMA_STREET&hours=4"
+
+# Train Mode: Regenerate connectivity data
+cd schedule-processor
+node build-train-connectivity.js
 ```
 
 ## Performance Considerations
@@ -234,30 +344,54 @@ Always check if GitHub has newer data before using cache:
 2. **Live Data**: TransLink API → Vercel Proxy → Vercel deployment only
 
 ### GitHub Repository Structure
-- **`main` branch**: Production code → Deploys to ferry.lifemap.au and www.brisbaneferry.com
-- **`develop` branch**: Pre-production code → Deploys to brisbane-ferry-tracker.vercel.app
+- **`main` branch**: Production code → Deploys to ferry.lifemap.au, www.brisbaneferry.com, and brisbanetrain.com
+- **`mode-abstraction-v2` branch**: Active development branch for dual-mode features
+- **Feature branches**: Short-lived branches for specific features → Deploy to Vercel preview URLs
 - **schedule-data/**: Updated daily by GitHub Action (on main branch)
-- **schedule-processor/**: Node.js app that generates schedule JSON
+- **schedule-processor/**: Node.js scripts for processing GTFS data
 - **.github/workflows/**: Runs daily at 3 AM Brisbane time
 
-### Development Workflow
+### Development Workflow with Vercel Preview Deployments
+
+**IMPORTANT: Testing is ALWAYS done via Vercel preview deployments, NOT directly on main branch**
+
 ```bash
-# Daily development (you should be on develop branch)
-git checkout develop
+# 1. Create feature branch or work on mode-abstraction-v2
+git checkout mode-abstraction-v2  # or create feature branch
+git pull origin mode-abstraction-v2
+
+# 2. Make changes and commit
 git add .
-git commit -m "Feature: description"
-git push
-# Auto-deploys to brisbane-ferry-tracker.vercel.app for testing
+git commit -m "Feature: add station connectivity filtering"
 
-# Release to production
+# 3. Push to trigger Vercel preview deployment
+git push origin mode-abstraction-v2
+# Vercel automatically creates preview URL like:
+# https://brisbane-ferry-tracker-[hash].vercel.app
+
+# 4. Test on preview URL
+# - Check console for errors
+# - Test all functionality
+# - Verify on mobile and desktop
+# - Test both ferry and train modes
+
+# 5. Once tested and working, merge to main
 git checkout main
-git merge develop
-git push
-# Auto-deploys to ferry.lifemap.au and www.brisbaneferry.com
+git merge mode-abstraction-v2
+git push origin main
+# Auto-deploys to production domains
 
-# Return to development
-git checkout develop
+# 6. Return to development branch
+git checkout mode-abstraction-v2
 ```
+
+**Preview Deployment Benefits:**
+- ✅ Test in production-like environment
+- ✅ Share preview URLs with others for testing
+- ✅ No risk to production site
+- ✅ Automatic deployment on every push
+- ✅ Each commit gets its own unique URL
+- ✅ Easy to rollback if issues found
 
 ### Manual Deployment Commands (if needed)
 ```bash
@@ -271,19 +405,26 @@ vercel --prod
 ### Environment URLs
 | Environment | URL | Branch | Purpose |
 |------------|-----|--------|---------|
-| Production | https://ferry.lifemap.au<br>https://www.brisbaneferry.com | `main` | Live site for end users |
-| Pre-production | https://brisbane-ferry-tracker.vercel.app | `develop` | Testing new features |
-| Local Dev | http://localhost:5173 | `develop` | Active development |
+| **Production (Ferry)** | https://ferry.lifemap.au<br>https://www.brisbaneferry.com | `main` | Live ferry site |
+| **Production (Train)** | https://brisbanetrain.com | `main` | Live train site |
+| **Preview** | https://brisbane-ferry-tracker-[hash].vercel.app | Any non-main | Testing before production |
+| **Local Dev** | http://localhost:5173 | Any | Active development |
 
 ### Key Differences Between Deployments
-| Feature | Production (ferry.lifemap.au / brisbaneferry.com) | Pre-prod (vercel.app) | GitHub Pages |
-|---------|-------------------------------|----------------------|--------------|
-| Live ferry tracking | ✅ | ✅ | ❌ |
-| Live ferry map | ✅ | ✅ | ❌ |
+| Feature | Production | Preview | Local Dev |
+|---------|------------|---------|-----------|
+| Live tracking | ✅ | ✅ | ✅ |
+| Real-time GTFS-RT | ✅ | ✅ | ✅ |
 | Schedule data | ✅ | ✅ | ✅ |
-| CORS proxy | ✅ | ✅ | ❌ |
-| Auto-refresh | ✅ | ✅ | ✅ |
-| Branch | `main` | `develop` | `main` |
+| CORS proxy | ✅ | ✅ | ✅ |
+| Custom domains | ✅ | ❌ | ❌ |
+| Analytics | ✅ | ❌ | ❌ |
+
+**Testing Workflow:**
+1. Develop locally at http://localhost:5173
+2. Push to non-main branch → Vercel creates preview deployment
+3. Test preview deployment thoroughly
+4. Merge to main → Auto-deploys to production domains
 
 ## Recent Updates
 1. **Dynamic Stop Selector** - Users can choose any ferry terminal pair
