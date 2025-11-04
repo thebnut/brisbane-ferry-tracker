@@ -18,7 +18,7 @@ const MobileBoardHeader = ({
   };
 
   return (
-    <div className="flex items-center justify-center space-x-2 mb-6 rounded-xl overflow-hidden border-2 border-ferry-orange/30 shadow-lg bg-white/90 backdrop-blur-sm px-3 py-2">
+    <div className="flex items-center justify-center space-x-2 mb-6 rounded-xl overflow-visible border-2 border-ferry-orange/30 shadow-lg bg-white/90 backdrop-blur-sm px-3 py-2">
       <SearchableSelect
         value={originStop.id}
         onChange={onOriginChange}

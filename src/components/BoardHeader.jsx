@@ -44,7 +44,7 @@ const BoardHeader = ({
   };
 
   return (
-    <div className="flex items-center space-x-2 text-base font-semibold mb-4 text-ferry-aqua bg-gradient-to-r from-white/80 to-ferry-orange-light/50 rounded-xl px-4 py-3 shadow-sm border border-ferry-orange/10 backdrop-blur-sm">
+    <div className="flex items-center space-x-2 text-base font-semibold mb-4 text-ferry-aqua bg-gradient-to-r from-white/80 to-ferry-orange-light/50 rounded-xl px-4 py-3 shadow-sm border border-ferry-orange/10 backdrop-blur-sm overflow-visible">
       <SearchableSelect
         value={fromStop.id}
         onChange={handleFromChange}
