@@ -211,7 +211,7 @@ const SearchableSelect = ({
           ref={dropdownRef}
           id="searchable-select-listbox"
           role="listbox"
-          className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg overflow-auto"
+          className="absolute z-[9999] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg overflow-auto"
           style={{ maxHeight: `${maxHeight}px` }}
         >
           {filteredOptions.length > 0 ? (
