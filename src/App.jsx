@@ -15,6 +15,7 @@ import staticGtfsService from './services/staticGtfsService';
 import { STORAGE_KEYS } from './utils/constants';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { ModeProvider, useMode } from './config';
+import trainStationConnectivity from './data/trainStationConnectivity.json';
 
 // Main App component wrapped with ModeProvider
 function App() {
@@ -144,8 +145,9 @@ function AppContent() {
         if (modeId === 'train') {
           const trainStops = mode.data.stops.list || [];
           setAvailableStops(trainStops);
-          // For trains, all stations can connect to all other stations
-          setValidDestinations(trainStops.map(s => s.id));
+          // For trains, use connectivity data for direct connections only
+          const destinations = trainStationConnectivity[currentStops.outbound.id] || [];
+          setValidDestinations(destinations);
           setStopsLoading(false);
           return;
         }
@@ -177,9 +179,10 @@ function AppContent() {
     if (availableStops.length > 0 && currentStops) {
       const modeId = mode?.mode?.id;
 
-      // Train mode: All stations are valid destinations
+      // Train mode: Use connectivity data for direct connections only
       if (modeId === 'train') {
-        setValidDestinations(availableStops.map(s => s.id));
+        const destinations = trainStationConnectivity[currentStops.outbound.id] || [];
+        setValidDestinations(destinations);
       } else {
         // Ferry mode: Use connectivity data
         const destinations = staticGtfsService.getValidDestinations(currentStops.outbound.id);
