@@ -3,6 +3,7 @@ import staticGtfsService from '../services/staticGtfsService';
 import { DEFAULT_STOPS, STORAGE_KEYS } from '../utils/constants';
 import { FERRY_STOPS, TEMPORARY_CONNECTIVITY } from '../utils/ferryStops';
 import StopSelectorMap from './StopSelectorMap';
+import SearchableSelect from './SearchableSelect';
 import { useMode } from '../config';
 import trainStationConnectivity from '../data/trainStationConnectivity.json';
 
@@ -225,17 +226,16 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                   From (Origin Stop)
                 </label>
                 <div className="flex gap-2">
-                  <select
+                  <SearchableSelect
                     value={selectedOrigin}
-                    onChange={(e) => setSelectedOrigin(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-orange focus:border-ferry-orange transition-colors"
-                  >
-                    {availableStops.map(stop => (
-                      <option key={stop.id} value={stop.id}>
-                        {cleanStopName(stop.name)}
-                      </option>
-                    ))}
-                  </select>
+                    options={availableStops}
+                    onChange={setSelectedOrigin}
+                    getOptionLabel={(stop) => cleanStopName(stop.name)}
+                    getOptionValue={(stop) => stop.id}
+                    placeholder="Search or select station..."
+                    className="flex-1"
+                    maxVisibleItems={8}
+                  />
                   <button
                     onClick={() => setMapModalOpen('origin')}
                     className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-ferry-orange-light hover:border-ferry-orange transition-colors"
