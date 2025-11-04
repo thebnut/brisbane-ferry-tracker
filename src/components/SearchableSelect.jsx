@@ -9,7 +9,8 @@ const SearchableSelect = ({
   placeholder = 'Search or select...',
   className = '',
   maxVisibleItems = 8,
-  disabled = false
+  disabled = false,
+  compact = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -183,7 +184,9 @@ const SearchableSelect = ({
           onFocus={handleInputFocus}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-orange focus:border-ferry-orange transition-colors disabled:opacity-50 disabled:cursor-not-allowed pr-8"
+          className={`w-full border border-gray-300 rounded-lg focus:ring-ferry-orange focus:border-ferry-orange transition-colors disabled:opacity-50 disabled:cursor-not-allowed pr-8 ${
+            compact ? 'px-2 py-1.5 text-sm' : 'px-3 py-2'
+          }`}
           role="combobox"
           aria-expanded={isOpen}
           aria-autocomplete="list"
@@ -225,7 +228,9 @@ const SearchableSelect = ({
                   aria-selected={isSelected}
                   onClick={() => handleSelectOption(option)}
                   onMouseEnter={() => setHighlightedIndex(index)}
-                  className={`px-3 py-2 cursor-pointer transition-colors ${
+                  className={`cursor-pointer transition-colors ${
+                    compact ? 'px-2 py-1.5 text-sm' : 'px-3 py-2'
+                  } ${
                     isSelected
                       ? 'bg-ferry-orange text-white font-medium'
                       : isHighlighted
@@ -238,7 +243,7 @@ const SearchableSelect = ({
               );
             })
           ) : (
-            <div className="px-3 py-2 text-gray-500 text-sm">
+            <div className={`text-gray-500 text-sm ${compact ? 'px-2 py-1.5' : 'px-3 py-2'}`}>
               No stations found matching "{searchText}"
             </div>
           )}

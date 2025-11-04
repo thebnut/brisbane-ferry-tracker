@@ -1,5 +1,5 @@
 import React from 'react';
-import StopDropdown from './StopDropdown';
+import SearchableSelect from './SearchableSelect';
 
 const BoardHeader = ({ 
   direction,
@@ -33,30 +33,42 @@ const BoardHeader = ({
   };
 
   // Filter valid options for the "to" dropdown based on direction
-  const toOptions = direction === 'outbound' 
+  const toOptions = direction === 'outbound'
     ? availableStops.filter(stop => validDestinations.includes(stop.id))
     : availableStops; // For inbound, all stops are valid origins
 
+  // Helper function to clean stop names
+  const cleanStopName = (name) => {
+    if (!name) return '';
+    return name.replace(' ferry terminal', '').replace(/ station$/i, '');
+  };
+
   return (
     <div className="flex items-center space-x-2 text-base font-semibold mb-4 text-ferry-aqua bg-gradient-to-r from-white/80 to-ferry-orange-light/50 rounded-xl px-4 py-3 shadow-sm border border-ferry-orange/10 backdrop-blur-sm">
-      <StopDropdown
+      <SearchableSelect
         value={fromStop.id}
         onChange={handleFromChange}
         options={availableStops}
+        getOptionLabel={(stop) => cleanStopName(stop.name)}
+        getOptionValue={(stop) => stop.id}
+        placeholder="Search origin..."
         disabled={loading}
         className="flex-1"
       />
-      
+
       <span className="text-ferry-aqua text-xl">→</span>
-      
-      <StopDropdown
+
+      <SearchableSelect
         value={toStop.id}
         onChange={handleToChange}
         options={toOptions}
+        getOptionLabel={(stop) => cleanStopName(stop.name)}
+        getOptionValue={(stop) => stop.id}
+        placeholder="Search destination..."
         disabled={loading || toOptions.length === 0}
         className="flex-1"
       />
-      
+
       {toOptions.length === 0 && !loading && (
         <span className="text-red-500 text-xs ml-2">No valid destinations</span>
       )}

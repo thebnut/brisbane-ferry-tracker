@@ -254,26 +254,17 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
                   To (Destination Stop)
                 </label>
                 <div className="flex gap-2">
-                  <select
+                  <SearchableSelect
                     value={selectedDestination}
-                    onChange={(e) => setSelectedDestination(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-ferry-orange focus:border-ferry-orange transition-colors"
+                    options={availableStops.filter(s => validDestinations.includes(s.id))}
+                    onChange={setSelectedDestination}
+                    getOptionLabel={(stop) => cleanStopName(stop.name)}
+                    getOptionValue={(stop) => stop.id}
+                    placeholder="Search destination..."
+                    className="flex-1"
+                    maxVisibleItems={8}
                     disabled={validDestinations.length === 0}
-                  >
-                    {validDestinations.length > 0 ? (
-                      validDestinations
-                        .map(stopId => availableStops.find(s => s.id === stopId))
-                        .filter(stop => stop !== undefined)
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map(stop => (
-                          <option key={stop.id} value={stop.id}>
-                            {cleanStopName(stop.name)}
-                          </option>
-                        ))
-                    ) : (
-                      <option value="">No direct connections available</option>
-                    )}
-                  </select>
+                  />
                   <button
                     onClick={() => setMapModalOpen('destination')}
                     className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-ferry-orange-light hover:border-ferry-orange transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
