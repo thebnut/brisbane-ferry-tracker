@@ -32,6 +32,18 @@ const SearchableSelect = ({
       )
     : options;
 
+  // Calculate dropdown position based on input position
+  const updateDropdownPosition = useCallback(() => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  }, []);
+
   // Reset highlighted index when filtered options change
   useEffect(() => {
     setHighlightedIndex(0);
@@ -123,18 +135,6 @@ const SearchableSelect = ({
     setSearchText('');
     inputRef.current?.blur();
   };
-
-  // Calculate dropdown position based on input position
-  const updateDropdownPosition = useCallback(() => {
-    if (inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width
-      });
-    }
-  }, []);
 
   // Handle input focus
   const handleInputFocus = () => {
