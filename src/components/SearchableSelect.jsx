@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 const SearchableSelect = ({
   value,
@@ -15,6 +15,7 @@ const SearchableSelect = ({
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
 
   const containerRef = useRef(null);
   const inputRef = useRef(null);
@@ -61,6 +62,23 @@ const SearchableSelect = ({
     }
   }, [isOpen]);
 
+  // Update dropdown position on scroll/resize when open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePositionUpdate = () => {
+      updateDropdownPosition();
+    };
+
+    window.addEventListener('scroll', handlePositionUpdate, true);
+    window.addEventListener('resize', handlePositionUpdate);
+
+    return () => {
+      window.removeEventListener('scroll', handlePositionUpdate, true);
+      window.removeEventListener('resize', handlePositionUpdate);
+    };
+  }, [isOpen, updateDropdownPosition]);
+
   // Handle keyboard navigation
   useEffect(() => {
     if (!isOpen) return;
@@ -106,9 +124,22 @@ const SearchableSelect = ({
     inputRef.current?.blur();
   };
 
+  // Calculate dropdown position based on input position
+  const updateDropdownPosition = useCallback(() => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  }, []);
+
   // Handle input focus
   const handleInputFocus = () => {
     if (!disabled) {
+      updateDropdownPosition();
       setIsOpen(true);
     }
   };
@@ -211,8 +242,13 @@ const SearchableSelect = ({
           ref={dropdownRef}
           id="searchable-select-listbox"
           role="listbox"
-          className="absolute z-[9999] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg overflow-auto"
-          style={{ maxHeight: `${maxHeight}px` }}
+          className="fixed z-[9999] bg-white border border-gray-300 rounded-lg shadow-lg overflow-auto"
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: `${dropdownPosition.width}px`,
+            maxHeight: `${maxHeight}px`
+          }}
         >
           {filteredOptions.length > 0 ? (
             filteredOptions.map((option, index) => {
