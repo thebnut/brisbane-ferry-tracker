@@ -1,12 +1,17 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import Navigation from './components/Navigation';
 import StatusBar from './components/StatusBar';
 import DepartureBoard from './components/DepartureBoard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorMessage from './components/ErrorMessage';
-import FerryMapModal from './components/FerryMapModal';
-import FerryDetailsModal from './components/FerryDetailsModal';
-import StopSelectorModal from './components/StopSelectorModal';
+// BRI-19: FerryMapModal, FerryDetailsModal, and StopSelectorModal all pull in
+// Leaflet + react-leaflet (~100KB gzip) via their respective map children
+// (FerryMap, FerryDetailMap, StopSelectorMap). They're only needed on user
+// interaction (map button, row click, first visit / settings). Lazy-loading
+// defers that cost until first open — Rollup auto-shares the Leaflet dep.
+const FerryMapModal = lazy(() => import('./components/FerryMapModal'));
+const FerryDetailsModal = lazy(() => import('./components/FerryDetailsModal'));
+const StopSelectorModal = lazy(() => import('./components/StopSelectorModal'));
 import MobileBoardHeader from './components/MobileBoardHeader';
 import DepartureTimeDropdown from './components/DepartureTimeDropdown';
 import FeedbackModal from './components/FeedbackModal';
@@ -14,6 +19,19 @@ import useFerryData from './hooks/useFerryData';
 import staticGtfsService from './services/staticGtfsService';
 import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+
+/**
+ * BRI-19: tiny Suspense fallback shown only during the first lazy chunk load.
+ * Usually <200ms on a decent connection. The overlay confirms the click
+ * registered while the map/modal code streams in.
+ */
+const MapFallback = () => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+    <div className="bg-white rounded-lg px-6 py-4 shadow-lg text-sm text-gray-700">
+      Loading map…
+    </div>
+  </div>
+);
 
 function App() {
   // v1.2.0 - Modern orange-themed redesign with animations (2025-07-19)
@@ -383,34 +401,46 @@ function App() {
         </div>
       </footer>
       
-      {/* Ferry Details Modal */}
+      {/* Ferry Details Modal — lazy-loaded on first open (BRI-19) */}
       {selectedDeparture && (
-        <FerryDetailsModal
-          departure={selectedDeparture}
-          vehiclePositions={vehiclePositions}
-          tripUpdates={tripUpdates}
-          selectedStops={currentStops}
-          onClose={() => setSelectedDeparture(null)}
-        />
+        <Suspense fallback={<MapFallback />}>
+          <FerryDetailsModal
+            departure={selectedDeparture}
+            vehiclePositions={vehiclePositions}
+            tripUpdates={tripUpdates}
+            selectedStops={currentStops}
+            onClose={() => setSelectedDeparture(null)}
+          />
+        </Suspense>
+      )}
+
+      {/* Ferry Map Modal — lazy-loaded on first map-button press (BRI-19).
+          Only mounted when open + data is ready, so the Leaflet chunk only
+          downloads when the user actually wants to see it. */}
+      {showMap && vehiclePositions.length > 0 && (
+        <Suspense fallback={<MapFallback />}>
+          <FerryMapModal
+            isOpen={true}
+            onClose={() => setShowMap(false)}
+            vehiclePositions={vehiclePositions}
+            tripUpdates={tripUpdates}
+            departures={departures}
+            selectedStops={currentStops}
+          />
+        </Suspense>
       )}
       
-      {/* Ferry Map Modal */}
-      <FerryMapModal
-        isOpen={showMap && vehiclePositions.length > 0}
-        onClose={() => setShowMap(false)}
-        vehiclePositions={vehiclePositions}
-        tripUpdates={tripUpdates}
-        departures={departures}
-        selectedStops={currentStops}
-      />
-      
-      {/* Stop Selector Modal */}
-      <StopSelectorModal
-        isOpen={showStopSelector}
-        onClose={() => setShowStopSelector(false)}
-        currentStops={selectedStops}
-        onSave={handleStopChange}
-      />
+      {/* Stop Selector Modal — lazy-loaded on first open (BRI-19) */}
+      {showStopSelector && (
+        <Suspense fallback={<MapFallback />}>
+          <StopSelectorModal
+            isOpen={true}
+            onClose={() => setShowStopSelector(false)}
+            currentStops={selectedStops}
+            onSave={handleStopChange}
+          />
+        </Suspense>
+      )}
       
       {/* Feedback Modal */}
       <FeedbackModal
