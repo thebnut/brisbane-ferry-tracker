@@ -192,7 +192,14 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
             className="mx-6 mt-4 p-3 rounded-lg text-white flex items-center gap-3 shadow-sm"
             style={{ backgroundColor: vesselWrap.color }}
           >
-            <span className="text-3xl" aria-hidden="true">{vesselWrap.emoji}</span>
+            {vesselWrap.iconUrl && (
+              <img
+                src={vesselWrap.iconUrl}
+                alt=""
+                aria-hidden="true"
+                className="w-12 h-12 rounded-full bg-white/80 p-1 shrink-0"
+              />
+            )}
             <div className="flex-1 min-w-0">
               <div className="font-bold text-sm">{vesselWrap.wrap} CityCat</div>
               <div className="text-xs opacity-90 truncate">{vesselWrap.description}</div>

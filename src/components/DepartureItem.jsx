@@ -113,11 +113,19 @@ const DepartureItem = ({ departure, onClick }) => {
                 Conditional render — zero layout impact on unwrapped rows. */}
             {vesselWrap && (
               <span
-                className="px-2.5 py-1 rounded-full text-xs font-bold text-white shadow-sm"
+                className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 rounded-full text-xs font-bold text-white shadow-sm"
                 style={{ backgroundColor: vesselWrap.color }}
                 title={vesselWrap.description}
               >
-                {vesselWrap.emoji} {vesselWrap.wrap}
+                {vesselWrap.iconUrl && (
+                  <img
+                    src={vesselWrap.iconUrl}
+                    alt=""
+                    aria-hidden="true"
+                    className="w-5 h-5 rounded-full bg-white/80 p-0.5"
+                  />
+                )}
+                {vesselWrap.wrap}
               </span>
             )}
           </div>

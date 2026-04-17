@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { STOPS, SERVICE_TYPES } from '../utils/constants';
 import { getStopNameSync, preloadStopData } from '../utils/stopNames';
+import { getVesselWrap } from '../utils/wrappedVessels';
 
 // Fix Leaflet default icon issue with Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -36,15 +37,23 @@ const getServiceColor = (routeId) => {
   return colorMap[serviceInfo.color] || '#6B7280';
 };
 
-// Create custom ferry icon
-const createFerryIcon = (routeId) => {
-  const color = getServiceColor(routeId);
-  
+// Create custom ferry icon.
+// BRI-15: when `wrap` is passed (Bluey/Bingo/...), use the wrap's colour as the
+// ring and overlay the wrap icon SVG on top of the marker. Unwrapped ferries
+// render unchanged.
+const createFerryIcon = (routeId, wrap = null) => {
+  const baseColor = getServiceColor(routeId);
+  const color = wrap?.color || baseColor;
+  const size = wrap ? 34 : 28;
+
+  // Unique id so multiple markers on the same page don't conflict on <defs>
+  const filterId = `shadow-${wrap ? 'w' : 'b'}-${Math.random().toString(36).slice(2, 7)}`;
+
   return L.divIcon({
     html: `
       <div style="
-        width: 28px;
-        height: 28px;
+        width: ${size}px;
+        height: ${size}px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -52,23 +61,27 @@ const createFerryIcon = (routeId) => {
         <style>
           @keyframes pulse {
             0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.8; transform: scale(1.1); }
+            50% { opacity: 0.85; transform: scale(1.08); }
             100% { opacity: 1; transform: scale(1); }
           }
         </style>
-        <svg width="28" height="28" viewBox="0 0 28 28" style="animation: pulse 2s infinite;">
+        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="animation: pulse 2s infinite;">
           <defs>
-            <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+            <filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%">
               <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3"/>
             </filter>
           </defs>
-          <circle cx="14" cy="14" r="10" fill="${color}" stroke="white" stroke-width="2" filter="url(#shadow)"/>
+          ${wrap
+            ? `<circle cx="${size / 2}" cy="${size / 2}" r="${(size / 2) - 2}" fill="${color}" stroke="white" stroke-width="2.5" filter="url(#${filterId})"/>
+               <g transform="translate(5 5) scale(${(size - 10) / 64})">${wrap.iconSvg.replace(/<\?xml[^>]*\?>/g, '').replace(/<!DOCTYPE[^>]*>/g, '')}</g>`
+            : `<circle cx="14" cy="14" r="10" fill="${color}" stroke="white" stroke-width="2" filter="url(#${filterId})"/>`
+          }
         </svg>
       </div>
     `,
-    className: 'ferry-marker',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14]
+    className: wrap ? 'ferry-marker ferry-marker-wrapped' : 'ferry-marker',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2]
   });
 };
 
@@ -159,7 +172,9 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
         currentStatus: vehicle.currentStatus,
         currentStop: currentStop,
         nextStop: nextStop,
-        vehicleName: vehicle.vehicle?.label || vehicle.vehicle?.id?.split('_').pop() || 'Unknown'
+        vehicleName: vehicle.vehicle?.label || vehicle.vehicle?.id?.split('_').pop() || 'Unknown',
+        // BRI-15: resolved wrap metadata (null for unwrapped ferries).
+        wrap: getVesselWrap(vehicle.vehicle?.id)
       };
     });
 
@@ -199,12 +214,20 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
             <Marker
               key={ferry.id}
               position={[ferry.lat, ferry.lng]}
-              icon={createFerryIcon(ferry.routeId)}
+              icon={createFerryIcon(ferry.routeId, ferry.wrap)}
             >
               <Popup>
                 <div className="text-sm">
                   <p className="font-bold">
                     {SERVICE_TYPES[ferry.routePrefix]?.name || 'Ferry'}
+                    {ferry.wrap && (
+                      <span
+                        className="ml-2 inline-block px-2 py-0.5 rounded-full text-white text-xs align-middle"
+                        style={{ backgroundColor: ferry.wrap.color }}
+                      >
+                        {ferry.wrap.wrap}
+                      </span>
+                    )}
                   </p>
                   <p>Vehicle: {ferry.vehicleName}</p>
                   <p className="text-xs text-gray-500">Trip: {ferry.tripId}</p>
