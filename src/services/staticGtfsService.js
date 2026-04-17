@@ -305,6 +305,10 @@ class StaticGTFSService {
       processedDepartures.push({
         ...dep,
         destinationArrivalTime,
+        // BRI-16: for scheduled-only departures the realtime arrival and the scheduled
+        // arrival are definitionally the same. Keeps the UI contract: every departure
+        // with an arrival has both fields populated.
+        scheduledArrivalTime: destinationArrivalTime,
         direction
       });
     });
@@ -479,6 +483,8 @@ class StaticGTFSService {
             serviceId: trip.service_id,
             departureTime: departureUTC,
             destinationArrivalTime: destinationArrivalTime, // Add arrival time
+            // BRI-16: scheduled-only departure — realtime and scheduled arrival are the same.
+            scheduledArrivalTime: destinationArrivalTime,
             stopId: stopTime.stop_id,
             direction: direction,
             headsign: trip.trip_headsign,
