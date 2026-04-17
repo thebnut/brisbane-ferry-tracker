@@ -116,6 +116,30 @@ const DepartureItem = ({ departure, onClick }) => {
                 ({format(departureTimeZoned, 'dd/MM')})
               </span>
             )}
+            {/* BRI-16: inline arrival at selected destination + journey duration.
+                Duration suffix is desktop-only (`hidden sm:inline`) so mobile rows
+                stay inside the existing min-h-[6rem] envelope. */}
+            {departure.destinationArrivalTime && (() => {
+              const arrivalZoned = toZonedTime(departure.destinationArrivalTime, API_CONFIG.timezone);
+              const journeyMins = differenceInMinutes(arrivalZoned, departureTimeZoned);
+              const arrivalIsNotToday = isAfter(arrivalZoned, tomorrowStart) || isTomorrow(arrivalZoned);
+              return (
+                <>
+                  <span className="text-gray-400 mx-2 font-normal">→</span>
+                  <span className="font-normal text-gray-700">
+                    {format(arrivalZoned, 'h:mm a')}
+                    {arrivalIsNotToday && (
+                      <span className="text-sm text-ferry-orange font-medium ml-1">
+                        ({format(arrivalZoned, 'dd/MM')})
+                      </span>
+                    )}
+                  </span>
+                  {journeyMins > 0 && (
+                    <span className="hidden sm:inline text-sm font-normal text-gray-500 ml-2">· {journeyMins} min</span>
+                  )}
+                </>
+              );
+            })()}
           </p>
           {statusText && (
             <p 
