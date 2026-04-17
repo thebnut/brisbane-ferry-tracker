@@ -12,7 +12,7 @@ import DepartureTimeDropdown from './components/DepartureTimeDropdown';
 import FeedbackModal from './components/FeedbackModal';
 import useFerryData from './hooks/useFerryData';
 import staticGtfsService from './services/staticGtfsService';
-import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
+import { STORAGE_KEYS, DEFAULT_STOPS, ATTRIBUTION } from './utils/constants';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
 function App() {
@@ -370,7 +370,20 @@ function App() {
       
       <footer className="mt-16 py-8 border-t border-gray-200">
         <div className="container mx-auto px-4 max-w-6xl text-center text-sm text-gray-600">
-          <p>Data provided by TransLink Queensland</p>
+          <p>
+            {ATTRIBUTION.text}{' '}
+            <span className="whitespace-nowrap">
+              — licensed under{' '}
+              <a
+                href={ATTRIBUTION.licenceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-ferry-orange transition-colors"
+              >
+                {ATTRIBUTION.licenceName}
+              </a>
+            </span>
+          </p>
           <p className="mt-2">Updates every 5 minutes • Shows next 24 hours • All times in Brisbane time</p>
           <p className="mt-4">
             <button
