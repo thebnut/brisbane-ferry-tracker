@@ -3,6 +3,7 @@ import { format, differenceInMinutes, isTomorrow, isAfter, startOfDay, addDays }
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { SERVICE_TYPES, API_CONFIG, STOPS, getVehicleStatusInfo } from '../utils/constants';
+import { getVesselWrap } from '../utils/wrappedVessels';
 import FerryDetailMap from './FerryDetailMap';
 
 const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedStops, onClose }) => {
@@ -55,6 +56,11 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
   // Get live position data
   const position = vehiclePosition?.vehicle?.position;
   const hasLiveData = !!position;
+
+  // BRI-15: wrap metadata for Bluey/Bingo-style specially liveried vessels.
+  // Prefer live feed vehicle id (more authoritative) then fall back to the
+  // vehicleId stored on the departure object (e.g. scheduled-only paths).
+  const vesselWrap = getVesselWrap(vehiclePosition?.vehicle?.vehicle?.id || departure.vehicleId);
   
   // Format times
   const departureTimeZoned = toZonedTime(departure.departureTime, API_CONFIG.timezone);
@@ -179,6 +185,31 @@ const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedS
           </div>
         </div>
         
+        {/* BRI-15: wrap callout for specially liveried vessels (Bluey, Bingo, ...).
+            Conditional — unwrapped vessels see no change. */}
+        {vesselWrap && (
+          <div
+            className="mx-6 mt-4 p-3 rounded-lg text-white flex items-center gap-3 shadow-sm"
+            style={{ backgroundColor: vesselWrap.color }}
+          >
+            <span className="text-3xl" aria-hidden="true">{vesselWrap.emoji}</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-sm">{vesselWrap.wrap} CityCat</div>
+              <div className="text-xs opacity-90 truncate">{vesselWrap.description}</div>
+            </div>
+            {vesselWrap.sourceUrl && (
+              <a
+                href={vesselWrap.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs underline opacity-90 hover:opacity-100 shrink-0"
+              >
+                source
+              </a>
+            )}
+          </div>
+        )}
+
         {/* Schedule Information */}
         <div className="p-6 border-b">
           <h3 className="text-lg font-semibold mb-4">Schedule Information</h3>
