@@ -19,6 +19,9 @@ import useFerryData from './hooks/useFerryData';
 import staticGtfsService from './services/staticGtfsService';
 import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+// BRI-22: Vercel Analytics — sibling of SpeedInsights. Both beacons go through
+// same-origin /_vercel/* proxies, so no CSP changes needed.
+import { Analytics } from '@vercel/analytics/react';
 
 /**
  * BRI-19: tiny Suspense fallback shown only during the first lazy chunk load.
@@ -448,8 +451,10 @@ function App() {
         onClose={() => setShowFeedback(false)}
       />
       
-      {/* Vercel Speed Insights */}
+      {/* Vercel Speed Insights (Web Vitals) + Analytics (pageviews). Both use
+          same-origin /_vercel/* endpoints — CSP-safe. BRI-22. */}
       <SpeedInsights />
+      <Analytics />
     </div>
   );
 }
