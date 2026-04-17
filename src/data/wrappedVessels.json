@@ -1,0 +1,20 @@
+[
+  {
+    "vesselName": "Gootcha",
+    "wrap": "Bluey",
+    "description": "Bluey CityDog — wrapped in tribute to Bluey's Brisbane",
+    "emoji": "🐶",
+    "color": "#3B82F6",
+    "sinceDate": "2024-11-11",
+    "sourceUrl": "https://www.bluey.tv/blog/brisbane-welcomes-citydogs/"
+  },
+  {
+    "vesselName": "Kuluwin",
+    "wrap": "Bingo",
+    "description": "Bingo CityDog — wrapped in tribute to Bluey's Brisbane",
+    "emoji": "🧡",
+    "color": "#F97316",
+    "sinceDate": "2024-11-11",
+    "sourceUrl": "https://www.bluey.tv/blog/brisbane-welcomes-citydogs/"
+  }
+]
