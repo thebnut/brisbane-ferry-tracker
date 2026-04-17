@@ -1,12 +1,8 @@
+import { applyCors } from './_cors.js';
+
 export default async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  // BRI-20: CORS via shared allowlist helper (was wildcard *).
+  applyCors(req, res);
 
   // Handle preflight
   if (req.method === 'OPTIONS') {
