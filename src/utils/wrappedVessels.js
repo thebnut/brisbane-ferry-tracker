@@ -1,4 +1,15 @@
 import WRAPPED_VESSELS from '../data/wrappedVessels.json';
+import blueyUrl from '../assets/wraps/bluey.svg?url';
+import bingoUrl from '../assets/wraps/bingo.svg?url';
+import blueyRaw from '../assets/wraps/bluey.svg?raw';
+import bingoRaw from '../assets/wraps/bingo.svg?raw';
+
+// Map `iconKey` from the JSON to the actual asset. Keeping this in one place
+// means adding a new wrap is a JSON edit + one new import pair here.
+const ICONS = {
+  bluey: { url: blueyUrl, svg: blueyRaw },
+  bingo: { url: bingoUrl, svg: bingoRaw },
+};
 
 /**
  * Look up wrap metadata for a given GTFS-RT vehicle id.
@@ -15,12 +26,19 @@ import WRAPPED_VESSELS from '../data/wrappedVessels.json';
  *    match the currently-active one. Both versions rarely co-exist in the live feed.
  *
  * @param {string|null|undefined} vehicleId - GTFS-RT vehicle.id
- * @returns {object|null} wrap entry { vesselName, wrap, description, emoji, color, sinceDate, sourceUrl }, or null
+ * @returns {object|null} wrap entry { vesselName, wrap, description, color, sinceDate, sourceUrl, iconUrl, iconSvg }, or null
  */
 export function getVesselWrap(vehicleId) {
   if (!vehicleId || typeof vehicleId !== 'string') return null;
   const parts = vehicleId.split('_');
   if (parts.length < 2) return null;
   const nameFromFeed = parts[parts.length - 1].toLowerCase();
-  return WRAPPED_VESSELS.find((w) => w.vesselName.toLowerCase() === nameFromFeed) ?? null;
+  const entry = WRAPPED_VESSELS.find((w) => w.vesselName.toLowerCase() === nameFromFeed);
+  if (!entry) return null;
+  const icon = ICONS[entry.iconKey];
+  return {
+    ...entry,
+    iconUrl: icon?.url ?? null,
+    iconSvg: icon?.svg ?? null,
+  };
 }
