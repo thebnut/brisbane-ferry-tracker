@@ -184,32 +184,37 @@ class FerryDataService {
         // Determine direction based on stop sequence
         const direction = this.determineDirection(stopUpdate.stopId, stopTimeUpdates, index);
         
-        // Calculate destination arrival time
+        // Calculate destination arrival time (both realtime and scheduled).
+        // BRI-16: the GTFS-RT feed supplies `delay` on arrival/departure events so we can
+        // reconstruct the original scheduled arrival for UI parity with scheduledTime.
         let destinationArrivalTime = null;
+        let scheduledArrivalTime = null;
         const currentStopId = stopUpdate.stopId;
-        const destinationStopId = currentStopId === this.selectedStops.outbound.id 
-          ? this.selectedStops.inbound.id 
+        const destinationStopId = currentStopId === this.selectedStops.outbound.id
+          ? this.selectedStops.inbound.id
           : this.selectedStops.outbound.id;
-        
+
         // Find the destination stop in the remaining stops
         for (let i = index + 1; i < stopTimeUpdates.length; i++) {
           if (stopTimeUpdates[i].stopId === destinationStopId) {
-            const arrivalTime = stopTimeUpdates[i].arrival?.time 
-              ? new Date(stopTimeUpdates[i].arrival.time * 1000)
-              : stopTimeUpdates[i].departure?.time 
-                ? new Date(stopTimeUpdates[i].departure.time * 1000)
-                : null;
-            
-            if (arrivalTime) {
-              destinationArrivalTime = arrivalTime;
+            const destStop = stopTimeUpdates[i];
+            // Prefer arrival event, fall back to departure event on the same stop
+            const destEvent = destStop.arrival?.time ? destStop.arrival : destStop.departure;
+            const arrivalTimeSec = destEvent?.time ?? null;
+            const arrivalDelaySec = destEvent?.delay ?? 0;
+
+            if (arrivalTimeSec) {
+              destinationArrivalTime = new Date(arrivalTimeSec * 1000);
+              // If the feed omits delay, scheduled === realtime (safe no-delta fallback)
+              scheduledArrivalTime = new Date((arrivalTimeSec - arrivalDelaySec) * 1000);
               if (this.debug) {
-                console.log(`Found destination arrival time for trip ${trip.tripId}: ${format(toZonedTime(arrivalTime, this.timezone), 'h:mm a')}`);
+                console.log(`Found destination arrival time for trip ${trip.tripId}: ${format(toZonedTime(destinationArrivalTime, this.timezone), 'h:mm a')} (scheduled: ${format(toZonedTime(scheduledArrivalTime, this.timezone), 'h:mm a')})`);
               }
             }
             break;
           }
         }
-        
+
         departures.push({
           tripId: trip.tripId,
           routeId: trip.routeId,
@@ -220,7 +225,8 @@ class FerryDataService {
           delay: stopUpdate.departure?.delay || 0,
           vehicleId: vehiclePosition?.vehicle?.vehicle?.id,
           occupancy: vehiclePosition?.vehicle?.occupancyStatus,
-          destinationArrivalTime: destinationArrivalTime
+          destinationArrivalTime: destinationArrivalTime,
+          scheduledArrivalTime: scheduledArrivalTime
         });
       });
     });
@@ -374,7 +380,10 @@ class FerryDataService {
             isRealtime: true,
             isScheduled: false,
             scheduledTime: matchingScheduled.departureTime, // Keep reference to original scheduled time
-            destinationArrivalTime: dep.destinationArrivalTime || matchingScheduled.destinationArrivalTime // Preserve destination arrival time from scheduled data or real-time
+            destinationArrivalTime: dep.destinationArrivalTime || matchingScheduled.destinationArrivalTime, // Preserve destination arrival time from scheduled data or real-time
+            // BRI-16: prefer the static-schedule's canonical scheduled arrival when we have a tripId match,
+            // falling back to the realtime-derived scheduledArrivalTime (from arrival.delay) otherwise.
+            scheduledArrivalTime: matchingScheduled.destinationArrivalTime || dep.scheduledArrivalTime
           });
           
           if (this.debug) {
@@ -414,7 +423,10 @@ class FerryDataService {
               isRealtime: true,
               isScheduled: false,
               scheduledTime: existing.departureTime,
-              destinationArrivalTime: dep.destinationArrivalTime || existing.destinationArrivalTime // Preserve destination arrival time from either source
+              destinationArrivalTime: dep.destinationArrivalTime || existing.destinationArrivalTime, // Preserve destination arrival time from either source
+              // BRI-16: prefer the static-schedule's canonical scheduled arrival on time-based match,
+              // else fall back to realtime-derived scheduledArrivalTime.
+              scheduledArrivalTime: existing.destinationArrivalTime || dep.scheduledArrivalTime
             });
             matched = true;
             processedRealtime.add(`${dep.tripId}-${dep.stopId}`);
