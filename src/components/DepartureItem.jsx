@@ -3,11 +3,15 @@ import { format, differenceInMinutes, isTomorrow, isAfter, startOfDay, addDays }
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { SERVICE_TYPES, API_CONFIG, getOccupancyInfo } from '../utils/constants';
+import { getVesselWrap } from '../utils/wrappedVessels';
 
 const DepartureItem = ({ departure, onClick }) => {
   // Get service info based on route ID prefix (remove suffix like -4055)
   const routePrefix = departure.routeId.split('-')[0];
   const serviceInfo = SERVICE_TYPES[routePrefix] || SERVICE_TYPES.F1;
+
+  // BRI-15: look up wrap metadata for this vessel (null for unwrapped / no vehicleId).
+  const vesselWrap = getVesselWrap(departure.vehicleId);
   
   // Force initial render to complete before animations
   const [isInitialRender, setIsInitialRender] = React.useState(true);
@@ -103,6 +107,17 @@ const DepartureItem = ({ departure, onClick }) => {
                 <svg className="w-5 h-5 inline-block animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
+              </span>
+            )}
+            {/* BRI-15: wrap indicator for specially liveried vessels (Bluey/Bingo etc.)
+                Conditional render — zero layout impact on unwrapped rows. */}
+            {vesselWrap && (
+              <span
+                className="px-2.5 py-1 rounded-full text-xs font-bold text-white shadow-sm"
+                style={{ backgroundColor: vesselWrap.color }}
+                title={vesselWrap.description}
+              >
+                {vesselWrap.emoji} {vesselWrap.wrap}
               </span>
             )}
           </div>
