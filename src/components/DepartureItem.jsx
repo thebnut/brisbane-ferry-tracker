@@ -4,8 +4,11 @@ import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { SERVICE_TYPES, API_CONFIG, getOccupancyInfo } from '../utils/constants';
 import { getVesselWrap } from '../utils/wrappedVessels';
+import useMinuteTick from '../hooks/useMinuteTick';
 
 const DepartureItem = ({ departure, onClick }) => {
+  useMinuteTick();
+
   // Get service info based on route ID prefix (remove suffix like -4055)
   const routePrefix = departure.routeId.split('-')[0];
   const serviceInfo = SERVICE_TYPES[routePrefix] || SERVICE_TYPES.F1;
