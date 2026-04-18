@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import Papa from 'papaparse';
 import { STOPS, ROUTES, DEBUG_CONFIG, STORAGE_KEYS } from '../utils/constants';
+import { getApiBase, getScheduleDataUrl, isGitHubPages, isLocalDev } from '../utils/environment';
 import { startOfDay, endOfDay, format, parse, isAfter, isBefore, addMinutes } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 
@@ -17,15 +18,11 @@ class StaticGTFSService {
     // URL parameter support: Add ?useGitHub=true to use GitHub data on localhost
     // This helps developers test with the latest production data
     const urlParams = new URLSearchParams(window.location.search);
-    const forceGitHub = urlParams.get('useGitHub') || urlParams.get('useGithub');
-    
-    // GitHub Pages URL for pre-processed schedule data
-    this.githubScheduleUrl = (window.location.hostname === 'localhost' && !forceGitHub)
-      ? '/schedule-data/latest.json'
-      : 'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data/latest.json';
-    
-    // Log the data source for debugging on localhost
-    if (window.location.hostname === 'localhost') {
+    const forceGitHub = Boolean(urlParams.get('useGitHub') || urlParams.get('useGithub'));
+
+    this.githubScheduleUrl = getScheduleDataUrl({ forceGitHub });
+
+    if (isLocalDev()) {
       console.log(`📍 Using ${forceGitHub ? 'GitHub' : 'local'} schedule data`);
     }
   }
@@ -93,10 +90,12 @@ class StaticGTFSService {
   // Fetch and parse GTFS ZIP file (no longer caches raw data)
   async fetchGTFSData() {
     try {
-      // Use proxy in development or Vercel
-      const url = import.meta.env.DEV || window.location.hostname.includes('vercel') 
-        ? '/api/gtfs-static'
-        : 'https://gtfsrt.api.translink.com.au/GTFS/SEQ_GTFS.zip';
+      // GitHub Pages has no Vercel proxy and must hit TransLink directly.
+      // Everywhere else (local dev, Vercel, Capacitor) uses the proxy — which is
+      // origin-aware via getApiBase() so Capacitor gets an absolute URL.
+      const url = isGitHubPages()
+        ? 'https://gtfsrt.api.translink.com.au/GTFS/SEQ_GTFS.zip'
+        : `${getApiBase()}/api/gtfs-static`;
       
       this.log('Fetching static GTFS data...');
       const response = await fetch(url);
