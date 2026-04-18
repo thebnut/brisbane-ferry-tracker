@@ -1,5 +1,6 @@
 import GtfsRealtimeBindings from 'gtfs-realtime-bindings';
 import { API_CONFIG } from '../utils/constants';
+import { getApiBase, isGitHubPages } from '../utils/environment';
 
 class GTFSService {
   constructor() {
@@ -8,18 +9,12 @@ class GTFSService {
 
   async fetchFeed(endpoint) {
     try {
-      let url;
-      
-      // Check if we're on GitHub Pages (no CORS proxy available)
-      const isGitHubPages = window.location.hostname.includes('github.io');
-      
-      if (isGitHubPages) {
+      if (isGitHubPages()) {
         console.warn(`Cannot fetch live data on GitHub Pages due to CORS. Endpoint: ${endpoint}`);
         throw new Error('Live data not available on GitHub Pages deployment');
       }
-      
-      // Always use proxy to avoid CORS issues (except on localhost where we might test direct access)
-      url = `/api/gtfs-proxy?endpoint=${encodeURIComponent(endpoint)}`;
+
+      const url = `${getApiBase()}/api/gtfs-proxy?endpoint=${encodeURIComponent(endpoint)}`;
       
       const response = await fetch(url);
       

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBase } from '../utils/environment';
 
 const FeedbackModal = ({ isOpen, onClose }) => {
   const [formData, setFormData] = useState({
@@ -70,7 +71,7 @@ const FeedbackModal = ({ isOpen, onClose }) => {
     setErrorMessage('');
 
     try {
-      const response = await fetch('/api/feedback', {
+      const response = await fetch(`${getApiBase()}/api/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
