@@ -18,6 +18,7 @@ import FeedbackModal from './components/FeedbackModal';
 import useFerryData from './hooks/useFerryData';
 import staticGtfsService from './services/staticGtfsService';
 import { STORAGE_KEYS, DEFAULT_STOPS } from './utils/constants';
+import { isGitHubPages } from './utils/environment';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 // BRI-22: Vercel Analytics — sibling of SpeedInsights. Both beacons go through
 // same-origin /_vercel/* proxies, so no CSP changes needed.
@@ -286,9 +287,9 @@ function App() {
               {(() => {
                 const hasScheduled = departures.outbound.some(d => d.isScheduled) || departures.inbound.some(d => d.isScheduled);
                 const hasRealtime = departures.outbound.some(d => d.isRealtime) || departures.inbound.some(d => d.isRealtime);
-                const isGitHubPages = window.location.hostname.includes('github.io');
-                
-                if (hasScheduled || hasRealtime || scheduleLoading || isGitHubPages) {
+                const onGitHubPages = isGitHubPages();
+
+                if (hasScheduled || hasRealtime || scheduleLoading || onGitHubPages) {
                   return (
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between text-sm text-gray-600 bg-ferry-aqua/10 rounded-lg p-3 gap-3">
                       <span className="inline-flex items-center space-x-2">
@@ -296,7 +297,7 @@ function App() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span>
-                          {isGitHubPages 
+                          {onGitHubPages
                             ? "Showing scheduled times only • Live tracking requires Vercel deployment"
                             : scheduleLoading && hasRealtime 
                             ? "Showing live departures only • Schedule data loading..."

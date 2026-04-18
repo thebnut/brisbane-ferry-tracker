@@ -1,3 +1,5 @@
+import { isDebugHost } from './environment';
+
 export const STOPS = {
   bulimba: "317584",        // Bulimba ferry terminal
   riverside: "317590",      // Riverside ferry terminal
@@ -29,23 +31,15 @@ export const API_CONFIG = {
   timezone: 'Australia/Brisbane'
 };
 
-// Debug configuration
+// Debug configuration — on for every host we own (localhost, Vercel preview,
+// production custom domains). See isDebugHost() in utils/environment.js.
 export const DEBUG_CONFIG = {
   enableLogging: (() => {
-    // Enable debug logging for localhost, develop environments AND production domains
-    const hostname = window.location.hostname;
-    const isDevelopment = hostname === 'localhost' ||
-                         hostname === '127.0.0.1' ||
-                         hostname.includes('brisbane-ferry-tracker.vercel.app') ||
-                         hostname.includes('brisbaneferry.com') ||
-                         hostname.includes('ferry.lifemap.au');
-    
-    // Log debug mode status
-    if (isDevelopment) {
-      console.log(`🐛 Debug mode enabled for ${hostname}`);
+    const enabled = isDebugHost();
+    if (enabled) {
+      console.log(`🐛 Debug mode enabled for ${window.location.hostname}`);
     }
-    
-    return isDevelopment;
+    return enabled;
   })()
 };
 
