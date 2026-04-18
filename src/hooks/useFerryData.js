@@ -86,16 +86,6 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // Set up countdown timer refresh (every second)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      // Force re-render to update countdown displays
-      setDepartures(prev => ({ ...prev }));
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
   // Debug export function
   const exportDebugData = useCallback(() => {
     const debugData = ferryDataService.exportDebugData(

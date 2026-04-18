@@ -5,8 +5,11 @@ import clsx from 'clsx';
 import { SERVICE_TYPES, API_CONFIG, STOPS, getVehicleStatusInfo } from '../utils/constants';
 import { getVesselWrap } from '../utils/wrappedVessels';
 import FerryDetailMap from './FerryDetailMap';
+import useMinuteTick from '../hooks/useMinuteTick';
 
 const FerryDetailsModal = ({ departure, vehiclePositions, tripUpdates, selectedStops, onClose }) => {
+  useMinuteTick();
+
   if (!departure) return null;
 
   // Get service info
