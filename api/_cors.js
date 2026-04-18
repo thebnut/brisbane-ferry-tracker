@@ -15,6 +15,11 @@ const STATIC_ALLOWED = new Set([
   'https://www.ferry.lifemap.au',
   'http://localhost:5173',
   'http://localhost:4173',
+  // BRI-25: Capacitor mobile wrappers. These schemes can only be produced by
+  // the iOS/Android WebView — a browser page cannot forge them as an Origin.
+  'capacitor://localhost',
+  'ionic://localhost',
+  'http://localhost',
 ]);
 
 // Vercel preview deploys follow these URL patterns:
