@@ -2,7 +2,7 @@ import React from 'react';
 
 const Navigation = ({ onOpenSettings }) => {
   return (
-    <nav className="bg-gradient-to-r from-white via-ferry-orange-light to-ferry-light-blue shadow-xl sticky top-0 z-50 border-b-2 border-ferry-orange/50 animate-gradient bg-[length:200%_100%]">
+    <nav className="bg-gradient-to-r from-white via-ferry-orange-light to-ferry-light-blue shadow-xl sticky top-0 z-50 border-b-2 border-ferry-orange/50 animate-gradient bg-[length:200%_100%] pt-[env(safe-area-inset-top)]">
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex items-center justify-between py-1">
           <div className="flex items-start">
