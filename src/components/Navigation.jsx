@@ -1,18 +1,17 @@
 import React from 'react';
 
-// BRI-31 redesign: mobile nav is tuned for iPhone 15 Pro Dynamic Island.
-// - `pt-[calc(env(safe-area-inset-top)+0.5rem)]` pushes content a little below
-//   the OS-reported safe-area so the DI (which in idle state sits inside the
-//   status-bar strip) never visually overlaps nav content, even during
-//   Live Activities / Face ID indicators that briefly extend the island.
-// - Logo + controls shrink on mobile so neither the logo's right edge nor the
-//   controls on the right intrude horizontally into the DI's centred footprint.
-// - Settings label collapses to an icon-only pill on narrow viewports.
-// On the web (env() = 0), the calc still evaluates cleanly (0 + 0.5rem = 8px
-// top padding), which is a minor spacing change indistinguishable from before.
+// BRI-31: mobile nav tuned for iPhone 15 Pro Dynamic Island.
+// Guidance lives in the capacitor-ios-design skill; key rules applied here:
+// - calc(env(safe-area-inset-top) + 1rem) — raw env() lands content flush
+//   against the status-bar strip; +1rem creates a visible gap below the DI
+//   so it doesn't look like the logo is glued to the island pill.
+// - Logo + right cluster stay out of the centred DI horizontal band on mobile
+//   (h-12 / max-w-150 logo, icon-only Settings on narrow viewports).
+// On web (env() = 0) this evaluates to 1rem — 16px of extra top pad on the
+// web deploy, negligible in the overall nav height.
 const Navigation = ({ onOpenSettings }) => {
   return (
-    <nav className="bg-gradient-to-r from-white via-ferry-orange-light to-ferry-light-blue shadow-xl sticky top-0 z-50 border-b-2 border-ferry-orange/50 animate-gradient bg-[length:200%_100%] pt-[calc(env(safe-area-inset-top)+0.5rem)]">
+    <nav className="bg-gradient-to-r from-white via-ferry-orange-light to-ferry-light-blue shadow-xl sticky top-0 z-50 border-b-2 border-ferry-orange/50 animate-gradient bg-[length:200%_100%] pt-[calc(env(safe-area-inset-top)+1rem)]">
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex items-center justify-between py-1">
           <div className="flex items-start">
