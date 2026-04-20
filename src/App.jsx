@@ -23,6 +23,9 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 // BRI-22: Vercel Analytics — sibling of SpeedInsights. Both beacons go through
 // same-origin /_vercel/* proxies, so no CSP changes needed.
 import { Analytics } from '@vercel/analytics/react';
+import { Capacitor } from '@capacitor/core';
+// Aliased to avoid clash with the existing StatusBar component above.
+import { StatusBar as CapStatusBar, Style as CapStatusBarStyle } from '@capacitor/status-bar';
 
 /**
  * BRI-19: tiny Suspense fallback shown only during the first lazy chunk load.
@@ -93,6 +96,16 @@ function App() {
       sessionStorage.removeItem(STORAGE_KEYS.DEPARTURE_TIME);
     }
   }, [selectedDepartureTime]);
+
+  // BRI-31: StatusBar mode is configured declaratively in capacitor.config.json
+  // (overlay off, dark icons, white background). No runtime call is needed, but
+  // we reassert the style on mount as a defence against state carry-over
+  // between app resumes — cheap, and swallowed silently on web.
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      CapStatusBar.setStyle({ style: CapStatusBarStyle.Dark }).catch(() => {});
+    }
+  }, []);
   
   const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData(currentStops, selectedDepartureTime);
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
