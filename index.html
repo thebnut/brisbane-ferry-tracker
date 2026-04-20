@@ -7,8 +7,12 @@
     <script src="/ga-config.js"></script>
     
     <meta charset="UTF-8" />
+    <!-- Capacitor-context CSP fallback. Mirrors vercel.json CSP, plus capacitor:// + ionic:// origins
+         and 'unsafe-inline' on script-src for Capacitor bootstrap. On the web, the stricter vercel.json
+         header also applies and the browser enforces the intersection, so this does not weaken web security. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' capacitor://localhost ionic://localhost; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://vercel.live; style-src 'self' 'unsafe-inline'; img-src 'self' data: capacitor://localhost https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com https://*.google-analytics.com https://*.googletagmanager.com; font-src 'self' data: https://vercel.live https://assets.vercel.com; connect-src 'self' capacitor://localhost https://brisbaneferry.com https://www.brisbaneferry.com https://thebnut.github.io https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://vercel.live wss://vercel.live; frame-src 'self' https://vercel.live; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" />
     <link rel="icon" type="image/png" href="/bf_favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Brisbane Ferry Tracker - Live CityCat Departures</title>
     <meta name="description" content="Real-time ferry departure times for Brisbane's CityCat and CityHopper services. The quickest way to get live City Cat info!">
   </head>

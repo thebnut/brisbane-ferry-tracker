@@ -34,7 +34,13 @@ export function isDebugHost() {
       || isVercelProduction();
 }
 
-const CAPACITOR_API_ORIGIN = 'https://brisbaneferry.com';
+// BRI-35: use the `www.` canonical host directly. The apex `brisbaneferry.com`
+// serves a Vercel edge 307 → `www.brisbaneferry.com`, and that redirect has no
+// CORS headers (it happens before the application runs applyCors()). Browsers
+// in cross-origin CORS mode reject redirects missing Access-Control-Allow-Origin,
+// so the app-side fetch silently fails. Pointing at `www.` directly avoids the
+// redirect hop and the request completes in one round trip.
+const CAPACITOR_API_ORIGIN = 'https://www.brisbaneferry.com';
 const GITHUB_SCHEDULE_URL =
   'https://thebnut.github.io/brisbane-ferry-tracker/schedule-data/latest.json';
 const LOCAL_SCHEDULE_URL = '/schedule-data/latest.json';

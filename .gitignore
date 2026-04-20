@@ -30,3 +30,11 @@ dist-ssr
 
 # Vercel
 .vercel
+
+# Capacitor / iOS build artefacts
+ios/App/App/public/
+ios/App/Pods/
+ios/DerivedData/
+ios/**/xcuserdata/
+ios/**/project.xcworkspace/xcshareddata/swiftpm/
+ios/capacitor-cordova-ios-plugins/

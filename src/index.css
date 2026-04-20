@@ -29,7 +29,7 @@
   
   .countdown-badge {
     @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
-           transition-all duration-300;
+           whitespace-nowrap transition-all duration-300;
   }
   
   .btn-primary {
