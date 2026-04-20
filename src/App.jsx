@@ -415,6 +415,14 @@ function App() {
               💬 Send Feedback & Ideas
             </button>
           </p>
+          {/* BRI-13: discreet links to hosted privacy + terms. Static HTML served
+              from /public via vercel.json rewrites. Load as normal navigation
+              (no SPA routing needed; they're standalone pages). */}
+          <p className="mt-3 text-xs text-gray-500">
+            <a href="/privacy" className="hover:text-ferry-orange transition-colors">Privacy</a>
+            <span className="mx-1.5" aria-hidden="true">·</span>
+            <a href="/terms" className="hover:text-ferry-orange transition-colors">Terms</a>
+          </p>
         </div>
       </footer>
       
