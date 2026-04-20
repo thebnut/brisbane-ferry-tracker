@@ -90,7 +90,7 @@ const DepartureItem = ({ departure, onClick }) => {
         }}>
           <div className="flex items-center space-x-2">
             <span className={clsx(
-              'px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm',
+              'px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm whitespace-nowrap',
               serviceInfo.color,
               serviceInfo.isExpress && 'text-sm animate-pulse'
             )}>
@@ -133,7 +133,7 @@ const DepartureItem = ({ departure, onClick }) => {
             )}
           </div>
           <p className={clsx(
-            'font-semibold mt-1',
+            'font-semibold mt-1 whitespace-nowrap sm:whitespace-normal',
             serviceInfo.isExpress ? 'text-xl text-charcoal' : 'text-lg'
           )}>
             {format(departureTimeZoned, 'h:mm a')}
