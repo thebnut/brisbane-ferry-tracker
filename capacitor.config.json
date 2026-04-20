@@ -1,5 +1,12 @@
 {
   "appId": "com.brisbanetransport.ferry",
   "appName": "Brisbane Ferry",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#FFFFFF",
+      "overlaysWebView": false
+    }
+  }
 }

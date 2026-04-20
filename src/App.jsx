@@ -97,9 +97,10 @@ function App() {
     }
   }, [selectedDepartureTime]);
 
-  // BRI-31: on native (iOS), set status-bar icons to dark so they're readable
-  // over the light gradient header. No-op on web — env(safe-area-inset-*) in
-  // Navigation handles layout on its own.
+  // BRI-31: StatusBar mode is configured declaratively in capacitor.config.json
+  // (overlay off, dark icons, white background). No runtime call is needed, but
+  // we reassert the style on mount as a defence against state carry-over
+  // between app resumes — cheap, and swallowed silently on web.
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       CapStatusBar.setStyle({ style: CapStatusBarStyle.Dark }).catch(() => {});

@@ -1,17 +1,16 @@
 import React from 'react';
 
 // BRI-31: mobile nav tuned for iPhone 15 Pro Dynamic Island.
-// Guidance lives in the capacitor-ios-design skill; key rules applied here:
-// - calc(env(safe-area-inset-top) + 1rem) — raw env() lands content flush
-//   against the status-bar strip; +1rem creates a visible gap below the DI
-//   so it doesn't look like the logo is glued to the island pill.
-// - Logo + right cluster stay out of the centred DI horizontal band on mobile
-//   (h-12 / max-w-150 logo, icon-only Settings on narrow viewports).
-// On web (env() = 0) this evaluates to 1rem — 16px of extra top pad on the
-// web deploy, negligible in the overall nav height.
+// Uses the overlay-off StatusBar mode (see capacitor.config.json → plugins.StatusBar).
+// iOS renders a solid white strip for the status bar above the WebView, so the
+// pink gradient here starts BELOW the status-bar area — no content sits under
+// the DI, no empty gradient visible above it. env(safe-area-inset-top) returns
+// 0 in overlay-off mode, so no safe-area padding is needed on the nav itself.
+// Logo + right cluster are kept compact on mobile so the visual weight reads
+// as a tidy bar, not a heavy band.
 const Navigation = ({ onOpenSettings }) => {
   return (
-    <nav className="bg-gradient-to-r from-white via-ferry-orange-light to-ferry-light-blue shadow-xl sticky top-0 z-50 border-b-2 border-ferry-orange/50 animate-gradient bg-[length:200%_100%] pt-[calc(env(safe-area-inset-top)+1rem)]">
+    <nav className="bg-gradient-to-r from-white via-ferry-orange-light to-ferry-light-blue shadow-xl sticky top-0 z-50 border-b-2 border-ferry-orange/50 animate-gradient bg-[length:200%_100%]">
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex items-center justify-between py-1">
           <div className="flex items-start">
