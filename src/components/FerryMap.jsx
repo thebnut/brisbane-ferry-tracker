@@ -5,6 +5,17 @@ import 'leaflet/dist/leaflet.css';
 import { STOPS, SERVICE_TYPES } from '../utils/constants';
 import { getStopNameSync, preloadStopData } from '../utils/stopNames';
 import { getVesselWrap } from '../utils/wrappedVessels';
+// BRI-33: pull the wrap catalogue directly so the legend iterates over the same
+// source of truth the runtime matcher uses. Adding a new wrap is a JSON edit.
+import WRAPPED_VESSELS from '../data/wrappedVessels.json';
+import blueyUrl from '../assets/wraps/bluey.svg?url';
+import bingoUrl from '../assets/wraps/bingo.svg?url';
+
+// Map iconKey → bundled asset URL. Keep parallel to the map in `utils/wrappedVessels.js`.
+const WRAP_LEGEND_ICONS = {
+  bluey: blueyUrl,
+  bingo: bingoUrl,
+};
 
 // Fix Leaflet default icon issue with Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -38,12 +49,14 @@ const getServiceColor = (routeId) => {
 };
 
 // Create custom ferry icon.
-// BRI-15: when `wrap` is passed (Bluey/Bingo/...), use the wrap's colour as the
-// ring and overlay the wrap icon SVG on top of the marker. Unwrapped ferries
-// render unchanged.
+// BRI-15: when `wrap` is passed (Bluey/Bingo/...), overlay the wrap icon SVG
+// on top of the marker. Unwrapped ferries render unchanged.
+// BRI-33: marker colour now always reflects the *route type* — even when wrapped.
+// The wrap's brand colour is shown in the inline card chip (DepartureItem) and
+// the popup; on the map, colour carries route meaning and the face carries
+// vessel identity. Two clean channels beat three overlapping ones.
 const createFerryIcon = (routeId, wrap = null) => {
-  const baseColor = getServiceColor(routeId);
-  const color = wrap?.color || baseColor;
+  const color = getServiceColor(routeId);
   const size = wrap ? 34 : 28;
 
   // Unique id so multiple markers on the same page don't conflict on <defs>
@@ -259,17 +272,18 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
       </div>
       
       <div className="mt-3 text-sm text-gray-600">
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          {/* Get unique service types from visible ferries */}
+        {/* Service-type row — dynamic, shows only currently-visible route types. */}
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+          <span className="text-xs text-gray-500 uppercase tracking-wide">Service</span>
           {(() => {
             const visibleServiceTypes = [...new Set(ferryLocations.map(f => f.routePrefix))]
               .map(prefix => ({ prefix, info: SERVICE_TYPES[prefix] }))
               .filter(item => item.info);
-            
+
             // Add unknown type if there are ferries with unknown routes AND F21 is not already visible
             const hasUnknownTypes = ferryLocations.some(f => !SERVICE_TYPES[f.routePrefix]);
             const hasF21Visible = visibleServiceTypes.some(item => item.prefix === 'F21');
-            
+
             return (
               <>
                 {visibleServiceTypes.map(({ prefix, info }) => (
@@ -292,6 +306,24 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
             );
           })()}
         </div>
+
+        {/* BRI-33: wrapped-vessels row — always shown (educational), face-icon-only
+            chips so we don't imply the marker itself will be brand-coloured. */}
+        <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+          <span className="text-xs text-gray-500 uppercase tracking-wide">Special</span>
+          {WRAPPED_VESSELS.map((w) => {
+            const iconUrl = WRAP_LEGEND_ICONS[w.iconKey];
+            return (
+              <div key={w.wrap} className="flex items-center" title={w.description}>
+                {iconUrl && (
+                  <img src={iconUrl} alt="" aria-hidden="true" className="w-6 h-6 mr-2" />
+                )}
+                <span>{w.wrap}</span>
+              </div>
+            );
+          })}
+        </div>
+
         {ferryLocations.length === 0 && (
           <p className="mt-2 text-center text-gray-500">No active ferries visible</p>
         )}
