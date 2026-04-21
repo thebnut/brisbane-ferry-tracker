@@ -1,1 +1,7 @@
+// Optional include — pulls DEVELOPMENT_TEAM from the gitignored Team.xcconfig.
+// Missing file is silently ignored (the `?`), so first-time contributors can
+// still build; only signing fails with a clear "no team" error until they
+// create Team.xcconfig from Team.xcconfig.sample.
+#include? "Team.xcconfig"
+
 CAPACITOR_DEBUG = true

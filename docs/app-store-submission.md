@@ -337,6 +337,15 @@ cd ios/App
 open App.xcworkspace    # NB: workspace, not project — Capacitor uses CocoaPods/SPM.
 ```
 
+**First-time setup on a fresh checkout:** the Apple Developer Team ID is read from `ios/Team.xcconfig`, which is gitignored. Copy the committed template and fill in your 10-char Team ID (from `developer.apple.com/account → Membership`):
+
+```bash
+cp ios/Team.xcconfig.sample ios/Team.xcconfig
+# Edit ios/Team.xcconfig and replace YOUR_10_CHAR_TEAM_ID_HERE
+```
+
+The `#include?` directives in `ios/debug.xcconfig` and `ios/release.xcconfig` use the optional form — a missing `Team.xcconfig` doesn't break the build, just the signing step (Xcode will show "No signing certificate" in Signing & Capabilities until you create it).
+
 ### 8.2 Signing & Capabilities tab
 
 For the **App** target:
