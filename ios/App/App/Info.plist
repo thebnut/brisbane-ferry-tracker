@@ -26,6 +26,8 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Brisbane Ferry uses your location only while the app is open, to find the ferry terminal closest to you. It does not track your location in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Brisbane Ferry uses your location to find the ferry terminal closest to you.</string>
 	<key>UILaunchStoryboardName</key>
