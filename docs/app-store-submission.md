@@ -42,7 +42,7 @@ URL: `https://appstoreconnect.apple.com` → My Apps → **+** → New App.
 | Field                      | Value                                                                |
 |----------------------------|----------------------------------------------------------------------|
 | Platform                   | iOS                                                                  |
-| Name                       | `Brisbane Ferry` (30-char limit; matches `CFBundleDisplayName`)      |
+| Name                       | `Brisbane Ferry Departures` (25 chars). "Brisbane Ferry" alone is taken in ASC. `CFBundleDisplayName` stays `Brisbane Ferry` — the ASC store name and the home-screen name can differ. |
 | Primary Language           | English (Australia)                                                  |
 | Bundle ID                  | `com.brisbanetransport.ferry` — pick it from the dropdown; Xcode publishes it on first upload. If not listed, create it at `developer.apple.com/account/resources/identifiers/add/bundleId` first. |
 | SKU                        | `brisbane-ferry-ios` (internal, never shown publicly)                |
@@ -56,7 +56,7 @@ Once created, the app shell exists in ASC; you can now fill in the metadata.
 
 | Field                      | Value                                                                |
 |----------------------------|----------------------------------------------------------------------|
-| **Subtitle** (30-char)     | `Live Brisbane ferry times`                                          |
+| **Subtitle** (30-char)     | `Live Brisbane ferry times` (25 chars)                               |
 | **Category, Primary**      | Travel                                                               |
 | **Category, Secondary**    | Navigation                                                           |
 | **Content Rights**         | ❌ "Does your app contain, show, or access third-party content?" → **No** (the GTFS feeds are open data we republish; we are not surfacing third-party copyrighted content in the Apple sense) |
@@ -137,13 +137,19 @@ PRIVACY AT A GLANCE
 Questions or feedback? Tap the feedback button inside the app.
 ```
 
-### 5.3 Keywords (100-char limit, comma-separated, no spaces after commas)
+### 5.3 Keywords (<100 chars, comma-separated, no spaces after commas)
 
 ```
-brisbane,ferry,citycat,translink,ferries,timetable,schedule,gtfs,transit,queensland,bulimba,hawthorne
+citycat,express,timetable,transit,queensland,bulimba,hawthorne,riverside,teneriffe,southbank
 ```
 
-Character count: 99. Avoid duplicating words already in the title or subtitle — Apple indexes those automatically.
+Character count: 92. Apple auto-indexes every word in the App Name (`Brisbane Ferry Departures`) and Subtitle, so `brisbane`, `ferry`, `departures` are deliberately NOT in the keyword list — burning chars there is wasted.
+
+Other intentional omissions:
+- `translink` — registered trademark of Translink Transit Authority (Queensland Gov). The app is unofficial; including it risks a trademark-confusion flag in App Review.
+- `ferries` — Apple matches singular/plural variants automatically against `ferry`.
+- `gtfs` — niche jargon, very low search volume.
+- `schedule` — Apple's stemmer matches this against `timetable` and `schedules`.
 
 ### 5.4 Support URL
 
@@ -351,8 +357,10 @@ Info.plist should already contain:
 - `CFBundleDisplayName` = `Brisbane Ferry`
 - `CFBundleIdentifier` = `$(PRODUCT_BUNDLE_IDENTIFIER)` (which resolves via `PRODUCT_BUNDLE_IDENTIFIER = com.brisbanetransport.ferry` in `project.pbxproj`)
 - `CFBundleShortVersionString` = `$(MARKETING_VERSION)` → `1.0`
-- `CFBundleVersion` = `$(CURRENT_PROJECT_VERSION)` → `1`
+- `CFBundleVersion` = `$(CURRENT_PROJECT_VERSION)` → current build number (1, 2, 3, …)
 - `NSLocationWhenInUseUsageDescription` = `Brisbane Ferry uses your location to find the ferry terminal closest to you.`
+- `NSLocationAlwaysAndWhenInUseUsageDescription` = `Brisbane Ferry uses your location only while the app is open, to find the ferry terminal closest to you. It does not track your location in the background.` — **required** even though we don't use Always authorisation; `@capacitor/geolocation` links against the Always API symbol, so Apple's static analyser demands a matching purpose string. Without this key, ASC emits warning 90683 on upload.
+- `ITSAppUsesNonExemptEncryption` = `false` — declares we only use iOS's built-in HTTPS (exempt from encryption export compliance), so ASC stops prompting the App Encryption Documentation question on every upload.
 
 If any of those are off, fix before archiving.
 
@@ -414,13 +422,28 @@ If any of those are off, fix before archiving.
 
 ## 11. Icon, launch screen, splash (current state)
 
-No change in this PR — kept for reference.
-
-- **AppIcon** — `ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png`, 1024×1024 PNG. Acceptable to ship. Likely upscaled from `public/brisbaneferry_logo.png` (500×500) so soft at edges. Upgrade tracked in [BRI-40](https://linear.app/brisbanetransport/issue/BRI-40).
+- **AppIcon** — `ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png`, 1024×1024 PNG. Now shows the Brisbane Ferry brand mark (teal + orange ferry inside a circle, waves below) on a cream `#FFE5D9` background with ~12% padding for breathing room. Generated by cropping the ferry symbol out of `public/bf.com_logo.png` (the 157×157 region on the left) and upscaling with ImageMagick's Lanczos filter, then flattening alpha onto cream. No URL or wordmark in the icon — important for passing 4.2.2 App Review. Upscale from 157→1024 is 6.5x so slightly soft at zoom; a proper vector master is [BRI-40](https://linear.app/brisbanetransport/issue/BRI-40).
 - **LaunchScreen** — `ios/App/App/Base.lproj/LaunchScreen.storyboard` → `Splash` image (1366×1366) on `systemBackgroundColor` (white). Simple and compliant.
 - **Splash asset** — `ios/App/App/Assets.xcassets/Splash.imageset/splash-2732x2732.png` (+1 and +2 variants). Compliant with Apple's iPad Pro requirement.
 
 The modern iOS app icon only requires the single 1024×1024 size in the asset catalogue — Xcode derives the rest. No need to pre-render 60+ sizes as the original issue suggested.
+
+**Regenerating the icon** (if the source art changes):
+
+```bash
+# 1. Crop the ferry symbol out of bf.com_logo.png (wordmark logo)
+magick public/bf.com_logo.png -trim +repage /tmp/logo-trimmed.png
+magick /tmp/logo-trimmed.png -crop 170x157+0+0 +repage \
+  -background none -gravity center -extent 170x170 \
+  /tmp/ferry-only.png
+
+# 2. Scale to 1024, cream background, 80% padded
+magick /tmp/ferry-only.png \
+  -background none -filter Lanczos -resize 800x800 \
+  -gravity center -background "#FFE5D9" -extent 1024x1024 \
+  -alpha remove -alpha off \
+  ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
+```
 
 ---
 
