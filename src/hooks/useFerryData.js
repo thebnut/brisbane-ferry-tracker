@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import gtfsService from '../services/gtfsService';
 import ferryDataService from '../services/ferryData';
+import { buildSnapshot } from '../services/widgetSnapshot';
+import { writeWidgetSnapshot } from '../plugins/widgetBridge';
 import { API_CONFIG, DEFAULT_STOPS } from '../utils/constants';
 
 const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null) => {
@@ -37,7 +39,12 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
       setDepartures(realtimeDepartures);
       setLastUpdated(new Date());
       setLoading(false); // Mark initial load complete
-      
+
+      // BRI-29: push first-pass realtime data to the iOS widget as soon as
+      // it's available, so the home-screen reflects fresh times the moment
+      // the app is opened. Fire-and-forget; no-op on non-native runtimes.
+      writeWidgetSnapshot(buildSnapshot(realtimeDepartures, selectedStops, new Date()));
+
       // Then fetch schedule data in background (slow)
       setScheduleLoading(true);
       ferryDataService.getScheduledDeparturesAsync().then(scheduledData => {
@@ -48,6 +55,9 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
         );
         setDepartures(mergedDepartures);
         setScheduleLoading(false);
+
+        // BRI-29: second widget write with the authoritative merged data.
+        writeWidgetSnapshot(buildSnapshot(mergedDepartures, selectedStops, new Date()));
       }).catch(err => {
         console.error('Error loading schedule data:', err);
         setScheduleLoading(false);
