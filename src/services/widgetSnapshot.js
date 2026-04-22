@@ -47,7 +47,11 @@ function minimaliseDeparture(departure, now) {
 
   const minimal = { t };
 
-  const route = departure.routeId || '';
+  // GTFS-RT route IDs often carry a vehicle-ID suffix like "F1-4055".
+  // Widget only needs the canonical base route id (F1, F11) for its
+  // Express/All-stops label mapping — strip anything after the first hyphen.
+  const rawRoute = departure.routeId || '';
+  const route = rawRoute.split('-')[0];
   if (route) minimal.route = route;
 
   if (departure.isRealtime) minimal.live = true;

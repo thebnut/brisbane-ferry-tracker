@@ -10,8 +10,11 @@
 //
 //  The App Group `group.com.brisbanetransport.ferry` must be enabled
 //  as a capability on BOTH the App target (for writes) and the
-//  BrisbaneFerryWidget target (for reads). See docs/app-store-submission.md
-//  and ios/App/App.entitlements for the capability wiring.
+//  BrisbaneFerryWidget target (for reads).
+//
+//  Registration: Capacitor 8+ discovers plugins via the CAPBridgedPlugin
+//  Swift protocol — no .m file or CAP_PLUGIN macro required (that
+//  pattern is Capacitor 4/5-era).
 //
 
 import Foundation
@@ -22,7 +25,12 @@ import WidgetKit
 #endif
 
 @objc(WidgetBridge)
-public class WidgetBridge: CAPPlugin {
+public class WidgetBridge: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "WidgetBridge"
+    public let jsName = "WidgetBridge"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "writeSnapshot", returnType: CAPPluginReturnPromise)
+    ]
 
     /// Shared App Group identifier. Must match:
     /// - `group.com.brisbanetransport.ferry` in the App target's entitlements
