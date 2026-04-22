@@ -9,6 +9,13 @@
 //    - StalenessBadge      (shown when updatedAt is stale)
 //    - PlaceholderView     (first-run / no-data)
 //
+//  Live countdown note: we render "in 6 min" via `Text(date, format:
+//  .relative(presentation: .numeric, unitsStyle: .abbreviated))`.
+//  WidgetKit auto-updates this text between our TimelineEntries without
+//  requiring a re-render, so "in 6 min" correctly becomes "in 5 min"
+//  a minute later. Our timeline entries still fire at each departure
+//  time so the list itself re-sorts when a ferry passes.
+//
 
 import SwiftUI
 import WidgetKit
@@ -78,29 +85,57 @@ struct SmallDepartureView: View {
         }
 
         return AnyView(
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(snapshot.outbound.originName) →")
-                    .font(.caption2)
-                    .foregroundStyle(Theme.muted)
-                Text(snapshot.outbound.destName)
-                    .font(.caption).fontWeight(.semibold)
-                    .foregroundStyle(Theme.charcoal)
-                Spacer()
-                Text(countdownText(minutes: next.minutesUntil(entry.date)))
+            VStack(alignment: .leading, spacing: 3) {
+                // Route header (origin → destination on one tight line)
+                HStack(spacing: 2) {
+                    Text(snapshot.outbound.originName)
+                        .font(.caption2).fontWeight(.semibold)
+                        .foregroundStyle(Theme.charcoal)
+                        .lineLimit(1)
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 8))
+                        .foregroundStyle(Theme.muted)
+                    Text(snapshot.outbound.destName)
+                        .font(.caption2).fontWeight(.semibold)
+                        .foregroundStyle(Theme.charcoal)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 2)
+
+                // Auto-updating live countdown — prominent
+                Text(next.t, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
                     .font(.system(.title3, design: .rounded).weight(.bold))
                     .foregroundStyle(Theme.charcoal)
-                Text(next.t, style: .time)
-                    .font(.caption)
-                    .foregroundStyle(Theme.muted)
-                if next.isLive {
-                    LiveBadge()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                // Depart → arrive times
+                HStack(spacing: 2) {
+                    Text(next.t, style: .time)
+                    if next.arrivalT != nil {
+                        Image(systemName: "arrow.right").font(.system(size: 8))
+                        Text(next.arrivalT!, style: .time)
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(Theme.muted)
+
+                // Badges row
+                HStack(spacing: 4) {
+                    if next.route == "F11" {
+                        ExpressBadge()
+                    }
+                    if next.isLive {
+                        LiveBadge()
+                    }
                 }
             }
         )
     }
 }
 
-// MARK: - DepartureRow
+// MARK: - DepartureRow (medium)
 
 struct DepartureRow: View {
     let departure: WidgetSnapshot.Departure
@@ -108,16 +143,32 @@ struct DepartureRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Text(departure.t, style: .time)
-                .font(.system(.caption, design: .rounded).weight(.semibold))
-                .foregroundStyle(Theme.charcoal)
-                .frame(width: 56, alignment: .leading)
+            // Depart → arrive pair
+            HStack(spacing: 3) {
+                Text(departure.t, style: .time)
+                if departure.arrivalT != nil {
+                    Image(systemName: "arrow.right").font(.system(size: 8))
+                        .foregroundStyle(Theme.muted)
+                    Text(departure.arrivalT!, style: .time)
+                        .foregroundStyle(Theme.muted)
+                }
+            }
+            .font(.system(.caption, design: .rounded).weight(.semibold))
+            .foregroundStyle(Theme.charcoal)
+            .lineLimit(1)
 
-            Text(countdownText(minutes: departure.minutesUntil(now)))
+            // Auto-updating relative countdown (WidgetKit refreshes this text
+            // between timeline entries without new renders).
+            Text(departure.t, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
                 .font(.caption2)
                 .foregroundStyle(Theme.muted)
+                .lineLimit(1)
 
-            Spacer()
+            Spacer(minLength: 2)
+
+            if departure.route == "F11" {
+                ExpressBadge()
+            }
 
             if departure.isLive {
                 LiveBadge()
@@ -126,7 +177,7 @@ struct DepartureRow: View {
     }
 }
 
-// MARK: - Subviews
+// MARK: - Badges
 
 private struct LiveBadge: View {
     var body: some View {
@@ -136,6 +187,17 @@ private struct LiveBadge: View {
             .padding(.vertical, 1)
             .foregroundStyle(.white)
             .background(Theme.ferryOrange, in: Capsule())
+    }
+}
+
+private struct ExpressBadge: View {
+    var body: some View {
+        Text("EXP")
+            .font(.system(size: 9, weight: .heavy))
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .foregroundStyle(.white)
+            .background(Theme.ferryAqua, in: Capsule())
     }
 }
 
@@ -175,15 +237,4 @@ struct PlaceholderView: View {
             Spacer(minLength: 0)
         }
     }
-}
-
-// MARK: - Helpers
-
-/// Countdown copy. Negative or zero = "Now"; <60 min = "in Xm"; >=60 min = "in Xh Ym".
-func countdownText(minutes: Int) -> String {
-    if minutes <= 0 { return "Now" }
-    if minutes < 60 { return "in \(minutes) min" }
-    let h = minutes / 60
-    let m = minutes % 60
-    return m == 0 ? "in \(h) hr" : "in \(h) hr \(m) min"
 }
