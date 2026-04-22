@@ -107,12 +107,14 @@ private extension JSONDecoder.DateDecodingStrategy {
     }
 }
 
-// MARK: - Preview fixture
+// MARK: - Preview / placeholder fixture
 
-#if DEBUG
 extension WidgetSnapshot {
-    /// Hand-crafted sample used by #Preview macros and the TimelineProvider
+    /// Hand-crafted sample used by `#Preview` macros and the TimelineProvider
     /// placeholder so previews render without touching UserDefaults.
+    /// Intentionally available in Release too — it's ~50 bytes of Swift and
+    /// lets the placeholder fallback show realistic data in the widget
+    /// gallery before a real snapshot exists.
     static let sample: WidgetSnapshot = {
         let now = Date()
         func depart(_ mins: Double, live: Bool, route: String, delay: Int? = nil) -> Departure {
@@ -149,4 +151,3 @@ extension WidgetSnapshot {
         )
     }()
 }
-#endif
