@@ -26,13 +26,11 @@ struct DepartureEntry: TimelineEntry {
 struct DepartureTimelineProvider: TimelineProvider {
 
     /// Shown in the widget gallery and while content loads. Must render
-    /// quickly and without touching UserDefaults or performing I/O.
+    /// quickly and without touching UserDefaults or performing I/O. Using
+    /// the sample snapshot gives users something visually meaningful to
+    /// preview before they've opened the app for the first time.
     func placeholder(in context: Context) -> DepartureEntry {
-        #if DEBUG
-        return DepartureEntry(date: Date(), snapshot: .sample)
-        #else
-        return DepartureEntry(date: Date(), snapshot: nil)
-        #endif
+        DepartureEntry(date: Date(), snapshot: .sample)
     }
 
     /// Shown as the preview in the Add Widget gallery — uses the most
