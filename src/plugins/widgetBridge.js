@@ -13,19 +13,33 @@ const WidgetBridge = registerPlugin('WidgetBridge');
 
 // Each successful write triggers WidgetCenter.reloadAllTimelines() on the
 // native side. iOS budgets ~40 reloads/hr per widget instance, so we dedupe
-// identical payloads — useFerryData.js naturally writes twice per refresh
-// (realtime pass, then merged pass) and those first 3 departures are
-// usually byte-identical. `_lastSnapshotJson` lives at module scope so it
-// survives across hook re-renders; the React app is a single-page app so
-// there's only ever one module instance.
-let _lastSnapshotJson = null;
+// on the *meaningful* portion of the payload — useFerryData.js naturally
+// writes twice per refresh (realtime pass, then merged pass) and those
+// first 3 departures are usually byte-identical even though the snapshot's
+// `updatedAt` timestamp advances between passes. Dedupe excludes
+// `updatedAt` for this reason; comparing full JSON would never match.
+// `_lastSnapshotDedupKey` lives at module scope so it survives across hook
+// re-renders; the React app is an SPA so there's only ever one module
+// instance.
+let _lastSnapshotDedupKey = null;
+
+/**
+ * Build the dedupe key for a snapshot — everything *except* `updatedAt`.
+ * Two snapshots with the same stops + next departures should collapse into
+ * a single native write even if their timestamps differ.
+ */
+function dedupKeyFor(snapshot) {
+  const { updatedAt: _unused, ...rest } = snapshot;
+  return JSON.stringify(rest);
+}
 
 /**
  * Write the widget snapshot JSON to shared App Group storage on iOS.
  *
  * Never throws. Failures are logged in dev mode and swallowed in prod so
- * widget-bridge issues can't break the main app. Identical payloads to the
- * previous successful write are skipped (see module comment).
+ * widget-bridge issues can't break the main app. Payloads whose dedupe
+ * key matches the previous successful write are skipped (see module
+ * comment).
  *
  * @param {object} snapshot - Plain object from buildSnapshot(); will be JSON.stringify'd.
  * @returns {Promise<void>}
@@ -34,11 +48,11 @@ export async function writeWidgetSnapshot(snapshot) {
   if (!Capacitor.isNativePlatform()) return;
 
   try {
-    const json = JSON.stringify(snapshot);
-    if (json === _lastSnapshotJson) return;
+    const dedupKey = dedupKeyFor(snapshot);
+    if (dedupKey === _lastSnapshotDedupKey) return;
 
-    await WidgetBridge.writeSnapshot({ json });
-    _lastSnapshotJson = json;
+    await WidgetBridge.writeSnapshot({ json: JSON.stringify(snapshot) });
+    _lastSnapshotDedupKey = dedupKey;
   } catch (err) {
     if (import.meta?.env?.DEV) {
       console.warn('[widgetBridge] writeSnapshot failed (ignored):', err);

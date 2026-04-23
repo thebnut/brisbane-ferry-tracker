@@ -16,6 +16,12 @@ struct WidgetSnapshot: Codable {
     /// Schema version. Bumped only on breaking changes — additive optional
     /// fields don't require a bump. Loader rejects snapshots whose `v`
     /// doesn't match `currentSchemaVersion` below.
+    ///
+    /// INVARIANT: when you bump this, also bump the UserDefaults key suffix
+    /// in `WidgetSnapshotLoader.snapshotKey` and in the WidgetBridge plugin
+    /// (ios/App/App/Plugins/WidgetBridge.swift). The versioned key lets old
+    /// and new writers coexist during upgrade; the `v` field lets the
+    /// reader fail fast on a schema mismatch. Keep the two in lock-step.
     static let currentSchemaVersion = 1
 
     let v: Int
