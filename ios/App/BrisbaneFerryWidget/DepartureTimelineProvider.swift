@@ -52,22 +52,33 @@ struct DepartureTimelineProvider: TimelineProvider {
         var entries: [DepartureEntry] = [DepartureEntry(date: now, snapshot: snapshot)]
 
         // Add one entry at each upcoming outbound departure so the "in 3 min"
-        // label and LIVE badge refresh at the right moments. Cap at 6 entries
-        // (~30 min horizon) to stay well within system limits.
-        if let snapshot {
-            let upcoming = snapshot.outbound.departures
-                .map(\.t)
-                .filter { $0 > now }
-                .prefix(5)
-            for date in upcoming {
-                entries.append(DepartureEntry(date: date, snapshot: snapshot))
-            }
+        // label and LIVE badge refresh at the right moments. Cap at 5
+        // additional entries (~30 min horizon) to stay well within system
+        // limits, and keep the dates separately so refreshAt below doesn't
+        // reduce to `now + 60s` when the list is empty.
+        let upcomingDates: [Date] = {
+            guard let snapshot else { return [] }
+            return Array(
+                snapshot.outbound.departures
+                    .map(\.t)
+                    .filter { $0 > now }
+                    .prefix(5)
+            )
+        }()
+        for date in upcomingDates {
+            entries.append(DepartureEntry(date: date, snapshot: snapshot))
         }
 
-        // 15-min ceiling: even if no departures fire before then, we want
-        // a wall-clock refresh so staleness updates and new data lands.
+        // Wall-clock ceiling: even if no departures fire before then, we
+        // want a refresh so staleness updates and new data lands. When no
+        // real upcoming entries exist, fall back to the ceiling directly —
+        // not `now + 60s` — so an empty widget doesn't burn the reload
+        // budget by polling every minute.
         let ceiling = now.addingTimeInterval(15 * 60)
-        let refreshAt = min(entries.last?.date.addingTimeInterval(60) ?? ceiling, ceiling)
+        let refreshAt: Date = {
+            guard let lastUpcoming = upcomingDates.last else { return ceiling }
+            return min(lastUpcoming.addingTimeInterval(60), ceiling)
+        }()
 
         let timeline = Timeline(entries: entries, policy: .after(refreshAt))
         completion(timeline)

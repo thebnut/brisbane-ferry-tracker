@@ -6,11 +6,11 @@
 // {
 //   v: 1,
 //   updatedAt: ISO-8601 string,
-//   outbound: { originName, destName, departures: [ MinimalDeparture, ... ] },
-//   inbound:  { originName, destName, departures: [ MinimalDeparture, ... ] }
+//   outbound: { originName, destName, departures: [ MinimalDeparture, ... ] }
 // }
 //
 // MinimalDeparture = {
+//   tripId:     string or omitted (GTFS trip id, used by widget for stable row id)
 //   t:          ISO-8601 string (departure time, realtime when available)
 //   scheduledT: ISO-8601 string or omitted (scheduled departure time if different)
 //   arrivalT:   ISO-8601 string or omitted (destination arrival time)
@@ -19,9 +19,16 @@
 //   delaySec:   number or omitted (only set if non-zero)
 // }
 //
+// Schema versioning: bump `v` only on BREAKING changes (renamed/removed
+// required fields, date-format swaps, route-id semantics changes). Additive
+// optional fields are safe — Swift's Codable ignores unknown keys, and
+// optional new fields decode as nil when absent on older writers.
+//
 // Widget maps `route` strings itself (no i18n drift), so all unused fields
-// from the source (`tripId`, `vehicleId`, `occupancy`, `stopId`, `direction`)
-// are deliberately stripped. Snapshot stays under ~2 KB for 6 departures.
+// from the source (`vehicleId`, `occupancy`, `stopId`, `direction`) are
+// deliberately stripped. v1 only serialises the outbound direction; the
+// widget doesn't render inbound in v1, so don't pay the bytes to ship it.
+// Snapshot stays well under 1 KB for 3 departures.
 
 const MAX_PER_DIRECTION = 3;
 // Include departures for a short grace period after their scheduled time
@@ -46,6 +53,11 @@ function minimaliseDeparture(departure, now) {
   if (departureMs < now.getTime() - PAST_GRACE_MS) return null;
 
   const minimal = { t };
+
+  // Stable identity for the widget's ForEach: tripId survives delay changes
+  // (when `t` shifts by delaySec between snapshots) so rows don't re-create
+  // and the LIVE badge doesn't re-animate on every snapshot refresh.
+  if (departure.tripId) minimal.tripId = String(departure.tripId);
 
   // GTFS-RT route IDs often carry a vehicle-ID suffix like "F1-4055".
   // Widget only needs the canonical base route id (F1, F11) for its
@@ -87,27 +99,23 @@ function pickNext(departures, now) {
  * Pure function — no side effects, no clock reads. Caller supplies `now` so
  * tests (and the widget's fixed `entry.date` timeline) stay deterministic.
  *
- * @param {{outbound: Array, inbound: Array}} departures - Output of ferryDataService.mergeWithScheduledData()
+ * Only the outbound direction is serialised — the widget doesn't render
+ * inbound in v1. When a direction toggle lands (BRI-45-ish), add inbound
+ * back as an additive optional field; no schema bump needed.
+ *
+ * @param {{outbound: Array}} departures - Output of ferryDataService.mergeWithScheduledData()
  * @param {{outbound: {id: string, name: string}, inbound: {id: string, name: string}}} selectedStops
  * @param {Date} now - Reference time; entries earlier than now - 60s are dropped.
  * @returns {object} Snapshot object ready for JSON.stringify.
  */
 export function buildSnapshot(departures, selectedStops, now = new Date()) {
-  const outboundOrigin = selectedStops?.outbound?.name || '';
-  const outboundDest = selectedStops?.inbound?.name || '';
-
   return {
     v: 1,
     updatedAt: now.toISOString(),
     outbound: {
-      originName: outboundOrigin,
-      destName: outboundDest,
+      originName: selectedStops?.outbound?.name || '',
+      destName: selectedStops?.inbound?.name || '',
       departures: pickNext(departures?.outbound, now),
-    },
-    inbound: {
-      originName: outboundDest,
-      destName: outboundOrigin,
-      departures: pickNext(departures?.inbound, now),
     },
   };
 }
