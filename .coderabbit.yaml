@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: "en-AU"
+early_access: false
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - develop
+      - main
+  path_instructions:
+    - path: "src/**/*.{js,jsx}"
+      instructions: |
+        React + Vite + Capacitor 8 codebase. Prefer existing hooks in src/hooks/ and
+        services in src/services/. Gate any native-only code with
+        Capacitor.isNativePlatform(). Flag anything that would break the web build.
+    - path: "ios/**/*.swift"
+      instructions: |
+        Capacitor 8 iOS app plus a WidgetKit extension (BrisbaneFerryWidget).
+        Flag force-unwraps, UI work off the main thread, and any network calls
+        from the widget target (widget must stay offline and read App Group
+        UserDefaults only). Keep WidgetSnapshot.swift in sync with
+        src/services/widgetSnapshot.js — flag schema drift.
+    - path: "ios/App/App.xcodeproj/**"
+      instructions: |
+        Xcode project file — only review for accidental team/bundle-id leaks
+        or signing config drift. Ignore line-noise churn.
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  learnings:
+    scope: "auto"
+  issues:
+    scope: "auto"
+  pull_requests:
+    scope: "auto"
