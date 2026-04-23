@@ -43,6 +43,9 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
       // BRI-29: push first-pass realtime data to the iOS widget as soon as
       // it's available, so the home-screen reflects fresh times the moment
       // the app is opened. Fire-and-forget; no-op on non-native runtimes.
+      // The merged-pass write below usually produces an identical payload
+      // for the next 3 departures; widgetBridge.js dedupes so iOS only
+      // reloads the widget timeline once per refresh in the common case.
       writeWidgetSnapshot(buildSnapshot(realtimeDepartures, selectedStops, new Date()));
 
       // Then fetch schedule data in background (slow)
@@ -57,6 +60,8 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
         setScheduleLoading(false);
 
         // BRI-29: second widget write with the authoritative merged data.
+        // Deduped against the realtime-pass write above — only hits iOS if
+        // the serialised snapshot actually changed.
         writeWidgetSnapshot(buildSnapshot(mergedDepartures, selectedStops, new Date()));
       }).catch(err => {
         console.error('Error loading schedule data:', err);

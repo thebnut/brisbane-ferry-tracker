@@ -113,9 +113,9 @@ struct SmallDepartureView: View {
                 // Depart → arrive times
                 HStack(spacing: 2) {
                     Text(next.t, style: .time)
-                    if next.arrivalT != nil {
+                    if let arrival = next.arrivalT {
                         Image(systemName: "arrow.right").font(.system(size: 8))
-                        Text(next.arrivalT!, style: .time)
+                        Text(arrival, style: .time)
                     }
                 }
                 .font(.caption2)
@@ -146,10 +146,10 @@ struct DepartureRow: View {
             // Depart → arrive pair
             HStack(spacing: 3) {
                 Text(departure.t, style: .time)
-                if departure.arrivalT != nil {
+                if let arrival = departure.arrivalT {
                     Image(systemName: "arrow.right").font(.system(size: 8))
                         .foregroundStyle(Theme.muted)
-                    Text(departure.arrivalT!, style: .time)
+                    Text(arrival, style: .time)
                         .foregroundStyle(Theme.muted)
                 }
             }

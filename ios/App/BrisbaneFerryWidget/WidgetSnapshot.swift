@@ -13,10 +13,18 @@ import Foundation
 // MARK: - Models
 
 struct WidgetSnapshot: Codable {
+    /// Schema version. Bumped only on breaking changes — additive optional
+    /// fields don't require a bump. Loader rejects snapshots whose `v`
+    /// doesn't match `currentSchemaVersion` below.
+    static let currentSchemaVersion = 1
+
     let v: Int
     let updatedAt: Date
     let outbound: Direction
-    let inbound: Direction
+    /// Optional in v1: the JS side currently omits this because the widget
+    /// doesn't render it. Left in the model so adding inbound later is a
+    /// non-breaking change.
+    let inbound: Direction?
 
     struct Direction: Codable {
         let originName: String
@@ -25,10 +33,13 @@ struct WidgetSnapshot: Codable {
     }
 
     struct Departure: Codable, Identifiable {
-        /// Composite id — departure time is unique enough within a 5-min window
-        /// that we don't need to persist tripId. SwiftUI's `ForEach` needs this.
-        var id: String { "\(route ?? "?")@\(t.timeIntervalSince1970)" }
+        /// Stable id for SwiftUI's `ForEach`. Prefer `tripId` (survives delay
+        /// changes that shift `t` between snapshots); fall back to a
+        /// route@time composite only when tripId is absent (shouldn't happen
+        /// with current writers but keeps us robust to older snapshots).
+        var id: String { tripId ?? "\(route ?? "?")@\(t.timeIntervalSince1970)" }
 
+        let tripId: String?
         let t: Date
         let scheduledT: Date?
         let arrivalT: Date?
@@ -67,7 +78,11 @@ enum WidgetSnapshotLoader {
     /// Returns the decoded snapshot, or `nil` if:
     /// - the App Group can't be opened
     /// - no snapshot has been written yet (fresh install, app never opened)
-    /// - JSON decoding fails (version mismatch, corruption, etc.)
+    /// - JSON decoding fails (missing required field, bad date format, etc.)
+    /// - the snapshot's schema version doesn't match the widget's expected version
+    ///
+    /// Decoding errors are logged in DEBUG builds so schema drift surfaces
+    /// during development instead of silently rendering the placeholder.
     static func load() -> WidgetSnapshot? {
         guard let defaults = UserDefaults(suiteName: appGroupId),
               let raw = defaults.string(forKey: snapshotKey),
@@ -76,7 +91,22 @@ enum WidgetSnapshotLoader {
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601withFractionalSeconds
-        return try? decoder.decode(WidgetSnapshot.self, from: data)
+
+        do {
+            let snapshot = try decoder.decode(WidgetSnapshot.self, from: data)
+            guard snapshot.v == WidgetSnapshot.currentSchemaVersion else {
+                #if DEBUG
+                print("[WidgetSnapshotLoader] ignoring snapshot v=\(snapshot.v); widget expects v=\(WidgetSnapshot.currentSchemaVersion)")
+                #endif
+                return nil
+            }
+            return snapshot
+        } catch {
+            #if DEBUG
+            print("[WidgetSnapshotLoader] decode failed: \(error)")
+            #endif
+            return nil
+        }
     }
 }
 
@@ -117,8 +147,9 @@ extension WidgetSnapshot {
     /// gallery before a real snapshot exists.
     static let sample: WidgetSnapshot = {
         let now = Date()
-        func depart(_ mins: Double, live: Bool, route: String, delay: Int? = nil) -> Departure {
+        func depart(_ mins: Double, live: Bool, route: String, delay: Int? = nil, tripId: String) -> Departure {
             Departure(
+                tripId: tripId,
                 t: now.addingTimeInterval(mins * 60),
                 scheduledT: now.addingTimeInterval((mins + 1) * 60),
                 arrivalT: now.addingTimeInterval((mins + 18) * 60),
@@ -128,26 +159,18 @@ extension WidgetSnapshot {
             )
         }
         return WidgetSnapshot(
-            v: 1,
+            v: currentSchemaVersion,
             updatedAt: now.addingTimeInterval(-120),
             outbound: .init(
                 originName: "Bulimba",
                 destName: "Riverside",
                 departures: [
-                    depart(3, live: true, route: "F11", delay: -60),
-                    depart(17, live: false, route: "F1"),
-                    depart(31, live: true, route: "F11", delay: 120)
+                    depart(3,  live: true,  route: "F11", delay: -60,  tripId: "sample-1"),
+                    depart(17, live: false, route: "F1",                tripId: "sample-2"),
+                    depart(31, live: true,  route: "F11", delay: 120,  tripId: "sample-3")
                 ]
             ),
-            inbound: .init(
-                originName: "Riverside",
-                destName: "Bulimba",
-                departures: [
-                    depart(7, live: true, route: "F1"),
-                    depart(24, live: false, route: "F11"),
-                    depart(42, live: true, route: "F1", delay: 30)
-                ]
-            )
+            inbound: nil
         )
     }()
 }

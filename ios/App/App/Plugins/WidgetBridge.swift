@@ -61,11 +61,11 @@ public class WidgetBridge: CAPPlugin, CAPBridgedPlugin {
 
         // Ask iOS to rebuild every Brisbane Ferry widget on the home screen.
         // iOS budgets ~40 reloads/hr per widget instance — well above our
-        // natural cadence (app refreshes every 5 min).
+        // natural cadence (app refreshes every 5 min, and the JS bridge
+        // dedupes identical payloads so the effective rate is lower).
+        // App's minimum iOS is 15, so WidgetKit is always available.
         #if canImport(WidgetKit)
-        if #available(iOS 14.0, *) {
-            WidgetCenter.shared.reloadAllTimelines()
-        }
+        WidgetCenter.shared.reloadAllTimelines()
         #endif
 
         call.resolve([
