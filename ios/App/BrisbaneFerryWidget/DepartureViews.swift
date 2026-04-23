@@ -35,6 +35,11 @@ struct MediumDepartureView: View {
         }
 
         let dir = snapshot.outbound
+        // Strict `>` so that the just-departing trip falls off at the
+        // exact moment the timeline entry for its departure renders — the
+        // TimelineProvider enqueues an entry with `date == departure.t`
+        // for each upcoming departure, and we want that entry to show the
+        // *next* trip, not the one that's just left.
         let upcoming = dir.departures
             .filter { $0.t > entry.date }
             .prefix(3)
