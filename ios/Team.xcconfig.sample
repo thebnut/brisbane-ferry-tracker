@@ -1,0 +1,5 @@
+// Apple Developer Team ID.
+// Copy this file to `Team.xcconfig` (same directory) and replace the
+// placeholder with your 10-char Team ID (developer.apple.com/account → Membership).
+// The real file is gitignored — each developer maintains their own copy.
+DEVELOPMENT_TEAM = YOUR_10_CHAR_TEAM_ID_HERE
