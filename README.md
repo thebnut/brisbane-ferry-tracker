@@ -254,6 +254,12 @@ The app uses TransLink's GTFS-RT (General Transit Feed Specification - Realtime)
 
 This project is open source and available under the MIT License.
 
+## Data Attribution
+
+Schedule and real-time transit data is sourced from the [TransLink SEQ GTFS feed](https://www.data.qld.gov.au/), published by the State of Queensland (Department of Transport and Main Roads) under a [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/) licence.
+
+See [docs/attribution.md](./docs/attribution.md) for full attribution requirements and copy-paste snippets for web, mobile, and repository use.
+
 ## Acknowledgments
 
 - Data provided by [TransLink Queensland](https://translink.com.au/)

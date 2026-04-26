@@ -138,6 +138,14 @@ export const VEHICLE_STATUS = {
   'IN_TRANSIT_TO': 'In transit'
 };
 
+// Attribution constants
+export const ATTRIBUTION = {
+  text: 'Based on TransLink data provided by the State of Queensland (Department of Transport and Main Roads)',
+  licenceName: 'Creative Commons Attribution 4.0',
+  licenceUrl: 'https://creativecommons.org/licenses/by/4.0/',
+  sourceUrl: 'https://www.data.qld.gov.au/',
+};
+
 // Helper function to get vehicle status display
 export const getVehicleStatusInfo = (statusValue) => {
   if (statusValue === null || statusValue === undefined) return null;
