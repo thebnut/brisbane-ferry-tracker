@@ -1,10 +1,24 @@
-import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet';
+import React, { useEffect, useRef, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import clsx from 'clsx';
+import { Capacitor } from '@capacitor/core';
 import 'leaflet/dist/leaflet.css';
 import { STOPS, SERVICE_TYPES } from '../utils/constants';
 import { getStopNameSync, preloadStopData } from '../utils/stopNames';
 import { getVesselWrap } from '../utils/wrappedVessels';
+import useNearestStop from '../hooks/useNearestStop';
+// BRI-33: pull the wrap catalogue directly so the legend iterates over the same
+// source of truth the runtime matcher uses. Adding a new wrap is a JSON edit.
+import WRAPPED_VESSELS from '../data/wrappedVessels.json';
+import blueyUrl from '../assets/wraps/bluey.svg?url';
+import bingoUrl from '../assets/wraps/bingo.svg?url';
+
+// Map iconKey → bundled asset URL. Keep parallel to the map in `utils/wrappedVessels.js`.
+const WRAP_LEGEND_ICONS = {
+  bluey: blueyUrl,
+  bingo: bingoUrl,
+};
 
 // Fix Leaflet default icon issue with Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -38,12 +52,14 @@ const getServiceColor = (routeId) => {
 };
 
 // Create custom ferry icon.
-// BRI-15: when `wrap` is passed (Bluey/Bingo/...), use the wrap's colour as the
-// ring and overlay the wrap icon SVG on top of the marker. Unwrapped ferries
-// render unchanged.
+// BRI-15: when `wrap` is passed (Bluey/Bingo/...), overlay the wrap icon SVG
+// on top of the marker. Unwrapped ferries render unchanged.
+// BRI-33: marker colour now always reflects the *route type* — even when wrapped.
+// The wrap's brand colour is shown in the inline card chip (DepartureItem) and
+// the popup; on the map, colour carries route meaning and the face carries
+// vessel identity. Two clean channels beat three overlapping ones.
 const createFerryIcon = (routeId, wrap = null) => {
-  const baseColor = getServiceColor(routeId);
-  const color = wrap?.color || baseColor;
+  const color = getServiceColor(routeId);
   const size = wrap ? 34 : 28;
 
   // Unique id so multiple markers on the same page don't conflict on <defs>
@@ -93,12 +109,228 @@ const terminalIcon = L.divIcon({
   iconAnchor: [10, 20]
 });
 
+// BRI-37: User-location pin. Distinctive blue so it never gets mistaken for a
+// ferry marker (those are route-coloured — red/teal/gray). Pulses to draw the
+// eye on first drop.
+const USER_PIN_ICON = L.divIcon({
+  html: `
+    <div style="width: 24px; height: 24px; position: relative;">
+      <style>
+        @keyframes user-pulse {
+          0%   { opacity: 0.55; transform: scale(1); }
+          70%  { opacity: 0;    transform: scale(2.2); }
+          100% { opacity: 0;    transform: scale(2.2); }
+        }
+      </style>
+      <div style="position: absolute; inset: 0; border-radius: 50%; background: #2563eb; animation: user-pulse 2s infinite;"></div>
+      <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background: #2563eb; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.35);"></div>
+    </div>
+  `,
+  className: 'user-location-marker',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
+
+// BRI-37: Nearest-terminal highlight. Orange pulsing ring + solid dot. Matches
+// the app's ferry-orange accent so users connect it visually with the brand.
+const NEAREST_TERMINAL_ICON = L.divIcon({
+  html: `
+    <div style="width: 44px; height: 44px; position: relative;">
+      <style>
+        @keyframes nearest-pulse {
+          0%, 100% { transform: scale(0.85); opacity: 0.9; }
+          50%      { transform: scale(1.15); opacity: 0.4; }
+        }
+      </style>
+      <div style="position: absolute; inset: 0; border-radius: 50%; border: 3px solid #FF6B35; box-sizing: border-box; animation: nearest-pulse 1.8s ease-in-out infinite; transform-origin: center;"></div>
+      <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 16px; height: 16px; border-radius: 50%; background: #FF6B35; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>
+    </div>
+  `,
+  className: 'nearest-terminal-marker',
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
+});
+
+function formatDistance(meters) {
+  if (meters == null) return '';
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
+}
+
+const cleanStopName = (name) => (name ? name.replace(' ferry terminal', '') : '');
+
+// BRI-37: Small react-leaflet child that fits the map bounds to include the
+// user location + nearest terminal whenever a fresh locate action completes.
+// Guarded by a monotonic `trigger` prop so spurious re-renders don't re-pan.
+function MapFitToLocation({ userLocation, nearestStop, trigger }) {
+  const map = useMap();
+  const lastTrigger = useRef(null);
+
+  useEffect(() => {
+    if (!userLocation || !nearestStop) return;
+    if (trigger === lastTrigger.current) return;
+    lastTrigger.current = trigger;
+
+    const bounds = L.latLngBounds([
+      [userLocation.lat, userLocation.lng],
+      [nearestStop.lat, nearestStop.lng],
+    ]);
+    map.fitBounds(bounds, { padding: [70, 70], maxZoom: 16, animate: true });
+  }, [userLocation, nearestStop, trigger, map]);
+
+  return null;
+}
+
+// BRI-37: Nearest-terminal marker that auto-opens its popup when the stop
+// changes (so the user immediately sees name + distance + "Get directions"
+// without an extra tap).
+function NearestTerminalMarker({ stop, distanceMeters, onDismiss, onDirections }) {
+  const markerRef = useRef(null);
+
+  useEffect(() => {
+    // react-leaflet 5: the marker ref resolves to the Leaflet marker instance.
+    const m = markerRef.current;
+    if (m && typeof m.openPopup === 'function') m.openPopup();
+  }, [stop.id]);
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={[stop.lat, stop.lng]}
+      icon={NEAREST_TERMINAL_ICON}
+      zIndexOffset={400}
+    >
+      <Popup autoClose={false} closeOnClick={false} closeButton={false}>
+        <div className="text-sm min-w-[10rem]">
+          <p className="font-bold text-charcoal">{cleanStopName(stop.name)}</p>
+          <p className="text-gray-600 mt-0.5">{formatDistance(distanceMeters)} from you</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={onDirections}
+              className="px-2.5 py-1 text-xs font-semibold bg-ferry-orange text-white rounded hover:bg-ferry-orange-dark transition-colors"
+            >
+              Get directions
+            </button>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="px-2.5 py-1 text-xs text-gray-600 hover:text-gray-800"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
+
+// BRI-37: Absolute-positioned React overlay on the map wrapper — locate-me
+// button + status banners. Not a Leaflet L.Control because driving styling
+// from React state is simpler this way.
+function LocateMeOverlay({ nearest }) {
+  const active =
+    nearest.status === 'granted' ||
+    nearest.status === 'out_of_range' ||
+    nearest.status === 'denied' ||
+    nearest.status === 'error';
+  const requesting = nearest.status === 'requesting';
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={active ? nearest.reset : nearest.request}
+        disabled={requesting}
+        aria-label={active ? 'Hide my location' : 'Show my location'}
+        title={active ? 'Hide my location' : 'Show my location'}
+        className={clsx(
+          'absolute top-3 right-3 z-[1000] w-11 h-11 flex items-center justify-center rounded-lg shadow-md border-2 transition-all',
+          active
+            ? 'bg-blue-600 border-blue-700 text-white hover:bg-blue-700'
+            : 'bg-white border-gray-200 text-gray-700 hover:border-ferry-orange hover:text-ferry-orange',
+          requesting && 'opacity-60 cursor-not-allowed',
+        )}
+      >
+        {requesting ? (
+          <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        ) : (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        )}
+      </button>
+
+      {nearest.status === 'denied' && (
+        <div className="absolute top-3 left-3 right-16 z-[1000] bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-3 text-sm shadow-md flex items-start gap-2">
+          <span className="flex-1">Location access is off. Enable it in Settings → Brisbane Ferry to use this.</span>
+          <button type="button" onClick={nearest.reset} aria-label="Dismiss" className="text-amber-700 hover:text-amber-900 text-lg leading-none">
+            ×
+          </button>
+        </div>
+      )}
+
+      {nearest.status === 'error' && (
+        <div className="absolute top-3 left-3 right-16 z-[1000] bg-red-50 border border-red-300 text-red-900 rounded-lg p-3 text-sm shadow-md flex items-start gap-2">
+          <span className="flex-1">Couldn&apos;t get your location. Try again.</span>
+          <button type="button" onClick={nearest.reset} aria-label="Dismiss" className="text-red-700 hover:text-red-900 text-lg leading-none">
+            ×
+          </button>
+        </div>
+      )}
+
+      {nearest.status === 'out_of_range' && nearest.nearestStop && (
+        <div className="absolute top-3 left-3 right-16 z-[1000] bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-3 text-sm shadow-md flex items-start gap-2">
+          <span className="flex-1">
+            You&apos;re {(nearest.distanceMeters / 1000).toFixed(1)} km from the nearest terminal
+            ({cleanStopName(nearest.nearestStop.name)}). Too far to show on this map.
+          </span>
+          <button type="button" onClick={nearest.reset} aria-label="Dismiss" className="text-amber-700 hover:text-amber-900 text-lg leading-none">
+            ×
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
 function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
   // Preload stop data on component mount
   useEffect(() => {
     preloadStopData();
   }, []);
-  
+
+  // BRI-37: "Locate me" on the map. Hook is shared with the StopSelectorModal
+  // button (BRI-26 Phase 1). Monotonic trigger bumps on each successful locate,
+  // used by MapFitToLocation to re-frame the map exactly once per action.
+  const nearest = useNearestStop();
+  const [fitTrigger, setFitTrigger] = useState(0);
+  useEffect(() => {
+    if (nearest.status === 'granted' && nearest.userLocation && nearest.nearestStop) {
+      setFitTrigger((t) => t + 1);
+    }
+  }, [
+    nearest.status,
+    nearest.userLocation?.lat,
+    nearest.userLocation?.lng,
+    nearest.nearestStop?.id,
+  ]);
+
+  // Hand off directions to the native Maps app. On Capacitor iOS the maps://
+  // scheme always resolves to Apple Maps; window.open with target '_system'
+  // escapes the WebView and opens in the OS handler.
+  const openDirections = (stop) => {
+    if (!stop) return;
+    const name = cleanStopName(stop.name) || 'Ferry Terminal';
+    const url = `maps://?daddr=${stop.lat},${stop.lng}&q=${encodeURIComponent(name)}`;
+    window.open(url, '_system');
+  };
+
   // Helper to check if a stop ID is a ferry stop
   const isFerryStop = (stopId) => {
     return stopId && stopId.toString().startsWith('3');
@@ -197,7 +429,7 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
         </button>
       </div>
       
-      <div className="rounded-lg overflow-hidden border border-gray-200" style={{ height: '400px' }}>
+      <div className="relative rounded-lg overflow-hidden border border-gray-200" style={{ height: '400px' }}>
         <MapContainer
           center={mapCenter}
           zoom={13}
@@ -208,7 +440,32 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
           />
-          
+
+          {/* BRI-37: user location pin + nearest-terminal highlight, iOS-only
+              (hook is inert on web — never transitions to 'granted'). */}
+          {nearest.status === 'granted' && nearest.userLocation && (
+            <Marker
+              position={[nearest.userLocation.lat, nearest.userLocation.lng]}
+              icon={USER_PIN_ICON}
+              zIndexOffset={500}
+              keyboard={false}
+              interactive={false}
+            />
+          )}
+          {nearest.status === 'granted' && nearest.nearestStop && (
+            <NearestTerminalMarker
+              stop={nearest.nearestStop}
+              distanceMeters={nearest.distanceMeters}
+              onDirections={() => openDirections(nearest.nearestStop)}
+              onDismiss={nearest.reset}
+            />
+          )}
+          <MapFitToLocation
+            userLocation={nearest.userLocation}
+            nearestStop={nearest.status === 'granted' ? nearest.nearestStop : null}
+            trigger={fitTrigger}
+          />
+
           {/* Ferry markers */}
           {ferryLocations.map(ferry => (
             <Marker
@@ -256,20 +513,25 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
             </Marker>
           ))}
         </MapContainer>
+
+        {/* BRI-37: locate-me button + status banners. Gated on native; on web
+            there's no platform API so we don't even mount the overlay. */}
+        {Capacitor.isNativePlatform() && <LocateMeOverlay nearest={nearest} />}
       </div>
-      
+
       <div className="mt-3 text-sm text-gray-600">
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          {/* Get unique service types from visible ferries */}
+        {/* Service-type row — dynamic, shows only currently-visible route types. */}
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+          <span className="text-xs text-gray-500 uppercase tracking-wide">Service</span>
           {(() => {
             const visibleServiceTypes = [...new Set(ferryLocations.map(f => f.routePrefix))]
               .map(prefix => ({ prefix, info: SERVICE_TYPES[prefix] }))
               .filter(item => item.info);
-            
+
             // Add unknown type if there are ferries with unknown routes AND F21 is not already visible
             const hasUnknownTypes = ferryLocations.some(f => !SERVICE_TYPES[f.routePrefix]);
             const hasF21Visible = visibleServiceTypes.some(item => item.prefix === 'F21');
-            
+
             return (
               <>
                 {visibleServiceTypes.map(({ prefix, info }) => (
@@ -292,6 +554,24 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
             );
           })()}
         </div>
+
+        {/* BRI-33: wrapped-vessels row — always shown (educational), face-icon-only
+            chips so we don't imply the marker itself will be brand-coloured. */}
+        <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+          <span className="text-xs text-gray-500 uppercase tracking-wide">Special</span>
+          {WRAPPED_VESSELS.map((w) => {
+            const iconUrl = WRAP_LEGEND_ICONS[w.iconKey];
+            return (
+              <div key={w.wrap} className="flex items-center" title={w.description}>
+                {iconUrl && (
+                  <img src={iconUrl} alt="" aria-hidden="true" className="w-6 h-6 mr-2" />
+                )}
+                <span>{w.wrap}</span>
+              </div>
+            );
+          })}
+        </div>
+
         {ferryLocations.length === 0 && (
           <p className="mt-2 text-center text-gray-500">No active ferries visible</p>
         )}

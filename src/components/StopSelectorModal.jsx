@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import staticGtfsService from '../services/staticGtfsService';
 import { DEFAULT_STOPS, STORAGE_KEYS } from '../utils/constants';
 import { FERRY_STOPS, TEMPORARY_CONNECTIVITY } from '../utils/ferryStops';
+import useNearestStop from '../hooks/useNearestStop';
 import StopSelectorMap from './StopSelectorMap';
 
 const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
@@ -15,7 +17,13 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
     return localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION) === 'true';
   });
   const [mapModalOpen, setMapModalOpen] = useState(null); // null, 'origin', or 'destination'
-  
+
+  // BRI-26: iOS-only "Use my location" flow. Hook wraps Capacitor Geolocation
+  // + haversine against known terminals. On web the button is hidden entirely,
+  // so we never reach the request path from a non-native runtime.
+  const nearest = useNearestStop();
+  const [locationFeedback, setLocationFeedback] = useState(null); // transient success toast
+
   // Helper function to remove 'ferry terminal' from stop names
   const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
 
@@ -132,6 +140,23 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
     }
   };
 
+  // BRI-26: auto-select origin when geolocation succeeds inside the 5km rule.
+  // Modal stays open so the user can still pick a destination; save button is
+  // still the commit point.
+  useEffect(() => {
+    if (nearest.status === 'granted' && nearest.nearestStop) {
+      setSelectedOrigin(nearest.nearestStop.id);
+      const km = (nearest.distanceMeters / 1000).toFixed(1);
+      setLocationFeedback(
+        `Origin set to ${cleanStopName(nearest.nearestStop.name)} (${km} km away)`
+      );
+      nearest.reset();
+      // Auto-clear the success message after 4s so it doesn't linger
+      const t = setTimeout(() => setLocationFeedback(null), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [nearest.status, nearest.nearestStop, nearest.distanceMeters, nearest]);
+
   // Handle escape key
   useEffect(() => {
     const handleEscape = (e) => {
@@ -196,6 +221,91 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
             </div>
           ) : (
             <div className="space-y-6">
+              {/* BRI-26: iOS-only "Use my location" quick-action. Hidden on web.
+                  Native button → system permission prompt → haversine nearest. */}
+              {Capacitor.isNativePlatform() && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={nearest.request}
+                    disabled={nearest.status === 'requesting'}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-ferry-orange/10 hover:bg-ferry-orange/20 border-2 border-ferry-orange/30 hover:border-ferry-orange text-ferry-orange font-semibold rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                    aria-label="Use my location to pick the nearest ferry terminal"
+                  >
+                    {nearest.status === 'requesting' ? (
+                      <>
+                        <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        <span>Finding you…</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span>Use my location</span>
+                      </>
+                    )}
+                  </button>
+
+                  {nearest.status === 'denied' && (
+                    <p className="text-xs text-amber-700 mt-2">
+                      Location access is off. Enable it in Settings → Brisbane Ferry to use this.
+                    </p>
+                  )}
+                  {nearest.status === 'error' && (
+                    <p className="text-xs text-red-600 mt-2">
+                      Couldn&apos;t get your location. Try again or pick a stop below.
+                    </p>
+                  )}
+                  {nearest.status === 'out_of_range' && nearest.nearestStop && (
+                    <div className="mt-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900">
+                      <p className="mb-2">
+                        You&apos;re {(nearest.distanceMeters / 1000).toFixed(1)} km from the
+                        nearest terminal ({cleanStopName(nearest.nearestStop.name)}) — further
+                        than we&apos;d usually recommend.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedOrigin(nearest.nearestStop.id);
+                            const km = (nearest.distanceMeters / 1000).toFixed(1);
+                            setLocationFeedback(
+                              `Origin set to ${cleanStopName(nearest.nearestStop.name)} (${km} km away)`,
+                            );
+                            nearest.reset();
+                            setTimeout(() => setLocationFeedback(null), 4000);
+                          }}
+                          className="px-3 py-1.5 text-xs font-semibold bg-ferry-orange text-white rounded-md hover:bg-ferry-orange-dark transition-colors"
+                        >
+                          Use {cleanStopName(nearest.nearestStop.name)} anyway
+                        </button>
+                        <button
+                          type="button"
+                          onClick={nearest.reset}
+                          className="px-3 py-1.5 text-xs text-amber-900 hover:text-amber-700"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {locationFeedback && (
+                    <p
+                      className="text-xs text-green-700 mt-2"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      ✓ {locationFeedback}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Origin Stop */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

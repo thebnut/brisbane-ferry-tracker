@@ -4,8 +4,11 @@ import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
 import { SERVICE_TYPES, API_CONFIG, getOccupancyInfo } from '../utils/constants';
 import { getVesselWrap } from '../utils/wrappedVessels';
+import useMinuteTick from '../hooks/useMinuteTick';
 
 const DepartureItem = ({ departure, onClick }) => {
+  useMinuteTick();
+
   // Get service info based on route ID prefix (remove suffix like -4055)
   const routePrefix = departure.routeId.split('-')[0];
   const serviceInfo = SERVICE_TYPES[routePrefix] || SERVICE_TYPES.F1;
@@ -87,7 +90,7 @@ const DepartureItem = ({ departure, onClick }) => {
         }}>
           <div className="flex items-center space-x-2">
             <span className={clsx(
-              'px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm',
+              'px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm whitespace-nowrap',
               serviceInfo.color,
               serviceInfo.isExpress && 'text-sm animate-pulse'
             )}>
@@ -130,7 +133,7 @@ const DepartureItem = ({ departure, onClick }) => {
             )}
           </div>
           <p className={clsx(
-            'font-semibold mt-1',
+            'font-semibold mt-1 whitespace-nowrap sm:whitespace-normal',
             serviceInfo.isExpress ? 'text-xl text-charcoal' : 'text-lg'
           )}>
             {format(departureTimeZoned, 'h:mm a')}

@@ -1,8 +1,10 @@
 import React from 'react';
+import { STORAGE_KEYS } from '../utils/constants';
 
 const LoadingSpinner = () => {
-  // Check if this is the first time loading (no cached schedule)
-  const isFirstLoad = !localStorage.getItem('brisbane-ferry-schedule-cache');
+  // Check if this is the first time loading (no cached schedule).
+  // BRI-22: use STORAGE_KEYS constant so this respects cache-version bumps.
+  const isFirstLoad = !localStorage.getItem(STORAGE_KEYS.SCHEDULE_CACHE);
   
   return (
     <div className="flex flex-col items-center justify-center py-12">

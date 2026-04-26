@@ -1,0 +1,5 @@
+// Release build configuration.
+// Pulls in the developer team ID from the gitignored Team.xcconfig so the
+// Archive build signs with the right identity without committing the Team
+// ID to source control.
+#include? "Team.xcconfig"

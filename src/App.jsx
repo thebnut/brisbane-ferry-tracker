@@ -1,19 +1,44 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import Navigation from './components/Navigation';
 import StatusBar from './components/StatusBar';
 import DepartureBoard from './components/DepartureBoard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorMessage from './components/ErrorMessage';
-import FerryMapModal from './components/FerryMapModal';
-import FerryDetailsModal from './components/FerryDetailsModal';
-import StopSelectorModal from './components/StopSelectorModal';
+// BRI-19: FerryMapModal, FerryDetailsModal, and StopSelectorModal all pull in
+// Leaflet + react-leaflet (~100KB gzip) via their respective map children
+// (FerryMap, FerryDetailMap, StopSelectorMap). They're only needed on user
+// interaction (map button, row click, first visit / settings). Lazy-loading
+// defers that cost until first open — Rollup auto-shares the Leaflet dep.
+const FerryMapModal = lazy(() => import('./components/FerryMapModal'));
+const FerryDetailsModal = lazy(() => import('./components/FerryDetailsModal'));
+const StopSelectorModal = lazy(() => import('./components/StopSelectorModal'));
 import MobileBoardHeader from './components/MobileBoardHeader';
 import DepartureTimeDropdown from './components/DepartureTimeDropdown';
 import FeedbackModal from './components/FeedbackModal';
 import useFerryData from './hooks/useFerryData';
 import staticGtfsService from './services/staticGtfsService';
 import { STORAGE_KEYS, DEFAULT_STOPS, ATTRIBUTION } from './utils/constants';
+import { isGitHubPages } from './utils/environment';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+// BRI-22: Vercel Analytics — sibling of SpeedInsights. Both beacons go through
+// same-origin /_vercel/* proxies, so no CSP changes needed.
+import { Analytics } from '@vercel/analytics/react';
+import { Capacitor } from '@capacitor/core';
+// Aliased to avoid clash with the existing StatusBar component above.
+import { StatusBar as CapStatusBar, Style as CapStatusBarStyle } from '@capacitor/status-bar';
+
+/**
+ * BRI-19: tiny Suspense fallback shown only during the first lazy chunk load.
+ * Usually <200ms on a decent connection. The overlay confirms the click
+ * registered while the map/modal code streams in.
+ */
+const MapFallback = () => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+    <div className="bg-white rounded-lg px-6 py-4 shadow-lg text-sm text-gray-700">
+      Loading map…
+    </div>
+  </div>
+);
 
 function App() {
   // v1.2.0 - Modern orange-themed redesign with animations (2025-07-19)
@@ -71,6 +96,16 @@ function App() {
       sessionStorage.removeItem(STORAGE_KEYS.DEPARTURE_TIME);
     }
   }, [selectedDepartureTime]);
+
+  // BRI-31: StatusBar mode is configured declaratively in capacitor.config.json
+  // (overlay off, dark icons, white background). No runtime call is needed, but
+  // we reassert the style on mount as a defence against state carry-over
+  // between app resumes — cheap, and swallowed silently on web.
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      CapStatusBar.setStyle({ style: CapStatusBarStyle.Dark }).catch(() => {});
+    }
+  }, []);
   
   const { departures, vehiclePositions, tripUpdates, loading, scheduleLoading, error, lastUpdated, refresh } = useFerryData(currentStops, selectedDepartureTime);
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'express'
@@ -265,9 +300,9 @@ function App() {
               {(() => {
                 const hasScheduled = departures.outbound.some(d => d.isScheduled) || departures.inbound.some(d => d.isScheduled);
                 const hasRealtime = departures.outbound.some(d => d.isRealtime) || departures.inbound.some(d => d.isRealtime);
-                const isGitHubPages = window.location.hostname.includes('github.io');
-                
-                if (hasScheduled || hasRealtime || scheduleLoading || isGitHubPages) {
+                const onGitHubPages = isGitHubPages();
+
+                if (hasScheduled || hasRealtime || scheduleLoading || onGitHubPages) {
                   return (
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between text-sm text-gray-600 bg-ferry-aqua/10 rounded-lg p-3 gap-3">
                       <span className="inline-flex items-center space-x-2">
@@ -275,7 +310,7 @@ function App() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span>
-                          {isGitHubPages 
+                          {onGitHubPages
                             ? "Showing scheduled times only • Live tracking requires Vercel deployment"
                             : scheduleLoading && hasRealtime 
                             ? "Showing live departures only • Schedule data loading..."
@@ -393,37 +428,57 @@ function App() {
               💬 Send Feedback & Ideas
             </button>
           </p>
+          {/* BRI-13: discreet links to hosted privacy + terms. Static HTML served
+              from /public via vercel.json rewrites. Load as normal navigation
+              (no SPA routing needed; they're standalone pages). */}
+          <p className="mt-3 text-xs text-gray-500">
+            <a href="/privacy" className="hover:text-ferry-orange transition-colors">Privacy</a>
+            <span className="mx-1.5" aria-hidden="true">·</span>
+            <a href="/terms" className="hover:text-ferry-orange transition-colors">Terms</a>
+          </p>
         </div>
       </footer>
       
-      {/* Ferry Details Modal */}
+      {/* Ferry Details Modal — lazy-loaded on first open (BRI-19) */}
       {selectedDeparture && (
-        <FerryDetailsModal
-          departure={selectedDeparture}
-          vehiclePositions={vehiclePositions}
-          tripUpdates={tripUpdates}
-          selectedStops={currentStops}
-          onClose={() => setSelectedDeparture(null)}
-        />
+        <Suspense fallback={<MapFallback />}>
+          <FerryDetailsModal
+            departure={selectedDeparture}
+            vehiclePositions={vehiclePositions}
+            tripUpdates={tripUpdates}
+            selectedStops={currentStops}
+            onClose={() => setSelectedDeparture(null)}
+          />
+        </Suspense>
+      )}
+
+      {/* Ferry Map Modal — lazy-loaded on first map-button press (BRI-19).
+          Only mounted when open + data is ready, so the Leaflet chunk only
+          downloads when the user actually wants to see it. */}
+      {showMap && vehiclePositions.length > 0 && (
+        <Suspense fallback={<MapFallback />}>
+          <FerryMapModal
+            isOpen={true}
+            onClose={() => setShowMap(false)}
+            vehiclePositions={vehiclePositions}
+            tripUpdates={tripUpdates}
+            departures={departures}
+            selectedStops={currentStops}
+          />
+        </Suspense>
       )}
       
-      {/* Ferry Map Modal */}
-      <FerryMapModal
-        isOpen={showMap && vehiclePositions.length > 0}
-        onClose={() => setShowMap(false)}
-        vehiclePositions={vehiclePositions}
-        tripUpdates={tripUpdates}
-        departures={departures}
-        selectedStops={currentStops}
-      />
-      
-      {/* Stop Selector Modal */}
-      <StopSelectorModal
-        isOpen={showStopSelector}
-        onClose={() => setShowStopSelector(false)}
-        currentStops={selectedStops}
-        onSave={handleStopChange}
-      />
+      {/* Stop Selector Modal — lazy-loaded on first open (BRI-19) */}
+      {showStopSelector && (
+        <Suspense fallback={<MapFallback />}>
+          <StopSelectorModal
+            isOpen={true}
+            onClose={() => setShowStopSelector(false)}
+            currentStops={selectedStops}
+            onSave={handleStopChange}
+          />
+        </Suspense>
+      )}
       
       {/* Feedback Modal */}
       <FeedbackModal
@@ -431,8 +486,10 @@ function App() {
         onClose={() => setShowFeedback(false)}
       />
       
-      {/* Vercel Speed Insights */}
+      {/* Vercel Speed Insights (Web Vitals) + Analytics (pageviews). Both use
+          same-origin /_vercel/* endpoints — CSP-safe. BRI-22. */}
       <SpeedInsights />
+      <Analytics />
     </div>
   );
 }

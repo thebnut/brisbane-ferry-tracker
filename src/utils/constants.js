@@ -1,3 +1,5 @@
+import { isDebugHost } from './environment';
+
 export const STOPS = {
   bulimba: "317584",        // Bulimba ferry terminal
   riverside: "317590",      // Riverside ferry terminal
@@ -29,34 +31,55 @@ export const API_CONFIG = {
   timezone: 'Australia/Brisbane'
 };
 
-// Debug configuration
+// Debug configuration — on for every host we own (localhost, Vercel preview,
+// production custom domains). See isDebugHost() in utils/environment.js.
 export const DEBUG_CONFIG = {
   enableLogging: (() => {
-    // Enable debug logging for localhost, develop environments AND production domains
-    const hostname = window.location.hostname;
-    const isDevelopment = hostname === 'localhost' ||
-                         hostname === '127.0.0.1' ||
-                         hostname.includes('brisbane-ferry-tracker.vercel.app') ||
-                         hostname.includes('brisbaneferry.com') ||
-                         hostname.includes('ferry.lifemap.au');
-    
-    // Log debug mode status
-    if (isDevelopment) {
-      console.log(`🐛 Debug mode enabled for ${hostname}`);
+    const enabled = isDebugHost();
+    if (enabled) {
+      console.log(`🐛 Debug mode enabled for ${window.location.hostname}`);
     }
-    
-    return isDevelopment;
+    return enabled;
   })()
 };
 
 // LocalStorage keys
+//
+// BRI-22: schedule cache is suffixed with a version tag so stale caches on
+// returning users are invalidated cleanly when the cache shape changes.
+// BRI-16 added `scheduledArrivalTime` to cached departures — without a
+// version bump users would keep seeing the old shape until natural 24h
+// expiry. Bump the suffix (`-v2` → `-v3` → ...) any time the cache shape
+// changes and `cleanupLegacyStorage()` will wipe older keys on startup.
+//
+// User-preference keys are not versioned — their shapes haven't changed and
+// wiping user preferences on a deploy would be hostile.
 export const STORAGE_KEYS = {
-  SCHEDULE_CACHE: 'brisbane-ferry-schedule-cache',
+  SCHEDULE_CACHE: 'brisbane-ferry-schedule-cache-v2',
   SELECTED_STOPS: 'brisbane-ferry-selected-stops',
   SELECTED_STOPS_SESSION: 'brisbane-ferry-selected-stops-session',
   REMEMBER_SELECTION: 'brisbane-ferry-remember-selection',
   DEPARTURE_TIME: 'brisbane-ferry-departure-time'
 };
+
+/**
+ * One-time cleanup of pre-versioned schedule-cache keys. Called by main.jsx
+ * on startup — idempotent, safe to keep indefinitely. Add entries here if
+ * future schema bumps leave legacy keys behind.
+ */
+export function cleanupLegacyStorage() {
+  const LEGACY_SCHEDULE_CACHE_KEYS = [
+    'brisbane-ferry-schedule-cache', // v1 (pre-BRI-22)
+  ];
+  try {
+    for (const key of LEGACY_SCHEDULE_CACHE_KEYS) {
+      localStorage.removeItem(key);
+    }
+  } catch (e) {
+    // localStorage may be disabled or full; don't let it break app init.
+    console.warn('[storage] legacy cleanup failed:', e);
+  }
+}
 
 // Default stops for backward compatibility
 export const DEFAULT_STOPS = {
