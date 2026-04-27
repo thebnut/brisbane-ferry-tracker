@@ -4,7 +4,7 @@ import L from 'leaflet';
 import clsx from 'clsx';
 import { Capacitor } from '@capacitor/core';
 import 'leaflet/dist/leaflet.css';
-import { STOPS, SERVICE_TYPES } from '../utils/constants';
+import { STOPS, SERVICE_TYPES, DEBUG_CONFIG } from '../utils/constants';
 import { getStopNameSync, preloadStopData } from '../utils/stopNames';
 import { getVesselWrap } from '../utils/wrappedVessels';
 import useNearestStop from '../hooks/useNearestStop';
@@ -340,12 +340,34 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
     .filter(vp => {
       const vehicle = vp.vehicle;
       if (!vehicle || !vehicle.position || !vehicle.trip) return false;
-      
+
       // Show all ferries with valid ferry route IDs (starting with F)
       // Filter out Queensland Rail trips (containing "QR")
       const routeId = vehicle.trip.routeId;
       const tripId = vehicle.trip.tripId;
-      return routeId && routeId.startsWith('F') && !tripId.includes('QR');
+      if (!(routeId && routeId.startsWith('F') && !tripId?.includes('QR'))) {
+        return false;
+      }
+
+      // BRI-38: drop "UNPLANNED-" trips. These carry synthetic F-prefixed
+      // routeIds in the GTFS-RT feed for vehicles that aren't real ferry runs
+      // (TSN6 / UNPLANNED-93822063 over Stafford Road on 2026-04-20; "random
+      // ferries appearing in the city" pattern observed 2026-04-27). A 2 km
+      // distance-to-terminal guard tried first didn't catch the city-centre
+      // cases — those non-ferries were close enough to terminals to pass.
+      if (tripId?.startsWith('UNPLANNED')) {
+        if (DEBUG_CONFIG.enableLogging) {
+          console.log('[BRI-38] filtered', {
+            vehicleId: vehicle.vehicle?.id,
+            tripId,
+            routeId,
+            position: vehicle.position,
+          });
+        }
+        return false;
+      }
+
+      return true;
     })
     .map(vp => {
       const vehicle = vp.vehicle;
