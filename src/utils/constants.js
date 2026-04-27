@@ -20,13 +20,6 @@ export const SERVICE_TYPES = {
   // F4: { name: 'CityHopper', icon: '⛴️', color: 'bg-purple-500', borderColor: 'border-purple-500', isExpress: false }
 };
 
-// BRI-38: reject GTFS-RT vehicles farther than this from the nearest known
-// ferry terminal — defends the live map against feed noise. 2 km accommodates
-// the longest leg (Northshore Hamilton ↔ Bretts Wharf, ~3 km) with mid-leg
-// margin for ferries actually in transit. Caught a non-ferry vehicle (TSN6,
-// trip UNPLANNED-93822063) over Stafford Road on 2026-04-20.
-export const MAX_FERRY_DISTANCE_METERS = 2000;
-
 export const API_CONFIG = {
   baseUrl: import.meta.env.VITE_GTFS_API_BASE || 'https://gtfsrt.api.translink.com.au/api/realtime/SEQ/',
   endpoints: {

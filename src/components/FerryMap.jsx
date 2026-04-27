@@ -4,16 +4,10 @@ import L from 'leaflet';
 import clsx from 'clsx';
 import { Capacitor } from '@capacitor/core';
 import 'leaflet/dist/leaflet.css';
-import { STOPS, SERVICE_TYPES, MAX_FERRY_DISTANCE_METERS, DEBUG_CONFIG } from '../utils/constants';
-import { FERRY_STOPS } from '../utils/ferryStops';
-import { findNearestTerminal } from '../utils/geo';
+import { STOPS, SERVICE_TYPES, DEBUG_CONFIG } from '../utils/constants';
 import { getStopNameSync, preloadStopData } from '../utils/stopNames';
 import { getVesselWrap } from '../utils/wrappedVessels';
 import useNearestStop from '../hooks/useNearestStop';
-
-// BRI-38: stable list of every known ferry terminal, used once per filter
-// pass to reject GTFS-RT vehicles that are nowhere near the river.
-const FERRY_TERMINALS = Object.values(FERRY_STOPS);
 // BRI-33: pull the wrap catalogue directly so the legend iterates over the same
 // source of truth the runtime matcher uses. Adding a new wrap is a JSON edit.
 import WRAPPED_VESSELS from '../data/wrappedVessels.json';
@@ -355,30 +349,25 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
         return false;
       }
 
-      // BRI-38: geographic sanity. Real ferries can't leave the river — anything
-      // farther than MAX_FERRY_DISTANCE_METERS from the nearest known terminal
-      // is feed noise. Caught a non-ferry vehicle (TSN6, UNPLANNED-93822063)
-      // rendering over Stafford Road on 2026-04-20 despite passing both guards
-      // above (synthetic F-prefixed routeId in the GTFS-RT feed).
-      const nearest = findNearestTerminal(
-        vehicle.position.latitude,
-        vehicle.position.longitude,
-        FERRY_TERMINALS
-      );
-      if (nearest && nearest.distanceMeters <= MAX_FERRY_DISTANCE_METERS) {
-        return true;
+      // BRI-38: drop "UNPLANNED-" trips. These carry synthetic F-prefixed
+      // routeIds in the GTFS-RT feed for vehicles that aren't real ferry runs
+      // (TSN6 / UNPLANNED-93822063 over Stafford Road on 2026-04-20; "random
+      // ferries appearing in the city" pattern observed 2026-04-27). A 2 km
+      // distance-to-terminal guard tried first didn't catch the city-centre
+      // cases — those non-ferries were close enough to terminals to pass.
+      if (tripId?.startsWith('UNPLANNED')) {
+        if (DEBUG_CONFIG.enableLogging) {
+          console.log('[BRI-38] filtered', {
+            vehicleId: vehicle.vehicle?.id,
+            tripId,
+            routeId,
+            position: vehicle.position,
+          });
+        }
+        return false;
       }
 
-      if (DEBUG_CONFIG.enableLogging) {
-        console.log('[BRI-38] filtered', {
-          vehicleId: vehicle.vehicle?.id,
-          tripId,
-          routeId,
-          position: vehicle.position,
-          nearestKm: nearest ? (nearest.distanceMeters / 1000).toFixed(2) : null,
-        });
-      }
-      return false;
+      return true;
     })
     .map(vp => {
       const vehicle = vp.vehicle;
