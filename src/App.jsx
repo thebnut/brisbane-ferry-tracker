@@ -116,7 +116,7 @@ function App() {
     return 'outbound';
   };
   
-  const [activeTab, setActiveTab] = useState(getDefaultTab()); // 'outbound' | 'inbound' - for mobile tabs
+  const [activeTab] = useState(getDefaultTab()); // 'outbound' | 'inbound' - for mobile tabs
   const [selectedDeparture, setSelectedDeparture] = useState(null);
   
   // Handle stop selection change

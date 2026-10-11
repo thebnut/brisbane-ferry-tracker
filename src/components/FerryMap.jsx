@@ -101,14 +101,6 @@ const createFerryIcon = (routeId, wrap = null) => {
   });
 };
 
-// Terminal icon
-const terminalIcon = L.divIcon({
-  html: '<div style="font-size: 20px;">📍</div>',
-  className: 'terminal-marker',
-  iconSize: [20, 20],
-  iconAnchor: [10, 20]
-});
-
 // BRI-37: User-location pin. Distinctive blue so it never gets mistaken for a
 // ferry marker (those are route-coloured — red/teal/gray). Pulses to draw the
 // eye on first drop.
@@ -299,7 +291,7 @@ function LocateMeOverlay({ nearest }) {
   );
 }
 
-function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
+function FerryMap({ vehiclePositions, tripUpdates, onHide }) {
   // Preload stop data on component mount
   useEffect(() => {
     preloadStopData();

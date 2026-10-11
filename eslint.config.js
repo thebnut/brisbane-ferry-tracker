@@ -5,7 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // Build output, native iOS project (CocoaPods/Capacitor output), third-party
+  // assets, and generated schedule JSON are not our lint surface.
+  globalIgnores(['dist', 'ios', 'assets', 'public', 'schedule-data*', '**/node_modules']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -24,6 +26,14 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+    },
+  },
+  {
+    // Node-side code: Vercel serverless functions, the schedule processor, and
+    // the Vite config itself.
+    files: ['api/**/*.js', 'schedule-processor/**/*.js', 'vite.config.js'],
+    languageOptions: {
+      globals: { ...globals.node },
     },
   },
 ])

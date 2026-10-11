@@ -31,6 +31,10 @@ dist-ssr
 # Vercel
 .vercel
 
+# Local schedule copy — the Vite dev server serves ../schedule-data/latest.json
+# instead (see vite.config.js), so nothing here should be committed or deployed.
+public/schedule-data/
+
 # Capacitor / iOS build artefacts
 ios/App/App/public/
 ios/App/Pods/
