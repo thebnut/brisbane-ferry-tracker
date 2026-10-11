@@ -7,26 +7,33 @@ import path from 'node:path'
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
 const LOCAL_SCHEDULE_PATH = '/schedule-data/latest.json'
 
-// Dev-only: serve the repo's daily-updated schedule-data/latest.json at the
-// same URL the app requests on localhost. Previously a stale copy lived in
-// public/, which drifted from the real data and was shipped in every deploy.
+// Local-only (dev server and `vite preview`): serve the repo's daily-updated
+// schedule-data/latest.json at the URL the app requests on localhost. Previously
+// a stale copy lived in public/, which drifted from the real data and was
+// shipped in every deploy. Production never hits this path (it uses the GitHub
+// Pages URL, see src/utils/environment.js).
+function localScheduleMiddleware(req, res, next) {
+  if (req.url?.split('?')[0] !== LOCAL_SCHEDULE_PATH) return next()
+  const file = path.join(rootDir, 'schedule-data', 'latest.json')
+  if (!existsSync(file)) {
+    res.statusCode = 404
+    res.end('schedule-data/latest.json not found — run `git pull` or the schedule processor')
+    return
+  }
+  res.setHeader('Content-Type', 'application/json')
+  res.setHeader('Cache-Control', 'no-store')
+  createReadStream(file).pipe(res)
+}
+
 function serveLocalSchedule() {
   return {
     name: 'serve-local-schedule',
     apply: 'serve',
     configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (req.url?.split('?')[0] !== LOCAL_SCHEDULE_PATH) return next()
-        const file = path.join(rootDir, 'schedule-data', 'latest.json')
-        if (!existsSync(file)) {
-          res.statusCode = 404
-          res.end('schedule-data/latest.json not found — run `git pull` or the schedule processor')
-          return
-        }
-        res.setHeader('Content-Type', 'application/json')
-        res.setHeader('Cache-Control', 'no-store')
-        createReadStream(file).pipe(res)
-      })
+      server.middlewares.use(localScheduleMiddleware)
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(localScheduleMiddleware)
     },
   }
 }
