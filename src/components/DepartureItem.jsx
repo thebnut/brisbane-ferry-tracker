@@ -39,7 +39,7 @@ const DepartureItem = ({ departure, onClick }) => {
     }
     
     return "On time";
-  }, [departure.isRealtime, departure.scheduledTime, departure.departureTime, departure.tripId]);
+  }, [departure.isRealtime, departure.scheduledTime, departure.departureTime]);
   
   const departureTimeZoned = toZonedTime(departure.departureTime, API_CONFIG.timezone);
   const currentTimeZoned = toZonedTime(new Date(), API_CONFIG.timezone);

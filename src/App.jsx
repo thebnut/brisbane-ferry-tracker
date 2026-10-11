@@ -173,12 +173,13 @@ function App() {
   }, [currentStops.outbound.id]);
   
   // Update valid destinations when origin changes
+  const currentOriginId = currentStops?.outbound?.id;
   useEffect(() => {
-    if (availableStops.length > 0 && currentStops) {
-      const destinations = staticGtfsService.getValidDestinations(currentStops.outbound.id);
+    if (availableStops.length > 0 && currentOriginId) {
+      const destinations = staticGtfsService.getValidDestinations(currentOriginId);
       setValidDestinations(destinations);
     }
-  }, [currentStops?.outbound?.id, availableStops]);
+  }, [currentOriginId, availableStops]);
   
   // Handlers for dropdown changes
   const handleTemporaryOriginChange = (originId) => {

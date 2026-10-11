@@ -302,16 +302,17 @@ function FerryMap({ vehiclePositions, tripUpdates, onHide }) {
   // used by MapFitToLocation to re-frame the map exactly once per action.
   const nearest = useNearestStop();
   const [fitTrigger, setFitTrigger] = useState(0);
+  // Depend on primitives, not the location/stop objects, so a re-created but
+  // identical object from the hook doesn't re-frame the map.
+  const locateStatus = nearest.status;
+  const userLat = nearest.userLocation?.lat;
+  const userLng = nearest.userLocation?.lng;
+  const nearestStopId = nearest.nearestStop?.id;
   useEffect(() => {
-    if (nearest.status === 'granted' && nearest.userLocation && nearest.nearestStop) {
+    if (locateStatus === 'granted' && userLat != null && userLng != null && nearestStopId) {
       setFitTrigger((t) => t + 1);
     }
-  }, [
-    nearest.status,
-    nearest.userLocation?.lat,
-    nearest.userLocation?.lng,
-    nearest.nearestStop?.id,
-  ]);
+  }, [locateStatus, userLat, userLng, nearestStopId]);
 
   // Hand off directions to the native Maps app. On Capacitor iOS the maps://
   // scheme always resolves to Apple Maps; window.open with target '_system'
