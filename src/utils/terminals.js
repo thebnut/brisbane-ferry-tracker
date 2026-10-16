@@ -19,3 +19,9 @@ export const TERMINALS = Object.entries(FERRY_STOPS)
 export const terminalPath = (slug) => `/terminal/${slug}`;
 
 export const getTerminalBySlug = (slug) => TERMINALS.find((t) => t.slug === slug) || null;
+
+// Terminal for a /terminal/<slug> path (trailing slash allowed), else null.
+export const getTerminalFromPath = (pathname) => {
+  const match = /^\/terminal\/([a-z0-9-]+)\/?$/.exec(pathname || '');
+  return match ? getTerminalBySlug(match[1]) : null;
+};

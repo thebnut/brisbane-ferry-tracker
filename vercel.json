@@ -19,6 +19,10 @@
     {
       "source": "/terms",
       "destination": "/terms.html"
+    },
+    {
+      "source": "/terminal/:slug",
+      "destination": "/terminal/:slug/index.html"
     }
   ],
   "headers": [
