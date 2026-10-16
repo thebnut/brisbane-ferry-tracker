@@ -9,10 +9,14 @@ import { cleanupLegacyStorage } from './utils/constants'
 // users returning after the cache-shape change don't see stale data.
 cleanupLegacyStorage()
 
+// Terminal and 404 pages (scripts/postbuild.mjs) bake a static section into
+// #root. Capture it before React replaces #root so App can keep it on the page.
+const staticSectionHtml = document.querySelector('#root [data-static-section]')?.outerHTML || null
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <App staticSectionHtml={staticSectionHtml} />
     </ErrorBoundary>
   </StrictMode>,
 )

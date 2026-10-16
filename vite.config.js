@@ -26,6 +26,14 @@ function localScheduleMiddleware(req, res, next) {
   createReadStream(file).pipe(res)
 }
 
+// `vite preview` only: serve the generated dist/terminal/<slug>/index.html for
+// /terminal/<slug> without a trailing slash, like the vercel.json rewrite.
+function terminalPageMiddleware(req, res, next) {
+  const match = /^\/terminal\/([a-z0-9-]+)$/.exec(req.url?.split('?')[0] || '')
+  if (match) req.url = `/terminal/${match[1]}/index.html`
+  next()
+}
+
 function serveLocalSchedule() {
   return {
     name: 'serve-local-schedule',
@@ -35,6 +43,7 @@ function serveLocalSchedule() {
     },
     configurePreviewServer(server) {
       server.middlewares.use(localScheduleMiddleware)
+      server.middlewares.use(terminalPageMiddleware)
     },
   }
 }

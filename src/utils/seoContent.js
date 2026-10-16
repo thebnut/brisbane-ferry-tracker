@@ -22,7 +22,7 @@ export const CLASSES = {
   link: 'inline-block px-3 py-1 rounded-full bg-white/80 border border-ferry-orange/20 text-ferry-aqua hover:text-ferry-orange hover:border-ferry-orange/50 transition-colors',
 };
 
-const escapeHtml = (s) =>
+export const escapeHtml = (s) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 export const introSectionHtml = () => `
@@ -38,7 +38,9 @@ ${TERMINALS.map((t) => `          <li><a class="${CLASSES.link}" href="${termina
 // Static stand-in for the app's first (loading) render: nav, status bar and
 // spinner mirror Navigation, StatusBar and LoadingSpinner so the swap to React
 // is not visible. Interactive bits are inert until React takes over.
-export const seoShellHtml = () => `
+// sectionHtml is the crawlable section under the board: the home intro by
+// default, or a terminal page's timetable (scripts/postbuild.mjs).
+export const seoShellHtml = (sectionHtml = introSectionHtml()) => `
     <div class="min-h-screen bg-gray-50">
       <nav class="bg-gradient-to-r from-white via-ferry-orange-light to-ferry-light-blue shadow-xl sticky top-0 z-50 border-b-2 border-ferry-orange/50">
         <div class="container mx-auto px-4 max-w-6xl">
@@ -76,6 +78,6 @@ export const seoShellHtml = () => `
           </div>
           <p class="mt-4 text-ferry-aqua font-bold text-lg">Loading ferry times...</p>
         </div>
-      </main>${introSectionHtml()}
+      </main>${sectionHtml}
     </div>
   `;

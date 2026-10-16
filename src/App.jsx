@@ -20,6 +20,7 @@ import useFerryData from './hooks/useFerryData';
 import staticGtfsService from './services/staticGtfsService';
 import { STORAGE_KEYS, DEFAULT_STOPS, ATTRIBUTION } from './utils/constants';
 import { isGitHubPages } from './utils/environment';
+import { getTerminalFromPath } from './utils/terminals';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 // BRI-22: Vercel Analytics — sibling of SpeedInsights. Both beacons go through
 // same-origin /_vercel/* proxies, so no CSP changes needed.
@@ -41,7 +42,22 @@ const MapFallback = () => (
   </div>
 );
 
-function App() {
+// /terminal/<slug> pages open with that terminal as the origin. The choice is
+// temporary (like the header dropdowns): saved stops in storage are untouched.
+const routeTerminal = typeof window !== 'undefined' ? getTerminalFromPath(window.location.pathname) : null;
+
+const stopsForTerminal = (terminal, saved) => {
+  const origin = { id: terminal.id, name: terminal.name };
+  // Keep the visitor's usual pairing if it involves this terminal.
+  if (saved?.outbound?.id === terminal.id) return { outbound: origin, inbound: saved.inbound };
+  if (saved?.inbound?.id === terminal.id) return { outbound: origin, inbound: saved.outbound };
+  // Otherwise head for the default destination (Riverside, or Bulimba from
+  // Riverside). Invalid pairs are corrected once connectivity loads.
+  const destination = terminal.id === DEFAULT_STOPS.inbound.id ? DEFAULT_STOPS.outbound : DEFAULT_STOPS.inbound;
+  return { outbound: origin, inbound: destination };
+};
+
+function App({ staticSectionHtml = null }) {
   // v1.2.0 - Modern orange-themed redesign with animations (2025-07-19)
   // Load saved stops or use defaults
   const [selectedStops, setSelectedStops] = useState(() => {
@@ -66,6 +82,8 @@ function App() {
     // Show modal if:
     // 1. User hasn't saved stops permanently OR
     // 2. User has turned off "Remember selection" preference
+    // A terminal page already says where the visitor wants to go from.
+    if (routeTerminal) return false;
     const hasRememberPreference = localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION) === 'true';
     const hasSavedStops = localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS);
     
@@ -73,7 +91,9 @@ function App() {
   });
 
   // Temporary stops for dropdown selections (session-based)
-  const [temporaryStops, setTemporaryStops] = useState(selectedStops);
+  const [temporaryStops, setTemporaryStops] = useState(() =>
+    routeTerminal ? stopsForTerminal(routeTerminal, selectedStops) : selectedStops
+  );
   
   // Available stops for dropdowns
   const [availableStops, setAvailableStops] = useState([]);
@@ -162,6 +182,16 @@ function App() {
         // Get valid destinations for current origin
         const destinations = staticGtfsService.getValidDestinations(currentStops.outbound.id);
         setValidDestinations(destinations);
+
+        // Terminal page: if the default destination isn't served directly from
+        // this terminal, switch to the first one that is.
+        if (routeTerminal && destinations.length > 0) {
+          setTemporaryStops((prev) => {
+            if (prev.outbound.id !== routeTerminal.id || destinations.includes(prev.inbound.id)) return prev;
+            const next = stops.find((s) => s.id === destinations[0]);
+            return next ? { ...prev, inbound: { id: next.id, name: next.name } } : prev;
+          });
+        }
         
         setStopsLoading(false);
       } catch (error) {
@@ -411,8 +441,14 @@ function App() {
         )}
       </main>
 
-      {/* Crawlable intro for the website only; the native app has no use for it. */}
-      {!Capacitor.isNativePlatform() && <SiteIntro />}
+      {/* Crawlable content for the website only; the native app has no use for
+          it. Terminal and 404 pages keep their build-time section (main.jsx). */}
+      {!Capacitor.isNativePlatform() &&
+        (staticSectionHtml ? (
+          <div className="contents" dangerouslySetInnerHTML={{ __html: staticSectionHtml }} />
+        ) : (
+          <SiteIntro />
+        ))}
 
       <footer className="mt-16 py-8 border-t border-gray-200">
         <div className="container mx-auto px-4 max-w-6xl text-center text-sm text-gray-600">
