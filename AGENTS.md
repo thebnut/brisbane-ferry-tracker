@@ -68,7 +68,7 @@ Interactive map showing real-time ferry positions:
 STOPS = {
   bulimba: "317584",      // Bulimba ferry terminal
   riverside: "317590",    // Riverside ferry terminal  
-  apolloRoad: "317533"    // Apollo Road (near Bulimba) - currently unused
+  apolloRoad: "307147"    // Apollo Road (near Bulimba) - currently unused
 }
 
 // Route IDs

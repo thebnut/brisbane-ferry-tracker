@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { createReadStream, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { seoShellHtml } from './src/utils/seoContent.js'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
 const LOCAL_SCHEDULE_PATH = '/schedule-data/latest.json'
@@ -38,9 +39,23 @@ function serveLocalSchedule() {
   }
 }
 
+// Bake crawlable content (h1, intro, terminal links) plus a static copy of the
+// loading screen into #root, so it is in the raw HTML. React's createRoot
+// replaces it on mount. See src/utils/seoContent.js.
+function seoShell() {
+  return {
+    name: 'seo-shell',
+    transformIndexHtml(html) {
+      const empty = '<div id="root"></div>'
+      if (!html.includes(empty)) throw new Error('seo-shell: <div id="root"></div> not found in index.html')
+      return html.replace(empty, `<div id="root">${seoShellHtml()}</div>`)
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), serveLocalSchedule()],
+  plugins: [react(), serveLocalSchedule(), seoShell()],
   server: {
     proxy: {
       '/api/gtfs-proxy': {
