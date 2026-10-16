@@ -73,10 +73,8 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
     } catch (err) {
       console.error('Error fetching ferry data:', err);
       setError(err.message || 'Failed to load ferry times');
-      // Keep existing data if available
-      if (!departures.outbound.length && !departures.inbound.length) {
-        setDepartures({ outbound: [], inbound: [] });
-      }
+      // Keep whatever departures are already in state (possibly empty) so a
+      // failed refresh doesn't blank out the board.
       setLoading(false);
       setScheduleLoading(false);
     }

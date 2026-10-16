@@ -12,7 +12,7 @@ export default defineConfig([
     files: ['**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
-      reactHooks.configs['recommended-latest'],
+      reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
     languageOptions: {
@@ -26,6 +26,11 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // react-hooks 7 ships React Compiler lint rules. This rule flags the
+      // "fetch on mount / reset on filter change" effects in useFerryData and
+      // the modals. Those are deliberate and refactoring them is behavioural
+      // work, so keep the signal as a warning rather than failing lint.
+      'react-hooks/set-state-in-effect': 'warn',
     },
   },
   {

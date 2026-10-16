@@ -4,7 +4,7 @@ A real-time ferry departure tracker for Brisbane's ferry network, allowing users
 
 ## Features
 
-- 🚤 Live departure times for all Brisbane ferry services (CityCat, CityHopper, Cross River)
+- 🚤 Live departure times for Brisbane CityCat services (all-stops F1, express F11, cross-river F21)
 - 🎯 Dynamic stop selector - choose any ferry terminal pair
 - ⏱️ Real-time countdown timers for next departures
 - 📅 Shows scheduled times when real-time data unavailable (early mornings)
@@ -93,16 +93,13 @@ vercel --prod
 
 The app includes serverless functions to handle CORS for the TransLink API.
 
-### Deploy to GitHub Pages (Schedule Only)
+### GitHub Pages (schedule data CDN only)
 
-The app is also deployed to GitHub Pages, but with limited functionality:
+GitHub Pages serves the `main` branch root so that the daily-generated `schedule-data/latest.json` is available on a CDN:
 
-**Features**:
-- ✅ Schedule data (updated daily)
-- ❌ No live ferry tracking (CORS limitation)
-- ❌ No real-time updates
+**URL**: https://thebnut.github.io/brisbane-ferry-tracker/schedule-data/latest.json
 
-**URL**: https://thebnut.github.io/brisbane-ferry-tracker/
+It is not a deployment of the app itself. Every environment (Vercel, the custom domains, and the iOS app) fetches its schedule from this URL.
 
 ### Manual Deployment
 
@@ -141,7 +138,8 @@ src/
 
 ## Technical Documentation
 
-- [CLAUDE.md](./CLAUDE.md) - Development guide for AI assistants
+- [AGENTS.md](./AGENTS.md) - Project guide for coding agents (Claude Code, Codex); `CLAUDE.md` just points to it
+- [docs/archive/](./docs/archive/) - Superseded design notes kept for history
 - [app-architecture.md](./app-architecture.md) - Detailed system architecture and data flow
 - [schedule-filtering-logic.md](./schedule-filtering-logic.md) - Detailed explanation of ferry filtering algorithm
 

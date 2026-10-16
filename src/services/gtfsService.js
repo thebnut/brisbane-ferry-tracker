@@ -30,7 +30,7 @@ class GTFSService {
       return feed;
     } catch (error) {
       console.error(`Error fetching ${endpoint}:`, error);
-      throw new Error(`Failed to fetch ${endpoint}: ${error.message}`);
+      throw new Error(`Failed to fetch ${endpoint}: ${error.message}`, { cause: error });
     }
   }
 

@@ -27,13 +27,6 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
   // Helper function to remove 'ferry terminal' from stop names
   const cleanStopName = (name) => name ? name.replace(' ferry terminal', '') : '';
 
-  // Load stops when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      loadStops();
-    }
-  }, [isOpen]);
-
   // Load available stops
   const loadStops = async () => {
     try {
@@ -92,19 +85,25 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
     }
   };
 
+  // Load stops once each time the modal opens. loadStops reads the latest
+  // origin/destination at call time; re-running it on every selection change
+  // would re-fetch the schedule, so it is deliberately not a dependency.
+  useEffect(() => {
+    if (isOpen) {
+      loadStops();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   // Update valid destinations when origin changes
   useEffect(() => {
     if (selectedOrigin && availableStops.length > 0) {
       // Check if we're using temporary data
       const hasRealData = staticGtfsService.hasStopsData();
-      let destinations = [];
-      
-      if (hasRealData) {
-        destinations = staticGtfsService.getValidDestinations(selectedOrigin);
-      } else {
-        destinations = TEMPORARY_CONNECTIVITY[selectedOrigin] || [];
-      }
-      
+      const destinations = hasRealData
+        ? staticGtfsService.getValidDestinations(selectedOrigin)
+        : (TEMPORARY_CONNECTIVITY[selectedOrigin] || []);
+
       setValidDestinations(destinations);
       
       // Reset destination if not valid for new origin
@@ -112,7 +111,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
         setSelectedDestination(destinations[0]);
       }
     }
-  }, [selectedOrigin, availableStops]);
+  }, [selectedOrigin, selectedDestination, availableStops]);
 
   // Handle save
   const handleSave = () => {
