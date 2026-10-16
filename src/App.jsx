@@ -411,7 +411,8 @@ function App() {
         )}
       </main>
 
-      <SiteIntro />
+      {/* Crawlable intro for the website only; the native app has no use for it. */}
+      {!Capacitor.isNativePlatform() && <SiteIntro />}
 
       <footer className="mt-16 py-8 border-t border-gray-200">
         <div className="container mx-auto px-4 max-w-6xl text-center text-sm text-gray-600">
