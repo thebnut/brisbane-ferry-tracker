@@ -41,6 +41,7 @@ function replaceOnce(html, pattern, replacement, label) {
   let count = 0;
   const out = html.replace(pattern, (...args) => {
     count += 1;
+    // Callback form so `$&`, `$'` etc. in data-derived text stay literal.
     return typeof replacement === 'function' ? replacement(...args) : replacement;
   });
   if (count !== 1) throw new Error(`postbuild: expected exactly one ${label} in dist/index.html, found ${count}`);
@@ -80,7 +81,8 @@ function renderPage({ title, description, url, jsonLd, sectionHtml, noindex = fa
     jsonLd ? `<script type="application/ld+json">\n${JSON.stringify(jsonLd, null, 2).replace(/</g, '\\u003c')}\n    </script>` : '',
     'JSON-LD block',
   );
-  return html.replace(homeShell, seoShellHtml(sectionHtml));
+  // Callback form so `$&`, `$'` etc. in data-derived HTML stay literal.
+  return html.replace(homeShell, () => seoShellHtml(sectionHtml));
 }
 
 function writePage(relPath, html) {

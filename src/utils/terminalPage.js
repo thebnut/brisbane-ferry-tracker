@@ -177,7 +177,7 @@ export function terminalSectionHtml(terminal, data) {
   const link = (t) => `<a class="${CLASSES.link}" href="${terminalPath(t.slug)}">${escapeHtml(t.name)}</a>`;
 
   const servedBy = routes.length
-    ? ` It is served by ${routes.map((r) => `${r.code} (${escapeHtml(r.label)})`).join(', ')}.`
+    ? ` It is served by ${routes.map((r) => `${escapeHtml(r.code)} (${escapeHtml(r.label)})`).join(', ')}.`
     : '';
   const dateLabel = data?.dateLabel ? escapeHtml(data.dateLabel) : null;
   const timetable = rows.length
