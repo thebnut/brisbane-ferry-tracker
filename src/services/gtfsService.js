@@ -1,4 +1,18 @@
-import GtfsRealtimeBindings from 'gtfs-realtime-bindings';
+// The protobuf decoder (gtfs-realtime-bindings + protobufjs) is the largest
+// dependency, so it is loaded as a separate chunk in parallel with the first
+// feed request instead of blocking first paint in the entry bundle.
+let bindingsPromise = null;
+const loadBindings = () => {
+  if (!bindingsPromise) {
+    bindingsPromise = import('gtfs-realtime-bindings')
+      .then((mod) => mod.default)
+      .catch((error) => {
+        bindingsPromise = null; // allow a retry on the next refresh
+        throw error;
+      });
+  }
+  return bindingsPromise;
+};
 import { API_CONFIG } from '../utils/constants';
 import { getApiBase, isGitHubPages } from '../utils/environment';
 
@@ -16,8 +30,8 @@ class GTFSService {
 
       const url = `${getApiBase()}/api/gtfs-proxy?endpoint=${encodeURIComponent(endpoint)}`;
       
-      const response = await fetch(url);
-      
+      const [response, GtfsRealtimeBindings] = await Promise.all([fetch(url), loadBindings()]);
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -30,7 +44,7 @@ class GTFSService {
       return feed;
     } catch (error) {
       console.error(`Error fetching ${endpoint}:`, error);
-      throw new Error(`Failed to fetch ${endpoint}: ${error.message}`);
+      throw new Error(`Failed to fetch ${endpoint}: ${error.message}`, { cause: error });
     }
   }
 

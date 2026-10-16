@@ -1,5 +1,5 @@
 import { STOPS, ROUTES, DEBUG_CONFIG, DEFAULT_STOPS } from '../utils/constants';
-import { startOfDay, endOfDay, format } from 'date-fns';
+import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import staticGtfsService from './staticGtfsService';
 
@@ -84,18 +84,6 @@ class FerryDataService {
       );
       
       // Only include trips that go between our two selected stops
-      if (isRelevantRoute && hasOutboundStop && hasInboundStop) {
-        // Sort stops to ensure correct order before logging
-        const sortedStops = [...stopTimeUpdates].sort((a, b) => {
-          const seqA = parseInt(a.stopSequence) || 0;
-          const seqB = parseInt(b.stopSequence) || 0;
-          return seqA - seqB;
-        });
-        
-        // Debug: log the sorted stop sequence for trips that pass initial filter
-        // Commented out verbose logging
-        // this.log(`Trip ${trip.tripId} sorted stop sequence: ${sortedStops.map(s => `${s.stopId}(${s.stopSequence})`).join(' -> ')}`);
-      }
       return isRelevantRoute && hasOutboundStop && hasInboundStop;
     });
     
@@ -407,8 +395,6 @@ class FerryDataService {
       
       // If no exact tripId match, try time-based matching with route verification
       if (!matched) {
-        const timeKey = `${dep.stopId}-${Math.floor(dep.departureTime.getTime() / 60000)}`;
-        
         // Look within a 10-minute window for same route
         for (let i = -10; i <= 10; i++) {
           const checkKey = `${dep.stopId}-${Math.floor(dep.departureTime.getTime() / 60000) + i}`;
@@ -600,7 +586,7 @@ class FerryDataService {
       // Filter for trips that go from origin to destination
       const validDepartures = [];
       
-      Object.entries(departuresByTrip).forEach(([tripId, tripDepartures]) => {
+      Object.values(departuresByTrip).forEach((tripDepartures) => {
         // Sort by stop sequence
         tripDepartures.sort((a, b) => (a.stopSequence || 0) - (b.stopSequence || 0));
         

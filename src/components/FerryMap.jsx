@@ -101,14 +101,6 @@ const createFerryIcon = (routeId, wrap = null) => {
   });
 };
 
-// Terminal icon
-const terminalIcon = L.divIcon({
-  html: '<div style="font-size: 20px;">📍</div>',
-  className: 'terminal-marker',
-  iconSize: [20, 20],
-  iconAnchor: [10, 20]
-});
-
 // BRI-37: User-location pin. Distinctive blue so it never gets mistaken for a
 // ferry marker (those are route-coloured — red/teal/gray). Pulses to draw the
 // eye on first drop.
@@ -299,7 +291,7 @@ function LocateMeOverlay({ nearest }) {
   );
 }
 
-function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
+function FerryMap({ vehiclePositions, tripUpdates, onHide }) {
   // Preload stop data on component mount
   useEffect(() => {
     preloadStopData();
@@ -310,16 +302,17 @@ function FerryMap({ vehiclePositions, tripUpdates, departures, onHide }) {
   // used by MapFitToLocation to re-frame the map exactly once per action.
   const nearest = useNearestStop();
   const [fitTrigger, setFitTrigger] = useState(0);
+  // Depend on primitives, not the location/stop objects, so a re-created but
+  // identical object from the hook doesn't re-frame the map.
+  const locateStatus = nearest.status;
+  const userLat = nearest.userLocation?.lat;
+  const userLng = nearest.userLocation?.lng;
+  const nearestStopId = nearest.nearestStop?.id;
   useEffect(() => {
-    if (nearest.status === 'granted' && nearest.userLocation && nearest.nearestStop) {
+    if (locateStatus === 'granted' && userLat != null && userLng != null && nearestStopId) {
       setFitTrigger((t) => t + 1);
     }
-  }, [
-    nearest.status,
-    nearest.userLocation?.lat,
-    nearest.userLocation?.lng,
-    nearest.nearestStop?.id,
-  ]);
+  }, [locateStatus, userLat, userLng, nearestStopId]);
 
   // Hand off directions to the native Maps app. On Capacitor iOS the maps://
   // scheme always resolves to Apple Maps; window.open with target '_system'

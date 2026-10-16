@@ -59,7 +59,7 @@ export default function useNearestStop() {
   const request = useCallback(async () => {
     if (!Capacitor.isNativePlatform()) {
       if (import.meta?.env?.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.warn('[useNearestStop] request() called outside native runtime — no-op');
       }
       setStatus('error');
@@ -97,7 +97,7 @@ export default function useNearestStop() {
       // message. Everything else (timeout, unavailable, etc.) is a generic error.
       const isDenied = /denied|permission/i.test(message);
       if (import.meta?.env?.DEV) {
-        // eslint-disable-next-line no-console
+         
         console.warn('[useNearestStop] request error:', message);
       }
       setStatus(isDenied ? 'denied' : 'error');

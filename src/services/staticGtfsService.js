@@ -1,9 +1,16 @@
-import JSZip from 'jszip';
-import Papa from 'papaparse';
 import { STOPS, ROUTES, DEBUG_CONFIG, STORAGE_KEYS } from '../utils/constants';
 import { getApiBase, getScheduleDataUrl, isGitHubPages, isLocalDev } from '../utils/environment';
-import { startOfDay, endOfDay, format, parse, isAfter, isBefore, addMinutes } from 'date-fns';
+import { startOfDay, format, parse, isAfter, isBefore, addMinutes } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
+
+// The raw GTFS ZIP is a fallback for when the pre-processed GitHub schedule is
+// unavailable, so its ZIP/CSV parsers are loaded on demand rather than shipped
+// in the entry bundle. Repeat dynamic imports resolve from the module cache.
+const loadZipParsers = () =>
+  Promise.all([import('jszip'), import('papaparse')]).then(([jszip, papaparse]) => ({
+    JSZip: jszip.default,
+    Papa: papaparse.default,
+  }));
 
 class StaticGTFSService {
   constructor() {
@@ -105,6 +112,7 @@ class StaticGTFSService {
       }
 
       const arrayBuffer = await response.arrayBuffer();
+      const { JSZip } = await loadZipParsers();
       const zip = await JSZip.loadAsync(arrayBuffer);
 
       // Parse the files we need
@@ -143,6 +151,7 @@ class StaticGTFSService {
     }
 
     const content = await file.async('string');
+    const { Papa } = await loadZipParsers();
     const result = Papa.parse(content, {
       header: true,
       skipEmptyLines: true

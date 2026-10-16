@@ -2,7 +2,7 @@ import React from 'react';
 import { format, differenceInMinutes, isTomorrow, isAfter, startOfDay, addDays } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import clsx from 'clsx';
-import { SERVICE_TYPES, API_CONFIG, getOccupancyInfo } from '../utils/constants';
+import { SERVICE_TYPES, API_CONFIG } from '../utils/constants';
 import { getVesselWrap } from '../utils/wrappedVessels';
 import useMinuteTick from '../hooks/useMinuteTick';
 
@@ -39,7 +39,7 @@ const DepartureItem = ({ departure, onClick }) => {
     }
     
     return "On time";
-  }, [departure.isRealtime, departure.scheduledTime, departure.departureTime, departure.tripId]);
+  }, [departure.isRealtime, departure.scheduledTime, departure.departureTime]);
   
   const departureTimeZoned = toZonedTime(departure.departureTime, API_CONFIG.timezone);
   const currentTimeZoned = toZonedTime(new Date(), API_CONFIG.timezone);
