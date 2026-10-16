@@ -11,12 +11,67 @@
          and 'unsafe-inline' on script-src for Capacitor bootstrap. On the web, the stricter vercel.json
          header also applies and the browser enforces the intersection, so this does not weaken web security. -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' capacitor://localhost ionic://localhost; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://vercel.live; style-src 'self' 'unsafe-inline'; img-src 'self' data: capacitor://localhost https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com https://*.google-analytics.com https://*.googletagmanager.com; font-src 'self' data: https://vercel.live https://assets.vercel.com; connect-src 'self' capacitor://localhost https://brisbaneferry.com https://www.brisbaneferry.com https://thebnut.github.io https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://vercel.live wss://vercel.live; frame-src 'self' https://vercel.live; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" />
-    <link rel="icon" type="image/png" href="/bf_favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Brisbane Ferry Tracker - Live CityCat Departures</title>
-    <meta name="description" content="Real-time ferry departure times for Brisbane's CityCat and CityHopper services. The quickest way to get live City Cat info!">
+    <meta name="description" content="Real-time ferry departure times for Brisbane's CityCat and CityHopper services. The quickest way to get live City Cat info!" />
+    <link rel="canonical" href="https://www.brisbaneferry.com/" />
+    <meta name="theme-color" content="#FF6B35" />
+
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" href="/bf_favicon.png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Open Graph / Twitter share cards -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Brisbane Ferry" />
+    <meta property="og:locale" content="en_AU" />
+    <meta property="og:url" content="https://www.brisbaneferry.com/" />
+    <meta property="og:title" content="Brisbane Ferry Tracker - Live CityCat Departures" />
+    <meta property="og:description" content="Live departure boards for every Brisbane ferry terminal: next CityCat and ferry times, real-time updates and today's timetable." />
+    <meta property="og:image" content="https://www.brisbaneferry.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="BrisbaneFerry Departure Boards logo: live CityCat and ferry departures" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Brisbane Ferry Tracker - Live CityCat Departures" />
+    <meta name="twitter:description" content="Live departure boards for every Brisbane ferry terminal: next CityCat and ferry times, real-time updates and today's timetable." />
+    <meta name="twitter:image" content="https://www.brisbaneferry.com/og-image.jpg" />
+
+    <!-- Structured data. Not executed, so the strict CSP does not apply. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://www.brisbaneferry.com/#website",
+            "url": "https://www.brisbaneferry.com/",
+            "name": "Brisbane Ferry",
+            "alternateName": ["BrisbaneFerry Departure Boards", "Brisbane Ferry Tracker"],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://www.brisbaneferry.com/#app",
+            "url": "https://www.brisbaneferry.com/",
+            "name": "Brisbane Ferry Tracker",
+            "description": "Real-time departure boards for Brisbane CityCat and ferry services between any two terminals, with live vessel positions and the daily timetable.",
+            "applicationCategory": "TravelApplication",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires JavaScript",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "AUD" },
+            "image": "https://www.brisbaneferry.com/og-image.jpg",
+            "isPartOf": { "@id": "https://www.brisbaneferry.com/#website" },
+            "areaServed": { "@type": "City", "name": "Brisbane" }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
+    <!-- seo-shell: replaced at build/dev time by vite.config.js (seoShell plugin) -->
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

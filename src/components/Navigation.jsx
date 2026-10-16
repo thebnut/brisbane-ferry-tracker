@@ -15,6 +15,9 @@ const Navigation = ({ onOpenSettings }) => {
             <img
               src="/bf.com_logo.png"
               alt="Brisbane Ferry Tracker"
+              width={489}
+              height={199}
+              fetchPriority="high"
               className="h-16 md:h-28 w-auto max-w-[200px] md:max-w-none"
             />
           </div>

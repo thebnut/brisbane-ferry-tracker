@@ -15,6 +15,7 @@ const StopSelectorModal = lazy(() => import('./components/StopSelectorModal'));
 import MobileBoardHeader from './components/MobileBoardHeader';
 import DepartureTimeDropdown from './components/DepartureTimeDropdown';
 import FeedbackModal from './components/FeedbackModal';
+import SiteIntro from './components/SiteIntro';
 import useFerryData from './hooks/useFerryData';
 import staticGtfsService from './services/staticGtfsService';
 import { STORAGE_KEYS, DEFAULT_STOPS, ATTRIBUTION } from './utils/constants';
@@ -272,22 +273,27 @@ function App() {
         hasExpressServices={hasExpressServices}
       />
       
-      {/* Schedule loading indicator */}
+      {/* Schedule loading indicator. Floats over the page instead of sitting
+          in the flow: inserting it above <main> pushed the boards down and was
+          the main layout shift (CLS) on first load. */}
       {scheduleLoading && !loading && (
-        <div className="bg-amber-50 border-b border-amber-200">
-          <div className="container mx-auto px-4 max-w-6xl py-2">
-            <div className="flex items-center justify-center space-x-2 text-sm text-amber-800">
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              <span>Loading schedule data... (showing live departures only)</span>
-            </div>
+        <div
+          role="status"
+          className="fixed bottom-4 inset-x-4 z-40 mx-auto max-w-md rounded-full bg-amber-50 border border-amber-200 shadow-lg px-4 py-2"
+        >
+          <div className="flex items-center justify-center space-x-2 text-sm text-amber-800">
+            <svg className="animate-spin h-4 w-4 shrink-0" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <span>Loading schedule data... (showing live departures only)</span>
           </div>
         </div>
       )}
-      
-      <main className="container mx-auto px-4 max-w-6xl py-8">
+
+      {/* min-h-screen keeps the intro and footer below the fold while the
+          spinner is swapped for the departure boards, so they don't shift. */}
+      <main className="container mx-auto px-4 max-w-6xl py-8 min-h-screen">
         {error && !loading && (
           <ErrorMessage message={error} onRetry={refresh} />
         )}
@@ -296,8 +302,9 @@ function App() {
           <LoadingSpinner />
         ) : (
           <>
-            {/* Status indicator */}
-            <div className="mb-6">
+            {/* Status indicator. min-h reserves two lines of text so the boards
+                below don't shift as the message appears or changes length. */}
+            <div className="mb-6 min-h-[4rem]">
               {(() => {
                 const hasScheduled = departures.outbound.some(d => d.isScheduled) || departures.inbound.some(d => d.isScheduled);
                 const hasRealtime = departures.outbound.some(d => d.isRealtime) || departures.inbound.some(d => d.isRealtime);
@@ -403,7 +410,9 @@ function App() {
           </>
         )}
       </main>
-      
+
+      <SiteIntro />
+
       <footer className="mt-16 py-8 border-t border-gray-200">
         <div className="container mx-auto px-4 max-w-6xl text-center text-sm text-gray-600">
           <p>
