@@ -47,7 +47,7 @@ const StopSelectorModal = ({ isOpen, onClose, currentStops, onSave }) => {
       if (!staticGtfsService.hasStopsData()) {
         try {
           await staticGtfsService.getScheduledDepartures();
-        } catch (e) {
+        } catch {
           console.warn('Could not load schedule data, using temporary stops');
         }
       }

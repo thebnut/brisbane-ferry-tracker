@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import Papa from 'papaparse';
-import { format, parse, isAfter, isBefore, addMinutes, startOfDay, addDays } from 'date-fns';
+import { format, parse, isAfter, isBefore, startOfDay, addDays } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import fs from 'fs/promises';
 import path from 'path';
@@ -74,35 +74,6 @@ function getActiveServiceIds(calendar, calendarDates, startDate, endDate) {
   }
   
   return activeServicesByDate;
-}
-
-// Determine direction based on stop sequence
-function determineDirection(currentStopId, allStopTimes, currentIndex, trip) {
-  // Try to use headsign first
-  if (trip.trip_headsign) {
-    const headsign = trip.trip_headsign.toLowerCase();
-    if (headsign.includes('riverside')) {
-      return 'outbound';
-    } else if (headsign.includes('bulimba')) {
-      return 'inbound';
-    }
-  }
-
-  // Fall back to checking stop sequence
-  const hasRiversideAfter = allStopTimes.slice(currentIndex + 1).some(st => 
-    st.stop_id === STOPS.riverside
-  );
-  const hasBulimbaAfter = allStopTimes.slice(currentIndex + 1).some(st => 
-    st.stop_id === STOPS.bulimba
-  );
-  
-  if (currentStopId === STOPS.bulimba && hasRiversideAfter) {
-    return 'outbound';
-  } else if (currentStopId === STOPS.riverside && hasBulimbaAfter) {
-    return 'inbound';
-  }
-  
-  return currentStopId === STOPS.bulimba ? 'outbound' : 'inbound';
 }
 
 // Build ferry stop connectivity data
@@ -187,7 +158,7 @@ function buildStopConnectivity(trips, stopTimes, stops, routes) {
   });
   
   // Build connectivity map from patterns
-  tripPatterns.forEach((patterns, routeKey) => {
+  tripPatterns.forEach((patterns) => {
     patterns.forEach(patternJson => {
       const stopSequence = JSON.parse(patternJson);
       
@@ -292,7 +263,6 @@ async function processGTFSData() {
   
   const departures = [];
   // Process ALL ferry stops and routes
-  const ferryStopIds = new Set();
   const ferryRouteIds = new Set();
 
   // Create a map of trip_id to stop times for faster lookup
@@ -329,7 +299,7 @@ async function processGTFSData() {
   relevantTrips.forEach(trip => {
     const tripStopTimes = stopTimesByTrip.get(trip.trip_id) || [];
     
-    tripStopTimes.forEach((stopTime, index) => {
+    tripStopTimes.forEach((stopTime) => {
       // Include all stops (we'll filter for ferry terminals later)
 
       // Parse departure time for each day the service runs
@@ -414,8 +384,29 @@ async function processGTFSData() {
   const latestPath = path.join(outputDir, 'latest.json');
   await fs.writeFile(latestPath, JSON.stringify(output, null, 2));
   console.log(`Schedule also saved as latest.json`);
-  
+
+  await pruneOldSnapshots(outputDir);
+
   return output;
+}
+
+// Each dated snapshot is ~3MB and was being committed forever (1.3GB checkout
+// after a year). Keep only the newest few so the repo stays clonable; older
+// data remains in git history if ever needed.
+const SNAPSHOTS_TO_KEEP = 7;
+
+async function pruneOldSnapshots(outputDir) {
+  const entries = await fs.readdir(outputDir);
+  const snapshots = entries
+    .filter(name => /^schedule-\d{4}-\d{2}-\d{2}\.json$/.test(name))
+    .sort(); // ISO dates sort chronologically as strings
+  const stale = snapshots.slice(0, Math.max(0, snapshots.length - SNAPSHOTS_TO_KEEP));
+  for (const name of stale) {
+    await fs.unlink(path.join(outputDir, name));
+  }
+  if (stale.length) {
+    console.log(`Pruned ${stale.length} old snapshot(s), kept newest ${SNAPSHOTS_TO_KEEP}`);
+  }
 }
 
 // Run the processor

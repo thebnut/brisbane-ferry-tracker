@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import Papa from 'papaparse';
 import { STOPS, ROUTES, DEBUG_CONFIG, STORAGE_KEYS } from '../utils/constants';
 import { getApiBase, getScheduleDataUrl, isGitHubPages, isLocalDev } from '../utils/environment';
-import { startOfDay, endOfDay, format, parse, isAfter, isBefore, addMinutes } from 'date-fns';
+import { startOfDay, format, parse, isAfter, isBefore, addMinutes } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 
 class StaticGTFSService {

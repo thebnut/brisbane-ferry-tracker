@@ -148,9 +148,9 @@ git checkout develop
 - Check if cached data exists in localStorage
 
 ### Issue: Localhost showing fewer departures than Vercel
-**Cause:** Stale schedule data in `public/schedule-data/latest.json`
-**Solution:** Copy current data: `cp schedule-data/latest.json public/schedule-data/latest.json`
-**Long-term:** Configure Vite to serve from root schedule-data or sync automatically
+**Cause:** Local `schedule-data/latest.json` is behind the daily GitHub Action commit.
+**Solution:** `git pull` on `main` (or merge `main` into your branch). The Vite dev server serves the repo's `schedule-data/latest.json` directly at `/schedule-data/latest.json` (see the `serveLocalSchedule` plugin in `vite.config.js`), so there is no separate copy under `public/` to keep in sync. `public/schedule-data/` is gitignored and must not be recreated: anything there would be shipped in every deploy.
+**Note:** `schedule-data/` keeps only the newest 7 dated snapshots plus `latest.json`; the processor prunes older ones each run (they remain in git history).
 
 ### Issue: Cache errors
 **Solution:** Cache only processed departures, not raw GTFS data (30MB → 50KB)
