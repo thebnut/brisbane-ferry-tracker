@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import clsx from 'clsx';
 import { Capacitor } from '@capacitor/core';
@@ -13,6 +13,7 @@ import useNearestStop from '../hooks/useNearestStop';
 import WRAPPED_VESSELS from '../data/wrappedVessels.json';
 import blueyUrl from '../assets/wraps/bluey.svg?url';
 import bingoUrl from '../assets/wraps/bingo.svg?url';
+import BaseMapLayer from './BaseMapLayer';
 
 // Map iconKey → bundled asset URL. Keep parallel to the map in `utils/wrappedVessels.js`.
 const WRAP_LEGEND_ICONS = {
@@ -451,10 +452,7 @@ function FerryMap({ vehiclePositions, tripUpdates, onHide }) {
           style={{ height: '100%', width: '100%' }}
           scrollWheelZoom={false}
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
-          />
+          <BaseMapLayer />
 
           {/* BRI-37: user location pin + nearest-terminal highlight, iOS-only
               (hook is inert on web — never transitions to 'granted'). */}
