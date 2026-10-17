@@ -1,8 +1,16 @@
 import { useEffect } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { setWorkerUrl } from 'maplibre-gl';
 import { maplibreGL } from '@maplibre/maplibre-gl-leaflet';
 import 'maplibre-gl/dist/maplibre-gl.css';
+// MapLibre 6 looks for its worker next to its own module URL, which does not
+// survive bundling (and is not http(s) inside the Capacitor app). Ship the
+// prebuilt, self-contained worker as a same-origin asset and point MapLibre
+// at it explicitly.
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+
+setWorkerUrl(maplibreWorkerUrl);
 
 /**
  * Light basemap for every Leaflet map in the app.
