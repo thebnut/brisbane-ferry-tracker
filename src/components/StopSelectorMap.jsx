@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getStopNameSync, preloadStopData } from '../utils/stopNames';
+import BaseMapLayer from './BaseMapLayer';
 
 // Component to fit map bounds to show all stops
 function FitBounds({ stops }) {
@@ -88,10 +89,7 @@ const StopSelectorMap = ({
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
       >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        />
+        <BaseMapLayer />
         
         <FitBounds stops={stops} />
         
