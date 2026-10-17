@@ -1,9 +1,10 @@
 import React from 'react';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, Marker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { STOPS } from '../utils/constants';
 import { getVesselWrap } from '../utils/wrappedVessels';
+import BaseMapLayer from './BaseMapLayer';
 
 // Terminal locations
 const TERMINAL_LOCATIONS = {
@@ -108,10 +109,7 @@ function FerryDetailMap({ departure, vehiclePosition, hasLiveData }) {
       style={{ height: '100%', width: '100%' }}
       scrollWheelZoom={false}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
-      />
+      <BaseMapLayer />
       
       
       {/* Terminal markers */}
