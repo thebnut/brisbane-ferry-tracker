@@ -94,6 +94,7 @@ export async function answerIntent(
       if (!res.ok) return { answer: "Service alerts aren't available right now. Please try again shortly." }
       const body = (await res.json()) as AlertsResponse
       let alerts = body.alerts
+      const unfiltered = alerts.length
       if (intent.kind === 'alerts' && intent.line) {
         const line = intent.line.toLowerCase()
         alerts = alerts.filter(
@@ -111,6 +112,12 @@ export async function answerIntent(
             : intent.mode
               ? PLURAL[intent.mode]
               : 'the network'
+      // A line name is matched by text: if it matches nothing while other alerts exist, say exactly that instead of an
+      // all-clear (the line may be named differently in the alert text).
+      if (alerts.length === 0 && intent.kind === 'alerts' && intent.line && unfiltered > 0 && fresh)
+        return {
+          answer: `No current alert mentions ${intent.line}. There ${unfiltered === 1 ? 'is 1 other alert' : `are ${unfiltered} other alerts`}${intent.mode ? ` for ${PLURAL[intent.mode]}` : ''}: ask "${intent.mode ?? 'service'} alerts" to see them.`,
+        }
       if (alerts.length === 0)
         return {
           answer: fresh

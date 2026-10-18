@@ -223,6 +223,11 @@ describe('route alerts with suffixed route ids (Codex round 4)', () => {
       )
     const a = await answerIntent({ kind: 'alerts', line: 'f1' }, fetchApi, 0)
     expect(a.answer).toMatch(/^1 alert for f1: Services suspended due to weather/)
+    // A line that matches no alert text, while other alerts exist, is not an all-clear.
+    const b = await answerIntent({ kind: 'alerts', mode: 'ferry', line: 'shorncliffe' }, fetchApi, 0)
+    expect(b.answer).toBe(
+      'No current alert mentions shorncliffe. There is 1 other alert for ferries: ask "ferry alerts" to see them.',
+    )
   })
 })
 

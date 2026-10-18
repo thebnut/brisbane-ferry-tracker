@@ -165,11 +165,13 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
     ]
     if (codes.length > 1 || /\b(and|or|plus)\b/.test(s)) return fail('no_match', 'compound alerts scope')
     const routeCode = codes[0]
+    // Trailing time fillers ("today", "right now") aren't part of the line name (Codex verification).
+    const sl = s.replace(/\s+(?:today|now|right now|currently|at the moment|at present)$/, '')
     const line =
       routeCode ??
-      /\b(?:on|for|at|affecting) (?:the )?(.+?)(?: line| route)?$/.exec(s)?.[1] ??
+      /\b(?:on|for|at|affecting) (?:the )?(.+?)(?: line| route)?$/.exec(sl)?.[1] ??
       /^(?:any |are there (?:any )?)?(?:the )?(.+?) (?:line|route) (?:alerts?|disruptions?|delays|trackwork|track work|closures|problems|issues)\b/.exec(
-        s,
+        sl,
       )?.[1]
     const lineText = line ? stripModeWords(line) : undefined
     return {
