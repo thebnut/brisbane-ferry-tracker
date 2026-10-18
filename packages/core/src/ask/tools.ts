@@ -51,15 +51,19 @@ export function anthropicTools(): Array<{ name: ToolName; description: string; i
 }
 
 /**
- * Grounding check: every departure the model cites must appear in a get_departures result from this request,
- * and an answer with no tool calls is rejected.
+ * Grounding check (Codex PR review): an answer is grounded only if at least one tool call succeeded, every cited
+ * departure appears in a successful get_departures result, and the model's own prose carries no clock times
+ * (departure facts are rendered by the server from the cited rows, never taken from model text).
  */
 export function isGrounded(
   cited: Array<{ tripInstance: string }>,
-  toolResults: Array<{ tool: ToolName; departures?: Array<{ tripInstance: string }> }>,
+  toolResults: Array<{ tool: ToolName; ok?: boolean; departures?: Array<{ tripInstance: string }> }>,
+  prose = '',
 ): boolean {
-  if (toolResults.length === 0) return false
+  const okResults = toolResults.filter((r) => r.ok !== false)
+  if (okResults.length === 0) return false
+  if (/\b\d{1,2}[:.]\d{2}\b|\b\d{1,2}\s*(am|pm)\b|\bin \d+ ?min/i.test(prose)) return false
   const seen = new Set<string>()
-  for (const r of toolResults) for (const d of r.departures ?? []) seen.add(d.tripInstance)
+  for (const r of okResults) for (const d of r.departures ?? []) seen.add(d.tripInstance)
   return cited.every((c) => seen.has(c.tripInstance))
 }

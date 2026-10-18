@@ -82,14 +82,10 @@ function resolve(
   const best = c[0]
   if (!best || best.score < 0.6) return 'unresolved'
   const second = c[1]
-  // Two near-equal candidates in different modes or places: ask rather than guess.
-  if (
-    second &&
-    second.score >= best.score - 0.05 &&
-    second.key !== best.key &&
-    second.mode !== best.mode &&
-    !mode
-  ) {
+  // Two near-equal distinct stops (any mode, e.g. several "Queen Street" bus stops): ask rather than guess.
+  // An exact name match beats a non-exact one.
+  const exactWins = best.score === 1 && (second?.score ?? 0) < 1
+  if (second && !exactWins && second.score >= best.score - 0.05 && second.key !== best.key) {
     return 'ambiguous'
   }
   return best
@@ -112,6 +108,17 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
     normalized: s,
     ...(detail ? { detail } : {}),
   })
+
+  // Time constraints the grammar can't represent (first/last service, another day, a clock time) must not be
+  // silently answered as "next departures" (Codex PR review). Leave them to the LLM / hint.
+  if (
+    /\b(first|last|final|earliest|latest|tomorrow|yesterday|weekend|saturday|sunday|monday|tuesday|wednesday|thursday|friday|after|before|until|by)\b/.test(
+      s,
+    ) ||
+    /\b\d{1,2}([:.]\d{2})?\s*(am|pm)\b|\b\d{1,2}[:.]\d{2}\b/.test(s)
+  ) {
+    return fail('no_match', 'unsupported time constraint')
+  }
 
   // Trip planning is out of scope until a planner exists (§3.9 step 6).
   if (/\b(how (do|can|would) i get|best way|fastest way|plan (a|my) (trip|journey)|directions)\b/.test(s)) {

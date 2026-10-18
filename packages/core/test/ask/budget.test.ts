@@ -50,9 +50,11 @@ describe('budget ledger', () => {
     expect(reserve(s, on, 'b', 0.001, null, false, 0).result).toMatchObject({ ok: true, alert: false })
     expect(rollBudget(s, '20261101', 0).spentUsd + rollBudget(s, '20261101', 0).reservedUsd).toBe(0)
   })
-  it('releases stale reservations from crashed callers', () => {
+  it('charges stale reservations from crashed callers in full (never refunds an uncertain call)', () => {
     const s = reserve(emptyBudgetState('20261018'), on, 'a', 0.002, null, false, 0).state
-    expect(rollBudget(s, '20261018', 10 * 60_000).reservedUsd).toBe(0)
+    const rolled = rollBudget(s, '20261018', 10 * 60_000)
+    expect(rolled.reservedUsd).toBe(0)
+    expect(rolled.spentUsd).toBeCloseTo(0.002)
   })
   it('worst case for one round (3k in, 400 out) is about $0.0005', () => {
     expect(worstCaseUsd(3000, 400)).toBeCloseTo(0.0005, 6)
@@ -80,5 +82,9 @@ describe('tools', () => {
         [{ tool: 'get_departures', departures: [{ tripInstance: 'X@20261018' }] }],
       ),
     ).toBe(true)
+    // A failed tool is not grounding, and model prose with clock times is rejected (Codex PR review).
+    expect(isGrounded([], [{ tool: 'get_departures', ok: false }], 'Sure')).toBe(false)
+    expect(isGrounded([], [{ tool: 'get_alerts', ok: true }], 'Your ferry leaves at 9:99 PM.')).toBe(false)
+    expect(isGrounded([], [{ tool: 'get_alerts', ok: true }], 'No disruptions on the F1.')).toBe(true)
   })
 })

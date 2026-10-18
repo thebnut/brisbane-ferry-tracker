@@ -11,12 +11,14 @@ import { runTool, type ToolContext, type ToolOutcome } from './tools.ts'
 export const MODEL = 'claude-haiku-5-5'
 const MAX_TOKENS = 400
 const MAX_ROUNDS = 3 // 2 tool rounds + the final answer
-/** Input is capped by construction: short system prompt + one question + trimmed tool results. */
-const MAX_INPUT_TOKENS = 6000
+/** Aggregate cap on tool-result text across the whole request (Codex PR review: bound input cost by construction). */
+const MAX_TOOL_RESULT_CHARS = 9000
+/** Conservative token estimate: about 3 characters per token for JSON-heavy prompts. */
+export const estimateTokens = (chars: number) => Math.ceil(chars / 3)
 
 const SYSTEM = `You answer questions about Brisbane (South East Queensland) public transport departures for ferries, trains and buses.
 Use the tools: search_stops to find stop keys, get_departures for times (pass toKey for "from X to Y"), get_trip for one service, get_alerts for disruptions.
-Answer only from tool results. Never invent times, platforms or services. If the tools don't answer the question, say so briefly.
+Answer only from tool results. Never write clock times or minutes yourself: the app shows the times of the departures you cite. If the tools don't answer the question, say so briefly.
 You can't plan multi-step journeys; say so and suggest asking for the next service between two stops.
 Keep answers under 60 words, plain text. Use 12-hour times as given by the tools.
 When you use a tool, you may say a brief sentence first. If no tool can express what the user asked for, say so instead of guessing.
@@ -35,6 +37,7 @@ export interface LlmDeps {
 export interface LlmResult {
   ok: boolean
   answer: string
+  rows?: import('@bft/core').Departure[]
   reason?: string
   outcomes: ToolOutcome[]
   costUsd: number
@@ -54,10 +57,14 @@ export async function askLlm(question: string, deps: LlmDeps): Promise<LlmResult
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: question.slice(0, 300) }]
   const outcomes: ToolOutcome[] = []
   let cost = 0
+  let toolChars = 0
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const id = crypto.randomUUID()
-    const r = await deps.reserve(id, worstCaseUsd(MAX_INPUT_TOKENS, MAX_TOKENS), round === 0)
+    // Reserve for the actual request size (everything resent this round), priced as if all input were a cache write.
+    const inputTokens = estimateTokens(JSON.stringify({ system, tools, messages }).length)
+    const r = await deps.reserve(id, worstCaseUsd(Math.ceil(inputTokens * 1.25), MAX_TOKENS), round === 0)
+    const reserved = worstCaseUsd(Math.ceil(inputTokens * 1.25), MAX_TOKENS)
     if (!r.ok)
       return { ok: false, answer: '', reason: r.reason ?? 'budget', outcomes, costUsd: cost, rounds: round }
     let res: Anthropic.Message
@@ -74,7 +81,12 @@ export async function askLlm(question: string, deps: LlmDeps): Promise<LlmResult
         messages,
       } as Anthropic.MessageCreateParamsNonStreaming)
     } catch (e) {
-      await deps.reconcile(id, 0)
+      // Only a 4xx rejection is known to be unbilled; anything else (timeouts, connection loss, 5xx) may have been
+      // billed, so it keeps the full reservation (Codex PR review).
+      const unbilled =
+        e instanceof Anthropic.APIError && typeof e.status === 'number' && e.status >= 400 && e.status < 500
+      await deps.reconcile(id, unbilled ? 0 : reserved)
+      if (!unbilled) cost += reserved
       const reason =
         e instanceof Anthropic.RateLimitError
           ? 'provider_rate_limited'
@@ -102,12 +114,13 @@ export async function askLlm(question: string, deps: LlmDeps): Promise<LlmResult
         if (block.type !== 'tool_use') continue
         const out = await runTool(deps.tools, block.name as ToolName, block.input, deps.nowS)
         outcomes.push(out)
-        results.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
-          content: JSON.stringify(out.result).slice(0, 6000),
-          is_error: !out.ok,
-        })
+        const budgetLeft = Math.max(0, MAX_TOOL_RESULT_CHARS - toolChars)
+        const content =
+          budgetLeft > 0
+            ? JSON.stringify(out.result).slice(0, budgetLeft)
+            : '{"error":"result budget exhausted"}'
+        toolChars += content.length
+        results.push({ type: 'tool_result', tool_use_id: block.id, content, is_error: !out.ok })
       }
       messages.push({ role: 'user', content: results })
       continue
@@ -127,9 +140,14 @@ export async function askLlm(question: string, deps: LlmDeps): Promise<LlmResult
             .map((t) => ({ tripInstance: t }))
     const answer = text.replace(/\n?CITED:.*$/im, '').trim()
     // Free text with no tool grounding, or citing departures we never returned, is rejected.
-    if (!isGrounded(cited, outcomes))
+    if (!isGrounded(cited, outcomes, answer))
       return { ok: false, answer: '', reason: 'ungrounded', outcomes, costUsd: cost, rounds: round + 1 }
-    return { ok: true, answer, outcomes, costUsd: cost, rounds: round + 1 }
+    // Departure facts come from the cited rows, rendered by the server, never from model text.
+    const byId = new Map(outcomes.flatMap((o) => o.departures ?? []).map((d) => [d.tripInstance, d]))
+    const rows = cited
+      .map((c) => byId.get(c.tripInstance))
+      .filter((d): d is NonNullable<typeof d> => d != null)
+    return { ok: true, answer, rows, outcomes, costUsd: cost, rounds: round + 1 }
   }
   return { ok: false, answer: '', reason: 'too_many_rounds', outcomes, costUsd: cost, rounds: MAX_ROUNDS }
 }

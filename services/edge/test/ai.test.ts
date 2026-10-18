@@ -2,9 +2,9 @@
  * Phase 8: /v1/ask (deterministic path, kill switch, budget gating, grounding) and the read-only /mcp server.
  * No provider calls are made: the LLM path is exercised with AI disabled or a stubbed fetch.
  */
-import { DEFAULT_BUDGET, emptyBudgetState, reserve } from '@bft/core'
+import { type BudgetConfig, DEFAULT_BUDGET, emptyBudgetState, reconcile, reserve } from '@bft/core'
 import { describe, expect, it, vi } from 'vitest'
-import { budgetConfig, intentFromPlan, ipKey, registerAi } from '../src/ai/routes.ts'
+import { budgetConfig, ipKey, ipv6Prefix48, registerAi } from '../src/ai/routes.ts'
 import { createApp } from '../src/app.ts'
 import { silentLogger } from '../src/log.ts'
 import { SnapshotClient } from '../src/snapshot-client.ts'
@@ -16,7 +16,7 @@ const NAMES: Record<string, string> = {
   '317586': 'Hawthorne ferry terminal',
 }
 
-function setup(env: Record<string, unknown> = {}) {
+function setup(env: Record<string, unknown> = {}, extra: { verifyTurnstile?: () => Promise<boolean> } = {}) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   vi.setSystemTime(clock.t)
   const tree = buildTree()
@@ -47,7 +47,7 @@ function setup(env: Record<string, unknown> = {}) {
     combinedFeeds: false,
     polledModes: ['ferry'],
   })
-  registerAi(app, { store, generationKey: async () => 'g1' }, () => env)
+  registerAi(app, { store, generationKey: async () => 'g1', ...extra }, () => env)
   const ask = (question: string, headers: Record<string, string> = {}) =>
     app.request('/v1/ask', {
       method: 'POST',
@@ -159,18 +159,165 @@ describe('helpers', () => {
     expect(await ipKey('1.2.4.4', 's')).not.toBe(await ipKey('1.2.3.4', 's'))
     expect(await ipKey(null, 's')).toBeNull()
   })
-  it('learns a single get_departures plan as an intent', () => {
-    expect(
-      intentFromPlan([
+  it('hashes the first 48 bits of IPv6, expanding :: (Codex PR review)', async () => {
+    expect(ipv6Prefix48('2001:db8::1')).toBe('2001:db8:0')
+    expect(ipv6Prefix48('2001:db8:0:1::2')).toBe('2001:db8:0')
+    expect(await ipKey('2001:db8::1', 's')).toBe(await ipKey('2001:db8:0:1::2', 's'))
+  })
+})
+
+// ------------------------------------------------------------------ LLM path with a stubbed provider
+
+function memoryBudget() {
+  let state = emptyBudgetState('20261020')
+  const stub = {
+    reserve: async (cfg: BudgetConfig, id: string, usd: number, ip: string | null, count: boolean) => {
+      const r = reserve(state, cfg, id, usd, ip, count, Date.now())
+      if (r.result.ok) state = r.state
+      return r.result
+    },
+    reconcile: async (id: string, usd: number) => {
+      state = reconcile(state, id, usd)
+    },
+    status: async () => state,
+  }
+  return { ns: { idFromName: () => 'global', get: () => stub }, state: () => state }
+}
+
+const msg = (content: unknown[], stop_reason: string) =>
+  new Response(
+    JSON.stringify({
+      id: 'msg_1',
+      type: 'message',
+      role: 'assistant',
+      model: 'claude-haiku-5-5',
+      content,
+      stop_reason,
+      stop_sequence: null,
+      usage: {
+        input_tokens: 1200,
+        output_tokens: 80,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      },
+    }),
+    { status: 200, headers: { 'content-type': 'application/json' } },
+  )
+
+function llmSetup(finalText: (trip: string) => string) {
+  const budget = memoryBudget()
+  const env = {
+    AI_ENABLED: 'true',
+    ANTHROPIC_API_KEY: 'test-key',
+    AI_MONTHLY_BUDGET_USD: '10',
+    TURNSTILE_SECRET: 'secret',
+    AI_GATEWAY: 'bft',
+    CF_ACCOUNT_ID: 'acct',
+    BUDGET: budget.ns,
+  }
+  const urls: string[] = []
+  const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    const url = String(input instanceof Request ? input.url : input)
+    urls.push(url)
+    const body = JSON.parse(String(init?.body ?? '{}')) as { messages: Array<{ content: unknown }> }
+    const last = body.messages.at(-1)?.content
+    if (Array.isArray(last) && (last[0] as { type?: string })?.type === 'tool_result') {
+      const rows = JSON.parse((last[0] as { content: string }).content) as {
+        departures: Array<{ tripInstance: string }>
+      }
+      return msg([{ type: 'text', text: finalText(rows.departures[0]?.tripInstance ?? 'none') }], 'end_turn')
+    }
+    return msg(
+      [
         {
-          tool: 'get_departures',
-          ok: true,
-          input: { mode: 'ferry', stopKey: '317584', toKey: '317590' },
-          result: { stop: 'Bulimba', to: 'Riverside' },
+          type: 'tool_use',
+          id: 'tu_1',
+          name: 'get_departures',
+          input: { mode: 'ferry', stopKey: '317584', toKey: '317590', limit: 3 },
         },
-      ]),
-    ).toMatchObject({ kind: 'next_departure', from: { key: '317584' }, to: { key: '317590' } })
-    expect(intentFromPlan([])).toBeNull()
+      ],
+      'tool_use',
+    )
+  })
+  const s = setup(env, { verifyTurnstile: async () => true })
+  return { ...s, budget, urls, spy }
+}
+
+describe('LLM fallback (stubbed provider)', () => {
+  it('renders departure facts from the cited rows, through AI Gateway, and records spend', async () => {
+    const s = llmSetup((trip) => `Here is the next ferry for you.\nCITED: ${trip}`)
+    const body = (await (
+      await s.ask('is there anything sailing between bulimba and riverside soon')
+    ).json()) as {
+      source: string
+      answer: string
+      departures: unknown[]
+    }
+    s.spy.mockRestore()
+    expect(body.source).toBe('llm')
+    expect(body.departures).toHaveLength(1)
+    expect(body.answer).toMatch(/F\d+ to .+ at \d{1,2}:\d{2}/)
+    expect(s.urls.every((u) => u.startsWith('https://gateway.ai.cloudflare.com/v1/acct/bft/anthropic'))).toBe(
+      true,
+    )
+    expect(s.budget.state().spentUsd).toBeGreaterThan(0)
+    expect(s.budget.state().reservedUsd).toBe(0)
+  })
+
+  it('rejects model prose that states times itself (ungrounded)', async () => {
+    const s = llmSetup(() => 'Your ferry leaves at 9:30 PM.\nCITED: none')
+    const body = (await (
+      await s.ask('is there anything sailing between bulimba and riverside soon')
+    ).json()) as {
+      source: string
+      ai: { reason: string }
+    }
+    s.spy.mockRestore()
+    expect(body.source).toBe('fallback')
+    expect(body.ai.reason).toBe('ungrounded')
+  })
+
+  it('a network failure keeps the full reservation as spend (never refunds an uncertain call)', async () => {
+    const budget = memoryBudget()
+    const spy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('network down'))
+    const s = setup(
+      {
+        AI_ENABLED: 'true',
+        ANTHROPIC_API_KEY: 'k',
+        AI_MONTHLY_BUDGET_USD: '10',
+        TURNSTILE_SECRET: 's',
+        AI_GATEWAY: 'bft',
+        CF_ACCOUNT_ID: 'a',
+        BUDGET: budget.ns,
+      },
+      { verifyTurnstile: async () => true },
+    )
+    const body = (await (await s.ask('could you tell me about ferries please')).json()) as { source: string }
+    spy.mockRestore()
+    expect(body.source).toBe('fallback')
+    expect(budget.state().spentUsd).toBeGreaterThan(0)
+    expect(budget.state().reservedUsd).toBe(0)
+  })
+
+  it('fails closed without an AI Gateway', async () => {
+    const budget = memoryBudget()
+    const spy = vi.spyOn(globalThis, 'fetch')
+    const s = setup(
+      {
+        AI_ENABLED: 'true',
+        ANTHROPIC_API_KEY: 'k',
+        AI_MONTHLY_BUDGET_USD: '10',
+        TURNSTILE_SECRET: 's',
+        BUDGET: budget.ns,
+      },
+      { verifyTurnstile: async () => true },
+    )
+    const body = (await (await s.ask('could you tell me about ferries please')).json()) as {
+      ai: { reason: string }
+    }
+    expect(body.ai.reason).toBe('gateway_not_configured')
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
   })
 })
 

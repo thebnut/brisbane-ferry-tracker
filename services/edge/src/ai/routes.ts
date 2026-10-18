@@ -19,7 +19,7 @@ import type { StaticStore } from '../data/static-store.ts'
 import { answerIntent } from './answer.ts'
 import { askLlm } from './llm.ts'
 import { loadIndexes, resolverFor } from './resolver.ts'
-import { type InternalFetch, runTool } from './tools.ts'
+import { type InternalFetch, runTool, slimDeparture } from './tools.ts'
 
 export interface AiEnv {
   AI_ENABLED?: string
@@ -30,8 +30,6 @@ export interface AiEnv {
   CF_ACCOUNT_ID?: string
   ANTHROPIC_API_KEY?: string
   TURNSTILE_SECRET?: string
-  /** "false" lets staging smoke tests reach the LLM without a Turnstile token. Never set in prod. */
-  AI_REQUIRE_TURNSTILE?: string
   IP_HASH_SALT?: string
   BUDGET?: DurableObjectNamespace<import('./budget-do.ts').Budget>
   ASK_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
@@ -55,10 +53,23 @@ const remember = (k: string, i: Intent) => {
   intentCache.set(k, i)
 }
 
+/** The first 48 bits of an IPv6 address as 3 hextets, expanding "::" (Codex PR review). */
+export function ipv6Prefix48(ip: string): string {
+  const [head = '', tail] = ip.split('::')
+  const h = head ? head.split(':') : []
+  const t = tail ? tail.split(':') : []
+  const groups =
+    tail === undefined ? h : [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t]
+  return groups
+    .slice(0, 3)
+    .map((g) => Number.parseInt(g || '0', 16).toString(16))
+    .join(':')
+}
+
 /** Hashed IP prefix (/24 for IPv4, /48 for IPv6): per-IP quotas without storing addresses. */
 export async function ipKey(ip: string | null | undefined, salt: string): Promise<string | null> {
   if (!ip) return null
-  const prefix = ip.includes(':') ? ip.split(':').slice(0, 3).join(':') : ip.split('.').slice(0, 3).join('.')
+  const prefix = ip.includes(':') ? ipv6Prefix48(ip) : ip.split('.').slice(0, 3).join('.')
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}|${prefix}`))
   return [...new Uint8Array(digest).slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
@@ -80,28 +91,10 @@ async function verifyTurnstile(
   return r.ok && ((await r.json()) as { success?: boolean }).success === true
 }
 
-/** A single successful get_departures call becomes a cached intent (only the plan, never the answer). */
-export function intentFromPlan(outcomes: import('./tools.ts').ToolOutcome[]): Intent | null {
-  const deps = outcomes.filter((o) => o.tool === 'get_departures' && o.ok)
-  if (deps.length !== 1) return null
-  const input = deps[0]?.input as
-    | { mode: import('@bft/core').Mode; stopKey: string; toKey?: string }
-    | undefined
-  if (!input) return null
-  const res = deps[0]?.result as { stop?: string; to?: string | null }
-  const from = { mode: input.mode, key: input.stopKey, name: res.stop ?? input.stopKey, score: 1 }
-  return input.toKey
-    ? {
-        kind: 'next_departure',
-        mode: input.mode,
-        from,
-        to: { mode: input.mode, key: input.toKey, name: res.to ?? input.toKey, score: 1 },
-      }
-    : { kind: 'departures_at', mode: input.mode, at: from }
-}
-
 export interface AiDeps {
   store: StaticStore
+  /** Turnstile verification; injectable for tests. Every real provider call requires it. */
+  verifyTurnstile?: (secret: string, token: string | undefined, ip: string | null) => Promise<boolean>
   /** Manifest updatedAt or generation string, used to key the stop-index cache. */
   generationKey: () => Promise<string>
 }
@@ -156,21 +149,21 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
     if (parse && !parse.ok && parse.reason === 'ambiguous_stop')
       return c.json({
         ...hint,
-        answer: 'That stop name matches more than one mode. Add "ferry", "train" or "bus".',
+        answer:
+          'That name matches more than one stop. Add the mode (ferry, train or bus) or the stop number.',
       })
 
     const ipHash = await ipKey(ipRaw, env.IP_HASH_SALT ?? 'bft')
-    if (env.AI_REQUIRE_TURNSTILE !== 'false') {
-      if (!env.TURNSTILE_SECRET)
-        return c.json({ ...hint, ai: { enabled: true, reason: 'turnstile_not_configured' } })
-      if (!(await verifyTurnstile(env.TURNSTILE_SECRET, parsed.data.turnstileToken, ipRaw)))
-        return c.json({ ...hint, ai: { enabled: true, reason: 'turnstile_failed' } }, 403)
-    }
+    if (!env.TURNSTILE_SECRET)
+      return c.json({ ...hint, ai: { enabled: true, reason: 'turnstile_not_configured' } })
+    const verify = deps.verifyTurnstile ?? verifyTurnstile
+    if (!(await verify(env.TURNSTILE_SECRET, parsed.data.turnstileToken, ipRaw)))
+      return c.json({ ...hint, ai: { enabled: true, reason: 'turnstile_failed' } }, 403)
+    // Fail closed: provider calls only ever go through AI Gateway (logs, rate limits).
+    if (!env.AI_GATEWAY || !env.CF_ACCOUNT_ID)
+      return c.json({ ...hint, ai: { enabled: true, reason: 'gateway_not_configured' } })
     const budget = env.BUDGET?.get(env.BUDGET.idFromName('global'))
-    const gateway =
-      env.AI_GATEWAY && env.CF_ACCOUNT_ID
-        ? `https://gateway.ai.cloudflare.com/v1/${env.CF_ACCOUNT_ID}/${env.AI_GATEWAY}/anthropic`
-        : 'https://api.anthropic.com'
+    const gateway = `https://gateway.ai.cloudflare.com/v1/${env.CF_ACCOUNT_ID}/${env.AI_GATEWAY}/anthropic`
     const r = await askLlm(question, {
       apiKey: env.ANTHROPIC_API_KEY as string,
       baseURL: gateway,
@@ -188,13 +181,16 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
       nowS,
     })
     if (!r.ok) return c.json({ ...hint, ai: { enabled: true, reason: r.reason } })
-    // Learn the tool plan as an intent so the same question is answered deterministically next time.
-    const learned = intentFromPlan(r.outcomes)
-    if (learned) remember(normalized, learned)
+    // LLM tool plans are not cached as intents: they can carry semantics an Intent can't express (Codex PR review).
+    const departures = (r.rows ?? []).map((d) => slimDeparture(d, nowS))
+    const facts = departures.map(
+      (d) => `${d.route} to ${d.headsign} at ${d.departs}${d.status === 'live' ? ' (live)' : ''}`,
+    )
     return c.json({
       ...base,
       source: 'llm',
-      answer: r.answer,
+      answer: facts.length ? `${r.answer}\n${facts.join('; ')}.` : r.answer,
+      departures,
       rounds: r.rounds,
       costUsd: Number(r.costUsd.toFixed(6)),
     })

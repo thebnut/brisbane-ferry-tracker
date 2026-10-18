@@ -53,4 +53,22 @@ describe('parser details', () => {
     const r = parseQuestion('how do I get from Bulimba to the airport', testResolver)
     expect(r.ok && r.intent.kind).toBe('trip_plan_unsupported')
   })
+  it('two near-equal stops in the same mode are not guessed (Codex PR review)', () => {
+    const twoQueenSt = () => [
+      { mode: 'bus' as const, key: 'A', name: 'Queen Street stop 41', score: 0.9 },
+      { mode: 'bus' as const, key: 'B', name: 'Queen Street stop 42', score: 0.9 },
+    ]
+    const r = parseQuestion('departures at queen street bus', twoQueenSt)
+    expect(r.ok ? r.intent : r.reason).toBe('ambiguous_stop')
+  })
+  it('first/last/clock-time questions are not answered as "next departures" (Codex PR review)', () => {
+    for (const q of [
+      'when is the last ferry from bulimba',
+      'first train from central tomorrow',
+      'ferry from bulimba at 5:30pm',
+    ]) {
+      const r = parseQuestion(q, testResolver)
+      expect(r.ok, q).toBe(false)
+    }
+  })
 })

@@ -60,20 +60,25 @@ export function actualUsd(inputTokens: number, outputTokens: number, price = HAI
   return (inputTokens * price.inputPerM + outputTokens * price.outputPerM) / 1_000_000
 }
 
-/** Roll the day / month windows forward. Reservations older than `staleMs` are released (crashed callers). */
+/**
+ * Roll the day / month windows forward. Reservations older than `staleMs` belong to crashed callers whose provider
+ * call may still have been billed, so they are charged in full (never refunded) (Codex PR review).
+ */
 export function rollBudget(state: BudgetState, day: string, now: number, staleMs = 5 * 60_000): BudgetState {
   let s = state
   if (s.month !== day.slice(0, 6)) s = emptyBudgetState(day)
   if (s.day !== day) s = { ...s, day, perIp: {} }
   const reservations = { ...s.reservations }
   let reservedUsd = s.reservedUsd
+  let spentUsd = s.spentUsd
   for (const [id, r] of Object.entries(reservations)) {
     if (now - r.at > staleMs) {
       reservedUsd -= r.usd
+      spentUsd += r.usd
       delete reservations[id]
     }
   }
-  return { ...s, reservations, reservedUsd: Math.max(0, reservedUsd) }
+  return { ...s, reservations, reservedUsd: Math.max(0, reservedUsd), spentUsd }
 }
 
 /**
