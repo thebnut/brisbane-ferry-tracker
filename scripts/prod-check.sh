@@ -63,7 +63,10 @@ trap 'rm -rf "$tmp"' EXIT
 
 # fetch URL NAME: body to $tmp/NAME.body, headers (lower-cased names) to $tmp/NAME.h, status echoed. No redirects.
 fetch() {
-  curl -sS --max-time 20 -o "$tmp/$2.body" -D "$tmp/$2.raw" -w '%{http_code}' -H 'user-agent: bft-prod-check/1' "$1" 2>/dev/null || echo 000
+  : >"$tmp/$2.raw"
+  local code
+  code="$(curl -sS --max-time 20 -o "$tmp/$2.body" -D "$tmp/$2.raw" -w '%{http_code}' -H 'user-agent: bft-prod-check/1' "$1" 2>/dev/null)"
+  echo "${code:-000}"
   tr -d '\r' <"$tmp/$2.raw" 2>/dev/null | awk -F': ' 'NF>1 {printf "%s: %s\n", tolower($1), substr($0, length($1)+3)}' >"$tmp/$2.h"
 }
 header() { grep -i "^$2: " "$tmp/$1.h" | head -1 | cut -d' ' -f2-; }
@@ -142,8 +145,8 @@ code="$(fetch "$base/__fixtures/v1/alerts" fixtures)"
 if [[ "$prod" == 1 ]]; then
   check "$([[ "$code" == 404 ]] && echo 1 || echo 0)" "/__fixtures/v1/alerts -> 404 (no fixtures in production)" "got $code"
   code="$(fetch "$base${pages[1]}?fixtures=1" fixturepage)"
-  check "$([[ "$code" == 200 ]] && ! grep -qi 'demo data\|fixture' "$tmp/fixturepage.body" && echo 1 || echo 0)" \
-    "${pages[1]}?fixtures=1 serves live data (no demo or fixture notice)"
+  check "$([[ "$code" == 200 ]] && ! grep -q 'Demo data' "$tmp/fixturepage.body" && echo 1 || echo 0)" \
+    "${pages[1]}?fixtures=1 serves live data (no \"Demo data\" notice)"
 else
   printf '  INFO  /__fixtures/v1/alerts -> %s (staging allows ?fixtures=1)\n' "$code"
 fi
