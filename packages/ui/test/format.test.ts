@@ -6,6 +6,7 @@ import {
   formatAge,
   formatClock,
   formatCountdown,
+  formatDistance,
   formatDuration,
   minutesUntil,
   statusNote,
@@ -88,5 +89,13 @@ describe('status line', () => {
     expect(vesselName('a1b2_MOOROOLBIN II')).toBe('Mooroolbin II')
     expect(vesselName('x_neville bonner')).toBe('Neville Bonner')
     expect(vesselName('1234')).toBeNull()
+  })
+})
+
+describe('formatDistance', () => {
+  it('rounds to 10 m under a kilometre, else one decimal km', () => {
+    expect(formatDistance(4)).toBe('10 m')
+    expect(formatDistance(123)).toBe('120 m')
+    expect(formatDistance(1890)).toBe('1.9 km')
   })
 })

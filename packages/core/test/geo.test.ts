@@ -1,13 +1,13 @@
+/** Geohash tiles and nearest-stop sorting (moved here from apps/bus with the code). */
 import { describe, expect, it } from 'vitest'
 import {
   cellsCovering,
-  formatDistance,
   geohashBounds,
   geohashEncode,
   geohashNeighbourhood,
   haversine,
   nearest,
-} from '../app/lib/geo.ts'
+} from '../src/geo/index.ts'
 
 describe('geohash', () => {
   it('encodes known points (same as the pipeline encoder)', () => {
@@ -70,10 +70,8 @@ describe('geohash', () => {
     expect(nearest(-27.47, 153.02, s, { limit: 1 })).toHaveLength(1)
   })
 
-  it('haversine and distance text', () => {
+  it('haversine', () => {
     expect(haversine(-27.47, 153.02, -27.48, 153.02)).toBeCloseTo(1112, -1)
-    expect(formatDistance(123)).toBe('120 m')
-    expect(formatDistance(1890)).toBe('1.9 km')
   })
 
   it('covers a small view with tiles and refuses a large one', () => {
