@@ -10,7 +10,7 @@
     "./fixtures/*": "./fixtures/*"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "test": "vitest run",
     "lint": "biome check ."
   },
@@ -21,6 +21,7 @@
   "devDependencies": {
     "@bft/config": "workspace:*",
     "@biomejs/biome": "2.5.15",
+    "@types/node": "26.6.5",
     "typescript": "7.0.2",
     "vitest": "5.0.5"
   }

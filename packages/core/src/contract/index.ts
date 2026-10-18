@@ -34,7 +34,7 @@ export const parseTripInstanceKey = (key: string): { tripId: string; serviceDate
 export const BoardingRule = z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)])
 
 // ---------------------------------------------------------------------------
-// 1. Static stop-day file (static/blobs/{sha256}.json.br)
+// 1. Static stop-day file (static/blobs/{sha256}.json.gz)
 // ---------------------------------------------------------------------------
 
 export const RouteRef = z.object({
@@ -54,7 +54,11 @@ export type RouteRef = z.infer<typeof RouteRef>
 
 export const StopRef = z.object({
   id: z.string(),
-  name: z.string(),
+  /**
+   * Present on boarding stops (the platforms events depart from). Omitted on downstream-only stops to keep the
+   * busiest files small; apps take those names from data/{mode}/stops.json.
+   */
+  name: z.string().optional(),
   /** Platform code for rail and busway platforms, if the feed has one. */
   platform: z.string().optional(),
   /** Parent station key (train) or the stop's own key. */
@@ -65,13 +69,15 @@ export type StopRef = z.infer<typeof StopRef>
 /**
  * One stop event, encoded as a positional tuple to keep files small (§3.2):
  *
- *  [tripIdx, stopSequence, arrS, depS, routeIdx, headsignIdx, platformStopIdx, pickupType, directionId, downstream]
+ *  [tripIdx, stopSequence, arrS, depS, routeIdx, headsignIdx, platformStopIdx, pickupType, directionId, downstreamIdx]
  *
  * - `arrS` / `depS`: seconds after the service day's noon-minus-12h reference (GTFS time, can exceed 86400).
  * - `platformStopIdx`: index into `stops`, the boarding stop (the platform, for train stations).
- * - `downstream`: flat list of quadruples `[stopIdx, arrOffsetS, dropOffType, seqDelta]` for every later stop
- *   where alighting is allowed. `arrOffsetS` is downstream arrival minus this event's departure.
- *   `seqDelta` is downstream stop_sequence minus this event's stop_sequence (resolves loops that repeat a stop).
+ * - `downstreamIdx`: index into the file's `downstreams` table. Each entry is a flat list of quadruples
+ *   `[stopIdx, arrOffsetS, dropOffType, seqDelta]` for every later stop where alighting is allowed. `arrOffsetS` is
+ *   downstream arrival minus this event's departure; `seqDelta` is downstream stop_sequence minus this event's
+ *   stop_sequence (resolves loops that repeat a stop). Trips with the same remaining pattern and running times share
+ *   one entry, which is what keeps the busiest stops small. Use `downstreamOf(day, event)` to read it.
  *
  * Events with pickup_type = 1 (no boarding) are excluded by the builder.
  */
@@ -85,7 +91,7 @@ export const StopEventTuple = z.tuple([
   z.number().int().nonnegative(), // platformStopIdx
   BoardingRule, // pickupType
   z.union([z.literal(0), z.literal(1), z.literal(-1)]), // directionId (-1 unknown)
-  z.array(z.number().int()), // downstream quadruples, flattened
+  z.number().int().nonnegative(), // downstreamIdx into StaticStopDay.downstreams
 ])
 export type StopEventTuple = z.infer<typeof StopEventTuple>
 
@@ -99,10 +105,22 @@ export const StaticStopDay = z.object({
   routes: z.array(RouteRef),
   headsigns: z.array(z.string()),
   stops: z.array(StopRef),
+  /** Distinct downstream quadruple lists, referenced by each event's downstreamIdx. */
+  downstreams: z.array(z.array(z.number().int())),
   /** Sorted by depS, then tripIdx. */
   events: z.array(StopEventTuple),
 })
 export type StaticStopDay = z.infer<typeof StaticStopDay>
+
+/** The flattened downstream quadruples of an event (empty if the index is out of range). */
+export const downstreamOf = (day: Pick<StaticStopDay, 'downstreams'>, ev: StopEventTuple): number[] =>
+  day.downstreams[ev[9]] ?? []
+
+const Sha256 = z.string().regex(/^[0-9a-f]{64}$/)
+
+/** static/shards/{sha256}.json.gz: several stop-day files of one mode and service date, keyed by stop key. */
+export const StaticShard = z.record(z.string(), StaticStopDay)
+export type StaticShard = z.infer<typeof StaticShard>
 
 /** static/{generation}/{mode}/index.json: maps service date and stop key to a content hash. */
 export const GenerationIndex = z.object({
@@ -112,10 +130,34 @@ export const GenerationIndex = z.object({
   feedVersion: z.string(),
   builtAt: z.string(),
   serviceDates: z.array(ServiceDate),
-  /** blobs[serviceDate][stopKey] = sha256 hex of the brotli-compressed blob content. */
-  blobs: z.record(ServiceDate, z.record(z.string(), z.string().regex(/^[0-9a-f]{64}$/))),
-  /** Per service date trip index for the RT hub: static/{generation}/{mode}/trips-{date}.json */
-  tripIndex: z.record(ServiceDate, z.string().regex(/^[0-9a-f]{64}$/)).optional(),
+  /**
+   * blobs[serviceDate][stopKey] = sha256 hex of the gzip blob bytes, stored at static/blobs/{sha}.json.gz.
+   * Empty for sharded modes (bus): those stop-days exist only inside shards, see `shards`.
+   */
+  blobs: z.record(ServiceDate, z.record(z.string(), Sha256)),
+  /** Per service date TripIndexDay for the RT hub and trip detail, also at static/blobs/{sha}.json.gz. */
+  tripIndex: z.record(ServiceDate, Sha256).optional(),
+  /**
+   * Bus stop-days grouped into shards: per-stop bus blobs would be ~96k files for 8 days, a 7.4 MB index, and the
+   * bulk of R2 Class A writes. The shard for a stop is
+   * `byDate[serviceDate][shardOf(stopKey, count)]`, a StaticShard at static/shards/{sha}.json.gz (null = no stops in
+   * that bucket). When `shards` is present it is the only copy: `blobs` has no entries for this mode, so the
+   * index stays small (~33 KB for 8 days of bus instead of 7.4 MB of per-stop hashes).
+   */
+  shards: z
+    .object({
+      count: z.number().int().positive(),
+      hash: z.literal('fnv1a32'),
+      byDate: z.record(ServiceDate, z.array(Sha256.nullable())),
+    })
+    .optional(),
+  /** Per service date counts, compared with the previous generation by the quarantine validator. */
+  stats: z
+    .record(
+      ServiceDate,
+      z.object({ trips: z.number().int(), events: z.number().int(), stops: z.number().int() }),
+    )
+    .optional(),
 })
 export type GenerationIndex = z.infer<typeof GenerationIndex>
 
@@ -161,6 +203,79 @@ export const TripIndexDay = z.object({
   ),
 })
 export type TripIndexDay = z.infer<typeof TripIndexDay>
+
+/**
+ * Static client data, rewritten in place each publish (paths are stable, `generation` says which build wrote them):
+ *  - data/{mode}/stops.json        search index
+ *  - data/{mode}/geo/{geohash5}.json nearby tile
+ *  - data/{mode}/lines.json        route colours and stopping patterns
+ */
+export const StopIndexEntry = z.object({
+  /** Stop key (train: parent station slug; otherwise stop_id). */
+  key: z.string(),
+  name: z.string(),
+  /** Public stop code (bus stop number), if any. */
+  code: z.string().optional(),
+  lat: z.number(),
+  lon: z.number(),
+  /** Platforms (train stations, busway stations): stop_id and platform code. */
+  platforms: z.array(z.object({ id: z.string(), code: z.string().optional() })).optional(),
+  /** Route short names serving this stop in the build window. */
+  routes: z.array(z.string()),
+})
+export type StopIndexEntry = z.infer<typeof StopIndexEntry>
+
+export const StopIndexFile = z.object({
+  schemaVersion: z.literal(SCHEMA_VERSION),
+  mode: Mode,
+  generation: z.string(),
+  stops: z.array(StopIndexEntry),
+})
+export type StopIndexFile = z.infer<typeof StopIndexFile>
+
+export const GeoTileFile = z.object({
+  schemaVersion: z.literal(SCHEMA_VERSION),
+  mode: Mode,
+  generation: z.string(),
+  geohash: z.string().length(5),
+  stops: z.array(StopIndexEntry.pick({ key: true, name: true, code: true, lat: true, lon: true })),
+})
+export type GeoTileFile = z.infer<typeof GeoTileFile>
+
+export const StopPattern = z.object({
+  directionId: z.union([z.literal(0), z.literal(1), z.literal(-1)]),
+  headsign: z.string(),
+  /** Stop keys in order (train: station slugs). */
+  stops: z.array(z.string()),
+  /** Trips using this pattern across the build window. */
+  trips: z.number().int(),
+})
+export type StopPattern = z.infer<typeof StopPattern>
+
+export const Line = z.object({
+  /** route_short_name; one line groups every route_id that shares it. */
+  short: z.string(),
+  long: z.string().optional(),
+  color: z
+    .string()
+    .regex(/^[0-9A-Fa-f]{6}$/)
+    .optional(),
+  textColor: z
+    .string()
+    .regex(/^[0-9A-Fa-f]{6}$/)
+    .optional(),
+  routeIds: z.array(z.string()),
+  patterns: z.array(StopPattern),
+})
+export type Line = z.infer<typeof Line>
+
+export const LinesFile = z.object({
+  schemaVersion: z.literal(SCHEMA_VERSION),
+  mode: Mode,
+  generation: z.string(),
+  lines: z.array(Line),
+})
+export type LinesFile = z.infer<typeof LinesFile>
 
 // ---------------------------------------------------------------------------
 // 2. Realtime snapshot (rt/snapshot-{seq}.json.br) and the stop-event state machine
