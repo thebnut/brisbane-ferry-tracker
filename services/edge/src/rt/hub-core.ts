@@ -564,15 +564,43 @@ export class HubCore {
       const text = obj ? await obj.text() : null
       return text != null && snapshotSeq(text) === e.seq ? (JSON.parse(text) as RtSnapshot) : null
     }
-    const docs: RtSnapshot[] = []
-    for (const [scope, e] of Object.entries(files)) {
-      if (scope === 'alerts') continue
-      const d = await read(e)
-      if (!d) return null
-      docs.push(d)
-      for (const k of Object.keys(d.trips)) this.tripModes.set(k, scope as Mode)
+    const load = async (f: NonNullable<R2Pointer['files']>) => {
+      const docs: Array<[Mode, RtSnapshot]> = []
+      for (const [scope, e] of Object.entries(f)) {
+        if (scope === 'alerts') continue
+        const d = await read(e)
+        if (!d) return null
+        docs.push([scope as Mode, d])
+      }
+      const alerts = f.alerts ? await read(f.alerts) : null
+      if (f.alerts && !alerts) return null
+      return { docs, alerts }
     }
-    const merged = mergeDocuments(docs, await read(files.alerts))
+    // A slot overwritten between our reads fails its seq check: re-read the pointer and try once more.
+    let got = await load(files)
+    if (!got && r2.get) {
+      const ptr = await r2.get(R2_LATEST_KEY)
+      const again = ptr ? (JSON.parse(await ptr.text()) as R2Pointer) : null
+      if (again?.files) got = await load(again.files)
+      if (!got && again?.files) {
+        // Still inconsistent: restore the mode documents without alerts and refetch alerts on the next cycle (they
+        // are rewritten within one poll), rather than lose the retained cancellations with the whole restore.
+        const { alerts: _skip, ...modesOnly } = again.files
+        got = await load(modesOnly)
+        this.meta.alertsAt = 0
+        this.log.warn('rt restore without alerts (alerts document failed its seq check)')
+      }
+    }
+    if (!got) return null
+    // Ownership: a trip in exactly one mode document belongs to that mode; one in several (carried while its mode
+    // was unloaded) stays unassigned so every mode document keeps it (Codex review of the split).
+    const seen = new Map<string, Mode | null>()
+    for (const [m, d] of got.docs) for (const k of Object.keys(d.trips)) seen.set(k, seen.has(k) ? null : m)
+    for (const [k, m] of seen) if (m) this.tripModes.set(k, m)
+    const merged = mergeDocuments(
+      got.docs.map(([, d]) => d),
+      got.alerts,
+    )
     return merged ? JSON.stringify(merged) : null
   }
 

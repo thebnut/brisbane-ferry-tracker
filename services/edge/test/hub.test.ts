@@ -1,8 +1,10 @@
-import { RtSnapshot } from '@bft/core'
+import { AlertsResponse, RtSnapshot } from '@bft/core'
 import { fromBinary } from '@bufbuild/protobuf'
 import { describe, expect, it } from 'vitest'
+import { createApp } from '../src/app.ts'
 import { MemoryDataSource } from '../src/data/source.ts'
 import { FeedMessageSchema } from '../src/gen/gtfs-realtime_pb.js'
+import { silentLogger } from '../src/log.ts'
 import { pullFromR2 } from '../src/r2-snapshots.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
 import {
@@ -15,6 +17,8 @@ import {
   snapshotSeq,
   WATCHDOG_STALE_MS,
 } from '../src/rt/hub-core.ts'
+import type { SnapshotScope } from '../src/rt/split.ts'
+import { SnapshotClient } from '../src/snapshot-client.ts'
 import {
   alert,
   buildTree,
@@ -699,5 +703,85 @@ describe('Codex review regressions', () => {
     expect(Object.keys(ferry.trips)).toEqual([`T1@${D}`])
     expect(alerts.trips).toEqual({})
     expect(alerts.alerts.map((a) => a.id)).toEqual(['a1'])
+  })
+
+  it('split review: /v1/alerts via R2 stays live while the alerts document is unchanged', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    for (let i = 0; i < 25; i++) {
+      h.clock.advance(CYCLE_MS)
+      h.up.set(TU, feed(h.nowS(), []))
+      await h.hub.cycle()
+    }
+    const src = new MemoryDataSource(r2.files)
+    const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
+    expect(ptr.seq - ptr.files.alerts.seq).toBeGreaterThan(20) // the alerts document is old
+    const client = (scope: SnapshotScope) =>
+      new SnapshotClient(
+        { pull: (s, sc) => pullFromR2(src, s, sc), getRaw: async () => null },
+        h.clock.now,
+        () => {},
+        null,
+        scope,
+      )
+    const clients = new Map<SnapshotScope, SnapshotClient>()
+    const app = createApp({
+      store: storeFor(h.tree, h.clock.now),
+      snapshots: client('alerts'),
+      snapshotsFor: (sc) => {
+        const existing = clients.get(sc)
+        if (existing) return existing
+        const cl = client(sc)
+        clients.set(sc, cl)
+        return cl
+      },
+      now: h.clock.now,
+      log: silentLogger,
+      combinedFeeds: false,
+      polledModes: ['ferry'],
+    })
+    const body = AlertsResponse.parse(await (await app.request('/v1/alerts')).json())
+    expect(body.rtState).toBe('live')
+    expect(body.rtSourceTimestamp).toBe(h.nowS())
+    expect(body.alerts.map((a) => a.id)).toEqual(['a1'])
+  })
+
+  it('split review: restore keeps unknown-mode records in every mode document', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2, modes: 'ferry,train' })
+    await warm(h)
+    const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
+    const orphan = { key: `X9@${D}`, rel: 'CANCELED', ts: 1, until: h.nowS() + 3600, gen: 'g1', updates: [] }
+    for (const m of ['ferry', 'train']) {
+      const doc = JSON.parse(new TextDecoder().decode(r2.files.get(ptr.files[m].key)))
+      doc.trips[orphan.key] = orphan
+      r2.files.set(ptr.files[m].key, new TextEncoder().encode(JSON.stringify(doc)))
+    }
+    const fresh = h.mk()
+    for (const m of ['ferry', 'train'] as const) {
+      const doc = RtSnapshot.parse(JSON.parse((await fresh.pull(null, m)).json as string))
+      expect(doc.trips[orphan.key]?.rel).toBe('CANCELED')
+    }
+  })
+
+  it('split review: an alerts document failing its seq check restores without alerts and refetches them', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
+    const bad = JSON.parse(new TextDecoder().decode(r2.files.get(ptr.files.alerts.key)))
+    bad.header.seq = 999_999
+    r2.files.set(ptr.files.alerts.key, new TextEncoder().encode(JSON.stringify(bad)))
+    const fresh = h.mk()
+    const restored = RtSnapshot.parse(JSON.parse((await fresh.pull(null)).json as string))
+    expect(Object.keys(restored.trips)).toContain(`T1@${D}`)
+    const before = h.up.calls.filter((c) => c.path === 'alerts').length
+    h.clock.advance(CYCLE_MS)
+    h.up.set(TU, feed(h.nowS(), []))
+    await fresh.cycle()
+    expect(h.up.calls.filter((c) => c.path === 'alerts').length).toBe(before + 1)
+    const next = RtSnapshot.parse(JSON.parse((await fresh.pull(null, 'alerts')).json as string))
+    expect(next.alerts.map((a) => a.id)).toEqual(['a1'])
   })
 })

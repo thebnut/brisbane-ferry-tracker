@@ -104,15 +104,24 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const genOk = mode == null || (generation != null && hubGen === generation)
     // A mode the hub doesn't index at all (bus, see RT_INDEX_MODES) has no RT to merge: unavailable, not reloading.
     const indexed = mode == null || hubGen !== undefined
-    const rtState: RtState = rtStateFor(
-      indexed ? (snap?.header.sourceTimestamp ?? null) : null,
-      Math.floor(nowMs / 1000),
-      genOk,
-    )
-    const ageS = snap ? Math.max(0, (nowMs - snap.header.fetchedAt) / 1000) : 0
+    // Freshness comes from the hub's current status when it is at least as new as the document: the alerts
+    // document is rewritten only when alerts change, so its own header can be minutes old while the hub is live
+    // (Codex review of the split). Content still comes from the document.
+    const st = client.status
+    const fresh =
+      snap &&
+      st?.seq != null &&
+      st.seq >= snap.header.seq &&
+      st.sourceTimestamp != null &&
+      st.fetchedAt != null
+    const sourceTs = snap ? (fresh ? (st?.sourceTimestamp as number) : snap.header.sourceTimestamp) : null
+    const fetchedAt = snap ? (fresh ? (st?.fetchedAt as number) : snap.header.fetchedAt) : null
+    const rtState: RtState = rtStateFor(indexed ? sourceTs : null, Math.floor(nowMs / 1000), genOk)
+    const ageS = fetchedAt != null ? Math.max(0, (nowMs - fetchedAt) / 1000) : 0
     return {
       cur,
       snap,
+      sourceTs,
       rtState,
       nowMs,
       // max-age capped by snapshot age (ADR-0003): max(0, 10 − age).
@@ -496,13 +505,13 @@ function statsRecord<T>(stats: Partial<Record<string, T>>): Record<string, T> {
 function envelope(
   generation: string | null,
   serviceDates: string[],
-  r: { snap: { header: { sourceTimestamp: number } } | null; rtState: RtState; nowMs: number },
+  r: { sourceTs: number | null; rtState: RtState; nowMs: number },
 ) {
   return {
     schemaVersion: SCHEMA_VERSION,
     staticGeneration: generation,
     serviceDates,
-    rtSourceTimestamp: r.snap?.header.sourceTimestamp ?? null,
+    rtSourceTimestamp: r.sourceTs,
     rtState: r.rtState,
     generatedAt: r.nowMs,
   }
