@@ -280,10 +280,10 @@ function modeOf(
   routeId: string | undefined,
   byRoute: Map<string, Mode>,
   fallback: Mode[],
-): Mode[] {
-  if (feedMode) return [feedMode]
+): { modes: Mode[]; known: boolean } {
+  if (feedMode) return { modes: [feedMode], known: true }
   const m = routeId ? byRoute.get(routeKey(routeId)) : undefined
-  return m ? [m] : fallback
+  return m ? { modes: [m], known: true } : { modes: fallback, known: false }
 }
 
 export interface BuildResult {
@@ -313,7 +313,7 @@ export function buildSnapshot(input: BuildInput): BuildResult {
       const desc = descriptor(tu.trip)
       const rel = tripRel(tu.trip?.scheduleRelationship)
       const ts = has(tu, 'timestamp') && tu.timestamp > 0n ? num(tu.timestamp) : headerTs
-      const candidates = modeOf(feedMode, desc.routeId, byRoute, modes)
+      const { modes: candidates, known } = modeOf(feedMode, desc.routeId, byRoute, modes)
 
       if (rel === 'ADDED' || rel === 'DUPLICATED') {
         let done = false
@@ -330,7 +330,8 @@ export function buildSnapshot(input: BuildInput): BuildResult {
           done = true
           break
         }
-        if (!done) {
+        if (!done && known) {
+          // Only count against a mode we know the entity belongs to (a combined feed carries unloaded modes too).
           const st = stats[candidates[0] as Mode]
           if (st) {
             st.total++
@@ -346,7 +347,7 @@ export function buildSnapshot(input: BuildInput): BuildResult {
         const idx = input.indexes[m]
         if (!idx) continue
         const res = idx.matcher.match(desc, obs)
-        if (res.kind === 'unmatched' && candidates.length > 1) continue
+        if (res.kind === 'unmatched' && (candidates.length > 1 || !known)) continue
         const st = stats[m] as MatchStats
         st.total++
         counted = true
@@ -374,7 +375,7 @@ export function buildSnapshot(input: BuildInput): BuildResult {
         if (desc.tripId) keyByDescriptor.set(`${desc.tripId}|${desc.startDate ?? ''}`, res.key)
         break
       }
-      if (!counted) {
+      if (!counted && known) {
         const st = stats[candidates[0] as Mode]
         if (st) {
           st.total++
@@ -409,7 +410,7 @@ export function buildSnapshot(input: BuildInput): BuildResult {
                 },
               ]
             : []
-        for (const m of modeOf(feedMode, desc.routeId, byRoute, modes)) {
+        for (const m of modeOf(feedMode, desc.routeId, byRoute, modes).modes) {
           const res = input.indexes[m]?.matcher.match(desc, obs)
           if (res?.kind === 'matched') {
             tripKey = res.key

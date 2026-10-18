@@ -266,6 +266,21 @@ describe('RtHub snapshot', () => {
     expect(snap.alerts[0]).toMatchObject({ id: 'a9', modes: ['ferry'] })
   })
 
+  it('combined feeds: entities of unloaded modes are not counted against a loaded mode', async () => {
+    const h = setup({ modes: 'all' })
+    h.up.set(
+      'TripUpdates',
+      feed(h.nowS(), [
+        tripUpdate('f', { tripId: 'T1', startDate: D, routeId: 'F1-4055' }, [{ seq: 1, depDelay: 30 }]),
+        tripUpdate('b', { tripId: 'BUS1', startDate: D, routeId: '66-4055' }, [{ seq: 1, depDelay: 30 }]),
+      ]),
+    )
+    h.up.set('VehiclePositions', feed(h.nowS(), []))
+    await warm(h)
+    const { status } = await h.hub.pull(null)
+    expect(status.stats?.ferry).toMatchObject({ total: 1, matched: 1, unmatched: 0 })
+  })
+
   it('pull only re-sends the snapshot when seq changed', async () => {
     const h = setup()
     await warm(h)
