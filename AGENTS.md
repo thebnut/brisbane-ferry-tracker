@@ -591,3 +591,15 @@ if (minutesUntil > 60) return null;
 8. Dark mode support
 9. PWA capabilities for offline access
 10. Trip planning (multi-stop journeys)
+## Transit platform monorepo (in progress, October 2026)
+
+The transit platform (`docs/architecture/transit-architecture.md`) is being built **additively** in this repo:
+
+- `pnpm-workspace.yaml` covers `packages/*`, `apps/*`, `services/*` and `pipeline`. Use pnpm (12.x) there:
+  `pnpm install`, then `pnpm mono:typecheck|lint|test|build` from the root.
+- The **legacy ferry app at the repo root still uses npm** (`package-lock.json`); `vercel.json` pins
+  `installCommand: npm install` so Vercel keeps building it exactly as before. Don't add a `workspaces` field to the
+  root `package.json`, and keep both lockfiles in sync when root dependencies change.
+- Turborepo is deferred until the root moves into `apps/ferry` (hosting phase): turbo refuses a repo with both
+  npm and pnpm lockfiles. Until then the `mono:*` scripts use `pnpm -r`.
+- Workspace code uses TypeScript and Biome (`biome.json`); the root ESLint config ignores the workspace dirs.
