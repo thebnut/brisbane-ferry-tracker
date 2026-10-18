@@ -17,19 +17,24 @@ interface Row {
 
 export const pinUpcoming = (context: BrowserContext, glob = '**/__fixtures/v1/*/stops/*/departures*') =>
   context.route(glob, async (route) => {
-    const res = await route.fetch()
-    const body: { rtState: string; departures?: Row[] } = await res.json()
-    const d = body.departures?.find((x) => x.status !== 'cancelled' && x.status !== 'skipped')
-    if (d) {
-      const shift = Math.floor(Date.now() / 1000) + 600 - (d.estDep ?? d.schedDep)
-      d.schedDep += shift
-      if (d.estDep != null) d.estDep += shift
-      if (d.schedArrTo != null) d.schedArrTo += shift
-      if (d.estArrTo != null) d.estArrTo += shift
-      if (body.rtState === 'live') {
-        d.status = 'live'
-        d.estDep ??= d.schedDep
+    try {
+      const res = await route.fetch()
+      const body: { rtState: string; departures?: Row[] } = await res.json()
+      const d = body.departures?.find((x) => x.status !== 'cancelled' && x.status !== 'skipped')
+      if (d) {
+        const shift = Math.floor(Date.now() / 1000) + 600 - (d.estDep ?? d.schedDep)
+        d.schedDep += shift
+        if (d.estDep != null) d.estDep += shift
+        if (d.schedArrTo != null) d.schedArrTo += shift
+        if (d.estArrTo != null) d.estArrTo += shift
+        if (body.rtState === 'live') {
+          d.status = 'live'
+          d.estDep ??= d.schedDep
+        }
       }
+      await route.fulfill({ response: res, json: body })
+    } catch (error) {
+      // A request still in flight when the test ends (a refetch on reconnect): its context is closing.
+      if (!/disposed|closed|Target page/i.test(String(error))) throw error
     }
-    await route.fulfill({ response: res, json: body })
   })

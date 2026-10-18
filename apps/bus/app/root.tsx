@@ -1,5 +1,11 @@
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
-import { liveGuardScript, useLiveGuardRelease } from '@bft/ui/connectivity'
+import {
+  LIVE_GUARD_CSS,
+  liveGuardScript,
+  NO_SCRIPT_LIVE_CSS,
+  useLiveGuardRelease,
+  useRefetchOnReconnect,
+} from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, useMemo, useState } from 'react'
 import {
@@ -55,6 +61,10 @@ export function Layout({ children }: { children: ReactNode }) {
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant script, hides stale LIVE claims before paint. */}
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: liveGuardScript(renderedAt) }} />
+        {/* The guard's rule without the stylesheet: an unstyled page still hides live claims (R3-F1). */}
+        <style>{LIVE_GUARD_CSS}</style>
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant style; no JavaScript, no LIVE claims. */}
+        <noscript dangerouslySetInnerHTML={{ __html: NO_SCRIPT_LIVE_CSS }} />
         <Meta />
         <Links />
       </head>
@@ -71,6 +81,8 @@ export default function App() {
   const [client] = useState(makeQueryClient)
   // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
   useLiveGuardRelease()
+  // Back online: refetch the live boards at once, not at the next poll (R3-X9).
+  useRefetchOnReconnect(client)
   return (
     <QueryClientProvider client={client}>
       <Outlet />

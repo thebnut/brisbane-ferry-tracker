@@ -11,7 +11,9 @@
     "./map": "./src/map/MapView.tsx",
     "./stop-search": "./src/StopSearch.tsx",
     "./theme.css": "./src/theme.css",
-    "./assets/*": "./assets/*"
+    "./assets/*": "./assets/*",
+    "./sw": "./src/sw.ts",
+    "./e2e/*": "./e2e/*"
   },
   "sideEffects": [
     "**/*.css"
@@ -27,11 +29,17 @@
   },
   "dependencies": {
     "@ark-ui/react": "5.39.3",
-    "maplibre-gl": "6.14.0"
+    "maplibre-gl": "6.14.0",
+    "workbox-core": "7.4.1",
+    "workbox-expiration": "7.4.1",
+    "workbox-precaching": "7.4.1",
+    "workbox-routing": "7.4.1",
+    "workbox-strategies": "7.4.1"
   },
   "devDependencies": {
     "@bft/config": "workspace:*",
     "@biomejs/biome": "2.5.15",
+    "@playwright/test": "1.64.1",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.8",

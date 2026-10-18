@@ -66,6 +66,12 @@ export const alertMode = (a: Alert, stopMode?: StopModeOf, trainLines?: TrainLin
 /** Does the alert belong under a mode chip? Network-wide notices show under every mode. */
 export const inMode = (a: Alert, m: TransitMode, modes = alertModes(a)) => modes == null || modes.includes(m)
 
+/**
+ * An alert under no mode chip (tram only, or stops this app can't place): the "Other" chip lists them, so every alert
+ * the header counts can be found under a filter (R3-X10).
+ */
+export const inNoMode = (a: Alert, modes = alertModes(a)) => !ALERT_MODES.some((m) => inMode(a, m, modes))
+
 export function severityOf(a: Alert, nowS: number): AlertSeverityKind {
   const kind = alertKind(a, nowS)
   if (kind === 'planned') return 'planned'

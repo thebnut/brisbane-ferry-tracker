@@ -12,6 +12,7 @@ import {
   alertModes,
   impactOn,
   inMode,
+  inNoMode,
   type SavedScope,
   savedScope,
   scopeText,
@@ -52,7 +53,7 @@ export function headers() {
   return { 'cache-control': 'private, no-store' }
 }
 
-type Filter = 'mine' | 'all' | TransitMode
+type Filter = 'mine' | 'all' | 'other' | TransitMode
 
 const LABEL: Record<TransitMode, string> = { ferry: 'Ferry', train: 'Train', bus: 'Bus' }
 
@@ -82,8 +83,15 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
   const [filter, setFilter] = useState<Filter>('all')
   const all = useMemo(() => sortAlerts(q.data?.alerts ?? [], nowS), [q.data, nowS])
   const mine = scope ? all.filter((a) => impactOn(a, scope)) : []
+  const other = all.filter((a) => inNoMode(a, modesOf(a)))
   const shown =
-    filter === 'all' ? all : filter === 'mine' ? mine : all.filter((a) => inMode(a, filter, modesOf(a)))
+    filter === 'all'
+      ? all
+      : filter === 'mine'
+        ? mine
+        : filter === 'other'
+          ? other
+          : all.filter((a) => inMode(a, filter, modesOf(a)))
   const options: ChipOption<Filter>[] = [
     ...(mine.length ? [{ value: 'mine' as const, label: 'Affects my trips', count: mine.length }] : []),
     { value: 'all', label: 'All' },
@@ -92,6 +100,8 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
       label: LABEL[m],
       count: all.filter((a) => inMode(a, m, modesOf(a))).length,
     })),
+    // Alerts under no mode chip (tram, unplaced stops), so the header's total is all reachable (R3-X10).
+    ...(other.length ? [{ value: 'other' as const, label: 'Other', count: other.length }] : []),
   ]
   return (
     <>

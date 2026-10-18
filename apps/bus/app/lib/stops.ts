@@ -10,6 +10,12 @@ export function stopCode(stopId: string): string | null {
   return /^\d{1,6}$/.test(stopId) ? stopId.padStart(6, '0') : null
 }
 
+/**
+ * The stop_id for a stop number typed or shared with its leading zeros ("010813" → "10813"), the reverse of stopCode;
+ * anything else is returned unchanged.
+ */
+export const canonicalStopId = (s: string) => (/^0\d{1,5}$/.test(s) ? normaliseCode(s) : s)
+
 /** Digits of a stop number without leading zeros ("010802" → "10802"), for exact matching. */
 export const normaliseCode = (s: string) => s.replace(/^0+(?=\d)/, '')
 

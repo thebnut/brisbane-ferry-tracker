@@ -5,6 +5,7 @@ import {
   alertModes,
   impactOn,
   inMode,
+  inNoMode,
   savedScope,
   scopeText,
   severityOf,
@@ -133,5 +134,29 @@ describe('merged alerts', () => {
     expect(impactOn(a({ stops: ['1832'] }), scope)).toMatch(/saved stop/)
     expect(impactOn(a({ routes: ['66-4949'] }), scope)).toMatch(/route you use/)
     expect(impactOn(a({ routes: ['199-1'] }), scope)).toBeNull()
+  })
+})
+
+describe('every counted alert is under some chip (R3-X10)', () => {
+  it('tram-only and unplaced alerts go under Other; mode and network-wide ones do not', () => {
+    const tram = a({ id: 't', modes: ['tram'] })
+    const unplaced = a({ id: 'u', stops: ['nowhere'] })
+    const ferry = a({ id: 'f', modes: ['ferry'] })
+    const network = a({ id: 'n' })
+    expect(inNoMode(tram)).toBe(true)
+    expect(
+      inNoMode(
+        unplaced,
+        alertModes(unplaced, () => null),
+      ),
+    ).toBe(true)
+    expect(inNoMode(ferry)).toBe(false)
+    expect(inNoMode(network)).toBe(false)
+    for (const x of [tram, unplaced, ferry, network]) {
+      const modes = alertModes(x, () => null)
+      expect(
+        inNoMode(x, modes) || ['ferry', 'train', 'bus'].some((m) => inMode(x, m as 'ferry', modes)),
+      ).toBe(true)
+    }
   })
 })

@@ -79,6 +79,18 @@ export function resetUnconfirmedBefore(): void {
   unconfirmedBefore = undefined
 }
 
+/**
+ * The live guard's own rule, inlined in each layout's <head> next to liveGuardScript (R3-F1): theme.css carries the
+ * same rule, but a page whose stylesheet failed to load must still hide its live claims.
+ */
+export const LIVE_GUARD_CSS = `html[${LIVE_UNCONFIRMED_ATTR}] [data-live-claim]{display:none!important}`
+
+/**
+ * For a <noscript> in each layout's <head> (Codex review of R3-F1): without JavaScript nothing can confirm (or keep
+ * up) live data, so live claims are never shown.
+ */
+export const NO_SCRIPT_LIVE_CSS = '<style>[data-live-claim]{display:none!important}</style>'
+
 export function useLiveGuardRelease() {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
@@ -147,6 +159,76 @@ function subscribe(onChange: () => void) {
     window.removeEventListener('online', onChange)
     window.removeEventListener('offline', onChange)
   }
+}
+
+/**
+ * Calls `refetch` the moment the connection may be back (R3-X9), instead of leaving "Offline · scheduled" up until the
+ * next 15 s poll: when the browser says it is online again, when a call reaches the network after failures (the
+ * other boards follow at once), and when the page becomes visible again while it was offline. Returns an unsubscribe.
+ */
+export function onReconnect(onBack: () => void): () => void {
+  let wasOnline = isOnline()
+  // The online event and the store change it causes arrive together: refetch once.
+  let last = 0
+  const refetch = () => {
+    if (Date.now() - last < 1_000) return
+    last = Date.now()
+    onBack()
+  }
+  const check = () => {
+    const now = isOnline()
+    if (now && !wasOnline) refetch()
+    wasOnline = now
+  }
+  const onOnline = () => {
+    wasOnline = isOnline()
+    refetch()
+  }
+  const onVisible = () => {
+    if (document.visibilityState !== 'visible') return
+    if (!wasOnline || !isOnline()) refetch()
+    wasOnline = isOnline()
+  }
+  const unsubscribe = subscribe(check)
+  // After subscribe(): its own online listener clears `unreachable` first, so the refetch's calls count as online.
+  window.addEventListener('online', onOnline)
+  document.addEventListener('visibilitychange', onVisible)
+  return () => {
+    unsubscribe()
+    window.removeEventListener('online', onOnline)
+    document.removeEventListener('visibilitychange', onVisible)
+  }
+}
+
+/** The polled (live) queries of a TanStack QueryClient: what a reconnect refetches. Static data stays cached. */
+export interface RefetchableClient {
+  refetchQueries(
+    filters: { type: 'active'; predicate(query: PolledQuery): boolean },
+    options: { cancelRefetch: boolean },
+  ): Promise<unknown>
+}
+/** The part of a TanStack Query this reads: its observers' options (where `refetchInterval` lives). */
+interface PolledQuery {
+  observers: ReadonlyArray<{ options: object }>
+}
+const isPolled = (q: PolledQuery) =>
+  q.observers.some((o) => (o.options as { refetchInterval?: unknown }).refetchInterval != null)
+
+/** onReconnect for an app's QueryClient, refetching every active polled query at once (R3-X9). */
+export function useRefetchOnReconnect(client: RefetchableClient): void {
+  useEffect(
+    () =>
+      onReconnect(() => {
+        void client
+          .refetchQueries(
+            { type: 'active', predicate: isPolled },
+            // A board already fetching keeps its request (one reaching the network is what told us we're back).
+            { cancelRefetch: false },
+          )
+          .catch(() => {})
+      }),
+    [client],
+  )
 }
 
 /** `isOnline()` as React state: true during SSR and hydration, then the live answer. */

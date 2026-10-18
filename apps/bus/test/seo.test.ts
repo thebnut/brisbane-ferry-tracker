@@ -8,7 +8,7 @@ import {
   stopMetaTags,
   urlsetXml,
 } from '../app/lib/seo.ts'
-import { normaliseCode, stopCode, tripPath } from '../app/lib/stops.ts'
+import { canonicalStopId, normaliseCode, stopCode, tripPath } from '../app/lib/stops.ts'
 import { savedFromCookie, themeFromCookie } from '../app/lib/storage.ts'
 
 describe('seo', () => {
@@ -50,6 +50,12 @@ describe('stops and cookies', () => {
     expect(stopCode('10802')).toBe('010802')
     expect(stopCode('place_ccbs')).toBeNull()
     expect(normaliseCode('000037')).toBe('37')
+    // R3-B10: the zero-padded public number maps back to the stop_id; other ids are untouched.
+    expect(canonicalStopId('010813')).toBe('10813')
+    expect(canonicalStopId(stopCode('2810') ?? '')).toBe('2810')
+    expect(canonicalStopId('10813')).toBe('10813')
+    expect(canonicalStopId('place_uqlksa')).toBe('place_uqlksa')
+    expect(canonicalStopId('0')).toBe('0')
     expect(tripPath('a b@20261018', '10802')).toBe('/trip/a%20b%4020261018?from=10802')
   })
   it('saved-stop and theme cookies are sanitised', () => {

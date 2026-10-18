@@ -6,6 +6,7 @@ import {
   DEFAULT_STOPS,
   normalisePair,
   pairForTerminal,
+  pairFromParams,
   swapPair,
   TERMINALS,
   terminalById,
@@ -60,5 +61,23 @@ describe('pair rules', () => {
     const p = withOrigin(DEFAULT_STOPS, '317583')
     expect(p).toMatchObject({ outbound: { id: '317583' }, inbound: { id: '317590' } })
     expect(swapPair(DEFAULT_STOPS)).toMatchObject({ outbound: { id: '317590' }, inbound: { id: '317584' } })
+  })
+})
+
+describe('pairFromParams (R3-F2 deep links)', () => {
+  const p = (q: string) => new URLSearchParams(q)
+  it('opens a known, directly connected pair', () => {
+    expect(pairFromParams(p('from=317583&to=317590'), DEFAULT_STOPS)).toEqual({
+      outbound: { id: '317583', name: 'Hawthorne' },
+      inbound: { id: '317590', name: 'Riverside' },
+    })
+  })
+  it('ignores an unknown origin and fixes an unreachable or missing destination', () => {
+    expect(pairFromParams(p('from=999&to=317590'), DEFAULT_STOPS)).toBeNull()
+    expect(pairFromParams(p('to=317590'), DEFAULT_STOPS)).toBeNull()
+    // Dockside only reaches Sydney Street.
+    expect(pairFromParams(p('from=317581&to=317590'), DEFAULT_STOPS)?.inbound.id).toBe('317589')
+    // No destination: keep the saved one when reachable.
+    expect(pairFromParams(p('from=317583'), DEFAULT_STOPS)?.inbound.id).toBe('317590')
   })
 })

@@ -107,9 +107,7 @@ export function UpdatedStrip({
               {formatClock(updatedAt / 1000)}
             </strong>
           </>
-        ) : (
-          'Timetable'
-        )
+        ) : null
       }
       detail={formatAge(sourceS, nowMs)}
     >
