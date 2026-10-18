@@ -4,11 +4,12 @@ const PORT = 8796
 
 /**
  * Smoke tests against the production build running in workerd (`wrangler dev`), in fixture mode so no live API is
- * needed. `pnpm test:e2e` builds first. The live LLM check against staging is playwright.llm.config.ts.
+ * needed. `pnpm test:e2e` builds first. The live LLM check against staging is playwright.llm.config.ts;
+ * the live CSP + Turnstile check is playwright.staging.config.ts.
  */
 export default defineConfig({
   testDir: 'tests',
-  testIgnore: ['**/llm.spec.ts'],
+  testIgnore: ['**/llm.spec.ts', '**/*.staging.spec.ts'],
   fullyParallel: true,
   reporter: process.env.CI ? 'github' : 'list',
   use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure' },

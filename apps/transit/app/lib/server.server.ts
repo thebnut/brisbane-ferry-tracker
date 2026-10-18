@@ -14,6 +14,15 @@ export function getEnv(context: Readonly<RouterContextProvider>): Env | null {
   }
 }
 
+/** The per-request CSP nonce (workers/security.ts), or undefined when rendering outside the Worker. */
+export function getNonce(context: Readonly<RouterContextProvider>): string | undefined {
+  try {
+    return context.get(cloudflareContext).nonce
+  } catch {
+    return undefined
+  }
+}
+
 export function isFixtureMode(request: Request, env: Env | null): boolean {
   if (!env) return false
   if (env.FIXTURES === '1') return true

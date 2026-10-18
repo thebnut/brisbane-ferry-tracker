@@ -1,7 +1,7 @@
 import { AppHeader } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   isRouteErrorResponse,
   Links,
@@ -14,7 +14,7 @@ import {
 import type { Route } from './+types/root'
 import './app.css'
 import { makeQueryClient } from './lib/query-client.ts'
-import { getEnv, isFixtureMode } from './lib/server.server.ts'
+import { getEnv, getNonce, isFixtureMode } from './lib/server.server.ts'
 import { getCookie, THEME_COOKIE } from './lib/storage.ts'
 
 // No web-font request (as in the standalone apps): Inter and Poppins are used when installed, else system-ui.
@@ -35,6 +35,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const rt = fixtures ? new URL(request.url).searchParams.get('rt') : null
   const t = getCookie(request.headers.get('cookie'), THEME_COOKIE)
   return {
+    /** The per-request CSP nonce, for the inline scripts below (workers/security.ts). */
+    nonce: getNonce(context),
     mode: { fixtures, rt },
     fixtures,
     tripWs: null,
@@ -50,6 +52,7 @@ const THEME_SCRIPT =
 export function Layout({ children }: { children: ReactNode }) {
   const data = useRouteLoaderData('root') as Awaited<ReturnType<typeof loader>> | undefined
   const theme = data?.theme ?? 'system'
+  const nonce = data?.nonce
   return (
     <html lang="en-AU" className={theme === 'system' ? undefined : theme} suppressHydrationWarning>
       <head>
@@ -57,14 +60,14 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#FF6B35" />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant script, sets the dark class before paint. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <Meta />
         <Links />
       </head>
       <body>
         {children}
-        <ScrollRestoration />
-        <Scripts />
+        <ScrollRestoration nonce={nonce} />
+        <Scripts nonce={nonce} />
       </body>
     </html>
   )
@@ -72,6 +75,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
 export default function App() {
   const [client] = useState(makeQueryClient)
+  // Effects run only once hydration has committed: tests wait for this marker (tests/csp.ts).
+  useEffect(() => {
+    document.documentElement.dataset.hydrated = ''
+  }, [])
   return (
     <QueryClientProvider client={client}>
       <Outlet />
