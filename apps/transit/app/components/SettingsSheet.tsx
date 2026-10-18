@@ -3,7 +3,7 @@ import { KEYS as BUS_KEYS } from '@bft/bus/app/lib/storage.ts'
 import { BottomSheet, SegmentedControl } from '@bft/ui'
 import { useState } from 'react'
 import { useRouteLoaderData } from 'react-router'
-import { safe, THEME_COOKIE } from '../lib/storage.ts'
+import { getCookie, safe, THEME_COOKIE } from '../lib/storage.ts'
 
 export type ThemePref = 'system' | 'light' | 'dark'
 
@@ -16,7 +16,11 @@ function applyTheme(pref: ThemePref) {
 
 export default function SettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const root = useRouteLoaderData('root') as { theme?: ThemePref } | undefined
-  const [theme, setTheme] = useState<ThemePref>(root?.theme ?? 'system')
+  // The cookie, not only the root data: the root loader doesn't re-run on every navigation (root.tsx).
+  const [theme, setTheme] = useState<ThemePref>(() => {
+    const t = safe(() => getCookie(document.cookie, THEME_COOKIE), null)
+    return t === 'light' || t === 'dark' || t === 'system' ? t : (root?.theme ?? 'system')
+  })
   return (
     <BottomSheet open={open} onClose={onClose} title="Settings">
       <div className="flex flex-col gap-5">

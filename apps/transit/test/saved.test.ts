@@ -168,13 +168,29 @@ describe('the home page’s live judgement (R7-T1)', () => {
   const live = res([dep({ status: 'live', estDep: s + 120 })])
 
   it('LIVE only once every saved card has a live answer: a pending card is not live', () => {
-    expect(homeLiveState(items, [{ data: live, pending: false }, { data: undefined, pending: true }], opts)).toEqual({
+    expect(
+      homeLiveState(
+        items,
+        [
+          { data: live, pending: false },
+          { data: undefined, pending: true },
+        ],
+        opts,
+      ),
+    ).toEqual({
       live: false,
       unconfirmed: false,
     })
-    expect(homeLiveState(items, [{ data: live, pending: false }, { data: live, pending: false }], opts).live).toBe(
-      true,
-    )
+    expect(
+      homeLiveState(
+        items,
+        [
+          { data: live, pending: false },
+          { data: live, pending: false },
+        ],
+        opts,
+      ).live,
+    ).toBe(true)
     expect(homeLiveState(items, [{ data: undefined, pending: true }], opts).live).toBe(false)
   })
 
@@ -198,8 +214,13 @@ describe('the home page’s live judgement (R7-T1)', () => {
   })
 
   it('never LIVE offline; with nothing saved, LIVE only on a fresh page', () => {
-    expect(homeLiveState(items, [{ data: live, pending: false }], { ...opts, online: false }).live).toBe(false)
+    expect(homeLiveState(items, [{ data: live, pending: false }], { ...opts, online: false }).live).toBe(
+      false,
+    )
     expect(homeLiveState([], [], opts)).toEqual({ live: true, unconfirmed: false })
-    expect(homeLiveState([], [], { ...opts, unconfirmedBefore: NOW })).toEqual({ live: false, unconfirmed: false })
+    expect(homeLiveState([], [], { ...opts, unconfirmedBefore: NOW })).toEqual({
+      live: false,
+      unconfirmed: false,
+    })
   })
 })

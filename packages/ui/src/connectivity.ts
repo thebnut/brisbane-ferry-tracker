@@ -200,6 +200,36 @@ export function onReconnect(onBack: () => void): () => void {
   }
 }
 
+/**
+ * Did a page's data fail to load because the network is down (R7-T2)? A client navigation fetches its loader data
+ * (`<path>.data`); offline the service worker has no copy, so fetch() rejects with a TypeError ("Failed to fetch",
+ * Safari's "Load failed", Firefox's "NetworkError…"), and React Router hands that to the error boundary. Any error
+ * while the browser says it is offline, or while API calls are failing, counts too.
+ */
+export function isOfflineFailure(error: unknown): boolean {
+  // Only in the browser: an error on the server says nothing about the device's connection.
+  if (typeof window === 'undefined') return false
+  if (!isOnline()) return true
+  return error instanceof TypeError && /^(?:failed to fetch|load failed|networkerror)/i.test(error.message)
+}
+
+/** How often a screen that needs the network retries while it waits for it (as well as on every reconnect). */
+export const OFFLINE_RETRY_MS = 10_000
+
+/**
+ * For a screen that couldn't load offline (R7-T2): calls `retry` the moment the connection may be back (onReconnect),
+ * and every OFFLINE_RETRY_MS meanwhile, because a dead connection that never said it was offline (lie-fi, the
+ * service worker cut off) never says it is back either. Returns an unsubscribe.
+ */
+export function retryWhenBack(retry: () => void, intervalMs = OFFLINE_RETRY_MS): () => void {
+  const off = onReconnect(retry)
+  const id = setInterval(retry, intervalMs)
+  return () => {
+    off()
+    clearInterval(id)
+  }
+}
+
 /** The polled (live) queries of a TanStack QueryClient: what a reconnect refetches. Static data stays cached. */
 export interface RefetchableClient {
   refetchQueries(

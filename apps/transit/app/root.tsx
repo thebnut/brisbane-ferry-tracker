@@ -1,9 +1,11 @@
-import { AppHeader } from '@bft/ui'
+import { AppHeader, OfflineScreen } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
 import {
+  isOfflineFailure,
   LIVE_GUARD_CSS,
   liveGuardScript,
   NO_SCRIPT_LIVE_CSS,
+  retryWhenBack,
   useLiveGuardRelease,
   useRefetchOnReconnect,
 } from '@bft/ui/connectivity'
@@ -16,10 +18,13 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  type ShouldRevalidateFunctionArgs,
+  useRevalidator,
   useRouteLoaderData,
 } from 'react-router'
 import type { Route } from './+types/root'
 import './app.css'
+import { DesktopModeBar, ModeBar } from './components/ModeBar.tsx'
 import { makeQueryClient } from './lib/query-client.ts'
 import { getEnv, getNonce, isFixtureMode } from './lib/server.server.ts'
 import { getCookie, THEME_COOKIE } from './lib/storage.ts'
@@ -52,6 +57,25 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     /** When this HTML was rendered: the live guard compares it with the device clock (R2-T7). */
     renderedAt: Date.now(),
   }
+}
+
+/** The search parameters the root loader reads: a navigation that changes one of them re-runs it. */
+const ROOT_PARAMS = ['fixtures', 'rt'] as const
+
+/**
+ * The root data (nonce, data mode, theme, sitekey) is per visit, not per page, so a client navigation doesn't fetch
+ * it again (R7-T2): offline, that request failed and took the whole app to "Something went wrong" whichever tab was
+ * opened. It re-runs for an explicit revalidation, after a form action, and when ?fixtures= or ?rt= changes.
+ */
+export function shouldRevalidate({
+  currentUrl,
+  nextUrl,
+  formMethod,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+  if (formMethod && formMethod !== 'GET') return defaultShouldRevalidate
+  if (currentUrl.href === nextUrl.href) return defaultShouldRevalidate
+  return ROOT_PARAMS.some((k) => currentUrl.searchParams.get(k) !== nextUrl.searchParams.get(k))
 }
 
 /** System theme: set the class before first paint so dark-mode users never see a light flash. */
@@ -106,7 +130,24 @@ export default function App() {
   )
 }
 
+/** A screen opened offline whose data needs the network (R7-T2): retried until it loads, Mode Tabs kept. */
+export function OfflineRouteScreen() {
+  const { revalidate } = useRevalidator()
+  useEffect(() => retryWhenBack(() => void revalidate().catch(() => {})), [revalidate])
+  return (
+    <>
+      <title>Offline | BrisbaneTransit</title>
+      <meta name="robots" content="noindex" />
+      <OfflineScreen />
+    </>
+  )
+}
+
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  return isOfflineFailure(error) ? <RootOfflineScreen /> : <ErrorPage error={error} />
+}
+
+function ErrorPage({ error }: { error: unknown }) {
   const notFound = isRouteErrorResponse(error) && error.status === 404
   const title = notFound ? 'Page not found' : 'Something went wrong'
   const client = useMemo(makeQueryClient, [])
@@ -125,6 +166,20 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
           </a>
         </p>
       </main>
+    </QueryClientProvider>
+  )
+}
+
+function RootOfflineScreen() {
+  const client = useMemo(makeQueryClient, [])
+  return (
+    <QueryClientProvider client={client}>
+      <AppHeader mode="transit" logoSrc={emblem} />
+      <DesktopModeBar />
+      <main>
+        <OfflineRouteScreen />
+      </main>
+      <ModeBar />
     </QueryClientProvider>
   )
 }

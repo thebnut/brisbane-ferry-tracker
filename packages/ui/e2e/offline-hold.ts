@@ -209,7 +209,9 @@ export function offlineHoldSuite({
             await page.addInitScript(watcher, rows)
             await page.reload()
             if (kind.flaky) await flap(page)
-            await expect(page.locator('[data-banner=offline]').first()).toBeVisible({ timeout: bannerWithinMs })
+            await expect(page.locator('[data-banner=offline]').first()).toBeVisible({
+              timeout: bannerWithinMs,
+            })
           } else {
             await expect(page.locator('[data-banner=offline]').first()).toBeVisible({ timeout: 20_000 })
             await page.evaluate(watcher, rows)

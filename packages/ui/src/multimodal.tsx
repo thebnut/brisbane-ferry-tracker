@@ -217,7 +217,10 @@ export function SavedTripCard({
         ) : null}
       </span>
       {empty ? (
-        <span data-loading={loading ? '' : undefined} className="text-sm text-sched-text dark:text-night-text/70">
+        <span
+          data-loading={loading ? '' : undefined}
+          className="text-sm text-sched-text dark:text-night-text/70"
+        >
           {empty}
         </span>
       ) : (
