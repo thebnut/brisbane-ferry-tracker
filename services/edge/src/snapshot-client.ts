@@ -15,8 +15,6 @@ import type { HubStatus, PullResult, RawFeed } from './rt/hub-core.ts'
 export const SNAPSHOT_REFRESH_MS = 10_000
 /** Older than this, a request waits for the refresh instead of being served the isolate's copy. */
 export const SNAPSHOT_MAX_STALE_MS = 60_000
-/** How long a request waits for a background refresh before using the isolate's copy. */
-export const SNAPSHOT_WAIT_BUDGET_MS = 250
 
 export interface CurrentSnapshot {
   seq: number
@@ -65,23 +63,15 @@ export class SnapshotClient {
 
   /**
    * The current snapshot, or null when there is none. Stale-while-revalidate: once the isolate's copy is 10 s old
-   * the refresh runs in the background (`waitUntil`); this request waits for it up to 250 ms, then gets the copy it
-   * has. Only a missing
+   * the refresh runs in the background (`waitUntil`) and this request gets the current copy at once. (Waiting up to
+   * 250 ms for the refresh was measured on staging: R2 from BNE takes longer, so it only added latency.) Only a missing
    * or very old (> 60 s) copy makes the request wait. On staging a blocking refresh cost ~1 s (two R2 reads from
    * BNE), a background one costs the request nothing.
    */
   async get(waitUntil?: (p: Promise<unknown>) => void): Promise<CurrentSnapshot | null> {
     const age = this.now() - this.loadedAt
     if (this.current && age < SNAPSHOT_MAX_STALE_MS) {
-      if (age >= SNAPSHOT_REFRESH_MS) {
-        const refresh = this.shared.get().catch(() => null)
-        ;(waitUntil ?? this.waitUntil)(refresh)
-        // Give a warm refresh a moment (one R2 round trip) so this request already sees it; past the budget, serve
-        // the copy we have and let the refresh finish in the background.
-        let timer: ReturnType<typeof setTimeout> | undefined
-        await Promise.race([refresh, new Promise((r) => (timer = setTimeout(r, SNAPSHOT_WAIT_BUDGET_MS)))])
-        clearTimeout(timer)
-      }
+      if (age >= SNAPSHOT_REFRESH_MS) (waitUntil ?? this.waitUntil)(this.shared.get().catch(() => null))
       return this.current
     }
     try {

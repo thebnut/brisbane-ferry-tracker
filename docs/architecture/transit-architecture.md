@@ -629,9 +629,13 @@ Real pipeline generation `20261017-20261216-3305c5ea-*` (all four modes), `RT_MO
 | First cron after the very first deploy | about 7 min, after which the watchdog started the chain |
 | Live match rate | ferry 62/62, train 84/84, all tier 1, 0 ambiguous |
 | Shadow diff, staging `/v1` (real data) vs legacy `latest.json` (same feed) | 346 pairs, 16,181 departures, **0 differences** |
-| Freshness (source age), Bulimba → Riverside departures, 15 s client polling | FRESHNESS_ROW |
-| Latency, Brisbane client → BNE PoP | LATENCY_ROW |
-| Watchdog drill (alarm deleted via `POST /__drill/kill-alarm`) | DRILL_ROW |
+| Freshness (source age), Bulimba → Riverside departures, one client polling every 15 s for 10 min | **p50 34 s, p95 54 s, max 84 s: misses the ≤ 40 s p95 target.** A variant that waited up to 250 ms for the refresh measured p50 45 s, p95 55 s, and was reverted. |
+| Latency, Brisbane client → BNE PoP | **p50 28 ms, p75 43 ms** (target p75 < 150 ms). p95 381 ms: cold isolates loading the stop index and blobs. A blocking R2 refresh costs about 1 s, hence stale-while-revalidate. |
+| Watchdog drill (`POST /__drill/kill-alarm`: delete the alarm, and in-flight alarms skip their re-arm) | **Recovered in 60 s and 46 s** (two drills): the time from the last good poll to the first poll in a fresh instance started by the 1-minute cron watchdog. That is within the design bound (45 s stale threshold plus up to 60 s cron). The first naive kill was absorbed: an in-flight keep-alive alarm re-armed in `finally`, which is the robustness rule working. |
+
+**A resident hub survives deploys (a finding).** With the keep-alive, Cloudflare did not restart the object on deploy: its `startedAt` predated two deploys, so new hub code would never have taken effect.
+- The watchdog now passes the Worker's `version_metadata` id, and a hub on an older version calls `ctx.abort()`. The stored alarm then fires in a fresh instance on the new code.
+- Verified: after a redeploy the hub restarted within 42 s.
 
 **Durable Object eviction (a finding).** Cloudflare evicts an idle Durable Object after about 10 s.
 - With a 15 s alarm the hub ran in a fresh isolate on every alarm (`startedAt` changed every cycle). It never finished its one-day-per-cycle trip-index load, so `rtState` stayed `reloading`, and it paid the restore every cycle.
@@ -662,6 +666,20 @@ Staging CPU is 4–5× the pure rebuild cost measured in Node and workerd. The r
   - Deleting the snapshot from 240 polls ago is free and keeps about 85 MB of history.
 - **R2 Class B:** 1–2 per 10 s per active isolate (the pointer, plus the snapshot when its seq moved), in the background.
   - That is about 520k a month per continuously active isolate (Free: 10M).
+
+**Freshness, explained.** The source age a client sees adds up as follows:
+- About 5 s: TransLink's header age when the hub fetches.
+- Up to 15 s: the hub's poll interval.
+- 1–2 s: publishing to R2.
+- One refresh lag at the edge. With stale-while-revalidate, a request triggers a background refresh and is served the previous copy.
+  - With one 15 s client, that lag is a whole client interval.
+  - With real traffic, refreshes happen every 10 s whoever asks, so the lag is the 10 s throttle.
+
+Ways to reach p95 ≤ 40 s:
+- Poll every 10 s, TransLink's own `max-age`. That costs about 1.5× the TransLink and R2 writes.
+- Read one R2 object instead of the pointer and then the snapshot.
+- On a custom domain, share one refresh per PoP through the Cache API, or Workers Cache (Paid).
+- Re-measure under real traffic before tuning.
 
 **Conclusions**
 - **Workers Free (10 ms CPU).** The pure rebuild of per-mode ferry + train (+ tram) fits: 3–3.5 ms p50 Saturday, about 6–7 ms weekday peak.
