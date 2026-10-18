@@ -589,3 +589,14 @@ describe('Codex PR38 review regressions', () => {
     expect(predictStop(trip, 1, 1000, 1060, 'live')).toEqual({ estArr: 1300, estDep: 1300, status: 'live' })
   })
 })
+
+describe('serviceDayStartEpoch memo', () => {
+  it('returns the same Brisbane midnight-ish reference on repeat calls and across dates', async () => {
+    const { serviceDayStartEpoch } = await import('../src/time/index.ts')
+    const a = serviceDayStartEpoch('20261018')
+    expect(serviceDayStartEpoch('20261018')).toBe(a)
+    // 2026-10-17T14:00:00Z = 2026-10-18 00:00 Brisbane (UTC+10, no DST)
+    expect(a).toBe(Date.UTC(2026, 9, 17, 14) / 1000)
+    expect(serviceDayStartEpoch('20261019') - a).toBe(86400)
+  })
+})

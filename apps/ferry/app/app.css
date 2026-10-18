@@ -1,0 +1,26 @@
+/* Inter, self-hosted (variable weight, font-display: swap; only the latin subset downloads via unicode-range). */
+@import "@fontsource-variable/inter/wght.css";
+@import "tailwindcss";
+@import "@bft/ui/theme.css";
+@source "./";
+
+/* Legal pages: copy from the legacy static HTML. */
+.legal h1 {
+  @apply mb-1 text-2xl font-bold text-charcoal;
+}
+.legal h2 {
+  @apply mt-6 mb-2 text-lg font-semibold text-aqua-text;
+}
+.legal p,
+.legal li {
+  @apply text-base leading-relaxed text-gray-800;
+}
+.legal ul {
+  @apply list-disc pl-6;
+}
+.legal a {
+  @apply text-ferry-orange-deep underline;
+}
+.legal .lede {
+  @apply text-sm text-gray-600;
+}
