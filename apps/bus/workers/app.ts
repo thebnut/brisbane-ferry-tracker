@@ -4,7 +4,8 @@
  *  - /v1/*, /data/bus/*  same-origin proxy to the API Worker (service binding in staging, HTTP in dev), contract-checked
  *  - /__fixtures/*       recorded responses for fixture mode (only when ALLOW_FIXTURES or FIXTURES is "1")
  *  - /sitemap.xml        sitemap index; /sitemaps/{pages,routes,stops-n}.xml from the client data
- *  - /robots.txt
+ *  - /robots.txt        disallows everything unless INDEXABLE is "1"
+ *  - www.<SITE_URL host> 301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
  *  - everything else     React Router SSR
  */
 import { createRequestHandler, RouterContextProvider } from 'react-router'
@@ -20,7 +21,13 @@ import {
   urlsetXml,
 } from '../app/lib/seo.ts'
 import { routePath, stopPath } from '../app/lib/stops.ts'
-import { newNonce, withSecurityHeaders } from './security.ts'
+import {
+  canonicalRedirect,
+  newNonce,
+  withRobotsTag,
+  withSecurityHeaders,
+  wwwRedirectLocation,
+} from './security.ts'
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
@@ -106,7 +113,9 @@ async function sitemap(url: URL, env: Env): Promise<Response | null> {
 export default {
   async fetch(request, env, ctx) {
     const nonce = newNonce()
-    return withSecurityHeaders(await route(request, env, ctx, nonce), nonce)
+    const www = wwwRedirectLocation(request.url, env.SITE_URL)
+    const res = www ? canonicalRedirect(www) : await route(request, env, ctx, nonce)
+    return withRobotsTag(withSecurityHeaders(res, nonce), env.INDEXABLE === '1')
   },
 } satisfies ExportedHandler<Env>
 
@@ -119,7 +128,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
     return handleFixtureApi(url, Date.now(), env)
   }
   if (url.pathname === '/robots.txt')
-    return new Response(robotsTxt(env.SITE_URL), {
+    return new Response(robotsTxt(env.SITE_URL, env.INDEXABLE === '1'), {
       headers: { 'content-type': 'text/plain; charset=utf-8' },
     })
   if (url.pathname === '/sitemap.xml' || url.pathname.startsWith('/sitemaps/')) {

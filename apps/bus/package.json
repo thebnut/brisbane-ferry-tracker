@@ -16,7 +16,9 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "data": "tsx scripts/build-data.ts",
-    "deploy:staging": "CLOUDFLARE_ENV=staging pnpm build && wrangler deploy"
+    "deploy:staging": "CLOUDFLARE_ENV=staging pnpm build && wrangler deploy",
+    "deploy:production-preview": "CLOUDFLARE_ENV=production-preview pnpm build && wrangler deploy",
+    "deploy:production": "CLOUDFLARE_ENV=production pnpm build && wrangler deploy"
   },
   "dependencies": {
     "@bft/core": "workspace:*",

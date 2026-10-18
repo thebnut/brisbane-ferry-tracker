@@ -51,6 +51,62 @@
       "ratelimits": [
         { "name": "FEEDBACK_LIMITER", "namespace_id": "8105", "simple": { "limit": 3, "period": 60 } }
       ]
+    },
+    // PRODUCTION, step 8.1 (docs/architecture/cutover-runbook.md "Train, bus and transit production"): the same
+    // Worker on its workers.dev host only (bft-transit-prod.brisbanetransit.workers.dev), no custom domains, so it can
+    // be checked before any DNS record changes. Keep it identical to "production" except workers_dev and routes
+    // (test/wrangler-config.test.ts checks this). Deployed from main.
+    "production-preview": {
+      "name": "bft-transit-prod",
+      "workers_dev": true,
+      "vars": {
+        "API_BASE": "https://api.brisbaneferry.com",
+        "ALLOW_FIXTURES": "0",
+        "FIXTURES": "0",
+        "SITE_URL": "https://brisbanetransit.com",
+        "FERRY_SITE_URL": "https://www.brisbaneferry.com",
+        "TRAIN_SITE_URL": "https://brisbanetrain.com",
+        "BUS_SITE_URL": "https://brisbanebus.com",
+        // Stays "0": the mounted mode pages are noindex (canonical copies are the standalone apps).
+        "INDEXABLE": "0",
+        "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
+      },
+      // POST /v1/ask reaches bft-api-prod, where AI_ENABLED=false: deterministic answers or a "Try: …" hint only.
+      "services": [{ "binding": "API", "service": "bft-api-prod" }],
+      // Secret (not here): FEEDBACK_DISCORD_WEBHOOK_URL (wrangler secret put --name bft-transit-prod). Both prod envs
+      // are the same Worker, so they share one limiter namespace.
+      "ratelimits": [
+        { "name": "FEEDBACK_LIMITER", "namespace_id": "8106", "simple": { "limit": 3, "period": 60 } }
+      ]
+    },
+    // PRODUCTION on brisbanetransit.com + www (www 301s to the apex in the Worker). Both hostnames already have DNS records:
+    // deploy this only after Brett has exported and approved replacing them (runbook 8.3–8.4). Deployed from main.
+    "production": {
+      "name": "bft-transit-prod",
+      "workers_dev": false,
+      "routes": [
+        { "pattern": "brisbanetransit.com", "custom_domain": true },
+        { "pattern": "www.brisbanetransit.com", "custom_domain": true }
+      ],
+      "vars": {
+        "API_BASE": "https://api.brisbaneferry.com",
+        "ALLOW_FIXTURES": "0",
+        "FIXTURES": "0",
+        "SITE_URL": "https://brisbanetransit.com",
+        "FERRY_SITE_URL": "https://www.brisbaneferry.com",
+        "TRAIN_SITE_URL": "https://brisbanetrain.com",
+        "BUS_SITE_URL": "https://brisbanebus.com",
+        // Stays "0": the mounted mode pages are noindex (canonical copies are the standalone apps).
+        "INDEXABLE": "0",
+        "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
+      },
+      // POST /v1/ask reaches bft-api-prod, where AI_ENABLED=false: deterministic answers or a "Try: …" hint only.
+      "services": [{ "binding": "API", "service": "bft-api-prod" }],
+      // Secret (not here): FEEDBACK_DISCORD_WEBHOOK_URL (wrangler secret put --name bft-transit-prod). Both prod envs
+      // are the same Worker, so they share one limiter namespace.
+      "ratelimits": [
+        { "name": "FEEDBACK_LIMITER", "namespace_id": "8106", "simple": { "limit": 3, "period": 60 } }
+      ]
     }
   }
 }

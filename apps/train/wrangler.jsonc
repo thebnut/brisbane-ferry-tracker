@@ -46,6 +46,54 @@
       "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TripSocket"] }],
       // The SSR loader and the /v1 proxy call the API Worker in-process through this binding.
       "services": [{ "binding": "API", "service": "bft-api" }]
+    },
+    // PRODUCTION, step 1 (docs/architecture/cutover-runbook.md "Train, bus and transit production"): the same
+    // Worker on its workers.dev host only (bft-train-prod.brisbanetransit.workers.dev), no custom domains, so it can
+    // be checked before any DNS record changes. Keep it identical to "production" except workers_dev and routes
+    // (test/wrangler-config.test.ts checks this). Deployed from main.
+    "production-preview": {
+      "name": "bft-train-prod",
+      "workers_dev": true,
+      "vars": {
+        "API_BASE": "https://api.brisbaneferry.com",
+        "ALLOW_FIXTURES": "0",
+        "FIXTURES": "0",
+        "SITE_URL": "https://brisbanetrain.com",
+        // Soft launch: noindex + robots Disallow until the real domain is verified, then "1" (runbook step T6).
+        "INDEXABLE": "0",
+        // The WebSocket prototype starts off in production (trips poll every 15 s); the DO stays bound so turning it
+        // on later is a var change, not a migration.
+        "TRIP_WS": "0",
+        "API_WS_BASE": ""
+      },
+      "durable_objects": { "bindings": [{ "name": "TRIP_SOCKET", "class_name": "TripSocket" }] },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TripSocket"] }],
+      "services": [{ "binding": "API", "service": "bft-api-prod" }]
+    },
+    // PRODUCTION on brisbanetrain.com + www (www 301s to the apex in the Worker). Both hostnames already have DNS records:
+    // deploy this only after Brett has exported and approved replacing them (runbook). Deployed from main.
+    "production": {
+      "name": "bft-train-prod",
+      "workers_dev": false,
+      "routes": [
+        { "pattern": "brisbanetrain.com", "custom_domain": true },
+        { "pattern": "www.brisbanetrain.com", "custom_domain": true }
+      ],
+      "vars": {
+        "API_BASE": "https://api.brisbaneferry.com",
+        "ALLOW_FIXTURES": "0",
+        "FIXTURES": "0",
+        "SITE_URL": "https://brisbanetrain.com",
+        // Soft launch: noindex + robots Disallow until the real domain is verified, then "1" (runbook step T6).
+        "INDEXABLE": "0",
+        // The WebSocket prototype starts off in production (trips poll every 15 s); the DO stays bound so turning it
+        // on later is a var change, not a migration.
+        "TRIP_WS": "0",
+        "API_WS_BASE": ""
+      },
+      "durable_objects": { "bindings": [{ "name": "TRIP_SOCKET", "class_name": "TripSocket" }] },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TripSocket"] }],
+      "services": [{ "binding": "API", "service": "bft-api-prod" }]
     }
   }
 }

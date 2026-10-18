@@ -17,6 +17,8 @@
     "test:e2e": "playwright test",
     "data": "tsx scripts/build-data.ts",
     "deploy:staging": "CLOUDFLARE_ENV=staging pnpm build && wrangler deploy",
+    "deploy:production-preview": "CLOUDFLARE_ENV=production-preview pnpm build && wrangler deploy",
+    "deploy:production": "CLOUDFLARE_ENV=production pnpm build && wrangler deploy",
     "ios:sync": "cap sync ios",
     "ios:open": "cap open ios"
   },
