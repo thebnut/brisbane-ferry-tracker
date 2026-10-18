@@ -69,6 +69,9 @@ export interface R2Pointer {
 }
 
 /** Ring key of a per-scope snapshot document. */
+/** The per-mode document an edge isolate refreshes from with one read (overwritten every poll). */
+export const modeLatestKey = (mode: Mode) => `rt/${mode}/latest.json`
+
 export const scopeKey = (scope: SnapshotScope, seq: number) =>
   `rt/${scope}/snapshot-${seq % R2_KEEP_SNAPSHOTS}.json`
 
@@ -440,7 +443,9 @@ export class HubCore {
     const files: NonNullable<R2Pointer['files']> = {}
     const docs = splitSnapshot(snap, this.tripModes, this.d.config.modes)
     for (const m of this.d.config.modes) {
-      const key = scopeKey(m, seq)
+      // One overwritten object per mode: an edge refresh is a single GET (no pointer first). R2 PUTs are atomic, and
+      // readers check the header seq, so overwriting is safe; no deletes needed.
+      const key = modeLatestKey(m)
       await r2.put(key, JSON.stringify(docs[m]), json)
       files[m] = { key, seq }
     }

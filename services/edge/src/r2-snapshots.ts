@@ -1,10 +1,19 @@
 /**
- * Snapshot reads from R2 (when DATA_BUCKET is bound): `rt/latest.json`, then the document it names for the scope
- * (one mode, or alerts), only when its seq is newer than the isolate's. Keeps the Durable Object off the read path entirely: on Workers Free the DO
+ * Snapshot reads from R2 (when DATA_BUCKET is bound). A mode is one read of `rt/{mode}/latest.json`; alerts (and
+ * older hubs) go through `rt/latest.json` and then the document it names, only when its seq moved. Keeps the Durable Object off the read path entirely: on Workers Free the DO
  * has 100k requests a day, while R2 has 10M Class B reads a month.
  */
+
+import type { RtSnapshot } from '@bft/core'
 import { type DataSource, decodeJson, readBytes } from './data/source.ts'
-import { type PullResult, R2_LATEST_KEY, type R2Pointer, snapshotSeq } from './rt/hub-core.ts'
+import {
+  type HubStatus,
+  modeLatestKey,
+  type PullResult,
+  R2_LATEST_KEY,
+  type R2Pointer,
+  snapshotSeq,
+} from './rt/hub-core.ts'
 import type { SnapshotScope } from './rt/split.ts'
 
 export async function pullFromR2(
@@ -12,6 +21,14 @@ export async function pullFromR2(
   sinceSeq: number | null,
   scope?: SnapshotScope,
 ): Promise<PullResult> {
+  // Modes: one read of rt/{mode}/latest.json, which the hub overwrites every poll (single-read refresh). Fall back
+  // to the pointer when it isn't there (an older hub, or a mode the hub doesn't publish).
+  if (scope && scope !== 'alerts') {
+    const json = await readSnapshot(src, modeLatestKey(scope))
+    const seq = json != null ? snapshotSeq(json) : null
+    if (json != null && seq != null)
+      return { seq, json: seq === sinceSeq ? null : json, status: statusOf(json, seq) }
+  }
   const pointerBytes = await readBytes(src, R2_LATEST_KEY)
   if (!pointerBytes) {
     return {
@@ -52,6 +69,21 @@ export async function pullFromR2(
     }
   }
   throw new Error(`snapshot for seq ${e.seq} not found at ${e.key}`)
+}
+
+/** Hub status from a document's header (parsing only the header: JSON.stringify writes it first). */
+function statusOf(json: string, seq: number): HubStatus {
+  const end = json.indexOf(',"trips":')
+  const h = (JSON.parse(end > 0 ? `${json.slice(0, end)}}` : json) as Pick<RtSnapshot, 'header'>).header
+  return {
+    seq,
+    sourceTimestamp: h.sourceTimestamp,
+    fetchedAt: h.fetchedAt,
+    lastCycleAt: null,
+    lastError: null,
+    stats: h.stats ?? null,
+    generations: h.staticGeneration,
+  }
 }
 
 async function readSnapshot(src: DataSource, key: string): Promise<string | null> {
