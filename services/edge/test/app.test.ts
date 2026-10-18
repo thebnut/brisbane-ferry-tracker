@@ -160,6 +160,35 @@ describe('GET /v1/{mode}/stops/{key}/departures', () => {
     expect(body.departures[0]?.tripInstance).toBe('LATE@20261019')
   })
 
+  it('at= lists departures from that time, with max-age=60', async () => {
+    const s = await setup()
+    const res = await s.get(`/v1/ferry/stops/317584/departures?at=${epoch(D, '08:05:00')}`)
+    expect(res.headers.get('cache-control')).toBe('public, max-age=60')
+    const body = DeparturesResponse.parse(await res.json())
+    expect(body.departures.map((d) => d.tripInstance)).toEqual([`T2@${D}`, `T3@${D}`])
+    // A query at yesterday's late evening reads yesterday's service day too.
+    const late = DeparturesResponse.parse(
+      await (await s.get(`/v1/ferry/stops/317584/departures?at=${epoch('20261019', '24:30:00')}`)).json(),
+    )
+    expect(late.departures[0]?.tripInstance).toBe('LATE@20261019')
+    expect((await s.get('/v1/ferry/stops/317584/departures?at=soon')).status).toBe(400)
+  })
+
+  it('late in the evening carries on into the next service day', async () => {
+    const s = await setup()
+    // 23:00 on D0: the 24:40 LATE trip, then D's morning services.
+    const body = DeparturesResponse.parse(
+      await (await s.get(`/v1/ferry/stops/317584/departures?at=${epoch('20261019', '23:00:00')}`)).json(),
+    )
+    expect(body.serviceDates).toEqual(['20261019', D])
+    expect(body.departures.map((d) => d.tripInstance)).toEqual([
+      `LATE@20261019`,
+      `T1@${D}`,
+      `T2@${D}`,
+      `T3@${D}`,
+    ])
+  })
+
   it('404s an unknown stop, 400s an unknown mode, clamps limit', async () => {
     const s = await setup()
     const r404 = await s.get('/v1/ferry/stops/nope/departures')

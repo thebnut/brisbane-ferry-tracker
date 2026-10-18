@@ -4,6 +4,8 @@
  */
 import {
   type AlertsResponse,
+  addDays,
+  currentServiceDate,
   type Departure,
   type DeparturesResponse,
   gtfsToEpoch,
@@ -111,6 +113,11 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const limit = Number.isFinite(limitQ)
       ? Math.min(MAX_LIMIT, Math.max(1, Math.floor(limitQ)))
       : DEFAULT_LIMIT
+    // `at` (epoch s): list departures from that time instead of now (the ferry app's "Depart from" picker).
+    const atQ = c.req.query('at')
+    const at = atQ == null || atQ === '' ? null : Number(atQ)
+    if (at != null && (!Number.isInteger(at) || at < 0))
+      return c.json({ error: 'bad at', detail: 'epoch seconds' }, 400)
 
     const generation = await deps.store.currentGeneration(mode)
     if (!generation) return c.json({ error: 'no static data for mode', detail: mode }, 503)
@@ -118,28 +125,45 @@ export function createApp(deps: AppDeps): Hono<Env> {
     if (!index) return c.json({ error: 'static index missing', detail: generation }, 503)
 
     const r = await rt(mode, generation)
-    const dates = overlappingServiceDates(r.nowMs).filter((d) => index.serviceDates.includes(d))
+    const fromMs = at != null ? at * 1000 : r.nowMs
+    const dates = overlappingServiceDates(fromMs).filter((d) => index.serviceDates.includes(d))
     const known = index.serviceDates.some((d) => index.blobs[d]?.[key] || index.shards?.[d]?.[key])
     if (!known) return c.json({ error: 'unknown stop', detail: key }, 404)
-    const days = (await Promise.all(dates.map((d) => deps.store.stopDay(index, d, key)))).filter(
-      (d): d is StaticStopDay => d != null,
-    )
+    const load = async (ds: string[]) =>
+      (await Promise.all(ds.map((d) => deps.store.stopDay(index, d, key)))).filter(
+        (d): d is StaticStopDay => d != null,
+      )
+    const days = await load(dates)
 
-    const stop = describeStop(days, key)
-    let to: DeparturesResponse['to'] = null
-    let toStopIds: Set<string> | undefined
-    if (toKey) {
-      const t = destinationStops(days, toKey)
-      toStopIds = t.ids
-      to = { key: toKey, name: t.name ?? toKey }
+    const merge = (ds: StaticStopDay[]) => {
+      const stop = describeStop(ds, key)
+      let to: DeparturesResponse['to'] = null
+      let toStopIds: Set<string> | undefined
+      if (toKey) {
+        const t = destinationStops(ds, toKey)
+        toStopIds = t.ids
+        to = { key: toKey, name: t.name ?? toKey }
+      }
+      const departures: Departure[] = mergeDepartures(
+        ds,
+        r.rtState === 'live' || r.rtState === 'stale' ? r.snap : null,
+        { nowS: Math.floor(fromMs / 1000), toStopIds, limit, rtState: r.rtState, boardingStopIds: stop.ids },
+        r.cur?.vehiclesByTrip,
+      )
+      return { stop, to, departures }
     }
-
-    const departures: Departure[] = mergeDepartures(
-      days,
-      r.rtState === 'live' || r.rtState === 'stale' ? r.snap : null,
-      { nowS: Math.floor(r.nowMs / 1000), toStopIds, limit, rtState: r.rtState, boardingStopIds: stop.ids },
-      r.cur?.vehiclesByTrip,
-    )
+    let m = merge(days)
+    // Late in the evening today's rows run out: carry on into the next service day ("first ferry tomorrow").
+    const next = addDays(dates.at(-1) ?? currentServiceDate(fromMs), 1)
+    if (m.departures.length < limit && index.serviceDates.includes(next)) {
+      const more = await load([next])
+      if (more.length > 0) {
+        dates.push(next)
+        days.push(...more)
+        m = merge(days)
+      }
+    }
+    const { stop, to, departures } = m
     const body: DeparturesResponse = {
       ...envelope(generation, dates, r),
       mode,
@@ -147,7 +171,8 @@ export function createApp(deps: AppDeps): Hono<Env> {
       to,
       departures,
     }
-    return c.json(body, 200, { 'cache-control': r.cacheControl })
+    // `at` queries are mostly about later departures, so they can be cached longer.
+    return c.json(body, 200, { 'cache-control': at != null ? 'public, max-age=60' : r.cacheControl })
   })
 
   // ---------------------------------------------------------------- trip detail
