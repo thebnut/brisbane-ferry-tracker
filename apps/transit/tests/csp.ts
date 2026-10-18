@@ -20,17 +20,28 @@ export const PAGES = [
   '/bus/map',
 ]
 
-/** Collect CSP violations: the console messages and the DOM `securitypolicyviolation` events. */
+/**
+ * Turnstile's challenge iframe is its own document under its own CSP (it probes `fetch('data:,')` and its
+ * connect-src refuses it). Those violations are Cloudflare's, not this page's policy, so they don't count.
+ */
+const TURNSTILE_FRAME = 'https://challenges.cloudflare.com/cdn-cgi/'
+
+/**
+ * Collect this page's CSP violations: console messages (except those from Turnstile's own iframe) and the top
+ * document's `securitypolicyviolation` events.
+ */
 export async function watchCsp(page: Page): Promise<string[]> {
   const violations: string[] = []
   page.on('console', (m) => {
+    if (m.location().url.startsWith(TURNSTILE_FRAME)) return
     if (/Content Security Policy|Refused to/i.test(m.text())) violations.push(m.text())
   })
   await page.exposeFunction('reportCspViolation', (v: string) => violations.push(v))
   await page.addInitScript(() => {
+    if (window !== window.top) return
     document.addEventListener('securitypolicyviolation', (e) =>
       (window as unknown as { reportCspViolation: (v: string) => void }).reportCspViolation(
-        `${e.violatedDirective} ${e.blockedURI}`,
+        `${e.violatedDirective} ${e.blockedURI} ${e.sourceFile}`,
       ),
     )
   })
