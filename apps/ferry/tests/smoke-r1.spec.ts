@@ -1,5 +1,6 @@
 /** Regression tests for Dev's smoke test round 1 (18 Oct 2026): phone width (F1) and offline (F3). */
 import { expect, type Locator, type Page, test } from '@playwright/test'
+import { pinUpcoming, refreshBoards } from './upcoming.ts'
 
 const UQ = { id: '319665', name: 'UQ St Lucia' }
 const NORTHSHORE = { id: '318002', name: 'Northshore Hamilton' }
@@ -23,11 +24,18 @@ test.describe('phone width 360 px, longest stop names (F1)', () => {
     [UQ, NORTHSHORE],
     [NORTHSHORE, UQ],
   ] as const) {
-    test(`${from.name} → ${to.name}: no horizontal scroll, nothing clipped`, async ({ page }, testInfo) => {
+    test(`${from.name} → ${to.name}: no horizontal scroll, nothing clipped`, async ({
+      page,
+      context,
+    }, testInfo) => {
       await remember(page, from, to)
+      // A departure due in 10 minutes at any hour, so there is always a chip to measure.
+      await pinUpcoming(context)
       await page.goto('/')
       const board = page.locator('[data-board=outbound]')
       await expect(board.getByTestId('departure').first()).toBeVisible()
+      await refreshBoards(page)
+      await expect(board.locator('[data-tone]').first()).toBeVisible()
       const { scrollWidth, innerWidth } = await page.evaluate(() => ({
         scrollWidth: document.documentElement.scrollWidth,
         innerWidth: window.innerWidth,
@@ -90,8 +98,12 @@ test.describe('offline (F3)', () => {
     context,
   }) => {
     await remember(page, { id: '317584', name: 'Bulimba' }, { id: '317590', name: 'Riverside' })
+    // A LIVE row at any hour (the precondition for both tests).
+    await pinUpcoming(context)
     await page.goto('/')
     const board = page.locator('[data-board=outbound]')
+    await expect(board.getByTestId('departure').first()).toBeVisible()
+    await refreshBoards(page)
     await expect(board.locator('[data-badge=live]').first()).toBeVisible()
     // Lie-fi: navigator.onLine stays true, but the API can't be reached.
     // context.route also covers the service worker's own network requests.
@@ -110,8 +122,12 @@ test.describe('offline (F3)', () => {
   test('LIVE never comes back while offline (polls keep failing)', async ({ page, context }) => {
     test.slow()
     await remember(page, { id: '317584', name: 'Bulimba' }, { id: '317590', name: 'Riverside' })
+    // A LIVE row at any hour (the precondition for both tests).
+    await pinUpcoming(context)
     await page.goto('/')
     const board = page.locator('[data-board=outbound]')
+    await expect(board.getByTestId('departure').first()).toBeVisible()
+    await refreshBoards(page)
     await expect(board.locator('[data-badge=live]').first()).toBeVisible()
     await context.setOffline(true)
     await expect(page.getByText('Offline · scheduled')).toBeVisible()

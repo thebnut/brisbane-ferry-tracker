@@ -380,7 +380,11 @@ describe('RtHub snapshot', () => {
     await h.hub.alarm()
     expect(h.storage.data.has(`raw:${VP}:2`)).toBe(true)
     const fresh = h.mk()
-    expect((await fresh.getRaw(VP))?.bytes).toEqual(big)
+    // Compare bytes directly: toEqual walks a 2.5 MiB array element by element (~3 s locally, past the 20 s
+    // timeout on busy CI runners).
+    const got = (await fresh.getRaw(VP))?.bytes
+    expect(got?.byteLength).toBe(big.byteLength)
+    expect(got?.findIndex((b, i) => b !== big[i])).toBe(-1)
   })
 })
 
