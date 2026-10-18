@@ -11,7 +11,8 @@ import {
 
 vi.mock('virtual:react-router/server-build', () => ({}))
 
-// Transit's CSP must equal the ferry Worker's (the strictest baseline, #52/#53) plus only Turnstile.
+// Transit's CSP must equal the ferry Worker's (the strictest baseline, #52/#53), which since the feedback Turnstile
+// change also carries Turnstile (script-src and frame-src only), as transit's Ask box needs.
 const FERRY_CSP = (nonce: string) => ferryCsp(nonce).split('; ')
 
 describe('security headers (same pattern and strictness as the ferry Worker)', () => {
@@ -29,15 +30,13 @@ describe('security headers (same pattern and strictness as the ferry Worker)', (
     for (const [k, v] of Object.entries(BASE_SECURITY_HEADERS)) expect(res.headers.get(k)).toBe(v)
   })
 
-  it("is ferry's CSP plus only the Turnstile origin, in script-src and frame-src", () => {
+  it("is exactly ferry's CSP, whose only external script and frame origin is Turnstile", () => {
     const ours = contentSecurityPolicy('n').split('; ')
-    const ferry = FERRY_CSP('n')
-    const extra = ours.filter((d) => !ferry.includes(d))
-    expect(extra).toEqual([
+    expect(ours).toEqual(FERRY_CSP('n'))
+    expect(ours.filter((d) => d.includes(TURNSTILE_ORIGIN))).toEqual([
       `script-src 'self' 'nonce-n' ${TURNSTILE_ORIGIN}`,
       `frame-src ${TURNSTILE_ORIGIN}`,
     ])
-    expect(ferry.filter((d) => !ours.includes(d))).toEqual(["script-src 'self' 'nonce-n'"])
     expect(TURNSTILE_ORIGIN).toBe('https://challenges.cloudflare.com')
   })
 

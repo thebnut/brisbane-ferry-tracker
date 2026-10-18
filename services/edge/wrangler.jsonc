@@ -21,7 +21,13 @@
     { "tag": "v2", "new_sqlite_classes": ["Budget"] }
   ],
   // /v1/ask and /mcp burst protection only (local, eventually consistent): 3 requests a minute per IP.
-  "ratelimits": [{ "name": "ASK_LIMITER", "namespace_id": "8001", "simple": { "limit": 3, "period": 60 } }],
+  // /v1/turnstile/verify (the feedback relays): a local burst limit of 20 a minute per caller IP (Vercel's egress IPs
+  // are shared, and each feedback post is already limited at the relay). The aggregate 300 a minute is counted in the
+  // Budget DO (src/ai/verify-window.ts): these binding counters are per location. Ids 8003/8004 are edge's.
+  "ratelimits": [
+    { "name": "ASK_LIMITER", "namespace_id": "8001", "simple": { "limit": 3, "period": 60 } },
+    { "name": "VERIFY_LIMITER", "namespace_id": "8003", "simple": { "limit": 20, "period": 60 } }
+  ],
   // Local dev reads the assets data Worker (services/data serving ./out). Staging reads R2 (DATA_BUCKET), which
   // takes precedence whenever it is bound; the DATA service binding stays an optional fallback.
   "services": [{ "binding": "DATA", "service": "bft-data-dev" }],
@@ -46,7 +52,8 @@
         ]
       },
       "ratelimits": [
-        { "name": "ASK_LIMITER", "namespace_id": "8001", "simple": { "limit": 3, "period": 60 } }
+        { "name": "ASK_LIMITER", "namespace_id": "8001", "simple": { "limit": 3, "period": 60 } },
+        { "name": "VERIFY_LIMITER", "namespace_id": "8003", "simple": { "limit": 20, "period": 60 } }
       ],
       "r2_buckets": [{ "binding": "DATA_BUCKET", "bucket_name": "bft-transit-data" }],
       // Intentionally no DATA service binding: staging reads R2. (Wrangler warns that the top-level DATA binding
@@ -92,7 +99,8 @@
         ]
       },
       "ratelimits": [
-        { "name": "ASK_LIMITER", "namespace_id": "8002", "simple": { "limit": 3, "period": 60 } }
+        { "name": "ASK_LIMITER", "namespace_id": "8002", "simple": { "limit": 3, "period": 60 } },
+        { "name": "VERIFY_LIMITER", "namespace_id": "8004", "simple": { "limit": 20, "period": 60 } }
       ],
       "r2_buckets": [{ "binding": "DATA_BUCKET", "bucket_name": "bft-transit-data" }],
       "services": [],

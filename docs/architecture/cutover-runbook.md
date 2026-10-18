@@ -21,7 +21,10 @@ Every step lists a **check**, a **rollback** and the **report entry** to add (`~
   - `bft-ferry-prod` (and `bft-transit-prod` when it exists): `FEEDBACK_DISCORD_WEBHOOK_URL`, set by Dev/Brett from `apps/ferry` with `wrangler secret put FEEDBACK_DISCORD_WEBHOOK_URL --env production` (paste the value at the prompt; never on the command line). Without it `/api/feedback` answers 503.
   - `bft-transit-prod` (section 8): the same secret, because transit mounts the Ferry screens and their `/api/feedback`. Set it with `wrangler secret put FEEDBACK_DISCORD_WEBHOOK_URL --name bft-transit-prod` after 8.1 creates the Worker.
   - The legacy Vercel app: the same `FEEDBACK_DISCORD_WEBHOOK_URL` in Vercel's **production and preview** env. Set it **before** the release that carries the Discord feedback change (step 1): from that release, feedback on www.brisbaneferry.com and the iOS app returns 503 until it is set. The previous feedback webhook vars can then be removed from Vercel.
+  - **Feedback Turnstile needs no new secret** (section 9). The ferry and transit Workers and the Vercel route verify tokens through `bft-api` / `bft-api-prod`, which already hold `TURNSTILE_SECRET`. Don't add `TURNSTILE_SECRET` anywhere else.
   - Optional, Brett's call: a Vercel Firewall rate-limit rule on `/api/feedback`. The route's own limiter is per instance, best effort (`api/_rate-limit.js`); the Workers use the `FEEDBACK_LIMITER` binding.
+
+- [ ] **Order for feedback Turnstile (section 9):** `bft-api-prod` must be running the code with `POST /v1/turnstile/verify` **before** the release that carries the Turnstile feedback change reaches Vercel production. Otherwise web feedback on www.brisbaneferry.com answers 503 (fail closed) until it is. The iOS app is unaffected.
 
 ## 1. Release PR develop → main
 - Open `release: transit platform` (develop → main). Body: what changes in prod. That's nothing user-visible:
@@ -239,3 +242,33 @@ The apex and www hostnames **already have DNS records**, and a Worker custom dom
   - errors in each Worker's observability logs;
   - the `/v1` 502 rate (`upstream_unavailable` or `contract_mismatch`).
 - **Report:** the 24 h numbers.
+
+## 9. Feedback Turnstile (web) and the iOS path
+
+Web feedback (the legacy modal, the ferry `FeedbackSheet` and the sheet transit mounts) sends an invisible Turnstile token. The relays (`api/feedback.js` on Vercel, `apps/ferry/workers/legacy.ts` on the Workers) refuse web posts without a valid one. The shared gate is `api/_turnstile.js`.
+
+- **Widget:** `bft-transit-ask`, sitekey `0x4AAAAAAFZ6yPZTYH3xrIMT`, invisible, action `feedback` for feedback (`ask` for the Ask box).
+  - Its hostnames are the five `*.brisbanetransit.workers.dev` staging hosts, brisbaneferry.com, brisbanetrain.com, brisbanebus.com, brisbanetransit.com and ferry.lifemap.au.
+  - **Not** `brisbane-ferry-tracker.vercel.app` (the Vercel preview of `develop`), so web feedback **fails there by design**: the widget errors and the modal says so. Adding that hostname to the widget is Brett's call.
+- **Verification, no new secret:** the relays call `bft-api`'s `POST /v1/turnstile/verify` with `{ token, remoteip }`.
+  - The Workers call it through their existing `API` service binding (`API_BASE` over HTTPS when unbound).
+  - Vercel calls `https://api.brisbaneferry.com/v1/turnstile/verify`, which is `bft-api-prod`.
+  - `bft-api` runs siteverify with its `TURNSTILE_SECRET` and returns only `success`, `hostname` and `action`. The relay then requires `success`, action `feedback`, and a hostname equal to the host the feedback was posted to.
+  - Anything else is a **403**. A verify call that fails or times out, or a missing secret on `bft-api`, is a **503**. Nothing reaches Discord in either case.
+  - The verify endpoint only reports on a token the caller already holds, and siteverify redeems the token as it answers, so the endpoint can't be used to mint or replay tokens.
+  - It is rate limited before any siteverify call, in two steps.
+    - **Burst:** `VERIFY_LIMITER`, 20 a minute per `CF-Connecting-IP` (never the body's `remoteip`), ids 8003 (staging) and 8004 (prod). Its counters are per Cloudflare location.
+    - **Aggregate:** 300 a minute in all, counted in one `Budget` Durable Object instance (`turnstile-verify`, `src/ai/verify-window.ts`), so it holds across locations. The window is persisted in that instance's storage, so evicting the idle DO doesn't reset it. It doesn't touch the AI ledger instance.
+    - The Workers forward the visitor's IP over the binding; Vercel's calls count against its egress IPs.
+    - Over a limit, `bft-api` answers 429, and the relay answers 503 (fail closed). A limiter or DO error is also a 503.
+    - Trade-off: a distributed flood can use up the aggregate budget and pause web feedback for up to a minute. That is preferred to unbounded siteverify calls.
+- **The iOS path (token-less):** the Capacitor app can't run the widget on its `capacitor://` page.
+  - Requests with `Origin: capacitor://localhost` (or `ionic://localhost`) skip Turnstile and keep the per-IP rate limit and validation.
+  - Newer builds also send `X-BFT-Client: ios/1`; it's allowed in CORS. Installed builds don't send it, so it is **not required** (`IOS_REQUIRE_CLIENT_HEADER = false` in `api/_turnstile.js`). Requiring it would break feedback in every installed build until an app update, for no security gain.
+  - **Trade-off:** a browser page can't send that Origin, so browsers can't use the iOS path. Non-browser clients (curl, scripts) can send any Origin and header, so for them feedback is protected only by the rate limit and validation, as it was before Turnstile.
+  - **Recommendation:** keep accepting the Origin alone. Brett decides whether to require the header once old builds have gone.
+- **CSP:** `https://challenges.cloudflare.com` in `script-src` and `frame-src` only, per [Cloudflare's Turnstile CSP reference](https://developers.cloudflare.com/turnstile/reference/content-security-policy/). That covers `vercel.json`, the `index.html` meta and the ferry Worker; transit already had it. No `connect-src` change: that is only for pre-clearance mode, which isn't used.
+- **Privacy:** `public/privacy.html` (also served by the ferry and transit apps) now names Cloudflare Turnstile for web feedback.
+- **Tests:** the test sitekey `1x00000000000000000000AA` appears only in the Playwright configs, with the script stubbed (`apps/ferry/tests/turnstile-stub.ts`). Never put it in deployed config.
+- **Check after deploy:** submit web feedback on staging (`bft-ferry`, `bft-transit`) and on www.brisbaneferry.com: one Discord post each. A `curl` POST without a token from a browser Origin gets a 403.
+- **Rollback:** revert the release. `/v1/turnstile/verify` on `bft-api` can stay: nothing else calls it.

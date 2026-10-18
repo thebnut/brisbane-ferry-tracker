@@ -29,14 +29,25 @@ export const canSubmitFeedback = (form: FeedbackForm) =>
 
 const GENERIC_ERROR = 'Failed to submit feedback. Please try again.'
 
-/** POST to the same-origin relay; throws an Error carrying the server's message on failure. */
-export async function submitFeedback(form: FeedbackForm, fetchImpl: typeof fetch = fetch): Promise<void> {
+/** Shown when the invisible Turnstile check can't produce a token (blocked script, offline, timed out). */
+export const TURNSTILE_ERROR =
+  "We couldn't complete the bot check. Check your connection and try again. If it keeps failing, a content blocker may be blocking challenges.cloudflare.com."
+
+/**
+ * POST to the same-origin relay, with the Turnstile token the relay requires from web clients
+ * (api/_turnstile.js); throws an Error carrying the server's message on failure.
+ */
+export async function submitFeedback(
+  form: FeedbackForm,
+  fetchImpl: typeof fetch = fetch,
+  turnstileToken?: string | null,
+): Promise<void> {
   let res: Response
   try {
     res = await fetchImpl('/api/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify(turnstileToken ? { ...form, turnstileToken } : form),
     })
   } catch {
     throw new Error(GENERIC_ERROR)

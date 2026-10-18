@@ -14,11 +14,29 @@ import {
   reserve,
   rollBudget,
 } from '@bft/core'
+import { admitStored, type VerifyWindow } from './verify-window.ts'
 
 const KEY = 'ledger'
 
 export class Budget extends DurableObject {
   private state: BudgetState | null = null
+  /** Only used on the VERIFY_BUDGET_NAME instance (verify-window.ts); the AI ledger instance never touches it. */
+  private verifyWindow: VerifyWindow | null = null
+
+  /**
+   * One admission for POST /v1/turnstile/verify's aggregate budget (single-threaded, so globally consistent; the
+   * window is persisted, so an eviction doesn't reset it). A storage failure throws, and the route fails closed.
+   */
+  async admitVerify(limit: number, windowMs: number): Promise<boolean> {
+    try {
+      const r = await admitStored(this.ctx.storage, this.verifyWindow, Date.now(), limit, windowMs)
+      this.verifyWindow = r.window
+      return r.ok
+    } catch (error) {
+      this.verifyWindow = null
+      throw error
+    }
+  }
 
   private async load(now: number): Promise<BudgetState> {
     const day = brisbaneDate(now)

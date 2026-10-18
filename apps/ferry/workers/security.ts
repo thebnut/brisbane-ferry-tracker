@@ -3,7 +3,12 @@
  * Referrer-Policy, Permissions-Policy and a CSP. HTML gets a per-request nonce for React Router's inline hydration
  * scripts, so script-src needs no 'unsafe-inline'. Static assets get the same non-CSP headers from public/_headers.
  * A cutover gate in docs/architecture/cutover-runbook.md verifies these on the live host.
+ * The only external script and frame origin is Cloudflare Turnstile for the feedback sheet, exactly as Cloudflare's
+ * Turnstile CSP reference lists (https://developers.cloudflare.com/turnstile/reference/content-security-policy/):
+ * script-src and frame-src https://challenges.cloudflare.com. It needs no connect-src.
  */
+export const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com'
+
 export const BASE_SECURITY_HEADERS: Record<string, string> = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'X-Content-Type-Options': 'nosniff',
@@ -14,11 +19,12 @@ export const BASE_SECURITY_HEADERS: Record<string, string> = {
 export function contentSecurityPolicy(nonce: string): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'`,
+    `script-src 'self' 'nonce-${nonce}' ${TURNSTILE_ORIGIN}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://tiles.openfreemap.org",
     "font-src 'self' data:",
     "connect-src 'self' https://tiles.openfreemap.org",
+    `frame-src ${TURNSTILE_ORIGIN}`,
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "frame-ancestors 'none'",

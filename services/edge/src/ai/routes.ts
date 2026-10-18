@@ -21,6 +21,7 @@ import { answerIntent } from './answer.ts'
 import { askLlm } from './llm.ts'
 import { loadIndexes, resolverFor } from './resolver.ts'
 import { type EvidenceLog, type InternalFetch, runTool, slimDeparture } from './tools.ts'
+import { VERIFY_BUDGET, VERIFY_BUDGET_NAME } from './verify-window.ts'
 
 export interface AiEnv {
   AI_ENABLED?: string
@@ -34,6 +35,8 @@ export interface AiEnv {
   IP_HASH_SALT?: string
   BUDGET?: DurableObjectNamespace<import('./budget-do.ts').Budget>
   ASK_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
+  /** /v1/turnstile/verify local burst limit per caller IP (CF-Connecting-IP); the aggregate budget is in BUDGET. */
+  VERIFY_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
 }
 
 export function budgetConfig(env: AiEnv): BudgetConfig {
@@ -121,22 +124,62 @@ export async function ipKey(ip: string | null | undefined, salt: string): Promis
   return [...new Uint8Array(digest).slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
+/** The parts of a siteverify answer we use (https://developers.cloudflare.com/turnstile/get-started/server-side-validation/). */
+export interface SiteverifyResult {
+  success: boolean
+  hostname: string | null
+  action: string | null
+}
+
+const SITEVERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
+const SITEVERIFY_TIMEOUT_MS = 5000
+
+/** One siteverify call. Throws when Cloudflare can't be reached or answers non-2xx, so callers can fail closed. */
+export async function siteverify(
+  secret: string,
+  token: string,
+  ip: string | null,
+  fetchImpl: typeof fetch = fetch,
+): Promise<SiteverifyResult> {
+  const form = new FormData()
+  form.set('secret', secret)
+  form.set('response', token)
+  if (ip) form.set('remoteip', ip)
+  const r = await fetchImpl(SITEVERIFY_URL, {
+    method: 'POST',
+    body: form,
+    signal: AbortSignal.timeout(SITEVERIFY_TIMEOUT_MS),
+  })
+  if (!r.ok) throw new Error(`siteverify ${r.status}`)
+  const body = (await r.json()) as { success?: unknown; hostname?: unknown; action?: unknown }
+  return {
+    success: body.success === true,
+    hostname: typeof body.hostname === 'string' ? body.hostname : null,
+    action: typeof body.action === 'string' ? body.action : null,
+  }
+}
+
 async function verifyTurnstile(
   secret: string,
   token: string | undefined,
   ip: string | null,
 ): Promise<boolean> {
   if (!token) return false
-  const form = new FormData()
-  form.set('secret', secret)
-  form.set('response', token)
-  if (ip) form.set('remoteip', ip)
-  const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-    method: 'POST',
-    body: form,
-  })
-  return r.ok && ((await r.json()) as { success?: boolean }).success === true
+  try {
+    return (await siteverify(secret, token, ip)).success
+  } catch {
+    return false
+  }
 }
+
+/**
+ * POST /v1/turnstile/verify body. Called server to server by the feedback relays (apps/ferry/workers/legacy.ts via
+ * the API service binding, api/feedback.js over HTTPS), which hold no Turnstile secret of their own.
+ */
+const VerifyBody = z.object({
+  token: z.string().min(1).max(2048),
+  remoteip: z.string().max(64).optional(),
+})
 
 const CANNOT_ANSWER: Record<string, string> = {
   trip_planning:
@@ -189,6 +232,8 @@ export interface AiDeps {
   store: StaticStore
   /** Turnstile verification; injectable for tests. Every real provider call requires it. */
   verifyTurnstile?: (secret: string, token: string | undefined, ip: string | null) => Promise<boolean>
+  /** siteverify for POST /v1/turnstile/verify; injectable for tests. */
+  siteverify?: typeof siteverify
   /** Manifest updatedAt or generation string, used to key the stop-index cache. */
   generationKey: () => Promise<string>
 }
@@ -301,6 +346,50 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
       rounds: r.rounds,
       costUsd: Number(r.costUsd.toFixed(6)),
     })
+  })
+
+  /**
+   * Turnstile verification for the feedback relays (no secret leaves this Worker). Not an oracle that weakens
+   * anything: it only says whether a token the caller already holds is valid, for which hostname and action, and
+   * siteverify redeems the token as it answers (tokens are single-use), so a checked token can't be replayed against
+   * feedback. The hostname and action checks are the caller's (api/_turnstile.js).
+   * Bounded before any siteverify call (Codex review of #66): a local burst limit per caller IP (the platform's
+   * CF-Connecting-IP, never the body's `remoteip`, which only goes to siteverify; the Workers forward the visitor's IP
+   * over the service binding, Vercel's calls arrive from its egress IPs), then an aggregate budget counted in one
+   * Durable Object instance, so it holds across Cloudflare locations (verify-window.ts). A limiter or DO that errors
+   * fails closed; a missing binding (local dev, tests) is allowed, as for the feedback limiter.
+   */
+  app.post('/v1/turnstile/verify', async (c) => {
+    const env = getEnv(c)
+    const noStore = { 'cache-control': 'no-store' }
+    const parsed = VerifyBody.safeParse(await c.req.json().catch(() => null))
+    if (!parsed.success) return c.json({ error: 'bad_request' }, 400, noStore)
+    if (!env.TURNSTILE_SECRET) return c.json({ error: 'turnstile_not_configured' }, 503, noStore)
+    try {
+      const ip = c.req.header('cf-connecting-ip') ?? 'anon'
+      const perIp = env.VERIFY_LIMITER ? (await env.VERIFY_LIMITER.limit({ key: ip })).success : true
+      const admitted =
+        perIp &&
+        (env.BUDGET
+          ? await env.BUDGET.get(env.BUDGET.idFromName(VERIFY_BUDGET_NAME)).admitVerify(
+              VERIFY_BUDGET.limit,
+              VERIFY_BUDGET.windowMs,
+            )
+          : true)
+      if (!admitted) return c.json({ error: 'rate_limited' }, 429, { ...noStore, 'retry-after': '60' })
+    } catch (error) {
+      console.error(`[turnstile] verify limiter failed (${error instanceof Error ? error.name : 'error'})`)
+      return c.json({ error: 'limiter_unavailable' }, 503, noStore)
+    }
+    try {
+      const verify = deps.siteverify ?? siteverify
+      const r = await verify(env.TURNSTILE_SECRET, parsed.data.token, parsed.data.remoteip ?? null)
+      return c.json(r, 200, noStore)
+    } catch (error) {
+      // Name only: never the secret or the token.
+      console.error(`[turnstile] siteverify failed (${error instanceof Error ? error.name : 'error'})`)
+      return c.json({ error: 'siteverify_unavailable' }, 502, noStore)
+    }
   })
 
   app.get('/v1/ask/status', async (c) => {
