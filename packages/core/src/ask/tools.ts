@@ -88,7 +88,26 @@ export const FINAL_ANSWER_TOOL = {
   name: 'final_answer' as const,
   description:
     'Finish by referencing the rows that answer the question (departures or alerts, by their ref), or give a reason you cannot answer. Do not write the answer yourself.',
-  input_schema: z.toJSONSchema(FinalAnswerInput),
+  // The Messages API needs a top-level object schema (a discriminated union serialises to a bare anyOf; found by the
+  // first live call). The model sees this flat shape; the server validates it strictly with FinalAnswerInput.
+  input_schema: z.toJSONSchema(
+    z.object({
+      kind: z.enum(['departures', 'alerts', 'no_alerts', 'no_service', 'cannot_answer']),
+      refs: z
+        .array(z.string())
+        .max(5)
+        .optional()
+        .describe('departures/alerts: ref values of the rows that answer the question'),
+      emptyRef: z
+        .string()
+        .optional()
+        .describe('no_alerts/no_service: emptyRef of the empty result that supports it'),
+      reason: z
+        .enum(['trip_planning', 'unknown_stop', 'out_of_scope'])
+        .optional()
+        .describe('cannot_answer: why'),
+    }),
+  ),
 }
 
 export interface Evidence {

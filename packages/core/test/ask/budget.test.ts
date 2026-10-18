@@ -8,7 +8,7 @@ import {
   rollBudget,
   worstCaseUsd,
 } from '../../src/ask/budget.ts'
-import { anthropicTools, FinalAnswerInput, isGroundedAnswer } from '../../src/ask/tools.ts'
+import { anthropicTools, FINAL_ANSWER_TOOL, FinalAnswerInput, isGroundedAnswer } from '../../src/ask/tools.ts'
 
 const on = { ...DEFAULT_BUDGET, enabled: true, monthlyBudgetUsd: 0.01 }
 
@@ -146,6 +146,11 @@ describe('budget ledger', () => {
 })
 
 describe('tools', () => {
+  it('every tool input_schema is a top-level JSON object (Messages API requirement; first live call)', () => {
+    for (const t of [...anthropicTools(), FINAL_ANSWER_TOOL]) {
+      expect((t.input_schema as { type?: string }).type, t.name).toBe('object')
+    }
+  })
   it('exports JSON schemas for the four tools', () => {
     expect(anthropicTools().map((t) => t.name)).toEqual([
       'search_stops',
