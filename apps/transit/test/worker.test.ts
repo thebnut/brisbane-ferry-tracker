@@ -114,6 +114,21 @@ describe('POST /v1/ask proxy', () => {
       headers: { 'content-length': '99999' },
     })
     expect(await readLimited(declared, 2048)).toBeNull()
+    // Malformed UTF-8 is rejected, not expanded with replacement characters.
+    const bad = new Request('https://t', { method: 'POST', body: new Uint8Array([0xff, 0xfe]) })
+    expect(await readLimited(bad, 2048)).toBeNull()
+    // Answers at once even if the stream never acknowledges the cancel.
+    let n = 0
+    const stubborn = new ReadableStream<Uint8Array>({
+      pull: (c) => {
+        n++
+        c.enqueue(new Uint8Array(1024))
+      },
+      cancel: () => new Promise<void>(() => {}),
+    })
+    const stuck = new Request('https://t', { method: 'POST', body: stubborn, duplex: 'half' } as RequestInit)
+    expect(await readLimited(stuck, 2048)).toBeNull()
+    expect(n).toBeLessThan(10)
   })
 
   it('GET proxy answers 502 when the API is down', async () => {

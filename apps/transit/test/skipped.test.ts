@@ -2,6 +2,7 @@
 import type { Departure } from '@bft/core/contract'
 import { describe, expect, it } from 'vitest'
 import { askRowProps } from '../app/components/AskAnswer.tsx'
+import { asScheduled } from '../app/lib/saved.ts'
 import { upcoming } from '../app/routes/nearby.tsx'
 import { cardModel } from '../app/routes/saved.tsx'
 
@@ -32,6 +33,18 @@ describe('skipped services', () => {
   it('Saved: the next card is the next service that stops', () => {
     const item = { id: 'bus:1832', mode: 'bus' as const, key: '1832', to: null, title: 'CC', href: '' }
     const res = { rtState: 'live', stop: { key: '1832', name: 'CC', stopIds: ['1832'] }, departures: rows }
+    expect(cardModel(item, res as never, NOW).minutes).toBe(5)
+  })
+
+  it('Saved offline: a skipped service stays skipped, so the card still picks the next one that stops', () => {
+    const item = { id: 'bus:1832', mode: 'bus' as const, key: '1832', to: null, title: 'CC', href: '' }
+    const offline = asScheduled(rows, NOW)
+    expect(offline.map((d) => d.status)).toEqual(['skipped', 'scheduled'])
+    const res = {
+      rtState: 'unavailable',
+      stop: { key: '1832', name: 'CC', stopIds: ['1832'] },
+      departures: offline,
+    }
     expect(cardModel(item, res as never, NOW).minutes).toBe(5)
   })
 

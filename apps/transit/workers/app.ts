@@ -57,7 +57,8 @@ export async function readLimited(request: Request, max: number): Promise<string
       if (done) break
       size += value.byteLength
       if (size > max) {
-        await reader.cancel().catch(() => {})
+        // Don't wait for the stream to acknowledge: answer 413 now.
+        void reader.cancel().catch(() => {})
         return null
       }
       chunks.push(value)
@@ -71,7 +72,12 @@ export async function readLimited(request: Request, max: number): Promise<string
     all.set(c, at)
     at += c.byteLength
   }
-  return new TextDecoder().decode(all)
+  try {
+    // Strict: malformed UTF-8 is rejected rather than expanded with replacement characters.
+    return new TextDecoder('utf-8', { fatal: true }).decode(all)
+  } catch {
+    return null
+  }
 }
 
 /** POST /v1/ask: body passed through (≤ 2 KB); the API sees the visitor's IP for its per-IP quota and Turnstile. */

@@ -101,7 +101,8 @@ export function asScheduled(rows: Departure[], nowMs: number): Departure[] {
     .sort((a, b) => a.schedDep - b.schedDep)
     .map((d) => ({
       ...d,
-      status: d.status === 'cancelled' ? d.status : 'scheduled',
+      // Cancelled and skipped stay as they are (never boardable); everything else is timetable only.
+      status: d.status === 'cancelled' || d.status === 'skipped' ? d.status : 'scheduled',
       estDep: null,
       estArrTo: null,
       gps: false,
