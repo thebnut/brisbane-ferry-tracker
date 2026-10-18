@@ -13,11 +13,13 @@
 #   --prod            production expectations: fixture routes 404 and ?fixtures=1 is ignored
 #   --www             also check that www.<host of base> 301s to the base URL (real domains only)
 # Exit status: 0 when every check passes, 1 otherwise.
+# Turnstile is never exercised (no feedback or Ask POSTs): production-preview hosts are on neither Turnstile widget,
+# so Turnstile-gated features fail closed there by design (cutover-runbook.md section 9).
 set -uo pipefail
 
 app="${1:-}"
 base="${2:-}"
-[[ -z "$app" || -z "$base" ]] && { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+[[ -z "$app" || -z "$base" ]] && { sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 shift 2
 base="${base%/}"
 site="$base"

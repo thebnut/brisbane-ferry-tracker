@@ -9,6 +9,10 @@ import { unstable_readConfig } from 'wrangler'
 
 const CONFIG = fileURLToPath(new URL('../wrangler.jsonc', import.meta.url))
 const APEX = 'brisbanetransit.com'
+// Public sitekeys: "bft-transit-ask" (STAGING, verified by bft-api) and "bft-transit-prod" (PROD, bft-api-prod).
+const STAGING_SITEKEY = '0x4AAAAAAFZ6yPZTYH3xrIMT'
+const PROD_SITEKEY = '0x4AAAAAAFan8LE5_4cvR40S'
+const TEST_SITEKEY = '1x00000000000000000000AA'
 const read = (env?: string) => unstable_readConfig({ config: CONFIG, env }, { hideWarnings: true })
 
 describe('wrangler.jsonc production envs', () => {
@@ -59,8 +63,22 @@ describe('wrangler.jsonc production envs', () => {
       TRAIN_SITE_URL: 'https://brisbanetrain.com',
       BUS_SITE_URL: 'https://brisbanebus.com',
       INDEXABLE: '0',
-      TURNSTILE_SITEKEY: '0x4AAAAAAFZ6yPZTYH3xrIMT',
     })
+  })
+
+  // Two Turnstile widgets (runbook section 9). Each bft-api holds only its own widget's secret, so a sitekey that
+  // doesn't match the API the env binds fails closed. production-preview's host is on neither widget (by design).
+  it('staging and dev use the STAGING widget, both production envs the PROD widget, nowhere the test key', () => {
+    for (const env of [undefined, 'staging']) {
+      expect(read(env).vars.TURNSTILE_SITEKEY, String(env)).toBe(STAGING_SITEKEY)
+      expect(read(env).services ?? [], String(env)).not.toContainEqual({
+        binding: 'API',
+        service: 'bft-api-prod',
+      })
+    }
+    for (const c of [prod, preview]) expect(c.vars.TURNSTILE_SITEKEY).toBe(PROD_SITEKEY)
+    for (const env of [undefined, 'staging', 'production-preview', 'production'])
+      expect(read(env).vars.TURNSTILE_SITEKEY, String(env)).not.toBe(TEST_SITEKEY)
   })
 
   it('production keeps the /api/feedback limiter, in its own namespace', () => {

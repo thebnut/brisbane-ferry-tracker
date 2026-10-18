@@ -3,12 +3,15 @@
 // apps/ferry/app/lib/turnstile.ts. The script loads only when the modal opens.
 // Tokens are single-use and valid for 300 s; ours are refreshed after 240 s.
 
-// Public sitekey of the "bft-transit-ask" widget (the secret stays on bft-api).
-// Its hostnames don't include the Vercel preview (brisbane-ferry-tracker.vercel.app),
-// so web feedback can't pass the check there.
+// Public sitekey of the PROD widget "bft-transit-prod". api/feedback.js verifies every
+// token through bft-api-prod, which holds that widget's secret, so a build with any other
+// sitekey fails closed on web feedback. VITE_TURNSTILE_SITEKEY overrides it per Vercel env.
+// The widget's hostnames don't include the Vercel preview (brisbane-ferry-tracker.vercel.app),
+// so web feedback can't pass the check there (by design; runbook section 9).
 // import.meta.env is absent under node (scripts/test); Vite replaces the member expression statically.
+export const PROD_TURNSTILE_SITEKEY = '0x4AAAAAAFan8LE5_4cvR40S';
 export const TURNSTILE_SITEKEY =
-  (import.meta.env ? import.meta.env.VITE_TURNSTILE_SITEKEY : undefined) || '0x4AAAAAAFZ6yPZTYH3xrIMT';
+  (import.meta.env ? import.meta.env.VITE_TURNSTILE_SITEKEY : undefined) || PROD_TURNSTILE_SITEKEY;
 export const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 const TOKEN_TTL_MS = 240_000;
 

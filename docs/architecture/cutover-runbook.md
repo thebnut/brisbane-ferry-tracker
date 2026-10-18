@@ -17,14 +17,15 @@ Every step lists a **check**, a **rollback** and the **report entry** to add (`~
 - [ ] Staging apps (`bft-ferry`, `bft-train`, `bft-bus`, `bft-transit`) render live data, and their Playwright smokes pass against staging.
 - [ ] Old-iOS paths on staging: `GET bft-ferry…/api/gtfs-proxy?endpoint=TripUpdates` returns protobuf with CORS for `capacitor://localhost`.
 - [ ] Secrets inventory, names only (never print values):
-  - `bft-api-prod`: `TURNSTILE_SECRET` and `IP_HASH_SALT`, set server-side through the Cloudflare API exactly as for staging. `ANTHROPIC_API_KEY` only when AI moves to prod (step 6).
+  - `bft-api-prod`: `TURNSTILE_SECRET` and `IP_HASH_SALT`, set server-side through the Cloudflare API exactly as for staging. Its `TURNSTILE_SECRET` is the **PROD** widget's secret (`bft-transit-prod`, done 19 Oct); `bft-api` (staging) keeps the STAGING widget's (`bft-transit-ask`). Same name, different values (section 9). `ANTHROPIC_API_KEY` only when AI moves to prod (step 6).
   - `bft-ferry-prod` (and `bft-transit-prod` when it exists): `FEEDBACK_DISCORD_WEBHOOK_URL`, set by Dev/Brett from `apps/ferry` with `wrangler secret put FEEDBACK_DISCORD_WEBHOOK_URL --env production` (paste the value at the prompt; never on the command line). Without it `/api/feedback` answers 503.
   - `bft-transit-prod` (section 8): the same secret, because transit mounts the Ferry screens and their `/api/feedback`. Set it with `wrangler secret put FEEDBACK_DISCORD_WEBHOOK_URL --name bft-transit-prod` after 8.1 creates the Worker.
   - The legacy Vercel app: the same `FEEDBACK_DISCORD_WEBHOOK_URL` in Vercel's **production and preview** env. Set it **before** the release that carries the Discord feedback change (step 1): from that release, feedback on www.brisbaneferry.com and the iOS app returns 503 until it is set. The previous feedback webhook vars can then be removed from Vercel.
-  - **Feedback Turnstile needs no new secret** (section 9). The ferry and transit Workers and the Vercel route verify tokens through `bft-api` / `bft-api-prod`, which already hold `TURNSTILE_SECRET`. Don't add `TURNSTILE_SECRET` anywhere else.
+  - **Feedback Turnstile needs no new secret** (section 9). The ferry and transit Workers and the Vercel route verify tokens through `bft-api` / `bft-api-prod`, which already hold `TURNSTILE_SECRET`. Don't add `TURNSTILE_SECRET` anywhere else: only `bft-api` and `bft-api-prod` verify tokens.
   - Optional, Brett's call: a Vercel Firewall rate-limit rule on `/api/feedback`. The route's own limiter is per instance, best effort (`api/_rate-limit.js`); the Workers use the `FEEDBACK_LIMITER` binding.
 
 - [ ] **Order for feedback Turnstile (section 9):** `bft-api-prod` must be running the code with `POST /v1/turnstile/verify` **before** the release that carries the Turnstile feedback change reaches Vercel production. Otherwise web feedback on www.brisbaneferry.com answers 503 (fail closed) until it is. The iOS app is unaffected.
+- [ ] **Prod frontends must ship the PROD sitekey.** `bft-api-prod` already holds the PROD widget's secret, so a token from the STAGING widget fails siteverify there (403, fail closed). Every prod frontend must therefore be built from a commit that carries the two-widget split (`TURNSTILE_SITEKEY` per env in `apps/ferry` and `apps/transit` `wrangler.jsonc`, the PROD default in `src/utils/turnstile.js`). Until a release with it ships, a prod deploy built with the old (STAGING) sitekey fails closed on web feedback. In Vercel production, leave `VITE_TURNSTILE_SITEKEY` unset (the build defaults to the PROD key) or set it to the PROD key; never the STAGING or test key. Decide `ferry.lifemap.au` first (section 9): it isn't on the PROD widget yet.
 
 ## 1. Release PR develop → main
 - Open `release: transit platform` (develop → main). Body: what changes in prod. That's nothing user-visible:
@@ -37,7 +38,7 @@ Every step lists a **check**, a **rollback** and the **report entry** to add (`~
   2. Check `POST https://api.brisbaneferry.com/v1/turnstile/verify` with body `{"token":"dummy"}`. It must answer HTTP 200 JSON with `success: false`, not 404. That probe can't post feedback; it uses one call of the verify rate limits.
   3. **Only then** merge the release PR (head `<rc>`) into `main`. That deploys the legacy app on Vercel prod. If main's merge commit differs from `<rc>` only by main's own `schedule-data/` commits, the `bft-api-prod` code is the same.
 
-  In the other order, web feedback on www.brisbaneferry.com fails closed (503) until `bft-api-prod` catches up. iOS feedback is unaffected. See also step 0.
+  In the other order, web feedback on www.brisbaneferry.com fails closed (503) until `bft-api-prod` catches up. iOS feedback is unaffected. `<rc>` must also carry the two-widget split, so the Vercel build ships the PROD sitekey that `bft-api-prod`'s secret matches (step 0, section 9). See also step 0.
 - **Check:** Vercel production deploys from main and is green. The site behaves as before (spot-check the boards, the map, a terminal page, and the iOS app against prod).
 - **Rollback:** revert the release merge on main; Vercel redeploys. That restores the legacy app's code only. The merge also starts two scheduled jobs on `main` that act on R2 (`bft-transit-data`, shared by staging and prod), and reverting doesn't undo what they have already done:
   - **Stop them first.** Run `gh workflow disable transit-static.yml`, then cancel any active run: `gh run list --workflow transit-static.yml --status in_progress`, then `gh run cancel <id>`. A run cancelled mid-publish leaves the previous `manifest.json` live, because the manifest is written last. The mutable `data/` and `legacy/` files may already be the new ones, so republish the previous output if that matters (below).
@@ -129,7 +130,7 @@ Status: prepared 19 Oct 2026; **nothing deployed and no DNS changed**. Scope (Br
 - **www → apex.** A request to `www.<apex>` gets a 301 from the Worker to the fixed `SITE_URL` origin, path and query kept (`wwwRedirectLocation` in each `workers/security.ts`). No other host is redirected, and nothing in the request can choose the target. Static files (`/assets/*`, icons, `sw.js`, the manifest) are answered by Workers static assets before the Worker runs, so on www they return 200, not a 301. That's harmless: they're the same files, and every page's canonical points at the apex. If Brett wants www fully redirected, a zone Redirect Rule does it; that's a zone change, so it's his call.
 - **Soft-launch flag `INDEXABLE`.** It is `"0"` in production until step 5. While it's `"0"`, every Worker response carries `X-Robots-Tag: noindex` and `robots.txt` is `Disallow: /`; train pages also carry `<meta name="robots" content="noindex">`. Bus didn't have the flag before; it now works the same way as train. **Transit stays `"0"` for good:** its mounted mode pages are noindex, their canonical copies are the standalone apps, and its `robots.txt` always disallows.
 - **Train WebSocket prototype is off.** `TRIP_WS=0`, so trips poll every 15 s. The `TripSocket` DO stays bound, with its own `v1` migration in `bft-train-prod`, so turning the prototype on later is a var change, not a migration.
-- **Ask with AI off.** `bft-api-prod` has `AI_ENABLED=false`, so `/v1/ask` answers from the deterministic parser or the intent cache. Anything else gets a "Try: …" hint (`source: fallback`, `ai.enabled: false`), which the Ask box shows as a plain answer. Turnstile only matters for the LLM path. The widget's hostnames list the three apex domains, not the workers.dev hosts, so on the step 1 host the invisible widget may fail to load. With AI off that changes nothing, so don't add workers.dev hosts to the widget for it.
+- **Ask with AI off.** `bft-api-prod` has `AI_ENABLED=false`, so `/v1/ask` answers from the deterministic parser or the intent cache. Anything else gets a "Try: …" hint (`source: fallback`, `ai.enabled: false`), which the Ask box shows as a plain answer. Turnstile only matters for the LLM path. The PROD widget's hostnames list the apex and www domains, not the `bft-*-prod` workers.dev hosts, so on the step 1 host Turnstile can't pass (section 9). With AI off that changes nothing; adding hosts to the widget is Brett's call.
 - **Feedback.** Transit mounts the Ferry screens, whose feedback sheet posts to `/api/feedback` on the transit origin. It needs `FEEDBACK_DISCORD_WEBHOOK_URL` on `bft-transit-prod` (step 0's inventory); the per-IP `FEEDBACK_LIMITER` binding is in both prod envs (namespaces 8107 preview, 8106 production). Without the secret the endpoint answers 503 and the sheet shows the error.
 - **Security headers** are already the ferry pattern in all three apps: `workers/security.ts` with a per-request nonce CSP on HTML, and `public/_headers` for static files. HTML without its own `Cache-Control` is now `private, no-store`.
 - **Always deploy with the package scripts.** A production build writes the `production` config, routes included, into `build/server/wrangler.json`. A bare `wrangler deploy` after one would deploy with the domain routes. The `deploy:*` scripts always rebuild for their env first.
@@ -177,7 +178,7 @@ Status: prepared 19 Oct 2026; **nothing deployed and no DNS changed**. Scope (Br
   - the map;
   - an offline reload;
   - on transit, also an Ask question. Expect a deterministic answer or the "Try: …" hint, never an AI notice.
-- Submit one test feedback from transit's Ferry tab and confirm it arrives.
+- Transit's Ferry-tab feedback **can't be submitted here**: the `bft-transit-prod` workers.dev host is on neither Turnstile widget, so the sheet shows the bot-check error (fail closed, by design; section 9). Test feedback on the real domain in 8.4. `prod-check.sh` doesn't exercise Turnstile.
 - **Check:** the three outputs above, and the browser notes.
 - **Rollback:** as 8.1.
 - **Report:** paste the three `prod-check` summaries.
@@ -214,7 +215,7 @@ The apex and www hostnames **already have DNS records**, and a Worker custom dom
   scripts/prod-check.sh bus https://brisbanebus.com --prod --www
   scripts/prod-check.sh transit https://brisbanetransit.com --prod --www
   ```
-  Repeat the browser console checks from 8.2 on the real domains.
+  Repeat the browser console checks from 8.2 on the real domains, and submit one test feedback from transit's Ferry tab and confirm it arrives (the PROD widget lists brisbanetransit.com and www).
 - **Check:** `ALL PASS` for each, including the www → apex 301.
 - **Rollback:**
   - Worker-level: `npx wrangler rollback --name bft-<app>-prod`. The domains stay attached.
@@ -253,16 +254,19 @@ The apex and www hostnames **already have DNS records**, and a Worker custom dom
 
 Web feedback (the legacy modal, the ferry `FeedbackSheet` and the sheet transit mounts) sends an invisible Turnstile token. The relays (`api/feedback.js` on Vercel, `apps/ferry/workers/legacy.ts` on the Workers) refuse web posts without a valid one. The shared gate is `api/_turnstile.js`.
 
-- **Widget:** `bft-transit-ask`, sitekey `0x4AAAAAAFZ6yPZTYH3xrIMT`, invisible, action `feedback` for feedback (`ask` for the Ask box).
-  - Its hostnames are the five `*.brisbanetransit.workers.dev` staging hosts, brisbaneferry.com, brisbanetrain.com, brisbanebus.com, brisbanetransit.com and ferry.lifemap.au.
-  - **Not** `brisbane-ferry-tracker.vercel.app` (the Vercel preview of `develop`), so web feedback **fails there by design**: the widget errors and the modal says so.
-  - Brett wants that hostname added, but **the widget is at Cloudflare's 10-hostname limit**, so a straight add is rejected. The options are with Brett (19 Oct):
-    1. swap out `bft-api.brisbanetransit.workers.dev`, which never renders the widget;
-    2. merge the five staging hosts into `brisbanetransit.workers.dev`;
-    3. a separate preview widget, which needs code and a second secret;
-    4. skip.
+- **Two widgets** (split 19 Oct, Brett's decision), both invisible, action `feedback` for feedback (`ask` for the Ask box). Each `bft-api` holds only its own widget's secret, under the same name `TURNSTILE_SECRET`, so a frontend must ship the sitekey of the widget whose secret its verifying API holds:
 
-    Until he chooses, the widget is unchanged.
+  | Widget | Sitekey (public) | Hostnames | Secret on | Used by |
+  |---|---|---|---|---|
+  | **STAGING** `bft-transit-ask` | `0x4AAAAAAFZ6yPZTYH3xrIMT` | the five `bft-*.brisbanetransit.workers.dev` staging hosts; for now also the prod domains and ferry.lifemap.au (follow-up below) | `bft-api` | ferry and transit top level (dev) and `staging` |
+  | **PROD** `bft-transit-prod` | `0x4AAAAAAFan8LE5_4cvR40S` | brisbaneferry.com, www, next.brisbaneferry.com, brisbanetrain.com, www, brisbanebus.com, www, brisbanetransit.com, www (9 of 10 slots) | `bft-api-prod` | ferry `production`, transit `production` and `production-preview`, the legacy Vercel build (default) |
+
+  - `apps/ferry/test/wrangler-config.test.ts`, `apps/transit/test/wrangler-config.test.ts` and `scripts/test/turnstile-loader.test.js` pin these. localhost is on neither widget, so feedback fails closed in local dev (Playwright uses the test sitekey). Train and bus render no widget.
+  - **`ferry.lifemap.au` is not on the PROD widget yet.** It serves the legacy Vercel production build (`main`), which ships the PROD sitekey from this change, so web feedback there fails closed once the release ships unless it is added. **Before the release (Brett's call, the PROD widget's 10th and last slot):** add `ferry.lifemap.au` to `bft-transit-prod`, or accept that web feedback is off on that domain (iOS and www are unaffected). That slot is the same one the `production-preview` hosts would need (below), so it's one or the other.
+  - **Legacy Vercel app:** `src/utils/turnstile.js` defaults to the PROD sitekey; `VITE_TURNSTILE_SITEKEY` overrides it per Vercel env. `api/feedback.js` always verifies through `bft-api-prod` (`api.brisbaneferry.com`), whatever the deployment, so only the PROD key can pass. `brisbane-ferry-tracker.vercel.app` (the Vercel preview of `develop`) is on **neither** widget, so web feedback **fails there by design**: the widget errors and the modal says so. Brett chose to skip it (19 Oct): the split replaced the earlier options for the old widget's 10-hostname limit. The iOS app is token-less (below), unchanged.
+  - **`production-preview` hosts** (`bft-*-prod.brisbanetransit.workers.dev`, section 8.1) verify through `bft-api-prod` and use the PROD sitekey for consistency, but are on **neither** widget. So Turnstile-gated features (transit's web feedback, and the Ask box's LLM path, which is off in prod anyway) **fail closed there by design**. `scripts/prod-check.sh` doesn't test Turnstile. Covering them (the PROD widget's last slot, e.g. the parent `brisbanetransit.workers.dev`) is Brett's call.
+  - **Hostname check, unchanged:** the relay requires siteverify's `hostname` to equal the host the feedback was posted to. With two widgets this still holds: a secret only redeems its own widget's tokens, so a STAGING token (even one solved on a prod domain while the STAGING widget still lists it) fails at `bft-api-prod`, and a PROD token fails at `bft-api`. Within a widget, a token solved on one of its hostnames can't be spent on another.
+  - **Follow-up, after prod is live on the PROD widget** (Brett's OK given): remove the prod domains and ferry.lifemap.au from the STAGING widget. Optionally replace its five staging hosts with `brisbanetransit.workers.dev`. Both are dashboard changes, not code.
 - **Verification, no new secret:** the relays call `bft-api`'s `POST /v1/turnstile/verify` with `{ token, remoteip }`.
   - The Workers call it through their existing `API` service binding (`API_BASE` over HTTPS when unbound).
   - Vercel calls `https://api.brisbaneferry.com/v1/turnstile/verify`, which is `bft-api-prod`.
@@ -282,6 +286,6 @@ Web feedback (the legacy modal, the ferry `FeedbackSheet` and the sheet transit 
   - **Brett's decision (19 Oct):** keep `IOS_REQUIRE_CLIENT_HEADER = false` until an iOS app update that sends `X-BFT-Client: ios/1` has shipped and been adopted. **Then** flip it to `true` in `api/_turnstile.js`, in a PR into develop with the usual review, released like any other change. That PR must also update the tests: today's tests expect header-less iOS feedback to succeed and don't exercise the required-header mode, so add coverage for it (header present → allowed; header missing → treated as web, so 403 without a token). Until then, the Origin alone qualifies.
 - **CSP:** `https://challenges.cloudflare.com` in `script-src` and `frame-src` only, per [Cloudflare's Turnstile CSP reference](https://developers.cloudflare.com/turnstile/reference/content-security-policy/). That covers `vercel.json`, the `index.html` meta and the ferry Worker; transit already had it. No `connect-src` change: that is only for pre-clearance mode, which isn't used.
 - **Privacy:** `public/privacy.html` (also served by the ferry and transit apps) now names Cloudflare Turnstile for web feedback.
-- **Tests:** the test sitekey `1x00000000000000000000AA` appears only in the Playwright configs, with the script stubbed (`apps/ferry/tests/turnstile-stub.ts`). Never put it in deployed config.
-- **Check after deploy:** submit web feedback on staging (`bft-ferry`, `bft-transit`) and on www.brisbaneferry.com: one Discord post each. A `curl` POST without a token from a browser Origin gets a 403.
+- **Tests:** the test sitekey `1x00000000000000000000AA` appears only in tests (the Playwright configs, with the script stubbed by `apps/ferry/tests/turnstile-stub.ts`, and unit tests). Never put it in deployed config; the wrangler-config tests check that.
+- **Check after deploy:** submit web feedback on staging (`bft-ferry`, `bft-transit`) and on www.brisbaneferry.com: one Discord post each. On www, the page source (or the Turnstile iframe URL) must carry the PROD sitekey. Repeat on ferry.lifemap.au if it was added to the PROD widget. A `curl` POST without a token from a browser Origin gets a 403.
 - **Rollback:** revert the release. `/v1/turnstile/verify` on `bft-api` can stay: nothing else calls it.
