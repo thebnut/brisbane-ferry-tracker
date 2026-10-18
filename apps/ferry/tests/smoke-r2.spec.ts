@@ -74,3 +74,55 @@ for (const path of PAGES) {
     await expect(page.locator('html')).not.toHaveAttribute('data-live-unconfirmed', '')
   })
 }
+
+test("a cached page: the header and an inbound departure wait for the inbound board's own data (Codex review round 4)", async ({
+  page,
+  context,
+  isMobile,
+}) => {
+  test.skip(isMobile, 'the inbound board is on the desktop layout')
+  test.slow()
+  await page.addInitScript(() => {
+    localStorage.setItem('brisbane-ferry-remember-selection', 'true')
+    localStorage.setItem(
+      'brisbane-ferry-selected-stops',
+      JSON.stringify({
+        outbound: { id: '317584', name: 'Bulimba' },
+        inbound: { id: '317590', name: 'Riverside' },
+      }),
+    )
+  })
+  // Serve the page as the service worker's page cache does (markCachedPages marks the <html> tag).
+  await context.route(
+    (url) => url.pathname === '/',
+    async (route) => {
+      if (route.request().resourceType() !== 'document') return route.continue()
+      const res = await route.fetch()
+      const body = (await res.text()).replace(/<html(?=[\s>])/, '<html data-live-unconfirmed=""')
+      await route.fulfill({ response: res, body })
+    },
+  )
+  // Hold the inbound board's departures; the outbound board's answer goes through.
+  let release = () => {}
+  const held = new Promise<void>((r) => {
+    release = r
+  })
+  await context.route('**/__fixtures/v1/ferry/stops/317590/departures*', async (route) => {
+    await held
+    await route.continue()
+  })
+  await page.goto('/')
+  await page.waitForResponse((r) => r.url().includes('/stops/317584/departures') && r.ok(), {
+    timeout: 45_000,
+  })
+  await page.waitForTimeout(500)
+  // Outbound is confirmed, inbound is still the cached copy: no LIVE in the header.
+  await expect(page.locator('header').getByText('LIVE', { exact: true })).toHaveCount(0)
+  await expect(page.locator('[data-board=inbound] [data-badge=live]')).toHaveCount(0)
+  // An inbound departure's details follow the inbound board: no LIVE or GPS from the cached row.
+  await page.locator('[data-board=inbound]').getByTestId('departure').first().click()
+  const sheet = page.getByRole('dialog')
+  await expect(sheet).toBeVisible()
+  await expect(sheet.locator('[data-badge=live], [data-badge=gps]')).toHaveCount(0)
+  release()
+})

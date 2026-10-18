@@ -101,7 +101,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const activeAlerts = (alertsQ.data?.alerts ?? []).length
   return (
     <>
-      <SiteHeader live={first ? first.rtState === 'live' && online : online} />
+      {/* LIVE only while every saved stop's board is live (each confirms itself after a cached page, R2-T7). */}
+      <SiteHeader
+        live={online && views.every((v) => !v.data || (v.state == null && v.data.rtState === 'live'))}
+      />
       <UpdatedStrip
         updatedAt={first?.generatedAt ?? null}
         sourceS={first?.rtSourceTimestamp ?? null}

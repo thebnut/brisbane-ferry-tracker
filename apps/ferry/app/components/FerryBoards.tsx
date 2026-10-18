@@ -144,7 +144,8 @@ export function FerryBoards({
   const express = hasExpress(out.data?.departures, back.data?.departures)
   const latest = out.data ?? back.data
   const state = stateOf(out.data ? out : back)
-  const live = state == null && latest?.rtState === 'live'
+  // LIVE in the header only while every board with data is live (each confirms itself after a cached page, R2-T7).
+  const live = latest?.rtState === 'live' && [out, back].every((q) => !q.data || stateOf(q) == null)
   // The time of the data shown (a service-worker copy keeps its own time), not when it was fetched.
   const updatedAt = Math.max(out.data?.generatedAt ?? 0, back.data?.generatedAt ?? 0)
   const fetching = out.isFetching || back.isFetching
@@ -201,11 +202,12 @@ export function FerryBoards({
   const destOptions = ALL_STOPS.filter((s) => validDestinations(pair.outbound.id).includes(s.id))
   const fromName = cleanStopName(pair.outbound.name)
   const toName = cleanStopName(pair.inbound.name)
-  // The open details sheet follows the latest data and the same freshness rules as the boards.
-  const degraded = state != null
+  // The open details sheet follows the latest data and the freshness of its own board (Codex review).
+  const selectedQ = selected?.direction === 'outbound' ? out : back
+  const degraded = stateOf(selectedQ) != null
   const selectedNow = (() => {
     if (!selected) return null
-    const list = (selected.direction === 'outbound' ? out : back).data?.departures ?? []
+    const list = selectedQ.data?.departures ?? []
     const fresh =
       list.find(
         (x) => x.tripInstance === selected.d.tripInstance && x.stopSequence === selected.d.stopSequence,

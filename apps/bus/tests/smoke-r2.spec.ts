@@ -239,3 +239,52 @@ for (const width of [360, 400]) {
     })
   })
 }
+
+test("a cached home page: LIVE in the header waits for every saved stop's own data (Codex review round 4)", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  test.slow()
+  const saved = [
+    { id: '10802', name: 'Cultural Centre station, platform 1' },
+    { id: '10780', name: 'Second stop' },
+  ]
+  await context.addCookies([
+    {
+      name: 'bft_bus_saved',
+      value: '10802.10780',
+      url: baseURL,
+    },
+  ])
+  await page.addInitScript((s) => localStorage.setItem('bft-bus-saved', JSON.stringify(s)), saved)
+  await context.route(
+    (url) => url.pathname === '/',
+    async (route) => {
+      if (route.request().resourceType() !== 'document') return route.continue()
+      const res = await route.fetch()
+      const body = (await res.text()).replace(/<html(?=[\s>])/, '<html data-live-unconfirmed=""')
+      await route.fulfill({ response: res, body })
+    },
+  )
+  // Hold the second stop's departures; the first stop's answer goes through.
+  let release = () => {}
+  const held = new Promise<void>((r) => {
+    release = r
+  })
+  await context.route('**/__fixtures/v1/bus/stops/10780/departures*', async (route) => {
+    await held
+    await route.continue()
+  })
+  await page.goto('/')
+  await page.waitForResponse((r) => r.url().includes('/stops/10802/departures') && r.ok(), {
+    timeout: 45_000,
+  })
+  await page.waitForTimeout(500)
+  await expect(page.locator('header').getByText('LIVE', { exact: true })).toHaveCount(0)
+  release()
+  await page.waitForResponse((r) => r.url().includes('/stops/10780/departures') && r.ok(), {
+    timeout: 45_000,
+  })
+  await expect(page.locator('header').getByText('LIVE', { exact: true })).toHaveCount(1)
+})
