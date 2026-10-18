@@ -98,7 +98,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const backTo = boardKey ? `${stationPath(boardKey)}${to ? `?to=${to}` : ''}` : '/stations'
 
   return (
-    <Shell active="stations" live={trip.rtState === 'live'}>
+    <Shell active="stations">
       <div className="mx-auto flex max-w-2xl flex-col gap-3.5">
         <Link
           to={backTo}

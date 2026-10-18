@@ -144,7 +144,6 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   const onData = useCallback((r: DeparturesResponse | undefined) => r && setLatest(r), [])
   const fav = useFavourite({ from: station.key, to: to?.key ?? null })
   const src = latest?.rtSourceTimestamp ?? null
-  const live = latest?.rtState === 'live'
   // Reset the filter when moving between stations.
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the trip.
   useEffect(() => setFilter('all'), [station.key, to?.key])
@@ -189,7 +188,7 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   )
 
   return (
-    <Shell active="stations" live={live} strip={strip}>
+    <Shell active="stations" strip={strip}>
       <div className={to && inbound ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : 'mx-auto max-w-2xl'}>
         <StationBoard
           key={`${station.key}:${to?.key ?? ''}`}

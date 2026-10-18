@@ -16,7 +16,7 @@ export default defineConfig({
     { name: 'phone', use: { ...devices['Pixel 7'] } },
   ],
   webServer: {
-    command: `pnpm build && wrangler dev --port ${PORT} --var FIXTURES:1 --var ALLOW_FIXTURES:1`,
+    command: `pnpm build && wrangler dev --port ${PORT} --var FIXTURES:1 --var ALLOW_FIXTURES:1 --var TRIP_WS:1`,
     url: `http://localhost:${PORT}/robots.txt`,
     timeout: 120_000,
     reuseExistingServer: !process.env.CI,

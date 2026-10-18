@@ -79,7 +79,7 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
     view === 'mine' ? alerts.filter((a) => !affectsMe(a)) : alerts.filter((a) => !mine.includes(a))
 
   return (
-    <Shell active="alerts" live={q.data?.rtState === 'live'}>
+    <Shell active="alerts">
       <div className="mx-auto flex max-w-2xl flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-xl font-extrabold">Service alerts</h1>

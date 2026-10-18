@@ -9,6 +9,7 @@ import { type ReactNode, useEffect, useState } from 'react'
 import { Link, useRouteLoaderData } from 'react-router'
 import { ATTRIBUTION } from '../lib/seo.ts'
 import { FIXTURE_COOKIE, type Theme, writeTheme } from '../lib/storage.ts'
+import { useOnline } from '../lib/useNow.ts'
 import type { loader as rootLoader } from '../root.tsx'
 
 export const NAV: NavItem[] = [
@@ -111,16 +112,16 @@ function FixtureNotice() {
 /** Header, optional status strip, page body, bottom nav and footer. */
 export function Shell({
   active,
-  live = true,
   strip,
   children,
 }: {
   active: string
-  live?: boolean
   strip?: ReactNode
   children: ReactNode
 }) {
   const [settings, setSettings] = useState(false)
+  // The header pill is about the connection; the data state (stale, reloading, scheduled) has its own banner.
+  const live = useOnline()
   return (
     <>
       <SiteHeader live={live} onSettings={() => setSettings(true)} />

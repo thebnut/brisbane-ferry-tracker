@@ -46,8 +46,8 @@ Dark mode follows the device (no flash: class set before paint), or Settings →
 - Platform change: `mergeDepartures` in core sets `scheduledPlatform` when the RT stop-time update names another
   platform of the same parent station (`MergeOptions.stationPlatforms`); a stop id from another station is never a
   change.
-- Fixture mode (`?fixtures=1` with `ALLOW_FIXTURES=1`, or `FIXTURES=1` for everyone, as on staging until `bft-api`
-  serves train data): `fixtures/train-day.json` is one weekday's contract `TripIndexDay` (487 KB, server-only); each
+- Staging reads live data from `bft-api` (which already serves train departures with `stopsAfter`).
+- Fixture mode (`?fixtures=1` with `ALLOW_FIXTURES=1`, or `FIXTURES=1` for everyone): `fixtures/train-day.json` is one weekday's contract `TripIndexDay` (487 KB, server-only); each
   station's `StaticStopDay` is derived on first use like the pipeline does, merged with synthetic RT (delays,
   cancellations, a skipped stop, platform changes at the city stations), cached per 15 s cycle. A request costs
   2–4 ms CPU. The UI labels demo data.
@@ -58,6 +58,23 @@ Dark mode follows the device (no flash: class set before paint), or Settings →
 - Favourites: the rest of today's timetable for each favourite is fetched after the home page is idle (paged with `at`,
   100 rows a page, at most hourly, skipped with Save-Data) and kept in localStorage. Offline, the board shows those
   rows as "Offline · scheduled".
+
+## Hibernating-WebSocket prototype (ADR-0003)
+`TRIP_WS=1` (on in staging and the Playwright server): service detail opens `/v1/train/trips/{key}/ws`, served by the
+`TripSocket` Durable Object in this Worker (`workers/tripSocket.ts`, SQLite-backed, Hibernation API). One object per
+trip refreshes the trip once per 15 s cycle (alarm aligned to the source cycle) and pushes only changes; the page stops
+polling while the socket is open and falls back to polling on any failure. Measure with
+`pnpm --filter @bft/train exec tsx scripts/ws-vs-poll.ts http://localhost:8797 20 300` against
+`wrangler dev --var FIXTURES:1 --var TRIP_WS:1`. Results (20 viewers, 5 min): 40 upstream loads vs 400 for polling,
+freshness p50 0.76 s vs 7.7 s; see `docs/architecture/transit-architecture.md` §5. It belongs in `services/edge` next
+to the RtHub snapshot once that package is on this branch's base.
+
+## iOS (Capacitor 8.5 scaffold)
+`capacitor.config.ts` + `ios/` (Swift Package Manager). The app is server-rendered, so the shell loads the deployed site
+(`CAP_SERVER_URL`, default staging) with `native-shell/index.html` as the offline error page. No signing, team or
+App Store setup is committed. `pnpm --filter @bft/train ios:sync`, then `ios:open` and build in Xcode. Headless
+`xcodebuild` on this Mac hung at "Resolve Package Graph" (package resolution on its own succeeds), so the simulator
+build is not verified here. Widget (WidgetKit) and App Intents are not started.
 
 ## Measurements (18 Oct 2026, production build)
 
@@ -70,6 +87,8 @@ Dark mode follows the device (no flash: class set before paint), or Settings →
 | Lazy: map (MapLibre) / search combobox (Ark UI) | 272 KB / 33 KB gz |
 | Worker upload | 1.86 MB (423 KB gz) |
 | Fixture request CPU (Node) | 2–4 ms |
+| Lighthouse 13.5 mobile, slow 4G, staging | Perf 99, A11y 100, BP 100, FCP = LCP 1.6–1.7 s, TBT 0, CLS 0 (SEO 69: staging is noindex) |
+| Offline full day | Central (all trains) 687 rows, 353 KB raw / 14 KB gz; Roma Street → Indooroopilly 54 KB / 2.4 KB gz |
 
 First-load JS: react-dom client 64 KB, React Router 41 KB, TanStack Query + data layer + network 30 KB, board UI
 15 KB. As in `apps/ferry`, React 19 DOM plus React Router 8 are about 105 KB gz before any app code, so the 90 KB

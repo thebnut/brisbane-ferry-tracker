@@ -4,7 +4,8 @@
  * full TripResponse on connect and then only when the trip changes. Pushed bodies go straight into the TanStack
  * Query cache, and polling stops while the socket is open. Any failure falls back to 15 s polling.
  *
- * Fixture mode never uses the socket (the fixture API is in this Worker, not the edge).
+ * `base` null = polling only; '' = same origin (the prototype DO in this Worker, which serves fixture data when the
+ * Worker is in fixture mode).
  */
 import type { TripResponse } from '@bft/core/contract'
 import { useQueryClient } from '@tanstack/react-query'
@@ -15,13 +16,14 @@ export function useTripSocket(base: string | null, tripInstance: string, mode: D
   const client = useQueryClient()
   const [connected, setConnected] = useState(false)
   useEffect(() => {
-    if (!base || mode.fixtures || typeof WebSocket === 'undefined') return
+    if (base == null || typeof WebSocket === 'undefined') return
+    const origin = base || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`
     let ws: WebSocket | null = null
     let retry: ReturnType<typeof setTimeout> | undefined
     let attempts = 0
     let closed = false
     const open = () => {
-      ws = new WebSocket(`${base}/v1/train/trips/${encodeURIComponent(tripInstance)}/ws`)
+      ws = new WebSocket(`${origin}/v1/train/trips/${encodeURIComponent(tripInstance)}/ws`)
       ws.onopen = () => {
         attempts = 0
         setConnected(true)

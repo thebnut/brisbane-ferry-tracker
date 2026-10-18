@@ -13,11 +13,16 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "data": "tsx scripts/build-data.ts",
-    "deploy:staging": "CLOUDFLARE_ENV=staging pnpm build && wrangler deploy"
+    "deploy:staging": "CLOUDFLARE_ENV=staging pnpm build && wrangler deploy",
+    "ios:sync": "cap sync ios",
+    "ios:open": "cap open ios"
   },
   "dependencies": {
     "@bft/core": "workspace:*",
     "@bft/ui": "workspace:*",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/status-bar": "8.0.4",
     "@leeoniya/ufuzzy": "1.0.19",
     "@tanstack/react-query": "5.104.4",
     "isbot": "5.2.2",
@@ -29,6 +34,7 @@
   "devDependencies": {
     "@bft/config": "workspace:*",
     "@biomejs/biome": "2.5.15",
+    "@capacitor/cli": "8.5.3",
     "@cloudflare/vite-plugin": "1.64.0",
     "@cloudflare/workers-types": "5.20261018.1",
     "@playwright/test": "1.64.1",

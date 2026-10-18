@@ -48,6 +48,8 @@ test('service detail shows the stopping pattern and the train', async ({ page })
   await expect(page).toHaveURL(/\/trip\//)
   await expect(page.getByRole('heading', { level: 1 })).toContainText(/to /)
   await expect(page.getByRole('list', { name: 'Stopping pattern' })).toBeVisible()
+  // TRIP_WS=1 in the test server: updates arrive over the hibernating-WebSocket prototype, polling stops.
+  await expect(page.locator('[data-transport=websocket]')).toBeVisible()
 })
 
 test('search: fuzzy station name, then a reachable destination', async ({ page }) => {

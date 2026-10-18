@@ -30,7 +30,8 @@ export function loader({ request, context }: Route.LoaderArgs) {
   return {
     theme: themeFromCookie(request.headers.get('cookie')),
     fixtures: isFixtureMode(request, env),
-    tripWs: env?.TRIP_WS === '1' ? (env.API_WS_BASE ?? null) : null,
+    // null = poll; '' = this Worker's TripSocket DO (same origin); otherwise a wss:// base.
+    tripWs: env?.TRIP_WS === '1' ? (env.API_WS_BASE ?? '') : null,
   }
 }
 

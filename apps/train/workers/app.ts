@@ -13,6 +13,9 @@ import { validateProxied } from '../app/lib/contract.server.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import { robotsTxt, sitemapXml } from '../app/lib/seo.ts'
 import { siteInfo } from '../app/lib/server.server.ts'
+import { routeTripSocket } from './tripSocket.ts'
+
+export { TripSocket } from './tripSocket.ts'
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
@@ -40,6 +43,8 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url)
+    const socket = routeTripSocket(request, env)
+    if (socket) return socket
     if (request.method === 'GET' && url.pathname.startsWith('/v1/')) return proxyApi(request, env)
     if (url.pathname.startsWith('/__fixtures/v1/')) {
       if (env.ALLOW_FIXTURES !== '1' && env.FIXTURES !== '1')

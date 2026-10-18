@@ -205,6 +205,15 @@ importers:
       '@bft/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@capacitor/core':
+        specifier: 8.5.3
+        version: 8.5.3
+      '@capacitor/ios':
+        specifier: 8.5.3
+        version: 8.5.3(@capacitor/core@8.5.3)
+      '@capacitor/status-bar':
+        specifier: 8.0.4
+        version: 8.0.4(@capacitor/core@8.5.3)
       '@leeoniya/ufuzzy':
         specifier: 1.0.19
         version: 1.0.19
@@ -233,6 +242,9 @@ importers:
       '@biomejs/biome':
         specifier: 2.5.15
         version: 2.5.15
+      '@capacitor/cli':
+        specifier: 8.5.3
+        version: 8.5.3(supports-color@10.2.2)
       '@cloudflare/vite-plugin':
         specifier: 1.64.0
         version: 1.64.0(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@1.21.7)(terser@5.51.2)(tsx@4.23.15))(wrangler@4.151.1(@cloudflare/workers-types@5.20261018.1)(@types/node@24.19.2))

@@ -138,7 +138,7 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
   )
 
   return (
-    <Shell active="map" live={q.data?.rtState === 'live'}>
+    <Shell active="map">
       <div className="relative mx-auto max-w-6xl">
         {mounted ? (
           <Suspense fallback={placeholder}>

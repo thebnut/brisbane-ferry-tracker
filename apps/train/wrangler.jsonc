@@ -22,8 +22,12 @@
     "INDEXABLE": "0",
     // Hibernating-WebSocket prototype for service detail (ADR-0003). "1" = the browser opens a socket to the edge.
     "TRIP_WS": "0",
-    "API_WS_BASE": "wss://bft-api.brisbanetransit.workers.dev"
+    // Empty = the TripSocket DO in this Worker (prototype); later the edge Worker's wss:// URL.
+    "API_WS_BASE": ""
   },
+  // Hibernating-WebSocket prototype (SQLite-backed Durable Object: available on Workers Free).
+  "durable_objects": { "bindings": [{ "name": "TRIP_SOCKET", "class_name": "TripSocket" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TripSocket"] }],
   "env": {
     "staging": {
       "name": "bft-train",
@@ -31,13 +35,15 @@
       "vars": {
         "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
         "ALLOW_FIXTURES": "1",
-        // Until bft-api serves train data, staging shows fixture data to everyone (it is labelled in the UI).
-        "FIXTURES": "1",
+        // Live data from bft-api; ?fixtures=1 switches a visitor to the recorded demo data.
+        "FIXTURES": "0",
         "SITE_URL": "https://bft-train.brisbanetransit.workers.dev",
         "INDEXABLE": "0",
-        "TRIP_WS": "0",
-        "API_WS_BASE": "wss://bft-api.brisbanetransit.workers.dev"
+        "TRIP_WS": "1",
+        "API_WS_BASE": ""
       },
+      "durable_objects": { "bindings": [{ "name": "TRIP_SOCKET", "class_name": "TripSocket" }] },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TripSocket"] }],
       // The SSR loader and the /v1 proxy call the API Worker in-process through this binding.
       "services": [{ "binding": "API", "service": "bft-api" }]
     }

@@ -11,6 +11,8 @@ interface Env {
   INDEXABLE?: string
   /** "1" lets service detail use the hibernating-WebSocket prototype (ADR-0003) at API_WS_BASE. */
   TRIP_WS?: string
-  /** Base URL of the edge Worker for WebSockets, e.g. wss://bft-api.brisbanetransit.workers.dev */
+  /** Where the browser opens trip WebSockets: empty = this Worker (same origin), else e.g. wss://bft-api.… */
   API_WS_BASE?: string
+  /** TripSocket Durable Object namespace (WebSocket prototype). */
+  TRIP_SOCKET?: DurableObjectNamespace<import('./tripSocket.ts').TripSocket>
 }
