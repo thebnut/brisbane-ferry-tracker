@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { type StopIndexEntry, StopIndexFile } from '../app/lib/data-contract.ts'
 import { buildSearchIndex, searchStops } from '../app/lib/search.ts'
 import fixture from '../fixtures/bus-day.json'
@@ -37,8 +37,13 @@ describe('stop search (fixture stops)', () => {
 // The full index is built by `pnpm data` (gitignored); these run locally when it exists.
 const full = join(__dirname, '../public/data/bus/stops.json')
 describe.runIf(existsSync(full))('stop search (full 12k-stop index)', () => {
-  const file = StopIndexFile.parse(JSON.parse(readFileSync(full, 'utf8')))
-  const big = buildSearchIndex(file.stops)
+  // Read lazily: describe bodies run even when the suite is skipped (CI has no built data).
+  let file: ReturnType<typeof StopIndexFile.parse>
+  let big: ReturnType<typeof buildSearchIndex>
+  beforeAll(() => {
+    file = StopIndexFile.parse(JSON.parse(readFileSync(full, 'utf8')))
+    big = buildSearchIndex(file.stops)
+  })
   it('is contract-valid and has every bus stop', () => {
     expect(file.stops.length).toBeGreaterThan(12_000)
   })
