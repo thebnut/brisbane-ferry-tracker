@@ -9,6 +9,7 @@
   "account_id": "dde2914802079766f7671528e7cbae75",
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   "workers_dev": true,
+  "version_metadata": { "binding": "CF_VERSION" },
   // Watchdog: re-arms the RtHub alarm chain if the last good cycle is older than 45 s.
   "triggers": { "crons": ["* * * * *"] },
   "durable_objects": { "bindings": [{ "name": "RT_HUB", "class_name": "RtHub" }] },
@@ -27,6 +28,7 @@
     "staging": {
       "name": "bft-api",
       "workers_dev": true,
+      "version_metadata": { "binding": "CF_VERSION" },
       "triggers": { "crons": ["* * * * *"] },
       "durable_objects": { "bindings": [{ "name": "RT_HUB", "class_name": "RtHub" }] },
       "r2_buckets": [{ "binding": "DATA_BUCKET", "bucket_name": "bft-transit-data" }],

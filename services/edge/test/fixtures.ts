@@ -287,7 +287,7 @@ export class FakeStorage implements HubStorage {
     this.events.push('setAlarm')
     this.alarmAt = t
   }
-  deleteAlarm(): void {
+  async deleteAlarm(): Promise<void> {
     this.alarmAt = null
   }
 }

@@ -29,8 +29,21 @@ export class RtHub extends DurableObject<WorkerEnv> {
     await this.core.alarm()
   }
 
-  ensureRunning(): Promise<{ rearmed: boolean; lastCycleAt: number; alarm: number | null }> {
-    return this.core.ensureRunning()
+  /**
+   * Watchdog (1-minute cron). Also restarts a hub left on older code: the keep-alive keeps this object resident, so
+   * Cloudflare doesn't restart it on deploy (seen on staging). When the calling Worker's version differs from the one
+   * this instance runs, abort; the stored alarm then fires in a fresh instance on the new code.
+   */
+  async ensureRunning(
+    callerVersion?: string,
+  ): Promise<{ rearmed: boolean; lastCycleAt: number; alarm: number | null; restarted?: boolean }> {
+    const r = await this.core.ensureRunning()
+    const mine = this.env.CF_VERSION?.id
+    if (callerVersion && mine && callerVersion !== mine) {
+      this.ctx.waitUntil(Promise.resolve().then(() => this.ctx.abort(`new version ${callerVersion}`)))
+      return { ...r, restarted: true }
+    }
+    return r
   }
 
   pull(sinceSeq: number | null): Promise<PullResult> {
@@ -42,9 +55,8 @@ export class RtHub extends DurableObject<WorkerEnv> {
   }
 
   /** Watchdog drill: delete the alarm so the chain is dead until the cron watchdog re-arms it. */
-  async killAlarmForDrill(): Promise<{ killedAt: number }> {
-    await this.ctx.storage.deleteAlarm()
-    return { killedAt: Date.now() }
+  killAlarmForDrill(): Promise<{ killedAt: number }> {
+    return this.core.killForDrill()
   }
 
   /** Phase 0 spike only (SPIKE_ENABLED=1): rebuild the snapshot `runs` times from the stored feeds. */

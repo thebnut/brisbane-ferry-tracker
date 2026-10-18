@@ -71,8 +71,15 @@ export default {
     // Watchdog: re-arm the hub's alarm chain if its last completed cycle is older than 45 s.
     ctx.waitUntil(
       hubStub(env)
-        .ensureRunning()
-        .then((r) => log.info('watchdog', { rearmed: r.rearmed, lastCycleAt: r.lastCycleAt, alarm: r.alarm }))
+        .ensureRunning(env.CF_VERSION?.id)
+        .then((r) =>
+          log.info('watchdog', {
+            rearmed: r.rearmed,
+            lastCycleAt: r.lastCycleAt,
+            alarm: r.alarm,
+            restarted: r.restarted,
+          }),
+        )
         .catch((e) => log.error('watchdog failed', { error: errorMessage(e) })),
     )
   },

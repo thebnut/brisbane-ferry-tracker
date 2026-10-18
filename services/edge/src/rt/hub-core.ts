@@ -35,6 +35,7 @@ export interface HubStorage {
   delete(keys: string[]): Promise<number>
   getAlarm(): Promise<number | null>
   setAlarm(scheduledTime: number): Promise<void>
+  deleteAlarm?(): Promise<void>
 }
 
 export const R2_LATEST_KEY = 'rt/latest.json'
@@ -135,6 +136,7 @@ export class HubCore {
   private alerts: Alert[] = []
   private running: Promise<void> | null = null
   private rawPersistedAt = 0
+  private drillDead = false
   /** The current snapshot still needs publishing to R2 (a publish failed, or it was just rebuilt). */
   private r2Pending = false
   private readonly startedAt: number
@@ -158,6 +160,8 @@ export class HubCore {
    * every alarm, lost its trip indexes and paid the restore each time. The in-between alarms do no work.
    */
   async alarm(): Promise<void> {
+    // Watchdog drill: behave like a chain whose retries are exhausted (no work, no re-arm) until ensureRunning.
+    if (this.drillDead) return
     // Re-arm first: whatever happens below, the chain continues.
     const started = this.d.now()
     await this.d.storage.setAlarm(started + this.alarmMs)
@@ -182,6 +186,7 @@ export class HubCore {
     const alarm = await this.d.storage.getAlarm()
     const stale = now - this.meta.lastCycleAt > WATCHDOG_STALE_MS
     if (alarm == null || stale) {
+      this.drillDead = false
       await this.d.storage.setAlarm(now)
       this.log.warn('rt watchdog re-armed alarm', { alarm, lastCycleAt: this.meta.lastCycleAt, stale })
       return { rearmed: true, lastCycleAt: this.meta.lastCycleAt, alarm: now }
@@ -239,6 +244,13 @@ export class HubCore {
           }
         : null,
     }
+  }
+
+  /** Watchdog drill: kill the alarm chain (delete the alarm, and make any in-flight alarm skip its re-arm). */
+  async killForDrill(): Promise<{ killedAt: number }> {
+    this.drillDead = true
+    await this.d.storage.deleteAlarm?.()
+    return { killedAt: this.d.now() }
   }
 
   /** Phase 0 spike: decode the stored feeds and rebuild the snapshot `runs` times (no I/O, no writes). */

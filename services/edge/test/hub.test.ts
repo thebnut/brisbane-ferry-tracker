@@ -181,6 +181,19 @@ describe('RtHub alarm robustness', () => {
     expect((await h.hub.ensureRunning()).rearmed).toBe(false)
   })
 
+  it('drill: a killed chain stays dead (even an in-flight alarm skips its re-arm) until the watchdog', async () => {
+    const h = setup()
+    await warm(h)
+    await h.hub.killForDrill()
+    h.clock.advance(KEEPALIVE_MS)
+    await h.hub.alarm() // an alarm already queued fires, but the chain is dead
+    expect(h.storage.alarmAt).toBeNull()
+    h.clock.advance(WATCHDOG_STALE_MS)
+    expect((await h.hub.ensureRunning()).rearmed).toBe(true)
+    await h.hub.alarm()
+    expect(h.storage.alarmAt).toBe(h.clock.t + KEEPALIVE_MS)
+  })
+
   it('watchdog also re-arms a chain whose alarm is set but stuck (last cycle too old)', async () => {
     const h = setup()
     await warm(h)
