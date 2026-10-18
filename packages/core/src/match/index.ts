@@ -105,6 +105,7 @@ export class TripMatcher {
   private readonly byPrefix = new Map<string, number[]>()
   private readonly cache = new Map<number, IndexedTrip>()
   private count = 0
+  private replaced = 0
   readonly serviceDates: string[] = []
 
   constructor(
@@ -158,9 +159,11 @@ export class TripMatcher {
       this.byStart.set(day.serviceDate, starts)
     }
     let k = 0
+    const sameDate = this.days.filter((x) => x.serviceDate === day.serviceDate)
     for (let i = 0; i < n; i++) {
       const t = day.trips[i] as TripIndexDay['trips'][number]
       const g = this.count + i
+      if (sameDate.some((x) => x.byId.has(t.id)) || d.byId.has(t.id)) this.replaced++
       d.tripIds[i] = t.id
       d.byId.set(t.id, i)
       d.route[i] = t.r
@@ -198,8 +201,9 @@ export class TripMatcher {
     this.count += n
   }
 
+  /** Distinct trip instances (an instance re-added for the same date counts once). */
   get size(): number {
-    return this.count
+    return this.count - this.replaced
   }
 
   trip(key: string): IndexedTrip | undefined {
@@ -317,7 +321,9 @@ export class TripMatcher {
   }
 
   private lookupId(tripId: string, serviceDate: string): number | undefined {
-    for (const d of this.days) {
+    // Newest first: re-adding an instance replaces it, as the object matcher's Map.set did.
+    for (let j = this.days.length - 1; j >= 0; j--) {
+      const d = this.days[j] as CompactDay
       if (d.serviceDate !== serviceDate) continue
       const i = d.byId.get(tripId)
       if (i != null) return d.base + i

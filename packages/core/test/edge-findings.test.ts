@@ -121,6 +121,16 @@ describe('compact matcher keeps the object matcher semantics (Codex review of th
     )
   })
 
+  it('re-adding an instance for the same date replaces it (last write wins) and counts once', () => {
+    const m = new TripMatcher('bus', [])
+    m.addDay(tripIndex(D, [trip('P', 0, '08:00:00')]))
+    m.addDay(tripIndex(D, [trip('P', 0, '09:00:00')]))
+    expect(m.size).toBe(1)
+    expect(m.trip(`P@${D}`)?.startS).toBe(9 * 3600)
+    const r = m.match({ routeId: 'R1-1', directionId: 0, startTime: '09:00:00', startDate: D }, [])
+    expect(r).toMatchObject({ kind: 'matched', key: `P@${D}` })
+  })
+
   it('a second addDay for the same date extends the start index', () => {
     const m = new TripMatcher('bus', [])
     m.addDay(tripIndex(D, [trip('P', 0, '08:00:00')]))
