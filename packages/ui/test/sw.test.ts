@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { offlinePage, referencedAssets, usablePageCopy } from '../src/sw.ts'
+import { cleanUpCaches, offlinePage, referencedAssets, usablePageCopy } from '../src/sw.ts'
 
 const html = `<html><head><link rel="stylesheet" href="/assets/root-abc.css"><link rel="modulepreload" href="/assets/entry.client-x1.js"></head>
 <body><script type="module">import "/assets/manifest-1.js";import * as route0 from "/assets/root-y.js";</script>
@@ -38,5 +38,30 @@ describe('service worker page copies (R3-F1)', () => {
     expect(page).not.toContain('<script')
     expect(page).not.toMatch(/LIVE|data-live-claim/)
     expect(page).toContain('data-banner="offline"')
+  })
+})
+
+describe('stale caches on activate (R6-B1)', () => {
+  it('deletes caches this build does not own, keeps its own and the precache', async () => {
+    const names = [
+      'bus-pages',
+      'bus-data',
+      'workbox-precache-v2-http://x/',
+      'bus-api-old',
+      'workbox-runtime-http://x/',
+    ]
+    const deleted: string[] = []
+    const storage = {
+      keys: async () => names,
+      delete: async (n: string) => {
+        deleted.push(n)
+        return true
+      },
+    } as unknown as CacheStorage
+    const spec = (cacheName: string) => ({ cacheName, maxEntries: 1, maxAgeSeconds: 1 })
+    // CacheExpiration needs IndexedDB: its failure is settled, the deletes are what matter here.
+    const removed = await cleanUpCaches([spec('bus-pages'), spec('bus-data')], storage)
+    expect(removed).toEqual(['bus-api-old', 'workbox-runtime-http://x/'])
+    expect(deleted).toEqual(removed)
   })
 })

@@ -260,6 +260,51 @@ export async function trackedFetch(input: string, init?: RequestInit): Promise<R
   }
 }
 
+/** Bodies parsed from a response the service worker served from its cache (see noteCacheCopy). */
+const cacheCopies = new WeakSet<object>()
+
+/**
+ * Each app's JSON reader calls this with the response and its parsed body, so the body itself says it is a cached
+ * copy. A board must decide from its own response, never from the connection flag at the moment it checks: between
+ * a cached answer (which reports offline) and that check, another request reaching the network (alerts every 60 s,
+ * on the same tick as the 15 s poll) or an `online` event can clear the flag, and the old body was then shown as
+ * live data: "Live times delayed", its old "Updated" time, and its departed rows gone (R6-B1).
+ */
+export function noteCacheCopy<T>(res: Response, body: T): T {
+  if (res.headers.get(SW_CACHE_HEADER) && typeof body === 'object' && body !== null) cacheCopies.add(body)
+  return body
+}
+
+/**
+ * Is a freshly fetched body a network answer a board may show as such? Not when the service worker served it from its
+ * cache, and not while the connection is down.
+ */
+export function isNetworkAnswer(body: unknown): boolean {
+  return !(typeof body === 'object' && body !== null && cacheCopies.has(body)) && isOnline()
+}
+
+/**
+ * May a freshly fetched body replace the board on screen as live data? Only a network answer (isNetworkAnswer) that
+ * is not older than the board: an older body means some cache answered without saying so, and a board never goes
+ * back to an older body (R6-B1).
+ */
+export function replacesBoard(
+  body: { generatedAt: number },
+  shown: { generatedAt: number } | null | undefined,
+) {
+  return isNetworkAnswer(body) && !(shown && body.generatedAt < shown.generatedAt)
+}
+
+/** Marks a board built from copies on hand while offline. liveState keeps it 'offline' until a network answer replaces it. */
+export interface OfflineCopy {
+  offline?: boolean
+}
+
+/** A board's copy, marked as offline (a new object: TanStack's structural sharing must see the change). */
+export function asOfflineCopy<T extends object>(copy: T): T & { offline: true } {
+  return { ...copy, offline: true }
+}
+
 /**
  * Workbox runtime-caching plugin for the /v1 data caches: marks a response served from the cache (the network failed
  * or timed out) with `SW_CACHE_HEADER`, so the page knows it is looking at an old copy. workbox-build serialises it
@@ -285,7 +330,7 @@ export type LiveState = 'offline' | 'stale' | 'reloading' | 'unavailable' | null
  * generated over a minute ago (both judged on the data's own timestamps).
  */
 export function liveState(
-  res: { rtState: string; rtSourceTimestamp: number | null; generatedAt: number } | undefined,
+  res: ({ rtState: string; rtSourceTimestamp: number | null; generatedAt: number } & OfflineCopy) | undefined,
   {
     offline,
     nowMs,
@@ -297,15 +342,20 @@ export function liveState(
     unconfirmedBefore?: number | null
   },
 ): LiveState {
-  if (offline) return 'offline'
+  // A board built offline stays offline until its own network answer replaces it, even if the connection flag says
+  // otherwise meanwhile (another request got through): it is a cached copy, never live or "delayed" (R6-B1).
+  if (offline || res?.offline === true) return 'offline'
   if (!res) return null
+  // Came with a cached page (the service worker's copy, or HTML old by the device clock): a copy kept on the device,
+  // shown as the offline timetable until this board's own network answer arrives (R2-T7). Never 'stale': an offline
+  // reload can start with navigator.onLine true, and then "Live times delayed" with that copy's departed rows gone
+  // ("No buses due") and its old "Updated" time showed before the first poll failed (R6-B1).
+  if (unconfirmedBefore != null && res.generatedAt <= unconfirmedBefore) return 'offline'
   if (res.rtState !== 'live') {
     return res.rtState === 'stale' || res.rtState === 'reloading' || res.rtState === 'unavailable'
       ? res.rtState
       : 'unavailable'
   }
-  // Came with a cached page: not live until this board's own fresh answer arrives (R2-T7).
-  if (unconfirmedBefore != null && res.generatedAt <= unconfirmedBefore) return 'stale'
   const sourceAge = res.rtSourceTimestamp == null ? Infinity : nowMs / 1000 - res.rtSourceTimestamp
   if (sourceAge > LIVE_SOURCE_MAX_AGE_S || nowMs - res.generatedAt > LIVE_REFRESH_MAX_AGE_MS) return 'stale'
   return null
@@ -339,27 +389,30 @@ export function tripAsTimetable<
 }
 
 /**
- * Offline, the copy of a board worth showing. Of the copies on hand (the data already on screen, the service
- * worker's cached response, a timetable saved on the device), the one with the most departures still to come by
- * timetable time; a tie goes to the newest. A service-worker copy can be hours old (its last network answer), so it
- * must never replace a fresher board that still has rows (R2-B6). Null when there is no copy at all.
+ * Offline, the copy of a board worth showing, from the copies on hand (the data already on screen, the service
+ * worker's cached response, a timetable saved on the device). The base is always the newest copy, even if its rows
+ * have run out, so a board never goes back to an older body or "Updated" time (R6-B1), and an hours-old
+ * service-worker copy never replaces a fresher board (R2-B6). Older copies only extend it: the departures still to
+ * come after the base's last row, from the copy with the most of them (a saved timetable), are appended, so the rows
+ * last as long as the device has timetable for. Null with no copy at all.
  */
 export function bestOfflineCopy<
   D extends { schedDep: number },
   T extends { generatedAt: number; departures: D[] },
 >(copies: ReadonlyArray<T | null | undefined>, nowMs: number): T | null {
   const cutoff = nowMs / 1000
-  let best: T | null = null
-  let bestCount = -1
-  for (const c of copies) {
-    if (!c || !Array.isArray(c.departures)) continue
-    const count = c.departures.filter((d) => d.schedDep >= cutoff).length
-    if (count > bestCount || (count === bestCount && best != null && c.generatedAt > best.generatedAt)) {
-      best = c
-      bestCount = count
-    }
+  const usable = copies
+    .filter((c): c is T => !!c && Array.isArray(c.departures))
+    .sort((x, y) => y.generatedAt - x.generatedAt)
+  const base = usable[0]
+  if (!base) return null
+  const last = base.departures.reduce((m, d) => Math.max(m, d.schedDep), Number.NEGATIVE_INFINITY)
+  let extension: D[] = []
+  for (const c of usable.slice(1)) {
+    const later = c.departures.filter((d) => d.schedDep >= cutoff && d.schedDep > last)
+    if (later.length > extension.length) extension = later
   }
-  return best
+  return extension.length ? { ...base, departures: [...base.departures, ...extension] } : base
 }
 
 /** Rows that left more than a minute ago are dropped while live. */

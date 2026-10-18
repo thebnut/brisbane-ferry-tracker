@@ -12,13 +12,13 @@
  *    tiles are stale-while-revalidate.
  */
 import { clientsClaim } from 'workbox-core'
-import { ExpirationPlugin } from 'workbox-expiration'
+import { CacheExpiration, ExpirationPlugin } from 'workbox-expiration'
 import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
 import { markCachedPages, markCacheHits } from './connectivity.ts'
 
-interface CacheSpec {
+export interface CacheSpec {
   cacheName: string
   maxEntries: number
   maxAgeSeconds: number
@@ -196,15 +196,46 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
     )
   }
 
-  // A new build: re-fetch the saved pages so their copies reference this build's assets (best effort, ≤ 10 s).
+  // A new build: drop caches it doesn't own and expired entries (R6-B1), then re-fetch the saved pages so their
+  // copies reference this build's assets (best effort, ≤ 10 s).
   sw.addEventListener('activate', (event) => {
     event.waitUntil(
       Promise.race([
-        refreshPages(config.pages.cacheName),
+        cleanUpCaches(runtimeCaches(config)).then(() => refreshPages(config.pages.cacheName)),
         new Promise((resolve) => setTimeout(resolve, 10_000)),
       ]).catch(() => {}),
     )
   })
+}
+
+/** The runtime caches this build uses. */
+export function runtimeCaches(config: ServiceWorkerConfig): CacheSpec[] {
+  return [config.pages, config.routeData, config.live, ...(config.staticData ?? [])].filter(
+    (c): c is CacheSpec => c != null,
+  )
+}
+
+/**
+ * Caches an older build left behind (another name, a runtime it no longer has) still hold old bodies that nothing
+ * expires: delete every cache that isn't one of this build's runtime caches or a workbox precache (whose old versions
+ * cleanupOutdatedCaches handles), and expire this build's own entries past their age now rather than on next use.
+ */
+export async function cleanUpCaches(specs: CacheSpec[], storage: CacheStorage = caches): Promise<string[]> {
+  const own = new Set(specs.map((c) => c.cacheName))
+  const removed: string[] = []
+  for (const name of await storage.keys()) {
+    if (own.has(name) || name.startsWith('workbox-precache')) continue
+    if (await storage.delete(name)) removed.push(name)
+  }
+  await Promise.allSettled(
+    specs.map((c) =>
+      new CacheExpiration(c.cacheName, {
+        maxEntries: c.maxEntries,
+        maxAgeSeconds: c.maxAgeSeconds,
+      }).expireEntries(),
+    ),
+  )
+  return removed
 }
 
 async function refreshPages(cacheName: string): Promise<void> {

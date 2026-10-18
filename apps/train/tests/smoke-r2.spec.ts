@@ -100,16 +100,17 @@ test('a cached page: each board claims LIVE only after its own fresh departures 
   await page.goto('/station/roma-street?to=indooroopilly')
   const outbound = page.locator('[data-board=roma-street]')
   const back = page.locator('[data-board=indooroopilly]')
-  // After hydration both boards came with the cached HTML: neither is live. (Counts, not visibility: a phone shows
-  // one board at a time.)
-  await expect(outbound.locator('[data-banner=stale]')).toHaveCount(1)
-  await expect(back.locator('[data-banner=stale]')).toHaveCount(1)
+  // After hydration both boards came with the cached HTML: neither is live, each is a copy kept on the device until
+  // its own answer arrives ("Offline · scheduled", never "Live times delayed": R6-B1). (Counts, not visibility: a
+  // phone shows one board at a time.)
+  await expect(outbound.locator('[data-banner=offline]')).toHaveCount(1)
+  await expect(back.locator('[data-banner=offline]')).toHaveCount(1)
   // The outbound board's own fresh answer (polled every 15 s) makes it live; the held board stays as it was.
   await page.waitForResponse((r) => r.url().includes('/stops/roma-street/departures') && r.ok(), {
     timeout: 45_000,
   })
-  await expect(outbound.locator('[data-banner=stale]')).toHaveCount(0)
-  await expect(back.locator('[data-banner=stale]')).toHaveCount(1)
+  await expect(outbound.locator('[data-banner=offline]')).toHaveCount(0)
+  await expect(back.locator('[data-banner=offline]')).toHaveCount(1)
   await expect(back.locator('[data-badge=live]')).toHaveCount(0)
   // The header pill waits for every board.
   await expect(page.locator('header').getByText('LIVE', { exact: true })).toHaveCount(0)
@@ -117,7 +118,7 @@ test('a cached page: each board claims LIVE only after its own fresh departures 
   await page.waitForResponse((r) => r.url().includes('/stops/indooroopilly/departures') && r.ok(), {
     timeout: 45_000,
   })
-  await expect(back.locator('[data-banner=stale]')).toHaveCount(0)
+  await expect(back.locator('[data-banner=offline]')).toHaveCount(0)
   // Nothing claimed LIVE before its board's own fresh data was on screen: the recorder saw no LIVE while both boards
   // were cached (it runs for the first 10 s, all before the first poll).
   const seen = await page.evaluate(() => (window as unknown as { __liveSeen: string[] }).__liveSeen)

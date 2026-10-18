@@ -1,11 +1,15 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
 import type { AlertsResponse, DeparturesResponse, TripResponse } from '@bft/core/contract'
 import {
+  asOfflineCopy,
   bestOfflineCopy,
   dropDeparted,
+  isNetworkAnswer,
   isOnline,
   type LiveState,
   liveState,
+  type OfflineCopy,
+  replacesBoard,
   timetableStatus,
 } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQueries, useQuery } from '@tanstack/react-query'
@@ -24,7 +28,7 @@ import {
 } from './api.ts'
 import type { GeoTileFile } from './data-contract.ts'
 import { buildSearchIndex } from './search.ts'
-import { isSaved, readOffline, writeOffline } from './storage.ts'
+import { readOffline, writeOffline } from './storage.ts'
 
 export const POLL_MS = 15_000
 /** Saved stops refresh their offline timetable copy at most this often. */
@@ -58,16 +62,39 @@ export function useFetcher(mode: DataMode): ApiFetcher {
 // Browser only (true during SSR): navigator.onLine, failed API calls and service-worker cache hits (@bft/ui).
 const offline = () => !isOnline()
 
-/** Keep a longer timetable for a saved stop, so it still shows scheduled times offline. */
-async function refreshOfflineCopy(fetcher: ApiFetcher, stopId: string) {
+/**
+ * Keep a longer timetable for every stop viewed online (saved stops and recent views, storage.ts caps them), so the
+ * board still shows scheduled times offline. Without it an unsaved stop had only the 20 rows on screen (R6-B1).
+ */
+export function refreshOfflineCopy(fetcher: ApiFetcher, stopId: string): Promise<void> {
+  // One refresh per stop at a time: an older answer arriving last must not overwrite a newer copy (Codex review).
+  let running = refreshing.get(stopId)
+  if (!running) {
+    running = keepOfflineCopy(fetcher, stopId).finally(() => refreshing.delete(stopId))
+    refreshing.set(stopId, running)
+  }
+  return running
+}
+const refreshing = new Map<string, Promise<void>>()
+
+async function keepOfflineCopy(fetcher: ApiFetcher, stopId: string): Promise<void> {
+  if (offline()) return
   const prev = readOffline(stopId)
   if (prev && Date.now() - prev.savedAt < OFFLINE_REFRESH_MS) return
   try {
-    writeOffline(stopId, await fetchDepartures(fetcher, stopId, { limit: OFFLINE_LIMIT }))
+    const res = await fetchDepartures(fetcher, stopId, { limit: OFFLINE_LIMIT })
+    // Only a network answer, never older than the copy kept now (read again after the fetch): an offline reload can
+    // start with navigator.onLine true, and the service worker's old cached answer must not replace the timetable.
+    const kept = readOffline(stopId)?.body as { generatedAt?: number } | undefined
+    if (!isNetworkAnswer(res) || (kept?.generatedAt != null && res.generatedAt < kept.generatedAt)) return
+    writeOffline(stopId, res)
   } catch {
     // Best effort.
   }
 }
+
+/** A board built from copies on hand while offline (client only, never from the API). */
+export type Board = DeparturesResponse & OfflineCopy
 
 /**
  * Offline view of a stop, as scheduled-only rows (no live estimates or GPS) without departures that have already
@@ -80,11 +107,11 @@ export function asOfflineTimetable(
   stopId: string,
   res: DeparturesResponse | ReadonlyArray<DeparturesResponse | null | undefined> | null,
   nowMs: number,
-): DeparturesResponse | null {
+): Board | null {
   const copy = readOffline(stopId)?.body as DeparturesResponse | undefined
   const base = bestOfflineCopy([...(Array.isArray(res) ? res : [res]), copy], nowMs)
   if (!base) return null
-  return asTimetable(base, nowMs, 'unavailable')
+  return asOfflineCopy(asTimetable(base, nowMs, 'unavailable'))
 }
 
 /** A response as timetable times only: no live estimates or GPS, nothing that has already left. */
@@ -116,16 +143,18 @@ export function departuresOptions(
   const queryKey = ['bus', 'departures', mode.fixtures, mode.rt, stopId] as const
   return {
     queryKey,
-    queryFn: async ({
-      signal,
-      client,
-    }: QueryFunctionContext<typeof queryKey>): Promise<DeparturesResponse> => {
+    queryFn: async ({ signal, client }: QueryFunctionContext<typeof queryKey>): Promise<Board> => {
       // The board on screen: offline, it may be fresher than any cached copy.
-      const shown = client.getQueryData<DeparturesResponse>(queryKey)
+      const shown = client.getQueryData<Board>(queryKey)
       try {
         const res = await fetchDepartures(fetcher, stopId, { signal })
-        if (!offline()) {
-          if (isSaved(stopId)) void refreshOfflineCopy(fetcher, stopId)
+        // A network answer, judged on this response (not on the connection flag, which another request may have just
+        // cleared) and never older than the board on screen (R6-B1).
+        // Offline the board may show the kept timetable (liveView), so compare with the newer of the two.
+        const kept = readOffline(stopId)?.body as DeparturesResponse | undefined
+        const newest = kept && (!shown || kept.generatedAt > shown.generatedAt) ? kept : shown
+        if (replacesBoard(res, newest)) {
+          void refreshOfflineCopy(fetcher, stopId)
           return res
         }
         // Offline but the service worker answered from its cache (maybe hours old): never show its stale live
@@ -153,12 +182,13 @@ export function departuresOptions(
  */
 export function liveView(
   stopId: string,
-  res: DeparturesResponse | undefined,
+  res: Board | undefined,
   nowMs: number,
   online: boolean,
   /** useUnconfirmedBefore(): data that came with a cached page isn't live (R2-T7). */
   unconfirmedBefore: number | null = null,
 ): { data: DeparturesResponse | undefined; state: LiveState } {
+  // A board built offline (Board.offline) stays offline in liveState until its own network answer replaces it.
   const state = liveState(res, { offline: !online, nowMs, unconfirmedBefore })
   if (!res || state == null) return { data: res, state }
   if (state === 'offline') return { data: asOfflineTimetable(stopId, res, nowMs) ?? res, state }

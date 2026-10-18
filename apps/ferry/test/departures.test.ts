@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   applyFilter,
   asScheduled,
+  bannerState,
   boardState,
   cardModel,
   hasExpress,
@@ -129,5 +130,15 @@ describe('Depart from slots', () => {
       '3PM',
       '5PM',
     ])
+  })
+})
+
+describe('bannerState (R6-B1, Codex review round 5)', () => {
+  it('offline when either board shows an offline copy, whatever the other says', () => {
+    expect(bannerState([null, 'offline'])).toBe('offline')
+    expect(bannerState(['stale', 'offline'])).toBe('offline')
+    expect(bannerState(['stale', null])).toBe('stale')
+    expect(bannerState([null, null])).toBeNull()
+    expect(bannerState([])).toBeNull()
   })
 })

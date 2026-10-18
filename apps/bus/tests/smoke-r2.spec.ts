@@ -101,10 +101,12 @@ test('offline with no usable timetable says so, never "no departures in the next
 }) => {
   await page.goto(`/stop/${STOP}`)
   await serviceWorkerReady(page)
-  // No departures in any copy on hand (this stop is not saved, so there is no longer copy).
+  // No departures in any copy on hand: an empty board, and no longer timetable copy on the device (every viewed stop
+  // keeps one since R6-B1; remove it, as for a device that never had one).
   await routeDepartures(context, null)
   await refresh(page)
   await expect(page.getByText('No buses due')).toBeVisible()
+  await page.evaluate((stop) => localStorage.removeItem(`bft-bus-v1:${stop}`), STOP)
   await page.waitForTimeout(1_000)
   await context.unroute(DEPARTURES)
   await context.setOffline(true)
