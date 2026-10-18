@@ -39,3 +39,11 @@
 .prose-about ul {
   @apply list-disc pl-6;
 }
+
+/*
+ * Height of the bottom bars on phones. Fixed panels in the bus pages (search sheet, trip footer) sit above
+ * var(--bft-bottom-bar, 58px); here the Mode Tabs (60px) carry a mode's section pills (44px) on top.
+ */
+:root {
+  --bft-bottom-bar: 104px;
+}

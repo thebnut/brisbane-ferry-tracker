@@ -2,6 +2,8 @@
  * Server-side contract checks for everything the transit Worker proxies (zod stays out of the browser bundle):
  * /v1 responses and the client data files against @bft/core/contract, and /v1/ask against AskResponse below.
  */
+
+import { FastStopIndex } from '@bft/bus/app/lib/contract.server.ts'
 import {
   AlertsResponse,
   DeparturesResponse,
@@ -11,7 +13,6 @@ import {
   TripResponse,
   VehiclesResponse,
 } from '@bft/core/contract'
-import { FastStopIndex } from '@bft/bus/app/lib/contract.server.ts'
 import { z } from 'zod'
 import { ApiError, type Validate } from './api.ts'
 

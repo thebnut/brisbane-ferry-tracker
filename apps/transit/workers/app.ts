@@ -26,7 +26,9 @@ const noStore = { 'cache-control': 'no-store' }
 export async function proxyApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
   try {
-    const res = await apiFetch(env, `${url.pathname}${url.search}`, { headers: { accept: 'application/json' } })
+    const res = await apiFetch(env, `${url.pathname}${url.search}`, {
+      headers: { accept: 'application/json' },
+    })
     return await validateProxied(url.pathname, res)
   } catch (error) {
     return Response.json(

@@ -19,7 +19,8 @@ export function pwa() {
     manifest: {
       name: 'BrisbaneTransit Departure Boards',
       short_name: 'BrisbaneTransit',
-      description: 'Live Brisbane ferry, train and bus departures in one app, with what is leaving around you.',
+      description:
+        'Live Brisbane ferry, train and bus departures in one app, with what is leaving around you.',
       id: '/',
       start_url: '/',
       scope: '/',
@@ -64,7 +65,8 @@ export function pwa() {
           },
         },
         {
-          urlPattern: ({ url }) => /^\/(__fixtures\/)?v1\/(ferry|train|bus)\/(stops|trips)\//.test(url.pathname),
+          urlPattern: ({ url }) =>
+            /^\/(__fixtures\/)?v1\/(ferry|train|bus)\/(stops|trips)\//.test(url.pathname),
           handler: 'NetworkFirst',
           options: {
             cacheName: 'transit-data',
@@ -73,14 +75,21 @@ export function pwa() {
           },
         },
         {
-          urlPattern: ({ url }) => /^\/(__fixtures\/)?data\/(ferry|train|bus)\/(stops|lines)\.json$/.test(url.pathname),
+          urlPattern: ({ url }) =>
+            /^\/(__fixtures\/)?data\/(ferry|train|bus)\/(stops|lines)\.json$/.test(url.pathname),
           handler: 'StaleWhileRevalidate',
-          options: { cacheName: 'transit-index', expiration: { maxEntries: 8, maxAgeSeconds: 7 * 24 * 3600 } },
+          options: {
+            cacheName: 'transit-index',
+            expiration: { maxEntries: 8, maxAgeSeconds: 7 * 24 * 3600 },
+          },
         },
         {
           urlPattern: ({ url }) => /^\/(__fixtures\/)?data\/(ferry|train|bus)\/geo\//.test(url.pathname),
           handler: 'StaleWhileRevalidate',
-          options: { cacheName: 'transit-geo', expiration: { maxEntries: 120, maxAgeSeconds: 7 * 24 * 3600 } },
+          options: {
+            cacheName: 'transit-geo',
+            expiration: { maxEntries: 120, maxAgeSeconds: 7 * 24 * 3600 },
+          },
         },
       ],
     },

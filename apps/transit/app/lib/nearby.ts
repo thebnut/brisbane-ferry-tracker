@@ -4,8 +4,9 @@
  * keep a stop 30 m away across a cell edge from being missed. Exit criterion: < 100 ms from tiles loaded to sorted
  * groups; `computeNearby` reports its own time so the page and the tests can check it.
  */
-import { geohashEncode, geohashNeighbourhood, nearest } from '@bft/core/geo'
+
 import type { GeoTileFile } from '@bft/core/contract'
+import { geohashEncode, geohashNeighbourhood, nearest } from '@bft/core/geo'
 
 export const NEARBY_MODES = ['ferry', 'train', 'bus'] as const
 export type NearbyMode = (typeof NEARBY_MODES)[number]
@@ -61,7 +62,10 @@ export function computeNearby(
 export const walkMinutes = (metres: number) => Math.max(1, Math.ceil(metres / 80))
 
 /** X-Map cue for a departure: can you make it on foot? */
-export function cue(departsInMin: number, walkMin: number): { text: string; tone: 'late' | 'hurry' | 'good' } {
+export function cue(
+  departsInMin: number,
+  walkMin: number,
+): { text: string; tone: 'late' | 'hurry' | 'good' } {
   if (departsInMin < walkMin) return { text: 'Too late', tone: 'late' }
   if (departsInMin < walkMin + 3) return { text: 'Hurry', tone: 'hurry' }
   if (departsInMin < walkMin + 10) return { text: 'On your way', tone: 'good' }

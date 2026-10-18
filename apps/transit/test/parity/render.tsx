@@ -1,0 +1,109 @@
+/**
+ * Renders a mode page exactly as the router would: the app's own route module (loader + component) under a root route
+ * that provides the root loader data both builds supply, with every /v1 and /__fixtures request answered by that app's
+ * fixture API at a fixed time. Returns normalised markup for comparison with the committed golden file.
+ */
+import { QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, waitFor } from '@testing-library/react'
+import type { ComponentType } from 'react'
+import {
+  type RouterContextProvider as Ctx,
+  createRoutesStub,
+  Outlet,
+  RouterContextProvider,
+  useLoaderData,
+  useParams,
+} from 'react-router'
+import { expect, vi } from 'vitest'
+import { makeQueryClient } from '../../app/lib/queries.ts'
+
+/** Tuesday 20 Oct 2026, 8:30 am Brisbane: a weekday, so every fixture day has services. */
+export const NOW_MS = Date.UTC(2026, 9, 19, 22, 30)
+
+export const FIXTURE_ENV = {
+  ALLOW_FIXTURES: '1',
+  FIXTURES: '1',
+  API_BASE: 'http://api.invalid',
+  SITE_URL: 'https://standalone.example',
+} as unknown as Env
+
+export interface PageSpec {
+  /** The app's prefix in BrisbaneTransit ("/bus"); empty in the standalone build. */
+  base: string
+  /** Route pattern and URL inside the app, e.g. "/stop/:stopId" and "/stop/10802". */
+  pattern: string
+  url: string
+  // biome-ignore lint/suspicious/noExplicitAny: route modules have per-route generated types.
+  module: { default: ComponentType<any>; loader: (args: any) => unknown }
+  // biome-ignore lint/suspicious/noExplicitAny: each app's own context key.
+  contextKey: any
+  fixtures: (url: URL, nowMs: number) => Promise<Response>
+  /** Text that shows once the page has its rows. */
+  ready: RegExp
+  /** The swapped nav's label inside BrisbaneTransit (absent for ferry, which has no section nav). */
+  transitNav?: string
+}
+
+export function withFixtureFetch(fixtures: PageSpec['fixtures']) {
+  vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+    const url = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost')
+    return fixtures(new URL(`${url.pathname}${url.search}`, 'http://fixtures'), NOW_MS)
+  })
+}
+
+export async function renderPage(spec: PageSpec): Promise<string> {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(NOW_MS)
+  withFixtureFetch(spec.fixtures)
+  const context = new RouterContextProvider() as unknown as Ctx
+  context.set(spec.contextKey, { env: FIXTURE_ENV, ctx: {} })
+  const Page = spec.module.default
+  const Stub = createRoutesStub([
+    {
+      id: 'root',
+      path: '/',
+      loader: () => ({ mode: { fixtures: true, rt: null }, fixtures: true, tripWs: null, theme: 'system' }),
+      Component: () => <Outlet />,
+      children: [
+        {
+          path: `${spec.base}${spec.pattern}`.replace(/^\//, ''),
+          loader: async (args: { request: Request; params: Record<string, string> }) =>
+            spec.module.loader({ ...args, context }),
+          Component: () => <PageWithData Page={Page} />,
+        },
+      ],
+    },
+  ])
+  const { container } = render(
+    <QueryClientProvider client={makeQueryClient()}>
+      <Stub initialEntries={[`${spec.base}${spec.url}`]} />
+    </QueryClientProvider>,
+  )
+  await screen.findAllByText(spec.ready, undefined, { timeout: 5000 })
+  await waitFor(() => expect(container.querySelector('[aria-busy="true"]')).toBeNull())
+  const raw = container.innerHTML
+  if (spec.base) {
+    // Not vacuous: the transit build really links under its prefix and really swapped the nav module.
+    expect(raw).toContain(`href="${spec.base}/`)
+    if (spec.transitNav) expect(raw).toContain(`aria-label="${spec.transitNav}"`)
+  } else expect(raw).not.toMatch(/href="\/(ferry|train|bus)\//)
+  return normalise(raw, spec.base)
+}
+
+function PageWithData({ Page }: { Page: ComponentType<{ loaderData: unknown; params: unknown }> }) {
+  return <Page loaderData={useLoaderData()} params={useParams()} />
+}
+
+/**
+ * The intended differences only: the mount prefix in links, and navigation (the standalone app's own bottom/section
+ * nav vs the Mode Tabs' section pills). Everything else must be byte-identical.
+ */
+export function normalise(html: string, base: string): string {
+  let out = html
+  // Navigation landmarks: the swapped nav module (bus "Main"/"Sections", train "Main"; transit "… sections").
+  out = out.replace(/<nav aria-label="(Main|Sections|Bus sections|Train sections)"[\s\S]*?<\/nav>/g, '<nav/>')
+  // The bus app wraps its phone nav in a div.
+  out = out.replace(/<div class="md:hidden"><nav\/><\/div>/g, '<nav/>')
+  if (base) out = out.replaceAll(`href="${base}/`, 'href="/').replaceAll(`href="${base}"`, 'href="/"')
+  return out.replace(/></g, '>\n<')
+}

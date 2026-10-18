@@ -3,20 +3,19 @@
  * stops layer is GeoJSON built from the geohash-5 tiles covering the visible area (zoom 14+, at most 16 tiles).
  * Scope toggle: around you (or `?lat=&lon=`) or your saved stops. Tap a stop for its board.
  */
-import { Icon, SegmentedControl } from '@bft/ui'
+import { Icon, SegmentedControl, useGeolocation } from '@bft/ui'
 import type { ViewBounds } from '@bft/ui/map'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { ClientOnly } from '../components/ClientOnly.tsx'
 import { BusNav, DesktopNav, SiteHeader } from '../components/Shell.tsx'
-import { cellsCovering } from '../lib/geo.ts'
+import { cellsCovering, positionFromParams } from '../lib/geo.ts'
 import { useApi } from '../lib/mode.ts'
 import { useGeoTiles, useStopIndex } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
 import { stopHref } from '../lib/stops.ts'
 import { useSavedStops } from '../lib/storage.ts'
 import type { Route } from './+types/map'
-import { useGeolocation } from './nearby.tsx'
 
 const MapView = lazy(() => import('@bft/ui/map'))
 
@@ -32,7 +31,7 @@ const CBD: [number, number] = [153.0235, -27.4705]
 export default function MapPage() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const { geo, locate } = useGeolocation(params)
+  const { geo, locate } = useGeolocation(positionFromParams(params))
   const [scope, setScope] = useState<'near' | 'saved'>('near')
   const [cells, setCells] = useState<string[]>([])
   const [zoomedOut, setZoomedOut] = useState(false)

@@ -44,5 +44,8 @@ export function readPlace(): Place | null {
 
 export function writePlace(p: Place): void {
   const r = (x: number) => Math.round(x * 1000) / 1000
-  safe(() => localStorage.setItem(NEARBY_KEY, JSON.stringify({ ...p, lat: r(p.lat), lon: r(p.lon) })), undefined)
+  safe(
+    () => localStorage.setItem(NEARBY_KEY, JSON.stringify({ ...p, lat: r(p.lat), lon: r(p.lon) })),
+    undefined,
+  )
 }

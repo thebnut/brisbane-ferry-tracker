@@ -1,0 +1,1810 @@
+<header class="bg-header sticky top-0 z-40 border-b-2 border-ferry-orange/50 shadow-header pt-[env(safe-area-inset-top)]">
+<div class="mx-auto flex max-w-6xl items-center justify-between gap-2 px-2 py-1 md:px-4">
+<a href="/" class="flex shrink-0 items-center gap-1 rounded-lg" aria-label="BrisbaneTrain Departure Boards, home">
+<img alt="" width="56" height="56" class="size-14 md:size-24 dark:rounded-full dark:bg-night-text dark:p-0.5" src="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20200%20200'%20width='400'%20height='400'%3e%3cpath%20d='M24%20132%20A80%2080%200%201%201%20178%20120'%20fill='none'%20stroke='%232A9A9E'%20stroke-width='9'%20stroke-linecap='round'/%3e%3cg%20transform='rotate(-7%20100%20110)%20translate(-12%20-20)%20scale(1.13)'%3e%3cpath%20d='M80%2084%20L92%2064%20L104%2084%20M76%2064%20L108%2064'%20fill='none'%20stroke='%23FE8E22'%20stroke-width='6'%20stroke-linecap='round'%20stroke-linejoin='round'/%3e%3cpath%20d='M18%20128%20L18%2094%20Q18%2084%2028%2084%20L136%2084%20Q158%2084%20170%20102%20L178%20117%20Q182%20128%20170%20128%20Z'%20fill='%23ffffff'%20stroke='%232A9A9E'%20stroke-width='6'%20stroke-linejoin='round'/%3e%3crect%20x='30'%20y='92'%20width='22'%20height='14'%20rx='3'%20fill='%232A9A9E'/%3e%3crect%20x='58'%20y='92'%20width='22'%20height='14'%20rx='3'%20fill='%232A9A9E'/%3e%3crect%20x='86'%20y='92'%20width='22'%20height='14'%20rx='3'%20fill='%232A9A9E'/%3e%3crect%20x='114'%20y='92'%20width='20'%20height='14'%20rx='3'%20fill='%232A9A9E'/%3e%3cpath%20d='M141%2092%20L154%2092%20Q160%2092%20164%20100%20L168%20108%20L141%20108%20Z'%20fill='%232A9A9E'/%3e%3cpath%20d='M22%20113%20L172%20113%20L176%20121%20L22%20121%20Z'%20fill='%23FE8E22'/%3e%3c/g%3e%3cpath%20d='M18%20150%20C60%20134%20122%20134%20186%20142%20C156%20146%20132%20152%20106%20160%20C78%20168%2048%20164%2018%20150%20Z'%20fill='%232A9A9E'/%3e%3cpath%20d='M40%20170%20C70%20162%20100%20168%20126%20163%20C142%20160%20156%20158%20168%20160%20C150%20180%20126%20190%20102%20190%20C78%20190%2056%20182%2040%20170%20Z'%20fill='%232A9A9E'/%3e%3c/svg%3e">
+<span class="flex flex-col font-wordmark leading-[1.08]" aria-hidden="true">
+<span class="text-xl font-bold text-logo-teal md:text-3xl dark:text-ferry-aqua-light">BrisbaneTrain</span>
+<span class="text-base font-semibold text-logo-orange md:text-2xl dark:text-ferry-sunset">Departure Boards</span>
+</span>
+</a>
+<div class="flex items-center gap-2">
+<button type="button" aria-label="Settings" class="group flex h-11 items-center gap-2 rounded-full border border-ferry-orange/20 bg-white/90 text-sm font-semibold text-aqua-text shadow-md transition hover:border-ferry-orange/40 hover:shadow-lg dark:bg-night-card dark:text-ferry-aqua-light w-11 justify-center">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="transition-transform group-hover:rotate-45">
+<path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z">
+</path>
+</svg>
+</button>
+<span class="rounded-full bg-ferry-orange-aa px-3 py-1.5 text-xs font-bold text-white shadow-live motion-safe:animate-glow">LIVE</span>
+</div>
+</div>
+</header>
+<p role="note" data-fixtures="true" class="bg-golden/25 px-3 py-1 text-center text-xs font-semibold text-charcoal dark:text-night-text">Demo data: a recorded weekday timetable with simulated live times, not real departures.</p>
+<div class="bg-strip border-b border-ferry-orange/20">
+<div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-3 py-2 md:px-4">
+<p class="flex items-center gap-1.5 text-sm text-charcoal tabular dark:text-night-text" aria-live="polite">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="text-ferry-orange">
+<path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2">
+</path>
+</svg>
+<span>Updated <strong class="text-aqua-text dark:text-ferry-aqua-light">8:30 am</strong>
+</span>
+<span class="text-xs text-sched-text dark:text-night-text/70">· updated 12 s ago</span>
+</p>
+<div class="flex flex-wrap items-center gap-1.5">
+<fieldset class="flex gap-1.5">
+<legend class="sr-only">Services</legend>
+<button type="button" aria-pressed="true" class="h-9 shrink-0 rounded-full px-3 text-xs whitespace-nowrap md:text-sm bg-ferry-orange-aa font-bold text-white">All</button>
+<button type="button" aria-pressed="false" class="h-9 shrink-0 rounded-full px-3 text-xs whitespace-nowrap md:text-sm border border-ferry-orange/30 bg-white font-semibold text-ferry-orange-deep dark:bg-night-card dark:text-ferry-sunset">Express</button>
+</fieldset>
+<a class="flex h-9 items-center rounded-full border border-ferry-orange/20 bg-white px-3 text-xs font-semibold text-aqua-text md:text-sm dark:bg-night-card dark:text-ferry-aqua-light" href="/map?station=roma-street" data-discover="true">Map</a>
+<button type="button" aria-pressed="false" aria-label="Save as favourite" class="flex size-9 items-center justify-center rounded-full border border-ferry-orange/20 bg-white text-ferry-orange-aa dark:bg-night-card">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z">
+</path>
+</svg>
+</button>
+</div>
+</div>
+</div>
+<main class="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">
+<div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+<section aria-label="Departures Roma Street → Indooroopilly" class="flex min-w-0 flex-col gap-2.5" data-board="roma-street">
+<div class="bg-board-header flex min-h-14 items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-3.5 py-2 shadow-sm">
+<h2 class="flex min-w-0 flex-1 items-center gap-2 text-base font-semibold text-aqua-text dark:text-ferry-aqua-light">
+<button type="button" aria-label="Roma Street → Indooroopilly. Choose where you're going" class="flex min-w-0 items-center gap-1 text-left text-base font-bold">
+<span class="truncate">Roma Street → Indooroopilly</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0 text-ferry-orange">
+<path d="M6 9l6 6 6-6">
+</path>
+</svg>
+</button>
+</h2>
+<button type="button" aria-label="Swap direction" class="flex size-10 shrink-0 items-center justify-center rounded-full border border-ferry-orange/25 bg-white text-ferry-orange-dark transition active:scale-95 dark:bg-night-card">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7">
+</path>
+</svg>
+</button>
+</div>
+<ol class="flex flex-col gap-2.5" aria-label="Next trains from Roma Street → Indooroopilly">
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="8:45 am to Springfield Central, platform 8, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393692-QR%2026_27-44449-DK18%4020261020?from=roma-street&amp;to=indooroopilly" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 8">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">8</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z">
+</path>
+</svg>GPS</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">8:45 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">8:57</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Sched Dept: 8:45 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="near" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-ferry-sunset text-charcoal">in 15 mins</span>
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Indooroopilly" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(108, 198, 233);">
+</span>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(108, 198, 233);">
+</span>Springfield line</span> · to Springfield Central</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="9:02 am to Ipswich, platform 8, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393738-QR%2026_27-44449-D518%4020261020?from=roma-street&amp;to=indooroopilly" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 8">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">8</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z">
+</path>
+</svg>GPS</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:02 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:14</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Scheduled: 9:00 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 32 mins</span>
+<span class="text-xs font-medium text-cancel-text dark:text-ferry-sunset">2 min late</span>
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Indooroopilly" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(39, 133, 90);">
+</span>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(39, 133, 90);">
+</span>Ipswich/Rosewood line</span> · to Ipswich</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="9:15 am to Springfield Central, platform 8, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39394257-QR%2026_27-44449-TK20%4020261020?from=roma-street&amp;to=indooroopilly" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 8">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">8</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z">
+</path>
+</svg>GPS</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:15 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:27</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Sched Dept: 9:15 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 45 mins</span>
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Indooroopilly" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(108, 198, 233);">
+</span>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(108, 198, 233);">
+</span>Springfield line</span> · to Springfield Central</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="9:29 am to Ipswich, platform 8, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393701-QR%2026_27-44449-D520%4020261020?from=roma-street&amp;to=indooroopilly" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 8">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">8</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:29 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:41</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Scheduled: 9:30 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 59 mins</span>
+<span class="text-xs font-medium text-cancel-text dark:text-ferry-sunset">1 min early</span>
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Indooroopilly" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(39, 133, 90);">
+</span>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(39, 133, 90);">
+</span>Ipswich/Rosewood line</span> · to Ipswich</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="9:45 am to Springfield Central, platform 8, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393925-QR%2026_27-44449-DK22%4020261020?from=roma-street&amp;to=indooroopilly" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 8">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">8</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:45 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:57</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Sched Dept: 9:45 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Indooroopilly" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(108, 198, 233);">
+</span>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(108, 198, 233);">
+</span>Springfield line</span> · to Springfield Central</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<article data-cancelled="true" data-testid="departure" class="flex items-center gap-3 rounded-card border border-dashed border-[#D1A08A] bg-white/75 px-3.5 py-3 dark:bg-night-card/70">
+<span aria-hidden="true" class="flex h-10 w-14 shrink-0 items-center justify-center rounded-[10px] bg-sched-bg text-[13px] font-bold text-sched-text">—</span>
+<span class="flex min-w-0 flex-1 flex-col gap-1">
+<span class="flex flex-wrap items-center gap-1.5">
+<span class="rounded-full bg-[#B91C1C] px-2 py-0.5 text-[11px] font-bold text-white">CANCELLED</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Ipswich/Rosewood line</span>
+</span>
+<span class="text-lg font-bold text-sched-text tabular line-through">10:00 am<span class="sr-only"> to Ipswich, cancelled</span>
+</span>
+</span>
+</article>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="10:19 am to Springfield Central, platform 8, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393933-QR%2026_27-44449-DK24%4020261020?from=roma-street&amp;to=indooroopilly" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 8">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">8</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">10:19 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">10:31</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Scheduled: 10:15 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span class="text-xs font-medium text-cancel-text dark:text-ferry-sunset">4 min late</span>
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Indooroopilly" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(108, 198, 233);">
+</span>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(108, 198, 233);">
+</span>Springfield line</span> · to Springfield Central</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="10:30 am to Ipswich, platform 8, scheduled" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393705-QR%2026_27-44449-D524%4020261020?from=roma-street&amp;to=indooroopilly" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 8">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">8</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="scheduled" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-sched-bg text-sched-text font-semibold">SCHEDULED</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">10:30 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">10:42</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Indooroopilly" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(39, 133, 90);">
+</span>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(39, 133, 90);">
+</span>Ipswich/Rosewood line</span> · to Ipswich</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="10:45 am to Springfield Central, platform 8, scheduled" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39394064-QR%2026_27-44449-DK26%4020261020?from=roma-street&amp;to=indooroopilly" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 8">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">8</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="scheduled" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-sched-bg text-sched-text font-semibold">SCHEDULED</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">10:45 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">10:57</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Indooroopilly" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(108, 198, 233);">
+</span>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(108, 198, 233);">
+</span>Springfield line</span> · to Springfield Central</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="11:02 am to Ipswich, platform 8, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393953-QR%2026_27-44449-D526%4020261020?from=roma-street&amp;to=indooroopilly" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 8">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">8</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">11:02 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">11:14</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Scheduled: 11:00 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span class="text-xs font-medium text-cancel-text dark:text-ferry-sunset">2 min late</span>
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Indooroopilly" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(39, 133, 90);">
+</span>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(39, 133, 90);">
+</span>Ipswich/Rosewood line</span> · to Ipswich</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="11:15 am to Springfield Central, platform 8, scheduled" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393677-QR%2026_27-44449-DK28%4020261020?from=roma-street&amp;to=indooroopilly" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 8">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">8</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="scheduled" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-sched-bg text-sched-text font-semibold">SCHEDULED</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">11:15 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">11:27</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Indooroopilly" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(108, 198, 233);">
+</span>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(108, 198, 233);">
+</span>Springfield line</span> · to Springfield Central</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="11:30 am to Ipswich, platform 8, scheduled" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393726-QR%2026_27-44449-D528%4020261020?from=roma-street&amp;to=indooroopilly" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 8">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">8</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="scheduled" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-sched-bg text-sched-text font-semibold">SCHEDULED</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">11:30 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">11:42</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Indooroopilly" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(39, 133, 90);">
+</span>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(39, 133, 90);">
+</span>Ipswich/Rosewood line</span> · to Ipswich</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+</ol>
+<button type="button" class="bg-more min-h-12 w-full rounded-button border-2 border-ferry-orange/30 text-[15px] font-bold text-ferry-orange-deep transition hover:border-ferry-orange dark:text-ferry-sunset">More departures</button>
+</section>
+<div class="hidden md:block">
+<section aria-label="Departures Indooroopilly → Roma Street" class="flex min-w-0 flex-col gap-2.5" data-board="indooroopilly">
+<div class="bg-board-header flex min-h-14 items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-3.5 py-2 shadow-sm">
+<h2 class="flex min-w-0 flex-1 items-center gap-2 text-base font-semibold text-aqua-text dark:text-ferry-aqua-light">
+<span class="truncate text-base font-bold">Indooroopilly → Roma Street</span>
+</h2>
+<button type="button" aria-label="Swap direction" class="flex size-10 shrink-0 items-center justify-center rounded-full border border-ferry-orange/25 bg-white text-ferry-orange-dark transition active:scale-95 dark:bg-night-card">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7">
+</path>
+</svg>
+</button>
+</div>
+<ol class="flex flex-col gap-2.5" aria-label="Next trains from Indooroopilly → Roma Street">
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="8:38 am to Kippa-Ring, platform 2, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393676-QR%2026_27-44449-DY17%4020261020?from=indooroopilly&amp;to=roma-street" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 2">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">2</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z">
+</path>
+</svg>GPS</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">8:38 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">8:50</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Scheduled: 8:36 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="near" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-ferry-sunset text-charcoal">in 8 mins</span>
+<span class="text-xs font-medium text-cancel-text dark:text-ferry-sunset">2 min late</span>
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Roma Street" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(108, 198, 233);">
+</span>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(108, 198, 233);">
+</span>Redcliffe Peninsula line</span> · to Kippa-Ring</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="8:47 am to Bowen Hills, platform 2, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393667-QR%2026_27-44449-D021%4020261020?from=indooroopilly&amp;to=roma-street" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 2">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">2</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z">
+</path>
+</svg>GPS</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">8:47 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">8:59</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Scheduled: 8:43 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 17 mins</span>
+<span class="text-xs font-medium text-cancel-text dark:text-ferry-sunset">4 min late</span>
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Roma Street" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(39, 133, 90);">
+</span>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(39, 133, 90);">
+</span>Ipswich/Rosewood line</span> · to Bowen Hills</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="8:51 am to Caboolture, platform 2, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393709-QR%2026_27-44449-D113%4020261020?from=indooroopilly&amp;to=roma-street" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 2">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">2</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">8:51 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:03</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Sched Dept: 8:51 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 21 mins</span>
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Roma Street" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(39, 133, 90);">
+</span>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(39, 133, 90);">
+</span>Caboolture line</span> · to Caboolture</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="9:01 am to Bowen Hills, platform 2, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393723-QR%2026_27-44449-D023%4020261020?from=indooroopilly&amp;to=roma-street" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 2">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">2</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z">
+</path>
+</svg>GPS</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:01 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:13</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Scheduled: 8:58 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 31 mins</span>
+<span class="text-xs font-medium text-cancel-text dark:text-ferry-sunset">3 min late</span>
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Roma Street" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(39, 133, 90);">
+</span>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(39, 133, 90);">
+</span>Ipswich/Rosewood line</span> · to Bowen Hills</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="9:06 am to Kippa-Ring, platform 2, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393938-QR%2026_27-44449-DY19%4020261020?from=indooroopilly&amp;to=roma-street" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 2">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">2</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:06 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:18</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Sched Dept: 9:06 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 36 mins</span>
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Roma Street" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(108, 198, 233);">
+</span>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(108, 198, 233);">
+</span>Redcliffe Peninsula line</span> · to Kippa-Ring</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="9:21 am to Caboolture, platform 2, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393725-QR%2026_27-44449-D115%4020261020?from=indooroopilly&amp;to=roma-street" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 2">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">2</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:21 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:33</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Sched Dept: 9:21 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 51 mins</span>
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Roma Street" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(39, 133, 90);">
+</span>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(39, 133, 90);">
+</span>Caboolture line</span> · to Caboolture</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="9:36 am to Kippa-Ring, platform 2, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393686-QR%2026_27-44449-DY21%4020261020?from=indooroopilly&amp;to=roma-street" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 2">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">2</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:36 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:48</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Sched Dept: 9:36 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Roma Street" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(108, 198, 233);">
+</span>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(108, 198, 233);">
+</span>Redcliffe Peninsula line</span> · to Kippa-Ring</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="9:51 am to Nambour, platform 2, live" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393730-QR%2026_27-44449-DL07%4020261020?from=indooroopilly&amp;to=roma-street" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 2">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">2</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:51 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">10:03</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Sched Dept: 9:51 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Roma Street" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(39, 133, 90);">
+</span>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(39, 133, 90);">
+</span>Sunshine Coast line</span> · to Nambour</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="10:06 am to Kippa-Ring, platform 2, scheduled" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393693-QR%2026_27-44449-DY23%4020261020?from=indooroopilly&amp;to=roma-street" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 2">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">2</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="scheduled" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-sched-bg text-sched-text font-semibold">SCHEDULED</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">10:06 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">10:18</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Roma Street" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(108, 198, 233);">
+</span>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(108, 198, 233);">
+</span>Redcliffe Peninsula line</span> · to Kippa-Ring</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="10:21 am to Caboolture, platform 2, scheduled" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393734-QR%2026_27-44449-D117%4020261020?from=indooroopilly&amp;to=roma-street" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 2">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">2</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="scheduled" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-sched-bg text-sched-text font-semibold">SCHEDULED</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">10:21 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">10:33</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Roma Street" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(39, 133, 90);">
+</span>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(39, 133, 90);">
+</span>Caboolture line</span> · to Caboolture</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="10:36 am to Kippa-Ring, platform 2, scheduled" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39394258-QR%2026_27-44449-TY25%4020261020?from=indooroopilly&amp;to=roma-street" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 2">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">2</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="scheduled" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-sched-bg text-sched-text font-semibold">SCHEDULED</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">10:36 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">10:48</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Roma Street" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(108, 198, 233);">
+</span>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(108, 198, 233); box-shadow: 0 0 0 1px #6CC6E9;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(108, 198, 233);">
+</span>Redcliffe Peninsula line</span> · to Kippa-Ring</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+<li>
+<div data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<a aria-label="10:51 am to Caboolture, platform 2, scheduled" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline" href="/trip/39393739-QR%2026_27-44449-D119%4020261020?from=indooroopilly&amp;to=roma-street" data-discover="true">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span role="img" class="flex size-14 shrink-0 flex-col items-center justify-center rounded-card border border-ferry-orange/15 bg-white shadow-card dark:bg-night-2" aria-label="Platform 2">
+<span class="text-[9px] leading-none font-bold tracking-wide text-sched-text">PLAT</span>
+<span class="text-2xl leading-tight font-extrabold text-teal-text tabular dark:text-ferry-aqua-light">2</span>
+</span>
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="scheduled" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-sched-bg text-sched-text font-semibold">SCHEDULED</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">10:51 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">11:03</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 12 mins</span>
+</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+</span>
+</a>
+<div class="mt-2">
+<div class="flex flex-col gap-1.5">
+<ol aria-label="Stops from here to Roma Street" data-compact="true" class="relative flex justify-between h-3.5 items-center gap-0.5">
+<span aria-hidden="true" class="absolute right-1.5 left-1.5 h-1 rounded-full top-[5px]" style="background: rgb(39, 133, 90);">
+</span>
+<li data-stops="true" title="Indooroopilly" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Indooroopilly</span>
+</li>
+<li data-stops="true" title="Taringa" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Taringa</span>
+</li>
+<li data-stops="true" title="Toowong" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Toowong</span>
+</li>
+<li data-stops="true" title="Auchenflower" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Auchenflower</span>
+</li>
+<li data-stops="true" title="Milton" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Milton</span>
+</li>
+<li data-stops="true" title="Roma Street" class="relative z-10 flex flex-col items-center gap-1 shrink-0">
+<span aria-hidden="true" class="box-border rounded-full size-3.5 border-[3px] border-white" style="background: rgb(39, 133, 90); box-shadow: 0 0 0 1px #27855A;">
+</span>
+<span class="sr-only">Roma Street</span>
+</li>
+</ol>
+<p class="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-night-text/70">
+<span class="truncate">
+<span class="inline-flex items-center gap-1.5 rounded-full bg-sched-bg px-2.5 py-1 text-xs font-semibold text-charcoal dark:bg-night-2 dark:text-night-text">
+<span aria-hidden="true" class="size-2.5 shrink-0 rounded-full" style="background: rgb(39, 133, 90);">
+</span>Caboolture line</span> · to Caboolture</span>
+</p>
+</div>
+</div>
+</article>
+</div>
+</li>
+</ol>
+<button type="button" class="bg-more min-h-12 w-full rounded-button border-2 border-ferry-orange/30 text-[15px] font-bold text-ferry-orange-deep transition hover:border-ferry-orange dark:text-ferry-sunset">More departures</button>
+</section>
+</div>
+</div>
+<section class="mx-auto max-w-6xl px-4 pt-4 pb-2 text-charcoal dark:text-night-text mt-6 px-0" aria-labelledby="station-about">
+<nav aria-label="Breadcrumb" class="text-xs text-gray-600 dark:text-night-text/70">
+<a class="underline" href="/" data-discover="true">BrisbaneTrain</a> › <a class="underline" href="/stations" data-discover="true">Stations</a> › Roma Street</nav>
+<h1 id="station-about" class="text-lg font-bold text-aqua-text md:text-xl dark:text-ferry-aqua-light mt-1">Next train from Roma Street</h1>
+<p class="mt-2 max-w-3xl text-sm text-gray-700 dark:text-night-text/80">Live departures, platforms and platform changes for Roma Street station, which has 7 platforms. The board updates with real-time Translink data every 15 seconds; choose a destination to see only the trains that go there directly.</p>
+<h2 class="mt-4 text-sm font-semibold text-gray-700 dark:text-night-text/80">Lines</h2>
+<p class="mt-2 max-w-3xl text-sm text-gray-700 dark:text-night-text/80">Airport line, Beenleigh line, Caboolture line, City trains, Cleveland line, Doomben line, Ferny Grove line, Gold Coast line, Ipswich/Rosewood line, Redcliffe Peninsula line, Shorncliffe line, Springfield line, Sunshine Coast line</p>
+<h2 class="mt-4 text-sm font-semibold text-gray-700 dark:text-night-text/80">Nearby stations</h2>
+<ul class="mt-2 flex flex-wrap gap-2 text-sm">
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep dark:bg-night-card dark:text-ferry-aqua-light" href="/station/central" data-discover="true">Central</a> <span class="text-xs text-gray-600 dark:text-night-text/70">690 m</span>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep dark:bg-night-card dark:text-ferry-aqua-light" href="/station/south-brisbane" data-discover="true">South Brisbane</a> <span class="text-xs text-gray-600 dark:text-night-text/70">1.0 km</span>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep dark:bg-night-card dark:text-ferry-aqua-light" href="/station/milton" data-discover="true">Milton</a> <span class="text-xs text-gray-600 dark:text-night-text/70">1.4 km</span>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep dark:bg-night-card dark:text-ferry-aqua-light" href="/station/fortitude-valley" data-discover="true">Fortitude Valley</a> <span class="text-xs text-gray-600 dark:text-night-text/70">1.7 km</span>
+</li>
+</ul>
+</section>
+</main>
+<footer class="mt-10 border-t border-gray-200 py-8 pb-28 dark:border-night-card">
+<div class="mx-auto max-w-6xl px-4 text-center text-sm text-gray-700 dark:text-night-text/80">
+<p>Based on TransLink data provided by the State of Queensland (Department of Transport and Main Roads) <span class="whitespace-nowrap">— licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" class="underline">Creative Commons Attribution 4.0</a>
+</span>
+</p>
+<p class="mt-2">Live times refresh every 15 seconds • All times in Brisbane time</p>
+<p class="mt-2 text-xs text-gray-600 dark:text-night-text/70">BrisbaneTrain is independent and not affiliated with Queensland Rail or Translink.</p>
+</div>
+</footer>
+<nav/>

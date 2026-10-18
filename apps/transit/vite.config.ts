@@ -2,7 +2,7 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 import { reactRouter } from '@react-router/dev/vite'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, type Plugin } from 'vite'
-import { baseDefines, navSlots } from './modes.config.ts'
+import { modeBases, navSlots } from './modes.config.ts'
 import { pwa } from './pwa.config.ts'
 
 /**
@@ -25,6 +25,7 @@ function noMapOnServer(): Plugin {
 
 export default defineConfig({
   plugins: [
+    modeBases(),
     navSlots(),
     noMapOnServer(),
     cloudflare({ viteEnvironment: { name: 'ssr' } }),
@@ -32,9 +33,29 @@ export default defineConfig({
     reactRouter(),
     pwa(),
   ],
-  // The standalone apps' screens are mounted under /ferry, /train and /bus (modes.config.ts).
-  define: baseDefines(),
   build: { assetsInlineLimit: 0 },
+  environments: {
+    client: {
+      build: {
+        rolldownOptions: {
+          output: {
+            // Transit's route graph (three apps' pages + its own) otherwise splits the shared framework and UI code
+            // into ~30 small chunks; each compresses alone, which cost 4–11 KB gz of first-load JS per page (measured: the
+            // transit pages went from 148 to 144 KB, the Bus tab from 160 to 149 KB).
+            codeSplitting: {
+              groups: [
+                {
+                  name: 'framework',
+                  test: /node_modules[\\/](react|react-dom|react-router|scheduler|@tanstack|turbo-stream|cookie|set-cookie-parser)[\\/]/,
+                },
+                { name: 'ui', test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch)/ },
+              ],
+            },
+          },
+        },
+      },
+    },
+  },
   // Don't pick up the legacy root app's postcss.config.js (Tailwind 3); Tailwind 4 runs as a Vite plugin here.
   css: { postcss: { plugins: [] } },
   // Pre-bundle lazily imported deps so the dev server doesn't reload the page when they're first used.

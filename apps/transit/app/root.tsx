@@ -1,3 +1,4 @@
+import { AppHeader } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, useMemo, useState } from 'react'
@@ -12,8 +13,7 @@ import {
 } from 'react-router'
 import type { Route } from './+types/root'
 import './app.css'
-import { TransitFooter, TransitHeader } from './components/Chrome.tsx'
-import { makeQueryClient } from './lib/queries.ts'
+import { makeQueryClient } from './lib/query-client.ts'
 import { getEnv, isFixtureMode } from './lib/server.server.ts'
 import { getCookie, THEME_COOKIE } from './lib/storage.ts'
 
@@ -88,7 +88,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
       {/* React 19 hoists these into <head>; error pages must never be indexed. */}
       <title>{`${title} | BrisbaneTransit`}</title>
       <meta name="robots" content="noindex" />
-      <TransitHeader />
+      <AppHeader mode="transit" logoSrc={emblem} />
       <main className="mx-auto max-w-3xl px-4 py-10">
         <h1 className="text-xl font-bold text-aqua-text dark:text-ferry-aqua-light">{title}</h1>
         <p className="mt-2 text-gray-700 dark:text-night-text/80">
@@ -98,7 +98,6 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
           </a>
         </p>
       </main>
-      <TransitFooter />
     </QueryClientProvider>
   )
 }

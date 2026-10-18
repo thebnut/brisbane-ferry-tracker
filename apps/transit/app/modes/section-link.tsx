@@ -12,4 +12,4 @@ export function sectionLink(item: SectionLink, className: string, current: boole
 
 /** Fixed just above the Mode Tabs on phones; in the page flow on desktop. */
 export const SECTION_BAR =
-  'fixed inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),6px)+3.75rem)] z-30 border-t border-ferry-orange/10 bg-white/90 backdrop-blur dark:bg-night-2/90'
+  'fixed inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),6px)+60px)] z-30 border-t border-ferry-orange/10 bg-white/90 backdrop-blur dark:bg-night-2/90'

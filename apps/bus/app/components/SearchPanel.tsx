@@ -166,14 +166,14 @@ export function SearchPanel({ children, quick }: { children: ReactNode; quick?: 
       {searching ? (
         <div
           ref={scroller}
-          className="bg-page fixed inset-x-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+224px)] z-30 overflow-y-auto px-4 pt-20 pb-3 md:hidden"
+          className="bg-page fixed inset-x-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+var(--bft-bottom-bar,58px)+166px)] z-30 overflow-y-auto px-4 pt-20 pb-3 md:hidden"
         >
           <div className="flex min-h-full flex-col justify-end">
             <Results query={query} result={result} loading={loading} error={error} upward />
           </div>
         </div>
       ) : null}
-      <div className="fixed inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),6px)+58px)] z-30 md:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),6px)+var(--bft-bottom-bar,58px))] z-30 md:hidden">
         <ThumbSheet label="Find a stop" className="pb-3">
           <div className="flex flex-col gap-2.5">
             <SearchField

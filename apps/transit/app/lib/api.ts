@@ -55,7 +55,11 @@ export async function getJson<T>(
   return validate(body)
 }
 
-export const departuresPath = (mode: Mode, key: string, opts: { to?: string | null; limit?: number } = {}) => {
+export const departuresPath = (
+  mode: Mode,
+  key: string,
+  opts: { to?: string | null; limit?: number } = {},
+) => {
   const q = new URLSearchParams({ limit: String(opts.limit ?? 3) })
   if (opts.to) q.set('to', opts.to)
   return `/v1/${mode}/stops/${encodeURIComponent(key)}/departures?${q}`
@@ -65,7 +69,12 @@ export const fetchDepartures = (
   fetcher: ApiFetcher,
   mode: Mode,
   key: string,
-  opts: { to?: string | null; limit?: number; signal?: AbortSignal; validate?: Validate<DeparturesResponse> } = {},
+  opts: {
+    to?: string | null
+    limit?: number
+    signal?: AbortSignal
+    validate?: Validate<DeparturesResponse>
+  } = {},
 ) => getJson(fetcher, departuresPath(mode, key, opts), opts.validate, opts.signal)
 
 /** Every mode's alerts in one response (the API's /v1/alerts without a mode filter). */

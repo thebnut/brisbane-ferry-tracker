@@ -7,8 +7,8 @@
  *  - POST /v1/ask: canned answers for the Ask box, with every ai.reason reachable ("#reason:capacity" in the question)
  */
 import { handleFixtureApi as busFixtures } from '@bft/bus/app/lib/fixtures.server.ts'
-import { geohashEncode } from '@bft/core/geo'
 import { type Alert, AlertsResponse, type GeoTileFile, type Mode, SCHEMA_VERSION } from '@bft/core/contract'
+import { geohashEncode } from '@bft/core/geo'
 import ferryTerminals from '@bft/ferry/app/data/terminals.json'
 import { handleFixtureApi as ferryFixtures } from '@bft/ferry/app/lib/fixtures.server.ts'
 import trainStops from '@bft/train/app/data/stops.json'
@@ -37,7 +37,13 @@ const STOPS: Record<'ferry' | 'train', IndexStop[]> = {
     lon: t.lng,
     routes: t.routes,
   })),
-  train: trainStops.stops.map((s) => ({ key: s.key, name: s.name, lat: s.lat, lon: s.lon, routes: s.routes })),
+  train: trainStops.stops.map((s) => ({
+    key: s.key,
+    name: s.name,
+    lat: s.lat,
+    lon: s.lon,
+    routes: s.routes,
+  })),
 }
 
 /** The /data files for ferry and train in fixture mode, from the stop lists the apps already bundle. */
@@ -107,7 +113,8 @@ export function fixtureAsk(question: string): Response {
     return json({
       ...base,
       source: 'deterministic',
-      answer: 'From Bulimba ferry terminal: F11 to Riverside in 4 min (7:42 pm) (live); F1 to UQ St Lucia in 11 min.',
+      answer:
+        'From Bulimba ferry terminal: F11 to Riverside in 4 min (7:42 pm) (live); F1 to UQ St Lucia in 11 min.',
       departures: [
         {
           tripInstance: 'fx-f11@20261020',
@@ -134,7 +141,8 @@ export function fixtureAsk(question: string): Response {
   return json({
     ...base,
     source: 'llm',
-    answer: 'From Bowen Hills station to Domestic Airport station: BRAP to Domestic Airport at 7:58 pm, platform 2.',
+    answer:
+      'From Bowen Hills station to Domestic Airport station: BRAP to Domestic Airport at 7:58 pm, platform 2.',
     departures: [
       {
         tripInstance: 'fx-ap@20261020',

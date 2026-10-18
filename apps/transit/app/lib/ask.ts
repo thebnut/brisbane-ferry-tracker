@@ -54,7 +54,7 @@ export function reasonMessage(reason: string | undefined, status = 200): string 
   if (!reason) return null
   switch (reason) {
     case 'ip_quota':
-      return "You've reached today's limit for questions that need the AI helper. Simple questions (\"next ferry from Bulimba\") still work."
+      return 'You\'ve reached today\'s limit for questions that need the AI helper. Simple questions ("next ferry from Bulimba") still work.'
     case 'budget_exhausted':
     case 'budget':
       return "The AI helper has used this month's budget. Simple questions still work; it's back on the 1st."
@@ -74,7 +74,7 @@ export function reasonMessage(reason: string | undefined, status = 200): string 
     case 'ungrounded':
     case 'no_final_answer':
     case 'too_many_rounds':
-      return "The AI helper couldn't answer that one. Try naming the stop and the mode, e.g. \"next train from Central\"."
+      return 'The AI helper couldn\'t answer that one. Try naming the stop and the mode, e.g. "next train from Central".'
     default:
       return reason.startsWith('provider_')
         ? 'The AI service had a problem. Try again in a minute.'
@@ -119,7 +119,7 @@ export async function postAsk(
   } catch (error) {
     if (opts.signal?.aborted) throw error
     return {
-      answer: "You seem to be offline. Questions need a connection.",
+      answer: 'You seem to be offline. Questions need a connection.',
       departures: [],
       source: 'error',
       notice: null,

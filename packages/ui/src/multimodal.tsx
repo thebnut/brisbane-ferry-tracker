@@ -81,9 +81,10 @@ export interface NearbyDepartureRowProps {
   route: string
   /** Headsign. */
   to: string
-  stop: string
+  /** Stop name (omitted when the row sits under its stop's heading). */
+  stop?: string | null
   /** "3 min walk". */
-  walk: string
+  walk?: string | null
   minutes: number
   /** "Too late", "Hurry", "On your way", "Plenty of time". */
   cue?: { text: string; tone: CueTone } | null
@@ -116,7 +117,7 @@ export function NearbyDepartureRow({
       <span className="flex min-w-0 flex-1 flex-col">
         <span className={cx('truncate text-[15px] font-bold', cancelled && 'line-through')}>{to}</span>
         <span className="truncate text-xs text-sched-text dark:text-night-text/70">
-          {stop} · {walk}
+          {[stop, walk].filter(Boolean).join(' · ')}
         </span>
       </span>
       <span className="flex shrink-0 flex-col items-end gap-0.5">
@@ -155,13 +156,14 @@ export interface SavedTripCardProps {
   time?: string | null
   detail?: string | null
   minutes?: number | null
-  /** "8:01 F1   8:16 F11". */
-  then?: string | null
+  /** The departures after the next, shown as "Then 8:01 F1   8:16 F11". */
+  later?: string | null
   highlighted?: boolean
   /** Shown instead of the time row (no departures, loading, offline without a copy). */
   empty?: ReactNode
   href: string
-  renderLink?: (props: { href: string; className: string; children: ReactNode; label: string }) => ReactNode
+  /** The link's name is its content (mode, place, times), so screen readers hear the departures too. */
+  renderLink?: (props: { href: string; className: string; children: ReactNode }) => ReactNode
 }
 
 /** A saved stop or trip from any mode (X-Home): mode tile + label, LIVE, next time and countdown, "Then". */
@@ -173,7 +175,7 @@ export function SavedTripCard({
   time,
   detail,
   minutes,
-  then,
+  later,
   highlighted = false,
   empty,
   href,
@@ -221,37 +223,38 @@ export function SavedTripCard({
             </span>
             {minutes != null ? <CountdownChip minutes={minutes} className="text-[17px]" /> : null}
           </span>
-          {then ? (
+          {later ? (
             <span className="flex gap-2 border-t border-dashed border-ferry-orange/25 pt-2 text-[13px] tabular text-gray-700 dark:text-night-text/80">
               <span className="font-semibold">Then</span>
-              <span>{then}</span>
+              <span>{later}</span>
             </span>
           ) : null}
         </>
       )}
     </>
   )
-  const a11y = `${MODE_LABEL[mode]}: ${title}`
   return renderLink ? (
-    renderLink({ href, className, children: body, label: a11y })
+    renderLink({ href, className, children: body })
   ) : (
-    <a href={href} className={className} aria-label={a11y}>
+    <a href={href} className={className}>
       {body}
     </a>
   )
 }
 
-export type AlertSeverityKind = 'detour' | 'platform' | 'cancelled' | 'planned' | 'info'
+export type AlertSeverityKind = 'detour' | 'platform' | 'changed' | 'cancelled' | 'planned' | 'info'
 const SEVERITY: Record<AlertSeverityKind, { label: string; className: string }> = {
   detour: { label: 'DETOUR', className: 'bg-amber-100 text-amber-800' },
   platform: { label: 'PLATFORM CHANGE', className: 'bg-ferry-orange-light text-ferry-orange-deep' },
+  changed: { label: 'CHANGED', className: 'bg-ferry-orange-light text-ferry-orange-deep' },
   cancelled: { label: 'CANCELLED', className: 'bg-cancel-bg text-cancel-text' },
   planned: { label: 'PLANNED', className: 'bg-sched-bg text-gray-700' },
   info: { label: 'NOTICE', className: 'bg-ferry-light-blue text-aqua-text' },
 }
 
 export interface ModeAlertCardProps {
-  mode: TransitMode
+  /** null: a network-wide notice (no mode). */
+  mode: TransitMode | null
   /** "BUS · ROUTE 66". */
   scope: string
   severity: AlertSeverityKind
@@ -266,7 +269,7 @@ export function ModeAlertCard({ mode, scope, severity, title, body, impact }: Mo
   const s = SEVERITY[severity]
   return (
     <article
-      data-mode={mode}
+      data-mode={mode ?? 'all'}
       className={cx(
         'flex flex-col gap-1.5 rounded-card px-3.5 py-3',
         impact
@@ -275,11 +278,17 @@ export function ModeAlertCard({ mode, scope, severity, title, body, impact }: Mo
       )}
     >
       <div className="flex items-center gap-2">
-        <ModeTile mode={mode} size="sm" />
+        {mode ? (
+          <ModeTile mode={mode} size="sm" />
+        ) : (
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-ferry-light-blue text-aqua-text dark:bg-night-2">
+            <Icon name="info" size={18} />
+          </span>
+        )}
         <span
           className={cx(
             'min-w-0 flex-1 truncate text-[11px] font-extrabold tracking-[0.06em]',
-            MODE_TEXT[mode],
+            mode ? MODE_TEXT[mode] : 'text-aqua-text dark:text-ferry-aqua-light',
           )}
         >
           {scope}

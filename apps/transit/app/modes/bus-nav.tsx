@@ -3,8 +3,9 @@
  * bottom bar is the Mode Tabs (mode-layout.tsx), so the bus sections become a pill row just above it on phones and
  * stay as the status-strip pills on desktop. Same exports as the original (test/nav-slots.test.ts).
  */
-import { type NavItem, SectionTabs } from '@bft/ui'
+
 import { at } from '@bft/bus/app/lib/base.ts'
+import { type NavItem, SectionTabs } from '@bft/ui'
 import { SECTION_BAR, sectionLink } from './section-link.tsx'
 
 export const NAV: NavItem[] = [

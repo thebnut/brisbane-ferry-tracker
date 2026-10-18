@@ -7,14 +7,15 @@
  * Offline, each card shows scheduled times from the newest copy kept on the device ("Offline · scheduled"): this
  * page's own copy first, else the copy the mode's own page keeps.
  */
-import { readSaved as readBusSaved, readOffline as readBusOffline } from '@bft/bus/app/lib/storage.ts'
+
 import { stopHref } from '@bft/bus/app/lib/stops.ts'
+import { readOffline as readBusOffline, readSaved as readBusSaved } from '@bft/bus/app/lib/storage.ts'
+import type { Departure, DeparturesResponse } from '@bft/core/contract'
+import { cleanStopName } from '@bft/ferry/app/lib/names.ts'
 import { readOffline as readFerryOffline, readSavedPair } from '@bft/ferry/app/lib/storage.ts'
 import { terminalById } from '@bft/ferry/app/lib/terminals.ts'
-import { cleanStopName } from '@bft/ferry/app/lib/names.ts'
-import { stationByKey, stationHref } from '@bft/train/app/lib/network.ts'
 import { readFavourites, readOfflineDay } from '@bft/train/app/lib/storage.ts'
-import type { Departure, DeparturesResponse } from '@bft/core/contract'
+import { stationName, trainBoardHref } from './hrefs.ts'
 import { MODE_BASES } from './modes.ts'
 import { safe } from './storage.ts'
 
@@ -28,8 +29,6 @@ export interface SavedItem {
   title: string
   href: string
 }
-
-const stationName = (k: string) => stationByKey(k)?.name.replace(/ station$/, '') ?? k
 
 export function readSavedItems(): SavedItem[] {
   const out: SavedItem[] = []
@@ -53,7 +52,7 @@ export function readSavedItems(): SavedItem[] {
       key: f.from,
       to: f.to,
       title: f.to ? `${stationName(f.from)} → ${stationName(f.to)}` : stationName(f.from),
-      href: `${stationHref(f.from)}${f.to ? `?to=${f.to}` : ''}`,
+      href: trainBoardHref(f.from, f.to),
     })
   for (const s of readBusSaved())
     out.push({ id: `bus:${s.id}`, mode: 'bus', key: s.id, to: null, title: s.name, href: stopHref(s.id) })
@@ -71,7 +70,8 @@ export function writeSavedCopy(item: SavedItem, res: DeparturesResponse): void {
 
 function readCopy(item: SavedItem): Departure[] | null {
   const own = safe(
-    () => JSON.parse(localStorage.getItem(`${OFFLINE_PREFIX}${item.id}`) ?? 'null') as DeparturesResponse | null,
+    () =>
+      JSON.parse(localStorage.getItem(`${OFFLINE_PREFIX}${item.id}`) ?? 'null') as DeparturesResponse | null,
     null,
   )
   if (Array.isArray(own?.departures)) return own.departures

@@ -3,14 +3,20 @@
  * neighbours are fetched from data/bus/geo/ and sorted by haversine distance, so stops just across a tile edge
  * still appear. The position never leaves the browser. `?lat=&lon=` sets a position (links, tests).
  */
-import { EmptyState, Icon, PrimaryButton, SkeletonRows, StopResultCard } from '@bft/ui'
-import { useEffect, useMemo, useState } from 'react'
+import { EmptyState, Icon, PrimaryButton, SkeletonRows, StopResultCard, useGeolocation } from '@bft/ui'
+import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { resultMeta } from '../components/SearchPanel.tsx'
 import { BusNav, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { linkRenderer } from '../components/StopBoard.tsx'
 import { at } from '../lib/base.ts'
-import { formatDistance, geohashEncode, geohashNeighbourhood, nearest } from '../lib/geo.ts'
+import {
+  formatDistance,
+  geohashEncode,
+  geohashNeighbourhood,
+  nearest,
+  positionFromParams,
+} from '../lib/geo.ts'
 import { useApi } from '../lib/mode.ts'
 import { useGeoTiles, useStopIndex } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
@@ -25,49 +31,12 @@ export const meta: Route.MetaFunction = () =>
     url: `${SITE_URL}/nearby`,
   })
 
-type Geo =
-  | { state: 'idle' | 'locating' | 'denied' | 'unavailable' }
-  | { state: 'ok'; lat: number; lon: number; accuracy: number | null }
-
 export const NEARBY_LIMIT = 20
 export const NEARBY_MAX_M = 2000
 
-export function useGeolocation(params: URLSearchParams) {
-  const lat = Number(params.get('lat'))
-  const lon = Number(params.get('lon'))
-  const fixed = params.has('lat') && params.has('lon') && Number.isFinite(lat) && Number.isFinite(lon)
-  const [geo, setGeo] = useState<Geo>(fixed ? { state: 'ok', lat, lon, accuracy: null } : { state: 'idle' })
-  const locate = () => {
-    if (!('geolocation' in navigator)) return setGeo({ state: 'unavailable' })
-    setGeo({ state: 'locating' })
-    navigator.geolocation.getCurrentPosition(
-      (p) =>
-        setGeo({ state: 'ok', lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy }),
-      (e) => setGeo({ state: e.code === e.PERMISSION_DENIED ? 'denied' : 'unavailable' }),
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
-    )
-  }
-  // biome-ignore lint/correctness/useExhaustiveDependencies: once on mount.
-  useEffect(() => {
-    if (fixed) return
-    // Locate straight away only if permission was already granted; otherwise explain first.
-    navigator.permissions
-      ?.query({ name: 'geolocation' as PermissionName })
-      .then((p) => {
-        if (p.state === 'granted') locate()
-        else if (p.state === 'denied') setGeo({ state: 'denied' })
-      })
-      .catch(() => {})
-  }, [])
-  useEffect(() => {
-    if (fixed) setGeo({ state: 'ok', lat, lon, accuracy: null })
-  }, [fixed, lat, lon])
-  return { geo, locate }
-}
-
 export default function Nearby() {
   const [params] = useSearchParams()
-  const { geo, locate } = useGeolocation(params)
+  const { geo, locate } = useGeolocation(positionFromParams(params))
   const { mode, fetcher } = useApi()
   const now = useNow(Date.now(), 60_000)
   const cells = useMemo(

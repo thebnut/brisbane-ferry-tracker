@@ -4,3 +4,12 @@
  */
 export * from '@bft/core/geo'
 export { formatDistance } from '@bft/ui/format'
+
+/** `?lat=&lon=` fixes the position for /nearby and /map (links from the map, tests). */
+export function positionFromParams(params: URLSearchParams): { lat: number; lon: number } | null {
+  const lat = Number(params.get('lat'))
+  const lon = Number(params.get('lon'))
+  return params.has('lat') && params.has('lon') && Number.isFinite(lat) && Number.isFinite(lon)
+    ? { lat, lon }
+    : null
+}

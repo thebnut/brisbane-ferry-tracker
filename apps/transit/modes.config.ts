@@ -2,8 +2,9 @@
  * Build-time composition of BrisbaneTransit from the standalone apps (transit-architecture.md §3.6: no runtime mode
  * switching). Shared by vite.config.ts and vitest.config.ts.
  *
- *  - `MODE_BASES`: each app's screens are mounted under a prefix. Their links go through `app/lib/base.ts` in that
- *    app, which reads `import.meta.env.VITE_<MODE>_BASE`; this build defines it, the standalone builds don't.
+ *  - `modeBases()`: each app's screens are mounted under a prefix (MODE_BASES). Their links go through
+ *    `app/lib/base.ts` in that app, which reads `import.meta.env.VITE_<MODE>_BASE`; this build inlines it, the
+ *    standalone builds leave it unset.
  *  - `navSlots()`: each app keeps its section navigation in one module (`app/components/nav.tsx`). Inside this build
  *    that module resolves to `app/modes/<mode>-nav.tsx` instead, so the bottom bar is the Mode Tabs while every page
  *    module is imported unchanged. test/nav-slots.test.ts checks each replacement exports what the original does.
@@ -14,13 +15,24 @@ import { MODE_BASES, type MountedMode } from './app/lib/modes.ts'
 
 export { MODE_BASES, type MountedMode }
 
-export const baseDefines = (bases: Partial<Record<MountedMode, string>> = MODE_BASES) =>
-  Object.fromEntries(
-    Object.entries(bases).map(([mode, base]) => [
-      `import.meta.env.VITE_${mode.toUpperCase()}_BASE`,
-      JSON.stringify(base),
-    ]),
-  )
+const BASE_RE = /import\.meta\.env\.VITE_(FERRY|TRAIN|BUS)_BASE/g
+
+/**
+ * Inlines `import.meta.env.VITE_<MODE>_BASE` as a string literal in the source. A transform rather than Vite's
+ * `define`, because Vitest applies `import.meta.env` defines process-wide, which would leak the prefixes into the
+ * standalone parity project.
+ */
+export function modeBases(bases: Record<MountedMode, string> = MODE_BASES): Plugin {
+  return {
+    name: 'bft:transit-mode-bases',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!code.includes('import.meta.env.VITE_')) return null
+      if (!/\/apps\/(ferry|train|bus)\/app\//.test(id)) return null
+      return code.replace(BASE_RE, (_, m: string) => JSON.stringify(bases[m.toLowerCase() as MountedMode]))
+    },
+  }
+}
 
 const appsDir = fileURLToPath(new URL('..', import.meta.url))
 

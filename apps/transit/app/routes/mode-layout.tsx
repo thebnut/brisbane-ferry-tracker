@@ -4,7 +4,7 @@
  * the URL.
  */
 import { Outlet } from 'react-router'
-import { DesktopModeBar, ModeBar } from '../components/Chrome.tsx'
+import { DesktopModeBar, ModeBar } from '../components/ModeBar.tsx'
 
 export default function ModeLayout() {
   return (
