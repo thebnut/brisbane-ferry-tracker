@@ -95,7 +95,10 @@ describe('RouteTile', () => {
   it('uses orange for Metro and CityGlider', () => {
     expect(routeTileVariant('M1')).toBe('premium')
     expect(routeTileVariant('60', 'CityGlider')).toBe('premium')
-    expect(routeTileVariant('199')).toBe('standard')
+    expect(routeTileVariant('199')).toBe('premium')
+    expect(routeTileVariant('61')).toBe('premium')
+    expect(routeTileVariant('29')).toBe('standard')
+    expect(routeTileVariant('M10')).toBe('premium')
     render(<RouteTile route="M2" variant="premium" />)
     expect(screen.getByText('M2').closest('[data-variant]')).toHaveAttribute('data-variant', 'premium')
   })

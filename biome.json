@@ -19,7 +19,8 @@
       "!apps/train/app/data/*.json",
       "!apps/train/public/data",
       "!**/test-results",
-      "!**/playwright-report"
+      "!**/playwright-report",
+      "!**/public/data"
     ]
   },
   "formatter": {

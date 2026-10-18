@@ -1,0 +1,17 @@
+@import "tailwindcss";
+@import "@bft/ui/theme.css";
+@source "./";
+
+.prose-about h2 {
+  @apply mt-6 mb-2 text-lg font-semibold text-aqua-text dark:text-ferry-aqua-light;
+}
+.prose-about p,
+.prose-about li {
+  @apply text-base leading-relaxed text-gray-800 dark:text-night-text/90;
+}
+.prose-about a {
+  @apply text-ferry-orange-deep underline dark:text-ferry-sunset;
+}
+.prose-about ul {
+  @apply list-disc pl-6;
+}

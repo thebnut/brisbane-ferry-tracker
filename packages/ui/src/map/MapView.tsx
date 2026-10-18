@@ -4,9 +4,9 @@
  * 250 KB gz and must never be on the first-load path.
  */
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { Marker, Map as MlMap, setWorkerUrl } from 'maplibre-gl'
+import { type GeoJSONSource, Marker, Map as MlMap, setWorkerUrl } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 // MapLibre looks for its worker next to its module URL, which does not survive bundling; ship it as an asset.
 setWorkerUrl(workerUrl)
@@ -29,6 +29,21 @@ export interface MapMarker {
   onClick?: () => void
 }
 
+/** A stop drawn in the GeoJSON stops layer (thousands are fine; DOM markers are for a few dozen). */
+export interface MapStop {
+  id: string
+  lat: number
+  lon: number
+  name: string
+}
+
+export interface ViewBounds {
+  west: number
+  south: number
+  east: number
+  north: number
+}
+
 export interface MapViewProps {
   markers: MapMarker[]
   /** Fit to these markers (default: all). */
@@ -36,6 +51,23 @@ export interface MapViewProps {
   className?: string
   /** Accessible description of what the map shows. */
   label: string
+  /**
+   * Stops layer: bus diamonds (or `stopShape`) as a GeoJSON symbol layer, labelled from zoom 16. Used for the
+   * visible geohash tiles on the bus map (no PMTiles archive is published yet).
+   */
+  stops?: MapStop[]
+  stopShape?: PinShape
+  onStopClick?: (id: string) => void
+  /** Route line [lon, lat][] in `lineColor` (hex without #). */
+  line?: Array<[number, number]>
+  lineColor?: string
+  /** Called after the map settles (move/zoom end) with the visible bounds. */
+  onViewChange?: (bounds: ViewBounds, zoom: number) => void
+  /** Initial view when there is nothing to fit to. */
+  center?: [number, number]
+  zoom?: number
+  /** Fit to the line or markers only once (default), or every time they change. */
+  refit?: boolean
 }
 
 const TONE_COLOUR: Record<MarkerTone, string> = {
@@ -104,28 +136,146 @@ export function boundsOf(
   ]
 }
 
-export default function MapView({ markers, fitTo, className, label }: MapViewProps) {
+/** Pin image for the stops layer: a white diamond/square/circle with a teal border, drawn on a canvas. */
+function pinImage(shape: PinShape, size = 22): ImageData | null {
+  if (typeof document === 'undefined') return null
+  const c = document.createElement('canvas')
+  c.width = size
+  c.height = size
+  const g = c.getContext('2d')
+  if (!g) return null
+  const h = size / 2
+  g.fillStyle = '#FFFFFF'
+  g.strokeStyle = '#1E7C80'
+  g.lineWidth = 3
+  g.beginPath()
+  if (shape === 'diamond') {
+    g.moveTo(h, 2)
+    g.lineTo(size - 2, h)
+    g.lineTo(h, size - 2)
+    g.lineTo(2, h)
+    g.closePath()
+  } else if (shape === 'square') g.rect(3, 3, size - 6, size - 6)
+  else g.arc(h, h, h - 3, 0, Math.PI * 2)
+  g.fill()
+  g.stroke()
+  return g.getImageData(0, 0, size, size)
+}
+
+type GeoData = Parameters<GeoJSONSource['setData']>[0]
+
+const stopsGeoJson = (stops: MapStop[]): GeoData => ({
+  type: 'FeatureCollection',
+  features: stops.map((s) => ({
+    type: 'Feature',
+    id: s.id,
+    properties: { id: s.id, name: s.name },
+    geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
+  })),
+})
+
+const lineGeoJson = (line: Array<[number, number]>): GeoData => ({
+  type: 'Feature',
+  properties: {},
+  geometry: { type: 'LineString', coordinates: line },
+})
+
+export default function MapView({
+  markers,
+  fitTo,
+  className,
+  label,
+  stops,
+  stopShape = 'diamond',
+  onStopClick,
+  line,
+  lineColor,
+  onViewChange,
+  center = [153.03, -27.47],
+  zoom = 12,
+  refit = false,
+}: MapViewProps) {
   const container = useRef<HTMLElement>(null)
   const map = useRef<MlMap | null>(null)
   const placed = useRef<Marker[]>([])
   const fitted = useRef(false)
+  const [ready, setReady] = useState(false)
+  const handlers = useRef({ onStopClick, onViewChange })
+  handlers.current = { onStopClick, onViewChange }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the map is created once; later props flow through effects.
   useEffect(() => {
     if (!container.current) return
     const m = new MlMap({
       container: container.current,
       style: BASEMAP_STYLE_URL,
-      center: [153.03, -27.47],
-      zoom: 12,
+      center,
+      zoom,
       attributionControl: { compact: true },
     })
     map.current = m
+    const report = () => {
+      const b = m.getBounds()
+      handlers.current.onViewChange?.(
+        { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() },
+        m.getZoom(),
+      )
+    }
+    m.on('load', () => {
+      const img = pinImage(stopShape)
+      if (img) m.addImage('bft-stop', img, { pixelRatio: 1 })
+      m.addSource('bft-line', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+      m.addLayer({
+        id: 'bft-line-casing',
+        type: 'line',
+        source: 'bft-line',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#FFFFFF', 'line-width': 9 },
+      })
+      m.addLayer({
+        id: 'bft-line',
+        type: 'line',
+        source: 'bft-line',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#1E7C80', 'line-width': 5 },
+      })
+      m.addSource('bft-stops', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+      m.addLayer({
+        id: 'bft-stops',
+        type: 'symbol',
+        source: 'bft-stops',
+        layout: {
+          'icon-image': 'bft-stop',
+          'icon-allow-overlap': true,
+          'text-field': ['step', ['zoom'], '', 16, ['get', 'name']],
+          'text-size': 11,
+          'text-offset': [0, 1.2],
+          'text-anchor': 'top',
+          'text-optional': true,
+        },
+        paint: { 'text-color': '#2D3436', 'text-halo-color': '#FFFFFF', 'text-halo-width': 1.5 },
+      })
+      m.on('click', 'bft-stops', (e) => {
+        const id = e.features?.[0]?.properties?.id
+        if (typeof id === 'string') handlers.current.onStopClick?.(id)
+      })
+      m.on('mouseenter', 'bft-stops', () => {
+        m.getCanvas().style.cursor = 'pointer'
+      })
+      m.on('mouseleave', 'bft-stops', () => {
+        m.getCanvas().style.cursor = ''
+      })
+      setReady(true)
+      report()
+    })
+    m.on('moveend', report)
     return () => {
       for (const mk of placed.current) mk.remove()
       placed.current = []
       m.remove()
       map.current = null
       fitted.current = false
+      setReady(false)
     }
   }, [])
 
@@ -136,15 +286,33 @@ export default function MapView({ markers, fitTo, className, label }: MapViewPro
     placed.current = markers.map((mk) =>
       new Marker({ element: markerElement(mk) }).setLngLat([mk.lon, mk.lat]).addTo(m),
     )
-    if (!fitted.current) {
-      const pts = fitTo ? markers.filter((mk) => fitTo.includes(mk.id)) : markers
+    if (!fitted.current || refit) {
+      const pts = line?.length
+        ? line.map(([lon, lat]) => ({ lat, lon }))
+        : fitTo
+          ? markers.filter((mk) => fitTo.includes(mk.id))
+          : markers
       const b = boundsOf(pts)
       if (b) {
         m.fitBounds(b, { padding: 48, maxZoom: 15, duration: 0 })
         fitted.current = true
       }
     }
-  }, [markers, fitTo])
+  }, [markers, fitTo, line, refit])
+
+  useEffect(() => {
+    const src = ready ? (map.current?.getSource('bft-stops') as GeoJSONSource | undefined) : undefined
+    src?.setData(stopsGeoJson(stops ?? []))
+  }, [ready, stops])
+
+  useEffect(() => {
+    const m = map.current
+    if (!ready || !m) return
+    ;(m.getSource('bft-line') as GeoJSONSource | undefined)?.setData(
+      line?.length ? lineGeoJson(line) : { type: 'FeatureCollection', features: [] },
+    )
+    if (lineColor) m.setPaintProperty('bft-line', 'line-color', `#${lineColor}`)
+  }, [ready, line, lineColor])
 
   return (
     <section
