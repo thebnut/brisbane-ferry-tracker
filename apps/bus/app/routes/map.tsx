@@ -13,7 +13,7 @@ import { cellsCovering } from '../lib/geo.ts'
 import { useApi } from '../lib/mode.ts'
 import { useGeoTiles, useStopIndex } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
-import { stopPath } from '../lib/stops.ts'
+import { stopHref } from '../lib/stops.ts'
 import { useSavedStops } from '../lib/storage.ts'
 import type { Route } from './+types/map'
 import { useGeolocation } from './nearby.tsx'
@@ -102,7 +102,7 @@ export default function MapPage() {
                 key={geo.state === 'ok' ? 'located' : 'default'}
                 markers={me}
                 stops={stops}
-                onStopClick={(id) => navigate(stopPath(id))}
+                onStopClick={(id) => navigate(stopHref(id))}
                 onViewChange={onView}
                 center={center}
                 zoom={15}

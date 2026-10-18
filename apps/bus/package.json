@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "BrisbaneBus on the transit platform: React Router 8 framework mode (SSR stop pages) on Cloudflare Workers.",
+  "exports": {
+    "./app/*": "./app/*"
+  },
   "scripts": {
     "dev": "react-router dev",
     "build": "react-router build",

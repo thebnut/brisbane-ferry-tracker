@@ -13,7 +13,7 @@ import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { rowLabel, rowViews } from '../lib/departures.ts'
-import { tripPath } from '../lib/stops.ts'
+import { tripHref } from '../lib/stops.ts'
 
 export const linkRenderer = ({
   href,
@@ -139,7 +139,7 @@ export function DepartureList({
               dayMarker={v.dayMarker}
               platform={v.departure.platform && v.departure.stopId !== stopId ? v.departure.platform : null}
               highlighted={v.highlighted}
-              href={tripPath(v.departure.tripInstance, stopId)}
+              href={tripHref(v.departure.tripInstance, stopId)}
               label={rowLabel(v)}
               renderLink={linkRenderer}
             />

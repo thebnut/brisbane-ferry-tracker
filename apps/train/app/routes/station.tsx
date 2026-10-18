@@ -10,6 +10,7 @@ import { data, Link } from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
 import { StationBoard } from '../components/StationBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
+import { at } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import type { ServiceFilter } from '../lib/departures.ts'
 import { lineLabel } from '../lib/lineNames.ts'
@@ -19,7 +20,7 @@ import {
   STATIONS,
   type Station,
   stationByKey,
-  stationPath,
+  stationHref,
 } from '../lib/network.ts'
 import { pageMeta, stationJsonLd, stationMeta } from '../lib/seo.ts'
 import { loaderEnv, settle, siteInfo } from '../lib/server.server.ts'
@@ -95,11 +96,11 @@ function StationAbout({ station }: { station: Station }) {
   return (
     <section className={`${SECTION.section} mt-6 px-0`} aria-labelledby="station-about">
       <nav aria-label="Breadcrumb" className="text-xs text-gray-600 dark:text-night-text/70">
-        <Link className="underline" to="/">
+        <Link className="underline" to={at('/')}>
           BrisbaneTrain
         </Link>{' '}
         ›{' '}
-        <Link className="underline" to="/stations">
+        <Link className="underline" to={at('/stations')}>
           Stations
         </Link>{' '}
         › {station.name}
@@ -123,7 +124,7 @@ function StationAbout({ station }: { station: Station }) {
       <ul className={SECTION.list}>
         {nearby.map(({ s, m }) => (
           <li key={s.key}>
-            <Link className={SECTION.link} to={stationPath(s.key)}>
+            <Link className={SECTION.link} to={stationHref(s.key)}>
               {s.name}
             </Link>{' '}
             <span className="text-xs text-gray-600 dark:text-night-text/70">
@@ -170,7 +171,7 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
         ]}
       />
       <Link
-        to={`/map?station=${station.key}`}
+        to={`${at('/map')}?station=${station.key}`}
         className="flex h-9 items-center rounded-full border border-ferry-orange/20 bg-white px-3 text-xs font-semibold text-aqua-text md:text-sm dark:bg-night-card dark:text-ferry-aqua-light"
       >
         Map

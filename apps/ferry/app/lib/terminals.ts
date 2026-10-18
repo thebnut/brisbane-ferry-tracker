@@ -3,6 +3,7 @@
  * Slugs and ids match the legacy app's src/utils/terminals.js, so /terminal/<slug> URLs are unchanged.
  */
 import data from '../data/terminals.json'
+import { at } from './base.ts'
 
 export interface Terminal {
   id: string
@@ -41,7 +42,10 @@ export const DEFAULT_STOPS: StopPair = {
 
 export const terminalById = (id: string): Terminal | null => byId.get(id) ?? null
 export const terminalBySlug = (slug: string): Terminal | null => bySlug.get(slug) ?? null
+/** Canonical (unprefixed) terminal path for seo.ts and the sitemap; links use terminalHref. */
 export const terminalPath = (slug: string) => `/terminal/${slug}`
+/** In-app link to a terminal page (prefixed with BASE inside BrisbaneTransit). */
+export const terminalHref = (slug: string) => at(terminalPath(slug))
 
 export const validDestinations = (originId: string): string[] => byId.get(originId)?.destinations ?? []
 

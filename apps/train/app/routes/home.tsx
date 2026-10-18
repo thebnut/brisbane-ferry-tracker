@@ -20,10 +20,11 @@ import { Link } from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
 import { boardHref } from '../components/StationBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
+import { at } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { effectiveDep, trainCard } from '../lib/departures.ts'
 import { lineLabel } from '../lib/lineNames.ts'
-import { STATIONS, type Station, stationByKey, stationPath } from '../lib/network.ts'
+import { STATIONS, type Station, stationByKey, stationHref } from '../lib/network.ts'
 import { canPrefetch, prefetchFavourites } from '../lib/offline.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import { HOME_META, homeJsonLd, pageMeta } from '../lib/seo.ts'
@@ -241,7 +242,7 @@ function Nearest({ nowMs, mode }: { nowMs: number; mode: DataMode }) {
     >
       {station && typeof state === 'object' && state ? (
         <>
-          <Link to={stationPath(station.key)} className="flex items-center gap-2 text-inherit no-underline">
+          <Link to={stationHref(station.key)} className="flex items-center gap-2 text-inherit no-underline">
             <Icon name="pin" size={18} className="text-aqua-text" />
             <span className="text-[15px] font-bold">Nearest: {station.name}</span>
             <span className="ml-auto text-[13px] text-gray-600 dark:text-night-text/70">
@@ -307,7 +308,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               offline for the rest of the day.
             </p>
             <Link
-              to="/stations"
+              to={at('/stations')}
               className="mt-3 inline-flex min-h-11 items-center rounded-button bg-ferry-orange-aa px-4 font-bold text-white no-underline"
             >
               Find a station
@@ -324,13 +325,13 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               .filter((s): s is Station => !!s)
               .map((s) => (
                 <li key={s.key}>
-                  <Link className={SECTION.link} to={stationPath(s.key)}>
+                  <Link className={SECTION.link} to={stationHref(s.key)}>
                     {s.name}
                   </Link>
                 </li>
               ))}
             <li>
-              <Link className={SECTION.link} to="/stations">
+              <Link className={SECTION.link} to={at('/stations')}>
                 All {STATIONS.length} stations
               </Link>
             </li>

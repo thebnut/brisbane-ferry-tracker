@@ -4,8 +4,9 @@ import lockup489 from '@bft/ui/assets/ferry-lockup.webp?url'
 import lockup236 from '@bft/ui/assets/ferry-lockup-236.webp?url'
 import lockup360 from '@bft/ui/assets/ferry-lockup-360.webp?url'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { at } from '../lib/base.ts'
 import { ATTRIBUTION, INTRO_HEADING, INTRO_TEXT } from '../lib/seo.ts'
-import { TERMINALS, terminalPath } from '../lib/terminals.ts'
+import { TERMINALS, terminalHref } from '../lib/terminals.ts'
 
 export const SECTION = {
   section: 'mx-auto max-w-6xl px-4 pt-4 pb-2 text-charcoal',
@@ -34,7 +35,7 @@ export function TerminalLinks() {
     <ul className={SECTION.list}>
       {TERMINALS.map((t) => (
         <li key={t.id}>
-          <a className={SECTION.link} href={terminalPath(t.slug)}>
+          <a className={SECTION.link} href={terminalHref(t.slug)}>
             {t.name}
           </a>
         </li>
@@ -106,13 +107,13 @@ export function Footer() {
           <FeedbackButton />
         </p>
         <p className="mt-3 text-xs text-gray-600">
-          <a href="/privacy" className="hover:text-ferry-orange-deep">
+          <a href={at('/privacy')} className="hover:text-ferry-orange-deep">
             Privacy
           </a>
           <span className="mx-1.5" aria-hidden="true">
             ·
           </span>
-          <a href="/terms" className="hover:text-ferry-orange-deep">
+          <a href={at('/terms')} className="hover:text-ferry-orange-deep">
             Terms
           </a>
         </p>

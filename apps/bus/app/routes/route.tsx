@@ -16,7 +16,7 @@ import { useApi } from '../lib/mode.ts'
 import { useVehicles } from '../lib/queries.ts'
 import { pageMeta, routeMetaTags, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
-import { stopCode, stopPath, tripPath } from '../lib/stops.ts'
+import { stopCode, stopHref, tripHref } from '../lib/stops.ts'
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/route'
 
@@ -145,7 +145,7 @@ export default function RoutePage({ loaderData }: Route.ComponentProps) {
             {buses.map(({ v, near }) => (
               <li key={v.id} className="border-t border-charcoal/5">
                 <Link
-                  to={v.tripKey ? tripPath(v.tripKey) : stopPath(near?.key ?? '')}
+                  to={v.tripKey ? tripHref(v.tripKey) : stopHref(near?.key ?? '')}
                   className="flex min-h-11 items-center gap-2.5 py-2"
                   data-selected={v.tripKey === trip || undefined}
                 >
@@ -188,7 +188,7 @@ export default function RoutePage({ loaderData }: Route.ComponentProps) {
                 className="border-b border-charcoal/5 last:border-0"
               >
                 <Link
-                  to={stopPath(s.key)}
+                  to={stopHref(s.key)}
                   className="flex min-h-11 items-center justify-between gap-2 py-1.5"
                 >
                   <span className="text-[15px] font-semibold">{s.name}</span>

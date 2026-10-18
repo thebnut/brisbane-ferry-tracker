@@ -9,6 +9,7 @@ import { data } from 'react-router'
 import { Footer, SECTION } from '../components/Chrome.tsx'
 import { FerryBoards } from '../components/FerryBoards.tsx'
 import { fetchDepartures } from '../lib/api.ts'
+import { at } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { pageMeta, SITE_URL, terminalJsonLd, terminalMeta, terminalRoutes } from '../lib/seo.ts'
@@ -19,7 +20,7 @@ import {
   pairForTerminal,
   TERMINALS,
   terminalBySlug,
-  terminalPath,
+  terminalHref,
 } from '../lib/terminals.ts'
 import type { Route } from './+types/terminal'
 
@@ -90,7 +91,7 @@ function TerminalSection({
       aria-labelledby="terminal-heading"
     >
       <nav aria-label="Breadcrumb" className="text-xs text-gray-600">
-        <a className="underline hover:text-ferry-orange-deep" href="/">
+        <a className="underline hover:text-ferry-orange-deep" href={at('/')}>
           Brisbane Ferry
         </a>{' '}
         › {terminal.name} ferry terminal
@@ -156,7 +157,7 @@ function TerminalSection({
       <ul className={SECTION.list}>
         {nearbyTerminals(terminal).map((t) => (
           <li key={t.id}>
-            <a className={SECTION.link} href={terminalPath(t.slug)}>
+            <a className={SECTION.link} href={terminalHref(t.slug)}>
               {t.name}
             </a>{' '}
             <span className="text-xs text-gray-600">{formatDistance(t.meters)}</span>
@@ -167,14 +168,14 @@ function TerminalSection({
       <ul className={SECTION.list}>
         {others.map((t) => (
           <li key={t.id}>
-            <a className={SECTION.link} href={terminalPath(t.slug)}>
+            <a className={SECTION.link} href={terminalHref(t.slug)}>
               {t.name}
             </a>
           </li>
         ))}
       </ul>
       <p className={SECTION.text}>
-        <a className="underline hover:text-ferry-orange-deep" href="/">
+        <a className="underline hover:text-ferry-orange-deep" href={at('/')}>
           Live departure boards for every Brisbane ferry terminal
         </a>
       </p>

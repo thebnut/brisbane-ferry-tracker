@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "BrisbaneFerry on the transit platform: React Router 8 framework mode (SSR terminal pages) on Cloudflare Workers.",
+  "exports": {
+    "./app/*": "./app/*"
+  },
   "scripts": {
     "dev": "react-router dev",
     "build": "react-router build",

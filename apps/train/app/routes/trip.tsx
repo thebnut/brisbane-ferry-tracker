@@ -19,10 +19,11 @@ import { useMemo } from 'react'
 import { data, Link, useRouteLoaderData } from 'react-router'
 import { Shell } from '../components/Chrome.tsx'
 import { fetchTrip } from '../lib/api.ts'
+import { at } from '../lib/base.ts'
 import { validateTrip } from '../lib/contract.server.ts'
 import { lineLabel } from '../lib/lineNames.ts'
 import { cleanStopName } from '../lib/names.ts'
-import { lineFor, stationByKey, stationPath } from '../lib/network.ts'
+import { lineFor, stationByKey, stationHref } from '../lib/network.ts'
 import { useFetcher, useTrip } from '../lib/queries.ts'
 import { loaderEnv, settle, siteInfo } from '../lib/server.server.ts'
 import { buildTimeline, occupancyOf, stopPlatform, vehicleStatusText } from '../lib/trip.ts'
@@ -95,7 +96,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const plat = board ? stopPlatform(board) : { platform: null, scheduled: null }
   const occupancy = occupancyOf(trip.vehicle?.occupancy)
   const status = vehicleStatusText(trip.vehicle?.status)
-  const backTo = boardKey ? `${stationPath(boardKey)}${to ? `?to=${to}` : ''}` : '/stations'
+  const backTo = boardKey ? `${stationHref(boardKey)}${to ? `?to=${to}` : ''}` : at('/stations')
 
   return (
     <Shell active="stations">

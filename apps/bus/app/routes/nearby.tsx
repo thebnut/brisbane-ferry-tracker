@@ -9,11 +9,12 @@ import { Link, useSearchParams } from 'react-router'
 import { resultMeta } from '../components/SearchPanel.tsx'
 import { BusNav, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { linkRenderer } from '../components/StopBoard.tsx'
+import { at } from '../lib/base.ts'
 import { formatDistance, geohashEncode, geohashNeighbourhood, nearest } from '../lib/geo.ts'
 import { useApi } from '../lib/mode.ts'
 import { useGeoTiles, useStopIndex } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
-import { stopPath } from '../lib/stops.ts'
+import { stopHref } from '../lib/stops.ts'
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/nearby'
 
@@ -96,7 +97,7 @@ export default function Nearby() {
           <h1 className="text-xl font-extrabold">Stops near you</h1>
           {geo.state === 'ok' ? (
             <Link
-              to={`/map?lat=${geo.lat.toFixed(5)}&lon=${geo.lon.toFixed(5)}`}
+              to={`${at('/map')}?lat=${geo.lat.toFixed(5)}&lon=${geo.lon.toFixed(5)}`}
               className="flex h-9 items-center gap-1.5 rounded-full border border-ferry-orange/20 bg-white px-3 text-sm font-semibold text-aqua-text dark:bg-night-card dark:text-ferry-aqua-light"
             >
               <Icon name="map" size={16} />
@@ -122,7 +123,7 @@ export default function Nearby() {
         {geo.state === 'denied' ? (
           <EmptyState title="Location is turned off for this site">
             Allow location for this site in your browser settings, or{' '}
-            <Link to="/" className="font-semibold underline">
+            <Link to={at('/')} className="font-semibold underline">
               search by stop name or number
             </Link>
             .
@@ -134,7 +135,7 @@ export default function Nearby() {
               Try again
             </button>{' '}
             or{' '}
-            <Link to="/" className="font-semibold underline">
+            <Link to={at('/')} className="font-semibold underline">
               search for a stop
             </Link>
             .
@@ -147,7 +148,7 @@ export default function Nearby() {
             <EmptyState title="Couldn't load nearby stops">Check your connection and try again.</EmptyState>
           ) : stops.length === 0 ? (
             <EmptyState title="No bus stops within 2 km">
-              <Link to="/" className="font-semibold underline">
+              <Link to={at('/')} className="font-semibold underline">
                 Search for a stop
               </Link>{' '}
               instead.
@@ -165,7 +166,7 @@ export default function Nearby() {
                     routes={full?.routes ?? []}
                     distance={formatDistance(s.metres)}
                     best={i === 0}
-                    href={stopPath(s.key)}
+                    href={stopHref(s.key)}
                     renderLink={linkRenderer}
                   />
                 )

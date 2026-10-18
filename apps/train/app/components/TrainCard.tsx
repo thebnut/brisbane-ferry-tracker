@@ -5,13 +5,14 @@
  */
 import { DepartureCard, LineChip, PlatformTile, StoppingPattern } from '@bft/ui'
 import { Link } from 'react-router'
+import { at } from '../lib/base.ts'
 import type { TrainCard as Model } from '../lib/departures.ts'
 import { lineLabel } from '../lib/lineNames.ts'
 
 export function tripHref(card: Model, from: string, to: string | null) {
   const q = new URLSearchParams({ from })
   if (to) q.set('to', to)
-  return `/trip/${encodeURIComponent(card.tripInstance)}?${q}`
+  return `${at('/trip')}/${encodeURIComponent(card.tripInstance)}?${q}`
 }
 
 export function TrainCard({

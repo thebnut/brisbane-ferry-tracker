@@ -19,7 +19,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
 import { asScheduled, boardState, platformChanges, type ServiceFilter, trainCard } from '../lib/departures.ts'
-import { isReachable, type Station, stationPath } from '../lib/network.ts'
+import { isReachable, type Station, stationHref } from '../lib/network.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import { useOnline } from '../lib/useNow.ts'
 import { ReachableList } from './ReachableList.tsx'
@@ -27,7 +27,7 @@ import { TrainCard } from './TrainCard.tsx'
 
 export const MORE_LIMIT = 30
 
-export const boardHref = (from: string, to: string | null) => `${stationPath(from)}${to ? `?to=${to}` : ''}`
+export const boardHref = (from: string, to: string | null) => `${stationHref(from)}${to ? `?to=${to}` : ''}`
 
 export function StationBoard({
   from,

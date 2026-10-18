@@ -13,7 +13,7 @@ import type { StopIndexEntry } from '../lib/data-contract.ts'
 import { useApi } from '../lib/mode.ts'
 import { useStopIndex } from '../lib/queries.ts'
 import { type SearchIndex, type SearchResult, searchStops } from '../lib/search.ts'
-import { stopCode, stopPath } from '../lib/stops.ts'
+import { stopCode, stopHref } from '../lib/stops.ts'
 import { readRecent, type SavedStop } from '../lib/storage.ts'
 import { linkRenderer } from './StopBoard.tsx'
 
@@ -112,7 +112,7 @@ function Results({
       platform={e.platforms?.[0]?.code}
       routes={e.routes}
       best={i === 0}
-      href={stopPath(e.key)}
+      href={stopHref(e.key)}
       renderLink={linkRenderer}
     />
   ))
@@ -189,7 +189,7 @@ export function SearchPanel({ children, quick }: { children: ReactNode; quick?: 
               {recent.map((r) => (
                 <Link
                   key={r.id}
-                  to={stopPath(r.id)}
+                  to={stopHref(r.id)}
                   className="flex min-h-10 shrink-0 items-center rounded-full border border-ferry-orange/20 bg-white/90 px-3.5 text-[13px] font-semibold whitespace-nowrap text-aqua-text dark:bg-night-card dark:text-ferry-aqua-light"
                 >
                   Recent: {r.name.length > 22 ? `${r.name.slice(0, 21)}…` : r.name}

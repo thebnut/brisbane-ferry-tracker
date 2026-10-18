@@ -29,7 +29,7 @@ import { useApi } from '../lib/mode.ts'
 import { useTrip } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
-import { routePath, stopPath } from '../lib/stops.ts'
+import { routeHref, stopHref } from '../lib/stops.ts'
 import { toggleSaved, useSavedStops } from '../lib/storage.ts'
 import { at, schedAt, timeline } from '../lib/trip.ts'
 import { useNow } from '../lib/useNow.ts'
@@ -96,7 +96,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
       <main className="mx-auto flex max-w-3xl flex-col gap-3 px-4 pt-3.5 pb-28">
         {from ? (
           <Link
-            to={stopPath(from)}
+            to={stopHref(from)}
             className="text-sm font-semibold text-aqua-text underline dark:text-ferry-aqua-light"
           >
             ‹ Back to the stop
@@ -117,7 +117,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
             from={from}
             now={now}
             saved={saved.some((s) => s.id === from)}
-            onTrack={() => navigate(`${routePath(trip.route.short)}?trip=${encodeURIComponent(key)}`)}
+            onTrack={() => navigate(`${routeHref(trip.route.short)}?trip=${encodeURIComponent(key)}`)}
           />
         )}
       </main>

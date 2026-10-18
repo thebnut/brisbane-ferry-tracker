@@ -19,7 +19,7 @@ import {
   reachableFrom,
   STATIONS,
   stationByKey,
-  stationPath,
+  stationHref,
 } from '../lib/network.ts'
 import { searchStations } from '../lib/search.ts'
 import { pageMeta } from '../lib/seo.ts'
@@ -192,7 +192,7 @@ export default function Stations({ loaderData }: Route.ComponentProps) {
             <h2 className={`${SECTION.h2} mt-1.5`}>Reachable from {from.name}, by line</h2>
             <ReachableList from={from} selected={to?.key ?? null} onPick={(k) => set(from.key, k)} />
             <Link
-              to={stationPath(from.key)}
+              to={stationHref(from.key)}
               className="self-start text-sm font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
             >
               All departures from {from.name}
@@ -210,7 +210,7 @@ export default function Stations({ loaderData }: Route.ComponentProps) {
                   <li key={s.key}>
                     <Link
                       className="block py-1.5 text-aqua-text hover:text-ferry-orange-deep dark:text-ferry-aqua-light"
-                      to={stationPath(s.key)}
+                      to={stationHref(s.key)}
                     >
                       {s.name}
                     </Link>
