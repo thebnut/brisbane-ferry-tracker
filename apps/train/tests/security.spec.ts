@@ -46,3 +46,10 @@ test('no CSP violations while the main pages load and hydrate', async ({ page })
   }
   expect(violations).toEqual([])
 })
+
+test('the service worker registers under the CSP', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForFunction(async () => !!(await navigator.serviceWorker?.ready)?.active, null, {
+    timeout: 15_000,
+  })
+})

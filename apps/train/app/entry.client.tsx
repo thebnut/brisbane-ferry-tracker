@@ -12,8 +12,11 @@ startTransition(() => {
 })
 
 // Register the service worker after load so it never competes with first paint.
+const registerServiceWorker = () => {
+  navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {})
+}
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {})
-  })
+  // Module scripts can run after `load` has already fired (as in apps/bus and apps/ferry).
+  if (document.readyState === 'complete') registerServiceWorker()
+  else window.addEventListener('load', registerServiceWorker, { once: true })
 }
