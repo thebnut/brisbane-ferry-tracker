@@ -12,6 +12,7 @@ import {
   KEEPALIVE_MS,
   R2_KEEP_SNAPSHOTS,
   snapshotKey,
+  snapshotSeq,
   WATCHDOG_STALE_MS,
 } from '../src/rt/hub-core.ts'
 import {
@@ -37,10 +38,6 @@ class FakeR2 {
     if (this.fail) throw new Error('r2 down')
     this.ops.push(`put:${key}`)
     this.files.set(key, typeof value === 'string' ? new TextEncoder().encode(value) : value)
-  }
-  async delete(key: string) {
-    this.ops.push(`delete:${key}`)
-    this.files.delete(key)
   }
   async get(key: string) {
     const b = this.files.get(key)
@@ -411,7 +408,7 @@ describe('RtHub R2 publish', () => {
     expect(after.json).toBe(before.json)
   })
 
-  it('deletes the snapshot from R2_KEEP_SNAPSHOTS cycles ago', async () => {
+  it('writes a fixed ring of R2_KEEP_SNAPSHOTS keys and never deletes', async () => {
     const r2 = new FakeR2()
     const h = setup({ r2 })
     for (let i = 0; i < R2_KEEP_SNAPSHOTS + 3; i++) {
@@ -421,6 +418,46 @@ describe('RtHub R2 publish', () => {
     }
     const snaps = [...r2.files.keys()].filter((k) => k.startsWith('rt/snapshot-'))
     expect(snaps.length).toBe(R2_KEEP_SNAPSHOTS)
+    expect(r2.ops.some((o) => o.startsWith('delete'))).toBe(false)
+    const seq = (await h.hub.pull(null)).seq as number
+    expect(seq).toBeGreaterThan(R2_KEEP_SNAPSHOTS)
+    expect(snapshotKey(seq)).toBe(`rt/snapshot-${seq % R2_KEEP_SNAPSHOTS}.json`)
+    // The slot holds the pointer's seq.
+    const slot = JSON.parse(new TextDecoder().decode(r2.files.get(snapshotKey(seq))))
+    expect(slot.header.seq).toBe(seq)
+  })
+
+  it('readers retry once when the ring slot does not hold the pointer seq', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    const seq = (await h.hub.pull(null)).seq as number
+    const good = r2.files.get(snapshotKey(seq)) as Uint8Array
+    // The slot was overwritten by a later lap; the pointer is still the old one.
+    const stale = JSON.parse(new TextDecoder().decode(good))
+    stale.header.seq = seq + R2_KEEP_SNAPSHOTS
+    const reads: string[] = []
+    const src = new MemoryDataSource(r2.files)
+    const realGet = src.get.bind(src)
+    let first = true
+    src.get = async (key: string) => {
+      reads.push(key)
+      if (key === snapshotKey(seq) && first) {
+        first = false
+        return { body: new Blob([JSON.stringify(stale)]).stream() as ReadableStream<Uint8Array> }
+      }
+      return realGet(key)
+    }
+    const r = await pullFromR2(src, null)
+    expect(r.seq).toBe(seq)
+    expect(snapshotSeq(r.json as string)).toBe(seq)
+    expect(reads.filter((k) => k === 'rt/latest.json')).toHaveLength(2)
+    // A slot that keeps disagreeing is an error (the client keeps its current copy).
+    src.get = async (key: string) =>
+      key === snapshotKey(seq)
+        ? { body: new Blob([JSON.stringify(stale)]).stream() as ReadableStream<Uint8Array> }
+        : realGet(key)
+    await expect(pullFromR2(src, null)).rejects.toThrow(/not found/)
   })
 
   it('an R2 outage is recorded but does not stop the cycle or the DO copy', async () => {

@@ -32,7 +32,6 @@ const CHUNK_CHARS = 512 * 1024
 export interface HubStorage {
   get<T>(key: string): Promise<T | undefined>
   put(entries: Record<string, unknown>): Promise<void>
-  delete(keys: string[]): Promise<number>
   getAlarm(): Promise<number | null>
   setAlarm(scheduledTime: number): Promise<void>
   deleteAlarm?(): Promise<void>
@@ -40,7 +39,22 @@ export interface HubStorage {
 
 export const R2_LATEST_KEY = 'rt/latest.json'
 export const R2_KEEP_SNAPSHOTS = 240
-export const snapshotKey = (seq: number) => `rt/snapshot-${seq}.json`
+/**
+ * Snapshots go to a fixed ring of R2_KEEP_SNAPSHOTS keys that the hub overwrites (no deletes: Brett's standing
+ * rule). Readers confirm the object's header seq matches the pointer, since a slot is reused every 240 polls.
+ */
+export const snapshotKey = (seq: number) => `rt/snapshot-${seq % R2_KEEP_SNAPSHOTS}.json`
+
+/** The header seq of a snapshot JSON without parsing it all (JSON.stringify writes header.schemaVersion, seq first). */
+export function snapshotSeq(json: string): number | null {
+  const m = /^\{"header":\{"schemaVersion":\d+,"seq":(\d+)/.exec(json)
+  if (m) return Number(m[1])
+  try {
+    return (JSON.parse(json) as RtSnapshot).header.seq
+  } catch {
+    return null
+  }
+}
 
 /** rt/latest.json: which snapshot is current, plus the hub status for /v1/health. */
 export interface R2Pointer {
@@ -52,7 +66,6 @@ export interface R2Pointer {
 
 export interface R2Like {
   get?(key: string): Promise<{ text(): Promise<string> } | null>
-  delete(key: string): Promise<unknown>
   put(
     key: string,
     value: Uint8Array | string,
@@ -391,8 +404,8 @@ export class HubCore {
   /**
    * Publish to R2: the sequence-numbered snapshot first, then the small `rt/latest.json` pointer (idempotent; a
    * reader never sees a pointer to a missing object). Uncompressed: gzip would cost several ms of the 10 ms Free
-   * CPU budget and R2 egress is free. Two Class A writes per cycle (~345k a month); the snapshot from
-   * R2_KEEP_SNAPSHOTS cycles ago is deleted (deletes are free) so the bucket stays bounded.
+   * CPU budget and R2 egress is free. Two Class A writes per cycle (~345k a month); the ring of
+   * R2_KEEP_SNAPSHOTS keys keeps the bucket bounded without deletes.
    */
   private async publishR2(json: string, now: number): Promise<void> {
     const r2 = this.d.r2 as R2Like
@@ -403,7 +416,6 @@ export class HubCore {
     await r2.put(R2_LATEST_KEY, JSON.stringify(pointer), {
       httpMetadata: { contentType: 'application/json', cacheControl: 'no-store' },
     })
-    if (seq > R2_KEEP_SNAPSHOTS) await r2.delete(snapshotKey(seq - R2_KEEP_SNAPSHOTS))
   }
 
   private async fetchFeed(f: FeedSpec, now: number): Promise<{ raw?: RawFeed; error?: string }> {
@@ -528,7 +540,9 @@ export class HubCore {
       if (pointer && pointer.seq > this.meta.seq) this.meta.seq = pointer.seq
       if (!json && pointer?.key) {
         const obj = await this.d.r2.get(pointer.key)
-        json = obj ? await obj.text() : null
+        const text = obj ? await obj.text() : null
+        // A ring slot may already hold a newer snapshot than the pointer names: only adopt the matching one.
+        json = text != null && snapshotSeq(text) === pointer.seq ? text : null
       }
     }
     if (json) {

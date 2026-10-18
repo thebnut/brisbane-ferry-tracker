@@ -103,6 +103,50 @@ async function memoryMode(mode: Mode) {
   )
 }
 
+/**
+ * Child: the hub's whole working set under RT_MODES=all with every mode indexed: four ModeIndexes (two days each),
+ * the decoded combined feeds and one built snapshot plus its JSON (what the DO keeps between cycles).
+ */
+async function memoryHub() {
+  const days = await loadIndexes()
+  const json = new Map([...days].map(([k, v]) => [k, JSON.stringify(v)]))
+  days.clear()
+  const tu = await feedBytes('TripUpdates', '/tmp/bft-gtfs/tu.pb')
+  const vp = await feedBytes('VehiclePositions', '/tmp/bft-gtfs/vp.pb')
+  const before = heap()
+  const indexes: Partial<Record<Mode, ModeIndex>> = {}
+  for (const mode of MODES) {
+    const idx = new ModeIndex(mode, [])
+    for (const d of DATES) {
+      const j = json.get(`${mode}|${d}`)
+      if (j) idx.addDay(JSON.parse(j) as TripIndexDay)
+    }
+    indexes[mode] = idx
+  }
+  const afterIndexes = heap()
+  const feeds = { tu: fromBinary(FeedMessageSchema, tu), vp: fromBinary(FeedMessageSchema, vp) }
+  const { snapshot } = buildSnapshot({
+    seq: 1,
+    nowMs: Number(feeds.tu.header?.timestamp ?? 0n) * 1000,
+    indexes,
+    tripUpdates: [{ feed: feeds.tu }],
+    vehiclePositions: [{ feed: feeds.vp }],
+    alerts: [],
+  })
+  const snapJson = JSON.stringify(snapshot)
+  const after = heap()
+  console.log(
+    JSON.stringify({
+      indexesMB: +((afterIndexes - before) / 1e6).toFixed(1),
+      feedsSnapshotMB: +((after - afterIndexes) / 1e6).toFixed(1),
+      totalMB: +((after - before) / 1e6).toFixed(1),
+      rawFeedsMB: +((tu.byteLength + vp.byteLength) / 1e6).toFixed(1),
+      snapshotJsonMB: +(snapJson.length / 1e6).toFixed(1),
+      keep: [Object.keys(indexes).length, Object.keys(snapshot.trips).length],
+    }),
+  )
+}
+
 async function feedBytes(key: string, sample: string | undefined): Promise<Uint8Array> {
   if (flag('fresh') || !sample || !existsSync(sample)) {
     const res = await fetch(`${UPSTREAM}/${key}`)
@@ -263,5 +307,6 @@ async function main() {
 }
 
 const memoryOnly = arg('memory-mode')
-if (memoryOnly) await memoryMode(memoryOnly as Mode)
+if (memoryOnly === 'hub') await memoryHub()
+else if (memoryOnly) await memoryMode(memoryOnly as Mode)
 else await main()

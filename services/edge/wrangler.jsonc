@@ -32,9 +32,17 @@
       "triggers": { "crons": ["* * * * *"] },
       "durable_objects": { "bindings": [{ "name": "RT_HUB", "class_name": "RtHub" }] },
       "r2_buckets": [{ "binding": "DATA_BUCKET", "bucket_name": "bft-transit-data" }],
+      // Intentionally no DATA service binding: staging reads R2. (Wrangler warns that the top-level DATA binding
+      // is not inherited; that is the point.)
       "services": [],
+      // Workers Paid (active 18 Oct 2026). Measured: a bus-indexed RT_MODES=all poll is ~150 ms p50 / ~250 ms
+      // cold; 2 s caps a runaway cycle at ~8x the worst observed while leaving ample headroom.
+      "limits": { "cpu_ms": 2000 },
+      // Paid sizing: combined feeds (12,960 TransLink requests a day) with every mode matched, bus included (the
+      // compact matcher fits two bus days in ~26 MB). The top-level config keeps the Free-safe ferry,train defaults.
       "vars": {
-        "RT_MODES": "ferry,train",
+        "RT_MODES": "all",
+        "RT_INDEX_MODES": "ferry,train,tram,bus",
         "RT_UPSTREAM": "https://gtfsrt.api.translink.com.au/api/realtime/SEQ",
         "CORS_ALLOW_ALL": "false"
       }
