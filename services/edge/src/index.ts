@@ -6,6 +6,7 @@ import { dataSourceFor } from './data/source.ts'
 import { StaticStore } from './data/static-store.ts'
 import type { WorkerEnv } from './env.ts'
 import { createLogger, errorMessage } from './log.ts'
+import { pullFromR2 } from './r2-snapshots.ts'
 import { parseRtModes } from './rt/feeds.ts'
 import { SnapshotClient } from './snapshot-client.ts'
 
@@ -25,13 +26,19 @@ function getIsolate(env: WorkerEnv) {
   if (!isolate) {
     const cfg = parseRtModes(env.RT_MODES)
     // A DO stub is bound to the request that created it, so make one per call (env bindings are reusable).
+    // Snapshots come from R2 when it is bound, otherwise from the hub over RPC. Raw feeds (legacy proxy) always
+    // come from the hub; they are shared per isolate for 10 s.
+    const store = new StaticStore(dataSourceFor(env))
     const snapshots = new SnapshotClient(
-      { pull: (since) => hubStub(env).pull(since), getRaw: (key) => hubStub(env).getRaw(key) },
+      {
+        pull: (since) => (env.DATA_BUCKET ? pullFromR2(store.source, since) : hubStub(env).pull(since)),
+        getRaw: (key) => hubStub(env).getRaw(key),
+      },
       Date.now,
       (p) => pendingWaitUntil?.(p),
     )
     const app = createApp({
-      store: new StaticStore(dataSourceFor(env)),
+      store,
       snapshots,
       corsAllowAll: env.CORS_ALLOW_ALL === 'true',
       combinedFeeds: cfg.combined,

@@ -13,7 +13,8 @@
     "spike": "node --expose-gc --experimental-transform-types --no-warnings scripts/spike.ts",
     "shadow-diff": "node --experimental-transform-types --no-warnings scripts/shadow-diff.ts",
     "freshness": "node --experimental-transform-types --no-warnings scripts/freshness.ts",
-    "deploy:staging": "pnpm --filter @bft/data deploy:staging && wrangler deploy --env staging"
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:data-staging": "pnpm --filter @bft/data deploy:staging"
   },
   "dependencies": {
     "@bft/core": "workspace:*",

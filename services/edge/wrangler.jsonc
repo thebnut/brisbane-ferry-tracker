@@ -1,5 +1,5 @@
 // API Worker + RtHub Durable Object (transit-architecture.md §3.3, §3.8, ADR-0003).
-// Deploy (needs `wrangler login`): `pnpm --filter @bft/edge deploy:staging` (deploys bft-data first).
+// Deploy staging (needs `wrangler login`): `pnpm --filter @bft/edge deploy:staging` → bft-api.brisbanetransit.workers.dev
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "bft-api-dev",
@@ -14,9 +14,8 @@
   "durable_objects": { "bindings": [{ "name": "RT_HUB", "class_name": "RtHub" }] },
   // Free plan: SQLite-backed Durable Objects only.
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RtHub"] }],
-  // No R2 yet (not enabled on the account). When it is, add:
-  //   "r2_buckets": [{ "binding": "DATA_BUCKET", "bucket_name": "bft-data" }]
-  // and the DataSource switches to R2 automatically.
+  // Local dev reads the assets data Worker (services/data serving ./out). Staging reads R2 (DATA_BUCKET), which
+  // takes precedence whenever it is bound; the DATA service binding stays an optional fallback.
   "services": [{ "binding": "DATA", "service": "bft-data-dev" }],
   "vars": {
     "RT_MODES": "ferry,train",
@@ -24,11 +23,14 @@
     "CORS_ALLOW_ALL": "false"
   },
   "env": {
+    // bft-api.brisbanetransit.workers.dev (Workers Free; SQLite-backed DO). No routes or custom domains.
     "staging": {
       "name": "bft-api",
+      "workers_dev": true,
       "triggers": { "crons": ["* * * * *"] },
       "durable_objects": { "bindings": [{ "name": "RT_HUB", "class_name": "RtHub" }] },
-      "services": [{ "binding": "DATA", "service": "bft-data" }],
+      "r2_buckets": [{ "binding": "DATA_BUCKET", "bucket_name": "bft-transit-data" }],
+      "services": [],
       "vars": {
         "RT_MODES": "ferry,train",
         "RT_UPSTREAM": "https://gtfsrt.api.translink.com.au/api/realtime/SEQ",

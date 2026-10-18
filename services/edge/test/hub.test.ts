@@ -1,9 +1,18 @@
 import { RtSnapshot } from '@bft/core'
 import { fromBinary } from '@bufbuild/protobuf'
 import { describe, expect, it } from 'vitest'
+import { MemoryDataSource } from '../src/data/source.ts'
 import { FeedMessageSchema } from '../src/gen/gtfs-realtime_pb.js'
+import { pullFromR2 } from '../src/r2-snapshots.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
-import { ALERTS_EVERY_MS, CYCLE_MS, HubCore, WATCHDOG_STALE_MS } from '../src/rt/hub-core.ts'
+import {
+  ALERTS_EVERY_MS,
+  CYCLE_MS,
+  HubCore,
+  R2_KEEP_SNAPSHOTS,
+  snapshotKey,
+  WATCHDOG_STALE_MS,
+} from '../src/rt/hub-core.ts'
 import {
   alert,
   buildTree,
@@ -19,10 +28,25 @@ import {
   vehicle,
 } from './fixtures.ts'
 
+class FakeR2 {
+  readonly files = new Map<string, Uint8Array>()
+  readonly ops: string[] = []
+  fail = false
+  async put(key: string, value: Uint8Array | string) {
+    if (this.fail) throw new Error('r2 down')
+    this.ops.push(`put:${key}`)
+    this.files.set(key, typeof value === 'string' ? new TextEncoder().encode(value) : value)
+  }
+  async delete(key: string) {
+    this.ops.push(`delete:${key}`)
+    this.files.delete(key)
+  }
+}
+
 const TU = 'TripUpdates/Ferry'
 const VP = 'VehiclePositions/Ferry'
 
-function setup(opts: { modes?: string } = {}) {
+function setup(opts: { modes?: string; r2?: FakeR2 } = {}) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   const tree = buildTree()
   const up = new FakeUpstream()
@@ -36,6 +60,7 @@ function setup(opts: { modes?: string } = {}) {
       config: parseRtModes(opts.modes ?? 'ferry'),
       upstream: 'https://up.test/api/realtime/SEQ',
       fetchTimeoutMs: 50,
+      r2: opts.r2,
     })
   const nowS = () => Math.floor(clock.t / 1000)
   up.set(
@@ -327,5 +352,48 @@ describe('RtHub snapshot', () => {
     expect(h.storage.data.has(`raw:${VP}:2`)).toBe(true)
     const fresh = h.mk()
     expect((await fresh.getRaw(VP))?.bytes).toEqual(big)
+  })
+})
+
+describe('RtHub R2 publish', () => {
+  it('writes the seq snapshot, then the pointer; the edge reader follows it and skips unchanged seqs', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    const seq = (await h.hub.pull(null)).seq as number
+    expect(r2.ops.slice(-2)).toEqual([`put:${snapshotKey(seq)}`, 'put:rt/latest.json'])
+    const src = new MemoryDataSource(r2.files)
+    const a = await pullFromR2(src, null)
+    expect(a.seq).toBe(seq)
+    expect(RtSnapshot.parse(JSON.parse(a.json as string)).header.seq).toBe(seq)
+    expect(a.status.stats?.ferry?.matched).toBe(1)
+    const reads = src.reads.length
+    const b = await pullFromR2(src, seq)
+    expect(b.json).toBeNull()
+    expect(src.reads.length - reads).toBe(1) // only the pointer
+  })
+
+  it('deletes the snapshot from R2_KEEP_SNAPSHOTS cycles ago', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    for (let i = 0; i < R2_KEEP_SNAPSHOTS + 3; i++) {
+      h.up.set(TU, feed(h.nowS(), []))
+      await h.hub.alarm()
+      h.clock.advance(CYCLE_MS)
+    }
+    const snaps = [...r2.files.keys()].filter((k) => k.startsWith('rt/snapshot-'))
+    expect(snaps.length).toBe(R2_KEEP_SNAPSHOTS)
+  })
+
+  it('an R2 outage is recorded but does not stop the cycle or the DO copy', async () => {
+    const r2 = new FakeR2()
+    r2.fail = true
+    const h = setup({ r2 })
+    await warm(h)
+    h.up.set(TU, feed(h.nowS(), []))
+    await h.hub.alarm()
+    expect(h.hub.status().lastError).toMatch(/r2: r2 down/)
+    expect((await h.hub.pull(null)).json).not.toBeNull()
+    expect(h.storage.alarmAt).not.toBeNull()
   })
 })

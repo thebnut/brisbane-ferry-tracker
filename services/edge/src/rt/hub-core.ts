@@ -11,7 +11,6 @@
  */
 import { type Alert, addDays, brisbaneDate, type Mode, type RtSnapshot } from '@bft/core'
 import { fromBinary } from '@bufbuild/protobuf'
-import { gzip } from '../data/source.ts'
 import type { StaticStore } from '../data/static-store.ts'
 import { type FeedMessage, FeedMessageSchema } from '../gen/gtfs-realtime_pb.js'
 import { errorMessage, type Logger, silentLogger } from '../log.ts'
@@ -34,11 +33,24 @@ export interface HubStorage {
   setAlarm(scheduledTime: number): Promise<void>
 }
 
+export const R2_LATEST_KEY = 'rt/latest.json'
+export const R2_KEEP_SNAPSHOTS = 240
+export const snapshotKey = (seq: number) => `rt/snapshot-${seq}.json`
+
+/** rt/latest.json: which snapshot is current, plus the hub status for /v1/health. */
+export interface R2Pointer {
+  seq: number
+  key: string
+  fetchedAt: number
+  status: HubStatus
+}
+
 export interface R2Like {
+  delete(key: string): Promise<unknown>
   put(
     key: string,
     value: Uint8Array | string,
-    opts?: { httpMetadata?: { contentType?: string } },
+    opts?: { httpMetadata?: { contentType?: string; cacheControl?: string } },
   ): Promise<unknown>
 }
 
@@ -294,20 +306,37 @@ export class HubCore {
     }
     for (const f of changed) Object.assign(writes, this.rawWrites(f.key, this.raw.get(f.key) as RawFeed))
 
+    if (this.d.r2 && this.snapshotJson && writes['snap:0'] !== undefined) {
+      try {
+        await this.publishR2(this.snapshotJson, now)
+      } catch (e) {
+        errors.push(`r2: ${errorMessage(e)}`)
+      }
+    }
+
     this.meta.lastCycleAt = this.d.now()
     this.meta.lastError = errors.length > 0 ? errors.join('; ') : null
     writes.meta = { ...this.meta }
     await this.d.storage.put(writes)
-
-    if (this.d.r2 && this.snapshotJson && writes['snap:0'] !== undefined) {
-      // Idempotent publish: the sequence-numbered object first, then the small latest pointer.
-      const key = `rt/snapshot-${this.meta.seq}.json.gz`
-      await this.d.r2.put(key, await gzip(this.snapshotJson), {
-        httpMetadata: { contentType: 'application/json' },
-      })
-      await this.d.r2.put('rt/latest.json', JSON.stringify({ seq: this.meta.seq, key, fetchedAt: now }))
-    }
     if (errors.length > 0) this.log.warn('rt cycle partial', { errors, seq: this.meta.seq })
+  }
+
+  /**
+   * Publish to R2: the sequence-numbered snapshot first, then the small `rt/latest.json` pointer (idempotent; a
+   * reader never sees a pointer to a missing object). Uncompressed: gzip would cost several ms of the 10 ms Free
+   * CPU budget and R2 egress is free. Two Class A writes per cycle (~345k a month); the snapshot from
+   * R2_KEEP_SNAPSHOTS cycles ago is deleted (deletes are free) so the bucket stays bounded.
+   */
+  private async publishR2(json: string, now: number): Promise<void> {
+    const r2 = this.d.r2 as R2Like
+    const seq = this.meta.seq
+    const key = snapshotKey(seq)
+    await r2.put(key, json, { httpMetadata: { contentType: 'application/json' } })
+    const pointer: R2Pointer = { seq, key, fetchedAt: now, status: this.status() }
+    await r2.put(R2_LATEST_KEY, JSON.stringify(pointer), {
+      httpMetadata: { contentType: 'application/json', cacheControl: 'no-store' },
+    })
+    if (seq > R2_KEEP_SNAPSHOTS) await r2.delete(snapshotKey(seq - R2_KEEP_SNAPSHOTS))
   }
 
   private async fetchFeed(f: FeedSpec, now: number): Promise<{ raw?: RawFeed; error?: string }> {
