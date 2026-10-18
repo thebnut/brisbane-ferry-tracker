@@ -1,4 +1,4 @@
-import { liveGuardScript, useLiveGuardRelease } from '@bft/ui/connectivity'
+import { LIVE_GUARD_CSS, liveGuardScript, useLiveGuardRelease } from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, useState } from 'react'
 import {
@@ -63,6 +63,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant script, hides stale LIVE claims before paint. */}
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: liveGuardScript(renderedAt) }} />
+        {/* The guard's rule without the stylesheet: an unstyled page still hides live claims (R3-F1). */}
+        <style>{LIVE_GUARD_CSS}</style>
         <Meta />
         <Links />
       </head>

@@ -79,6 +79,12 @@ export function resetUnconfirmedBefore(): void {
   unconfirmedBefore = undefined
 }
 
+/**
+ * The live guard's own rule, inlined in each layout's <head> next to liveGuardScript (R3-F1): theme.css carries the
+ * same rule, but a page whose stylesheet failed to load must still hide its live claims.
+ */
+export const LIVE_GUARD_CSS = `html[${LIVE_UNCONFIRMED_ATTR}] [data-live-claim]{display:none!important}`
+
 export function useLiveGuardRelease() {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
