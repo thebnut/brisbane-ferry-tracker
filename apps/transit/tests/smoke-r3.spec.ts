@@ -3,5 +3,29 @@
  * F1: an offline load must render the styled offline/scheduled board (or a styled offline page), never LIVE.
  */
 import { offlineLoadSuite } from '@bft/ui/e2e/offline-suite.ts'
+import { expect, test } from '@playwright/test'
 
 offlineLoadSuite({ path: '/ferry', unvisited: '/train/station/central', pagesCache: 'transit-pages' })
+
+test.describe('R3-X8: geo tiles never 404', () => {
+  // Bulimba: the r7hu cells Dev's device asked for, most of them without ferry stops.
+  test.use({ geolocation: { latitude: -27.452, longitude: 153.058 }, permissions: ['geolocation'] })
+
+  test('the Ferry tab and Nearby load every data file and tile they ask for without an error', async ({ page, context }) => {
+    const failed: string[] = []
+    const tiles: string[] = []
+    context.on('response', (r) => {
+      // (Fixture mode has recorded departures for only some bus stops, so only data files are checked.)
+      if (r.status() >= 400 && r.url().includes('/data/')) failed.push(`${r.status()} ${r.url()}`)
+      if (/\/data\/ferry\/geo\/r7hu/.test(r.url())) tiles.push(r.url())
+    })
+    await page.goto('/ferry')
+    await expect(page.getByRole('heading').first()).toBeVisible()
+    await page.goto('/nearby')
+    await expect(page.locator('main')).toContainText(/ferry|train|bus/i)
+    await expect.poll(() => tiles.length, { timeout: 15_000 }).toBeGreaterThan(0)
+    await page.getByRole('link', { name: 'Ferry', exact: true }).first().click()
+    await page.waitForTimeout(1_500)
+    expect(failed).toEqual([])
+  })
+})

@@ -388,6 +388,12 @@ describe('other /v1 routes', () => {
       geohash: 'r7hu1',
       stops: [],
     })
+    expect(empty.headers.get('cache-control')).toBe('public, max-age=300')
+    // R3-X8: a mode without a generation in the manifest (here train) still answers an empty tile, briefly cached.
+    const noGen = await s.get('/data/train/geo/r7hu1.json')
+    expect(noGen.status).toBe(200)
+    expect(GeoTileFile.parse(await noGen.json())).toMatchObject({ mode: 'train', generation: '', stops: [] })
+    expect(noGen.headers.get('cache-control')).toBe('public, max-age=30')
     expect((await s.get('/data/ferry/geo/r7hu.json')).status).toBe(404)
     expect((await s.get('/data/ferry/geo/aaaaa.json')).status).toBe(404)
     const l = await s.get('/schedule-data/latest.json')
