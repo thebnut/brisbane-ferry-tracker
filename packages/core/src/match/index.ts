@@ -23,8 +23,9 @@ export interface RtDescriptor {
 export interface RtStopObservation {
   seq?: number
   stopId?: string
-  /** Absolute epoch seconds (arrival or departure) if the feed gave one. */
-  time?: number
+  /** Absolute predicted arrival / departure epoch seconds, if the feed gave them. Kept separate (Codex PR38 #1). */
+  arr?: number
+  dep?: number
 }
 
 export type MatchResult =
@@ -144,7 +145,7 @@ export class TripMatcher {
     }
     // Tier 4
     if (rKey) {
-      const timed = obs.filter((o) => o.seq != null && o.time != null)
+      const timed = obs.filter((o) => o.seq != null && (o.arr != null || o.dep != null))
       if (timed.length > 0) {
         const keys =
           desc.directionId != null
@@ -158,7 +159,10 @@ export class TripMatcher {
             const ok = timed.some((o) => {
               const st = t.stops.get(o.seq as number)
               if (!st || (o.stopId && st.stopId !== o.stopId)) return false
-              return Math.abs((o.time as number) - st.depEpoch) <= TIER4_WINDOW_S
+              // Compare like with like: a predicted arrival against the scheduled arrival, a departure against the
+              // scheduled departure. Either within the window qualifies; uniqueness is checked across candidates.
+              if (o.dep != null && Math.abs(o.dep - st.depEpoch) <= TIER4_WINDOW_S) return true
+              return o.arr != null && Math.abs(o.arr - st.arrEpoch) <= TIER4_WINDOW_S
             })
             if (ok) cands.push(t)
           }

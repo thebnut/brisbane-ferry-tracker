@@ -69,8 +69,8 @@ export function predictStop(
     const depDelay = u.depDelay ?? u.arrDelay
     if (arrDelay == null && depDelay == null) return scheduled
     const estArr = u.arr ?? schedArr + (arrDelay ?? 0)
-    // A vehicle can't leave before it arrives: clamp departure to at least the predicted arrival.
-    const estDep = Math.max(u.dep ?? schedDep + (depDelay ?? 0), Math.min(estArr, schedDep + (depDelay ?? 0)))
+    // A vehicle can't leave before it arrives: clamp the departure to at least the predicted arrival.
+    const estDep = Math.max(u.dep ?? schedDep + (depDelay ?? 0), estArr)
     return { estArr, estDep, status: 'live' }
   }
   // Propagate the upstream stop's departure delay (falling back to its arrival delay).

@@ -161,13 +161,13 @@ describe('frequent route with 6-minute headways', () => {
   it('tier 4 is ambiguous when an RT time sits between two scheduled trips, so it stays unmatched', () => {
     // 08:15 at stop A: H2 (08:12) and H3 (08:18) are both within ±5 minutes.
     const r = matcher.match({ routeId: 'B200-9', directionId: 0, startDate: D }, [
-      { seq: 1, stopId: 'A', time: t(D, '08:15:00') },
+      { seq: 1, stopId: 'A', dep: t(D, '08:15:00') },
     ])
     expect(r).toEqual({ kind: 'ambiguous', tier: 4, candidates: 2 })
   })
   it('tier 4 matches when exactly one candidate is in the window', () => {
     const r = matcher.match({ routeId: 'B200-9', directionId: 0, startDate: D }, [
-      { seq: 1, stopId: 'A', time: t(D, '08:12:30') },
+      { seq: 1, stopId: 'A', dep: t(D, '08:12:30') },
     ])
     expect(r).toMatchObject({ kind: 'matched', tier: 4, key: `H2@${D}` })
   })
@@ -223,7 +223,7 @@ describe('branches and opposite directions at shared stops', () => {
   it('direction filters the opposite trip, pattern filters the branch', () => {
     expect(
       m.match({ routeId: 'R1-2', directionId: 0, startDate: D }, [
-        { seq: 1, stopId: 'S', time: t(D, '09:01:00') },
+        { seq: 1, stopId: 'S', dep: t(D, '09:01:00') },
         { seq: 2, stopId: 'X' },
       ]),
     ).toMatchObject({
@@ -233,7 +233,7 @@ describe('branches and opposite directions at shared stops', () => {
   })
   it('without direction or pattern it is ambiguous', () => {
     expect(
-      m.match({ routeId: 'R1-2', startDate: D }, [{ seq: 1, stopId: 'S', time: t(D, '09:01:00') }]),
+      m.match({ routeId: 'R1-2', startDate: D }, [{ seq: 1, stopId: 'S', dep: t(D, '09:01:00') }]),
     ).toMatchObject({ kind: 'ambiguous' })
   })
   it('rail tier 3 matches the trip-ID prefix after a suffix rotation', () => {
@@ -393,7 +393,7 @@ describe('ADDED trip', () => {
     const m = new TripMatcher('bus', [tripIndex(D, [{ id: 'X', route: 'B1-1', stops: [['A', '08:00:00']] }])])
     expect(
       m.match({ tripId: 'NEW-1', routeId: 'B9-1', startDate: D }, [
-        { seq: 1, stopId: 'Q', time: t(D, '08:00:00') },
+        { seq: 1, stopId: 'Q', dep: t(D, '08:00:00') },
       ]),
     ).toEqual({ kind: 'unmatched' })
   })
@@ -466,5 +466,126 @@ describe('03:00 feed swap', () => {
       tier: 2,
       key: `T-NEW@${D}`,
     })
+  })
+})
+
+describe('Codex PR38 review regressions', () => {
+  it('tier 4 compares arrivals with arrivals: an arrival-only observation shared by two trips stays ambiguous', () => {
+    const m = new TripMatcher('bus', [
+      tripIndex(D, [
+        {
+          id: 'P',
+          route: 'B5-1',
+          stops: [
+            ['A', '08:00:00', '08:01:00'],
+            ['B', '08:20:00'],
+          ],
+        },
+        {
+          id: 'Q',
+          route: 'B5-1',
+          stops: [
+            ['A', '08:00:00', '08:10:00'],
+            ['B', '08:30:00'],
+          ],
+        },
+      ]),
+    ])
+    expect(
+      m.match({ routeId: 'B5-1', directionId: 0, startDate: D }, [
+        { seq: 1, stopId: 'A', arr: t(D, '08:00:00') },
+      ]),
+    ).toMatchObject({
+      kind: 'ambiguous',
+      tier: 4,
+    })
+    expect(
+      m.match({ routeId: 'B5-1', directionId: 0, startDate: D }, [
+        { seq: 1, stopId: 'A', dep: t(D, '08:10:30') },
+      ]),
+    ).toMatchObject({
+      kind: 'matched',
+      key: `Q@${D}`,
+    })
+  })
+
+  it('a resolvable ADDED trip appears as a live row; scheduled-only when RT is not live', () => {
+    const now = t(D, '09:00:00')
+    const added: RtTrip = {
+      key: `rt:EXTRA@${D}`,
+      rel: 'ADDED',
+      ts: now,
+      updates: [],
+      added: {
+        route: { id: 'F1-1', short: 'F1' },
+        headsign: 'Northshore',
+        directionId: 0,
+        stops: [
+          { stopId: 'A', seq: 1, arr: t(D, '09:10:00'), dep: t(D, '09:10:00') },
+          { stopId: 'B', seq: 2, arr: t(D, '09:25:00'), dep: t(D, '09:25:00') },
+        ],
+      },
+    }
+    const day = stopDay(D, 'A', [
+      {
+        id: 'S',
+        route: 'F1-1',
+        stops: [
+          ['A', '09:30:00'],
+          ['B', '09:45:00'],
+        ],
+      },
+    ])
+    const rows = mergeDepartures([day], snapshot({ [added.key]: added }, now), {
+      nowS: now,
+      rtState: 'live',
+      toStopIds: new Set(['B']),
+    })
+    expect(rows.map((r) => [r.tripInstance, r.status, r.estArrTo])).toEqual([
+      [`rt:EXTRA@${D}`, 'live', t(D, '09:25:00')],
+      [`S@${D}`, 'scheduled', null],
+    ])
+    expect(
+      mergeDepartures([day], snapshot({ [added.key]: added }, now), { nowS: now, rtState: 'stale' }),
+    ).toHaveLength(1)
+  })
+
+  it('a skipped second loop visit does not hide the usable first boarding', () => {
+    const loop: SynthTrip = {
+      id: 'L2',
+      route: 'B9-1',
+      stops: [
+        ['A', '08:00:00'],
+        ['X', '08:05:00'],
+        ['A', '08:10:00'],
+        ['B', '08:20:00'],
+      ],
+    }
+    const rt: RtTrip = {
+      key: `L2@${D}`,
+      rel: 'SCHEDULED',
+      ts: 0,
+      updates: [
+        { seq: 1, rel: 'SCHEDULED', depDelay: 0 },
+        { seq: 3, rel: 'SKIPPED' },
+      ],
+    }
+    const now = t(D, '07:50:00')
+    const rows = mergeDepartures([stopDay(D, 'A', [loop])], snapshot({ [rt.key]: rt }, now), {
+      nowS: now,
+      rtState: 'live',
+      toStopIds: new Set(['B']),
+    })
+    expect(rows.map((r) => [r.stopSequence, r.status])).toEqual([[1, 'live']])
+  })
+
+  it('departure is clamped to the predicted arrival', () => {
+    const trip: RtTrip = {
+      key: 'k',
+      rel: 'SCHEDULED',
+      ts: 0,
+      updates: [{ seq: 1, rel: 'SCHEDULED', arrDelay: 300, depDelay: 0 }],
+    }
+    expect(predictStop(trip, 1, 1000, 1060, 'live')).toEqual({ estArr: 1300, estDep: 1300, status: 'live' })
   })
 })

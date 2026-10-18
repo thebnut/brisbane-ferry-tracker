@@ -25,6 +25,8 @@ export interface MergeOptions {
   withStopsAfter?: boolean
   /** Only rows whose route short name is in this set. */
   routes?: ReadonlySet<string>
+  /** Stop ids you can board at for this stop key. Defaults to the platforms referenced by the stop-day files. */
+  boardingStopIds?: ReadonlySet<string>
 }
 
 export function vehiclesByTrip(vehicles: Vehicle[]): Map<string, Vehicle> {
@@ -115,8 +117,11 @@ export function mergeDepartures(
         const prev = bestByTrip.get(key)
         if (prev != null) {
           const existing = rows[prev] as Departure
-          if (existing.schedDep >= schedDep) continue
-          rows[prev] = row
+          // A skipped visit never replaces a usable boarding (Codex PR38 #3); otherwise prefer the later boarding.
+          const rowUsable = row.status !== 'skipped'
+          const existingUsable = existing.status !== 'skipped'
+          const better = rowUsable !== existingUsable ? rowUsable : schedDep > existing.schedDep
+          if (better) rows[prev] = row
           continue
         }
         bestByTrip.set(key, rows.length)
@@ -125,6 +130,73 @@ export function mergeDepartures(
     }
   }
 
+  if (rt && opts.rtState === 'live') rows.push(...addedTripRows(days, rt, opts, to, grace, vehicles))
+
   rows.sort((a, b) => (a.estDep ?? a.schedDep) - (b.estDep ?? b.schedDep) || a.schedDep - b.schedDep)
   return opts.limit ? rows.slice(0, opts.limit) : rows
+}
+
+/**
+ * Rows for ADDED / DUPLICATED trips that have no static events (Codex PR38 #2). The hub only publishes these when
+ * their stop list resolved; times are RT predictions, so the rows are live by construction.
+ */
+function addedTripRows(
+  days: StaticStopDay[],
+  rt: RtSnapshot,
+  opts: MergeOptions,
+  to: ReadonlySet<string> | null,
+  grace: number,
+  vehicles: Map<string, Vehicle>,
+): Departure[] {
+  let boarding = opts.boardingStopIds
+  if (!boarding) {
+    const ids = new Set<string>()
+    for (const day of days) {
+      ids.add(day.stopKey)
+      for (const ev of day.events) {
+        const stop = day.stops[ev[6]]
+        if (stop) ids.add(stop.id)
+      }
+    }
+    boarding = ids
+  }
+  const out: Departure[] = []
+  for (const trip of Object.values(rt.trips)) {
+    const added = trip.added
+    if (!added || (trip.rel !== 'ADDED' && trip.rel !== 'DUPLICATED')) continue
+    if (opts.routes && !opts.routes.has(added.route.short)) continue
+    let chosen: Departure | null = null
+    for (let i = 0; i < added.stops.length; i++) {
+      const s = added.stops[i] as (typeof added.stops)[number]
+      if (!boarding.has(s.stopId) || s.dep < opts.nowS - grace) continue
+      let arrTo: number | null = null
+      if (to) {
+        const dest = added.stops.slice(i + 1).find((d) => to.has(d.stopId))
+        if (!dest) continue
+        arrTo = dest.arr
+      }
+      const vehicle = vehicles.get(trip.key)
+      const row: Departure = {
+        tripInstance: trip.key,
+        stopSequence: s.seq,
+        route: added.route,
+        headsign: added.headsign,
+        directionId: added.directionId,
+        stopId: s.stopId,
+        platform: null,
+        schedDep: s.dep,
+        estDep: s.dep,
+        schedArrTo: arrTo,
+        estArrTo: arrTo,
+        status: 'live',
+        gps: vehicle != null,
+        vehicleId: vehicle?.id ?? trip.vehicleId ?? null,
+      }
+      if (opts.withStopsAfter) row.stopsAfter = added.stops.slice(i + 1).map((d) => d.stopId)
+      if (to) chosen = row
+      else out.push(row)
+    }
+    if (chosen) out.push(chosen)
+  }
+  return out
 }

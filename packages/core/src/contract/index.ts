@@ -201,6 +201,20 @@ export const RtTrip = z.object({
   until: z.number().int().optional(),
   vehicleId: z.string().optional(),
   updates: z.array(RtStopUpdate),
+  /**
+   * For ADDED / DUPLICATED trips whose stop list resolves against static stops: the RT-only stopping pattern
+   * (absolute epoch seconds). Trips that don't resolve are counted in MatchStats.addedDropped and not published.
+   */
+  added: z
+    .object({
+      route: RouteRef,
+      headsign: z.string(),
+      directionId: z.union([z.literal(0), z.literal(1), z.literal(-1)]),
+      stops: z.array(
+        z.object({ stopId: z.string(), seq: z.number().int(), arr: z.number().int(), dep: z.number().int() }),
+      ),
+    })
+    .optional(),
 })
 export type RtTrip = z.infer<typeof RtTrip>
 

@@ -591,6 +591,7 @@ if (minutesUntil > 60) return null;
 8. Dark mode support
 9. PWA capabilities for offline access
 10. Trip planning (multi-stop journeys)
+
 ## Transit platform monorepo (in progress, October 2026)
 
 The transit platform (`docs/architecture/transit-architecture.md`) is being built **additively** in this repo:
