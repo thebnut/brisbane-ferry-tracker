@@ -154,7 +154,11 @@ describe('budget config', () => {
     for (let i = 0; i < 10_000; i++) {
       const r = reserve(s, cfg, `r${i}`, 0.0035, null, false, 0)
       s = r.state
-      if (r.result.ok) ok++
+      if (r.result.ok) {
+        ok++
+        // Each call settles at its full reservation (the worst case); at most 500 can be in flight at once.
+        s = reconcile(s, `r${i}`, 0.0035, 0)
+      }
     }
     expect(ok * 0.0035).toBeLessThanOrEqual(10)
     expect(ok).toBe(2857)

@@ -120,6 +120,9 @@ export function reserve(
   if (ip && countQuestion && (state.perIp[ip] ?? 0) >= cfg.perIpDailyQuota) {
     return { state, result: { ok: false, reason: 'ip_quota' } }
   }
+  if (Object.keys(state.reservations).length >= MAX_OUTSTANDING) {
+    return { state, result: { ok: false, reason: 'capacity' } }
+  }
   if (ip && countQuestion && state.perIp[ip] == null && Object.keys(state.perIp).length >= MAX_IPS_PER_DAY) {
     return { state, result: { ok: false, reason: 'capacity' } }
   }
@@ -143,6 +146,8 @@ export const SETTLED_RETENTION_MS = 24 * 3600_000
  */
 export const MAX_SETTLED = 2000
 export const MAX_IPS_PER_DAY = 20000
+/** Outstanding (in-flight) reservations: far above real concurrency; beyond it, fail closed (Codex review round 10). */
+export const MAX_OUTSTANDING = 500
 
 function capSettled(
   settled: Record<string, { usd: number; at: number }>,

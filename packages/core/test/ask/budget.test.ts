@@ -122,6 +122,22 @@ describe('budget ledger', () => {
       reason: 'capacity',
     })
     expect(reserve(st, cfg, 'y', 0.0002, 'ip-hash-2-0123456789abcdef', true, 1).result.ok).toBe(true)
+    // All three collections at capacity together still fit, and a further reservation fails closed (round 10).
+    const full = {
+      ...st,
+      reservations: Object.fromEntries(
+        Array.from({ length: 500 }, (_, i) => [
+          crypto.randomUUID(),
+          { usd: 0.002, ip: `ip-hash-${i}-0123456789abcdef`, at: 6000 },
+        ]),
+      ),
+      reservedUsd: 1,
+    }
+    expect(JSON.stringify(full).length).toBeLessThan(1_600_000)
+    expect(reserve(full, cfg, 'z', 0.0002, null, false, 6001).result).toEqual({
+      ok: false,
+      reason: 'capacity',
+    })
   })
   it('worst case for one round (3k in, 400 out) is about $0.0005', () => {
     expect(worstCaseUsd(3000, 400)).toBeCloseTo(0.0005, 6)

@@ -41,7 +41,15 @@ export class Budget extends DurableObject {
   ): Promise<ReserveResult> {
     const now = Date.now()
     const r = reserve(await this.load(now), cfg, id, usd, ip, countQuestion, now)
-    if (r.result.ok) await this.save(r.state)
+    if (r.result.ok) {
+      try {
+        await this.save(r.state)
+      } catch {
+        // Never let a storage failure turn into an unrecorded spend: fail closed.
+        this.state = null
+        return { ok: false, reason: 'capacity' }
+      }
+    }
     return r.result
   }
 
