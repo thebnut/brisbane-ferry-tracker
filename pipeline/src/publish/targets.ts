@@ -67,7 +67,10 @@ export const ASSETS_FILE_LIMIT = 20_000
  */
 export class AssetsTarget extends DirTarget {
   override readonly name: string
-  constructor(dir: string) {
+  constructor(
+    dir: string,
+    readonly fileLimit = ASSETS_FILE_LIMIT,
+  ) {
     super(dir)
     this.name = `assets:${dir}`
   }
@@ -88,9 +91,9 @@ export class AssetsTarget extends DirTarget {
     ].join('\n')
     await writeFile(join(this.dir, '_headers'), headers)
     const files = await countFiles(this.dir)
-    if (files > ASSETS_FILE_LIMIT)
+    if (files > this.fileLimit)
       throw new Error(
-        `assets directory has ${files} files, over the Workers limit of ${ASSETS_FILE_LIMIT} per version`,
+        `assets directory has ${files} files, over the Workers limit of ${this.fileLimit} per version`,
       )
   }
 }

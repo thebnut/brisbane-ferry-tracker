@@ -221,7 +221,10 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
             mode: b.mode,
             index: b.index,
             previous,
-            stationKeys: new Set(Object.values(b.index.blobs).flatMap((m) => Object.keys(m))),
+            // Stations this generation or the previous one serves anywhere in the window.
+            stationKeys: new Set(
+              [b.index, previous].flatMap((i) => Object.values(i?.blobs ?? {}).flatMap((m) => Object.keys(m))),
+            ),
             closureExplained: closureExplainer(feed, keys, b.mode),
           })
     results.push({
