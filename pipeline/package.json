@@ -10,6 +10,7 @@
   "scripts": {
     "build:data": "node --experimental-transform-types --disable-warning=ExperimentalWarning src/cli.ts build",
     "publish:data": "node --experimental-transform-types --disable-warning=ExperimentalWarning src/cli.ts publish",
+    "gc": "node --experimental-transform-types --disable-warning=ExperimentalWarning src/cli.ts gc",
     "measure": "node --experimental-transform-types --disable-warning=ExperimentalWarning src/measure/measure.ts",
     "golden": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/golden.ts",
     "typecheck": "tsc -p tsconfig.json",

@@ -13,6 +13,7 @@ Run these from `pipeline/`. Node 22.18+ runs the TypeScript directly with `--exp
 pnpm build:data --gtfs /tmp/bft-gtfs/x --out out              # whole network, ~50 s, <1 GB RSS
 pnpm build:data --date 20261020 --now 2026-10-19T17:15:00Z    # pinned date/instant (tests, reproductions)
 pnpm publish:data --from out --target dir --to /tmp/store     # or --target r2 | uploader | assets
+pnpm gc --target r2|uploader [--apply]                        # R2 garbage collection, dry run unless --apply
 pnpm measure --gtfs /tmp/bft-gtfs/x --date 20261020           # Phase 0 numbers (§5)
 pnpm golden --gtfs /tmp/bft-gtfs/x                            # regenerate packages/core/fixtures/golden
 ```
@@ -43,6 +44,27 @@ To promote a quarantined build, use `--accept <generation>`, or the workflow inp
   `manifest.json` / `manifest.staging.json` already reference, PUTs the rest, then uploads the generation indexes,
   then client data, and `manifest.json` last.
 - A next-day run on an unchanged feed is about 1.1k Class A operations. A full feed change is about 6.3k.
+
+## Garbage collection
+
+`gc` deletes unreferenced pipeline objects from the bucket (Brett approved automated GC on 18 Oct 2026). It is a dry
+run unless you pass `--apply`. It prints counts, bytes and sample keys per prefix and writes a JSON report
+(`--report`, default `gc-report.json`; with `--apply` the report lists every deleted key).
+
+- **Only these keys are ever candidates:** `static/blobs/*`, `static/shards/*` and `static/{generation}/*`. The
+  allow-list is hard-coded in `src/gc/gc.ts`, and the uploader Worker refuses to delete anything else.
+  `manifest*.json`, `data/`, `legacy/`, `rt/` and any other prefix are never touched.
+- **Kept:**
+  - every generation that `manifest.json` or `manifest.staging.json` names (current, previous and quarantined);
+  - every generation with an object uploaded in the last 14 days;
+  - everything any of those generations' indexes reference (blobs, trip indexes, shards);
+  - anything uploaded less than 48 hours ago.
+- **Aborts, deleting nothing,** when `manifest.json` is missing or doesn't parse, a current-generation index is
+  missing or doesn't parse, or the candidates are over 60% of `static/` (override with `--max-fraction`, which is
+  logged). Deletes go in batches of 1,000. Exit code 4 means a rail aborted.
+- **CI** runs `gc --apply` after the Sunday publish, and on demand with the workflow input `gc`. The report is kept
+  as an artifact for 90 days.
+- **This Mac:** `scripts/with-r2-uploader.sh pnpm gc --target uploader [--apply]`.
 
 ## Layout
 
@@ -80,8 +102,3 @@ Structural failures fail closed:
 Plausible changes are quarantined:
 - per-mode trip count per date moves more than ±20% against the previous generation
 - a station the previous generation served on a date has no service now, and `calendar_dates` doesn't explain it
-
-## Not done yet
-
-- **Weekly GC of unreferenced blobs.** Storage grows about 25 MB a day on an unchanged feed, plus about 135 MB per feed change. GC deletes objects, so
-  it needs Brett's go-ahead.

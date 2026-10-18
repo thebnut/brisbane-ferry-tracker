@@ -8,6 +8,10 @@ name: Transit static timetable
 # Class A operations, inside the R2 free tier. It never commits to git and never touches GitHub Pages; the legacy daily
 # job (update-schedule.yml) is separate and unchanged.
 #
+# Weekly (the Sunday 03:15 AEST run) and on demand (workflow_dispatch gc=true), the gc job deletes unreferenced
+# pipeline objects under static/ only (pipeline/src/gc/gc.ts: keeps every generation the manifests name or uploaded
+# in the last 14 days, and anything younger than 48 h) and uploads its report as an artifact.
+#
 # Exit codes of the build: 0 ok, 2 structural failure (nothing published), 3 quarantined (live manifest keeps the
 # previous generation of the quarantined modes; the new one is in manifest.staging.json). Promote a quarantined build
 # with workflow_dispatch accept=<generation>.
@@ -26,6 +30,11 @@ on:
         description: 'Service date D (YYYYMMDD); default today in Brisbane'
         required: false
         default: ''
+      gc:
+        description: 'Also run R2 garbage collection (gc --apply) after publishing'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -162,3 +171,50 @@ jobs:
         run: |
           node --experimental-transform-types --disable-warning=ExperimentalWarning pipeline/src/cli.ts \
             publish --from "$RUNNER_TEMP/out" --target r2
+
+  gc:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HAS_CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+      FORCE_GC: ${{ inputs.gc == true }}
+    steps:
+      - name: Decide (Sundays in Brisbane, or workflow_dispatch gc=true, and only with Cloudflare credentials)
+        id: when
+        run: |
+          dow="$(TZ=Australia/Brisbane date +%u)"
+          if [ "$HAS_CF_TOKEN" = true ] && { [ "$FORCE_GC" = true ] || { [ "$GITHUB_EVENT_NAME" = schedule ] && [ "$dow" = 7 ]; }; }; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GC skipped (event $GITHUB_EVENT_NAME, Brisbane weekday $dow, credentials $HAS_CF_TOKEN)."
+          fi
+      - uses: actions/checkout@v4
+        if: steps.when.outputs.run == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.when.outputs.run == 'true'
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v4
+        if: steps.when.outputs.run == 'true'
+        with:
+          node-version: '22'
+          cache: pnpm
+      - if: steps.when.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Garbage-collect unreferenced static/ objects (exit 4 = a safety rail aborted, nothing deleted)
+        if: steps.when.outputs.run == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          node --experimental-transform-types --disable-warning=ExperimentalWarning pipeline/src/cli.ts \
+            gc --target r2 --apply --report "$RUNNER_TEMP/gc-report.json"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.when.outputs.run == 'true'
+        with:
+          name: transit-gc-${{ github.run_id }}
+          path: ${{ runner.temp }}/gc-report.json
+          retention-days: 90
+          if-no-files-found: warn
