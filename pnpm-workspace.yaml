@@ -19,5 +19,7 @@ allowBuilds:
   esbuild: true
   workerd: true
   sharp: true
+  # buf ships its binary through optional platform packages; its postinstall is only a fallback.
+  '@bufbuild/buf': false
 minimumReleaseAgeExclude:
   - '@cloudflare/workers-types@5.20261018.1'
