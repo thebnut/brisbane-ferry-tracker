@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus Kerbside · Route 66 detail</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&amp;family=Barlow:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1E2224}a:hover{color:#000}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F2F0EA; font-family: 'Barlow', system-ui, sans-serif; color: #1E2224; display: flex; flex-direction: column; overflow: hidden; font-variant-numeric: tabular-nums">
+  <header style="background: #0F1213; color: #F2B705; padding: 12px 12px 18px">
+    <div style="display: flex; justify-content: space-between; align-items: center">
+      <a href="B-Departures.dc.html" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #fff"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+      <span style="font-size: 12px; font-weight: 700; color: #5BE3A3; letter-spacing: 0.8px">● LIVE · GPS · BUS 1874</span>
+      <button aria-label="Notify me before it arrives" style="width: 44px; height: 44px; border: 0; background: transparent; color: #fff; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg></button>
+    </div>
+    <div style="display: flex; align-items: center; gap: 16px; padding: 6px 8px 0">
+      <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 92px; font-weight: 800; line-height: 0.9; letter-spacing: -2px">66</span>
+      <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 700; line-height: 1; text-transform: uppercase">UQ Lakes<span style="display: block; font-size: 17px; color: #E8D9A8; font-weight: 600">via Mater Hill</span></span>
+    </div>
+  </header>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: #1E2224; color: #fff">
+    <div style="padding: 10px 12px; border-right: 1px solid #343A3D"><div style="font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #C3C8CA">YOUR STOP</div><div style="font-family: 'Barlow Condensed', sans-serif; font-size: 30px; font-weight: 800">4 min</div></div>
+    <div style="padding: 10px 12px; border-right: 1px solid #343A3D"><div style="font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #C3C8CA">DELAY</div><div style="font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 800; color: #FF9C8F; margin-top: 4px">+3 min</div></div>
+    <div style="padding: 10px 12px"><div style="font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #C3C8CA">LOAD</div>
+      <div style="display: flex; gap: 2px; margin: 8px 0 4px" aria-hidden="true"><span style="flex: 1; height: 8px; background: #F2B705"></span><span style="flex: 1; height: 8px; background: #F2B705"></span><span style="flex: 1; height: 8px; background: #4A5154"></span></div>
+      <div style="font-size: 13px; font-weight: 700">Few seats</div></div>
+  </div>
+  <h2 style="margin: 16px 16px 4px; font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1.4px; color: #565D60">STOPS · ARRIVES IN</h2>
+  <ol style="list-style: none; margin: 0; padding: 0 12px; flex: 1; overflow: hidden">
+    <sc-for list="{{stops}}" as="s" hint-placeholder-count="10">
+      <li style="display: flex; align-items: center; gap: 12px; min-height: 46px; border-bottom: 1px solid #DDD9CF; background: {{s.bg}}; padding: 0 8px; color: {{s.fg}}">
+        <span style="width: 34px; font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700; color: #565D60">{{s.num}}</span>
+        <span style="width: 12px; height: 12px; border-radius: 2px; background: {{s.mark}}; flex-shrink: 0"></span>
+        <span style="flex: 1; font-size: 15px; font-weight: {{s.w}}">{{s.name}}</span>
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 800">{{s.eta}}</span>
+      </li>
+    </sc-for>
+  </ol>
+  <div style="padding: 10px 12px 26px">
+    <a href="B-Map.dc.html" style="height: 56px; border-radius: 8px; background: #F2B705; color: #1E2224; text-decoration: none; font-weight: 800; font-size: 17px; display: flex; align-items: center; justify-content: center; gap: 8px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"></path></svg>Track bus 1874</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const past = { bg: 'transparent', fg: '#7A8083', mark: '#C9C5BA', w: 500 };
+    const next = { bg: 'transparent', fg: '#1E2224', mark: '#1E2224', w: 600 };
+    return { stops: [
+      { ...past, num: '1801', name: 'Roma Street busway', eta: 'gone' },
+      { ...past, num: '1820', name: 'King George Square', eta: 'gone' },
+      { ...next, num: '', name: 'Bus is on Adelaide St', eta: '', mark: '#F2B705', w: 800 },
+      { ...next, num: '1832', name: 'Cultural Centre · P1 (you)', eta: '4', bg: '#FDF3D0', mark: '#1E2224', w: 800 },
+      { ...next, num: '1840', name: 'South Bank busway', eta: '6' },
+      { ...next, num: '1851', name: 'Mater Hill', eta: '8' },
+      { ...next, num: '1710', name: 'Buranda busway', eta: '12' },
+      { ...next, num: '1722', name: 'PA Hospital', eta: '15' },
+      { ...next, num: '1730', name: 'Boggo Road', eta: '17' },
+      { ...next, num: '1750', name: 'UQ Lakes', eta: '24' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

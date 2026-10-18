@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nearby Everything · Dark mode and widgets</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.tn{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1200px; height: 844px; box-sizing: border-box; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; display: flex">
+  <div style="width: 390px; height: 844px; background: #121416; color: #F1EEE7; display: flex; flex-direction: column; overflow: hidden">
+    <div style="padding: 20px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline"><h1 style="margin: 0; font-size: 26px; font-weight: 700">Around you</h1><span style="font-size: 14px; color: #B3B7BA">Oxford St, Bulimba</span></div>
+      <div style="display: flex; gap: 6px; font-size: 15px; font-weight: 700"><span style="padding: 11px 14px; border-radius: 22px; background: #F1EEE7; color: #121416">All</span><span style="padding: 9px 12px; border-radius: 22px; border: 2px solid #FF8A5C">Ferry 1</span><span style="padding: 9px 12px; border-radius: 22px; border: 2px solid #A996FF">Train 1</span><span style="padding: 9px 12px; border-radius: 22px; border: 2px solid #F2B705">Bus 3</span></div>
+    </div>
+    <main style="flex: 1; padding: 4px 16px; display: flex; flex-direction: column; gap: 12px">
+      <section style="background: #1D2023; border-radius: 18px; overflow: hidden"><div style="padding: 10px 14px; background: #F2B705; color: #16191B; display: flex; justify-content: space-between"><b>Oxford St, stop 1832</b><span>2 min walk</span></div><div style="padding: 6px 14px 10px">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 44px"><span style="font-size: 17px; font-weight: 700; min-width: 48px; text-align: center; border-radius: 6px; border: 2px solid #F2B705">230</span><span style="flex: 1">City <span style="font-size: 13px; font-weight: 700; color: #4CC38A">● LIVE</span></span><b class="tn" style="font-size: 24px">Now</b></div>
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 44px"><span style="font-size: 17px; font-weight: 700; min-width: 48px; text-align: center; border-radius: 6px; border: 2px solid #F2B705">230</span><span style="flex: 1">City <span style="font-size: 12px; font-weight: 700; padding: 2px 5px; border-radius: 4px; background: #F1EEE7; color: #121416">CANCELLED</span></span><b class="tn" style="font-size: 20px; color: #7F8488; text-decoration: line-through">7:47</b></div></div></section>
+      <section style="background: #1D2023; border-radius: 18px; overflow: hidden"><div style="padding: 10px 14px; background: #B8400F; color: #FFFFFF; display: flex; justify-content: space-between"><b>Bulimba ferry terminal</b><span>4 min walk</span></div><div style="padding: 6px 14px 10px">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 44px"><span style="font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #3A2A22; color: #FFC2A8">F11 Express</span><span style="flex: 1">Riverside <span style="font-size: 13px; font-weight: 700; color: #4CC38A">● LIVE</span></span><b class="tn" style="font-size: 24px">3 min</b></div>
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 44px"><span style="font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #3A2A22; color: #FFC2A8">F1 All stops</span><span style="flex: 1">UQ <span style="font-size: 13px; font-weight: 700; color: #FF9B73">+4 late</span></span><b class="tn" style="font-size: 20px">11 min</b></div></div></section>
+      <section style="background: #1D2023; border-radius: 18px; overflow: hidden"><div style="padding: 10px 14px; background: #5B3FD1; color: #FFFFFF; display: flex; justify-content: space-between"><b>Morningside station</b><span>18 min walk</span></div><div style="padding: 6px 14px 10px"><div style="display: flex; align-items: center; gap: 10px; min-height: 44px"><span style="font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #2B2550; color: #D2C9FF">Plat 2</span><span style="flex: 1">Central</span><b class="tn" style="font-size: 20px">24 min</b></div></div></section>
+    </main>
+  </div>
+  <div style="flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr))">
+    <div style="background: #D9D6CC; padding: 48px 32px; display: flex; flex-direction: column; gap: 28px; align-items: center">
+      <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #16191B">Widgets · light</div>
+      <div style="width: 170px; height: 170px; border-radius: 22px; background: #FFFFFF; padding: 12px 14px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; color: #16191B; box-shadow: 0 6px 20px rgba(0,0,0,0.12)">
+        <div style="font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="#1E6FD9" aria-hidden="true"><path d="M12 2L4 21l8-4 8 4z"/></svg>Near you</div>
+        <div style="display: flex; align-items: center; gap: 8px"><span style="font-size: 13px; font-weight: 700; padding: 2px 6px; border-radius: 5px; background: #F2B705">230</span><b class="tn" style="font-size: 24px">Now</b></div>
+        <div style="display: flex; align-items: center; gap: 8px"><span style="font-size: 12px; font-weight: 700; padding: 3px 6px; border-radius: 5px; background: #B8400F; color: #FFFFFF">F11</span><b class="tn" style="font-size: 24px">3 min</b></div>
+        <div style="font-size: 11px; color: #4C5256">Oxford St · Bulimba ferry</div>
+      </div>
+      <div style="width: 300px; height: 141px; border-radius: 22px; background: #FFFFFF; padding: 12px 14px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; color: #16191B; box-shadow: 0 6px 20px rgba(0,0,0,0.12)">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px"><span style="min-width: 36px; text-align: center; font-weight: 700; padding: 2px 4px; border-radius: 5px; background: #F2B705">230</span><span style="flex: 1">City · 2 min walk</span><b class="tn" style="font-size: 17px">Now</b></div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px"><span style="min-width: 36px; text-align: center; font-weight: 700; padding: 2px 4px; border-radius: 5px; background: #B8400F; color: #FFFFFF">F11</span><span style="flex: 1">Riverside · 4 min walk</span><b class="tn" style="font-size: 17px">3 min</b></div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px"><span style="min-width: 36px; text-align: center; font-weight: 700; padding: 2px 4px; border-radius: 5px; background: #5B3FD1; color: #FFFFFF">P2</span><span style="flex: 1">Central · 18 min walk</span><b class="tn" style="font-size: 17px">24 min</b></div>
+      </div>
+      <p style="margin: 0; font-size: 12px; text-align: center; color: #16191B">Medium shown at 82%. Widget follows your location; falls back to your saved stop.</p>
+    </div>
+    <div style="background: #23272B; padding: 48px 32px; display: flex; flex-direction: column; gap: 28px; align-items: center">
+      <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #F1EEE7">Widgets · dark</div>
+      <div style="width: 170px; height: 170px; border-radius: 22px; background: #1D2023; padding: 12px 14px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; color: #F1EEE7">
+        <div style="font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 4px"><svg width="12" height="12" viewBox="0 0 24 24" fill="#6EA8FF" aria-hidden="true"><path d="M12 2L4 21l8-4 8 4z"/></svg>Near you</div>
+        <div style="display: flex; align-items: center; gap: 8px"><span style="font-size: 13px; font-weight: 700; padding: 2px 6px; border-radius: 5px; background: #F2B705; color: #16191B">230</span><b class="tn" style="font-size: 24px">Now</b></div>
+        <div style="display: flex; align-items: center; gap: 8px"><span style="font-size: 12px; font-weight: 700; padding: 3px 6px; border-radius: 5px; background: #FF8A5C; color: #121416">F11</span><b class="tn" style="font-size: 24px">3 min</b></div>
+        <div style="font-size: 11px; color: #B3B7BA">Oxford St · Bulimba ferry</div>
+      </div>
+      <div style="width: 300px; height: 141px; border-radius: 22px; background: #1D2023; padding: 12px 14px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; color: #F1EEE7">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px"><span style="min-width: 36px; text-align: center; font-weight: 700; padding: 2px 4px; border-radius: 5px; background: #F2B705; color: #16191B">230</span><span style="flex: 1">City · 2 min walk</span><b class="tn" style="font-size: 17px">Now</b></div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px"><span style="min-width: 36px; text-align: center; font-weight: 700; padding: 2px 4px; border-radius: 5px; background: #FF8A5C; color: #121416">F11</span><span style="flex: 1">Riverside · 4 min walk</span><b class="tn" style="font-size: 17px">3 min</b></div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px"><span style="min-width: 36px; text-align: center; font-weight: 700; padding: 2px 4px; border-radius: 5px; background: #A996FF; color: #121416">P2</span><span style="flex: 1">Central · 18 min walk</span><b class="tn" style="font-size: 17px">24 min</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nearby Everything · States</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#16191B}a:hover{color:#000}
+.tn{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1700px; height: 844px; box-sizing: border-box; background: #E4DFD4; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; color: #16191B; display: flex; justify-content: space-between">
+  <div style="width: 390px; display: flex; flex-direction: column">
+    <div style="height: 40px; display: flex; align-items: center; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3B4044">Loading · finding you</div>
+    <div style="flex: 1; background: #F6F3EC; border-radius: 24px; overflow: hidden; display: flex; flex-direction: column">
+      <div style="height: 170px; background: #E7EBE4; display: flex; align-items: center; justify-content: center"><span style="width: 60px; height: 60px; border-radius: 30px; background: rgba(30,111,217,0.15); display: flex; align-items: center; justify-content: center"><span style="width: 16px; height: 16px; border-radius: 8px; background: #1E6FD9; border: 3px solid #FFFFFF"></span></span></div>
+      <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px">
+        <div style="font-size: 22px; font-weight: 700">Finding stops around you…</div>
+        <div style="font-size: 15px; color: #3B4044">Showing your last spot (Oxford St) until GPS settles.</div>
+        <div style="background: #FFFFFF; border-radius: 18px; overflow: hidden"><div style="height: 40px; background: #E9E5DC"></div><div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 10px"><div style="height: 22px; border-radius: 6px; background: #F0EDE6"></div><div style="height: 22px; border-radius: 6px; background: #F0EDE6"></div></div></div>
+        <div style="background: #FFFFFF; border-radius: 18px; overflow: hidden"><div style="height: 40px; background: #E9E5DC"></div><div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 10px"><div style="height: 22px; border-radius: 6px; background: #F0EDE6"></div><div style="height: 22px; border-radius: 6px; background: #F0EDE6"></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div style="width: 390px; display: flex; flex-direction: column">
+    <div style="height: 40px; display: flex; align-items: center; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3B4044">Empty · nothing running nearby</div>
+    <div style="flex: 1; background: #F6F3EC; border-radius: 24px; overflow: hidden; padding: 32px 28px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 14px; text-align: center">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#16191B" stroke-width="1.5" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+      <h2 style="margin: 0; font-size: 24px; font-weight: 700">Nothing leaving nearby</h2>
+      <p style="margin: 0; font-size: 16px; line-height: 1.45; color: #3B4044">No ferries, trains or buses within a 20 min walk until <b class="tn">5:12 am <span style="color: #A3330A">(19/10)</span></b>.</p>
+      <button style="height: 52px; padding: 0 22px; border-radius: 26px; border: 0; background: #16191B; color: #FFFFFF; font: 700 16px 'Atkinson Hyperlegible', sans-serif">Look further: 40 min walk</button>
+    </div>
+  </div>
+  <div style="width: 390px; display: flex; flex-direction: column">
+    <div style="height: 40px; display: flex; align-items: center; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3B4044">Offline · cached stops</div>
+    <div style="flex: 1; background: #F6F3EC; border-radius: 24px; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+      <div role="status" style="background: #16191B; color: #FFFFFF; border-radius: 14px; padding: 12px 14px; font-size: 15px; line-height: 1.4"><b>Offline.</b> These are the stops you were near at 7:31 pm, with timetabled times. Live times are paused.</div>
+      <div style="background: #FFFFFF; border: 2px dashed #B5AE9F; border-radius: 18px; overflow: hidden"><div style="padding: 8px 14px; background: #F2B705; display: flex; justify-content: space-between; font-size: 15px"><b>Oxford St, stop 1832</b><span>2 min walk</span></div><div style="padding: 8px 14px"><div style="display: flex; align-items: center; gap: 10px; min-height: 44px"><span style="font-weight: 700; min-width: 48px; text-align: center; border: 2px solid #16191B; border-radius: 6px">230</span><span style="flex: 1; font-size: 14px; font-weight: 700; color: #4C5256">SCHEDULED</span><b class="tn" style="font-size: 20px">7:47</b></div></div></div>
+      <div style="background: #FFFFFF; border: 2px dashed #B5AE9F; border-radius: 18px; overflow: hidden"><div style="padding: 8px 14px; background: #B8400F; color: #FFFFFF; display: flex; justify-content: space-between; font-size: 15px"><b>Bulimba ferry terminal</b><span>4 min walk</span></div><div style="padding: 8px 14px"><div style="display: flex; align-items: center; gap: 10px; min-height: 44px"><span style="font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #FFE5D9; color: #8A2E08">F11</span><span style="flex: 1; font-size: 14px; font-weight: 700; color: #4C5256">SCHEDULED</span><b class="tn" style="font-size: 20px">7:34</b></div></div></div>
+    </div>
+  </div>
+  <div style="width: 390px; display: flex; flex-direction: column">
+    <div style="height: 40px; display: flex; align-items: center; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3B4044">Error · location unavailable</div>
+    <div style="flex: 1; background: #F6F3EC; border-radius: 24px; overflow: hidden; padding: 24px 20px; display: flex; flex-direction: column; gap: 14px">
+      <div role="alert" style="background: #FFFFFF; border: 2px solid #A3330A; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; color: #A3330A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><path d="M4 4l16 16"/></svg>Can't find your location</div>
+        <p style="margin: 0; font-size: 15px; line-height: 1.45">Location is off for Brisbane Transit. Turn it on in Settings, or pick a place instead.</p>
+        <button style="height: 48px; border-radius: 12px; border: 0; background: #16191B; color: #FFFFFF; font: 700 15px 'Atkinson Hyperlegible', sans-serif">Open Settings</button>
+      </div>
+      <div style="font-size: 13px; font-weight: 700; color: #4C5256; text-transform: uppercase; letter-spacing: 0.06em">Or use a saved stop</div>
+      <a href="C-Departures.dc.html" style="display: flex; align-items: center; gap: 10px; background: #FFFFFF; border-radius: 14px; padding: 12px 14px; text-decoration: none; min-height: 52px; box-sizing: border-box"><span style="width: 12px; height: 12px; border-radius: 50%; background: #F2B705; border: 2px solid #16191B"></span><b style="flex: 1">Oxford St, stop 1832</b></a>
+      <a href="C-Departures.dc.html" style="display: flex; align-items: center; gap: 10px; background: #FFFFFF; border-radius: 14px; padding: 12px 14px; text-decoration: none; min-height: 52px; box-sizing: border-box"><span style="width: 12px; height: 12px; border-radius: 50%; background: #B8400F"></span><b style="flex: 1">Bulimba ferry terminal</b></a>
+      <a href="C-Search.dc.html" style="display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 26px; border: 2px solid #16191B; text-decoration: none; font-weight: 700">Search for a place</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1700,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

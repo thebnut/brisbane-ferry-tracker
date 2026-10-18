@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>States, Platform Board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&amp;family=JetBrains+Mono:wght@500;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4A2FC0}a:hover{color:#331F8F}
+</style>
+</helmet>
+<div style="width: 1700px; height: 844px; box-sizing: border-box; padding: 0 10px; background: #C9C9C4; font-family: 'Barlow Condensed', system-ui, sans-serif; color: #111315; display: flex; gap: 40px">
+  <section aria-label="Loading" style="width: 390px; height: 844px; background: #EDEDEA; display: flex; flex-direction: column">
+    <div style="background: #111315; color: #FFFFFF; padding: 18px 16px"><div style="font-size: 14px; font-weight: 700; letter-spacing: 0.1em; color: #B9BCC0">LOADING</div><h1 style="margin: 4px 0 0; font-size: 26px; font-weight: 800">ROMA ST → INDOOROOPILLY</h1></div>
+    <div style="padding: 12px 8px; display: flex; flex-direction: column; gap: 3px">
+      <div style="display: flex; gap: 10px; align-items: center; background: #FFFFFF; padding: 10px 6px"><span style="width: 56px; height: 56px; background: #DADAD5; border-radius: 4px"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 6px"><span style="height: 20px; width: 70%; background: #E4E4DF"></span><span style="height: 12px; width: 45%; background: #ECECE8"></span></span><span style="width: 40px; height: 30px; background: #E4E4DF"></span></div>
+      <div style="display: flex; gap: 10px; align-items: center; background: #FFFFFF; padding: 10px 6px"><span style="width: 56px; height: 56px; background: #DADAD5; border-radius: 4px"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 6px"><span style="height: 20px; width: 60%; background: #E4E4DF"></span><span style="height: 12px; width: 40%; background: #ECECE8"></span></span><span style="width: 40px; height: 30px; background: #E4E4DF"></span></div>
+      <div style="display: flex; gap: 10px; align-items: center; background: #FFFFFF; padding: 10px 6px"><span style="width: 56px; height: 56px; background: #DADAD5; border-radius: 4px"></span><span style="flex: 1; display: flex; flex-direction: column; gap: 6px"><span style="height: 20px; width: 65%; background: #E4E4DF"></span><span style="height: 12px; width: 50%; background: #ECECE8"></span></span><span style="width: 40px; height: 30px; background: #E4E4DF"></span></div>
+    </div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #33373C; text-align: center; padding: 8px">FETCHING LIVE TIMES ▮▮▮▯▯</div>
+  </section>
+  <section aria-label="Empty" style="width: 390px; height: 844px; background: #EDEDEA; display: flex; flex-direction: column">
+    <div style="background: #111315; color: #FFFFFF; padding: 18px 16px"><div style="font-size: 14px; font-weight: 700; letter-spacing: 0.1em; color: #B9BCC0">EMPTY · AFTER MIDNIGHT</div><h1 style="margin: 4px 0 0; font-size: 26px; font-weight: 800">ROMA ST → INDOOROOPILLY</h1></div>
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 24px; gap: 14px">
+      <h2 style="margin: 0; font-size: 44px; font-weight: 800; line-height: 0.95">NO MORE TRAINS TONIGHT</h2>
+      <div style="font-size: 20px; color: #33373C">Last train left 23:58.</div>
+      <div style="background: #FFFFFF; padding: 14px; display: flex; align-items: center; gap: 12px"><span style="width: 56px; height: 56px; background: #111315; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px"><span style="font-size: 9px; font-weight: 800; letter-spacing: 0.1em">PLAT</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 800; line-height: 1">9</span></span><span style="flex: 1"><span style="display: block; font-size: 15px; font-weight: 700; color: #4A4E54">FIRST TRAIN TOMORROW</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 800">04:52 <span style="font-size: 15px; color: #8A4200">(19/10)</span></span></span></div>
+    </div>
+  </section>
+  <section aria-label="Offline" style="width: 390px; height: 844px; background: #EDEDEA; display: flex; flex-direction: column">
+    <div style="background: #111315; color: #FFFFFF; padding: 18px 16px"><div style="font-size: 14px; font-weight: 700; letter-spacing: 0.1em; color: #B9BCC0">OFFLINE</div><h1 style="margin: 4px 0 0; font-size: 26px; font-weight: 800">ROMA ST → INDOOROOPILLY</h1></div>
+    <div style="background: #FFFFFF; border-bottom: 3px solid #111315; padding: 10px 14px; display: flex; gap: 10px; align-items: center; font-size: 18px; font-weight: 700"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M12 20h.01"></path></svg>NO SIGNAL · TIMETABLE FROM 07:58</div>
+    <div style="padding: 10px 8px; display: flex; flex-direction: column; gap: 3px">
+      <div style="display: flex; gap: 10px; align-items: center; background: #FFFFFF; padding: 10px 6px"><span style="width: 56px; height: 56px; border: 2px dashed #5C6066; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 800; border-radius: 4px; box-sizing: border-box">8</span><span style="flex: 1"><span style="font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 800">08:07</span> <span style="font-size: 20px; font-weight: 700">SPRINGFIELD C.</span><span style="display: block; font-size: 13px; font-weight: 600; color: #4A4E54">SCHEDULED · NOT LIVE</span></span></div>
+      <div style="display: flex; gap: 10px; align-items: center; background: #FFFFFF; padding: 10px 6px"><span style="width: 56px; height: 56px; border: 2px dashed #5C6066; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 800; border-radius: 4px; box-sizing: border-box">9</span><span style="flex: 1"><span style="font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 800">08:12</span> <span style="font-size: 20px; font-weight: 700">ROSEWOOD</span><span style="display: block; font-size: 13px; font-weight: 600; color: #4A4E54">SCHEDULED · NOT LIVE</span></span></div>
+    </div>
+    <div style="padding: 8px 16px; font-size: 16px; color: #33373C">Platforms may change. Check the station screens.</div>
+  </section>
+  <section aria-label="Error" style="width: 390px; height: 844px; background: #EDEDEA; display: flex; flex-direction: column">
+    <div style="background: #111315; color: #FFFFFF; padding: 18px 16px"><div style="font-size: 14px; font-weight: 700; letter-spacing: 0.1em; color: #B9BCC0">ERROR</div><h1 style="margin: 4px 0 0; font-size: 26px; font-weight: 800">ROMA ST → INDOOROOPILLY</h1></div>
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 24px; gap: 14px">
+      <div style="width: 64px; height: 64px; background: #B3261E; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 34px; font-weight: 800; border-radius: 4px">!</div>
+      <h2 style="margin: 0; font-size: 40px; font-weight: 800; line-height: 0.95">LIVE FEED NOT RESPONDING</h2>
+      <div style="font-size: 19px; color: #33373C; line-height: 1.3">We'll keep retrying every 30 s. The timetable still works.</div>
+      <button style="min-height: 56px; border: 0; border-radius: 4px; background: #111315; color: #FFFFFF; font: inherit; font-size: 20px; font-weight: 700">TRY AGAIN</button>
+      <button style="min-height: 56px; border: 2px solid #111315; border-radius: 4px; background: #FFFFFF; font: inherit; font-size: 20px; font-weight: 700">SHOW TIMETABLE</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1700,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

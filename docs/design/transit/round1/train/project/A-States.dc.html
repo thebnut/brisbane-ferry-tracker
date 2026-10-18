@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>States, Ferry Sibling</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5B3FD1}a:hover{color:#432CA8}
+</style>
+</helmet>
+<div style="width: 1700px; height: 844px; box-sizing: border-box; padding: 0 10px; background: #E9E4DA; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #2D3436; display: flex; gap: 40px; font-variant-numeric: tabular-nums">
+  <section aria-label="Loading" style="width: 390px; height: 844px; background: #FFFBF4; display: flex; flex-direction: column; padding: 20px 16px; box-sizing: border-box; gap: 12px">
+    <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: #5F6B6E">LOADING</div>
+    <h1 style="margin: 0; font-size: 19px; font-weight: 800">Roma Street → Indooroopilly</h1>
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #4A5457"><span style="width: 14px; height: 14px; border-radius: 7px; border: 3px solid #ECE8FB; border-top-color: #5B3FD1; box-sizing: border-box"></span>Getting live times…</div>
+    <div style="background: #FFFFFF; border-radius: 18px; padding: 16px; display: flex; gap: 12px; align-items: center"><div style="width: 6px; height: 56px; border-radius: 3px; background: #E5DFD3"></div><div style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span style="height: 18px; width: 60%; border-radius: 6px; background: #EFE9DE"></span><span style="height: 12px; width: 80%; border-radius: 6px; background: #F4EFE6"></span></div><span style="width: 64px; height: 34px; border-radius: 17px; background: #EFE9DE"></span></div>
+    <div style="background: #FFFFFF; border-radius: 18px; padding: 16px; display: flex; gap: 12px; align-items: center"><div style="width: 6px; height: 56px; border-radius: 3px; background: #E5DFD3"></div><div style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span style="height: 18px; width: 50%; border-radius: 6px; background: #EFE9DE"></span><span style="height: 12px; width: 70%; border-radius: 6px; background: #F4EFE6"></span></div><span style="width: 64px; height: 34px; border-radius: 17px; background: #EFE9DE"></span></div>
+    <div style="background: #FFFFFF; border-radius: 18px; padding: 16px; display: flex; gap: 12px; align-items: center"><div style="width: 6px; height: 56px; border-radius: 3px; background: #E5DFD3"></div><div style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span style="height: 18px; width: 55%; border-radius: 6px; background: #EFE9DE"></span><span style="height: 12px; width: 75%; border-radius: 6px; background: #F4EFE6"></span></div><span style="width: 64px; height: 34px; border-radius: 17px; background: #EFE9DE"></span></div>
+    <div style="font-size: 13px; color: #5F6B6E; text-align: center; margin-top: 8px">First visit downloads the timetable once (about 2 s)</div>
+  </section>
+  <section aria-label="Empty" style="width: 390px; height: 844px; background: #FFFBF4; display: flex; flex-direction: column; padding: 20px 16px; box-sizing: border-box; gap: 12px">
+    <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: #5F6B6E">EMPTY · LATE NIGHT</div>
+    <h1 style="margin: 0; font-size: 19px; font-weight: 800">Roma Street → Indooroopilly</h1>
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 0 20px">
+      <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#5B3FD1" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg>
+      <h2 style="margin: 0; font-size: 22px; font-weight: 800">No more trains tonight</h2>
+      <p style="margin: 0; font-size: 15px; color: #4A5457; line-height: 1.5">The last train left at 11:58 pm. First train tomorrow:</p>
+      <div style="background: #FFFFFF; border-radius: 18px; padding: 14px 18px; box-shadow: 0 2px 10px rgba(45,52,54,0.08); font-size: 20px; font-weight: 800">4:52 am <span style="font-size: 14px; color: #9A4A00">(19/10)</span> <span style="font-size: 13px; padding: 3px 8px; border-radius: 8px; background: #ECE8FB; color: #3F2A9E">Plat 9</span></div>
+      <a href="#" style="min-height: 48px; display: flex; align-items: center; font-weight: 700">Set a reminder</a>
+    </div>
+  </section>
+  <section aria-label="Offline" style="width: 390px; height: 844px; background: #FFFBF4; display: flex; flex-direction: column; padding: 20px 16px; box-sizing: border-box; gap: 12px">
+    <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: #5F6B6E">OFFLINE</div>
+    <h1 style="margin: 0; font-size: 19px; font-weight: 800">Roma Street → Indooroopilly</h1>
+    <div style="display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 14px; background: #2D3436; color: #FFFFFF; font-size: 14px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 5-2.7M19 13a10 10 0 0 0-2-1.5M12 20h.01"></path></svg><span style="flex: 1">Offline. Timetable only, no live updates. Last synced 7:58 am.</span></div>
+    <div style="background: #FFFFFF; border-radius: 18px; padding: 14px; display: flex; gap: 12px; align-items: center; border: 1px dashed #C9C1B2"><div style="width: 6px; align-self: stretch; border-radius: 3px; background: #0A7A6E"></div><div style="flex: 1"><span style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #F0EDE7; color: #4A5457">SCHEDULED</span><div style="font-size: 20px; font-weight: 800; margin-top: 4px">8:07 am</div><div style="font-size: 13px; color: #5F6B6E">Springfield · Express · Plat 8</div></div><span style="font-size: 15px; font-weight: 700; color: #4A5457">~3 min</span></div>
+    <div style="background: #FFFFFF; border-radius: 18px; padding: 14px; display: flex; gap: 12px; align-items: center; border: 1px dashed #C9C1B2"><div style="width: 6px; align-self: stretch; border-radius: 3px; background: #1E9F4A"></div><div style="flex: 1"><span style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #F0EDE7; color: #4A5457">SCHEDULED</span><div style="font-size: 20px; font-weight: 800; margin-top: 4px">8:12 am</div><div style="font-size: 13px; color: #5F6B6E">Ipswich/Rosewood · All stops · Plat 9</div></div><span style="font-size: 15px; font-weight: 700; color: #4A5457">~8 min</span></div>
+    <div style="font-size: 13px; color: #5F6B6E; text-align: center">Delays, cancellations and platform changes can't be shown offline.</div>
+  </section>
+  <section aria-label="Error" style="width: 390px; height: 844px; background: #FFFBF4; display: flex; flex-direction: column; padding: 20px 16px; box-sizing: border-box; gap: 12px">
+    <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: #5F6B6E">ERROR</div>
+    <h1 style="margin: 0; font-size: 19px; font-weight: 800">Roma Street → Indooroopilly</h1>
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 0 16px">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#B3261E" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5h.01"></path></svg>
+      <h2 style="margin: 0; font-size: 22px; font-weight: 800">Live times aren't loading</h2>
+      <p style="margin: 0; font-size: 15px; color: #4A5457; line-height: 1.5">The live feed isn't responding. You can still see the timetable while we keep trying.</p>
+      <button style="min-height: 52px; width: 100%; border: 0; border-radius: 16px; background: #5B3FD1; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 800">Try again</button>
+      <button style="min-height: 52px; width: 100%; border: 2px solid #5B3FD1; border-radius: 16px; background: #FFFFFF; color: #3F2A9E; font: inherit; font-size: 16px; font-weight: 700">Show timetable</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1700,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

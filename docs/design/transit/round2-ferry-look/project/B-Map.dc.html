@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus · Route 66 live map</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Poppins:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#E55A2B}a:hover{color:#B8400F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #F4F7F8; font-family: Inter, system-ui, sans-serif; color: #2D3436; display: flex; flex-direction: column">
+
+<header style="background: linear-gradient(90deg, #FFFFFF, #FFE5D9, #E6F2FF); border-bottom: 2px solid rgba(255,107,53,0.5); box-shadow: 0 10px 15px -5px rgba(0,0,0,0.1); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; position: relative; z-index: 2">
+<div style="display: flex; align-items: center; gap: 6px">
+<img src="/_blob/f469fc98762384bbed3dbe954bca5d44" alt="" style="width: 54px; height: 54px">
+<div style="display: flex; flex-direction: column; line-height: 1.1">
+<span style="font-family: Poppins, sans-serif; font-weight: 700; font-size: 21px; color: #2A9A9E">BrisbaneBus</span>
+<span style="font-family: Poppins, sans-serif; font-weight: 600; font-size: 16px; color: #FE8E22">Departure Boards</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" aria-label="Settings" style="width: 44px; height: 44px; border-radius: 999px; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,107,53,0.2); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #007C99; padding: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"></path></svg></button>
+<span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF6B35; border-radius: 999px; padding: 7px 14px; box-shadow: 0 0 15px rgba(255,107,53,0.5)">LIVE</span>
+</div>
+</header>
+
+<div style="position: absolute; top: 86px; left: 12px; right: 12px; z-index: 2; display: flex; gap: 8px">
+<div role="group" aria-label="Map scope" style="display: flex; background: rgba(255,255,255,0.95); border-radius: 999px; padding: 4px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.12); border: 1px solid rgba(255,107,53,0.2)">
+<button type="button" aria-pressed="true" style="font: inherit; font-size: 13px; font-weight: 700; color: #FFFFFF; background: #E55A2B; border: 0; border-radius: 999px; padding: 8px 14px; min-height: 36px">Route 66</button>
+<button type="button" aria-pressed="false" style="font: inherit; font-size: 13px; font-weight: 600; color: #007C99; background: transparent; border: 0; border-radius: 999px; padding: 8px 14px; min-height: 36px">My stop</button>
+</div>
+<button type="button" aria-label="Centre on my location" style="margin-left: auto; width: 44px; height: 44px; border-radius: 999px; background: #FFFFFF; border: 1px solid rgba(255,107,53,0.2); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.12); color: #007C99; display: flex; align-items: center; justify-content: center; padding: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg></button>
+</div>
+
+<svg role="img" aria-label="Map of route 66 from King George Square to UQ Lakes with three live buses" viewBox="0 0 390 560" width="390" height="560" style="display: block; flex: 0 0 auto">
+<rect width="390" height="560" fill="#F4F7F8"></rect>
+<path d="M0 70 L390 40 M0 200 L390 170 M60 0 L90 560 M200 0 L220 560 M320 0 L330 560 M0 330 L390 300 M0 480 L390 470" stroke="#FFFFFF" stroke-width="7" fill="none"></path>
+<path d="M-10 120 C 70 170 120 70 200 140 S 300 250 400 215" stroke="#CDE9F0" stroke-width="30" fill="none" stroke-linecap="round"></path>
+<path d="M400 410 C 310 430 230 400 140 440 S 30 500 -10 480" stroke="#CDE9F0" stroke-width="30" fill="none" stroke-linecap="round"></path>
+<path d="M110 95 L140 185 L195 240 L235 280 L295 330 L255 390 L150 465" stroke="#FFFFFF" stroke-width="12" fill="none" stroke-linejoin="round" stroke-linecap="round"></path>
+<path d="M110 95 L140 185 L195 240 L235 280 L295 330 L255 390 L150 465" stroke="#1E7C80" stroke-width="6" fill="none" stroke-linejoin="round" stroke-linecap="round"></path>
+<g fill="#FFFFFF" stroke="#1E7C80" stroke-width="3">
+<circle cx="110" cy="95" r="6"></circle><circle cx="195" cy="240" r="6"></circle><circle cx="235" cy="280" r="6"></circle><circle cx="295" cy="330" r="6"></circle><circle cx="255" cy="390" r="6"></circle><circle cx="150" cy="465" r="7"></circle>
+</g>
+<circle cx="140" cy="185" r="13" fill="#FFE5D9" stroke="#E55A2B" stroke-width="3"></circle>
+<g font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#2D3436">
+<text x="122" y="88">King George Sq</text>
+<text x="160" y="182" font-weight="800" fill="#C2410C">Cultural Centre · you</text>
+<text x="207" y="236">Mater Hill</text>
+<text x="247" y="276">Woolloongabba</text>
+<text x="306" y="334">Buranda</text>
+<text x="267" y="395">Boggo Road</text>
+<text x="164" y="470" font-weight="800">UQ Lakes</text>
+</g>
+<g>
+<circle cx="140" cy="185" r="16" fill="#00A8CC" opacity="0.25"></circle>
+<circle cx="140" cy="185" r="8" fill="#00A8CC" stroke="#FFFFFF" stroke-width="3"></circle>
+<circle cx="275" cy="313" r="16" fill="#00A8CC" opacity="0.25"></circle>
+<circle cx="275" cy="313" r="8" fill="#00A8CC" stroke="#FFFFFF" stroke-width="3"></circle>
+<circle cx="118" cy="120" r="16" fill="#00A8CC" opacity="0.25"></circle>
+<circle cx="118" cy="120" r="8" fill="#00A8CC" stroke="#FFFFFF" stroke-width="3"></circle>
+</g>
+</svg>
+
+<section aria-label="Buses on route 66" style="position: absolute; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.97); border-radius: 22px 22px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,0.12); border-top: 1px solid rgba(255,107,53,0.2); padding: 8px 16px 18px; display: flex; flex-direction: column; gap: 8px">
+<div style="width: 40px; height: 5px; border-radius: 3px; background: #D1D5DB; align-self: center"></div>
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="min-width: 52px; height: 44px; border-radius: 10px; background: #1E7C80; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800">66</span>
+<div style="flex: 1 1 auto; display: flex; flex-direction: column"><strong style="font-size: 16px">3 buses towards UQ Lakes</strong><span style="font-size: 12px; color: #4B5563">Positions refresh every 30 s</span></div>
+</div>
+<sc-for list="{{buses}}" as="b" hint-placeholder-count="3">
+<a href="B-Detail.dc.html" style="text-decoration: none; color: #2D3436; display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid rgba(45,52,54,0.06); min-height: 44px">
+<span style="width: 14px; height: 14px; border-radius: 999px; background: #00A8CC; border: 3px solid #FFFFFF; box-shadow: 0 0 0 2px rgba(0,168,204,0.35); flex: 0 0 auto"></span>
+<span style="flex: 1 1 auto; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">{{b.where}}</span><span style="font-size: 12px; color: #4B5563">{{b.meta}}</span></span>
+<span style="font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; color: {{b.color}}">{{b.eta}}</span>
+</a>
+</sc-for>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {
+buses: [
+{ where: 'At Cultural Centre', meta: 'Bus #1204 · Few seats · your stop', eta: 'Now', color: '#C2410C' },
+{ where: 'Leaving King George Sq', meta: 'Bus #0987 · Many seats', eta: '9 min', color: '#2D3436' },
+{ where: 'Near Buranda', meta: 'Bus #1150 · ahead of you · detour', eta: '—', color: '#6B7280' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

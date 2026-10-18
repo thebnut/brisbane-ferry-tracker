@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nearby Everything · Desktop</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#16191B}a:hover{color:#000}
+.tn{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #F6F3EC; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; color: #16191B">
+  <header style="background: #FFFFFF; border-bottom: 1px solid #E2DDD2">
+    <div style="max-width: 1320px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap">
+      <div style="font-size: 21px"><span>Brisbane</span><b>Transit</b> <span style="color: #B8400F">●</span><span style="color: #5B3FD1">●</span><span style="color: #8A6400">●</span></div>
+      <label style="flex: 1; min-width: 240px; max-width: 480px; display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 16px; border-radius: 23px; border: 2px solid #16191B; box-sizing: border-box"><span style="position: absolute; left: -9999px">Search stops, routes or places</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16191B" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input placeholder="Search a place, stop number or route" style="flex: 1; border: 0; outline: none; background: transparent; font: 400 16px 'Atkinson Hyperlegible', sans-serif; color: #16191B"></label>
+      <div role="group" aria-label="Filter by mode" style="display: flex; gap: 6px; flex-wrap: wrap">
+        <button aria-pressed="true" style="height: 44px; padding: 0 14px; border-radius: 22px; border: 0; background: #16191B; color: #FFFFFF; font: 700 15px 'Atkinson Hyperlegible', sans-serif">All</button>
+        <button aria-pressed="false" style="height: 44px; padding: 0 12px; border-radius: 22px; border: 2px solid #B8400F; background: #FFFFFF; color: #16191B; font: 700 15px 'Atkinson Hyperlegible', sans-serif">Ferry</button>
+        <button aria-pressed="false" style="height: 44px; padding: 0 12px; border-radius: 22px; border: 2px solid #5B3FD1; background: #FFFFFF; color: #16191B; font: 700 15px 'Atkinson Hyperlegible', sans-serif">Train</button>
+        <button aria-pressed="false" style="height: 44px; padding: 0 12px; border-radius: 22px; border: 2px solid #C99700; background: #FFFFFF; color: #16191B; font: 700 15px 'Atkinson Hyperlegible', sans-serif">Bus</button>
+      </div>
+    </div>
+  </header>
+  <main style="max-width: 1320px; margin: 0 auto; padding: 24px; display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start">
+    <section aria-label="Nearby map" style="flex: 999 1 520px; min-width: 0; border-radius: 22px; overflow: hidden; background: #E7EBE4; height: 640px">
+      <svg viewBox="0 0 700 640" width="100%" height="640" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Map around Oxford St, Bulimba with ferry, train and bus stops"><rect width="700" height="640" fill="#E7EBE4"/><g stroke="#FFFFFF" stroke-width="9"><path d="M0 260 L700 300"/><path d="M330 0 L360 640"/><path d="M0 470 L700 430"/><path d="M120 0 L150 640"/><path d="M560 0 L540 640"/></g><path d="M-20 100 C 140 70, 280 150, 430 120 S 620 40, 720 70" stroke="#BFDCE8" stroke-width="64" fill="none"/><circle cx="350" cy="330" r="200" fill="#1E6FD9" opacity="0.06" stroke="#1E6FD9" stroke-opacity="0.35" stroke-width="2" stroke-dasharray="6 6"/><circle cx="350" cy="330" r="11" fill="#1E6FD9" stroke="#FFFFFF" stroke-width="4"/><circle cx="430" cy="150" r="18" fill="#B8400F" stroke="#FFFFFF" stroke-width="4"/><circle cx="250" cy="110" r="10" fill="#FF6B35" stroke="#16191B" stroke-width="2"/><rect x="310" y="280" width="28" height="28" rx="7" transform="rotate(45 324 294)" fill="#F2B705" stroke="#16191B" stroke-width="2.5"/><rect x="430" y="380" width="28" height="28" rx="7" transform="rotate(45 444 394)" fill="#F2B705" stroke="#16191B" stroke-width="2.5"/><rect x="200" y="410" width="28" height="28" rx="7" transform="rotate(45 214 424)" fill="#F2B705" stroke="#16191B" stroke-width="2.5"/><rect x="560" y="540" width="32" height="32" rx="5" fill="#5B3FD1" stroke="#FFFFFF" stroke-width="4"/><g font-family="Atkinson Hyperlegible, sans-serif" font-size="14" font-weight="700" fill="#16191B"><text x="456" y="156">Bulimba ferry</text><text x="346" y="276">Stop 1832</text><text x="540" y="600">Morningside</text></g></svg>
+    </section>
+    <section style="flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline"><h1 style="margin: 0; font-size: 26px; font-weight: 700">Around you</h1><span style="font-size: 14px; color: #4C5256">Oxford St, Bulimba</span></div>
+      <sc-for list="{{ stops }}" as="s" hint-placeholder-count="3">
+        <article style="background: #FFFFFF; border-radius: 18px; overflow: hidden">
+          <div style="{{ s.bandStyle }}"><b>{{ s.name }}</b><span>{{ s.walk }}</span></div>
+          <div style="padding: 6px 14px 10px">
+            <sc-for list="{{ s.rows }}" as="r" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 10px; min-height: 44px"><span style="{{ r.chipStyle }}">{{ r.chip }}</span><span style="flex: 1; font-size: 15px">{{ r.dest }} <span style="{{ r.statusStyle }}">{{ r.status }}</span></span><b class="tn" style="font-size: 22px">{{ r.when }}</b></div>
+            </sc-for>
+          </div>
+        </article>
+      </sc-for>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const band = (bg, fg) => 'display: flex; justify-content: space-between; padding: 10px 14px; font-size: 15px; background: ' + bg + '; color: ' + fg;
+const busChip = 'font-size: 16px; font-weight: 700; min-width: 48px; text-align: center; border-radius: 6px; border: 2px solid #16191B';
+const ferryChip = 'font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #FFE5D9; color: #8A2E08';
+const trainChip = 'font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #ECE8FB; color: #3F2A9E';
+const live = 'font-size: 13px; font-weight: 700; color: #1C7A3E', sched = 'font-size: 13px; font-weight: 700; color: #4C5256', late = 'font-size: 13px; font-weight: 700; color: #A3330A';
+return { stops: [
+{ name: 'Oxford St, stop 1832', walk: '2 min walk', bandStyle: band('#F2B705', '#16191B'), rows: [
+{ chip: '230', chipStyle: busChip, dest: 'City', status: '● LIVE', statusStyle: live, when: 'Now' },
+{ chip: '232', chipStyle: busChip, dest: 'Cannon Hill', status: 'SCHEDULED', statusStyle: sched, when: '9 min' } ] },
+{ name: 'Bulimba ferry terminal', walk: '4 min walk', bandStyle: band('#B8400F', '#FFFFFF'), rows: [
+{ chip: 'F11 Express', chipStyle: ferryChip, dest: 'Riverside', status: '● LIVE', statusStyle: live, when: '3 min' },
+{ chip: 'F1 All stops', chipStyle: ferryChip, dest: 'UQ St Lucia', status: '+4 late', statusStyle: late, when: '11 min' } ] },
+{ name: 'Morningside station', walk: '18 min walk', bandStyle: band('#5B3FD1', '#FFFFFF'), rows: [
+{ chip: 'Plat 2', chipStyle: trainChip, dest: 'Central', status: 'PLATFORM CHANGED', statusStyle: 'font-size: 12px; font-weight: 700; color: #3F2A9E', when: '24 min' } ] }
+]};
+}
+}
+</script>
+</body>
+</html>

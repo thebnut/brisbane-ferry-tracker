@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus · Desktop</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Poppins:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C2410C}a:hover{color:#9A3412}
+</style>
+</helmet>
+<div style="min-height: 900px; background: linear-gradient(135deg, #FFE5D9 0%, #FFFFFF 50%, #E6F2FF 100%); font-family: Inter, system-ui, sans-serif; color: #2D3436">
+
+<nav aria-label="Site" style="background: linear-gradient(90deg, #FFFFFF, #FFE5D9, #E6F2FF); border-bottom: 2px solid rgba(255,107,53,0.5); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1)">
+<div style="max-width: 1152px; margin: 0 auto; padding: 4px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<a href="B-Desktop.dc.html" style="text-decoration: none; display: flex; align-items: center; gap: 10px">
+<img src="/_blob/f469fc98762384bbed3dbe954bca5d44" alt="" style="width: 104px; height: 104px">
+<span style="display: flex; flex-direction: column; line-height: 1.1">
+<span style="font-family: Poppins, sans-serif; font-weight: 700; font-size: 36px; color: #2A9A9E">BrisbaneBus</span>
+<span style="font-family: Poppins, sans-serif; font-weight: 600; font-size: 28px; color: #FE8E22">Departure Boards</span>
+</span>
+</a>
+<div style="display: flex; align-items: center; gap: 12px">
+<button type="button" style="font: inherit; font-size: 14px; font-weight: 600; color: #007C99; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,107,53,0.2); border-radius: 999px; padding: 8px 16px; min-height: 44px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px">Settings<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"></path></svg></button>
+<span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF6B35; border-radius: 999px; padding: 8px 18px; box-shadow: 0 0 15px rgba(255,107,53,0.5)">LIVE</span>
+</div>
+</div>
+</nav>
+
+<div style="background: linear-gradient(90deg, #FFFFFF, rgba(255,229,217,0.5)); border-bottom: 1px solid rgba(255,107,53,0.2)">
+<div style="max-width: 1152px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<span style="font-size: 14px; display: flex; align-items: center; gap: 6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E55A2B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Last updated <strong style="color: #007C99">2:41 pm</strong></span>
+<div style="display: flex; align-items: center; gap: 10px; flex: 0 1 460px; min-width: 260px">
+<label for="dsearch" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Stop name or number</label>
+<div style="flex: 1 1 auto; display: flex; align-items: center; gap: 8px; background: #FFFFFF; border: 2px solid #FF6B35; border-radius: 12px; padding: 0 12px; height: 46px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E55A2B" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+<input id="dsearch" type="text" placeholder="Stop name or number" style="border: 0; outline: none; font: inherit; font-size: 16px; flex: 1 1 auto; background: transparent; min-width: 0">
+</div>
+<a href="B-Map.dc.html" style="text-decoration: none; font-size: 14px; font-weight: 600; color: #007C99; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,107,53,0.2); border-radius: 999px; padding: 10px 16px">Map</a>
+</div>
+</div>
+</div>
+
+<main style="max-width: 1152px; margin: 0 auto; padding: 24px 16px 40px; display: flex; flex-wrap: wrap; gap: 24px">
+<sc-for list="{{boards}}" as="b" hint-placeholder-count="2">
+<section style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="border-radius: 12px; padding: 12px 16px; background: linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,229,217,0.5)); border: 1px solid rgba(255,107,53,0.1); box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; gap: 8px">
+<h2 style="margin: 0; font-size: 17px; font-weight: 700; color: #007C99">{{b.name}}</h2>
+<span style="font-size: 13px; color: #4B5563">{{b.meta}}</span>
+</div>
+<sc-for list="{{b.deps}}" as="d" hint-placeholder-count="5">
+<a href="B-Detail.dc.html" style="{{d.cardStyle}}">
+<span style="min-width: 64px; height: 56px; padding: 0 6px; box-sizing: border-box; border-radius: 12px; background: {{d.tile}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.15)">{{d.route}}</span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 5px">
+<span style="font-size: 18px; font-weight: 700; color: #2D3436">{{d.dest}}</span>
+<span style="display: flex; gap: 6px; align-items: center"><span style="{{d.badgeStyle}}">{{d.badge}}</span><span style="font-size: 13px; font-weight: 600; color: {{d.noteColor}}">{{d.note}}</span></span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end"><span style="font-size: 34px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: {{d.countColor}}">{{d.count}}</span><span style="font-size: 13px; color: #4B5563; text-decoration: {{d.deco}}">{{d.time}}</span></span>
+</a>
+</sc-for>
+<button type="button" style="font: inherit; font-size: 16px; font-weight: 700; color: #C2410C; background: linear-gradient(90deg, #FFFFFF, #FFE5D9); border: 2px solid rgba(255,107,53,0.3); border-radius: 8px; min-height: 50px">More departures</button>
+</section>
+</sc-for>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const live = 'font-size: 11px; font-weight: 700; color: #FFFFFF; background: #FF6B35; border-radius: 999px; padding: 2px 8px';
+const sched = 'font-size: 11px; font-weight: 600; color: #4B5563; background: #F3F4F6; border-radius: 999px; padding: 2px 8px';
+const canc = 'font-size: 11px; font-weight: 800; color: #FFFFFF; background: #B91C1C; border-radius: 999px; padding: 2px 8px';
+const card = 'text-decoration: none; display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,0.9); border-radius: 12px; padding: 16px 20px; min-height: 96px; box-sizing: border-box; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)';
+const hot = 'text-decoration: none; display: flex; align-items: center; gap: 14px; background: linear-gradient(90deg, #FFE5D9, #FFFFFF); border: 2px solid #FF6B35; border-radius: 12px; padding: 14px 18px; min-height: 96px; box-sizing: border-box; box-shadow: 0 0 20px rgba(255,107,53,0.45)';
+const d = (route, dest, badge, note, noteColor, count, countColor, time, o) => Object.assign({ route, dest, badge, note, noteColor, count, countColor, time, tile: '#1E7C80', cardStyle: card, deco: 'none', badgeStyle: badge === 'LIVE' ? live : (badge === 'CANCELLED' ? canc : sched) }, o || {});
+return {
+boards: [
+{ name: 'Cultural Centre, platform 1', meta: 'Stop 1832', deps: [
+d('66', 'UQ Lakes', 'LIVE', 'GPS · Few seats', '#007C99', 'Now', '#C2410C', '2:42 pm', { cardStyle: hot }),
+d('M2', 'UQ Lakes', 'LIVE', '+2 min late', '#C2410C', '4 min', '#C2410C', '2:45 pm', { tile: '#C2410C' }),
+d('111', 'Eight Mile Plains', 'CANCELLED', 'Next 111 in 18 min', '#4B5563', '—', '#9CA3AF', '2:49 pm', { deco: 'line-through' }),
+d('66', 'UQ Lakes', 'LIVE', 'On time', '#166534', '9 min', '#2D3436', '2:50 pm'),
+d('111', 'Eight Mile Plains', 'SCHEDULED', 'Detour via Stanley St', '#9A3412', '18 min', '#2D3436', '2:59 pm')
+]},
+{ name: 'Adelaide St, stop 37', meta: 'Stop 1771', deps: [
+d('60', 'CityGlider · Teneriffe', 'LIVE', 'On time', '#166534', '3 min', '#C2410C', '2:44 pm', { tile: '#C2410C', cardStyle: hot }),
+d('199', 'Teneriffe', 'LIVE', 'GPS · Many seats', '#007C99', '9 min', '#2D3436', '2:50 pm'),
+d('60', 'CityGlider · Teneriffe', 'LIVE', '+1 min late', '#C2410C', '11 min', '#2D3436', '2:52 pm', { tile: '#C2410C' }),
+d('330', 'Bracken Ridge', 'SCHEDULED', '', '#4B5563', '22 min', '#2D3436', '3:03 pm'),
+d('199', 'Teneriffe', 'SCHEDULED', '', '#4B5563', '24 min', '#2D3436', '3:05 pm')
+]}
+]
+};
+}
+}
+</script>
+</body>
+</html>

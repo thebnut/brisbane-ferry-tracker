@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dark mode and widgets, Line First</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#A996FF}a:hover{color:#C7BAFF}
+</style>
+</helmet>
+<div style="width: 1200px; height: 844px; box-sizing: border-box; background: #B9C2CB; font-family: 'Figtree', system-ui, sans-serif; display: flex; gap: 40px; font-variant-numeric: tabular-nums">
+  <section aria-label="Departures in dark mode" style="width: 390px; height: 844px; background: #101317; color: #EEF1F4; padding: 22px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px">
+    <div style="font-size: 23px"><span style="font-weight: 500">Brisbane</span><span style="font-weight: 800; color: #A996FF">Train</span></div>
+    <h1 style="margin: 0; font-size: 20px; font-weight: 800">Roma Street → Indooroopilly</h1>
+    <div style="background: #1A1E24; border: 2px solid #A996FF; border-radius: 20px; padding: 14px 16px">
+      <div style="display: flex; align-items: center; gap: 10px"><span style="font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #2BB3A3; color: #0B1F1C">Springfield · Express</span><span style="font-size: 12px; font-weight: 700; color: #7BE09A">● LIVE</span><span style="margin-left: auto; font-size: 24px; font-weight: 800; color: #C7BAFF">3 min</span></div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; margin-top: 6px">8:07 <span style="font-size: 13px; color: #A7AFB7">→ 8:19 · Plat 8</span></div>
+      <div aria-hidden="true" style="position: relative; height: 16px; margin-top: 10px"><span style="position: absolute; left: 6px; right: 6px; top: 6px; height: 4px; background: #2BB3A3"></span><span style="position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center"><span style="width: 12px; height: 12px; border-radius: 6px; background: #2BB3A3"></span><span style="width: 10px; height: 10px; border-radius: 5px; background: #101317; border: 2px solid #2BB3A3; box-sizing: border-box"></span><span style="width: 10px; height: 10px; border-radius: 5px; background: #101317; border: 2px solid #2BB3A3; box-sizing: border-box"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #2BB3A3"></span><span style="width: 10px; height: 10px; border-radius: 5px; background: #101317; border: 2px solid #2BB3A3; box-sizing: border-box"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #2BB3A3"></span></span></div>
+    </div>
+    <div style="background: #1A1E24; border: 1px solid #2A3038; border-radius: 20px; padding: 14px 16px">
+      <div style="display: flex; align-items: center; gap: 10px"><span style="font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #43C46E; color: #0B1F12">Ipswich · All stops</span><span style="font-size: 12px; font-weight: 700; color: #FFC266">+2 min</span><span style="margin-left: auto; font-size: 24px; font-weight: 800">10 min</span></div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; margin-top: 6px">8:14 <span style="font-size: 13px; color: #A7AFB7">→ 8:29 ·</span> <s style="font-size: 13px; color: #7D858D">P9</s> <span style="font-size: 13px; background: #FFB547; color: #101317; padding: 0 5px">P7</span></div>
+    </div>
+    <div style="background: #1A1E24; border: 1px solid #2A3038; border-radius: 20px; padding: 14px 16px">
+      <div style="display: flex; align-items: center; gap: 10px"><span style="font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #3A4048; color: #C9CFD5">Rosewood · All stops</span><span style="font-size: 12px; font-weight: 800; color: #FFB4AB">CANCELLED</span></div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; margin-top: 6px; color: #7D858D"><s>8:17</s> <span style="font-size: 13px">next 8:27</span></div>
+    </div>
+    <div style="background: #1A1E24; border: 1px solid #2A3038; border-radius: 20px; padding: 14px 16px">
+      <div style="display: flex; align-items: center; gap: 10px"><span style="font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #2BB3A3; color: #0B1F1C">Springfield · Express</span><span style="font-size: 12px; font-weight: 700; color: #A7AFB7">SCHEDULED</span><span style="margin-left: auto; font-size: 24px; font-weight: 800">18 min</span></div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; margin-top: 6px">8:22 <span style="font-size: 13px; color: #A7AFB7">→ 8:34 · Plat 8</span></div>
+    </div>
+  </section>
+  <section aria-label="Home Screen widgets" style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 36px; padding-right: 40px">
+    <div style="font-size: 13px; font-weight: 800; letter-spacing: 0.08em; color: #1D2226">IOS HOME SCREEN WIDGETS</div>
+    <div style="display: flex; gap: 24px">
+      <div style="width: 170px; height: 170px; box-sizing: border-box; border-radius: 26px; background: #FFFFFF; color: #1D2226; padding: 14px; display: flex; flex-direction: column">
+        <div style="font-size: 12px; font-weight: 700; color: #4F5860">Roma St → Indro</div>
+        <div style="font-size: 40px; font-weight: 800; letter-spacing: -0.03em; margin-top: 4px; color: #4B32C4">3<span style="font-size: 16px"> min</span></div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600">8:07 · P8</div>
+        <div aria-hidden="true" style="margin-top: auto; position: relative; height: 12px"><span style="position: absolute; left: 4px; right: 4px; top: 4px; height: 4px; background: #0A7A6E"></span><span style="position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center"><span style="width: 10px; height: 10px; border-radius: 5px; background: #0A7A6E"></span><span style="width: 8px; height: 8px; border-radius: 4px; background: #FFFFFF; border: 2px solid #0A7A6E; box-sizing: border-box"></span><span style="width: 10px; height: 10px; border-radius: 5px; background: #0A7A6E"></span><span style="width: 8px; height: 8px; border-radius: 4px; background: #FFFFFF; border: 2px solid #0A7A6E; box-sizing: border-box"></span><span style="width: 10px; height: 10px; border-radius: 5px; background: #5B3FD1"></span></span></div>
+      </div>
+      <div style="width: 364px; height: 170px; box-sizing: border-box; border-radius: 26px; background: #FFFFFF; color: #1D2226; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: #4F5860"><span>Roma Street → Indooroopilly</span><span style="color: #4B32C4">BrisbaneTrain</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #0A7A6E; color: #FFFFFF">Express</span><span style="flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">8:07 · P8</span><span style="font-size: 18px; font-weight: 800; color: #4B32C4">3 min</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #1E9F4A; color: #FFFFFF">All stops</span><span style="flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">8:14 · <span style="background: #FFE2A8; padding: 0 3px">P7</span></span><span style="font-size: 18px; font-weight: 800">10 min</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #0A7A6E; color: #FFFFFF">Express</span><span style="flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">8:22 · P8</span><span style="font-size: 18px; font-weight: 800">18 min</span></div>
+      </div>
+    </div>
+    <div style="display: flex; gap: 24px">
+      <div style="width: 170px; height: 170px; box-sizing: border-box; border-radius: 26px; background: #101317; color: #EEF1F4; padding: 14px; display: flex; flex-direction: column">
+        <div style="font-size: 12px; font-weight: 700; color: #A7AFB7">Roma St → Indro</div>
+        <div style="font-size: 40px; font-weight: 800; letter-spacing: -0.03em; margin-top: 4px; color: #C7BAFF">3<span style="font-size: 16px"> min</span></div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600">8:07 · P8</div>
+        <div aria-hidden="true" style="margin-top: auto; position: relative; height: 12px"><span style="position: absolute; left: 4px; right: 4px; top: 4px; height: 4px; background: #2BB3A3"></span><span style="position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center"><span style="width: 10px; height: 10px; border-radius: 5px; background: #2BB3A3"></span><span style="width: 8px; height: 8px; border-radius: 4px; background: #101317; border: 2px solid #2BB3A3; box-sizing: border-box"></span><span style="width: 10px; height: 10px; border-radius: 5px; background: #2BB3A3"></span><span style="width: 8px; height: 8px; border-radius: 4px; background: #101317; border: 2px solid #2BB3A3; box-sizing: border-box"></span><span style="width: 10px; height: 10px; border-radius: 5px; background: #A996FF"></span></span></div>
+      </div>
+      <div style="width: 364px; height: 170px; box-sizing: border-box; border-radius: 26px; background: #101317; color: #EEF1F4; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: #A7AFB7"><span>Roma Street → Indooroopilly</span><span style="color: #C7BAFF">BrisbaneTrain</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #2BB3A3; color: #0B1F1C">Express</span><span style="flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">8:07 · P8</span><span style="font-size: 18px; font-weight: 800; color: #C7BAFF">3 min</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #43C46E; color: #0B1F12">All stops</span><span style="flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">8:14 · <span style="background: #FFB547; color: #101317; padding: 0 3px">P7</span></span><span style="font-size: 18px; font-weight: 800">10 min</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #2BB3A3; color: #0B1F1C">Express</span><span style="flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">8:22 · P8</span><span style="font-size: 18px; font-weight: 800">18 min</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

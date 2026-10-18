@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Transit · Desktop</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Poppins:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#E55A2B}a:hover{color:#B8400F}
+</style>
+</helmet>
+<div style="min-height: 900px; background: linear-gradient(135deg, #FFE5D9 0%, #FFFFFF 50%, #E6F2FF 100%); font-family: Inter, system-ui, sans-serif; color: #2D3436">
+
+<header style="background: linear-gradient(90deg, #FFFFFF, #FFE5D9, #E6F2FF); border-bottom: 2px solid rgba(255,107,53,0.5); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1)">
+<div style="max-width: 1200px; margin: 0 auto; padding: 4px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: center; gap: 6px">
+<img src="/_blob/6cb3ef13ed0162256b2e66a39e2db32e" alt="" style="width: 96px; height: 96px">
+<div style="display: flex; flex-direction: column; line-height: 1.08">
+<span style="font-family: Poppins, sans-serif; font-weight: 700; font-size: 34px; color: #2A9A9E">BrisbaneTransit</span>
+<span style="font-family: Poppins, sans-serif; font-weight: 600; font-size: 27px; color: #FE8E22">Departure Boards</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 10px">
+<button type="button" style="font: inherit; font-size: 14px; font-weight: 600; color: #007C99; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,107,53,0.2); border-radius: 999px; padding: 0 16px; height: 44px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1)">Settings</button>
+<span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF6B35; border-radius: 999px; padding: 8px 16px; box-shadow: 0 0 15px rgba(255,107,53,0.5)">LIVE</span>
+</div>
+</div>
+</header>
+
+<div style="background: linear-gradient(90deg, #FFFFFF, rgba(255,229,217,0.5)); border-bottom: 1px solid rgba(255,107,53,0.2)">
+<div style="max-width: 1200px; margin: 0 auto; padding: 10px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px">
+<nav aria-label="Modes" style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{tabs}}" as="b" hint-placeholder-count="5">
+<a href="{{b.href}}" style="{{b.style}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{b.icon}}"></path></svg>{{b.label}}</a>
+</sc-for>
+</nav>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 14px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Last updated 7:38 pm</span>
+</div>
+</div>
+
+<main style="max-width: 1200px; margin: 0 auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box">
+<div role="status" style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-radius: 12px; padding: 12px 16px; background: linear-gradient(90deg, #FFE5D9, #FFFFFF); border: 2px solid #FF6B35">
+<span style="padding: 3px 10px; border-radius: 999px; background: #FEF3C7; color: #92400E; font-size: 12px; font-weight: 800">2 ALERTS ON YOUR TRIPS</span>
+<span style="font-size: 14px; font-weight: 600">Route 66 detoured via Stanley St · Springfield trains move to Roma Street platform 7 from 8:30 pm</span>
+<a href="X-Alerts.dc.html" style="margin-left: auto; font-size: 14px; font-weight: 700">All alerts</a>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px">
+<sc-for list="{{boards}}" as="bd" hint-placeholder-count="3">
+<section style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 10px; border-radius: 12px; padding: 10px 14px; background: linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,229,217,0.5)); border: 1px solid rgba(255,107,53,0.1)">
+<img src="{{bd.emblem}}" alt="" style="width: 40px; height: 40px">
+<span style="display: flex; flex-direction: column"><span style="font-size: 11px; font-weight: 800; letter-spacing: 0.06em; color: #B8400F">{{bd.mode}}</span><span style="font-size: 16px; font-weight: 600; color: #007C99">{{bd.title}}</span></span>
+</div>
+<sc-for list="{{bd.rows}}" as="r" hint-placeholder-count="4">
+<article style="{{r.card}}">
+<sc-if value="{{r.hasTile}}" hint-placeholder-val="{{ true }}"><span style="{{r.tile}}"><span style="font-size: 9px; font-weight: 800">{{r.tileLabel}}</span><span style="font-size: 20px; font-weight: 800; line-height: 1">{{r.tileText}}</span></span></sc-if>
+<div style="display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; min-width: 0">
+<div style="display: flex; gap: 6px; align-items: center">
+<span style="{{r.badge}}">{{r.badgeText}}</span>
+<span style="font-size: 11px; font-weight: 800; letter-spacing: 0.04em; color: {{r.svcColor}}">{{r.svc}}</span>
+</div>
+<span style="font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; text-decoration: {{r.strike}}">{{r.time}}</span>
+<span style="font-size: 12px; color: #4B5563">{{r.note}}</span>
+</div>
+<span style="{{r.chip}}">{{r.count}}</span>
+</article>
+</sc-for>
+</section>
+</sc-for>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const I = {
+ferry: 'M3 18c2 1.5 4 1.5 6 0s4-1.5 6 0 4 1.5 6 0M5 15l-1-5h16l-2 5M8 10V6h8v4M12 3v3',
+train: 'M7 3h10a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zM4 10h16M8 21l2-4M16 21l-2-4M8.5 13.5h.01M15.5 13.5h.01',
+bus: 'M6 3h12a2 2 0 0 1 2 2v12H4V5a2 2 0 0 1 2-2zM4 11h16M7 20v-3M17 20v-3M7.5 14h.01M16.5 14h.01',
+near: 'M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+saved: 'M6 3h12v18l-6-4-6 4z'
+};
+const plain = 'border-radius: 12px; padding: 14px 16px; background: rgba(255,255,255,0.9); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px; min-height: 92px; box-sizing: border-box';
+const hot = 'border-radius: 12px; padding: 14px 16px; background: linear-gradient(90deg, #FFE5D9, #FFFFFF); border: 2px solid #FF6B35; box-shadow: 0 0 20px rgba(255,107,53,0.45); display: flex; align-items: center; gap: 12px; min-height: 92px; box-sizing: border-box';
+const liveB = 'padding: 3px 9px; border-radius: 999px; background: #FF6B35; color: #FFFFFF; font-size: 11px; font-weight: 700';
+const schedB = 'padding: 3px 9px; border-radius: 999px; background: #F3F4F6; color: #4B5563; font-size: 11px; font-weight: 600';
+const cancB = 'padding: 3px 9px; border-radius: 999px; background: #FEE2E2; color: #991B1B; font-size: 11px; font-weight: 800';
+const cb = 'padding: 6px 12px; border-radius: 999px; font-size: 16px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; flex: 0 0 auto; ';
+const chip = (m) => m === null ? 'display: none' : m <= 5 ? cb + 'background: #E55A2B; color: #FFFFFF' : m <= 15 ? cb + 'background: #FF8C42; color: #2D3436' : cb + 'background: #DCFCE7; color: #166534; border: 1px solid #86EFAC';
+const platTile = 'width: 52px; height: 52px; border-radius: 12px; background: #FFFFFF; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #1E7C80; flex: 0 0 auto';
+const changedTile = 'width: 52px; height: 52px; border-radius: 12px; background: #FF6B35; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #FFFFFF; flex: 0 0 auto';
+const routeTile = 'min-width: 52px; height: 52px; padding: 0 6px; box-sizing: border-box; border-radius: 12px; background: #1E7C80; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #FFFFFF; flex: 0 0 auto';
+const row = (o) => Object.assign({ card: plain, hasTile: false, tile: '', tileLabel: '', tileText: '', badge: liveB, badgeText: 'LIVE', svcColor: '#4B5563', strike: 'none' }, o);
+const tabs = [['Saved', I.saved, 'X-Home.dc.html'], ['Ferry', I.ferry, 'X-Departures.dc.html'], ['Train', I.train, 'X-Detail.dc.html'], ['Bus', I.bus, 'X-Search.dc.html'], ['Nearby', I.near, 'X-Map.dc.html']];
+const active = 'Saved';
+const tabOn = 'display: flex; align-items: center; gap: 6px; text-decoration: none; font-size: 14px; font-weight: 700; color: #FFFFFF; background: #E55A2B; border-radius: 999px; padding: 0 16px; height: 40px';
+const tabOff = 'display: flex; align-items: center; gap: 6px; text-decoration: none; font-size: 14px; font-weight: 600; color: #374151; background: #FFFFFF; border: 1px solid rgba(255,107,53,0.25); border-radius: 999px; padding: 0 14px; height: 40px';
+return {
+tabs: tabs.map(([label, icon, href]) => ({ label, icon, href, style: label === active ? tabOn : tabOff })),
+boards: [
+{ emblem: '/_blob/0126358b928cb9b28297b556d7a37a9d', mode: 'FERRY', title: 'Bulimba → Riverside', rows: [
+row({ card: hot, svc: 'EXPRESS · F11', svcColor: '#B8400F', time: '7:42 pm → 7:54 pm', note: 'Mooroolbin II', count: 'in 4 mins', chip: chip(4) }),
+row({ svc: 'ALL STOPS · F1', time: '7:49 pm → 8:08 pm', note: '+3 min late', count: 'in 11 mins', chip: chip(11) }),
+row({ badge: cancB, badgeText: 'CANCELLED', svc: 'ALL STOPS · F1', time: '8:01 pm → 8:20 pm', strike: 'line-through', note: 'Next F1 8:16 pm', count: '', chip: chip(null) }),
+row({ badge: schedB, badgeText: 'SCHEDULED', svc: 'EXPRESS · F11', svcColor: '#B8400F', time: '8:12 pm → 8:24 pm', note: 'Journey 12 min', count: 'in 34 mins', chip: chip(34) })
+] },
+{ emblem: '/_blob/c529a31f2397418a458da66f4007f78e', mode: 'TRAIN', title: 'Roma Street → Indooroopilly', rows: [
+row({ hasTile: true, tile: platTile, tileLabel: 'PLAT', tileText: '4', svc: 'SPRINGFIELD · ALL STOPS', time: '7:59 pm → 8:12 pm', note: '6 cars · Many seats', count: 'in 21 mins', chip: chip(21) }),
+row({ hasTile: true, tile: platTile, tileLabel: 'PLAT', tileText: '4', svc: 'IPSWICH · ALL STOPS', time: '8:14 pm → 8:27 pm', note: 'On time', count: 'in 36 mins', chip: chip(36) }),
+row({ hasTile: true, tile: changedTile, tileLabel: 'NOW', tileText: '7', svc: 'SPRINGFIELD · ALL STOPS', svcColor: '#B8400F', time: '8:44 pm → 8:57 pm', note: 'Platform changed from 4', badge: schedB, badgeText: 'SCHEDULED', count: '8:44 pm', chip: chip(66) })
+] },
+{ emblem: '/_blob/f469fc98762384bbed3dbe954bca5d44', mode: 'BUS · STOP 1832', title: 'Cultural Centre, platform 1', rows: [
+row({ card: hot, hasTile: true, tile: routeTile, tileLabel: 'ROUTE', tileText: '66', svc: 'TO UQ LAKES', time: '7:40 pm', note: 'Detour via Stanley St', count: 'in 2 mins', chip: chip(2) }),
+row({ hasTile: true, tile: routeTile, tileLabel: 'ROUTE', tileText: '199', svc: 'TO TENERIFFE', time: '7:44 pm', note: 'Few seats', count: 'in 6 mins', chip: chip(6) }),
+row({ hasTile: true, tile: routeTile, tileLabel: 'METRO', tileText: 'M2', svc: 'TO RBWH', time: '7:49 pm', note: 'Many seats', count: 'in 11 mins', chip: chip(11) })
+] }
+]
+};
+}
+}
+</script>
+</body>
+</html>

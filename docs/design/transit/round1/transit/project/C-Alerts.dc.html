@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nearby Everything · Alerts</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#16191B}a:hover{color:#000}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F6F3EC; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; color: #16191B; display: flex; flex-direction: column; overflow: hidden">
+  <header style="padding: 18px 16px 10px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 6px">
+      <a href="C-Home.dc.html" aria-label="Back" style="width: 44px; height: 44px; margin-left: -8px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16191B" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+      <div><h1 style="margin: 0; font-size: 24px; font-weight: 700">Alerts near you</h1><div style="font-size: 14px; color: #4C5256">Closest first · all modes merged</div></div>
+    </div>
+    <div role="group" aria-label="Filter by mode" style="display: flex; gap: 6px">
+      <button aria-pressed="true" style="height: 44px; padding: 0 14px; border-radius: 22px; border: 0; background: #16191B; color: #FFFFFF; font: 700 15px 'Atkinson Hyperlegible', sans-serif">All 9</button>
+      <button aria-pressed="false" style="height: 44px; padding: 0 12px; border-radius: 22px; border: 2px solid #B8400F; background: #FFFFFF; color: #16191B; font: 700 15px 'Atkinson Hyperlegible', sans-serif">Ferry 1</button>
+      <button aria-pressed="false" style="height: 44px; padding: 0 12px; border-radius: 22px; border: 2px solid #5B3FD1; background: #FFFFFF; color: #16191B; font: 700 15px 'Atkinson Hyperlegible', sans-serif">Train 3</button>
+      <button aria-pressed="false" style="height: 44px; padding: 0 12px; border-radius: 22px; border: 2px solid #C99700; background: #FFFFFF; color: #16191B; font: 700 15px 'Atkinson Hyperlegible', sans-serif">Bus 5</button>
+    </div>
+  </header>
+  <main style="flex: 1; overflow: hidden; padding: 4px 16px 0; display: flex; flex-direction: column; gap: 10px">
+    <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+      <div style="font-size: 13px; font-weight: 700; color: #4C5256; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px">{{ g.title }}</div>
+      <sc-for list="{{ g.items }}" as="a" hint-placeholder-count="2">
+        <article style="background: #FFFFFF; border-radius: 16px; overflow: hidden">
+          <div style="{{ a.bandStyle }}"><b>{{ a.where }}</b><span>{{ a.dist }}</span></div>
+          <div style="padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 4px">
+            <span style="{{ a.sevStyle }}">{{ a.sev }}</span>
+            <span style="font-size: 16px; font-weight: 700; line-height: 1.3">{{ a.title }}</span>
+            <span style="font-size: 14px; color: #4C5256">{{ a.when }}</span>
+          </div>
+        </article>
+      </sc-for>
+    </sc-for>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const band = (bg, fg) => 'display: flex; justify-content: space-between; padding: 8px 14px; font-size: 14px; background: ' + bg + '; color: ' + fg;
+const now = 'font-size: 13px; font-weight: 700; color: #A3330A; text-transform: uppercase';
+const plan = 'font-size: 13px; font-weight: 700; color: #3F2A9E; text-transform: uppercase';
+return { groups: [
+{ title: 'Within walking distance', items: [
+{ bandStyle: band('#F2B705', '#16191B'), where: 'Oxford St, stop 1832', dist: '2 min walk', sev: 'Now', sevStyle: now, title: 'Route 230: one trip cancelled (7:47 pm). Next 230 at 8:02 pm.', when: 'Tonight only' },
+{ bandStyle: band('#B8400F', '#FFFFFF'), where: 'Bulimba ferry terminal', dist: '4 min walk', sev: 'Planned · Sat 25 Oct', sevStyle: plan, title: 'Terminal closed 6 am–2 pm for maintenance. Use Hawthorne (cross-river) or bus 230.', when: 'Saturday morning' }
+]},
+{ title: 'A bit further', items: [
+{ bandStyle: band('#5B3FD1', '#FFFFFF'), where: 'Morningside station', dist: '18 min walk', sev: 'Now', sevStyle: now, title: 'Cleveland line delays up to 10 min after a signal fault at Buranda.', when: 'Since 6:55 pm' }
+]}
+]};
+}
+}
+</script>
+</body>
+</html>

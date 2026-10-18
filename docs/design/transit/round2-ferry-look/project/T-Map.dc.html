@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneTrain live map</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Poppins:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#E55A2B}a:hover{color:#B8400F}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+@keyframes ring{0%{r:9;opacity:.7}100%{r:22;opacity:0}}
+.ring{animation:ring 2s ease-out infinite}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; overflow: hidden; display: flex; flex-direction: column; background: #F4F7F8; font-family: Inter, system-ui, sans-serif; color: #2D3436; position: relative">
+
+<header style="flex: 0 0 auto; position: relative; z-index: 2; background: linear-gradient(90deg, #FFFFFF, #FFE5D9, #E6F2FF); border-bottom: 2px solid rgba(255,107,53,0.5); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.12); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 6px">
+<img src="/_blob/c529a31f2397418a458da66f4007f78e" alt="" style="width: 56px; height: 56px">
+<div style="display: flex; flex-direction: column; line-height: 1.05">
+<span style="font-family: Poppins, sans-serif; font-weight: 700; font-size: 21px; color: #2A9A9E">BrisbaneTrain</span>
+<span style="font-family: Poppins, sans-serif; font-weight: 600; font-size: 16px; color: #FE8E22">Departure Boards</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" aria-label="Settings" style="width: 44px; height: 44px; border-radius: 999px; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,107,53,0.2); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #007C99; padding: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"></path></svg></button>
+<span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF6B35; border-radius: 999px; padding: 7px 14px; box-shadow: 0 0 15px rgba(255,107,53,0.5); animation: pulse 2s infinite">LIVE</span>
+</div>
+</header>
+
+<div style="flex: 1 1 auto; position: relative">
+<svg width="390" height="770" viewBox="0 0 390 770" role="img" aria-label="Map of trains between Roma Street and Indooroopilly" style="position: absolute; inset: 0">
+<rect width="390" height="770" fill="#F4F7F8"></rect>
+<path d="M0 110 L390 60 M0 250 L390 210 M60 0 L120 770 M250 0 L300 770 M0 520 L390 470" stroke="#FFFFFF" stroke-width="10" fill="none"></path>
+<path d="M-10 560 C60 520 90 600 150 560 C210 520 180 430 250 420 C320 410 330 330 300 280 C280 240 330 200 400 210" fill="none" stroke="#CDE9F0" stroke-width="30" stroke-linecap="round"></path>
+<path d="M330 40 L330 130" stroke="#1E7C80" stroke-width="5" fill="none" stroke-linecap="round"></path>
+<path d="M330 130 L270 170 L215 205 L165 255 L120 320 L60 400" stroke="#2F8F46" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M336 134 L276 175 L221 210 L171 260 L126 325 L66 405" stroke="#1F6FB2" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M60 400 L20 470" stroke="#2F8F46" stroke-width="5" fill="none" stroke-linecap="round"></path>
+<path d="M66 405 L60 480" stroke="#1F6FB2" stroke-width="5" fill="none" stroke-linecap="round"></path>
+<g fill="#FFFFFF" stroke="#2D3436" stroke-width="2.5">
+<circle cx="333" cy="132" r="8"></circle><circle cx="273" cy="172" r="6"></circle><circle cx="218" cy="207" r="6"></circle><circle cx="168" cy="257" r="7"></circle><circle cx="123" cy="322" r="6"></circle><circle cx="63" cy="402" r="8"></circle><circle cx="330" cy="50" r="6"></circle>
+</g>
+<g font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#2D3436">
+<text x="300" y="116">Roma St</text><text x="268" y="55">Central</text><text x="282" y="190" font-weight="500">Milton</text><text x="228" y="226" font-weight="500">Auchenflower</text><text x="180" y="262">Toowong</text><text x="133" y="342" font-weight="500">Taringa</text><text x="78" y="398">Indooroopilly</text>
+</g>
+<circle class="ring" cx="312" cy="146" r="9" fill="none" stroke="#E55A2B" stroke-width="3"></circle>
+<circle cx="312" cy="146" r="9" fill="#E55A2B" stroke="#FFFFFF" stroke-width="3"></circle>
+<circle class="ring" cx="193" cy="230" r="9" fill="none" stroke="#00A8CC" stroke-width="3"></circle>
+<circle cx="193" cy="230" r="9" fill="#00A8CC" stroke="#FFFFFF" stroke-width="3"></circle>
+<circle cx="90" cy="365" r="9" fill="#00A8CC" stroke="#FFFFFF" stroke-width="3"></circle>
+</svg>
+
+<div style="position: absolute; top: 12px; left: 12px; right: 12px; display: flex; gap: 8px; flex-wrap: wrap">
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.95); box-shadow: 0 2px 6px rgba(0,0,0,0.12); font-size: 12px; font-weight: 600"><span style="width: 10px; height: 10px; border-radius: 999px; background: #E55A2B"></span>Express</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.95); box-shadow: 0 2px 6px rgba(0,0,0,0.12); font-size: 12px; font-weight: 600"><span style="width: 10px; height: 10px; border-radius: 999px; background: #00A8CC"></span>All stops</span>
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.95); box-shadow: 0 2px 6px rgba(0,0,0,0.12); font-size: 12px; font-weight: 600">3 trains on your trip</span>
+</div>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.97); border-radius: 20px 20px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,0.12); border-top: 2px solid rgba(255,107,53,0.4); padding: 10px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+<span style="align-self: center; width: 40px; height: 5px; border-radius: 3px; background: #E5D3CA"></span>
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 56px; height: 56px; flex: 0 0 56px; border-radius: 12px; background: #FF6B35; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center"><span style="font-size: 10px; font-weight: 800">NOW</span><span style="font-size: 24px; font-weight: 800; line-height: 1">7</span></span>
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; gap: 5px; align-items: center"><span style="padding: 3px 8px; border-radius: 999px; background: #FF6B35; color: #FFFFFF; font-size: 11px; font-weight: 700">LIVE</span><span style="padding: 3px 8px; border-radius: 999px; background: #007C99; color: #FFFFFF; font-size: 11px; font-weight: 700">GPS</span><span style="font-size: 11px; font-weight: 800; color: #E55A2B">EXPRESS</span></div>
+<span style="font-size: 19px; font-weight: 800">2:45 pm to Springfield Central</span>
+<span style="font-size: 13px; color: #374151">Arriving Roma Street in 1 min · 52 km/h · Few seats</span>
+</div>
+</div>
+<a href="T-Detail.dc.html" style="text-align: center; font-size: 15px; font-weight: 700; color: #FFFFFF; background: #E55A2B; border-radius: 8px; padding: 13px; text-decoration: none">View stopping pattern</a>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

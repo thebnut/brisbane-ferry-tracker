@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus · Service alerts</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Poppins:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#E55A2B}a:hover{color:#B8400F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: linear-gradient(135deg, #FFE5D9 0%, #FFFFFF 50%, #E6F2FF 100%); font-family: Inter, system-ui, sans-serif; color: #2D3436; display: flex; flex-direction: column">
+
+<header style="background: linear-gradient(90deg, #FFFFFF, #FFE5D9, #E6F2FF); border-bottom: 2px solid rgba(255,107,53,0.5); box-shadow: 0 10px 15px -5px rgba(0,0,0,0.1); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto">
+<div style="display: flex; align-items: center; gap: 6px">
+<img src="/_blob/f469fc98762384bbed3dbe954bca5d44" alt="" style="width: 54px; height: 54px">
+<div style="display: flex; flex-direction: column; line-height: 1.1">
+<span style="font-family: Poppins, sans-serif; font-weight: 700; font-size: 21px; color: #2A9A9E">BrisbaneBus</span>
+<span style="font-family: Poppins, sans-serif; font-weight: 600; font-size: 16px; color: #FE8E22">Departure Boards</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" aria-label="Settings" style="width: 44px; height: 44px; border-radius: 999px; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,107,53,0.2); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #007C99; padding: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"></path></svg></button>
+<span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF6B35; border-radius: 999px; padding: 7px 14px; box-shadow: 0 0 15px rgba(255,107,53,0.5)">LIVE</span>
+</div>
+</header>
+
+<main style="flex: 1 1 auto; padding: 14px 16px 0; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<h1 style="margin: 0; font-size: 20px; font-weight: 800">Service alerts</h1>
+<div role="group" aria-label="Alert scope" style="display: flex; background: rgba(255,255,255,0.9); border-radius: 999px; padding: 3px; border: 1px solid rgba(255,107,53,0.2)">
+<button type="button" aria-pressed="true" style="font: inherit; font-size: 13px; font-weight: 700; color: #FFFFFF; background: #E55A2B; border: 0; border-radius: 999px; padding: 7px 12px; min-height: 36px">My stops</button>
+<button type="button" aria-pressed="false" style="font: inherit; font-size: 13px; font-weight: 600; color: #007C99; background: transparent; border: 0; border-radius: 999px; padding: 7px 12px; min-height: 36px">All routes</button>
+</div>
+</div>
+
+<sc-for list="{{alerts}}" as="a" hint-placeholder-count="4">
+<article style="{{a.cardStyle}}">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="{{a.sevStyle}}">{{a.sev}}</span>
+<span style="font-size: 12px; color: #4B5563">{{a.when}}</span>
+</div>
+<div style="display: flex; gap: 10px; align-items: flex-start">
+<div style="display: flex; gap: 4px; flex-wrap: wrap; flex: 0 0 auto; max-width: 92px">
+<sc-for list="{{a.routes}}" as="r" hint-placeholder-count="1"><span style="{{r.style}}">{{r.n}}</span></sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 3px">
+<h2 style="margin: 0; font-size: 15px; font-weight: 700">{{a.title}}</h2>
+<p style="margin: 0; font-size: 13px; line-height: 1.4; color: #374151">{{a.body}}</p>
+</div>
+</div>
+</article>
+</sc-for>
+
+<p style="margin: 0; font-size: 12px; color: #4B5563; text-align: center">Showing alerts for your 2 saved stops and 6 routes</p>
+</main>
+
+<nav aria-label="Main" style="flex: 0 0 auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: rgba(255,255,255,0.95); border-top: 1px solid rgba(255,107,53,0.2); padding: 6px 8px 14px">
+<a href="B-Home.dc.html" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #4B5563; font-size: 11px; font-weight: 600; min-height: 48px; justify-content: center"><span style="padding: 4px 16px; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"></path></svg></span>My stops</a>
+<a href="B-Search.dc.html" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #4B5563; font-size: 11px; font-weight: 600; min-height: 48px; justify-content: center"><span style="padding: 4px 16px; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg></span>Nearby</a>
+<a href="B-Map.dc.html" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #4B5563; font-size: 11px; font-weight: 600; min-height: 48px; justify-content: center"><span style="padding: 4px 16px; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"></path><path d="M9 4v14M15 6v14"></path></svg></span>Map</a>
+<a href="B-Alerts.dc.html" aria-current="page" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #E55A2B; font-size: 11px; font-weight: 700; min-height: 48px; justify-content: center"><span style="background: #FFE5D9; border-radius: 999px; padding: 4px 16px; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3L2 20h20z"></path><path d="M12 10v4M12 17v.5"></path></svg></span>Alerts (2)</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const rt = (n, special) => ({ n, style: 'min-width: 40px; height: 32px; padding: 0 6px; box-sizing: border-box; border-radius: 8px; background: ' + (special ? '#C2410C' : '#1E7C80') + '; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800' });
+const sev = (bg, fg) => 'font-size: 11px; font-weight: 800; letter-spacing: 0.04em; color: ' + fg + '; background: ' + bg + '; border-radius: 999px; padding: 3px 9px';
+const card = 'background: rgba(255,255,255,0.9); border-radius: 12px; padding: 12px 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 8px';
+const hot = 'background: linear-gradient(90deg, #FFE5D9, #FFFFFF); border: 2px solid #FF6B35; border-radius: 12px; padding: 11px 13px; box-shadow: 0 0 18px rgba(255,107,53,0.3); display: flex; flex-direction: column; gap: 8px';
+return {
+alerts: [
+{ cardStyle: hot, sev: 'DETOUR · NOW', sevStyle: sev('#C2410C', '#FFFFFF'), when: 'Until 6:00 pm today', routes: [rt('111')], title: 'Buranda busway platform 2 closed', body: 'Buses stop on Logan Rd at stop 1871 instead. Allow 5 extra minutes.' },
+{ cardStyle: card, sev: 'CHANGED STOP', sevStyle: sev('#FFE5D9', '#9A3412'), when: 'From Mon 20 Oct', routes: [rt('199'), rt('330')], title: 'Adelaide St stop 37 moves 50 m east', body: 'Temporary stop outside Anzac Square while kerb works run.' },
+{ cardStyle: card, sev: 'PLANNED', sevStyle: sev('#F3F4F6', '#374151'), when: 'Sat 25 – Sun 26 Oct', routes: [rt('M2', true), rt('66')], title: 'Reduced frequency after 9 pm', body: 'Metro M2 every 15 minutes. Route 66 runs as normal.' },
+{ cardStyle: card, sev: 'INFO', sevStyle: sev('#E6F2FF', '#00546B'), when: 'Ongoing', routes: [rt('60', true)], title: 'CityGlider: tap on at the rear doors', body: 'All doors open at busy stops in the city.' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

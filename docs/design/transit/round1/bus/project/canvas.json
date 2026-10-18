@@ -1,0 +1,29 @@
+{"v":3,"createdOnFiles":{"v":1,"at":"2026-10-18T09:00:00Z"},"title":"Brisbane Bus concepts","launch":{"view":"canvas"},"pages":[],
+"boards":{
+"Main.dc.html":{"x":0,"y":0,"w":390,"h":844,"title":"A · Home (my stops)"},
+"A-Search.dc.html":{"x":470,"y":0,"w":390,"h":844,"title":"A · Search"},
+"A-Departures.dc.html":{"x":940,"y":0,"w":390,"h":844,"title":"A · Departures"},
+"A-Detail.dc.html":{"x":1410,"y":0,"w":390,"h":844,"title":"A · Service detail"},
+"A-Map.dc.html":{"x":1880,"y":0,"w":390,"h":844,"title":"A · Route map"},
+"A-Alerts.dc.html":{"x":2350,"y":0,"w":390,"h":844,"title":"A · Alerts"},
+"A-States.dc.html":{"x":0,"y":964,"w":1700,"h":844,"title":"A · Loading / empty / offline / error"},
+"A-DarkWidget.dc.html":{"x":1780,"y":964,"w":1200,"h":844,"title":"A · Dark mode + widgets"},
+"A-Desktop.dc.html":{"x":3060,"y":964,"w":1280,"h":900,"title":"A · Desktop","expand":"fill"},
+"B-Home.dc.html":{"x":0,"y":2400,"w":390,"h":844,"title":"B · Home (search-first)"},
+"B-Search.dc.html":{"x":470,"y":2400,"w":390,"h":844,"title":"B · Search"},
+"B-Departures.dc.html":{"x":940,"y":2400,"w":390,"h":844,"title":"B · Departures"},
+"B-Detail.dc.html":{"x":1410,"y":2400,"w":390,"h":844,"title":"B · Service detail"},
+"B-Map.dc.html":{"x":1880,"y":2400,"w":390,"h":844,"title":"B · Stop map"},
+"B-Alerts.dc.html":{"x":2350,"y":2400,"w":390,"h":844,"title":"B · Alerts"},
+"B-States.dc.html":{"x":0,"y":3364,"w":1700,"h":844,"title":"B · Loading / empty / offline / error"},
+"B-DarkWidget.dc.html":{"x":1780,"y":3364,"w":1200,"h":844,"title":"B · Dark mode + widgets"},
+"B-Desktop.dc.html":{"x":3060,"y":3364,"w":1280,"h":900,"title":"B · Desktop","expand":"fill"}
+},
+"order":["Main.dc.html","A-Search.dc.html","A-Departures.dc.html","A-Detail.dc.html","A-Map.dc.html","A-Alerts.dc.html","A-States.dc.html","A-DarkWidget.dc.html","A-Desktop.dc.html","B-Home.dc.html","B-Search.dc.html","B-Departures.dc.html","B-Detail.dc.html","B-Map.dc.html","B-Alerts.dc.html","B-States.dc.html","B-DarkWidget.dc.html","B-Desktop.dc.html"],
+"notes":{
+"titleA":{"x":0,"y":-300,"text":"A · Ferry Sibling","kind":"title1","maxW":4340},
+"stickyA":{"x":2820,"y":0,"w":320,"text":"Closest relative of BrisbaneFerry: warm ground, rounded cards, countdown chips. Wattle gold replaces sunset orange. My stops = stacked cards, next 3 routes each.","fill":"orange"},
+"titleB":{"x":0,"y":2100,"text":"B · Kerbside","kind":"title1","maxW":4340},
+"stickyB":{"x":2820,"y":2400,"w":320,"text":"Route number is the hero, like a bus blind. Huge right-aligned countdown. Search-first home with the search field at thumb height.","fill":"gray"}
+},
+"designSystems":[]}

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pick a trip, Platform Board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&amp;family=JetBrains+Mono:wght@500;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4A2FC0}a:hover{color:#331F8F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #EDEDEA; font-family: 'Barlow Condensed', system-ui, sans-serif; color: #111315; display: flex; flex-direction: column">
+  <header style="background: #111315; color: #FFFFFF; padding: 14px 12px 14px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 6px">
+      <a href="B-Home.dc.html" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #FFFFFF"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></a>
+      <div style="font-size: 14px; font-weight: 700; letter-spacing: 0.1em; color: #B9BCC0">FROM</div>
+      <div style="font-size: 26px; font-weight: 800; text-transform: uppercase">Roma Street</div>
+    </div>
+    <label style="display: flex; align-items: center; gap: 10px; background: #FFFFFF; border-radius: 4px; padding: 0 12px; min-height: 52px; color: #111315">
+      <span style="font-size: 14px; font-weight: 800; letter-spacing: 0.1em">TO</span>
+      <input placeholder="Station name" value="" style="flex: 1; border: 0; font: inherit; font-size: 22px; font-weight: 600; outline: none; background: transparent">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+    </label>
+  </header>
+  <div style="padding: 10px 14px; display: flex; justify-content: space-between; align-items: baseline">
+    <span style="font-size: 16px; font-weight: 700; text-transform: uppercase">Direct from Roma Street</span>
+    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #4A4E54">97 OF 154</span>
+  </div>
+  <div role="group" aria-label="Filter by line" style="display: flex; gap: 6px; padding: 0 12px 10px; overflow: hidden">
+    <button aria-pressed="true" style="min-height: 40px; padding: 0 12px; border: 0; border-radius: 4px; background: #111315; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 700">ALL</button>
+    <button aria-pressed="false" style="min-height: 40px; padding: 0 12px; border: 0; border-radius: 4px; background: #0A7A6E; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 700">SPRINGFIELD</button>
+    <button aria-pressed="false" style="min-height: 40px; padding: 0 12px; border: 0; border-radius: 4px; background: #1E9F4A; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 700">IPSWICH</button>
+    <button aria-pressed="false" style="min-height: 40px; padding: 0 12px; border: 0; border-radius: 4px; background: #6A4C9C; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 700">FERNY GR</button>
+  </div>
+  <ul style="list-style: none; margin: 0; padding: 0 12px; flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 2px">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="9">
+      <li><a href="B-Departures.dc.html" style="display: flex; align-items: center; gap: 10px; background: #FFFFFF; padding: 0 12px; min-height: 56px; text-decoration: none; color: #111315">
+        <span style="flex: 1; font-size: 22px; font-weight: 700; text-transform: uppercase">{{r.name}}</span>
+        <span style="{{r.pill}}">{{r.line}}</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #4A4E54; width: 52px; text-align: right">{{r.plat}}</span>
+      </a></li>
+    </sc-for>
+  </ul>
+  <div style="padding: 10px 12px 26px; font-size: 15px; color: #33373C; text-align: center">Stations you can't reach without changing are hidden.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const c = { SPR: '#0A7A6E', IPS: '#1E9F4A', FG: '#6A4C9C', CAB: '#00843D', SHN: '#1F4E9C', AIR: '#E8A300' };
+    const rows = [
+      ['Indooroopilly', 'SPR', 'IPS', 'P8 P9'], ['Ipswich', 'IPS', null, 'P9'], ['Milton', 'IPS', null, 'P9'],
+      ['Mitchelton', 'FG', null, 'P4'], ['Nundah', 'CAB', null, 'P5'], ['Shorncliffe', 'SHN', null, 'P5'],
+      ['Springfield Central', 'SPR', null, 'P8'], ['Toowong', 'SPR', 'IPS', 'P8 P9'], ['Domestic Airport', 'AIR', null, 'P5']
+    ].map(([name, l1, l2, plat]) => ({
+      name, plat,
+      line: l2 ? l1 + ' + ' + l2 : l1,
+      pill: 'font-size: 13px; font-weight: 700; padding: 2px 6px; border-radius: 2px; color: ' + (l1 === 'AIR' ? '#111315' : '#FFFFFF') + '; background: ' + c[l1]
+    }));
+    return { rows };
+  }
+}
+</script>
+</body>
+</html>
