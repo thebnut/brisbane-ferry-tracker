@@ -59,7 +59,10 @@ export async function pullFromR2(
   let e = entry(pointer)
   // A scope the hub doesn't publish (a mode it doesn't poll): no snapshot, but the hub status still applies.
   if (!e) return { seq: null, json: null, status: pointer.status }
-  if (e.seq === sinceSeq) return { seq: e.seq, json: null, status: pointer.status }
+  // Unchanged shortcut only for ring slots: an overwritten latest object can be newer than the pointer says, so its
+  // actual seq is read below before deciding (Codex review of #49).
+  const isLatest = (k: string) => k.endsWith('/latest.json')
+  if (!isLatest(e.key) && e.seq === sinceSeq) return { seq: e.seq, json: null, status: pointer.status }
   // Snapshots live in rings of overwritten keys: the slot must hold the seq the pointer names. A mismatch means
   // the hub published between our two reads, so re-read the pointer and try once more.
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -67,8 +70,9 @@ export async function pullFromR2(
     const got = json != null ? snapshotSeq(json) : null
     // Ring slots must hold exactly the named seq. An overwritten latest object may be newer than the pointer after
     // a partial publish; it is still that scope's newest committed content (Codex review of #49).
-    if (json != null && got != null && (e.key.endsWith('/latest.json') ? got >= e.seq : got === e.seq)) {
-      return { seq: got, json, status: got > e.seq ? statusOf(json, got) : pointer.status }
+    if (json != null && got != null && (isLatest(e.key) ? got >= e.seq : got === e.seq)) {
+      const status = got > e.seq ? statusOf(json, got) : pointer.status
+      return { seq: got, json: got === sinceSeq ? null : json, status }
     }
     if (attempt === 0) {
       const again = await readBytes(src, R2_LATEST_KEY)
@@ -77,7 +81,7 @@ export async function pullFromR2(
       const next = entry(pointer)
       if (!next) return { seq: null, json: null, status: pointer.status }
       e = next
-      if (e.seq === sinceSeq) return { seq: e.seq, json: null, status: pointer.status }
+      if (!isLatest(e.key) && e.seq === sinceSeq) return { seq: e.seq, json: null, status: pointer.status }
     }
   }
   throw new Error(`snapshot for seq ${e.seq} not found at ${e.key}`)

@@ -888,5 +888,23 @@ describe('Codex review regressions', () => {
     // Past the direct-read freshness window the reader takes the pointer path, and still gets the newer object.
     const r = await pullFromR2(new MemoryDataSource(r2.files), null, 'ferry', doc.header.fetchedAt + 60_000)
     expect(r.seq).toBe(ptr.seq + 1)
+    // A warm reader holding the pointer's seq also gets the newer object, with its header status.
+    const warmR = await pullFromR2(
+      new MemoryDataSource(r2.files),
+      ptr.seq,
+      'ferry',
+      doc.header.fetchedAt + 60_000,
+    )
+    expect(warmR.seq).toBe(ptr.seq + 1)
+    expect(warmR.json).not.toBeNull()
+    expect(warmR.status.seq).toBe(ptr.seq + 1)
+    // And a reader already on the newer seq is told nothing changed.
+    const same = await pullFromR2(
+      new MemoryDataSource(r2.files),
+      ptr.seq + 1,
+      'ferry',
+      doc.header.fetchedAt + 60_000,
+    )
+    expect(same).toMatchObject({ seq: ptr.seq + 1, json: null })
   })
 })
