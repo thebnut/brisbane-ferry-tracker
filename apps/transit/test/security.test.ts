@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { contentSecurityPolicy as ferryCsp } from '../../ferry/workers/security.ts'
 import worker from '../workers/app.ts'
 import {
   BASE_SECURITY_HEADERS,
@@ -10,22 +11,8 @@ import {
 
 vi.mock('virtual:react-router/server-build', () => ({}))
 
-// The ferry Worker's CSP (apps/ferry/workers/security.ts, #52/#53): transit's must equal it plus only Turnstile.
-const FERRY_CSP = (nonce: string) => [
-  "default-src 'self'",
-  `script-src 'self' 'nonce-${nonce}'`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://tiles.openfreemap.org",
-  "font-src 'self' data:",
-  "connect-src 'self' https://tiles.openfreemap.org",
-  "worker-src 'self' blob:",
-  "manifest-src 'self'",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-  'upgrade-insecure-requests',
-]
+// Transit's CSP must equal the ferry Worker's (the strictest baseline, #52/#53) plus only Turnstile.
+const FERRY_CSP = (nonce: string) => ferryCsp(nonce).split('; ')
 
 describe('security headers (same pattern and strictness as the ferry Worker)', () => {
   it('HTML gets the nonce CSP and the base headers; script-src has no unsafe-inline', () => {
