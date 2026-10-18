@@ -133,7 +133,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
           </div>
           <SaveButton saved={isSaved} name={name} onToggle={() => toggleSaved({ id: stopId, name })} />
         </div>
-        <DataBanner rtState={res?.rtState} hasData={!!res} />
+        <DataBanner rtState={res?.rtState} hasData={!!res} generation={res?.staticGeneration} />
         {here.slice(0, 2).map((a) => (
           <NoticeStrip key={a.id} href="/alerts" renderLink={linkRenderer}>
             {a.header}

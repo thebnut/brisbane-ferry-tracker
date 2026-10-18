@@ -111,7 +111,7 @@ export default function RoutePage({ loaderData }: Route.ComponentProps) {
             options={dirs.map((p) => ({ value: String(p.directionId), label: `To ${p.headsign}` }))}
           />
         ) : null}
-        <DataBanner rtState={vehiclesQ.data?.rtState} hasData />
+        <DataBanner rtState={vehiclesQ.data?.rtState} hasData generation={vehiclesQ.data?.staticGeneration} />
         <Suspense fallback={<div className="h-80 animate-pulse rounded-card bg-map-ground" />}>
           <RouteMap
             pattern={pattern}

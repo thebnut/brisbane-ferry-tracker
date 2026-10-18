@@ -102,7 +102,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
             ‹ Back to the stop
           </Link>
         ) : null}
-        <DataBanner rtState={trip?.rtState} hasData={!!trip} />
+        <DataBanner rtState={trip?.rtState} hasData={!!trip} generation={trip?.staticGeneration} />
         {!trip ? (
           q.isError ? (
             <ErrorState title="Couldn't load this bus" onRetry={() => q.refetch()}>

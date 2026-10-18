@@ -119,19 +119,43 @@ export function UpdatedStrip({
 }
 
 /** rtState / connectivity banner (B-States offline and error panels share these words). */
-export function DataBanner({ rtState, hasData }: { rtState: RtState | undefined; hasData: boolean }) {
+export function DataBanner({
+  rtState,
+  hasData,
+  generation,
+}: {
+  rtState: RtState | undefined
+  hasData: boolean
+  /** staticGeneration of the response: "fixture-…" means recorded demo data (fixture mode or staging fallback). */
+  generation?: string | null
+}) {
   const online = useOnline()
+  const demo = generation?.startsWith('fixture-') ? (
+    <p
+      data-banner="demo"
+      role="status"
+      className="rounded-card border border-aqua-text/30 bg-ferry-light-blue px-3.5 py-2.5 text-sm text-charcoal dark:bg-night-card dark:text-night-text"
+    >
+      <strong className="font-bold">Demo data.</strong> A recorded weekday timetable with simulated live
+      times, for previewing the app.
+    </p>
+  ) : null
+  let rt: ReactNode = null
   if (!online)
-    return (
+    rt = (
       <OfflineBanner
         kind="offline"
         detail={hasData ? 'Showing your saved timetable. No live times.' : undefined}
       />
     )
-  if (rtState === 'unavailable') return <OfflineBanner kind="unavailable" />
-  if (rtState === 'stale') return <OfflineBanner kind="stale" />
-  if (rtState === 'reloading') return <OfflineBanner kind="reloading" />
-  return null
+  else if (rtState === 'unavailable' || rtState === 'stale' || rtState === 'reloading')
+    rt = <OfflineBanner kind={rtState} />
+  return demo || rt ? (
+    <>
+      {demo}
+      {rt}
+    </>
+  ) : null
 }
 
 export const NAV: NavItem[] = [

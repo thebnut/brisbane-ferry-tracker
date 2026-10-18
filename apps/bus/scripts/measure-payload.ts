@@ -23,8 +23,12 @@ const atArg = rest.find((a) => a.startsWith('--at='))
 const keys = rest.filter((a) => !a.startsWith('--'))
 const manifest = JSON.parse(readFileSync(join(out, 'manifest.json'), 'utf8'))
 const generation = manifest.modes.bus.current as string
-const index = GenerationIndex.passthrough().parse(JSON.parse(readFileSync(join(out, 'static', generation, 'bus', 'index.json'), 'utf8')))
-const shards = (index as unknown as { shards?: { count: number; byDate: Record<string, Array<string | null>> } }).shards
+const index = GenerationIndex.passthrough().parse(
+  JSON.parse(readFileSync(join(out, 'static', generation, 'bus', 'index.json'), 'utf8')),
+)
+const shards = (
+  index as unknown as { shards?: { count: number; byDate: Record<string, Array<string | null>> } }
+).shards
 
 function shardOf(stopKey: string, count: number): number {
   let h = 0x811c9dc5
@@ -37,11 +41,16 @@ function shardOf(stopKey: string, count: number): number {
 
 function stopDay(date: string, key: string): StaticStopDay | null {
   const blob = index.blobs[date]?.[key]
-  if (blob) return JSON.parse(gunzipSync(readFileSync(join(out as string, 'static/blobs', `${blob}.json.gz`))).toString())
+  if (blob)
+    return JSON.parse(
+      gunzipSync(readFileSync(join(out as string, 'static/blobs', `${blob}.json.gz`))).toString(),
+    )
   if (!shards) return null
   const sha = shards.byDate[date]?.[shardOf(key, shards.count)]
   if (!sha) return null
-  const shard = JSON.parse(gunzipSync(readFileSync(join(out as string, 'static/shards', `${sha}.json.gz`))).toString())
+  const shard = JSON.parse(
+    gunzipSync(readFileSync(join(out as string, 'static/shards', `${sha}.json.gz`))).toString(),
+  )
   return shard[key] ?? null
 }
 

@@ -43,12 +43,23 @@ export function loaderEnv(request: Request, context: Readonly<RouterContextProvi
       if (rt && path.startsWith('/v1/')) url.searchParams.set('rt', rt)
       return handleFixtureApi(url, Date.now(), env)
     }
-  } else if (env?.API) {
-    const binding = env.API
-    api = (path, init) => binding.fetch(new Request(`https://bft-api${path}`, { signal: init?.signal }))
   } else {
+    const binding = env?.API
     const base = env?.API_BASE ?? 'https://bft-api.brisbanetransit.workers.dev'
-    api = (path, init) => fetch(`${base}${path}`, { signal: init?.signal })
+    const live: ApiFetcher = (path, init) =>
+      binding
+        ? binding.fetch(new Request(`https://bft-api${path}`, { signal: init?.signal }))
+        : fetch(`${base}${path}`, { signal: init?.signal })
+    // Staging only: while bft-api has no bus data, answer from fixtures (responses then carry a fixture-*
+    // generation, and DataBanner says "Demo data").
+    api =
+      env?.FIXTURE_FALLBACK === '1'
+        ? async (path, init) => {
+            const res = await live(path, init).catch(() => null)
+            if (res && res.status < 500) return res
+            return handleFixtureApi(new URL(`http://fixtures/__fixtures${path}`), Date.now(), env)
+          }
+        : live
   }
   // Client data (/data/bus/*): the build's static copy first (free, no API hop), then the API or fixtures.
   const fetcher: ApiFetcher = async (path, init) => {

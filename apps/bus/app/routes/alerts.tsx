@@ -141,7 +141,7 @@ export default function AlertsPage({ loaderData }: Route.ComponentProps) {
             ]}
           />
         </div>
-        <DataBanner rtState={q.data?.rtState} hasData={!!q.data} />
+        <DataBanner rtState={q.data?.rtState} hasData={!!q.data} generation={q.data?.staticGeneration} />
         {shown.length === 0 ? (
           <p
             className="rounded-card bg-white/90 px-4 py-6 text-center text-sm text-sched-text shadow-card dark:bg-night-card"

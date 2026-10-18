@@ -10,7 +10,8 @@
   "account_id": "dde2914802079766f7671528e7cbae75",
   "workers_dev": true,
   "observability": { "enabled": true },
-  "assets": { "directory": "./build/client", "binding": "ASSETS" },
+  // drop-trailing-slash: prerendered /about/index.html is served at /about (no redirect).
+  "assets": { "directory": "./build/client", "binding": "ASSETS", "html_handling": "drop-trailing-slash" },
   "vars": {
     // HTTP fallback when the API service binding is absent (local dev, previews).
     "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
@@ -28,6 +29,8 @@
         "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
         "ALLOW_FIXTURES": "1",
         "FIXTURES": "0",
+        // Until bft-api has bus data: answer with fixture data (the pages say "Demo data") when the API errors.
+        "FIXTURE_FALLBACK": "1",
         "SITE_URL": "https://bft-bus.brisbanetransit.workers.dev"
       },
       // SSR loaders and the /v1 + /data proxy call the API Worker in-process through this binding.
