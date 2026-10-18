@@ -24,8 +24,23 @@ export function secondsToGtfsTime(s: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
 }
 
-/** Epoch seconds of "noon minus 12h" on a service date (YYYYMMDD) in Brisbane. */
+const dayStartCache = new Map<string, number>()
+
+/**
+ * Epoch seconds of "noon minus 12h" on a service date (YYYYMMDD) in Brisbane.
+ * Memoised per date: merges call this for every stop event, and building a TZDate each time cost ~12 µs per call,
+ * which alone blew the Workers Free 10 ms CPU budget for a busy stop.
+ */
 export function serviceDayStartEpoch(serviceDate: string): number {
+  const hit = dayStartCache.get(serviceDate)
+  if (hit !== undefined) return hit
+  const v = computeServiceDayStart(serviceDate)
+  if (dayStartCache.size > 64) dayStartCache.clear()
+  dayStartCache.set(serviceDate, v)
+  return v
+}
+
+function computeServiceDayStart(serviceDate: string): number {
   const y = Number(serviceDate.slice(0, 4))
   const mo = Number(serviceDate.slice(4, 6)) - 1
   const d = Number(serviceDate.slice(6, 8))

@@ -76,12 +76,16 @@ function tripStops(index: TripIndexDay, t: TripIndexDay['trips'][number], servic
   return out
 }
 
-/** Synthetic RT: trips running or starting within 45 min are live; 1 in 10 late, 1 in 10 early, 1 in 12 cancelled. */
-function synthRt(day: FixtureDay, dates: string[], nowS: number): RtSnapshot {
+/**
+ * Synthetic RT: trips running or starting within 45 min are live; 1 in 10 late, 1 in 10 early, 1 in 12 cancelled.
+ * `only` limits the work to the trips a response can show (Workers Free allows 10 ms CPU per request).
+ */
+function synthRt(day: FixtureDay, dates: string[], nowS: number, only?: ReadonlySet<string>): RtSnapshot {
   const trips: Record<string, RtTrip> = {}
   const vehicles: Vehicle[] = []
   for (const date of dates) {
     for (const t of day.tripIndex.trips) {
+      if (only && !only.has(t.id)) continue
       const stops = tripStops(day.tripIndex, t, date)
       const first = stops[0]
       const last = stops[stops.length - 1]
@@ -186,8 +190,8 @@ export async function handleFixtureApi(url: URL, nowMs: number): Promise<Respons
   const today = currentServiceDate(nowS * 1000)
   const dates = [addDays(today, -1), today, addDays(today, 1)]
   const rtState = forcedState(url)
-  const rt = synthRt(day, dates, Math.floor(nowMs / 1000))
-  const env = envelope(day, dates, rt, rtState, nowMs)
+  const realNowS = Math.floor(nowMs / 1000)
+  const env = (rt: RtSnapshot) => envelope(day, dates, rt, rtState, nowMs)
 
   let m = /^\/v1\/ferry\/stops\/([^/]+)\/departures$/.exec(path)
   if (m) {
@@ -199,6 +203,7 @@ export async function handleFixtureApi(url: URL, nowMs: number): Promise<Respons
     const to = toKey ? terminalById(toKey) : null
     if (toKey && !to) return json({ error: 'unknown_stop' }, 404)
     const days = dates.map((d) => ({ ...base, serviceDate: d }))
+    const rt = synthRt(day, dates, realNowS, new Set(base.trips))
     const departures = mergeDepartures(days, rtState === 'unavailable' ? null : rt, {
       nowS,
       toStopIds: to ? new Set([to.id]) : undefined,
@@ -208,7 +213,7 @@ export async function handleFixtureApi(url: URL, nowMs: number): Promise<Respons
     })
     return json(
       DeparturesResponse.parse({
-        ...env,
+        ...env(rt),
         mode: 'ferry',
         stop: { key, name: `${stop.name} ferry terminal`, stopIds: [key] },
         to: to ? { key: to.id, name: `${to.name} ferry terminal` } : null,
@@ -223,6 +228,7 @@ export async function handleFixtureApi(url: URL, nowMs: number): Promise<Respons
     const { tripId, serviceDate } = parseTripInstanceKey(key)
     const t = day.tripIndex.trips.find((x) => x.id === tripId)
     if (!t || !dates.includes(serviceDate)) return json({ error: 'unknown_trip' }, 404)
+    const rt = synthRt(day, dates, realNowS, new Set([tripId]))
     const rtTrip = rtState === 'unavailable' ? undefined : rt.trips[key]
     const rows = tripStops(day.tripIndex, t, serviceDate)
     const stops = rows.map((s, i) => {
@@ -244,7 +250,7 @@ export async function handleFixtureApi(url: URL, nowMs: number): Promise<Respons
     const vehicle = rtState === 'live' ? (rt.vehicles.find((v) => v.tripKey === key) ?? null) : null
     return json(
       TripResponse.parse({
-        ...env,
+        ...env(rt),
         mode: 'ferry',
         tripInstance: key,
         route: day.tripIndex.routes[t.r],
@@ -257,10 +263,13 @@ export async function handleFixtureApi(url: URL, nowMs: number): Promise<Respons
   }
 
   if (path === '/v1/ferry/vehicles') {
+    const rt = synthRt(day, dates, realNowS)
     return json(
-      VehiclesResponse.parse({ ...env, mode: 'ferry', vehicles: rtState === 'live' ? rt.vehicles : [] }),
+      VehiclesResponse.parse({ ...env(rt), mode: 'ferry', vehicles: rtState === 'live' ? rt.vehicles : [] }),
     )
   }
-  if (path === '/v1/alerts') return json(AlertsResponse.parse({ ...env, alerts: [] }))
+  if (path === '/v1/alerts') {
+    return json(AlertsResponse.parse({ ...env(synthRt(day, dates, realNowS, new Set())), alerts: [] }))
+  }
   return json({ error: 'not_found' }, 404)
 }

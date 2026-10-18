@@ -42,21 +42,39 @@ vite-plugin-pwa 2 (generateSW): manifest, precached JS/CSS/icons (MapLibre exclu
 and `/v1/ferry` departures/trips (24 h). Offline, the last good response per pair is shown as timetable times with
 "Offline · scheduled".
 
-## Measurements (18 Oct 2026, production build, `wrangler dev`, fixture mode)
+## Staging
+Deployed to **https://bft-ferry.brisbanetransit.workers.dev** (`pnpm --filter @bft/ferry deploy:staging`, workers.dev
+only, `API` service binding to `bft-api`). While `bft-api` has no ferry data (`503 no static data for mode`), the
+boards show the error state; add `?fixtures=1` to see recorded data.
 
-Lighthouse 13.5 mobile, simulated slow 4G (1.6 Mbps, 150 ms RTT, 4× CPU), 3 runs each, localhost:
+## Measurements (18 Oct 2026)
 
-| Page | Perf | A11y | BP | SEO | FCP | LCP | TBT | CLS |
-|---|---|---|---|---|---|---|---|---|
-| `/` | 95–97 | 100 | 100 | 100 | 2.0–2.1 s | 2.3–2.6 s | 0 ms | 0 |
-| `/terminal/bulimba` | 97 | 100 | 100 | 100 | 2.0 s | 2.1–2.3 s | 0 ms | 0 |
+Lighthouse 13.5 mobile, simulated slow 4G (1.6 Mbps, 150 ms RTT, 4× CPU), 3 runs each, fixture mode.
+
+| Where | Page | Perf | A11y | BP | SEO | TTFB | FCP | LCP | TBT | CLS |
+|---|---|---|---|---|---|---|---|---|---|---|
+| staging (workers.dev) | `/` | 98 | 100 | 100 | 100 | 19–22 ms | 1.8–2.0 s | 2.0 s | 0 | 0 |
+| staging (workers.dev) | `/terminal/bulimba` | 98 | 100 | 100 | 100 | 20–37 ms | 1.8 s | 2.0 s | 0 | 0 |
+| local `wrangler dev` | `/` | 95–97 | 100 | 100 | 100 | | 2.0–2.1 s | 2.3–2.6 s | 0 | 0 |
 
 - LCP element: the header lockup (WebP 17 KB at 360 w, was a 76 KB PNG). Departure rows are in the SSR HTML
   (home 8.9 KB gz, terminal page 10.9 KB gz) and paint with FCP.
-- FCP is bounded by the render-blocking CSS (7.7 KB gz) after the HTML. Inlining it (HTMLRewriter in the Worker)
-  would save a round trip; not done yet because of the hydration interplay with `<Links/>`.
-- The 1.5 s target is for a real mid-range Android from the Brisbane PoP; Lighthouse's simulated slow 4G is
-  harsher. Needs the staging deploy to measure properly.
+- FCP is bounded by the render-blocking CSS after the HTML. Inlining critical CSS at the edge would save a round trip.
+- The 1.5 s target is for a real mid-range Android; Lighthouse's simulated slow 4G is harsher.
+
+**Worker CPU (Workers Free allows 10 ms per request)**, from `wrangler tail` on staging, warm isolates:
+
+| Request | CPU |
+|---|---|
+| `/` or `/terminal/:slug` SSR with full boards (fixture data) | 11–16 ms |
+| same with no rows (API 503, error states) | 4–10 ms |
+| `/__fixtures/v1/…/departures` | 1 ms |
+| first request in a new isolate (module init) | 30–60 ms |
+
+SSR of the full boards is **over the Free 10 ms budget**; Cloudflare tolerated it in these runs, but it isn't safe.
+Options: the $5 plan (not approved), an in-isolate HTML micro-cache for cookie-less pages, or a lighter SSR (render
+fewer rows server-side). `@bft/core` `serviceDayStartEpoch` was memoised in this PR: it built a `TZDate` per stop
+event and made a merge ~10× slower (3 ms → 0.3 ms for Bulimba; the edge API benefits too).
 
 First-load JS (gzip -9, home): **about 140 KB**, over the 90 KB budget.
 
@@ -70,4 +88,8 @@ First-load JS (gzip -9, home): **about 140 KB**, over the 90 KB budget.
 
 React 19 DOM plus React Router 8 alone are about 105 KB gz, so 90 KB is not reachable with the ADR-0005 stack. App
 code is about 35 KB. zod was moved server-side (−27 KB). Lazy: stop selector (Ark UI, 34 KB), map (MapLibre,
-279 KB + 10 KB CSS). JS does not block LCP (no TBT).
+279 KB + 10 KB CSS). JS does not block LCP (no TBT). The Worker bundle is 387 KB gz (MapLibre stubbed out of SSR).
+
+Offline reload was verified in desktop Chrome with the server stopped (page and rows served by the service worker).
+Playwright checks the cached page and precache instead, because its Chromium offline emulation and request routing
+bypass the service worker.

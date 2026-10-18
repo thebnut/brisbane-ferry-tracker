@@ -9,7 +9,8 @@
   "account_id": "dde2914802079766f7671528e7cbae75",
   "workers_dev": true,
   "observability": { "enabled": true },
-  "assets": { "directory": "./build/client", "binding": "ASSETS" },
+  // drop-trailing-slash: prerendered /privacy/index.html is served at /privacy (no redirect), like the live site.
+  "assets": { "directory": "./build/client", "binding": "ASSETS", "html_handling": "drop-trailing-slash" },
   "vars": {
     // HTTP fallback when the API service binding is absent (local dev, previews).
     "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
