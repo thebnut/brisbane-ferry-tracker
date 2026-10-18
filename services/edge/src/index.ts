@@ -3,6 +3,7 @@
  */
 import { registerAi } from './ai/routes.ts'
 import { createApp } from './app.ts'
+import { withRtNamespace } from './data/rt-prefix.ts'
 import { dataSourceFor } from './data/source.ts'
 import { StaticStore } from './data/static-store.ts'
 import type { WorkerEnv } from './env.ts'
@@ -25,7 +26,9 @@ export const hubStub = (env: WorkerEnv) =>
 let isolate: { app: ReturnType<typeof createApp>; snapshots: SnapshotClient } | null = null
 let pendingWaitUntil: ((p: Promise<unknown>) => void) | null = null
 
-function getIsolate(env: WorkerEnv) {
+function getIsolate(rawEnv: WorkerEnv) {
+  // Realtime reads use this environment's R2 namespace (RT_R2_PREFIX); static data is shared.
+  const env = withRtNamespace(rawEnv)
   if (!isolate) {
     const cfg = parseRtModes(env.RT_MODES, env.RT_INDEX_MODES)
     // A DO stub is bound to the request that created it, so make one per call (env bindings are reusable).

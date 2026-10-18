@@ -148,7 +148,7 @@ test('live data unavailable shows its banner', async ({ page }) => {
   await expect(page.getByText('Live times unavailable')).toBeVisible()
 })
 
-test('privacy and terms are prerendered', async ({ request }) => {
+test('privacy and terms are served (server-rendered with the CSP nonce)', async ({ request }) => {
   for (const path of ['/privacy', '/terms']) {
     const res = await request.get(path)
     expect(res.status()).toBe(200)

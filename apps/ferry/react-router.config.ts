@@ -2,7 +2,6 @@ import type { Config } from '@react-router/dev/config'
 
 export default {
   ssr: true,
-  // Static pages are prerendered to HTML in build/client and served by Workers static assets (no Worker
-  // invocation). Terminal pages and home are server-rendered so their departure rows are live in the HTML.
-  prerender: ['/privacy', '/terms'],
+  // Every HTML page is server-rendered by the Worker so it carries the per-request CSP nonce (workers/security.ts);
+  // /privacy and /terms used to be prerendered static HTML, which can't carry one.
 } satisfies Config

@@ -1,9 +1,18 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, useState } from 'react'
-import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router'
+import {
+  isRouteErrorResponse,
+  Links,
+  Meta,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+  useRouteLoaderData,
+} from 'react-router'
 import type { Route } from './+types/root'
 import './app.css'
 import { Footer, SiteHeader } from './components/Chrome.tsx'
+import { cloudflareContext } from './lib/context.ts'
 import { makeQueryClient } from './lib/queries.ts'
 
 // Inter is self-hosted from app.css (@fontsource-variable/inter, font-display: swap), so no third-party, render-
@@ -15,7 +24,13 @@ export const links: Route.LinksFunction = () => [
   { rel: 'manifest', href: '/manifest.webmanifest' },
 ]
 
+/** The per-request CSP nonce, for the inline scripts below (workers/security.ts). */
+export function loader({ context }: Route.LoaderArgs) {
+  return { nonce: context.get(cloudflareContext).nonce }
+}
+
 export function Layout({ children }: { children: ReactNode }) {
+  const nonce = useRouteLoaderData<typeof loader>('root')?.nonce
   return (
     <html lang="en-AU">
       <head>
@@ -27,8 +42,8 @@ export function Layout({ children }: { children: ReactNode }) {
       </head>
       <body>
         {children}
-        <ScrollRestoration />
-        <Scripts />
+        <ScrollRestoration nonce={nonce} />
+        <Scripts nonce={nonce} />
       </body>
     </html>
   )
