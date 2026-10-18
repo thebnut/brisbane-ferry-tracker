@@ -68,8 +68,6 @@
         "AI_ENABLED": "true",
         // Brett's hard cap (18 Oct): US$10 a month, enforced by the Budget DO ledger.
         "AI_MONTHLY_BUDGET_USD": "10",
-        // Freshness experiment (18 Oct): serve isolate copies at most 25 s old (default 60 s); trades some latency.
-        "RT_SNAPSHOT_MAX_STALE_MS": "25000",
         "AI_PER_IP_DAILY": "10",
         "AI_GATEWAY": "bft",
         "CF_ACCOUNT_ID": "dde2914802079766f7671528e7cbae75"
