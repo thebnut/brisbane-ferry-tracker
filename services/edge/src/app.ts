@@ -10,6 +10,7 @@ import {
   type DeparturesResponse,
   gtfsToEpoch,
   type HealthResponse,
+  type MergeOptions,
   Mode,
   mergeDepartures,
   overlappingServiceDates,
@@ -32,6 +33,7 @@ import { mayHaveStop, type StaticStore } from './data/static-store.ts'
 import { createLogger, errorMessage, type Logger } from './log.ts'
 import { FEED_MODE_SUFFIX, MODES } from './rt/feeds.ts'
 import type { SnapshotClient } from './snapshot-client.ts'
+import { stationsFor, tripStopPlatform } from './stations.ts'
 
 export interface AppDeps {
   store: StaticStore
@@ -134,6 +136,10 @@ export function createApp(deps: AppDeps): Hono<Env> {
       )
     const days = await load(dates)
 
+    // Train: stopping patterns, plus every platform of the station so core can spot live platform changes
+    // (`stationPlatforms`, added to MergeOptions by bft-train #42; ignored by older cores).
+    const stations =
+      mode === 'train' ? await stationsFor(deps.store, mode, generation).catch(() => null) : null
     const merge = (ds: StaticStopDay[]) => {
       const stop = describeStop(ds, key)
       let to: DeparturesResponse['to'] = null
@@ -143,10 +149,22 @@ export function createApp(deps: AppDeps): Hono<Env> {
         toStopIds = t.ids
         to = { key: toKey, name: t.name ?? toKey }
       }
+      const mergeOptions: MergeOptions & { stationPlatforms?: ReadonlyMap<string, string | undefined> } = {
+        nowS: Math.floor(fromMs / 1000),
+        toStopIds,
+        limit,
+        rtState: r.rtState,
+        boardingStopIds: stop.ids,
+      }
+      if (mode === 'train') {
+        mergeOptions.withStopsAfter = true
+        const platforms = stations?.platforms.get(key)
+        if (platforms) mergeOptions.stationPlatforms = platforms
+      }
       const departures: Departure[] = mergeDepartures(
         ds,
         r.rtState === 'live' || r.rtState === 'stale' ? r.snap : null,
-        { nowS: Math.floor(fromMs / 1000), toStopIds, limit, rtState: r.rtState, boardingStopIds: stop.ids },
+        mergeOptions,
         r.cur?.vehiclesByTrip,
       )
       return { stop, to, departures }
@@ -219,14 +237,23 @@ export function createApp(deps: AppDeps): Hono<Env> {
       const { tripId } = parseTripInstanceKey(tripInstance)
       const trip = day ? findTrip(day, tripId) : undefined
       if (!day || !trip) return c.json({ error: 'unknown trip', detail: tripInstance }, 404)
+      const stations =
+        mode === 'train' ? await stationsFor(deps.store, mode, generation).catch(() => null) : null
       const stops: TripStop[] = []
       for (let i = 0; i + 5 < trip.st.length; i += 6) {
         const [si, seq, arrS, depS, pickup, dropOff] = trip.st.slice(i, i + 6) as number[]
         const schedArr = gtfsToEpoch(serviceDate, arrS as number)
         const schedDep = gtfsToEpoch(serviceDate, depS as number)
         const p = predictStop(live, seq as number, schedArr, schedDep, r.rtState)
+        const stopId = day.stops[si as number] ?? ''
         stops.push({
-          stopId: day.stops[si as number] ?? '',
+          // platform / scheduledPlatform / stationKey: optional TripStop fields from bft-train #42.
+          ...tripStopPlatform(
+            stations,
+            stopId,
+            live?.updates.find((u) => u.seq === seq),
+          ),
+          stopId,
           stopSequence: seq as number,
           schedArr,
           schedDep,
