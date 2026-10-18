@@ -105,3 +105,11 @@ test('service page: no LIVE or GPS while offline (Codex review)', async ({ page,
   await expect(page.getByText('LIVE', { exact: true })).toHaveCount(0)
   await context.setOffline(false)
 })
+
+test('header LIVE follows the boards: stale data, no LIVE pill (Codex review)', async ({ page }) => {
+  await page.goto('/station/roma-street?to=indooroopilly')
+  await expect(page.locator('header').getByText('LIVE', { exact: true })).toBeVisible()
+  await page.goto('/station/roma-street?to=indooroopilly&rt=stale')
+  await expect(page.locator('[data-banner=stale]').first()).toBeVisible()
+  await expect(page.locator('header').getByText('LIVE', { exact: true })).toHaveCount(0)
+})

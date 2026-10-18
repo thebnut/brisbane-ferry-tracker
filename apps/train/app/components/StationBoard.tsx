@@ -22,6 +22,7 @@ import { boardState, platformChanges, type ServiceFilter, trainCard, visibleRows
 import { isReachable, type Station, stationHref } from '../lib/network.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import { useOnline } from '../lib/useNow.ts'
+import { useReportLive } from './Chrome.tsx'
 import { ReachableList } from './ReachableList.tsx'
 import { TrainCard } from './TrainCard.tsx'
 
@@ -70,6 +71,7 @@ export function StationBoard({
   const offline = !online || (res as { offline?: boolean } | undefined)?.offline === true
   // Data generated over a minute ago (e.g. a page reloaded from the service worker's cache) is not live either.
   const state = boardState(res, offline, nowMs)
+  useReportLive(`board:${from.key}>${to?.key ?? ''}`, state == null)
 
   const cards = useMemo(() => {
     // Not live: timetable only, no live estimates or platform changes, and nothing that has already left.

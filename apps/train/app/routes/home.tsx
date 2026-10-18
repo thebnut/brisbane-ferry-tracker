@@ -17,7 +17,7 @@ import {
 } from '@bft/ui'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { SECTION, Shell } from '../components/Chrome.tsx'
+import { SECTION, Shell, useReportLive } from '../components/Chrome.tsx'
 import { boardHref } from '../components/StationBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
 import { at } from '../lib/base.ts'
@@ -74,13 +74,15 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
 }
 
 /** A query's rows as the board would show them (timetable only unless live, departed trains dropped). */
-function useLiveRows(q: ReturnType<typeof useDepartures>, nowMs: number) {
+function useLiveRows(key: string, q: ReturnType<typeof useDepartures>, nowMs: number) {
   const online = useOnline()
   const state = boardState(
     q.data,
     !online || (q.data as { offline?: boolean } | undefined)?.offline === true,
     nowMs,
   )
+  // The header pill is LIVE only while every board on the page is.
+  useReportLive(key, state == null)
   return visibleRows(q.data?.departures ?? [], state, nowMs)
 }
 
@@ -101,7 +103,9 @@ function FavouriteCard({
   const q = useDepartures(fetcher, mode, fav.from, fav.to, initial, 4)
   const from = stationByKey(fav.from) as Station
   const to = stationByKey(fav.to)
-  const rows = useLiveRows(q, nowMs).filter((d) => d.status !== 'cancelled')
+  const rows = useLiveRows(`fav:${fav.from}>${fav.to ?? ''}`, q, nowMs).filter(
+    (d) => d.status !== 'cancelled',
+  )
   const next = rows[0] ? trainCard(rows[0], nowMs, fav.from, fav.to) : null
   const then = rows.slice(1, 3)
   return (
@@ -209,7 +213,7 @@ const metres = (lat: number, lon: number, s: Station) => {
 function NearestLines({ station, nowMs, mode }: { station: Station; nowMs: number; mode: DataMode }) {
   const fetcher = useFetcher(mode)
   const q = useDepartures(fetcher, mode, station.key, null, null, 12)
-  const rows = useLiveRows(q, nowMs)
+  const rows = useLiveRows(`nearest:${station.key}`, q, nowMs)
   const perLine = new Map<string, { name: string; color: string; mins: number }>()
   for (const d of rows) {
     if (d.status === 'cancelled') continue

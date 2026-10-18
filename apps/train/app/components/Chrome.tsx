@@ -5,7 +5,7 @@
  */
 import { AppHeader, BottomSheet, LivePill, SettingsPill } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-train.svg?url'
-import { type ReactNode, useEffect, useState } from 'react'
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 import { useRouteLoaderData } from 'react-router'
 import { ATTRIBUTION } from '../lib/seo.ts'
 import { FIXTURE_COOKIE, type Theme, writeTheme } from '../lib/storage.ts'
@@ -115,6 +115,18 @@ function FixtureNotice() {
   )
 }
 
+/** Boards report whether their data is live and fresh; the header pill is LIVE only while every one is. */
+const LiveReport = createContext<((key: string, live: boolean | null) => void) | null>(null)
+
+/** Tell the page header whether this board's data is live (shared liveState). Reported after hydration. */
+export function useReportLive(key: string, live: boolean) {
+  const report = useContext(LiveReport)
+  useEffect(() => {
+    report?.(key, live)
+    return () => report?.(key, null)
+  }, [report, key, live])
+}
+
 /** Header, optional status strip, page body, bottom nav and footer. */
 export function Shell({
   active,
@@ -124,16 +136,29 @@ export function Shell({
 }: {
   active: string
   strip?: ReactNode
-  /** Is the page's live data fresh (shared liveState)? Pages with live boards pass it; others show the connection. */
+  /** Is the page's own live data fresh (shared liveState)? Boards inside report theirs with useReportLive. */
   live?: boolean
   children: ReactNode
 }) {
   const [settings, setSettings] = useState(false)
-  // Never LIVE while offline, nor over data too old to call live (smoke test T5).
+  const [reports, setReports] = useState<Record<string, boolean>>({})
+  const report = useCallback(
+    (key: string, value: boolean | null) =>
+      setReports((r) => {
+        if (value == null) {
+          if (!(key in r)) return r
+          const { [key]: _gone, ...rest } = r
+          return rest
+        }
+        return r[key] === value ? r : { ...r, [key]: value }
+      }),
+    [],
+  )
+  // Never LIVE while offline, nor over data too old to call live on any board of the page (smoke test T5).
   const online = useOnline()
-  const live = online && dataLive !== false
+  const live = online && dataLive !== false && Object.values(reports).every(Boolean)
   return (
-    <>
+    <LiveReport.Provider value={report}>
       <SiteHeader live={live} active={active} onSettings={() => setSettings(true)} />
       <FixtureNotice />
       {strip}
@@ -141,7 +166,7 @@ export function Shell({
       <Footer />
       <TrainNav active={active} />
       <SettingsSheet open={settings} onClose={() => setSettings(false)} />
-    </>
+    </LiveReport.Provider>
   )
 }
 
