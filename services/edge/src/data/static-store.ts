@@ -11,7 +11,10 @@ import {
   shardOf,
   TripIndexDay,
 } from '@bft/core'
-import { type DataSource, readJson } from './source.ts'
+import { type DataSource, decodeJson, readBytes, readJson } from './source.ts'
+
+/** Trip-index blobs above this (gzipped) are not cached: bus. */
+export const TRIP_INDEX_CACHE_MAX_BYTES = 1 << 20
 
 export const MANIFEST_KEY = 'manifest.json'
 export const indexKey = (generation: string, mode: Mode) => `static/${generation}/${mode}/index.json`
@@ -130,10 +133,22 @@ export class StaticStore {
     return this.validate ? StaticStopDay.parse(raw) : (raw as StaticStopDay)
   }
 
+  /**
+   * A mode-day trip index. Small ones (ferry, train, tram: well under 1 MB gzipped) are cached; large ones (bus,
+   * ~3-4 MB gzipped, ~60 MB parsed) are parsed per call and never retained, so the RT hub's compact matcher is the
+   * only long-lived copy (Codex review of #45) and an edge isolate doesn't pin two bus days for trip detail.
+   */
   async tripIndexDay(index: GenerationIndex, serviceDate: string): Promise<TripIndexDay | null> {
     const sha = index.tripIndex?.[serviceDate]
     if (!sha) return null
-    const raw = await this.blob(blobKey(sha), this.tripIndexes)
+    const key = blobKey(sha)
+    let raw = await this.tripIndexes.get(key)
+    if (raw === undefined) {
+      const bytes = await readBytes(this.source, key)
+      if (!bytes) return null
+      raw = await decodeJson(bytes)
+      if (bytes.byteLength <= TRIP_INDEX_CACHE_MAX_BYTES) this.tripIndexes.set(key, Promise.resolve(raw))
+    }
     if (raw == null) return null
     return this.validate ? TripIndexDay.parse(raw) : (raw as TripIndexDay)
   }

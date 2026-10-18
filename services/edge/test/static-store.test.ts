@@ -3,7 +3,7 @@ import { type GenerationIndex, shardOf } from '@bft/core'
 import { describe, expect, it } from 'vitest'
 import { stopDay } from '../../../packages/core/test/helpers.ts'
 import { MemoryDataSource } from '../src/data/source.ts'
-import { mayHaveStop, StaticStore, shardKey } from '../src/data/static-store.ts'
+import { mayHaveStop, StaticStore, shardKey, TRIP_INDEX_CACHE_MAX_BYTES } from '../src/data/static-store.ts'
 
 const D = '20261020'
 const SHA = 'a'.repeat(64)
@@ -50,5 +50,37 @@ describe('StaticStore shards (bus on the assets backend)', () => {
       (k) => shardOf(k, count) === shardOf('1234', count),
     )
     if (sibling) expect(await store.stopDay(index, D, sibling)).toBeNull()
+  })
+})
+
+describe('StaticStore trip-index caching', () => {
+  const idx = (sha: string) => ({ tripIndex: { [D]: sha } }) as unknown as GenerationIndex
+  const day = {
+    schemaVersion: 1,
+    mode: 'bus',
+    serviceDate: D,
+    generation: 'g',
+    routes: [],
+    stops: [],
+    trips: [],
+  }
+
+  it('caches small trip indexes and re-reads large ones (bus) instead of pinning them', async () => {
+    const small = 'b'.repeat(64)
+    const large = 'c'.repeat(64)
+    const big = { ...day, pad: 'x'.repeat(TRIP_INDEX_CACHE_MAX_BYTES + 10) }
+    const src = new MemoryDataSource(
+      new Map([
+        [`static/blobs/${small}.json.gz`, new TextEncoder().encode(JSON.stringify(day))],
+        [`static/blobs/${large}.json.gz`, new TextEncoder().encode(JSON.stringify(big))],
+      ]),
+    )
+    const store = new StaticStore(src)
+    for (let i = 0; i < 3; i++) {
+      await store.tripIndexDay(idx(small), D)
+      await store.tripIndexDay(idx(large), D)
+    }
+    expect(src.reads.filter((k) => k.includes(small))).toHaveLength(1)
+    expect(src.reads.filter((k) => k.includes(large))).toHaveLength(3)
   })
 })

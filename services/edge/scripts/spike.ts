@@ -7,12 +7,16 @@
  *
  * Feeds: the sample protobufs in /tmp/bft-gtfs (Saturday 18 Oct ~13:44 AEST), or --fresh to fetch them now.
  */
+
+import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { gunzipSync } from 'node:zlib'
-import type { Mode, TripIndexDay } from '@bft/core'
+import { gunzipSync, gzipSync } from 'node:zlib'
+import type { GenerationIndex, Mode, TripIndexDay } from '@bft/core'
 import { fromBinary } from '@bufbuild/protobuf'
+import { MemoryDataSource } from '../src/data/source.ts'
+import { StaticStore } from '../src/data/static-store.ts'
 import { type FeedMessage, FeedMessageSchema } from '../src/gen/gtfs-realtime_pb.js'
 import { buildAlerts, buildSnapshot, ModeIndex } from '../src/rt/build.ts'
 import { FEED_MODE_SUFFIX, MODES } from '../src/rt/feeds.ts'
@@ -109,17 +113,30 @@ async function memoryMode(mode: Mode) {
  */
 async function memoryHub() {
   const days = await loadIndexes()
-  const json = new Map([...days].map(([k, v]) => [k, JSON.stringify(v)]))
+  // Serve the trip indexes through a real StaticStore (gzip blobs, as in R2) in the hub's load order, and keep the
+  // store alive, so whatever it caches counts too (Codex review of #45).
+  const files = new Map<string, Uint8Array>()
+  const tripIndex: Record<string, Record<string, string>> = {}
+  for (const [k, v] of days) {
+    const [mode, date] = k.split('|') as [Mode, string]
+    const gz = gzipSync(JSON.stringify(v))
+    const sha = createHash('sha256').update(gz).digest('hex')
+    files.set(`static/blobs/${sha}.json.gz`, new Uint8Array(gz))
+    tripIndex[mode] ??= {}
+    ;(tripIndex[mode] as Record<string, string>)[date] = sha
+  }
   days.clear()
+  const store = new StaticStore(new MemoryDataSource(files))
   const tu = await feedBytes('TripUpdates', '/tmp/bft-gtfs/tu.pb')
   const vp = await feedBytes('VehiclePositions', '/tmp/bft-gtfs/vp.pb')
   const before = heap()
   const indexes: Partial<Record<Mode, ModeIndex>> = {}
   for (const mode of MODES) {
     const idx = new ModeIndex(mode, [])
+    const gi = { tripIndex: tripIndex[mode] ?? {} } as unknown as GenerationIndex
     for (const d of DATES) {
-      const j = json.get(`${mode}|${d}`)
-      if (j) idx.addDay(JSON.parse(j) as TripIndexDay)
+      const day = await store.tripIndexDay(gi, d)
+      if (day) idx.addDay(day)
     }
     indexes[mode] = idx
   }
@@ -142,7 +159,7 @@ async function memoryHub() {
       totalMB: +((after - before) / 1e6).toFixed(1),
       rawFeedsMB: +((tu.byteLength + vp.byteLength) / 1e6).toFixed(1),
       snapshotJsonMB: +(snapJson.length / 1e6).toFixed(1),
-      keep: [Object.keys(indexes).length, Object.keys(snapshot.trips).length],
+      keep: [Object.keys(indexes).length, Object.keys(snapshot.trips).length, typeof store],
     }),
   )
 }
