@@ -48,19 +48,20 @@ export function budgetConfig(env: AiEnv): BudgetConfig {
 const AskBody = z.object({ question: z.string().min(1).max(300), turnstileToken: z.string().optional() })
 
 /** Intents learned per isolate (deterministic parses and LLM tool plans). Answers are never cached. */
-const intentCache = new Map<string, Intent>()
+/** generation|question -> intent with expiry (both tiers keyed by stop-index generation; Codex review round 6). */
+const intentCache = new Map<string, { intent: Intent; until: number }>()
 /** Intent cache (ADR-0008): isolate memory, backed by the Cache API for 30 days (a no-op on *.workers.dev). */
 const INTENT_TTL_S = 30 * 24 * 3600
 const cacheUrl = (k: string, gen: string) =>
   `https://intent-cache.bft.internal/${encodeURIComponent(gen)}/${encodeURIComponent(k)}`
 async function recall(k: string, gen: string): Promise<Intent | null> {
-  const hit = intentCache.get(k)
-  if (hit) return hit
+  const hit = intentCache.get(`${gen}|${k}`)
+  if (hit && hit.until > Date.now()) return hit.intent
   try {
     const res = await caches.default.match(cacheUrl(k, gen))
     if (!res) return null
     const intent = (await res.json()) as Intent
-    intentCache.set(k, intent)
+    intentCache.set(`${gen}|${k}`, { intent, until: Date.now() + INTENT_TTL_S * 1000 })
     return intent
   } catch {
     return null
@@ -68,7 +69,7 @@ async function recall(k: string, gen: string): Promise<Intent | null> {
 }
 const remember = (k: string, i: Intent, gen: string, waitUntil?: (p: Promise<unknown>) => void) => {
   if (intentCache.size > 2000) intentCache.clear()
-  intentCache.set(k, i)
+  intentCache.set(`${gen}|${k}`, { intent: i, until: Date.now() + INTENT_TTL_S * 1000 })
   try {
     const put = caches.default.put(
       cacheUrl(k, gen),
@@ -366,3 +367,6 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
     }
   })
 }
+
+/** Test hook: the in-memory tier, so tests can check generation keying. */
+export const __intentCacheForTests = { recall, remember, clear: () => intentCache.clear() }

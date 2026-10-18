@@ -169,9 +169,16 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
   // question names must never be silently dropped (Codex review round 5).
   const routeInQuery = (
     /\b(?:the|route|my) ([pmfwgx]?\d{1,4}[a-z]?)\b/.exec(s)?.[1] ??
-    /\bnext (?:bus |ferry |citycat |train )?(\d{1,4}[a-z]?)\b/.exec(s)?.[1] ??
+    /\b(?:bus|ferry|citycat|train|tram) (\d{1,4}[a-z]?)\b/.exec(s)?.[1] ??
+    /\bnext (\d{1,4}[a-z]?)\b/.exec(s)?.[1] ??
     /\b([pmfwgx]\d{1,4}[a-z]?)\b/.exec(s)?.[1]
   )?.toUpperCase()
+  // Any other bare number we can't place (not a stop number, not the route) would be silently dropped: refuse instead.
+  const strayNumber = [...s.matchAll(/\b\d{1,4}[a-z]?\b/g)].some((m) => {
+    const before = s.slice(0, m.index).trimEnd()
+    return m[0].toUpperCase() !== routeInQuery && !/\b(stop|platform|number|no)$/.test(before)
+  })
+  if (strayNumber) return fail('no_match', 'unplaced number')
 
   // Next departure between two stops.
   if (

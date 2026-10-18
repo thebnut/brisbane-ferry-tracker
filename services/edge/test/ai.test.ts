@@ -222,6 +222,21 @@ describe('route alerts with suffixed route ids (Codex round 4)', () => {
   })
 })
 
+describe('intent cache (Codex round 6)', () => {
+  it('is keyed by stop-index generation in memory too', async () => {
+    const { __intentCacheForTests: c } = await import('../src/ai/routes.ts')
+    c.clear()
+    const intent = {
+      kind: 'departures_at' as const,
+      mode: 'ferry' as const,
+      at: { mode: 'ferry' as const, key: 'OLD', name: 'x', score: 1 },
+    }
+    c.remember('departures at x', intent, 'g1')
+    expect(await c.recall('departures at x', 'g1')).toEqual(intent)
+    expect(await c.recall('departures at x', 'g2')).toBeNull()
+  })
+})
+
 describe('helpers', () => {
   it('hashes IP prefixes, not addresses', async () => {
     expect(await ipKey('1.2.3.4', 's')).toBe(await ipKey('1.2.3.99', 's'))
