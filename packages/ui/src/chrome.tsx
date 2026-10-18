@@ -202,7 +202,7 @@ export function FilterPills<T extends string>({ options, value, onChange, label 
             aria-pressed={active}
             onClick={() => onChange(o.value)}
             className={cx(
-              'h-9 rounded-full px-3 text-xs md:text-sm',
+              'h-9 shrink-0 rounded-full px-3 text-xs whitespace-nowrap md:text-sm',
               active
                 ? 'bg-ferry-orange-aa font-bold text-white'
                 : 'border border-ferry-orange/30 bg-white font-semibold text-ferry-orange-deep dark:bg-night-card dark:text-ferry-sunset',

@@ -58,6 +58,16 @@ export function formatCountdown(mins: number): string | null {
   return `in ${mins} mins`
 }
 
+/**
+ * Bus board countdown (B-Departures): "Now" under a minute, "4 min" up to an hour, then null (the clock time is the
+ * hero instead).
+ */
+export function formatBusCountdown(mins: number): string | null {
+  if (mins > 60) return null
+  if (mins < 1) return 'Now'
+  return `${mins} min`
+}
+
 /** Durations: "12 mins", "1 min", "1 hr", "2 hrs", "1 hr 28 mins". */
 export function formatDuration(totalMins: number): string {
   const m = Math.max(0, Math.round(totalMins))

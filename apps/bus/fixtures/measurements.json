@@ -1,0 +1,109 @@
+{
+ "serviceDate": "20261020",
+ "stopDays": 12235,
+ "gz": {
+  "median": 1336,
+  "p95": 4751,
+  "max": 40318
+ },
+ "br": {
+  "median": 1036,
+  "p95": 3131,
+  "max": 23561
+ },
+ "busiest": [
+  {
+   "key": "11168",
+   "name": "Cultural Centre station, platform 2",
+   "events": 1435,
+   "raw": 445033,
+   "gz": 40318,
+   "br": 23229
+  },
+  {
+   "key": "19064",
+   "name": "South Bank busway station, platform 4",
+   "events": 1435,
+   "raw": 427927,
+   "gz": 39732,
+   "br": 23054
+  },
+  {
+   "key": "10819",
+   "name": "Griffith University station, platform 2",
+   "events": 1081,
+   "raw": 368423,
+   "gz": 39579,
+   "br": 23561
+  },
+  {
+   "key": "19063",
+   "name": "Mater Hill station, platform 2",
+   "events": 1435,
+   "raw": 411285,
+   "gz": 39076,
+   "br": 22891
+  },
+  {
+   "key": "10793",
+   "name": "Roma Street busway, platform 1",
+   "events": 1035,
+   "raw": 316784,
+   "gz": 37818,
+   "br": 21052
+  },
+  {
+   "key": "226",
+   "name": "Wickham Street Stop 226 near Gotha St",
+   "events": 414,
+   "raw": 245343,
+   "gz": 37077,
+   "br": 19472
+  },
+  {
+   "key": "10813",
+   "name": "Buranda busway, platform 3",
+   "events": 1007,
+   "raw": 270168,
+   "gz": 35485,
+   "br": 23005
+  },
+  {
+   "key": "10802",
+   "name": "Cultural Centre station, platform 1",
+   "events": 1932,
+   "raw": 301993,
+   "gz": 34847,
+   "br": 21242
+  },
+  {
+   "key": "66",
+   "name": "Queen Street Stop 66 near Adelaide St",
+   "events": 312,
+   "raw": 194314,
+   "gz": 30846,
+   "br": 16210
+  },
+  {
+   "key": "19062",
+   "name": "Woolloongabba station, platform 2",
+   "events": 695,
+   "raw": 330600,
+   "gz": 29901,
+   "br": 16523
+  }
+ ],
+ "stopsIndex": {
+  "stops": 12364,
+  "raw": 1627887,
+  "gz": 312927,
+  "br": 208085
+ },
+ "lines": {
+  "lines": 472,
+  "raw": 431062,
+  "gz": 65899,
+  "br": 47697
+ },
+ "geoTiles": 248
+}
