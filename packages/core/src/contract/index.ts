@@ -335,6 +335,8 @@ export type RtTrip = z.infer<typeof RtTrip>
 
 export const Vehicle = z.object({
   id: z.string(),
+  /** Mode of the vehicle's route (from its per-mode feed or its matched route), so /v1/{mode}/vehicles can filter. */
+  mode: Mode.optional(),
   label: z.string().optional(),
   tripKey: z.string().optional(),
   routeId: z.string().optional(),

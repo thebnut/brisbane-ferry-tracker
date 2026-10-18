@@ -1,0 +1,39 @@
+// API Worker + RtHub Durable Object (transit-architecture.md §3.3, §3.8, ADR-0003).
+// Deploy (needs `wrangler login`): `pnpm --filter @bft/edge deploy:staging` (deploys bft-data first).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bft-api-dev",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "dde2914802079766f7671528e7cbae75",
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "workers_dev": true,
+  // Watchdog: re-arms the RtHub alarm chain if the last good cycle is older than 45 s.
+  "triggers": { "crons": ["* * * * *"] },
+  "durable_objects": { "bindings": [{ "name": "RT_HUB", "class_name": "RtHub" }] },
+  // Free plan: SQLite-backed Durable Objects only.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RtHub"] }],
+  // No R2 yet (not enabled on the account). When it is, add:
+  //   "r2_buckets": [{ "binding": "DATA_BUCKET", "bucket_name": "bft-data" }]
+  // and the DataSource switches to R2 automatically.
+  "services": [{ "binding": "DATA", "service": "bft-data-dev" }],
+  "vars": {
+    "RT_MODES": "ferry,train",
+    "RT_UPSTREAM": "https://gtfsrt.api.translink.com.au/api/realtime/SEQ",
+    "CORS_ALLOW_ALL": "false"
+  },
+  "env": {
+    "staging": {
+      "name": "bft-api",
+      "triggers": { "crons": ["* * * * *"] },
+      "durable_objects": { "bindings": [{ "name": "RT_HUB", "class_name": "RtHub" }] },
+      "services": [{ "binding": "DATA", "service": "bft-data" }],
+      "vars": {
+        "RT_MODES": "ferry,train",
+        "RT_UPSTREAM": "https://gtfsrt.api.translink.com.au/api/realtime/SEQ",
+        "CORS_ALLOW_ALL": "false"
+      }
+    }
+  }
+}
