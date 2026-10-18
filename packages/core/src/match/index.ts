@@ -10,7 +10,7 @@
  * Ambiguous matches stay unmatched: a scheduled row is safer than another trip's delay.
  */
 import { type Mode, type TripIndexDay, tripInstanceKey } from '../contract/index.ts'
-import { gtfsTimeToSeconds, gtfsToEpoch } from '../time/index.ts'
+import { addDays, gtfsTimeToSeconds, gtfsToEpoch } from '../time/index.ts'
 
 export interface RtDescriptor {
   tripId?: string
@@ -52,6 +52,7 @@ export const routeKey = (routeId: string): string => routeId.split('-')[0] ?? ro
 export const tripPrefix = (tripId: string): string => tripId.split('-')[0] ?? tripId
 
 const TIER4_WINDOW_S = 5 * 60
+const DAY_S = 24 * 3600
 
 export class TripMatcher {
   private readonly byTripDate = new Map<string, IndexedTrip>()
@@ -119,6 +120,12 @@ export class TripMatcher {
       if (desc.startDate) {
         const t = this.byTripDate.get(tripInstanceKey(desc.tripId, desc.startDate))
         if (t) return matched(t, 1)
+        // TransLink sends an after-midnight trip's start_date as the calendar date (start_time 00:18) while GTFS
+        // files it under the previous service date (24:18). Accept that instance only when the start times agree.
+        const prev = this.byTripDate.get(tripInstanceKey(desc.tripId, addDays(desc.startDate, -1)))
+        const rtStart = gtfsTimeToSeconds(desc.startTime)
+        if (prev && rtStart != null && rtStart < DAY_S && prev.startS === rtStart + DAY_S)
+          return matched(prev, 1)
       } else {
         const list = this.byTripId.get(desc.tripId) ?? []
         const compatible = list.filter((t) => compatiblePattern(t, obs))
@@ -129,9 +136,11 @@ export class TripMatcher {
     // Tier 2
     const startS = gtfsTimeToSeconds(desc.startTime)
     if (rKey && desc.directionId != null && startS != null && desc.startDate) {
-      const list = (this.byStart.get(`${rKey}|${desc.directionId}|${startS}|${desc.startDate}`) ?? []).filter(
-        (t) => compatiblePattern(t, obs),
-      )
+      const keys = [`${rKey}|${desc.directionId}|${startS}|${desc.startDate}`]
+      // Same calendar-date convention as tier 1: 00:18 on D may be 24:18 on D-1.
+      if (startS < DAY_S)
+        keys.push(`${rKey}|${desc.directionId}|${startS + DAY_S}|${addDays(desc.startDate, -1)}`)
+      const list = keys.flatMap((k) => this.byStart.get(k) ?? []).filter((t) => compatiblePattern(t, obs))
       if (list.length === 1) return matched(list[0] as IndexedTrip, 2)
       if (list.length > 1) return { kind: 'ambiguous', tier: 2, candidates: list.length }
     }
