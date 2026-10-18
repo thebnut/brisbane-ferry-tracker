@@ -18,7 +18,9 @@ Every step lists a **check**, a **rollback** and the **report entry** to add (`~
 - [ ] Old-iOS paths on staging: `GET bft-ferry…/api/gtfs-proxy?endpoint=TripUpdates` returns protobuf with CORS for `capacitor://localhost`.
 - [ ] Secrets inventory, names only (never print values):
   - `bft-api-prod`: `TURNSTILE_SECRET` and `IP_HASH_SALT`, set server-side through the Cloudflare API exactly as for staging. `ANTHROPIC_API_KEY` only when AI moves to prod (step 6).
-  - `bft-ferry-prod`: `N8N_WEBHOOK_URL` and `N8N_AUTH_TOKEN`, copied by Dev from Vercel's production env.
+  - `bft-ferry-prod` (and `bft-transit-prod` when it exists): `FEEDBACK_DISCORD_WEBHOOK_URL`, set by Dev/Brett from `apps/ferry` with `wrangler secret put FEEDBACK_DISCORD_WEBHOOK_URL --env production` (paste the value at the prompt; never on the command line). Without it `/api/feedback` answers 503.
+  - The legacy Vercel app: the same `FEEDBACK_DISCORD_WEBHOOK_URL` in Vercel's **production and preview** env. Set it **before** the release that carries the Discord feedback change (step 1): from that release, feedback on www.brisbaneferry.com and the iOS app returns 503 until it is set. The previous feedback webhook vars can then be removed from Vercel.
+  - Optional, Brett's call: a Vercel Firewall rate-limit rule on `/api/feedback`. The route's own limiter is per instance, best effort (`api/_rate-limit.js`); the Workers use the `FEEDBACK_LIMITER` binding.
 
 ## 1. Release PR develop → main
 - Open `release: transit platform` (develop → main). Body: what changes in prod. That's nothing user-visible:
@@ -75,7 +77,7 @@ Every step lists a **check**, a **rollback** and the **report entry** to add (`~
   - Lighthouse mobile slow 4G (LCP target ≤ 1.5 s, measure and record)
   - SSR terminal pages: `/terminal/*` URLs, canonicals and `sitemap.xml` identical to the live site (diff the URL lists)
   - PWA install and offline
-  - the legacy endpoints `/api/gtfs-proxy` and `/api/feedback` (submit one real test feedback and confirm it arrives in n8n)
+  - the legacy endpoints `/api/gtfs-proxy` and `/api/feedback` (Dev/Brett: submit one real test feedback and confirm it arrives in the Discord feedback channel)
   - Playwright smoke against `next.brisbaneferry.com`
 - **Known parity gap:** the new app has no feedback modal yet. The endpoint is served for the legacy app and iOS. Add the modal before step 5, or accept it.
 - **Rollback:** `wrangler rollback`. Only `next.` is affected.

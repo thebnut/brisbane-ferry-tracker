@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-// /api/feedback is always stubbed here: tests never reach the Worker's relay or the real n8n webhook.
+// /api/feedback is always stubbed here: tests never reach the Worker's relay or the real Discord webhook.
 
 test('footer feedback: validation, focus trap and Escape, then a stubbed successful submit', async ({
   page,

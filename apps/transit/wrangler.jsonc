@@ -10,6 +10,13 @@
   "workers_dev": true,
   "observability": { "enabled": true },
   "assets": { "directory": "./build/client", "binding": "ASSETS" },
+  // /api/feedback per-IP limiter (workers/legacy.ts), keyed by CF-Connecting-IP. Simple periods are 10 or 60 s only,
+  // so "about 3 per 10 minutes" becomes 3 per 60 s: enough for a retry, while a flood is cut to 3/min per IP.
+  // Counters are per Cloudflare location and eventually consistent. Bindings aren't inherited, so every env sets
+  // its own, and each namespace_id is unique in the account (8001/8002 belong to services/edge).
+  "ratelimits": [
+    { "name": "FEEDBACK_LIMITER", "namespace_id": "8104", "simple": { "limit": 3, "period": 60 } }
+  ],
   "vars": {
     // HTTP fallback when the API service binding is absent (local dev, previews).
     "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
@@ -40,7 +47,10 @@
         "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
       },
       // SSR loaders, the /v1 + /data proxy and POST /v1/ask call the API Worker in-process through this binding.
-      "services": [{ "binding": "API", "service": "bft-api" }]
+      "services": [{ "binding": "API", "service": "bft-api" }],
+      "ratelimits": [
+        { "name": "FEEDBACK_LIMITER", "namespace_id": "8105", "simple": { "limit": 3, "period": 60 } }
+      ]
     }
   }
 }
