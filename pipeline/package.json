@@ -1,0 +1,36 @@
+{
+  "name": "@bft/pipeline",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Static timetable pipeline (transit-architecture.md §3.2, ADR-0002): GTFS zip → content-addressed stop-day blobs, trip indexes, client data and the legacy ferry latest.json.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build:data": "node --experimental-transform-types --disable-warning=ExperimentalWarning src/cli.ts build",
+    "publish:data": "node --experimental-transform-types --disable-warning=ExperimentalWarning src/cli.ts publish",
+    "measure": "node --experimental-transform-types --disable-warning=ExperimentalWarning src/measure/measure.ts",
+    "golden": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/golden.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@bft/core": "workspace:*",
+    "aws4fetch": "1.0.20",
+    "fflate": "0.8.3"
+  },
+  "devDependencies": {
+    "@bft/config": "workspace:*",
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "26.6.5",
+    "date-fns": "4.1.0",
+    "date-fns-tz": "3.2.0",
+    "jszip": "3.10.1",
+    "papaparse": "5.5.3",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5",
+    "zod": "4.6.7"
+  }
+}

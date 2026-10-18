@@ -1,5 +1,5 @@
 {
   "extends": "@bft/config/tsconfig.base.json",
   "compilerOptions": { "allowImportingTsExtensions": true, "types": [] },
-  "include": ["src", "test"]
+  "include": ["src"]
 }

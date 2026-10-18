@@ -1,0 +1,49 @@
+{
+  "source": "TransLink SEQ GTFS",
+  "feedVersion": "20261017-20261216-3305c5ea",
+  "feedInfo": "Department of Transport and Main Roads - Translink Division,https://www.translink.com.au/,en,20261017,20261216",
+  "fixtures": {
+    "ferry-bulimba": {
+      "mode": "ferry",
+      "stopKey": "317584",
+      "serviceDate": "20261020",
+      "sha256": "d063861a06d4c4a079c409c34b640c3ee0f5e7c93d9c1e511f84125770d36d51",
+      "note": "Bulimba: F11 express vs F1 all-stops"
+    },
+    "train-central": {
+      "mode": "train",
+      "stopKey": "central",
+      "serviceDate": "20261020",
+      "sha256": "59e090ffa78bbaa8972438592cab7567f2d4aba30ad2a1e498bf4aafb832c9dc",
+      "note": "Central: six platforms, 24:xx departures"
+    },
+    "train-bowen-hills": {
+      "mode": "train",
+      "stopKey": "bowen-hills",
+      "serviceDate": "20261020",
+      "sha256": "822f803bca668c02a13921fb289dc950c9895357e383d0ee538f6790af9f875f",
+      "note": "Bowen Hills: branching lines"
+    },
+    "train-domestic-airport": {
+      "mode": "train",
+      "stopKey": "domestic-airport",
+      "serviceDate": "20261023",
+      "sha256": "6a41516de6759f77b4d4dba98201558fe5a71f4001beb532ce90c830f2efee62",
+      "note": "Domestic Airport, Friday: last trains (none after 24:00 in the 17 Oct 2026 feed)"
+    },
+    "bus-cultural-centre-p2": {
+      "mode": "bus",
+      "stopKey": "11168",
+      "serviceDate": "20261020",
+      "sha256": "269f76fea5eab3a03e0f8f9b0b7d69f6094ad15aa169c9e4d7a5ab4faa339eef",
+      "note": "Cultural Centre busway platform 2: the largest stop-day file"
+    },
+    "bus-parkwood-301200": {
+      "mode": "bus",
+      "stopKey": "301200",
+      "serviceDate": "20261020",
+      "sha256": "509f9384b972f47729b0b240de56998fcbcb614dba6b50e4f6ba88f7023625da",
+      "note": "Greenacre Dr at Parkwood station: routes running past midnight (24:xx)"
+    }
+  }
+}
