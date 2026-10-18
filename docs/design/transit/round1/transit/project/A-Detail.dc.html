@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mode Tabs · Train service detail</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2D3436}a:hover{color:#000}
+.tn{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FBFAF7; font-family: 'Figtree', system-ui, sans-serif; color: #2D3436; display: flex; flex-direction: column; overflow: hidden">
+  <header style="background: #5B3FD1; color: #FFFFFF; padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <a href="Main.dc.html" aria-label="Back" style="width: 44px; height: 44px; margin-left: -10px; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: #FFFFFF"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+      <div style="font-size: 18px"><span style="font-weight: 400">Brisbane</span><span style="font-weight: 800">Train</span></div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px"><span style="width: 14px; height: 14px; border-radius: 4px; background: #34C3D6; border: 2px solid #FFFFFF"></span><span style="font-size: 14px; font-weight: 700">Cleveland line · to Central</span></div>
+    <div style="display: flex; align-items: flex-end; justify-content: space-between">
+      <div><div class="tn" style="font-size: 40px; font-weight: 800; line-height: 1">6 min</div><div class="tn" style="font-size: 14px; margin-top: 4px">Departs Morningside 7:42 pm · <b>+2 min late</b></div></div>
+      <div style="text-align: center; background: #FFFFFF; color: #2D3436; border-radius: 12px; padding: 6px 12px"><div style="font-size: 11px; font-weight: 700; text-transform: uppercase">Platform</div><div class="tn" style="font-size: 28px; font-weight: 800; line-height: 1">2</div></div>
+    </div>
+  </header>
+  <div style="margin: 12px 16px 0; background: #ECE8FB; border-radius: 14px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; font-size: 14px; color: #2A1D73">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg>
+    <span><b>PLATFORM CHANGED</b> · now <b>2</b>, was <s>1</s></span>
+  </div>
+  <div style="display: flex; gap: 8px; margin: 10px 16px 0">
+    <div style="flex: 1; background: #FFFFFF; border: 1px solid #E6E2D9; border-radius: 14px; padding: 10px 12px"><div style="font-size: 12px; color: #5F6468; font-weight: 600">Live status</div><div style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #1C7A3E"></span>LIVE · GPS</div></div>
+    <div style="flex: 1; background: #FFFFFF; border: 1px solid #E6E2D9; border-radius: 14px; padding: 10px 12px"><div style="font-size: 12px; color: #5F6468; font-weight: 600">Occupancy</div><div style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="display: flex; gap: 2px"><span style="width: 5px; height: 14px; border-radius: 2px; background: #2D3436"></span><span style="width: 5px; height: 14px; border-radius: 2px; background: #2D3436"></span><span style="width: 5px; height: 14px; border-radius: 2px; background: #D4D0C6"></span></span>Few seats</div></div>
+    <div style="flex: 1; background: #FFFFFF; border: 1px solid #E6E2D9; border-radius: 14px; padding: 10px 12px"><div style="font-size: 12px; color: #5F6468; font-weight: 600">Service</div><div style="font-size: 15px; font-weight: 700">All stops</div></div>
+  </div>
+  <main style="flex: 1; overflow: hidden; padding: 14px 20px 0">
+    <h2 style="margin: 0 0 8px; font-size: 15px; font-weight: 800">Stopping pattern</h2>
+    <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+      <li style="display: flex; gap: 12px; min-height: 34px"><div style="width: 16px; display: flex; flex-direction: column; align-items: center"><span style="width: 4px; flex: 1; background: #34C3D6; opacity: 0.4"></span><span style="width: 22px; height: 22px; border-radius: 11px; background: #5B3FD1; color: #FFFFFF; display: flex; align-items: center; justify-content: center; margin: -2px 0" aria-label="Train here"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><rect x="5" y="3" width="14" height="14" rx="3"/></svg></span><span style="width: 4px; flex: 1; background: #34C3D6"></span></div><div style="flex: 1; font-size: 13px; color: #5B3FD1; font-weight: 700; padding-top: 8px">Between Cannon Hill and Morningside</div></li>
+      <li style="display: flex; gap: 12px; min-height: 40px"><div style="width: 16px; display: flex; flex-direction: column; align-items: center"><span style="width: 4px; height: 10px; background: #34C3D6"></span><span style="width: 16px; height: 16px; border-radius: 8px; background: #FFFFFF; border: 4px solid #2D3436; box-sizing: border-box"></span><span style="width: 4px; flex: 1; background: #34C3D6"></span></div><div style="flex: 1; display: flex; justify-content: space-between; font-size: 16px; font-weight: 800; padding-top: 6px"><span>Morningside <span style="font-size: 12px; font-weight: 700; color: #5B3FD1">YOU</span></span><span class="tn">7:42</span></div></li>
+      <li style="display: flex; gap: 12px; min-height: 36px"><div style="width: 16px; display: flex; flex-direction: column; align-items: center"><span style="width: 4px; height: 10px; background: #34C3D6"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FFFFFF; border: 3px solid #34C3D6; box-sizing: border-box"></span><span style="width: 4px; flex: 1; background: #34C3D6"></span></div><div style="flex: 1; display: flex; justify-content: space-between; font-size: 15px; padding-top: 5px"><span>Norman Park</span><span class="tn">7:44</span></div></li>
+      <li style="display: flex; gap: 12px; min-height: 36px"><div style="width: 16px; display: flex; flex-direction: column; align-items: center"><span style="width: 4px; height: 10px; background: #34C3D6"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FFFFFF; border: 3px solid #34C3D6; box-sizing: border-box"></span><span style="width: 4px; flex: 1; background: #34C3D6"></span></div><div style="flex: 1; display: flex; justify-content: space-between; font-size: 15px; padding-top: 5px"><span>Coorparoo</span><span class="tn">7:46</span></div></li>
+      <li style="display: flex; gap: 12px; min-height: 36px"><div style="width: 16px; display: flex; flex-direction: column; align-items: center"><span style="width: 4px; height: 10px; background: #34C3D6"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FFFFFF; border: 3px solid #34C3D6; box-sizing: border-box"></span><span style="width: 4px; flex: 1; background: #34C3D6"></span></div><div style="flex: 1; display: flex; justify-content: space-between; font-size: 15px; padding-top: 5px"><span>Buranda <span style="font-size: 12px; color: #5F6468">· bus interchange</span></span><span class="tn">7:48</span></div></li>
+      <li style="display: flex; gap: 12px; min-height: 36px"><div style="width: 16px; display: flex; flex-direction: column; align-items: center"><span style="width: 4px; height: 10px; background: #34C3D6"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FFFFFF; border: 3px solid #34C3D6; box-sizing: border-box"></span><span style="width: 4px; flex: 1; background: #34C3D6"></span></div><div style="flex: 1; display: flex; justify-content: space-between; font-size: 15px; padding-top: 5px"><span>Park Road</span><span class="tn">7:51</span></div></li>
+      <li style="display: flex; gap: 12px; min-height: 36px"><div style="width: 16px; display: flex; flex-direction: column; align-items: center"><span style="width: 4px; height: 10px; background: #34C3D6"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FFFFFF; border: 3px solid #34C3D6; box-sizing: border-box"></span><span style="width: 4px; flex: 1; background: #34C3D6"></span></div><div style="flex: 1; display: flex; justify-content: space-between; font-size: 15px; padding-top: 5px"><span>South Bank</span><span class="tn">7:53</span></div></li>
+      <li style="display: flex; gap: 12px; min-height: 36px"><div style="width: 16px; display: flex; flex-direction: column; align-items: center"><span style="width: 4px; height: 10px; background: #34C3D6"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FFFFFF; border: 3px solid #34C3D6; box-sizing: border-box"></span><span style="width: 4px; flex: 1; background: #34C3D6"></span></div><div style="flex: 1; display: flex; justify-content: space-between; font-size: 15px; padding-top: 5px"><span>South Brisbane</span><span class="tn">7:55</span></div></li>
+      <li style="display: flex; gap: 12px; min-height: 36px"><div style="width: 16px; display: flex; flex-direction: column; align-items: center"><span style="width: 4px; height: 10px; background: #34C3D6"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FFFFFF; border: 3px solid #34C3D6; box-sizing: border-box"></span><span style="width: 4px; flex: 1; background: #34C3D6"></span></div><div style="flex: 1; display: flex; justify-content: space-between; font-size: 15px; padding-top: 5px"><span>Roma Street</span><span class="tn">7:58</span></div></li>
+      <li style="display: flex; gap: 12px; min-height: 36px"><div style="width: 16px; display: flex; flex-direction: column; align-items: center"><span style="width: 4px; height: 10px; background: #34C3D6"></span><span style="width: 16px; height: 16px; border-radius: 8px; background: #2D3436"></span></div><div style="flex: 1; display: flex; justify-content: space-between; font-size: 16px; font-weight: 800; padding-top: 6px"><span>Central</span><span class="tn">8:01</span></div></li>
+    </ol>
+  </main>
+  <nav aria-label="Modes" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 8px 8px 24px; background: #FFFFFF; border-top: 1px solid #E6E2D9">
+    <a href="A-Departures.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; min-height: 52px; text-decoration: none; font-size: 12px; font-weight: 600; color: #5F6468"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#B8400F" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 14h18l-2.5 5h-13z"/><path d="M6 14V9h12v5M10 9V5h4v4"/></svg>Ferry</a>
+    <a href="A-Detail.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; min-height: 52px; text-decoration: none; font-size: 12px; font-weight: 800; color: #2D3436; background: #ECE8FB; border-radius: 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="#A996FF" stroke="#2D3436" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M9 21l-2-4M15 21l2-4"/></svg>Train</a>
+    <a href="A-Search.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; min-height: 52px; text-decoration: none; font-size: 12px; font-weight: 600; color: #5F6468"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A6400" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="15" rx="2"/><path d="M4 10h16M7 21v-3M17 21v-3"/></svg>Bus</a>
+    <a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; min-height: 52px; text-decoration: none; font-size: 12px; font-weight: 600; color: #5F6468"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5F6468" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>Saved</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus · Dark mode and widgets</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#F2B705}a:hover{color:#FFD24D}
+</style>
+</helmet>
+<div style="width: 1200px; height: 844px; box-sizing: border-box; display: flex; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-variant-numeric: tabular-nums">
+  <section aria-label="Departures in dark mode" style="width: 390px; height: 844px; flex-shrink: 0; background: #151819; color: #F4F1EA; display: flex; flex-direction: column; overflow: hidden">
+    <header style="padding: 16px 12px 12px; display: flex; align-items: center; gap: 8px">
+      <a href="A-Departures.dc.html" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #F4F1EA"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+      <div style="flex: 1"><h1 style="margin: 0; font-size: 20px; font-weight: 800">Cultural Centre</h1><div style="font-size: 13px; color: #A9B2B3">Platform 1 · Stop 1832</div></div>
+      <button aria-label="Saved to my stops" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: #F2B705; color: #2D3436; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7z"></path></svg></button>
+    </header>
+    <div style="flex: 1; padding: 0 16px; display: flex; flex-direction: column; gap: 8px">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+        <div style="background: {{r.bg}}; border-radius: 18px; min-height: 68px; display: flex; align-items: center; gap: 12px; padding: 0 12px">
+          <span style="min-width: 56px; height: 44px; padding: 0 8px; box-sizing: border-box; border-radius: 12px; background: {{r.routeBg}}; color: #1B1E1F; font-weight: 800; font-size: 20px; display: flex; align-items: center; justify-content: center">{{r.route}}</span>
+          <span style="flex: 1; min-width: 0"><span style="display: block; font-size: 16px; font-weight: 700; text-decoration: {{r.strike}}">{{r.dest}}</span><span style="display: block; font-size: 12px; font-weight: 700; color: {{r.sc}}; margin-top: 3px">{{r.status}}</span></span>
+          <span style="min-width: 64px; text-align: center; padding: 8px 10px; border-radius: 999px; font-weight: 800; font-size: 16px; background: {{r.chipBg}}; color: {{r.chipFg}}; text-decoration: {{r.strike}}">{{r.when}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="height: 30px"></div>
+  </section>
+
+  <section aria-label="iOS Home Screen widgets" style="flex: 1; background: #C9C2B4; padding: 48px 40px; box-sizing: border-box; display: grid; grid-template-columns: 170px 364px; grid-template-rows: auto 170px auto 170px; column-gap: 28px; row-gap: 14px; align-content: start; justify-content: center">
+    <div style="grid-column: 1 / 3; font-size: 13px; font-weight: 800; letter-spacing: 1px; color: #2D3436">LIGHT</div>
+    <div style="width: 170px; height: 170px; border-radius: 26px; background: #FFFBF2; color: #2D3436; padding: 14px; box-sizing: border-box; display: flex; flex-direction: column; box-shadow: 0 6px 18px rgba(0,0,0,0.15)">
+      <div style="font-size: 12px; font-weight: 700; color: #5F6B6D">Cultural Ctr · P1</div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px"><span style="background: #F2B705; font-weight: 800; font-size: 18px; border-radius: 9px; padding: 2px 8px">M2</span><span style="font-size: 12px; font-weight: 700; color: #0F6B45">LIVE</span></div>
+      <div style="font-size: 40px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.05; margin-top: 6px">2<span style="font-size: 18px; letter-spacing: 0"> min</span></div>
+      <div style="margin-top: auto; font-size: 12px; color: #3F4A4C">then <b>66</b> 4 min · <b>412</b> 7</div>
+    </div>
+    <div style="width: 364px; height: 170px; border-radius: 26px; background: #FFFBF2; color: #2D3436; padding: 14px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.15)">
+      <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700"><span>Brisbane<b style="background: #F2B705; padding: 0 4px; border-radius: 4px">Bus</b> · Cultural Centre P1</span><span style="color: #5F6B6D">8:14</span></div>
+      <sc-for list="{{wrows}}" as="w" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 10px; height: 34px"><span style="min-width: 44px; text-align: center; background: #F2B705; font-weight: 800; border-radius: 8px; padding: 3px 6px">{{w.route}}</span><span style="flex: 1; font-size: 14px; font-weight: 600">{{w.dest}}</span><span style="font-size: 12px; font-weight: 700; color: {{w.sc}}">{{w.status}}</span><span style="min-width: 54px; text-align: right; font-size: 17px; font-weight: 800">{{w.when}}</span></div>
+      </sc-for>
+    </div>
+    <div style="grid-column: 1 / 3; font-size: 13px; font-weight: 800; letter-spacing: 1px; color: #2D3436; margin-top: 18px">DARK</div>
+    <div style="width: 170px; height: 170px; border-radius: 26px; background: #1B1E1F; color: #F4F1EA; padding: 14px; box-sizing: border-box; display: flex; flex-direction: column; box-shadow: 0 6px 18px rgba(0,0,0,0.25)">
+      <div style="font-size: 12px; font-weight: 700; color: #A9B2B3">Adelaide St · 37</div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px"><span style="background: #F2B705; color: #1B1E1F; font-weight: 800; font-size: 18px; border-radius: 9px; padding: 2px 8px">60</span><span style="font-size: 12px; font-weight: 700; color: #5BE3A3">LIVE</span></div>
+      <div style="font-size: 40px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.05; margin-top: 6px">Now</div>
+      <div style="margin-top: auto; font-size: 12px; color: #C9D0D1">then <b>330</b> 9 min · <b>333</b> 16</div>
+    </div>
+    <div style="width: 364px; height: 170px; border-radius: 26px; background: #1B1E1F; color: #F4F1EA; padding: 14px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.25)">
+      <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700"><span>Brisbane<b style="background: #F2B705; color: #1B1E1F; padding: 0 4px; border-radius: 4px">Bus</b> · Adelaide St 37</span><span style="color: #A9B2B3">8:14</span></div>
+      <sc-for list="{{drows}}" as="w" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 10px; height: 34px"><span style="min-width: 44px; text-align: center; background: #F2B705; color: #1B1E1F; font-weight: 800; border-radius: 8px; padding: 3px 6px">{{w.route}}</span><span style="flex: 1; font-size: 14px; font-weight: 600">{{w.dest}}</span><span style="font-size: 12px; font-weight: 700; color: {{w.sc}}">{{w.status}}</span><span style="min-width: 54px; text-align: right; font-size: 17px; font-weight: 800">{{w.when}}</span></div>
+      </sc-for>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const b = { bg: '#22272A', routeBg: '#F2B705', strike: 'none', sc: '#5BE3A3', chipBg: '#3A3420', chipFg: '#FFE08A' };
+    return {
+      rows: [
+        { ...b, route: 'M2', dest: 'UQ Lakes', status: 'LIVE · Many seats', when: 'Now', chipBg: '#F4F1EA', chipFg: '#151819' },
+        { ...b, route: '66', dest: 'UQ Lakes via Mater Hill', status: '+3 min late', sc: '#FF9C8F', when: '4 min', chipBg: '#F2B705', chipFg: '#1B1E1F' },
+        { ...b, route: '412', dest: 'UQ Lakes express', status: 'LIVE · Express', when: '7 min' },
+        { ...b, route: '199', dest: 'West End (detour)', status: 'SCHEDULED', sc: '#A9B2B3', when: '11 min' },
+        { ...b, route: 'M2', dest: 'UQ Lakes', status: 'CANCELLED', sc: '#FF9C8F', when: '13 min', strike: 'line-through', bg: '#1C2022', routeBg: '#6B6450', chipBg: '#2A2E30', chipFg: '#A9B2B3' },
+        { ...b, route: '66', dest: 'UQ Lakes via Mater Hill', status: 'LIVE · Few seats', when: '16 min' },
+        { ...b, route: '199', dest: 'West End', status: 'SCHEDULED', sc: '#A9B2B3', when: '9:22 am' }
+      ],
+      wrows: [
+        { route: 'M2', dest: 'UQ Lakes', status: 'LIVE', sc: '#0F6B45', when: '2 min' },
+        { route: '66', dest: 'UQ Lakes', status: '+3', sc: '#A3271F', when: '4 min' },
+        { route: '412', dest: 'UQ Lakes exp', status: 'LIVE', sc: '#0F6B45', when: '7 min' }
+      ],
+      drows: [
+        { route: '60', dest: 'Teneriffe', status: 'LIVE', sc: '#5BE3A3', when: 'Now' },
+        { route: '330', dest: 'Bracken Ridge', status: 'LIVE', sc: '#5BE3A3', when: '9 min' },
+        { route: '333', dest: 'Chermside exp', status: 'SCHED', sc: '#A9B2B3', when: '16 min' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

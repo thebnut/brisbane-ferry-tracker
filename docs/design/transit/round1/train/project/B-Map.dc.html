@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Live map, Platform Board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&amp;family=JetBrains+Mono:wght@500;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#A996FF}a:hover{color:#C7BAFF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #16181B; font-family: 'Barlow Condensed', system-ui, sans-serif; color: #FFFFFF; position: relative; overflow: hidden">
+  <svg width="390" height="844" viewBox="0 0 390 844" aria-hidden="true" style="position: absolute; inset: 0">
+    <path d="M330 120 L 330 260 L 270 320 L 120 320 L 60 380 L 60 560" fill="none" stroke="#0A7A6E" stroke-width="8"></path>
+    <path d="M330 120 L 330 260 L 270 320 L 120 320" fill="none" stroke="#1E9F4A" stroke-width="8" transform="translate(0 12)"></path>
+    <path d="M120 332 L 20 332" fill="none" stroke="#1E9F4A" stroke-width="8"></path>
+    <path d="M330 120 L 330 40" fill="none" stroke="#3A3D42" stroke-width="8"></path>
+    <rect x="318" y="246" width="24" height="24" fill="#FFFFFF"></rect>
+    <rect x="224" y="314" width="16" height="24" fill="#FFFFFF" opacity="0.8"></rect>
+    <rect x="170" y="314" width="16" height="24" fill="#FFFFFF" opacity="0.8"></rect>
+    <rect x="108" y="312" width="24" height="28" fill="#A996FF"></rect>
+    <rect x="300" y="282" width="34" height="20" fill="#A996FF"></rect>
+    <rect x="200" y="338" width="34" height="20" fill="#43C46E"></rect>
+    <rect x="48" y="440" width="34" height="20" fill="#2BB3A3"></rect>
+  </svg>
+  <div style="position: absolute; left: 260px; top: 230px; font-size: 17px; font-weight: 800; text-align: right; width: 54px">ROMA ST</div>
+  <div style="position: absolute; left: 196px; top: 290px; font-size: 14px; font-weight: 600; color: #B9BCC0">MILTON</div>
+  <div style="position: absolute; left: 150px; top: 290px; font-size: 14px; font-weight: 600; color: #B9BCC0">TOOWONG</div>
+  <div style="position: absolute; left: 70px; top: 280px; font-size: 17px; font-weight: 800; color: #C7BAFF">INDRO</div>
+  <div style="position: absolute; left: 302px; top: 283px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 800; color: #111315; width: 34px; text-align: center">0807</div>
+  <div style="position: absolute; left: 202px; top: 339px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 800; color: #111315; width: 34px; text-align: center">0814</div>
+  <div style="position: absolute; left: 50px; top: 441px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 800; color: #111315; width: 34px; text-align: center">0748</div>
+  <header style="position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 6px; padding: 12px; background: #111315">
+    <a href="B-Departures.dc.html" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #FFFFFF"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></a>
+    <h1 style="flex: 1; margin: 0; font-size: 24px; font-weight: 800">LIVE · YOUR LINES</h1>
+    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #B9BCC0">GPS 08:04</span>
+  </header>
+  <section style="position: absolute; left: 0; right: 0; bottom: 0; background: #FFFFFF; color: #111315; padding: 12px 12px 28px">
+    <h2 style="margin: 0 0 6px; font-size: 18px; font-weight: 800">TRAINS TO INDOOROOPILLY</h2>
+    <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; border-top: 1px solid #E2E2DE">
+      <span style="width: 34px; height: 22px; background: #5B3FD1; color: #FFFFFF; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center">0807</span>
+      <span style="flex: 1; font-size: 19px; font-weight: 700">AT ROMA ST · PLAT 8 · EXPRESS</span>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 800">3</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; border-top: 1px solid #E2E2DE">
+      <span style="width: 34px; height: 22px; background: #1E9F4A; color: #FFFFFF; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center">0814</span>
+      <span style="flex: 1; font-size: 19px; font-weight: 700">BOWEN HILLS · +2 LATE</span>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 800">10</span>
+    </div>
+    <div style="font-size: 14px; color: #33373C; margin-top: 4px">Square = train with GPS. Label = scheduled departure.</div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

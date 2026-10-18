@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Unified Journey · Home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1C2024}a:hover{color:#000}
+.tn{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F4F6; font-family: 'Instrument Sans', system-ui, sans-serif; color: #1C2024; display: flex; flex-direction: column; overflow: hidden">
+  <header style="padding: 20px 20px 6px; display: flex; align-items: center; justify-content: space-between">
+    <div style="font-size: 19px; letter-spacing: -0.01em"><span>Brisbane</span><b>Transit</b> <span aria-hidden="true" style="display: inline-flex; gap: 3px; vertical-align: middle"><span style="width: 7px; height: 7px; border-radius: 50%; background: #FF6B35"></span><span style="width: 7px; height: 7px; border-radius: 50%; background: #5B3FD1"></span><span style="width: 7px; height: 7px; border-radius: 50%; background: #F2B705"></span></span></div>
+    <span style="font-size: 13px; color: #5B6168">Sat 18 Oct · 7:31 pm</span>
+  </header>
+  <h1 style="margin: 0; padding: 10px 20px 14px; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Your journeys</h1>
+  <main style="flex: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 12px">
+    <sc-for list="{{ trips }}" as="t" hint-placeholder-count="3">
+      <a href="B-Departures.dc.html" style="display: flex; flex-direction: column; gap: 10px; background: #FFFFFF; border-radius: 20px; padding: 16px; text-decoration: none; box-shadow: 0 1px 2px rgba(16,24,40,0.06)">
+        <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 700; font-size: 16px">{{ t.name }}</span><span style="font-size: 13px; color: #5B6168">{{ t.route }}</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end">
+          <div><div style="font-size: 13px; color: #5B6168; font-weight: 600">Leave in</div><div class="tn" style="font-size: 32px; font-weight: 700; line-height: 1; letter-spacing: -0.02em">{{ t.leave }}</div></div>
+          <div style="text-align: right"><div style="{{ t.statusStyle }}">{{ t.status }}</div><div class="tn" style="font-size: 14px; color: #3A4047">Arrive {{ t.arrive }} · {{ t.dur }}</div></div>
+        </div>
+        <div style="display: flex; gap: 3px; height: 10px; border-radius: 5px; overflow: hidden" aria-hidden="true">
+          <sc-for list="{{ t.legs }}" as="l" hint-placeholder-count="3"><span style="{{ l.bar }}"></span></sc-for>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center">
+          <sc-for list="{{ t.legs }}" as="l" hint-placeholder-count="3"><span style="{{ l.chip }}">{{ l.label }}</span></sc-for>
+        </div>
+      </a>
+    </sc-for>
+  </main>
+  <div style="padding: 12px 16px 10px">
+    <a href="B-Search.dc.html" style="display: flex; align-items: center; gap: 12px; height: 60px; border-radius: 18px; background: #1C2024; color: #FFFFFF; padding: 0 18px; text-decoration: none; font-size: 19px; font-weight: 600">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Where to?
+      <span style="flex: 1"></span><span style="font-size: 13px; color: #C8CDD2; font-weight: 500">ferry · train · bus</span>
+    </a>
+  </div>
+  <nav aria-label="Main" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 4px 8px 24px; background: #FFFFFF; border-top: 1px solid #E3E5E8">
+    <a href="B-Home.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0; min-height: 50px; text-decoration: none; font-size: 12px; font-weight: 700; color: #1C2024"><svg width="22" height="22" viewBox="0 0 24 24" fill="#1C2024" stroke="#1C2024" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>Journeys</a>
+    <a href="B-Map.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0; min-height: 50px; text-decoration: none; font-size: 12px; font-weight: 600; color: #5B6168"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Map</a>
+    <a href="B-Alerts.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0; min-height: 50px; text-decoration: none; font-size: 12px; font-weight: 600; color: #5B6168; position: relative"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21h4"/></svg>Alerts · 1</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const seg = (c, g) => 'flex: ' + g + ' 1 0; background: ' + c;
+const walk = (g) => 'flex: ' + g + ' 1 0; background: repeating-linear-gradient(90deg, #9AA1A8 0 4px, transparent 4px 7px)';
+const chip = (bg, fg) => 'font-size: 13px; font-weight: 700; padding: 4px 9px; border-radius: 8px; background: ' + bg + '; color: ' + fg;
+const wchip = 'font-size: 13px; font-weight: 600; padding: 4px 6px; color: #4A5057';
+const live = 'font-size: 12px; font-weight: 700; color: #1C7A3E';
+return { trips: [
+{ name: 'Home → Work', route: 'New Farm → QUT', leave: '4 min', status: '● LIVE', statusStyle: live, arrive: '8:02 pm', dur: '31 min', legs: [
+{ bar: walk(3), chip: wchip, label: 'Walk 3' }, { bar: seg('#F2B705', 6), chip: chip('#F2B705', '#2D3436'), label: 'Bus 199' }, { bar: walk(2), chip: wchip, label: '2' }, { bar: seg('#FF6B35', 18), chip: chip('#B8400F', '#FFFFFF'), label: 'Ferry F1' } ] },
+{ name: 'Work → Gym', route: 'Roma Street → Toowong', leave: '12 min', status: '● LIVE · +2 late', statusStyle: 'font-size: 12px; font-weight: 700; color: #A3330A', arrive: '7:58 pm', dur: '15 min', legs: [
+{ bar: walk(5), chip: wchip, label: 'Walk 5' }, { bar: seg('#5B3FD1', 8), chip: chip('#5B3FD1', '#FFFFFF'), label: 'Train · Plat 9' }, { bar: walk(2), chip: wchip, label: '2' } ] },
+{ name: 'Airport', route: 'Central → Domestic', leave: '8:12 pm', status: 'SCHEDULED', statusStyle: 'font-size: 12px; font-weight: 700; color: #5B6168', arrive: '8:40 pm', dur: '28 min', legs: [
+{ bar: seg('#F2B705', 7), chip: chip('#F2B705', '#2D3436'), label: 'Bus 60' }, { bar: walk(3), chip: wchip, label: '3' }, { bar: seg('#5B3FD1', 18), chip: chip('#5B3FD1', '#FFFFFF'), label: 'Train Airport' } ] }
+]};
+}
+}
+</script>
+</body>
+</html>

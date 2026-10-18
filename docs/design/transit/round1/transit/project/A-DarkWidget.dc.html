@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mode Tabs · Dark mode and widgets</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#F2F0EB}
+.tn{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1200px; height: 844px; box-sizing: border-box; font-family: 'Figtree', system-ui, sans-serif; display: flex; gap: 0; background: #E9E6DF">
+  <div style="width: 390px; height: 844px; background: #141618; color: #F2F0EB; display: flex; flex-direction: column; overflow: hidden">
+    <header style="display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 8px">
+      <div style="font-size: 20px"><span>Brisbane</span><b>Transit</b> <span aria-hidden="true" style="display: inline-flex; gap: 3px; vertical-align: middle"><span style="width: 7px; height: 7px; border-radius: 50%; background: #FF8A5C"></span><span style="width: 7px; height: 7px; border-radius: 50%; background: #A996FF"></span><span style="width: 7px; height: 7px; border-radius: 50%; background: #F2B705"></span></span></div>
+    </header>
+    <h1 style="margin: 0; padding: 4px 20px 12px; font-size: 30px; font-weight: 800">Saved</h1>
+    <main style="flex: 1; padding: 0 16px; display: flex; flex-direction: column; gap: 12px">
+      <section style="background: #1F2225; border: 1px solid #2E3236; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 10px"><span style="width: 12px; height: 12px; border-radius: 4px; background: #FF8A5C"></span><b style="font-size: 16px">Bulimba → Riverside</b></div>
+        <div style="display: flex; justify-content: space-between; align-items: center"><span style="display: flex; gap: 8px; align-items: center"><span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #FF8A5C; color: #141618">F11 Express</span><span style="font-size: 12px; font-weight: 800; color: #4CC38A">● LIVE</span></span><span class="tn" style="font-size: 26px; font-weight: 800">3 min</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center"><span style="display: flex; gap: 8px; align-items: center"><span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #3A2A22; color: #FFC2A8">F1 All stops</span><span style="font-size: 12px; font-weight: 700; color: #A7ABAE">SCHEDULED</span></span><span class="tn" style="font-size: 18px; font-weight: 700">11 min</span></div>
+      </section>
+      <section style="background: #1F2225; border: 1px solid #2E3236; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 10px"><span style="width: 12px; height: 12px; border-radius: 4px; background: #A996FF"></span><b style="font-size: 16px">Morningside → Central</b></div>
+        <div style="display: flex; justify-content: space-between; align-items: center"><span style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"><span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #A996FF; color: #141618">Platform 2</span><span style="font-size: 12px; font-weight: 800; color: #4CC38A">● LIVE</span><span style="font-size: 12px; font-weight: 700; color: #FF9B73">+2 min late</span></span><span class="tn" style="font-size: 26px; font-weight: 800">6 min</span></div>
+      </section>
+      <section style="background: #1F2225; border: 1px solid #2E3236; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 10px"><span style="width: 12px; height: 12px; border-radius: 4px; background: #F2B705"></span><b style="font-size: 16px">Oxford St, stop 1832</b></div>
+        <div style="display: flex; justify-content: space-between; align-items: center"><span style="display: flex; gap: 8px; align-items: center"><span style="font-size: 15px; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: #F2B705; color: #2D3436">230</span><span style="font-size: 12px; font-weight: 800; color: #4CC38A">● LIVE</span></span><span class="tn" style="font-size: 26px; font-weight: 800">Now</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center"><span style="display: flex; gap: 8px; align-items: center"><span style="font-size: 15px; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: #3A3215; color: #F7D96B">230</span><span style="font-size: 12px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #F2F0EB; color: #141618">CANCELLED</span></span><span class="tn" style="font-size: 18px; font-weight: 700; color: #8D9194; text-decoration: line-through">7:47</span></div>
+      </section>
+    </main>
+    <nav aria-label="Modes" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 8px 8px 24px; background: #1A1C1F; border-top: 1px solid #2E3236; font-size: 12px; font-weight: 600; text-align: center">
+      <a href="A-Departures.dc.html" style="padding: 18px 0; color: #FF8A5C; text-decoration: none">Ferry</a>
+      <a href="A-Detail.dc.html" style="padding: 18px 0; color: #A996FF; text-decoration: none">Train</a>
+      <a href="A-Search.dc.html" style="padding: 18px 0; color: #F2B705; text-decoration: none">Bus</a>
+      <a href="Main.dc.html" aria-current="page" style="padding: 18px 0; color: #F2F0EB; background: #2A2E31; border-radius: 14px; font-weight: 800; text-decoration: none">Saved</a>
+    </nav>
+  </div>
+  <div style="flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0">
+    <div style="background: #CFD8D3; padding: 48px 32px; display: flex; flex-direction: column; gap: 28px; align-items: center">
+      <div style="font-size: 13px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #2D3436">Widgets · light</div>
+      <div style="width: 170px; height: 170px; border-radius: 22px; background: #FFFFFF; padding: 14px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; color: #2D3436; box-shadow: 0 6px 20px rgba(0,0,0,0.12)">
+        <div style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #FF6B35"></span><span style="font-size: 12px; font-weight: 800">Bulimba → Riverside</span></div>
+        <div><div class="tn" style="font-size: 40px; font-weight: 800; line-height: 1">3 min</div><div style="font-size: 12px; font-weight: 700; margin-top: 4px"><span style="color: #1C7A3E">● LIVE</span> · F11 Express</div></div>
+        <div class="tn" style="font-size: 12px; color: #5F6468">then 11 min · F1</div>
+      </div>
+      <div style="width: 300px; height: 141px; border-radius: 22px; background: #FFFFFF; padding: 12px 14px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; color: #2D3436; box-shadow: 0 6px 20px rgba(0,0,0,0.12)">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px"><span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #FF6B35"></span><b>Bulimba</b> F11</span><span class="tn" style="font-weight: 800; font-size: 18px">3 min</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px"><span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #5B3FD1"></span><b>Morningside</b> P2 <span style="color: #A3330A; font-weight: 700">+2</span></span><span class="tn" style="font-weight: 800; font-size: 18px">6 min</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px"><span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #F2B705"></span><b>Oxford St</b> 230</span><span class="tn" style="font-weight: 800; font-size: 18px">Now</span></div>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #2D3436; text-align: center; max-width: 280px">Medium shown at 82% (364×170 pt on device).</p>
+    </div>
+    <div style="background: #23292E; padding: 48px 32px; display: flex; flex-direction: column; gap: 28px; align-items: center">
+      <div style="font-size: 13px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #F2F0EB">Widgets · dark</div>
+      <div style="width: 170px; height: 170px; border-radius: 22px; background: #1A1C1F; padding: 14px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; color: #F2F0EB; box-shadow: 0 6px 20px rgba(0,0,0,0.3)">
+        <div style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #A996FF"></span><span style="font-size: 12px; font-weight: 800">Morningside → Central</span></div>
+        <div><div class="tn" style="font-size: 40px; font-weight: 800; line-height: 1">6 min</div><div style="font-size: 12px; font-weight: 700; margin-top: 4px"><span style="color: #4CC38A">● LIVE</span> · <span style="color: #FF9B73">+2 late</span></div></div>
+        <div style="font-size: 12px; color: #A7ABAE">Platform 2 · <s>1</s></div>
+      </div>
+      <div style="width: 300px; height: 141px; border-radius: 22px; background: #1A1C1F; padding: 12px 14px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; color: #F2F0EB; box-shadow: 0 6px 20px rgba(0,0,0,0.3)">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px"><span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #FF8A5C"></span><b>Bulimba</b> F11</span><span class="tn" style="font-weight: 800; font-size: 18px">3 min</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px"><span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #A996FF"></span><b>Morningside</b> P2 <span style="color: #FF9B73; font-weight: 700">+2</span></span><span class="tn" style="font-weight: 800; font-size: 18px">6 min</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px"><span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #F2B705"></span><b>Oxford St</b> 230</span><span class="tn" style="font-weight: 800; font-size: 18px">Now</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

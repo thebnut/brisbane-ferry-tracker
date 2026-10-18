@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Live map, Line First</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B32C4}a:hover{color:#36239A}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FFFFFF; font-family: 'Figtree', system-ui, sans-serif; color: #1D2226; position: relative; overflow: hidden">
+  <svg width="390" height="844" viewBox="0 0 390 844" aria-hidden="true" style="position: absolute; inset: 0">
+    <g fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M195 380 L 195 130" stroke="#00843D"></path>
+      <path d="M203 380 L 203 260 L 290 173 L 290 120" stroke="#1F4E9C"></path>
+      <path d="M211 380 L 211 290 L 340 160" stroke="#E8A300"></path>
+      <path d="M187 380 L 187 300 L 90 203 L 90 140" stroke="#6A4C9C"></path>
+      <path d="M195 400 L 140 455 L 40 455" stroke="#1E9F4A"></path>
+      <path d="M195 410 L 145 460 L 120 485 L 60 545" stroke="#0A7A6E"></path>
+      <path d="M205 410 L 270 475 L 270 600" stroke="#D6262E"></path>
+      <path d="M213 404 L 330 520 L 350 540" stroke="#0091C7"></path>
+    </g>
+    <rect x="176" y="372" width="46" height="44" rx="22" fill="#FFFFFF" stroke="#1D2226" stroke-width="4"></rect>
+    <circle cx="140" cy="455" r="8" fill="#FFFFFF" stroke="#1D2226" stroke-width="3"></circle>
+    <circle cx="120" cy="485" r="11" fill="#FFFFFF" stroke="#5B3FD1" stroke-width="5"></circle>
+    <rect x="160" y="420" width="26" height="14" rx="7" fill="#5B3FD1" stroke="#FFFFFF" stroke-width="2" transform="rotate(-45 173 427)"></rect>
+    <rect x="80" y="447" width="26" height="14" rx="7" fill="#1D2226" stroke="#FFFFFF" stroke-width="2"></rect>
+    <rect x="182" y="200" width="26" height="14" rx="7" fill="#1D2226" stroke="#FFFFFF" stroke-width="2" transform="rotate(90 195 207)"></rect>
+    <rect x="257" y="520" width="26" height="14" rx="7" fill="#1D2226" stroke="#FFFFFF" stroke-width="2" transform="rotate(90 270 527)"></rect>
+  </svg>
+  <div style="position: absolute; left: 228px; top: 382px; font-size: 13px; font-weight: 800">Roma St · Central</div>
+  <div style="position: absolute; left: 128px; top: 430px; font-size: 12px; color: #4F5860">Toowong</div>
+  <div style="position: absolute; left: 30px; top: 498px; font-size: 14px; font-weight: 800; color: #4B32C4">Indooroopilly</div>
+  <header style="position: absolute; top: 14px; left: 14px; right: 14px; display: flex; align-items: center; gap: 8px">
+    <a href="C-Departures.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #DDE0E5; background: #FFFFFF; display: flex; align-items: center; justify-content: center; color: #1D2226"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></a>
+    <h1 style="margin: 0; font-size: 18px; font-weight: 800">Network, live</h1>
+    <span style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #4F5860">42 trains</span>
+  </header>
+  <section style="position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 16px 28px; background: #FFFFFF; border-top: 1px solid #E6E8EC">
+    <div style="display: flex; align-items: center; gap: 12px; min-height: 52px">
+      <span style="width: 26px; height: 14px; border-radius: 7px; background: #5B3FD1"></span>
+      <div style="flex: 1"><div style="font-size: 16px; font-weight: 700">Your 8:07 express</div><div style="font-size: 13px; color: #4F5860">Leaving Roma Street · Indooroopilly 8:19</div></div>
+      <span style="font-size: 22px; font-weight: 800; color: #4B32C4">3 min</span>
+    </div>
+    <div role="group" aria-label="Show lines" style="display: flex; gap: 6px; margin-top: 10px; overflow: hidden">
+      <button aria-pressed="true" style="min-height: 40px; padding: 0 12px; border-radius: 999px; border: 0; background: #1D2226; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 700">All lines</button>
+      <button aria-pressed="false" style="min-height: 40px; padding: 0 12px; border-radius: 999px; border: 2px solid #0A7A6E; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 700">Springfield</button>
+      <button aria-pressed="false" style="min-height: 40px; padding: 0 12px; border-radius: 999px; border: 2px solid #1E9F4A; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 700">Ipswich</button>
+      <button aria-pressed="false" style="min-height: 40px; padding: 0 12px; border-radius: 999px; border: 2px solid #E8A300; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 700">Airport</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

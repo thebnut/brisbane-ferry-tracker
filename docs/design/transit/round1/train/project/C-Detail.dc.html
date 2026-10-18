@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Service detail, Line First</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B32C4}a:hover{color:#36239A}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FFFFFF; font-family: 'Figtree', system-ui, sans-serif; color: #1D2226; display: flex; flex-direction: column; font-variant-numeric: tabular-nums">
+  <header style="background: #0A7A6E; color: #FFFFFF; padding: 14px 18px 20px">
+    <a href="C-Departures.dc.html" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; margin-left: -12px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></a>
+    <div style="font-size: 14px; font-weight: 700; opacity: 0.95">Springfield line · Express</div>
+    <h1 style="margin: 2px 0 0; font-size: 26px; font-weight: 800; letter-spacing: -0.01em">8:07 to Springfield Central</h1>
+    <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap">
+      <span style="font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #FFFFFF; color: #0A5A51">● LIVE · GPS</span>
+      <span style="font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.18)">Plat 8</span>
+      <span style="font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.18)">Many seats</span>
+      <span style="font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.18)">6 cars</span>
+    </div>
+  </header>
+  <main style="flex: 1; overflow: hidden; padding: 14px 18px 0">
+    <sc-for list="{{stops}}" as="s" hint-placeholder-count="8">
+      <div style="display: flex; gap: 14px; min-height: 52px">
+        <div style="width: 24px; position: relative; display: flex; justify-content: center">
+          <span style="{{s.rail}}"></span>
+          <span style="{{s.dot}}"></span>
+          <sc-if value="{{s.train}}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: 34px; width: 22px; height: 34px; border-radius: 11px; background: #5B3FD1; border: 3px solid #FFFFFF; box-shadow: 0 2px 6px rgba(91,63,209,0.4); z-index: 2"></span></sc-if>
+        </div>
+        <div style="flex: 1; display: flex; align-items: flex-start; padding-top: 10px">
+          <div style="flex: 1"><div style="{{s.label}}">{{s.name}}</div><div style="font-size: 12px; color: #4F5860">{{s.note}}</div></div>
+          <span style="{{s.timeStyle}}">{{s.time}}</span>
+        </div>
+      </div>
+    </sc-for>
+  </main>
+  <div style="padding: 10px 16px 26px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+    <button style="min-height: 52px; border-radius: 16px; border: 1px solid #DDE0E5; background: #FFFFFF; font: inherit; font-size: 15px; font-weight: 700">Alert me at Toowong</button>
+    <a href="C-Map.dc.html" style="min-height: 52px; display: flex; align-items: center; justify-content: center; border-radius: 16px; background: #5B3FD1; color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 700">Track on map</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const L = '#0A7A6E';
+    const data = [
+      ['Roma Street', 'You board · train is here', '8:07', 'board', true], ['Milton', 'Express skips', '', 'skip'], ['Auchenflower', 'Express skips', '', 'skip'],
+      ['Toowong', '', '8:13', 'stop'], ['Taringa', 'Express skips', '', 'skip'], ['Indooroopilly', 'You get off', '8:19', 'off'],
+      ['Darra', '', '8:27', 'stop'], ['Springfield Central', 'Terminates', '8:42', 'end']
+    ];
+    const stops = data.map(([name, note, time, k, train], i) => ({
+      name, note, time, train: !!train,
+      rail: 'position: absolute; width: 6px; background: ' + L + '; ' + (i === 0 ? 'top: 18px; bottom: 0' : i === data.length - 1 ? 'top: 0; height: 18px' : 'top: 0; bottom: 0'),
+      dot: 'position: relative; z-index: 1; margin-top: 10px; box-sizing: border-box; border-radius: 50%; ' + (k === 'skip' ? 'width: 12px; height: 12px; margin-top: 12px; background: #FFFFFF; border: 2px solid ' + L : k === 'off' || k === 'board' ? 'width: 22px; height: 22px; background: #FFFFFF; border: 5px solid #1D2226' : 'width: 16px; height: 16px; margin-top: 12px; background: #FFFFFF; border: 4px solid ' + L),
+      label: 'font-size: 17px; ' + (k === 'skip' ? 'color: #6A737B; font-weight: 500' : 'font-weight: 700'),
+      timeStyle: "font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; " + (k === 'off' ? 'color: #4B32C4' : '')
+    }));
+    return { stops };
+  }
+}
+</script>
+</body>
+</html>

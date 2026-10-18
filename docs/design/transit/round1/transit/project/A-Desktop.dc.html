@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mode Tabs · Desktop</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2D3436}a:hover{color:#000}
+.tn{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #FBFAF7; font-family: 'Figtree', system-ui, sans-serif; color: #2D3436">
+  <header style="background: #FFFFFF; border-bottom: 1px solid #E6E2D9">
+    <div style="max-width: 1240px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap">
+      <div style="font-size: 22px"><span>Brisbane</span><b>Transit</b> <span aria-hidden="true" style="display: inline-flex; gap: 3px; vertical-align: middle"><span style="width: 8px; height: 8px; border-radius: 50%; background: #FF6B35"></span><span style="width: 8px; height: 8px; border-radius: 50%; background: #5B3FD1"></span><span style="width: 8px; height: 8px; border-radius: 50%; background: #F2B705"></span></span></div>
+      <nav aria-label="Modes" style="display: flex; gap: 4px; flex-wrap: wrap">
+        <a href="A-Departures.dc.html" aria-current="page" style="padding: 10px 16px; border-radius: 12px; background: #FFE5D9; font-weight: 800; text-decoration: none; display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #FF6B35"></span>Ferry</a>
+        <a href="A-Detail.dc.html" style="padding: 10px 16px; border-radius: 12px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #5B3FD1"></span>Train</a>
+        <a href="A-Search.dc.html" style="padding: 10px 16px; border-radius: 12px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #F2B705"></span>Bus</a>
+        <a href="Main.dc.html" style="padding: 10px 16px; border-radius: 12px; font-weight: 600; text-decoration: none">Saved</a>
+      </nav>
+      <div style="flex: 1"></div>
+      <label style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid #DAD5CA; min-width: 260px; background: #FBFAF7"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2D3436" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span style="position: absolute; left: -9999px">Search stops</span><input placeholder="Stop, station or terminal" style="border: 0; background: transparent; outline: none; font: 500 15px 'Figtree', sans-serif; flex: 1; color: #2D3436"></label>
+    </div>
+  </header>
+  <div style="background: #FFE5D9">
+    <div style="max-width: 1240px; margin: 0 auto; padding: 20px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+      <div style="font-size: 28px; font-weight: 800">Bulimba <span style="font-weight: 400; color: #8A2E08">⇄</span> Riverside</div>
+      <span style="font-size: 13px; font-weight: 700; color: #1C7A3E">● LIVE · updated 14 s ago</span>
+      <div style="flex: 1"></div>
+      <div role="group" aria-label="Service filter" style="display: flex; gap: 8px"><button aria-pressed="true" style="height: 40px; padding: 0 16px; border-radius: 20px; border: 0; background: #2D3436; color: #FFFFFF; font: 700 14px 'Figtree', sans-serif">All services</button><button aria-pressed="false" style="height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid #F2B9A1; background: #FFFFFF; font: 700 14px 'Figtree', sans-serif; color: #2D3436">Express only</button></div>
+    </div>
+  </div>
+  <main style="max-width: 1240px; margin: 0 auto; padding: 24px; display: flex; gap: 24px; flex-wrap: wrap">
+    <sc-for list="{{ boards }}" as="b" hint-placeholder-count="2">
+      <section style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+        <h2 style="margin: 0 0 4px; font-size: 18px; font-weight: 800">{{ b.title }}</h2>
+        <sc-for list="{{ b.rows }}" as="r" hint-placeholder-count="5">
+          <div style="background: #FFFFFF; border: 1px solid #E6E2D9; border-radius: 14px; padding: 12px 16px; display: flex; align-items: center; gap: 12px">
+            <span style="{{ r.routeStyle }}">{{ r.route }}</span>
+            <span style="{{ r.statusStyle }}">{{ r.status }}</span>
+            <span class="tn" style="flex: 1; font-size: 14px; color: #4A4F52">{{ r.line }}</span>
+            <span class="tn" style="font-size: 22px; font-weight: 800">{{ r.when }}</span>
+          </div>
+        </sc-for>
+      </section>
+    </sc-for>
+    <section aria-label="Live ferry map" style="flex: 1 1 340px; min-width: 0; background: #E3EEF2; border-radius: 18px; min-height: 420px; position: relative; overflow: hidden">
+      <svg viewBox="0 0 400 420" width="100%" height="420" role="img" aria-label="River map with three live CityCats between Bulimba and Riverside" preserveAspectRatio="xMidYMid slice"><rect width="400" height="420" fill="#EEF1EC"/><path d="M-20 360 C 80 330, 120 240, 200 230 S 300 120, 420 60" stroke="#BFDCE8" stroke-width="46" fill="none"/><circle cx="90" cy="320" r="8" fill="#FFFFFF" stroke="#2D3436" stroke-width="3"/><circle cx="330" cy="100" r="8" fill="#FFFFFF" stroke="#2D3436" stroke-width="3"/><circle cx="160" cy="250" r="9" fill="#B8400F" stroke="#FFFFFF" stroke-width="3"/><circle cx="260" cy="170" r="9" fill="#FF6B35" stroke="#FFFFFF" stroke-width="3"/><circle cx="370" cy="76" r="9" fill="#FF6B35" stroke="#FFFFFF" stroke-width="3"/><text x="104" y="340" font-family="Figtree" font-size="13" font-weight="700" fill="#2D3436">Riverside</text><text x="300" y="130" font-family="Figtree" font-size="13" font-weight="700" fill="#2D3436">Bulimba</text></svg>
+      <div style="position: absolute; left: 16px; bottom: 16px; background: #FFFFFF; border-radius: 12px; padding: 8px 12px; font-size: 13px; display: flex; gap: 12px"><span><span style="color: #B8400F">●</span> Express</span><span><span style="color: #FF6B35">●</span> All stops</span></div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const exp = 'font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #B8400F; color: #FFFFFF; white-space: nowrap';
+const all = 'font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #FFE5D9; color: #8A2E08; white-space: nowrap';
+const live = 'font-size: 12px; font-weight: 800; color: #1C7A3E; white-space: nowrap';
+const sched = 'font-size: 12px; font-weight: 700; color: #5F6468; white-space: nowrap';
+const canc = 'font-size: 12px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #2D3436; color: #FFFFFF';
+return { boards: [
+{ title: 'From Bulimba', rows: [
+{ route: 'F11', routeStyle: exp, status: '● LIVE', statusStyle: live, line: '7:34 → 7:51 pm', when: '3 min' },
+{ route: 'F1', routeStyle: all, status: '● LIVE +4', statusStyle: 'font-size: 12px; font-weight: 800; color: #A3330A; white-space: nowrap', line: '7:42 → 8:10 pm', when: '11 min' },
+{ route: 'F11', routeStyle: exp, status: 'CANCELLED', statusStyle: canc, line: '7:49 pm', when: '—' },
+{ route: 'F1', routeStyle: all, status: 'SCHEDULED', statusStyle: sched, line: '7:53 → 8:21 pm', when: '22 min' },
+{ route: 'F11', routeStyle: exp, status: 'SCHEDULED', statusStyle: sched, line: '8:04 → 8:21 pm', when: '33 min' }
+]},
+{ title: 'From Riverside', rows: [
+{ route: 'F1', routeStyle: all, status: '● LIVE', statusStyle: live, line: '7:36 → 8:03 pm', when: '5 min' },
+{ route: 'F11', routeStyle: exp, status: '● LIVE', statusStyle: live, line: '7:44 → 8:00 pm', when: '13 min' },
+{ route: 'F1', routeStyle: all, status: 'SCHEDULED', statusStyle: sched, line: '8:06 → 8:33 pm', when: '35 min' },
+{ route: 'F11', routeStyle: exp, status: 'SCHEDULED', statusStyle: sched, line: '8:14 → 8:30 pm', when: '43 min' },
+{ route: 'F1', routeStyle: all, status: 'SCHEDULED', statusStyle: sched, line: '8:36 → 9:03 pm', when: '8:36 pm' }
+]}
+]};
+}
+}
+</script>
+</body>
+</html>

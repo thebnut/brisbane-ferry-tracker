@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus · Route 66 service detail</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#8A6400}a:hover{color:#5c4300}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FFFBF2; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #2D3436; display: flex; flex-direction: column; overflow: hidden; font-variant-numeric: tabular-nums">
+  <header style="padding: 16px 12px 0; display: flex; align-items: center; gap: 8px">
+    <a href="A-Departures.dc.html" aria-label="Back to departures" style="width: 44px; height: 44px; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: #2D3436"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+    <span style="flex: 1; font-size: 15px; font-weight: 700">Service detail</span>
+    <button aria-label="Share this service" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: transparent; color: #2D3436; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"></path></svg></button>
+  </header>
+  <section style="margin: 8px 16px 0; background: #F2B705; border-radius: 24px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: center; gap: 14px">
+      <span style="font-size: 44px; font-weight: 800; letter-spacing: -1.5px; background: #2D3436; color: #F2B705; border-radius: 16px; padding: 4px 14px; line-height: 1.1">66</span>
+      <div style="flex: 1">
+        <div style="font-size: 19px; font-weight: 800; line-height: 1.2">UQ Lakes</div>
+        <div style="font-size: 13px; font-weight: 600">via Mater Hill, Buranda</div>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+      <div style="background: rgba(255,255,255,0.75); border-radius: 14px; padding: 10px"><div style="font-size: 11px; font-weight: 700">AT YOUR STOP</div><div style="font-size: 22px; font-weight: 800">4 min</div></div>
+      <div style="background: rgba(255,255,255,0.75); border-radius: 14px; padding: 10px"><div style="font-size: 11px; font-weight: 700">RUNNING</div><div style="font-size: 16px; font-weight: 800; color: #8E1F18; margin-top: 4px">+3 min late</div></div>
+      <div style="background: rgba(255,255,255,0.75); border-radius: 14px; padding: 10px"><div style="font-size: 11px; font-weight: 700">OCCUPANCY</div>
+        <div style="display: flex; gap: 3px; margin: 6px 0 3px" aria-hidden="true"><span style="flex: 1; height: 6px; border-radius: 3px; background: #2D3436"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #2D3436"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: rgba(45,52,54,0.25)"></span></div>
+        <div style="font-size: 13px; font-weight: 800">Few seats</div></div>
+    </div>
+    <div style="display: flex; gap: 8px; font-size: 12px; font-weight: 700">
+      <span style="display: inline-flex; align-items: center; gap: 5px; background: #2D3436; color: #fff; border-radius: 999px; padding: 4px 10px"><span style="width: 7px; height: 7px; border-radius: 4px; background: #5BE3A3"></span>LIVE</span>
+      <span style="display: inline-flex; align-items: center; gap: 5px; background: #2D3436; color: #fff; border-radius: 999px; padding: 4px 10px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"></path></svg>GPS · bus 1874</span>
+    </div>
+  </section>
+  <h2 style="margin: 18px 20px 6px; font-size: 13px; font-weight: 700; color: #5F6B6D; text-transform: uppercase; letter-spacing: 0.6px">Stopping pattern</h2>
+  <ol style="list-style: none; margin: 0; padding: 0 16px 0 20px; flex: 1; overflow: hidden">
+    <sc-for list="{{stops}}" as="s" hint-placeholder-count="9">
+      <li style="display: flex; gap: 14px; min-height: 44px">
+        <div style="width: 22px; display: flex; flex-direction: column; align-items: center">
+          <span style="width: 4px; flex: 1; background: {{s.lineTop}}"></span>
+          <span style="width: {{s.dot}}px; height: {{s.dot}}px; border-radius: 50%; background: {{s.dotBg}}; border: 3px solid {{s.dotBorder}}; box-sizing: border-box; flex-shrink: 0"></span>
+          <span style="width: 4px; flex: 1; background: {{s.lineBot}}"></span>
+        </div>
+        <div style="flex: 1; display: flex; justify-content: space-between; align-items: center; color: {{s.fg}}">
+          <span style="font-size: 15px; font-weight: {{s.weight}}">{{s.name}}<span style="display: block; font-size: 12px; font-weight: 700; color: #8A6400">{{s.tag}}</span></span>
+          <span style="font-size: 14px; font-weight: 700">{{s.time}}</span>
+        </div>
+      </li>
+    </sc-for>
+  </ol>
+  <div style="padding: 10px 16px 24px; display: flex; gap: 10px">
+    <a href="A-Map.dc.html" style="flex: 1; height: 52px; border-radius: 16px; background: #2D3436; color: #fff; text-decoration: none; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"></path></svg>Track on map</a>
+    <button style="height: 52px; padding: 0 16px; border-radius: 16px; border: 2px solid #2D3436; background: #fff; font: inherit; font-weight: 700; color: #2D3436">Notify me</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const past = { lineTop: '#D9CFB8', lineBot: '#D9CFB8', dot: 14, dotBg: '#D9CFB8', dotBorder: '#D9CFB8', fg: '#7A8486', weight: 500, tag: '' };
+    const next = { lineTop: '#2D3436', lineBot: '#2D3436', dot: 14, dotBg: '#fff', dotBorder: '#2D3436', fg: '#2D3436', weight: 600, tag: '' };
+    return { stops: [
+      { ...past, name: 'Roma Street busway', time: '8:09', lineTop: 'transparent' },
+      { ...past, name: 'King George Square', time: '8:13', lineBot: '#2D3436', tag: '' },
+      { ...next, name: 'Bus is here', time: '', dot: 22, dotBg: '#F2B705', dotBorder: '#2D3436', weight: 800, tag: 'Leaving Adelaide St' },
+      { ...next, name: 'Cultural Centre · Plat 1', time: '8:18', dot: 20, dotBg: '#2D3436', weight: 800, tag: 'Your stop' },
+      { ...next, name: 'South Bank busway', time: '8:20' },
+      { ...next, name: 'Mater Hill', time: '8:22' },
+      { ...next, name: 'Buranda busway', time: '8:26' },
+      { ...next, name: 'Boggo Road', time: '8:31' },
+      { ...next, name: 'UQ Lakes', time: '8:38', lineBot: 'transparent' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

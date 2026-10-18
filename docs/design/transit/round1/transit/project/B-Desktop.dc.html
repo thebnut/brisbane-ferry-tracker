@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Unified Journey · Desktop</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1C2024}a:hover{color:#000}
+.tn{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #F3F4F6; font-family: 'Instrument Sans', system-ui, sans-serif; color: #1C2024">
+  <header style="background: #FFFFFF; border-bottom: 1px solid #E3E5E8">
+    <div style="max-width: 1280px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap">
+      <div style="font-size: 21px"><span>Brisbane</span><b>Transit</b> <span aria-hidden="true" style="display: inline-flex; gap: 3px; vertical-align: middle"><span style="width: 8px; height: 8px; border-radius: 50%; background: #FF6B35"></span><span style="width: 8px; height: 8px; border-radius: 50%; background: #5B3FD1"></span><span style="width: 8px; height: 8px; border-radius: 50%; background: #F2B705"></span></span></div>
+      <nav aria-label="Main" style="display: flex; gap: 4px; flex-wrap: wrap; font-weight: 600"><a href="B-Home.dc.html" aria-current="page" style="padding: 10px 14px; border-radius: 10px; background: #F3F4F6; text-decoration: none">Journeys</a><a href="B-Map.dc.html" style="padding: 10px 14px; text-decoration: none">Map</a><a href="B-Alerts.dc.html" style="padding: 10px 14px; text-decoration: none">Alerts · 1</a></nav>
+    </div>
+  </header>
+  <main style="max-width: 1280px; margin: 0 auto; padding: 24px; display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start">
+    <aside style="flex: 1 1 280px; max-width: 340px; display: flex; flex-direction: column; gap: 14px">
+      <div style="background: #FFFFFF; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <label style="display: flex; flex-direction: column; background: #F3F4F6; border-radius: 12px; padding: 8px 12px"><span style="font-size: 12px; color: #5B6168; font-weight: 600">From</span><input value="New Farm" style="border: 0; background: transparent; outline: none; font: 600 16px 'Instrument Sans', sans-serif; color: #1C2024; padding: 0"></label>
+        <label style="display: flex; flex-direction: column; background: #F3F4F6; border-radius: 12px; padding: 8px 12px"><span style="font-size: 12px; color: #5B6168; font-weight: 600">To</span><input value="QUT Gardens Point" style="border: 0; background: transparent; outline: none; font: 600 16px 'Instrument Sans', sans-serif; color: #1C2024; padding: 0"></label>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap"><span style="font-size: 13px; font-weight: 700; padding: 6px 10px; border-radius: 14px; background: #FFE5D9; color: #8A2E08">✓ Ferry</span><span style="font-size: 13px; font-weight: 700; padding: 6px 10px; border-radius: 14px; background: #ECE8FB; color: #3F2A9E">✓ Train</span><span style="font-size: 13px; font-weight: 700; padding: 6px 10px; border-radius: 14px; background: #FDF3D0; color: #5C4300">✓ Bus</span></div>
+        <button style="height: 48px; border-radius: 12px; border: 0; background: #1C2024; color: #FFFFFF; font: 700 15px 'Instrument Sans', sans-serif">Plan · leave now</button>
+      </div>
+      <div style="font-size: 12px; font-weight: 700; color: #5B6168; text-transform: uppercase; letter-spacing: 0.06em">Saved journeys</div>
+      <a href="B-Departures.dc.html" style="background: #FFFFFF; border-radius: 16px; padding: 12px 14px; text-decoration: none; display: flex; justify-content: space-between; border: 2px solid #1C2024"><b>Home → Work</b><span class="tn">4 min</span></a>
+      <a href="B-Departures.dc.html" style="background: #FFFFFF; border-radius: 16px; padding: 12px 14px; text-decoration: none; display: flex; justify-content: space-between"><b>Work → Gym</b><span class="tn">12 min</span></a>
+      <a href="B-Departures.dc.html" style="background: #FFFFFF; border-radius: 16px; padding: 12px 14px; text-decoration: none; display: flex; justify-content: space-between"><b>Airport</b><span class="tn">8:12 pm</span></a>
+    </aside>
+    <section style="flex: 999 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <h1 style="margin: 0 0 4px; font-size: 24px; font-weight: 700">Home → Work · 4 options</h1>
+      <sc-for list="{{ opts }}" as="o" hint-placeholder-count="4">
+        <a href="B-Detail.dc.html" style="background: #FFFFFF; border-radius: 16px; padding: 14px 16px; text-decoration: none; display: flex; gap: 16px; align-items: center; flex-wrap: wrap">
+          <div style="width: 140px"><div class="tn" style="{{ o.leaveStyle }}">{{ o.leave }}</div><div class="tn" style="font-size: 13px; color: #3A4047">{{ o.times }}</div></div>
+          <div style="flex: 1; min-width: 180px; display: flex; gap: 3px; height: 10px; border-radius: 5px; overflow: hidden" aria-hidden="true"><sc-for list="{{ o.legs }}" as="l" hint-placeholder-count="3"><span style="{{ l }}"></span></sc-for></div>
+          <span style="{{ o.statusStyle }}">{{ o.status }}</span>
+        </a>
+      </sc-for>
+    </section>
+    <section aria-label="Journey map" style="flex: 1 1 300px; min-width: 0; background: #EDEFEA; border-radius: 20px; overflow: hidden; height: 460px">
+      <svg viewBox="0 0 320 460" width="100%" height="460" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Map of selected journey: bus 199 then CityCat F1"><rect width="320" height="460" fill="#EDEFEA"/><path d="M360 60 C 260 100, 240 190, 190 230 S 110 300, 60 360 S 0 430, -20 470" stroke="#BFDCE8" stroke-width="40" fill="none"/><path d="M240 40 L 270 100 L 240 160" stroke="#F2B705" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M225 175 C 190 220, 140 260, 100 310 S 60 370, 50 380" stroke="#FF6B35" stroke-width="7" fill="none" stroke-linecap="round"/><circle cx="240" cy="40" r="7" fill="#FFFFFF" stroke="#1C2024" stroke-width="3"/><rect x="42" y="372" width="16" height="16" rx="3" fill="#1C2024"/></svg>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = (c, g) => 'flex: ' + g + ' 1 0; background: ' + c;
+const w = (g) => 'flex: ' + g + ' 1 0; background: repeating-linear-gradient(90deg, #9AA1A8 0 4px, transparent 4px 7px)';
+const big = 'font-size: 22px; font-weight: 700';
+return { opts: [
+{ leave: 'Leave in 4 min', leaveStyle: big, times: '7:35 → 8:02 pm', legs: [w(3), s('#F2B705', 6), w(2), s('#FF6B35', 16)], status: '● LIVE', statusStyle: 'font-size: 13px; font-weight: 700; color: #1C7A3E' },
+{ leave: '7:43 pm', leaveStyle: 'font-size: 22px; font-weight: 700; color: #6B7178; text-decoration: line-through', times: 'F1 7:58 cancelled', legs: [w(3), s('#F2B705', 6), s('#C9CDD2', 16)], status: 'CANCELLED', statusStyle: 'font-size: 12px; font-weight: 800; padding: 3px 7px; border-radius: 5px; background: #1C2024; color: #FFFFFF' },
+{ leave: 'Leave in 15 min', leaveStyle: big, times: '7:46 → 8:20 pm', legs: [w(6), s('#FF6B35', 22), w(4)], status: '● LIVE · +3 late', statusStyle: 'font-size: 13px; font-weight: 700; color: #A3330A' },
+{ leave: '8:05 pm', leaveStyle: big, times: '8:05 → 8:36 pm', legs: [w(4), s('#F2B705', 20), w(7)], status: 'SCHEDULED', statusStyle: 'font-size: 13px; font-weight: 700; color: #5B6168' }
+]};
+}
+}
+</script>
+</body>
+</html>

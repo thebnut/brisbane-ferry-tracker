@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Transit · Train tab service detail</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Poppins:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#E55A2B}a:hover{color:#B8400F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: linear-gradient(135deg, #FFE5D9 0%, #FFFFFF 50%, #E6F2FF 100%); font-family: Inter, system-ui, sans-serif; color: #2D3436; overflow: hidden">
+
+<header style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px 6px 8px; background: linear-gradient(90deg, #FFFFFF, #FFE5D9, #E6F2FF); border-bottom: 2px solid rgba(255,107,53,0.5); box-shadow: 0 10px 15px -5px rgba(0,0,0,0.1)">
+<div style="display: flex; align-items: center; gap: 4px">
+<img src="/_blob/c529a31f2397418a458da66f4007f78e" alt="" style="width: 56px; height: 56px">
+<div style="display: flex; flex-direction: column; line-height: 1.08">
+<span style="font-family: Poppins, sans-serif; font-weight: 700; font-size: 21px; color: #2A9A9E">BrisbaneTrain</span>
+<span style="font-family: Poppins, sans-serif; font-weight: 600; font-size: 16px; color: #FE8E22">Departure Boards</span>
+</div>
+</div>
+<span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF6B35; border-radius: 999px; padding: 6px 12px; box-shadow: 0 0 15px rgba(255,107,53,0.5)">LIVE</span>
+</header>
+
+<main style="flex: 1 1 auto; overflow: hidden; padding: 10px 14px 0; display: flex; flex-direction: column; gap: 10px">
+<a href="X-Home.dc.html" style="display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 600; color: #B8400F; text-decoration: none; min-height: 36px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Departures</a>
+
+<section style="border-radius: 12px; padding: 14px 16px; background: linear-gradient(90deg, #FFE5D9, #FFFFFF); border: 2px solid #FF6B35; box-shadow: 0 0 20px rgba(255,107,53,0.45); display: flex; gap: 14px; align-items: center">
+<span style="width: 60px; height: 60px; border-radius: 12px; background: #FFFFFF; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #1E7C80; flex: 0 0 auto"><span style="font-size: 10px; font-weight: 800">PLAT</span><span style="font-size: 28px; font-weight: 800; line-height: 1">4</span></span>
+<div style="display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; min-width: 0">
+<div style="display: flex; gap: 6px; align-items: center">
+<span style="padding: 3px 9px; border-radius: 999px; background: #FF6B35; color: #FFFFFF; font-size: 11px; font-weight: 700">LIVE</span>
+<span style="padding: 3px 9px; border-radius: 999px; background: #007C99; color: #FFFFFF; font-size: 11px; font-weight: 700">GPS</span>
+<span style="padding: 3px 9px; border-radius: 999px; background: #E3F1E6; color: #1F5F2E; font-size: 11px; font-weight: 700">Springfield line</span>
+</div>
+<span style="font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums">7:59 pm → 8:12 pm</span>
+<span style="font-size: 13px; color: #4B5563">To Springfield Central · All stops · 6 cars</span>
+</div>
+</section>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<div style="border-radius: 12px; padding: 10px; background: rgba(255,255,255,0.9); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; font-weight: 700; color: #4B5563">LEAVES IN</span><span style="font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; color: #B8400F">21 min</span></div>
+<div style="border-radius: 12px; padding: 10px; background: rgba(255,255,255,0.9); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; font-weight: 700; color: #4B5563">JOURNEY</span><span style="font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums">13 min</span></div>
+<div style="border-radius: 12px; padding: 10px; background: rgba(255,255,255,0.9); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 4px"><span style="font-size: 11px; font-weight: 700; color: #4B5563">SEATS</span>
+<span style="display: flex; gap: 3px" aria-label="Many seats"><span style="flex: 1 1 0; height: 8px; border-radius: 4px; background: #1E7C80"></span><span style="flex: 1 1 0; height: 8px; border-radius: 4px; background: #CFE3E4"></span><span style="flex: 1 1 0; height: 8px; border-radius: 4px; background: #CFE3E4"></span></span><span style="font-size: 12px; font-weight: 600">Many seats</span></div>
+</div>
+
+<section style="border-radius: 12px; padding: 12px 16px; background: rgba(255,255,255,0.9); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column">
+<h2 style="margin: 0 0 6px; font-size: 14px; font-weight: 700; color: #007C99">Stopping pattern</h2>
+<sc-for list="{{stops}}" as="s" hint-placeholder-count="8">
+<div style="display: flex; align-items: stretch; gap: 12px; min-height: 40px">
+<div style="width: 26px; position: relative; display: flex; justify-content: center; flex: 0 0 auto">
+<span style="position: absolute; top: 0; bottom: 0; left: 11px; width: 4px; background: {{s.line}}"></span>
+<span style="{{s.dot}}"></span>
+</div>
+<div style="flex: 1 1 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: {{s.weight}}; color: {{s.color}}">{{s.name}}</span><span style="font-size: 11px; font-weight: 700; color: #B8400F">{{s.tag}}</span></span>
+<span style="font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; color: {{s.color}}">{{s.time}}</span>
+</div>
+</div>
+</sc-for>
+</section>
+</main>
+
+<nav aria-label="Modes" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 6px 18px; background: rgba(255,255,255,0.95); border-top: 1px solid rgba(255,107,53,0.2); margin-top: 10px">
+<sc-for list="{{tabs}}" as="b" hint-placeholder-count="5">
+<a href="{{b.href}}" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{b.color}}; font-size: 11px; font-weight: {{b.weight}}; min-height: 52px; justify-content: center">
+<span style="display: flex; align-items: center; justify-content: center; width: 48px; height: 30px; border-radius: 999px; background: {{b.pill}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{b.icon}}"></path></svg></span>
+{{b.label}}
+</a>
+</sc-for>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const I = {
+ferry: 'M3 18c2 1.5 4 1.5 6 0s4-1.5 6 0 4 1.5 6 0M5 15l-1-5h16l-2 5M8 10V6h8v4M12 3v3',
+train: 'M7 3h10a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zM4 10h16M8 21l2-4M16 21l-2-4M8.5 13.5h.01M15.5 13.5h.01',
+bus: 'M6 3h12a2 2 0 0 1 2 2v12H4V5a2 2 0 0 1 2-2zM4 11h16M7 20v-3M17 20v-3M7.5 14h.01M16.5 14h.01',
+near: 'M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+saved: 'M6 3h12v18l-6-4-6 4z'
+};
+const LINE = '#2E8540';
+const dotBase = 'position: relative; margin-top: 12px; box-sizing: border-box; border-radius: 999px; ';
+const dot = dotBase + 'width: 16px; height: 16px; background: #FFFFFF; border: 4px solid ' + LINE;
+const big = dotBase + 'width: 22px; height: 22px; margin-top: 9px; background: #FFFFFF; border: 5px solid #FF6B35';
+const past = dotBase + 'width: 14px; height: 14px; background: #D1D5DB; border: 0';
+const capsule = 'position: relative; margin-top: 8px; width: 24px; height: 24px; border-radius: 8px; background: #00A8CC; border: 3px solid #FFFFFF; box-shadow: 0 0 0 4px rgba(0,168,204,0.3), 0 2px 6px rgba(0,0,0,0.25); box-sizing: border-box';
+const s = (name, time, o) => Object.assign({ name, time, dot, line: LINE, weight: '500', color: '#2D3436', tag: '' }, o || {});
+const tabs = [['Ferry', I.ferry, 'X-Departures.dc.html'], ['Train', I.train, 'X-Detail.dc.html'], ['Bus', I.bus, 'X-Search.dc.html'], ['Nearby', I.near, 'X-Map.dc.html'], ['Saved', I.saved, 'X-Home.dc.html']];
+const active = 'Train';
+return {
+stops: [
+s('Central', '7:56 pm', { dot: capsule, tag: 'TRAIN IS HERE NOW', color: '#2D3436' }),
+s('Roma Street', '7:59 pm', { dot: big, weight: '800', tag: 'YOU BOARD · PLATFORM 4' }),
+s('Milton', '8:02 pm'),
+s('Auchenflower', '8:04 pm'),
+s('Toowong', '8:06 pm'),
+s('Taringa', '8:09 pm'),
+s('Indooroopilly', '8:12 pm', { dot: big, weight: '800', tag: 'YOU GET OFF' }),
+s('Springfield Central', '8:41 pm', { line: '#BFD9C5', color: '#4B5563' })
+],
+tabs: tabs.map(([label, icon, href]) => ({ label, icon, href, color: label === active ? '#B8400F' : '#4B5563', weight: label === active ? '700' : '500', pill: label === active ? '#FFE5D9' : 'transparent' }))
+};
+}
+}
+</script>
+</body>
+</html>

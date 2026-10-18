@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus Kerbside · Search</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&amp;family=Barlow:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1E2224}a:hover{color:#000}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F2F0EA; font-family: 'Barlow', system-ui, sans-serif; color: #1E2224; display: flex; flex-direction: column; overflow: hidden; font-variant-numeric: tabular-nums">
+  <div style="padding: 18px 16px 8px; display: flex; justify-content: space-between; align-items: center">
+    <h1 style="margin: 0; font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1.4px; color: #565D60">5 RESULTS FOR “183”</h1>
+    <a href="B-Home.dc.html" style="font-weight: 700; font-size: 15px; padding: 12px 4px">Cancel</a>
+  </div>
+  <div style="flex: 1; overflow: hidden; padding: 0 12px; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px">
+    <sc-for list="{{res}}" as="r" hint-placeholder-count="5">
+      <a href="B-Departures.dc.html" style="text-decoration: none; color: #1E2224; background: #fff; border-radius: 6px; display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 0 12px 0 0; overflow: hidden; box-shadow: 0 1px 0 #D8D4CA">
+        <span style="width: 76px; align-self: stretch; background: {{r.tileBg}}; color: {{r.tileFg}}; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 1px">{{r.kind}}</span>
+          <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 800; line-height: 1">{{r.code}}</span>
+        </span>
+        <span style="flex: 1; min-width: 0">
+          <span style="display: block; font-size: 16px; font-weight: 700">{{r.name}}</span>
+          <span style="display: block; font-size: 13px; color: #565D60">{{r.meta}}</span>
+        </span>
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; color: #565D60">{{r.dist}}</span>
+      </a>
+    </sc-for>
+  </div>
+  <div style="padding: 12px 12px 30px; background: #1E2224; margin-top: 12px; border-radius: 20px 20px 0 0">
+    <div style="display: flex; gap: 6px; margin-bottom: 10px; overflow: hidden">
+      <button style="height: 40px; padding: 0 14px; border-radius: 6px; border: 0; background: #F2B705; color: #1E2224; font: inherit; font-weight: 700; font-size: 14px">All</button>
+      <button style="height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid #4A5154; background: transparent; color: #fff; font: inherit; font-weight: 600; font-size: 14px">Stop numbers</button>
+      <button style="height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid #4A5154; background: transparent; color: #fff; font: inherit; font-weight: 600; font-size: 14px">Routes</button>
+      <button style="height: 40px; padding: 0 14px; border-radius: 6px; border: 1px solid #4A5154; background: transparent; color: #fff; font: inherit; font-weight: 600; font-size: 14px">Places</button>
+    </div>
+    <label for="bq" style="display: block; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #C3C8CA; margin: 0 4px 6px">STOP NAME OR NUMBER</label>
+    <div style="display: flex; align-items: center; gap: 10px; height: 60px; border-radius: 12px; background: #fff; padding: 0 8px 0 16px; border: 3px solid #F2B705">
+      <input id="bq" value="183" inputmode="search" style="flex: 1; border: 0; outline: none; font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 700; background: transparent; color: #1E2224; min-width: 0">
+      <button aria-label="Clear" style="width: 44px; height: 44px; border-radius: 8px; border: 0; background: #ECE9E1; color: #1E2224; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const stop = { kind: 'STOP', tileBg: '#1E2224', tileFg: '#F2B705' };
+    const route = { kind: 'ROUTE', tileBg: '#F2B705', tileFg: '#1E2224' };
+    return { res: [
+      { ...route, code: '183', name: 'Route 183', meta: 'Carindale to City via Coorparoo', dist: '' },
+      { ...stop, code: '1835', name: 'Cultural Centre · Platform 4', meta: 'Inbound · 130, 140, 150, 555', dist: '3.4 km' },
+      { ...stop, code: '1834', name: 'Cultural Centre · Platform 3', meta: 'Inbound · M1, M2, 66, 111', dist: '3.4 km' },
+      { ...stop, code: '1833', name: 'Cultural Centre · Platform 2', meta: 'Outbound south · M1, 111, 130', dist: '3.4 km' },
+      { ...stop, code: '1832', name: 'Cultural Centre · Platform 1', meta: 'Outbound to UQ · M2, 66, 199', dist: '3.4 km' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>
