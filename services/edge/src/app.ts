@@ -50,6 +50,8 @@ export interface AppDeps {
   /** Polled feed layout, so the legacy proxy knows whether to serve a combined or merged per-mode feed. */
   combinedFeeds: boolean
   polledModes: Mode[]
+  /** AI kill switch and month-to-date spend for /v1/health (wired in index.ts from env + the Budget DO). */
+  aiStatus?: () => Promise<{ enabled: boolean; budgetUsedUsd: number | null }>
 }
 
 type Env = { Variables: { rid: string; log: Logger } }
@@ -455,7 +457,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
         lastError: status?.lastError ?? null,
         stats: h?.stats ? statsRecord(h.stats) : null,
       },
-      ai: { enabled: false, budgetUsedUsd: null },
+      ai: deps.aiStatus
+        ? await deps.aiStatus().catch(() => ({ enabled: false, budgetUsedUsd: null }))
+        : { enabled: false, budgetUsedUsd: null },
     }
     return c.json(body, body.ok ? 200 : 503, { 'cache-control': 'no-store' })
   })

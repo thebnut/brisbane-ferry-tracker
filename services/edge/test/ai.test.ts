@@ -533,3 +533,28 @@ describe('/mcp (read-only)', () => {
     ).toBe(-32602)
   })
 })
+
+describe('/v1/health reports the AI status (was hardcoded off)', () => {
+  it('uses the aiStatus dependency when present', async () => {
+    const clock = new Clock(epoch(D, '07:55:00') * 1000)
+    const tree = buildTree()
+    const store = storeFor(tree, clock.now)
+    const snapshots = new SnapshotClient(
+      { pull: async () => null as never, getRaw: async () => null },
+      clock.now,
+      () => {},
+      null,
+    )
+    const app = createApp({
+      store,
+      snapshots,
+      now: clock.now,
+      log: silentLogger,
+      combinedFeeds: false,
+      polledModes: ['ferry'],
+      aiStatus: async () => ({ enabled: true, budgetUsedUsd: 0.0015 }),
+    })
+    const body = (await (await app.request('/v1/health')).json()) as { ai: unknown }
+    expect(body.ai).toEqual({ enabled: true, budgetUsedUsd: 0.0015 })
+  })
+})
