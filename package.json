@@ -10,7 +10,11 @@
     "preview": "vite preview",
     "cap:sync": "cap sync ios",
     "cap:open": "cap open ios",
-    "ios:build": "npm run build && cap sync ios && cap open ios"
+    "ios:build": "npm run build && cap sync ios && cap open ios",
+    "mono:build": "pnpm -r --if-present run build",
+    "mono:test": "pnpm -r --if-present run test",
+    "mono:typecheck": "pnpm -r --if-present run typecheck",
+    "mono:lint": "pnpm -r --if-present run lint"
   },
   "dependencies": {
     "@capacitor/core": "^8.3.1",

@@ -45,3 +45,8 @@ ios/capacitor-cordova-ios-plugins/
 
 # Per-developer Apple Team ID — see ios/Team.xcconfig.sample
 ios/Team.xcconfig
+
+# Monorepo (pnpm + Turborepo) build state
+.turbo
+.wrangler
+.react-router

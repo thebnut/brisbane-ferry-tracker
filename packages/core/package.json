@@ -1,0 +1,27 @@
+{
+  "name": "@bft/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared transit core: /v1 contract (zod), GTFS time and calendars, stop-event codec, RT state machine, trip matching, departures merge.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/contract/index.ts",
+    "./fixtures/*": "./fixtures/*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "@date-fns/tz": "1.5.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@bft/config": "workspace:*",
+    "@biomejs/biome": "2.5.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

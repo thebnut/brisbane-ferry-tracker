@@ -1,0 +1,40 @@
+name: Monorepo CI
+
+# Typecheck, lint and test the transit platform workspace packages (packages/*, apps/*, services/*, pipeline).
+# The legacy ferry app at the repo root keeps building on Vercel with npm; this job doesn't touch it.
+on:
+  pull_request:
+    paths:
+      - 'packages/**'
+      - 'apps/**'
+      - 'services/**'
+      - 'pipeline/**'
+      - 'pnpm-workspace.yaml'
+      - 'pnpm-lock.yaml'
+      - 'biome.json'
+      - '.github/workflows/monorepo-ci.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'packages/**'
+      - 'apps/**'
+      - 'services/**'
+      - 'pipeline/**'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm mono:typecheck
+      - run: pnpm mono:lint
+      - run: pnpm mono:test
+      - run: pnpm mono:build
