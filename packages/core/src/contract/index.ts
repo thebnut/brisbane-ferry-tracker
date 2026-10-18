@@ -427,9 +427,14 @@ export const Departure = z.object({
   route: RouteRef,
   headsign: z.string(),
   directionId: z.number().int(),
-  /** Boarding stop id and platform code (train), if known. */
+  /** Boarding stop id and platform code (train), if known. With a live platform change these are the new platform. */
   stopId: z.string(),
   platform: z.string().nullable(),
+  /**
+   * Set only for a platform change: the timetabled platform code, when RT moved the service to a different platform of
+   * the same parent station (train). `platform` is then the new one.
+   */
+  scheduledPlatform: z.string().optional(),
   /** Epoch seconds. */
   schedDep: z.number().int(),
   estDep: z.number().int().nullable(),
@@ -455,6 +460,11 @@ export type DeparturesResponse = z.infer<typeof DeparturesResponse>
 export const TripStop = z.object({
   stopId: z.string(),
   name: z.string().optional(),
+  /** Platform code (train), the live one when RT changed it; `scheduledPlatform` is set only for a change. */
+  platform: z.string().nullable().optional(),
+  scheduledPlatform: z.string().optional(),
+  /** Parent station key (train). */
+  stationKey: z.string().optional(),
   stopSequence: z.number().int(),
   schedArr: z.number().int().nullable(),
   schedDep: z.number().int().nullable(),

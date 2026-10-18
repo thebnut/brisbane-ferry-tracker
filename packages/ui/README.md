@@ -16,7 +16,8 @@ Shared React 19 design system in the BrisbaneFerry look (round 2: `docs/design/t
   two-line Poppins wordmark), `SettingsPill`, `LivePill`, `StatusStrip`, `PillButton`, `FilterPills`, `BoardHeader`,
   `StopSelect`, `DepartureCard` (+ `highlighted`), `CountdownChip`, `StatusBadge`, `PrimaryButton`, `SecondaryButton`,
   `MoreButton`, `BottomNav`, `ModeTabs`, `PlatformTile` (orange "NOW n" change tile), `RouteTile` (orange for
-  Metro/CityGlider), `StoppingPattern`, `BottomSheet` (native `<dialog>` in a portal), `AlertCard`, `LineStatus`,
+  Metro/CityGlider), `StoppingPattern` (`compact` dots-only strip with hollow run-through dots and `gapBefore`),
+  `LineChip`, `ServiceTimeline` (vertical line, separate arr/dep, the train as a moving capsule), `BottomSheet` (native `<dialog>` in a portal), `AlertCard`, `LineStatus` (status chips incl. `works` and a text override), `DepartureCard` `href`/`linkAs`,
   `EmptyState`, `ErrorState`, `OfflineBanner` ("Offline · scheduled", "Live times unavailable", stale, reloading).
 - Lazy entry points: `@bft/ui/map` (MapLibre GL 6 on OpenFreeMap, pulsing vehicle dots, pin shapes ferry circle /
   train square / bus diamond; about 280 KB gz, never on first load) and `@bft/ui/stop-search` (Ark UI combobox).

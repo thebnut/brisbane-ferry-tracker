@@ -1,5 +1,5 @@
 /** Departure board building blocks: board header, departure card, countdown chip, status badges and buttons. */
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ElementType, ReactNode } from 'react'
 import { cx } from './cx.ts'
 import { type CountdownTone, countdownTone, formatCountdown } from './format.ts'
 import { Icon } from './icons.tsx'
@@ -175,6 +175,10 @@ export interface DepartureCardProps {
   /** Stopping pattern strip below the main row. */
   below?: ReactNode
   onSelect?: () => void
+  /** Make the card a link instead of a button (e.g. to a service detail page); works before hydration. */
+  href?: string
+  /** Link component for `href`, e.g. React Router's Link (receives `to` and `href`). Defaults to <a>. */
+  linkAs?: ElementType
   /** Accessible summary for the whole card button. */
   label?: string
 }
@@ -195,6 +199,8 @@ export function DepartureCard({
   leading,
   below,
   onSelect,
+  href,
+  linkAs: LinkAs = 'a',
   label,
 }: DepartureCardProps) {
   const body = (
@@ -270,7 +276,15 @@ export function DepartureCard({
       data-highlighted={highlighted || undefined}
       data-cancelled={cancelled || undefined}
     >
-      {onSelect ? (
+      {href ? (
+        <LinkAs
+          {...(LinkAs === 'a' ? { href } : { to: href })}
+          aria-label={label}
+          className="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left text-inherit no-underline"
+        >
+          {body}
+        </LinkAs>
+      ) : onSelect ? (
         <button
           type="button"
           onClick={onSelect}

@@ -545,6 +545,39 @@ Measured with `@bft/pipeline` (`pnpm --filter @bft/pipeline measure`).
 - **Ferry, train and tram:** per-stop blobs. Their indexes are small and reads stay minimal.
 - **Pattern + trip-times:** not adopted. Its shared tables cost more parse time on the edge than they save in storage, and storage is free at these sizes.
 
+### Phase 4 measurements: train app and the hibernating-WebSocket prototype (18 Oct 2026)
+
+`apps/train` (PR #42), production build. Details in `apps/train/README.md`.
+
+| | |
+|---|---|
+| Station page HTML with 12 departure rows (Central) | 11.5 KB gz |
+| First-load JS | 150 KB gz (React 19 DOM + React Router 8 ≈ 105 KB before app code; the 90 KB budget is not reachable on this stack, same finding as `apps/ferry`) |
+| Lighthouse 13.5 mobile, slow 4G, staging (workers.dev) | Performance 99, Accessibility 100, Best Practices 100; FCP = LCP 1.6–1.7 s; TBT 0; CLS 0 (SEO 69 only because staging is `noindex`) |
+| Network data bundled for strips and the picker | 6.2 KB gz (154 stations, 13 display lines, 79 patterns) |
+| Offline full day per favourite (localStorage) | Central, every train: 687 rows, 353 KB raw / 14 KB gz. Roma Street → Indooroopilly: 96 rows, 54 KB / 2.4 KB gz |
+
+**Hibernating WebSockets vs 15 s polling (ADR-0003 Phase 4 exit criterion).** Prototype: one `TripSocket` Durable
+Object per trip instance (SQLite-backed, Hibernation API), alarm aligned to the 15 s source cycle, pushes only when the
+trip's content changed. Measured with `apps/train/scripts/ws-vs-poll.ts` against `wrangler dev` in fixture mode, 20
+viewers of one running trip for 5 minutes each way:
+
+| | Polling (15 s) | WebSocket push |
+|---|---|---|
+| Worker / DO invocations | 400 Worker requests (4 per viewer per minute) | 20 connects + 20 alarm runs (one per cycle, independent of viewers) |
+| Upstream trip loads | 400 | 40 (20 on connect, 20 per cycle) |
+| Server work (in-process trip build + contract check, 0.37 ms each) | 147 ms | 14.7 ms |
+| Messages / bytes to viewers | 400 responses, 2.55 MB | 420 messages, 2.68 MB (the fixture train moves every cycle, so every cycle pushes) |
+| Freshness lag after a source cycle (p50 / p95 / max) | 7.7 s / 14.7 s / 14.9 s | 0.76 s / 0.77 s / 0.77 s |
+
+Reading: push cuts invocations and upstream work by about the number of concurrent viewers per trip and removes the
+0–15 s polling lag; bytes are similar while the train is moving. Billing on Workers Free: each connect is one request,
+alarms are DO requests (4 a minute per watched trip), outgoing messages are free and hibernated sockets incur no
+duration. Recommendation: keep polling for departure boards (many stops, few viewers each, CDN-cacheable) and use push
+for service detail and the live map once `services/edge` hosts the DO next to the RtHub snapshot (it then reads the
+snapshot in-process instead of the trip endpoint). The prototype lives in the `bft-train` Worker behind `TRIP_WS`
+until that move.
+
 ## 6. Cost model
 
 This was revised after Codex finding 9. The first draft assumed 10 requests per DAU, which implied only about 2 minutes of visible use a day.
