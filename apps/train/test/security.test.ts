@@ -49,3 +49,15 @@ describe('trip WebSocket origin', () => {
     )
   })
 })
+
+describe('HTML caching', () => {
+  it('HTML without its own Cache-Control becomes private, no-store; an explicit one is kept', () => {
+    const html = (h: Record<string, string> = {}) =>
+      new Response('<html></html>', { headers: { 'content-type': 'text/html', ...h } })
+    expect(withSecurityHeaders(html(), 'n').headers.get('cache-control')).toBe('private, no-store')
+    expect(withSecurityHeaders(html({ 'cache-control': 'no-cache' }), 'n').headers.get('cache-control')).toBe(
+      'no-cache',
+    )
+    expect(withSecurityHeaders(Response.json({}), 'n').headers.get('cache-control')).toBeNull()
+  })
+})

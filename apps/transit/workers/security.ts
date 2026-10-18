@@ -40,11 +40,49 @@ export function newNonce(): string {
   return btoa(String.fromCharCode(...bytes))
 }
 
-/** Add the base headers to any Worker response, plus the CSP when it's an HTML document. */
+/**
+ * Add the base headers to any Worker response, plus the CSP when it's an HTML document. HTML carries a per-request
+ * nonce, so a page that set no Cache-Control of its own gets `private, no-store` (never cached or shared).
+ */
 export function withSecurityHeaders(res: Response, nonce: string): Response {
   const out = new Response(res.body, res)
   for (const [k, v] of Object.entries(BASE_SECURITY_HEADERS)) out.headers.set(k, v)
-  if ((out.headers.get('content-type') ?? '').includes('text/html'))
+  if ((out.headers.get('content-type') ?? '').includes('text/html')) {
     out.headers.set('Content-Security-Policy', contentSecurityPolicy(nonce))
+    if (!out.headers.has('cache-control')) out.headers.set('cache-control', 'private, no-store')
+  }
   return out
+}
+
+/**
+ * The canonical-apex URL for a request to `www.<host of siteUrl>`, else null. Only that one host is redirected, always
+ * to the fixed siteUrl origin with the path and query kept, so nothing in the request can pick the target host (no
+ * open redirect). A www canonical (the ferry) never matches.
+ */
+export function wwwRedirectLocation(requestUrl: string, siteUrl: string): string | null {
+  let site: URL
+  let url: URL
+  try {
+    site = new URL(siteUrl)
+    url = new URL(requestUrl)
+  } catch {
+    return null
+  }
+  if (site.hostname.startsWith('www.') || url.hostname !== `www.${site.hostname}`) return null
+  // pathname always starts with "/", so the result stays on site.origin ("//evil" is a path, not a host).
+  return `${site.origin}${url.pathname}${url.search}`
+}
+
+/**
+ * 301 to the canonical apex. Only Worker-handled paths reach this: static files under build/client are answered by
+ * Workers static assets on any host, and the pages' canonicals point at the apex.
+ */
+export function canonicalRedirect(location: string): Response {
+  return new Response(null, { status: 301, headers: { location, 'cache-control': 'public, max-age=3600' } })
+}
+
+/** Soft launch: until INDEXABLE is "1", every Worker response says noindex (robots.txt disallows all as well). */
+export function withRobotsTag(res: Response, indexable: boolean): Response {
+  if (!indexable) res.headers.set('X-Robots-Tag', 'noindex')
+  return res
 }

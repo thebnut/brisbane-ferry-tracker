@@ -5,6 +5,7 @@
  *  - POST /v1/ask         Ask box → bft-api /v1/ask with the visitor's IP (per-IP quota) and Turnstile token
  *  - /__fixtures/*        recorded responses for fixture mode (only when ALLOW_FIXTURES or FIXTURES is "1")
  *  - /robots.txt          disallow: the mode pages' canonical copies are the standalone apps
+ *  - www.<SITE_URL host>  301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
  *  - everything else      React Router SSR, with a per-request CSP nonce (workers/security.ts). The mounted mode pages are the standalone apps' route modules, so their
  *                         loaders read their own app's context: each gets this Env with its own canonical SITE_URL.
  */
@@ -17,7 +18,13 @@ import { cloudflareContext } from '../app/lib/context.ts'
 import { validateProxied } from '../app/lib/contract.server.ts'
 import { fixtureAsk, handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import { apiFetch } from '../app/lib/server.server.ts'
-import { newNonce, withSecurityHeaders } from './security.ts'
+import {
+  canonicalRedirect,
+  newNonce,
+  withRobotsTag,
+  withSecurityHeaders,
+  wwwRedirectLocation,
+} from './security.ts'
 import { API_TIMEOUT_MS, ASK_TIMEOUT_MS, withTimeout } from './timeouts.ts'
 
 const requestHandler = createRequestHandler(
@@ -125,7 +132,9 @@ export default {
   async fetch(request, env, ctx) {
     // One nonce per request: the CSP header and every context (transit's root and the mounted apps) share it.
     const nonce = newNonce()
-    return withSecurityHeaders(await route(request, env, ctx, nonce), nonce)
+    const www = wwwRedirectLocation(request.url, env.SITE_URL)
+    const res = www ? canonicalRedirect(www) : await route(request, env, ctx, nonce)
+    return withRobotsTag(withSecurityHeaders(res, nonce), env.INDEXABLE === '1')
   },
 } satisfies ExportedHandler<Env>
 

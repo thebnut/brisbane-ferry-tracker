@@ -16,7 +16,9 @@
     "test:llm": "playwright test --config playwright.llm.config.ts",
     "test:staging": "playwright test --config playwright.staging.config.ts",
     "payload": "tsx scripts/measure-payload.ts",
-    "deploy:staging": "CLOUDFLARE_ENV=staging pnpm build && wrangler deploy"
+    "deploy:staging": "CLOUDFLARE_ENV=staging pnpm build && wrangler deploy",
+    "deploy:production-preview": "CLOUDFLARE_ENV=production-preview pnpm build && wrangler deploy",
+    "deploy:production": "CLOUDFLARE_ENV=production pnpm build && wrangler deploy"
   },
   "dependencies": {
     "@bft/bus": "workspace:*",

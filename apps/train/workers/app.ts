@@ -5,6 +5,7 @@
  *  - /__fixtures/v1/* recorded /v1 responses for fixture mode (only when ALLOW_FIXTURES or FIXTURES is "1")
  *  - /sitemap.xml     home, stations, alerts and all 154 station pages
  *  - /robots.txt      disallows everything unless INDEXABLE is "1" (staging stays out of search)
+ *  - www.<SITE_URL host> 301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
  *  - everything else  React Router SSR
  */
 import { createRequestHandler, RouterContextProvider } from 'react-router'
@@ -13,7 +14,14 @@ import { validateProxied } from '../app/lib/contract.server.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import { robotsTxt, sitemapXml } from '../app/lib/seo.ts'
 import { siteInfo } from '../app/lib/server.server.ts'
-import { newNonce, withSecurityHeaders, wsOriginOf } from './security.ts'
+import {
+  canonicalRedirect,
+  newNonce,
+  withRobotsTag,
+  withSecurityHeaders,
+  wsOriginOf,
+  wwwRedirectLocation,
+} from './security.ts'
 import { routeTripSocket } from './tripSocket.ts'
 
 export { TripSocket } from './tripSocket.ts'
@@ -44,11 +52,15 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
 export default {
   async fetch(request, env, ctx) {
     const nonce = newNonce()
-    const socket = routeTripSocket(request, env)
-    const res = socket ? await socket : await route(request, env, ctx, nonce)
+    const www = wwwRedirectLocation(request.url, env.SITE_URL)
+    const socket = www ? null : routeTripSocket(request, env)
+    const res = www ? canonicalRedirect(www) : socket ? await socket : await route(request, env, ctx, nonce)
     // A WebSocket upgrade (101) goes back untouched: a Response can't be rebuilt with status 101 or its webSocket.
     if (res.status === 101) return res
-    return withSecurityHeaders(res, nonce, wsOriginOf(env.API_WS_BASE))
+    return withRobotsTag(
+      withSecurityHeaders(res, nonce, wsOriginOf(env.API_WS_BASE)),
+      siteInfo(env).indexable,
+    )
   },
 } satisfies ExportedHandler<Env>
 

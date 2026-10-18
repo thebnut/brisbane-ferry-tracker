@@ -27,7 +27,8 @@ describe('seo', () => {
     expect(urlsetXml('https://x', ['/stop/1', '/a&b'], { changefreq: 'daily', priority: '0.7' })).toContain(
       '<loc>https://x/a&amp;b</loc>',
     )
-    expect(robotsTxt('https://x')).toContain('Sitemap: https://x/sitemap.xml')
+    expect(robotsTxt('https://x', true)).toContain('Sitemap: https://x/sitemap.xml')
+    expect(robotsTxt('https://x', false)).toBe('User-agent: *\nDisallow: /\n')
   })
   it('reads keys from raw index text without parsing it', () => {
     const text = JSON.stringify({

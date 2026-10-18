@@ -213,10 +213,12 @@ test('unknown stop and unknown page are 404 and noindex', async ({ page }) => {
   }
 })
 
-test('sitemap index and robots', async ({ request }) => {
+test('sitemap index; robots and X-Robots-Tag keep staging out (INDEXABLE unset)', async ({ request }) => {
   const idx = await (await request.get('/sitemap.xml')).text()
   expect(idx).toContain('<sitemapindex')
   const stops = await (await request.get('/sitemaps/stops-1.xml')).text()
   expect(stops).toContain('/stop/')
-  expect(await (await request.get('/robots.txt')).text()).toContain('Sitemap:')
+  const robots = await request.get('/robots.txt')
+  expect(await robots.text()).toBe('User-agent: *\nDisallow: /\n')
+  expect(robots.headers()['x-robots-tag']).toBe('noindex')
 })
