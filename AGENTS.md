@@ -604,3 +604,15 @@ The transit platform (`docs/architecture/transit-architecture.md`) is being buil
 - Turborepo is deferred until the root moves into `apps/ferry` (hosting phase): turbo refuses a repo with both
   npm and pnpm lockfiles. Until then the `mono:*` scripts use `pnpm -r`.
 - Workspace code uses TypeScript and Biome (`biome.json`); the root ESLint config ignores the workspace dirs.
+
+### `/v1` data-source flag (legacy app, default OFF)
+`src/utils/dataSource.js` decides per page load whether the board reads departures and vehicles from the transit
+API's `/v1/ferry/...` endpoints instead of the GitHub schedule + `/api/gtfs-proxy`:
+- `?dataSource=v1` (or `=legacy`) in the URL, sticky for the tab via sessionStorage.
+- `VITE_FERRY_DATA_SOURCE=v1` at build time turns it on for everyone.
+- `VITE_FERRY_V1_PERCENT` (0-100, default 0) rolls it out to a stable bucket of users (random id in localStorage).
+- `VITE_TRANSIT_API_BASE` overrides `https://bft-api.brisbanetransit.workers.dev`. A different host must be added to
+  `connect-src` in both `vercel.json` and the CSP meta in `index.html`.
+- Rollback = unset the env vars. Any `/v1` error, an `rtState` other than live/stale, or an empty board falls back
+  to the legacy path for that refresh. A chosen "Depart from" time always uses the legacy path.
+- The mapper is `src/services/v1Mapper.js`, tested by `npm test` (plain `node:test`, `scripts/test/`).
