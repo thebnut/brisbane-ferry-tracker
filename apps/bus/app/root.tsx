@@ -13,6 +13,7 @@ import {
 import type { Route } from './+types/root'
 import './app.css'
 import { Footer, SiteHeader } from './components/Shell.tsx'
+import { cloudflareContext } from './lib/context.ts'
 import { makeQueryClient } from './lib/queries.ts'
 import { getEnv, isFixtureMode } from './lib/server.server.ts'
 import { THEME_SCRIPT, themeFromCookie } from './lib/storage.ts'
@@ -30,6 +31,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const env = getEnv(context)
   const fixtures = isFixtureMode(request, env)
   return {
+    /** The per-request CSP nonce, for the inline scripts below (workers/security.ts). */
+    nonce: context.get(cloudflareContext).nonce,
     mode: { fixtures, rt: fixtures ? new URL(request.url).searchParams.get('rt') : null },
     theme: themeFromCookie(request.headers.get('cookie')),
   }
@@ -37,6 +40,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 export function Layout({ children }: { children: ReactNode }) {
   const data = useRouteLoaderData('root') as Awaited<ReturnType<typeof loader>> | undefined
+  const nonce = data?.nonce
   return (
     <html lang="en-AU" className={data?.theme === 'dark' ? 'dark' : undefined} suppressHydrationWarning>
       <head>
@@ -44,14 +48,14 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#FF6B35" />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant script, sets the dark class before paint. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <Meta />
         <Links />
       </head>
       <body>
         {children}
-        <ScrollRestoration />
-        <Scripts />
+        <ScrollRestoration nonce={nonce} />
+        <Scripts nonce={nonce} />
       </body>
     </html>
   )

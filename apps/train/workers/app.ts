@@ -13,6 +13,7 @@ import { validateProxied } from '../app/lib/contract.server.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import { robotsTxt, sitemapXml } from '../app/lib/seo.ts'
 import { siteInfo } from '../app/lib/server.server.ts'
+import { newNonce, withSecurityHeaders, wsOriginOf } from './security.ts'
 import { routeTripSocket } from './tripSocket.ts'
 
 export { TripSocket } from './tripSocket.ts'
@@ -42,31 +43,37 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
 
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url)
+    const nonce = newNonce()
     const socket = routeTripSocket(request, env)
-    if (socket) return socket
-    if (request.method === 'GET' && url.pathname.startsWith('/v1/')) return proxyApi(request, env)
-    if (url.pathname.startsWith('/__fixtures/v1/')) {
-      if (env.ALLOW_FIXTURES !== '1' && env.FIXTURES !== '1')
-        return new Response('Not found', { status: 404 })
-      return handleFixtureApi(url, Date.now())
-    }
-    const site = siteInfo(env)
-    if (url.pathname === '/sitemap.xml') {
-      return new Response(sitemapXml(site.siteUrl, Date.now()), {
-        headers: {
-          'content-type': 'application/xml; charset=utf-8',
-          'cache-control': 'public, max-age=3600',
-        },
-      })
-    }
-    if (url.pathname === '/robots.txt') {
-      return new Response(robotsTxt(site.siteUrl, site.indexable), {
-        headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' },
-      })
-    }
-    const context = new RouterContextProvider()
-    context.set(cloudflareContext, { env, ctx })
-    return requestHandler(request, context)
+    const res = socket ? await socket : await route(request, env, ctx, nonce)
+    // A WebSocket upgrade (101) goes back untouched: a Response can't be rebuilt with status 101 or its webSocket.
+    if (res.status === 101) return res
+    return withSecurityHeaders(res, nonce, wsOriginOf(env.API_WS_BASE))
   },
 } satisfies ExportedHandler<Env>
+
+async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
+  const url = new URL(request.url)
+  if (request.method === 'GET' && url.pathname.startsWith('/v1/')) return proxyApi(request, env)
+  if (url.pathname.startsWith('/__fixtures/v1/')) {
+    if (env.ALLOW_FIXTURES !== '1' && env.FIXTURES !== '1') return new Response('Not found', { status: 404 })
+    return handleFixtureApi(url, Date.now())
+  }
+  const site = siteInfo(env)
+  if (url.pathname === '/sitemap.xml') {
+    return new Response(sitemapXml(site.siteUrl, Date.now()), {
+      headers: {
+        'content-type': 'application/xml; charset=utf-8',
+        'cache-control': 'public, max-age=3600',
+      },
+    })
+  }
+  if (url.pathname === '/robots.txt') {
+    return new Response(robotsTxt(site.siteUrl, site.indexable), {
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' },
+    })
+  }
+  const context = new RouterContextProvider()
+  context.set(cloudflareContext, { env, ctx, nonce })
+  return requestHandler(request, context)
+}

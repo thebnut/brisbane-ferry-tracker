@@ -3,6 +3,7 @@ import { AppHeader, LivePill, SettingsPill } from '@bft/ui'
 import lockup489 from '@bft/ui/assets/ferry-lockup.webp?url'
 import lockup236 from '@bft/ui/assets/ferry-lockup-236.webp?url'
 import lockup360 from '@bft/ui/assets/ferry-lockup-360.webp?url'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { ATTRIBUTION, INTRO_HEADING, INTRO_TEXT } from '../lib/seo.ts'
 import { TERMINALS, terminalPath } from '../lib/terminals.ts'
 
@@ -55,6 +56,38 @@ export function SiteIntro() {
   )
 }
 
+const FeedbackSheet = lazy(() => import('./FeedbackSheet.tsx'))
+
+/** The legacy footer's feedback entry point; the form loads on first open. */
+export function FeedbackButton() {
+  const [open, setOpen] = useState(false)
+  const button = useRef<HTMLButtonElement>(null)
+  const wasOpen = useRef(false)
+  // The sheet unmounts instead of closing, so the browser can't restore focus itself. Refocus after the unmount:
+  // while the modal dialog is still up, everything outside it is inert.
+  useEffect(() => {
+    if (wasOpen.current && !open) button.current?.focus()
+    wasOpen.current = open
+  }, [open])
+  return (
+    <>
+      <button
+        ref={button}
+        type="button"
+        onClick={() => setOpen(true)}
+        className="min-h-11 font-semibold text-ferry-orange-deep transition-colors hover:text-ferry-orange-dark"
+      >
+        <span aria-hidden="true">💬 </span>Send Feedback & Ideas
+      </button>
+      {open ? (
+        <Suspense fallback={null}>
+          <FeedbackSheet onClose={() => setOpen(false)} />
+        </Suspense>
+      ) : null}
+    </>
+  )
+}
+
 export function Footer() {
   return (
     <footer className="mt-12 border-t border-gray-200 py-8 pb-24 md:pb-8">
@@ -69,6 +102,9 @@ export function Footer() {
           </span>
         </p>
         <p className="mt-2">Live times refresh every 15 seconds • All times in Brisbane time</p>
+        <p className="mt-3">
+          <FeedbackButton />
+        </p>
         <p className="mt-3 text-xs text-gray-600">
           <a href="/privacy" className="hover:text-ferry-orange-deep">
             Privacy

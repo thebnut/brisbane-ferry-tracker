@@ -12,6 +12,7 @@ import {
 import type { Route } from './+types/root'
 import './app.css'
 import { Footer, SiteHeader } from './components/Chrome.tsx'
+import { cloudflareContext } from './lib/context.ts'
 import { makeQueryClient } from './lib/queries.ts'
 import { getEnv, isFixtureMode } from './lib/server.server.ts'
 import { themeFromCookie } from './lib/storage.ts'
@@ -31,6 +32,8 @@ export function loader({ request, context }: Route.LoaderArgs) {
   // The trip socket's DO serves the Worker-wide data mode only: no socket for per-visitor fixtures or a forced rtState.
   const sameMode = fixtures === (env?.FIXTURES === '1') && !new URL(request.url).searchParams.get('rt')
   return {
+    /** The per-request CSP nonce, for the inline scripts below (workers/security.ts). */
+    nonce: context.get(cloudflareContext).nonce,
     theme: themeFromCookie(request.headers.get('cookie')),
     fixtures,
     // null = poll; '' = this Worker's TripSocket DO (same origin); otherwise a wss:// base.
@@ -45,6 +48,7 @@ const THEME_SCRIPT =
 export function Layout({ children }: { children: ReactNode }) {
   const data = useRouteLoaderData<typeof loader>('root')
   const theme = data?.theme ?? 'system'
+  const nonce = data?.nonce
   return (
     <html lang="en-AU" className={theme === 'system' ? undefined : theme} suppressHydrationWarning>
       <head>
@@ -52,14 +56,14 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#FF6B35" />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant inline script, no user input. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <Meta />
         <Links />
       </head>
       <body>
         {children}
-        <ScrollRestoration />
-        <Scripts />
+        <ScrollRestoration nonce={nonce} />
+        <Scripts nonce={nonce} />
       </body>
     </html>
   )
