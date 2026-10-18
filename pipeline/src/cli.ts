@@ -16,7 +16,15 @@ import type { Mode } from '@bft/core'
 import { ALL_MODES, DEFAULT_SHARDS, runBuild } from './build/build.ts'
 import { StructuralError } from './feed/load.ts'
 import { resolveFeed } from './feed/source.ts'
-import { applyGc, DEFAULT_MAX_FRACTION, formatPlan, GcAbort, type GcStore, planGc } from './gc/gc.ts'
+import {
+  applyGc,
+  DEFAULT_MAX_FRACTION,
+  formatPlan,
+  GcAbort,
+  GcBatchError,
+  type GcStore,
+  planGc,
+} from './gc/gc.ts'
 import { publish } from './publish/publish.ts'
 import {
   AssetsTarget,
@@ -221,10 +229,29 @@ async function gcCmd(args: string[]): Promise<number> {
     }
     report.deleted = []
     try {
-      report.deleted = await applyGc(store, plan, (m) => console.log(m))
-    } finally {
-      await save()
+      report.deleted = await applyGc(store, plan, {
+        log: (m) => console.log(m),
+        onBatch: async (deleted) => {
+          report.deleted = [...deleted]
+          await save()
+        },
+      })
+    } catch (e) {
+      if (e instanceof GcBatchError) {
+        report.deleted = e.deleted
+        report.failed = { error: e.message, outcomeUnknown: e.unknown }
+        await save()
+        console.error(
+          `GC STOPPED after ${e.deleted.length} deletions: ${e.message}` +
+            (e.unknown.length
+              ? ` (${e.unknown.length} keys in the failed batch may or may not be deleted)`
+              : ''),
+        )
+        return EXIT.error
+      }
+      throw e
     }
+    await save()
     const after: Record<string, number> = {}
     for (const o of await store.list('')) {
       const i = o.key.indexOf('/')
@@ -232,7 +259,9 @@ async function gcCmd(args: string[]): Promise<number> {
       after[p] = (after[p] ?? 0) + 1
     }
     report.after = after
-    const deletedBytes = plan.candidates.reduce((n, c) => n + c.size, 0)
+    const gone = new Set(report.deleted as string[])
+    const deletedBytes = plan.candidates.reduce((n, c) => n + (gone.has(c.key) ? c.size : 0), 0)
+    report.deletedBytes = deletedBytes
     console.log(
       `deleted ${(report.deleted as string[]).length} objects (${(deletedBytes / 1e6).toFixed(1)} MB); ` +
         `bucket after: ${Object.entries(after)

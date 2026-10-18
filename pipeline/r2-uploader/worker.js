@@ -1,10 +1,11 @@
 // HEAD/GET/PUT /{key} against the bound bucket, plus GET /?op=list&prefix=&cursor= and POST /?op=delete {keys} for
 // the GC (pipeline/src/gc). Requests must carry the per-session token the CLI generates.
 
-// Same allow-list as src/gc/gc.ts collectablePrefix: the uploader refuses to delete anything else.
+// Same allow-list as src/gc/gc.ts collectablePrefix: the uploader refuses to delete anything else. Generation
+// directories must be named like a pipeline generation id ({start|x}-{end|x}-{sha8}-{build12}).
 const collectable = (key) =>
   /^static\/(blobs|shards)\/[^/]+$/.test(key) ||
-  (/^static\/[^/]+\/.+$/.test(key) && !/^static\/(blobs|shards|\.|\.\.)\//.test(key))
+  /^static\/(?:\d{8}|x)-(?:\d{8}|x)-[0-9a-f]{8}-[0-9a-f]{12}\/.+$/.test(key)
 
 export default {
   async fetch(req, env) {

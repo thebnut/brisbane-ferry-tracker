@@ -51,17 +51,22 @@ To promote a quarantined build, use `--accept <generation>`, or the workflow inp
 run unless you pass `--apply`. It prints counts, bytes and sample keys per prefix and writes a JSON report
 (`--report`, default `gc-report.json`; with `--apply` the report lists every deleted key).
 
-- **Only these keys are ever candidates:** `static/blobs/*`, `static/shards/*` and `static/{generation}/*`. The
-  allow-list is hard-coded in `src/gc/gc.ts`, and the uploader Worker refuses to delete anything else.
+- **Only these keys are ever candidates:** `static/blobs/*`, `static/shards/*` and `static/{generation}/*`, where
+  `{generation}` must look like a pipeline generation id (`{start|x}-{end|x}-{sha8}-{build12}`). The allow-list is
+  hard-coded in `src/gc/gc.ts`, and the uploader Worker refuses to delete anything else.
   `manifest*.json`, `data/`, `legacy/`, `rt/` and any other prefix are never touched.
 - **Kept:**
   - every generation that `manifest.json` or `manifest.staging.json` names (current, previous and quarantined);
   - every generation with an object uploaded in the last 14 days;
   - everything any of those generations' indexes reference (blobs, trip indexes, shards);
   - anything uploaded less than 48 hours ago.
-- **Aborts, deleting nothing,** when `manifest.json` is missing or doesn't parse, a current-generation index is
-  missing or doesn't parse, or the candidates are over 60% of `static/` (override with `--max-fraction`, which is
+- **Aborts, deleting nothing,** when `manifest.json` is missing or doesn't parse, any index a manifest names
+  (current, previous, quarantined or staging) is missing or doesn't parse, or the candidates are over 60% of `static/` (override with `--max-fraction`, which is
   logged). Deletes go in batches of 1,000. Exit code 4 means a rail aborted.
+- **Don't run it while a publish is running.** Before each batch, GC re-reads the manifests and stops if they changed.
+  It also re-lists `static/` and skips keys that were re-uploaded or are gone. That narrows the race with a
+  concurrent publish but can't close it. CI runs GC in the same serialized workflow, after the publish job. The report
+  is saved after every batch. If a batch fails, its keys are recorded as `failed.outcomeUnknown`.
 - **CI** runs `gc --apply` after the Sunday publish, and on demand with the workflow input `gc`. The report is kept
   as an artifact for 90 days.
 - **This Mac:** `scripts/with-r2-uploader.sh pnpm gc --target uploader [--apply]`.

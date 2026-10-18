@@ -9,6 +9,7 @@ import {
   collectablePrefix,
   DELETE_BATCH,
   GcAbort,
+  GcBatchError,
   type GcStore,
   generationOf,
   type ListedObject,
@@ -82,38 +83,69 @@ function fixture() {
     'manifest.json',
     manifest(
       {
-        ferry: { current: 'gF2', previous: 'gF1', serviceDates: ['20261025'] },
-        bus: { current: 'gB2', serviceDates: ['20261025'] },
+        ferry: {
+          current: '20261017-20261216-3305c5ea-0000000000f2',
+          previous: '20261017-20261216-3305c5ea-0000000000f1',
+          serviceDates: ['20261025'],
+        },
+        bus: { current: '20261017-20261216-3305c5ea-0000000000b2', serviceDates: ['20261025'] },
       },
-      [{ generation: 'gQlive', mode: 'ferry', reasons: ['swing'] }],
+      [{ generation: '20261017-20261216-3305c5ea-00000000aa01', mode: 'ferry', reasons: ['swing'] }],
     ),
     old,
   )
   // Staging manifest names a quarantined build awaiting promotion.
   st.put(
     'manifest.staging.json',
-    manifest({ ferry: { current: 'gQstage', serviceDates: ['20261025'] } }),
+    manifest({ ferry: { current: '20261017-20261216-3305c5ea-00000000aa02', serviceDates: ['20261025'] } }),
     old,
   )
   st.put(
-    'static/gF2/ferry/index.json',
-    index('gF2', 'ferry', { blobs: [b('cur'), b('shared')], trip: b('trip-cur') }),
+    'static/20261017-20261216-3305c5ea-0000000000f2/ferry/index.json',
+    index('20261017-20261216-3305c5ea-0000000000f2', 'ferry', {
+      blobs: [b('cur'), b('shared')],
+      trip: b('trip-cur'),
+    }),
     20 * D,
   )
-  st.put('static/gF1/ferry/index.json', index('gF1', 'ferry', { blobs: [b('prev'), b('shared')] }), 40 * D)
   st.put(
-    'static/gB2/bus/index.json',
-    index('gB2', 'bus', { shards: [s('cur')], trip: b('trip-bus') }),
+    'static/20261017-20261216-3305c5ea-0000000000f1/ferry/index.json',
+    index('20261017-20261216-3305c5ea-0000000000f1', 'ferry', { blobs: [b('prev'), b('shared')] }),
+    40 * D,
+  )
+  st.put(
+    'static/20261017-20261216-3305c5ea-0000000000b2/bus/index.json',
+    index('20261017-20261216-3305c5ea-0000000000b2', 'bus', { shards: [s('cur')], trip: b('trip-bus') }),
     20 * D,
   )
-  st.put('static/gQlive/ferry/index.json', index('gQlive', 'ferry', { blobs: [b('qlive')] }), 40 * D)
-  st.put('static/gQstage/ferry/index.json', index('gQstage', 'ferry', { blobs: [b('qstage')] }), 20 * D)
+  st.put(
+    'static/20261017-20261216-3305c5ea-00000000aa01/ferry/index.json',
+    index('20261017-20261216-3305c5ea-00000000aa01', 'ferry', { blobs: [b('qlive')] }),
+    40 * D,
+  )
+  st.put(
+    'static/20261017-20261216-3305c5ea-00000000aa02/ferry/index.json',
+    index('20261017-20261216-3305c5ea-00000000aa02', 'ferry', { blobs: [b('qstage')] }),
+    20 * D,
+  )
   // Not in any manifest, but uploaded 5 days ago: retained for the 14-day window, with what it references.
-  st.put('static/gYoung/ferry/index.json', index('gYoung', 'ferry', { blobs: [b('young-ref')] }), 5 * D)
+  st.put(
+    'static/20261017-20261216-3305c5ea-00000000cc01/ferry/index.json',
+    index('20261017-20261216-3305c5ea-00000000cc01', 'ferry', { blobs: [b('young-ref')] }),
+    5 * D,
+  )
   // Not in any manifest and old: collectable, along with anything else under its directory.
-  st.put('static/gOld/ferry/index.json', index('gOld', 'ferry', { blobs: [b('old-ref')] }), old)
-  st.put('static/gOld/bus/index.json', index('gOld', 'bus', { shards: [s('old-ref')] }), old)
-  st.put('static/gOld/ferry/stray.json', '{}', old)
+  st.put(
+    'static/20261017-20261216-3305c5ea-00000000dd01/ferry/index.json',
+    index('20261017-20261216-3305c5ea-00000000dd01', 'ferry', { blobs: [b('old-ref')] }),
+    old,
+  )
+  st.put(
+    'static/20261017-20261216-3305c5ea-00000000dd01/bus/index.json',
+    index('20261017-20261216-3305c5ea-00000000dd01', 'bus', { shards: [s('old-ref')] }),
+    old,
+  )
+  st.put('static/20261017-20261216-3305c5ea-00000000dd01/ferry/stray.json', '{}', old)
   for (const n of [
     'cur',
     'shared',
@@ -133,7 +165,11 @@ function fixture() {
   // Unreferenced but younger than 48 h: an in-flight publish.
   st.put(blobKey(b('inflight')), 'blob inflight', 10 * H)
   st.put(shardKey(s('inflight')), 'shard inflight', 47 * H)
-  st.put('static/gInflight/ferry/index.json', index('gInflight', 'ferry', {}), 1 * H)
+  st.put(
+    'static/20261017-20261216-3305c5ea-00000000ee01/ferry/index.json',
+    index('20261017-20261216-3305c5ea-00000000ee01', 'ferry', {}),
+    1 * H,
+  )
   // Never candidates, however old.
   for (const k of [
     'data/ferry/stops.json',
@@ -158,17 +194,21 @@ const EXPECTED = [
   blobKey(b('orphan')),
   shardKey(s('old-ref')),
   shardKey(s('orphan')),
-  'static/gOld/bus/index.json',
-  'static/gOld/ferry/index.json',
-  'static/gOld/ferry/stray.json',
+  'static/20261017-20261216-3305c5ea-00000000dd01/bus/index.json',
+  'static/20261017-20261216-3305c5ea-00000000dd01/ferry/index.json',
+  'static/20261017-20261216-3305c5ea-00000000dd01/ferry/stray.json',
 ].sort()
 
 describe('allow-list', () => {
   it.each([
     ['static/blobs/abc.json.gz', 'static/blobs/'],
     ['static/shards/abc.json.gz', 'static/shards/'],
-    ['static/g1/ferry/index.json', 'static/{generation}/'],
-    ['static/g1/anything', 'static/{generation}/'],
+    ['static/20261017-20261216-3305c5ea-0123456789ab/ferry/index.json', 'static/{generation}/'],
+    ['static/x-x-0123abcd-0123456789ab/bus/index.json', 'static/{generation}/'],
+    ['static/20261017-20261216-3305c5ea-0123456789ab/anything', 'static/{generation}/'],
+    ['static/g1/ferry/index.json', null],
+    ['static/backups/keep.json', null],
+    ['static/20261017-20261216-3305c5ea-0123456789abx/ferry/index.json', null],
     ['manifest.json', null],
     ['manifest.staging.json', null],
     ['data/ferry/stops.json', null],
@@ -185,7 +225,10 @@ describe('allow-list', () => {
     expect(collectablePrefix(key)).toBe(want)
   })
   it('names generations only for generation directories', () => {
-    expect(generationOf('static/g1/ferry/index.json')).toBe('g1')
+    expect(generationOf('static/20261017-20261216-3305c5ea-0123456789ab/ferry/index.json')).toBe(
+      '20261017-20261216-3305c5ea-0123456789ab',
+    )
+    expect(generationOf('static/g1/ferry/index.json')).toBeNull()
     expect(generationOf('static/blobs/x')).toBeNull()
     expect(generationOf('data/g1/x')).toBeNull()
   })
@@ -197,7 +240,15 @@ describe('planGc', () => {
     const plan = await planGc(st, { nowMs: NOW })
     expect(plan.candidates.map((c) => c.key)).toEqual(EXPECTED)
     expect(plan.retainedGenerations.map((g) => g.generation)).toEqual(
-      ['gB2', 'gF1', 'gF2', 'gInflight', 'gQlive', 'gQstage', 'gYoung'].sort(),
+      [
+        '20261017-20261216-3305c5ea-0000000000b2',
+        '20261017-20261216-3305c5ea-0000000000f1',
+        '20261017-20261216-3305c5ea-0000000000f2',
+        '20261017-20261216-3305c5ea-00000000ee01',
+        '20261017-20261216-3305c5ea-00000000aa01',
+        '20261017-20261216-3305c5ea-00000000aa02',
+        '20261017-20261216-3305c5ea-00000000cc01',
+      ].sort(),
     )
     expect(plan.keptYoung).toBe(22)
     // The oldest young object is the 47 h shard.
@@ -207,7 +258,6 @@ describe('planGc', () => {
     expect(plan.byPrefix['static/{generation}/'].objects).toBe(3)
     expect(plan.before['data/']?.objects).toBe(2)
     expect(plan.before['manifest.json']?.objects).toBe(1)
-    expect(plan.warnings).toEqual([])
   })
 
   it('never selects anything outside the allow-list, even when nothing references it', async () => {
@@ -246,14 +296,29 @@ describe('planGc', () => {
     expect(keys).not.toContain(blobKey(b('orphan')))
   })
 
-  it('warns, but goes on, when a manifest names a missing previous or staging index', async () => {
+  it('collects references from every date in an index, not only serviceDates', async () => {
     const st = fixture()
-    st.objects.delete('static/gF1/ferry/index.json')
-    st.objects.delete('static/gQstage/ferry/index.json')
-    const plan = await planGc(st, { nowMs: NOW })
-    expect(plan.warnings).toHaveLength(2)
-    // gF1 is still retained, but nothing it referenced is known any more, so `prev` becomes collectable.
-    expect(plan.candidates.map((c) => c.key)).toContain(blobKey(b('prev')))
+    const key = 'static/20261017-20261216-3305c5ea-0000000000f2/ferry/index.json'
+    const idx = JSON.parse(new TextDecoder().decode(st.objects.get(key)?.body)) as GenerationIndex
+    idx.tripIndex = { ...idx.tripIndex, '20261101': b('orphan') }
+    idx.blobs['20261102'] = { x: b('old-ref') }
+    st.put(key, idx, 20 * D)
+    const keys = (await planGc(st, { nowMs: NOW })).candidates.map((c) => c.key)
+    expect(keys).not.toContain(blobKey(b('orphan')))
+    expect(keys).not.toContain(blobKey(b('old-ref')))
+  })
+
+  it('never selects directories under static/ that are not named like a generation', async () => {
+    const st = fixture()
+    for (const k of [
+      'static/backups/keep.json',
+      'static/gOld/ferry/index.json',
+      'static/2026-x/a',
+      'static/./a',
+    ])
+      st.put(k, 'keep', 400 * D)
+    const keys = (await planGc(st, { nowMs: NOW })).candidates.map((c) => c.key)
+    expect(keys).toEqual(EXPECTED)
   })
 })
 
@@ -292,25 +357,35 @@ describe('safety rails abort with nothing deleted', () => {
     st.put('manifest.staging.json', 'nope', D * 30)
     await aborts(st, /manifest.staging.json is not valid JSON/)
   })
-  it('a current generation index missing', async () => {
+  it.each([
+    ['current', '0000000000b2/bus'],
+    ['previous', '0000000000f1/ferry'],
+    ['live-quarantined', '00000000aa01/ferry'],
+    ['staging current', '00000000aa02/ferry'],
+  ])('a manifest-referenced (%s) generation index missing', async (_, path) => {
     const st = fixture()
-    st.objects.delete('static/gB2/bus/index.json')
-    await aborts(st, /current generation index static\/gB2\/bus\/index.json/)
+    st.objects.delete(`static/20261017-20261216-3305c5ea-${path}/index.json`)
+    await aborts(st, /manifest-referenced generation index/)
   })
   it('a current generation index unparseable', async () => {
     const st = fixture()
-    st.put('static/gF2/ferry/index.json', '{', 20 * D)
-    await aborts(st, /gF2\/ferry\/index.json is not valid JSON/)
+    st.put('static/20261017-20261216-3305c5ea-0000000000f2/ferry/index.json', '{', 20 * D)
+    await aborts(st, /20261017-20261216-3305c5ea-0000000000f2\/ferry\/index.json is not valid JSON/)
   })
   it('a current generation index unreadable', async () => {
     const st = fixture()
     const get = st.get.bind(st)
-    st.get = async (k) => (k === 'static/gF2/ferry/index.json' ? null : get(k))
+    st.get = async (k) =>
+      k === 'static/20261017-20261216-3305c5ea-0000000000f2/ferry/index.json' ? null : get(k)
     await aborts(st, /listed but could not be read/)
   })
   it('a retained (young) index off-contract', async () => {
     const st = fixture()
-    st.put('static/gYoung/ferry/index.json', { generation: 'gYoung' }, 5 * D)
+    st.put(
+      'static/20261017-20261216-3305c5ea-00000000cc01/ferry/index.json',
+      { generation: '20261017-20261216-3305c5ea-00000000cc01' },
+      5 * D,
+    )
     await aborts(st, /GenerationIndex contract/)
   })
   it('candidates over 60% of static/, unless --max-fraction allows it', async () => {
@@ -332,7 +407,7 @@ describe('applyGc', () => {
     for (let i = 0; i < 2500; i++) st.put(blobKey(b(`bulk-${i}`)), 'x', 30 * D)
     const plan = await planGc(st, { nowMs: NOW, maxFraction: 1 })
     const keep = [...st.objects.keys()].filter((k) => !plan.candidates.some((c) => c.key === k))
-    const deleted = await applyGc(st, plan)
+    const deleted = await applyGc(st, plan, { nowMs: () => NOW })
     expect(deleted).toHaveLength(2500 + EXPECTED.length)
     expect(st.batches.map((x) => x.length)).toEqual([1000, 1000, 507])
     expect([...st.objects.keys()].sort()).toEqual(keep.sort())
@@ -342,8 +417,49 @@ describe('applyGc', () => {
     const st = fixture()
     const plan = await planGc(st, { nowMs: NOW })
     plan.candidates.push({ key: 'manifest.json', size: 1, uploaded: 0 })
-    await expect(applyGc(st, plan)).rejects.toThrow(/outside the allow-listed prefixes/)
+    await expect(applyGc(st, plan, { nowMs: () => NOW })).rejects.toThrow(/outside the allow-listed prefixes/)
     expect(st.batches).toEqual([])
+  })
+  it('skips a key re-uploaded after planning, and one that is gone', async () => {
+    const st = fixture()
+    const plan = await planGc(st, { nowMs: NOW })
+    st.put(blobKey(b('orphan')), 'republished', 0)
+    st.objects.delete(shardKey(s('orphan')))
+    const deleted = await applyGc(st, plan, { nowMs: () => NOW })
+    expect(deleted).toEqual(EXPECTED.filter((k) => k !== blobKey(b('orphan')) && k !== shardKey(s('orphan'))))
+    expect(st.objects.has(blobKey(b('orphan')))).toBe(true)
+  })
+  it('stops before the next batch when the manifests change', async () => {
+    const st = fixture()
+    for (let i = 0; i < 1500; i++) st.put(blobKey(b(`bulk-${i}`)), 'x', 30 * D)
+    const plan = await planGc(st, { nowMs: NOW, maxFraction: 1 })
+    const err = await applyGc(st, plan, {
+      nowMs: () => NOW,
+      onBatch: () => st.put('manifest.json', manifest({}), 0),
+    }).catch((e) => e)
+    expect(err).toBeInstanceOf(GcBatchError)
+    expect(err.message).toMatch(/manifests changed/)
+    expect(err.deleted).toHaveLength(1000)
+    expect(st.batches).toHaveLength(1)
+  })
+  it('reports what was deleted, and the failed batch as unknown, when a batch fails', async () => {
+    const st = fixture()
+    for (let i = 0; i < 1500; i++) st.put(blobKey(b(`bulk-${i}`)), 'x', 30 * D)
+    const plan = await planGc(st, { nowMs: NOW, maxFraction: 1 })
+    const del = st.deleteMany.bind(st)
+    st.deleteMany = async (keys) => {
+      if (st.batches.length) throw new Error('HTTP 500')
+      await del(keys)
+    }
+    const reports: number[] = []
+    const err = await applyGc(st, plan, {
+      nowMs: () => NOW,
+      onBatch: (d) => void reports.push(d.length),
+    }).catch((e) => e)
+    expect(err).toBeInstanceOf(GcBatchError)
+    expect(reports).toEqual([1000])
+    expect(err.deleted).toHaveLength(1000)
+    expect(err.unknown).toHaveLength(plan.candidates.length - 1000)
   })
 })
 
@@ -433,8 +549,13 @@ describe('stores', () => {
       { key: 'a', size: 1, uploaded: Date.parse('2026-10-18T05:00:00Z') },
       { key: 'b', size: 1, uploaded: Date.parse('2026-10-18T05:00:00Z') },
     ])
-    await t.deleteMany(['static/blobs/x.json.gz', 'static/g1/ferry/index.json'])
-    expect(deleted).toEqual([['static/blobs/x.json.gz', 'static/g1/ferry/index.json']])
+    await t.deleteMany([
+      'static/blobs/x.json.gz',
+      'static/20261017-20261216-3305c5ea-0123456789ab/ferry/index.json',
+    ])
+    expect(deleted).toEqual([
+      ['static/blobs/x.json.gz', 'static/20261017-20261216-3305c5ea-0123456789ab/ferry/index.json'],
+    ])
     for (const bad of [
       'manifest.json',
       'data/x',
@@ -442,6 +563,7 @@ describe('stores', () => {
       'rt/x',
       'static/README',
       'static/../x/y',
+      'static/backups/keep.json',
     ])
       await expect(t.deleteMany([bad]), bad).rejects.toThrow(/HTTP 400/)
     expect(deleted).toHaveLength(1)

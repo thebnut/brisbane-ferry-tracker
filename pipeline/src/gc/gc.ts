@@ -15,8 +15,9 @@
  * generation (or any retained index that exists but doesn't parse), or a candidate set over `maxFraction` of all
  * objects under static/. Deletes go in batches of at most DELETE_BATCH keys and every key is reported.
  */
+import { createHash } from 'node:crypto'
 import { GenerationIndex, Manifest } from '@bft/core'
-import { contentKeys } from '../publish/publish.ts'
+import { blobKey, shardKey } from '../build/blobs.ts'
 
 export const RETENTION_DAYS = 14
 export const GRACE_HOURS = 48
@@ -45,7 +46,8 @@ export class GcAbort extends Error {
 
 const GENERATION_KEY = /^static\/([^/]+)\/.+$/
 const INDEX_KEY = /^static\/([^/]+)\/([^/]+)\/index\.json$/
-const CONTENT_DIRS = new Set(['blobs', 'shards'])
+/** Generation ids the pipeline writes (build.ts): `{feedStart|x}-{feedEnd|x}-{feedSha8}-{buildSha12}`. */
+export const GENERATION_ID = /^(?:\d{8}|x)-(?:\d{8}|x)-[0-9a-f]{8}-[0-9a-f]{12}$/
 
 export type GcPrefix = 'static/blobs/' | 'static/shards/' | 'static/{generation}/'
 
@@ -54,7 +56,8 @@ export function collectablePrefix(key: string): GcPrefix | null {
   if (/^static\/blobs\/[^/]+$/.test(key)) return 'static/blobs/'
   if (/^static\/shards\/[^/]+$/.test(key)) return 'static/shards/'
   const g = GENERATION_KEY.exec(key)?.[1]
-  if (g && !CONTENT_DIRS.has(g) && g !== '.' && g !== '..') return 'static/{generation}/'
+  // Only directories named like a pipeline generation: other namespaces under static/ are never touched.
+  if (g && GENERATION_ID.test(g)) return 'static/{generation}/'
   return null
 }
 
@@ -84,7 +87,8 @@ export interface GcPlan {
   candidates: ListedObject[]
   byPrefix: Record<GcPrefix, PrefixTotals>
   fraction: number
-  warnings: string[]
+  /** sha256 of manifest.json + manifest.staging.json as planned; applyGc aborts if they change. */
+  manifestFingerprint: string
 }
 
 export interface PlanOptions {
@@ -96,6 +100,37 @@ export interface PlanOptions {
 function topPrefix(key: string): string {
   const i = key.indexOf('/')
   return i < 0 ? key : key.slice(0, i + 1)
+}
+
+async function getOrAbort(store: GcStore, key: string): Promise<Uint8Array | null> {
+  try {
+    return await store.get(key)
+  } catch (e) {
+    throw new GcAbort(`cannot read ${key}: ${e instanceof Error ? e.message : e}`)
+  }
+}
+
+async function manifestFingerprint(store: GcStore): Promise<string> {
+  const h = createHash('sha256')
+  for (const k of ['manifest.json', 'manifest.staging.json']) {
+    const b = await getOrAbort(store, k)
+    h.update(`${k}:${b ? b.length : -1}:`)
+    if (b) h.update(b)
+  }
+  return h.digest('hex')
+}
+
+/**
+ * Every content key an index references, over every date present in its maps (not only `serviceDates`, which the
+ * schema doesn't tie to the map keys), plus nothing else.
+ */
+export function referencedKeys(idx: GenerationIndex): string[] {
+  const keys = new Set<string>()
+  for (const day of Object.values(idx.blobs)) for (const sha of Object.values(day)) keys.add(blobKey(sha))
+  for (const sha of Object.values(idx.tripIndex ?? {})) keys.add(blobKey(sha))
+  for (const day of Object.values(idx.shards?.byDate ?? {}))
+    for (const sha of day) if (sha) keys.add(shardKey(sha))
+  return [...keys].sort()
 }
 
 async function readManifest(store: GcStore, key: string, required: boolean): Promise<Manifest | null> {
@@ -146,9 +181,9 @@ export async function planGc(store: GcStore, opts: PlanOptions = {}): Promise<Gc
   const nowMs = opts.nowMs ?? Date.now()
   const maxFraction = opts.maxFraction ?? DEFAULT_MAX_FRACTION
   if (!(maxFraction > 0 && maxFraction <= 1)) throw new GcAbort(`bad maxFraction ${maxFraction}`)
-  const warnings: string[] = []
 
   // Manifests first: nothing is listed or deleted without a readable live manifest.
+  const fingerprint = await manifestFingerprint(store)
   const live = await readManifest(store, 'manifest.json', true)
   const staging = await readManifest(store, 'manifest.staging.json', false)
 
@@ -170,7 +205,6 @@ export async function planGc(store: GcStore, opts: PlanOptions = {}): Promise<Gc
     if (!why.has(g)) why.set(g, new Set())
     why.get(g)?.add(reason)
   }
-  const currentIndexKeys: string[] = []
   const manifestRefs: Array<[string, string]> = []
   for (const [name, m] of [
     ['manifest.json', live],
@@ -181,7 +215,6 @@ export async function planGc(store: GcStore, opts: PlanOptions = {}): Promise<Gc
       if (!e) continue
       retain(e.current, `${name} ${mode} current`)
       manifestRefs.push([e.current, mode])
-      if (name === 'manifest.json') currentIndexKeys.push(`static/${e.current}/${mode}/index.json`)
       if (e.previous) {
         retain(e.previous, `${name} ${mode} previous`)
         manifestRefs.push([e.previous, mode])
@@ -199,14 +232,11 @@ export async function planGc(store: GcStore, opts: PlanOptions = {}): Promise<Gc
     if (g && !(o.uploaded < retentionCutoff)) retain(g, `uploaded within ${RETENTION_DAYS} days`)
   }
 
-  // Rail: every current generation's index must be readable.
-  for (const k of currentIndexKeys) {
-    if (!listed.has(k)) throw new GcAbort(`current generation index ${k} is not in the bucket`)
-  }
+  // Rail: every index a manifest names (current, previous, quarantined, staging) must be present; without it the
+  // objects it references can't be told apart from orphans.
   for (const [g, mode] of manifestRefs) {
     const k = `static/${g}/${mode}/index.json`
-    if (!listed.has(k) && !currentIndexKeys.includes(k))
-      warnings.push(`manifest names ${k}, which is not in the bucket`)
+    if (!listed.has(k)) throw new GcAbort(`manifest-referenced generation index ${k} is not in the bucket`)
   }
 
   // Everything referenced by any index under a retained generation.
@@ -215,7 +245,7 @@ export async function planGc(store: GcStore, opts: PlanOptions = {}): Promise<Gc
     const m = INDEX_KEY.exec(o.key)
     if (!m || !why.has(m[1] as string)) continue
     const idx = await readIndex(store, o.key)
-    for (const k of contentKeys(idx)) referenced.add(k)
+    for (const k of referencedKeys(idx)) referenced.add(k)
   }
   log(`${why.size} retained generations reference ${referenced.size} content objects`)
 
@@ -270,24 +300,66 @@ export async function planGc(store: GcStore, opts: PlanOptions = {}): Promise<Gc
     candidates,
     byPrefix,
     fraction,
-    warnings,
+    manifestFingerprint: fingerprint,
   }
 }
 
-/** Delete a plan's candidates in batches. Every key is re-checked against the allow-list first. */
-export async function applyGc(
-  store: GcStore,
-  plan: GcPlan,
-  log: (m: string) => void = () => {},
-): Promise<string[]> {
-  const keys = plan.candidates.map((c) => c.key)
-  for (const k of keys)
+export interface ApplyOptions {
+  nowMs?: () => number
+  log?: (m: string) => void
+  /** Called after every successful batch with all keys deleted so far (persist the report here). */
+  onBatch?: (deleted: string[]) => Promise<void> | void
+}
+
+export class GcBatchError extends Error {
+  override readonly name = 'GcBatchError'
+  constructor(
+    message: string,
+    readonly deleted: string[],
+    /** The batch that failed: some of these may have been deleted. */
+    readonly unknown: string[],
+  ) {
+    super(message)
+  }
+}
+
+/**
+ * Delete a plan's candidates in batches. Every key is re-checked against the allow-list first. Before each batch the
+ * manifests are re-read (abort if they changed since planning) and static/ is re-listed: a key that was re-uploaded
+ * (upload time differs from the plan), is now inside the grace period, or is gone is skipped. That narrows, but can't
+ * close, the race with a publish running at the same moment, so GC must not run alongside a publish (CI runs it in
+ * the same serialized workflow, after the publish job).
+ */
+export async function applyGc(store: GcStore, plan: GcPlan, opts: ApplyOptions = {}): Promise<string[]> {
+  const log = opts.log ?? (() => {})
+  const now = opts.nowMs ?? Date.now
+  const planned = new Map(plan.candidates.map((c) => [c.key, c]))
+  for (const k of planned.keys())
     if (!collectablePrefix(k)) throw new GcAbort(`refusing to delete ${k}: outside the allow-listed prefixes`)
+  const keys = [...planned.keys()]
   const deleted: string[] = []
   for (let i = 0; i < keys.length; i += DELETE_BATCH) {
-    const batch = keys.slice(i, i + DELETE_BATCH)
-    await store.deleteMany(batch)
+    if ((await manifestFingerprint(store)) !== plan.manifestFingerprint)
+      throw new GcBatchError(
+        'the manifests changed since the plan was made (a publish ran?); stopping',
+        deleted,
+        [],
+      )
+    const fresh = new Map((await store.list('static/')).map((o) => [o.key, o]))
+    const graceCutoff = now() - GRACE_HOURS * 3_600_000
+    const batch = keys.slice(i, i + DELETE_BATCH).filter((k) => {
+      const f = fresh.get(k)
+      const ok = f !== undefined && f.uploaded === planned.get(k)?.uploaded && f.uploaded < graceCutoff
+      if (!ok) log(`  skip ${k}: changed or gone since the plan`)
+      return ok
+    })
+    try {
+      await store.deleteMany(batch)
+    } catch (e) {
+      throw new GcBatchError(`delete batch failed: ${e instanceof Error ? e.message : e}`, deleted, batch)
+    }
     deleted.push(...batch)
+    await opts.onBatch?.(deleted)
     log(`  deleted ${deleted.length}/${keys.length}`)
   }
   return deleted
@@ -311,6 +383,5 @@ export function formatPlan(plan: GcPlan, sample = 10): string {
     for (const c of plan.candidates.slice(0, sample))
       lines.push(`    ${c.key}  ${c.size} B  ${new Date(c.uploaded).toISOString()}`)
   }
-  for (const w of plan.warnings) lines.push(`  warning: ${w}`)
   return lines.join('\n')
 }
