@@ -1,5 +1,6 @@
 /** Regression tests for Dev's smoke test round 1 (18 Oct 2026): phone width (F1) and offline (F3). */
 import { expect, type Locator, type Page, test } from '@playwright/test'
+import { pinUpcoming, refreshBoards } from './upcoming.ts'
 
 const UQ = { id: '319665', name: 'UQ St Lucia' }
 const NORTHSHORE = { id: '318002', name: 'Northshore Hamilton' }
@@ -23,11 +24,18 @@ test.describe('phone width 360 px, longest stop names (F1)', () => {
     [UQ, NORTHSHORE],
     [NORTHSHORE, UQ],
   ] as const) {
-    test(`${from.name} → ${to.name}: no horizontal scroll, nothing clipped`, async ({ page }, testInfo) => {
+    test(`${from.name} → ${to.name}: no horizontal scroll, nothing clipped`, async ({
+      page,
+      context,
+    }, testInfo) => {
       await remember(page, from, to)
+      // A departure due in 10 minutes at any hour, so there is always a chip to measure.
+      await pinUpcoming(context)
       await page.goto('/')
       const board = page.locator('[data-board=outbound]')
       await expect(board.getByTestId('departure').first()).toBeVisible()
+      await refreshBoards(page)
+      await expect(board.locator('[data-tone]').first()).toBeVisible()
       const { scrollWidth, innerWidth } = await page.evaluate(() => ({
         scrollWidth: document.documentElement.scrollWidth,
         innerWidth: window.innerWidth,
@@ -62,27 +70,7 @@ test.describe('phone width 360 px, longest stop names (F1)', () => {
           t.x < c.x + c.width && c.x < t.x + t.width && t.y < c.y + c.height && c.y < t.y + t.height
         expect(overlaps).toBe(false)
       }
-      // Chips follow the board's rule (apps/ferry/app/lib/departures.ts): none for cancelled or skipped departures,
-      // none more than 60 whole minutes away. The fixture timetable has hour-long gaps for this pair late at night,
-      // so require a chip only when a rendered departure is due within 59 minutes (1 min of render/fetch skew).
-      const res = await page.request.get(
-        `/__fixtures/v1/ferry/stops/${from.id}/departures?to=${to.id}&limit=${n}`,
-      )
-      const deps: Array<{ status: string; schedDep: number; estDep?: number | null }> = (await res.json())
-        .departures
-      const nowMs = Date.now()
-      const due = deps.some(
-        (d) =>
-          d.status !== 'cancelled' &&
-          d.status !== 'skipped' &&
-          Math.trunc(((d.estDep ?? d.schedDep) * 1000 - nowMs) / 60000) <= 59,
-      )
-      if (due) expect(chips).toBeGreaterThan(0)
-      else
-        testInfo.annotations.push({
-          type: 'note',
-          description: 'no departure within the hour; chip layout not exercised',
-        })
+      expect(chips).toBeGreaterThan(0)
       await page.screenshot({ path: testInfo.outputPath(`360-${from.id}-${to.id}.png`) })
     })
   }
@@ -110,8 +98,12 @@ test.describe('offline (F3)', () => {
     context,
   }) => {
     await remember(page, { id: '317584', name: 'Bulimba' }, { id: '317590', name: 'Riverside' })
+    // A LIVE row at any hour (the precondition for both tests).
+    await pinUpcoming(context)
     await page.goto('/')
     const board = page.locator('[data-board=outbound]')
+    await expect(board.getByTestId('departure').first()).toBeVisible()
+    await refreshBoards(page)
     await expect(board.locator('[data-badge=live]').first()).toBeVisible()
     // Lie-fi: navigator.onLine stays true, but the API can't be reached.
     // context.route also covers the service worker's own network requests.
@@ -130,8 +122,12 @@ test.describe('offline (F3)', () => {
   test('LIVE never comes back while offline (polls keep failing)', async ({ page, context }) => {
     test.slow()
     await remember(page, { id: '317584', name: 'Bulimba' }, { id: '317590', name: 'Riverside' })
+    // A LIVE row at any hour (the precondition for both tests).
+    await pinUpcoming(context)
     await page.goto('/')
     const board = page.locator('[data-board=outbound]')
+    await expect(board.getByTestId('departure').first()).toBeVisible()
+    await refreshBoards(page)
     await expect(board.locator('[data-badge=live]').first()).toBeVisible()
     await context.setOffline(true)
     await expect(page.getByText('Offline · scheduled')).toBeVisible()

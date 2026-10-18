@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
+import { pinUpcoming, refreshBoards } from './upcoming.ts'
 
 const rememberBulimbaRiverside = async (page: Page) => {
   await page.addInitScript(() => {
@@ -13,16 +14,19 @@ const rememberBulimbaRiverside = async (page: Page) => {
   })
 }
 
-test('home renders both boards with countdown chips', async ({ page, isMobile }, testInfo) => {
+test('home renders both boards with countdown chips', async ({ page, context, isMobile }, testInfo) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text())
   })
   await rememberBulimbaRiverside(page)
+  // A chip and a LIVE row at any hour.
+  await pinUpcoming(context)
   await page.goto('/')
   const outbound = page.locator('[data-board=outbound]')
   await expect(outbound.getByTestId('departure')).toHaveCount(5)
+  await refreshBoards(page)
   await expect(outbound.locator('[data-tone]').first()).toBeVisible()
   const inbound = page.locator('[data-board=inbound]')
   if (isMobile) {
