@@ -49,17 +49,23 @@ To promote a quarantined build, use `--accept <generation>`, or the workflow inp
 | Key | What |
 |---|---|
 | `manifest.json` | `Manifest` (written last); `manifest.staging.json` only while something is quarantined |
-| `static/{generation}/{mode}/index.json` | `GenerationIndex`: blobs, tripIndex, stats, and for bus `shards` |
-| `static/blobs/{sha256}.json.gz` | `StaticStopDay` or `TripIndexDay`, gzip; the hash is over the gz bytes |
-| `static/shards/{sha256}.json.gz` | bus `StaticShard` (`{stopKey: StaticStopDay}`), bucket = `shardOf(stopKey, count)` |
+| `static/{generation}/{mode}/index.json` | `GenerationIndex`: blobs (ferry/train/tram), tripIndex, stats; bus has `shards` instead of blobs |
+| `static/blobs/{sha256}.json.gz` | ferry/train/tram `StaticStopDay`, or any mode's `TripIndexDay`, gzip; the hash is over the gz bytes |
+| `static/shards/{sha256}.json.gz` | bus `StaticShard` (`{stopKey: StaticStopDay}`), 512 a day; bucket = `shardOf(stopKey, count)`. The only copy of bus stop-days |
 | `data/{mode}/stops.json`, `lines.json`, `geo/{geohash5}.json` | client data (`StopIndexFile`, `LinesFile`, `GeoTileFile`) |
 | `legacy/latest.json` | byte-identical to `schedule-processor/process-schedule.js` output |
 
 **Generations.** A generation is `{feed_start}-{feed_end}-{feed content sha8}-{build sha12}`. The build hash covers the
 blob hashes, so the same feed and date always produce the same generation and the same bytes.
 
-**Gzip.** Blobs are gzipped with fflate at level 9 and mtime 0. Node's zlib writes a platform-specific OS byte, so it
-can't give identical hashes on every machine.
+**Gzip.** Blobs use Node zlib at level 9 with a normalised header (mtime 0, OS byte 0xff). That is about 7% smaller
+than fflate, and it is what keeps the busiest stop-day (Cultural Centre) under 30 KB. Output is byte-identical on a
+given platform. zlib doesn't promise the same deflate stream across CPU architectures, so CI is the canonical builder;
+a build on a different machine type at worst re-uploads blobs.
+
+**Stop-day encoding.** Each file has a `downstreams` table that its events index into (identical remaining patterns
+are stored once, ordered by stop pattern). Only boarding stops carry a name. Read files through `downstreamOf()` and
+`mergeDepartures` in `@bft/core`.
 
 ## Validators
 
@@ -79,5 +85,3 @@ Plausible changes are quarantined:
 
 - **Weekly GC of unreferenced blobs.** Storage grows about 75 MB a day on an unchanged feed. GC deletes objects, so
   it needs Brett's go-ahead.
-- **Bus index size.** The bus `GenerationIndex` is 7.4 MB raw (§5). Splitting it per date, or reading bus by shard,
-  is a contract decision for the edge.

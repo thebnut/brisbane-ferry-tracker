@@ -262,6 +262,14 @@ describe('client data', () => {
   })
 })
 
+describe('mode-restricted builds', () => {
+  it('apply SEQ golden facts only to the modes built', async () => {
+    // The synthetic train stations carry the real slugs (central, bowen-hills, domestic-airport).
+    const r = await runBuild({ feedDir, outDir: await tmp(), nowMs: NOW, modes: ['train'], golden: true })
+    expect(r.modes.map((m) => m.mode)).toEqual(['train'])
+  })
+})
+
 describe('determinism', () => {
   const digestDir = async (dir: string, skip: (f: string) => boolean = () => false) => {
     const out: Record<string, string> = {}

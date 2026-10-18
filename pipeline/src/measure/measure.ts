@@ -37,6 +37,7 @@ const mb = (n: number) => `${(n / 1e6).toFixed(2)} MB`
 const br = (s: string) => brotliCompressSync(s, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length
 
 interface Sample {
+  key: string
   gz: number
   br?: number
   raw: number
@@ -55,10 +56,11 @@ const res: BuildResult = await runBuild({
   outDir,
   nowMs: Date.parse(`${D.slice(0, 4)}-${D.slice(4, 6)}-${D.slice(6, 8)}T03:15:00+10:00`),
   date: D,
-  onStopDay: ({ mode, date, json, gzBytes, isNew }) => {
+  onStopDay: ({ mode, date, key, json, gzBytes, isNew }) => {
     const k = `${mode}|${date}`
     const list = samples.get(k) ?? []
     list.push({
+      key,
       gz: gzBytes,
       raw: json.length,
       hashNoDate: sha256Hex(json.replace(/"serviceDate":"\d{8}",/, '')),
@@ -148,11 +150,13 @@ if (busIndex) {
 const shardSizes = [...shardHashes.values()]
 const shardTot = shardSizes.reduce((a, b) => a + b, 0)
 const perStopRead = busDay.reduce((a, s) => a + s.gz, 0) / Math.max(1, busDay.length)
-const shardRead = busIndex
-  ? Object.keys(busIndex.blobs[D] ?? {}).reduce((a, key) => {
-      const sha = busIndex.shards?.byDate[D]?.[shardOf(key, busIndex.shards.count)]
+// Stop-weighted mean of the shard a bus lookup has to read (keys from the build hook: bus has no per-stop blob map).
+const busKeys = busDay.map((x) => x.key)
+const shardRead = busIndex?.shards
+  ? busKeys.reduce((a, key) => {
+      const sha = busIndex.shards?.byDate[D]?.[shardOf(key, busIndex.shards?.count ?? 1)]
       return a + (sha ? (shardHashes.get(sha) ?? 0) : 0)
-    }, 0) / Math.max(1, Object.keys(busIndex.blobs[D] ?? {}).length)
+    }, 0) / Math.max(1, busKeys.length)
   : 0
 
 const pt = patternTripTimes(res.feed, 'bus', D, res)

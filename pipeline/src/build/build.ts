@@ -31,6 +31,7 @@ import { DirTarget, type Reader, readJson } from '../publish/targets.ts'
 import {
   checkFeedEndDate,
   checkGoldenFacts,
+  SEQ_GOLDEN_FACTS,
   quarantineReasons,
   StructuralFailure,
 } from '../validate/validators.ts'
@@ -219,8 +220,12 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   // Structural: golden facts on the real feed.
   const isSeq = opts.golden ?? /translink/i.test(await agencyName(feed))
   if (isSeq) {
-    const problems = checkGoldenFacts((mode, date, key) =>
-      Boolean(built.find((b) => b.mode === mode)?.servedKeys.has(`${date}|${key}`)), dates)
+    // Only the modes this build covers (a `--modes ferry` build mustn't fail on train landmarks).
+    const problems = checkGoldenFacts(
+      (mode, date, key) => Boolean(built.find((b) => b.mode === mode)?.servedKeys.has(`${date}|${key}`)),
+      dates,
+      SEQ_GOLDEN_FACTS.filter((f) => modes.includes(f.mode)),
+    )
     if (problems.length) throw new StructuralFailure(problems)
   }
 
