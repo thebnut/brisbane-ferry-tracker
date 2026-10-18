@@ -6,9 +6,10 @@
 //   each warm instance, and a cold start forgets everything. It slows casual
 //   abuse; it is not a guarantee.
 // - Memory is bounded by `maxKeys`: past that, expired keys are dropped first,
-//   then the oldest-seen keys. Expired keys are also swept at most once per
-//   window, so an IP is held for at most about two windows (20 minutes for
-//   feedback) on a warm instance, and never written anywhere else.
+//   then the oldest-seen keys. Expired keys are also swept by the first
+//   request that arrives a window or more after the last sweep. There is no
+//   timer, so an idle instance keeps its keys until its next request or until
+//   Vercel recycles it. Keys are never written anywhere else.
 // The robust option is a Vercel Firewall rate-limit rule on /api/feedback.
 
 /**
