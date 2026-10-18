@@ -412,7 +412,9 @@ export function buildSnapshot(input: BuildInput): BuildResult {
           }
         }
       }
-      const vMode = feedMode ?? (desc.routeId ? byRoute.get(routeKey(desc.routeId)) : undefined)
+      // Fall back to the matched static trip's route when the descriptor omits route_id.
+      const routeId = desc.routeId ?? (tripKey ? tripRouteId(input.indexes, tripKey) : undefined)
+      const vMode = feedMode ?? (routeId ? byRoute.get(routeKey(routeId)) : undefined)
       const v: Vehicle = {
         id: vp.vehicle?.id || ent.id,
         ...(vMode ? { mode: vMode } : {}),
@@ -422,7 +424,7 @@ export function buildSnapshot(input: BuildInput): BuildResult {
       }
       if (vp.vehicle?.label) v.label = vp.vehicle.label
       if (tripKey) v.tripKey = tripKey
-      if (desc.routeId) v.routeId = desc.routeId
+      if (routeId) v.routeId = routeId
       if (has(vp.position, 'bearing')) v.bearing = vp.position.bearing
       if (has(vp.position, 'speed')) v.speed = vp.position.speed
       if (has(vp, 'occupancyStatus')) v.occupancy = VehiclePosition_OccupancyStatus[vp.occupancyStatus]
@@ -458,6 +460,14 @@ export function buildSnapshot(input: BuildInput): BuildResult {
       alerts: input.alerts,
     },
   }
+}
+
+function tripRouteId(indexes: BuildInput['indexes'], key: string): string | undefined {
+  for (const idx of Object.values(indexes)) {
+    const t = idx?.matcher.trip(key)
+    if (t) return t.routeId
+  }
+  return undefined
 }
 
 const vehicleId = (tu: TripUpdate): { vehicleId?: string } =>
