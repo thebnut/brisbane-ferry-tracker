@@ -11,6 +11,7 @@ import {
   ErrorState,
   formatClock,
   formatDuration,
+  minutesBetween,
   minutesUntil,
   OccupancyMeter,
   PrimaryButton,
@@ -147,7 +148,7 @@ function TripBody({
   const live = trip.status === 'live' || fromStop?.status === 'live'
   const delay = fromStop?.status === 'live' ? delayText(sched, fromStop.estDep ?? fromStop.estArr) : null
   const arrive = last ? (last.estArr ?? last.schedArr) : null
-  const journeyMin = arrive && dep ? Math.round((arrive - dep) / 60) : null
+  const journeyMin = arrive && dep ? Math.max(0, minutesBetween(dep, arrive)) : null
   const v = trip.vehicle
   return (
     <>

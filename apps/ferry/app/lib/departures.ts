@@ -1,12 +1,17 @@
 /** Map /v1 departures to departure-card view models with the legacy ferry rules. */
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import {
+  arrivalAfter,
   type BadgeKind,
   type DepartureCardProps,
   dayMarker,
   delayText,
+  dropDeparted,
   formatClock,
   formatDuration,
+  type LiveState,
+  liveState,
+  minutesBetween,
   minutesUntil,
   statusNote,
   vesselName,
@@ -34,7 +39,8 @@ export function cardModel(d: Departure, nowMs: number): DepartureCardProps & { k
   const express = isExpress(d)
   const live = d.status === 'live'
   const dep = effectiveDep(d)
-  const arr = d.estArrTo ?? d.schedArrTo
+  const rawArr = d.estArrTo ?? d.schedArrTo
+  const arr = rawArr != null ? arrivalAfter(dep, rawArr) : null
   const badges: BadgeKind[] = []
   if (d.status === 'live') badges.push('live')
   if (d.gps) badges.push('gps')
@@ -43,7 +49,8 @@ export function cardModel(d: Departure, nowMs: number): DepartureCardProps & { k
   if (d.status === 'skipped') badges.push('skipped')
   if (d.status === 'unknown') badges.push('unknown')
 
-  const journeyMins = arr != null ? Math.round((arr - dep) / 60) : null
+  // From the clock minutes shown, so "9:02 pm → 9:04 pm" always reads 2 mins.
+  const journeyMins = arr != null ? minutesBetween(dep, arr) : null
   const vessel = d.gps || live ? vesselName(d.vehicleId) : null
   const parts: string[] = []
   if (d.status === 'cancelled') parts.push('This service is cancelled')
@@ -82,36 +89,21 @@ export type ServiceFilter = 'all' | 'express'
 export const applyFilter = (list: Departure[], filter: ServiceFilter) =>
   filter === 'express' ? list.filter(isExpress) : list
 
-/** Live data older than this (or a refresh that has failed for this long) is shown as timetable times. */
-export const LIVE_MAX_AGE_S = 300
-export const REFRESH_MAX_AGE_MS = 60_000
-/** Rows that left more than a minute ago are dropped (cached data must not keep them as "Departing"). */
-export const DEPARTED_GRACE_S = 60
+export type BoardState = LiveState
 
-export type BoardState = 'offline' | 'stale' | 'reloading' | 'unavailable' | null
-
-/**
- * What a board can honestly claim. Live only while the response says live, its TransLink source is under 5 min old
- * and the last successful refresh is under a minute old; otherwise the rows fall back to timetable times.
- */
+/** What a board can honestly claim (shared rule, @bft/ui liveState): null = live, otherwise the banner to show. */
 export function boardState(
   res: DeparturesResponse | undefined,
   offline: boolean,
   nowMs: number,
-  updatedAtMs: number,
 ): BoardState {
-  if (offline) return 'offline'
-  if (!res) return null
-  if (res.rtState !== 'live') return res.rtState
-  const sourceAge = res.rtSourceTimestamp == null ? Infinity : nowMs / 1000 - res.rtSourceTimestamp
-  if (sourceAge > LIVE_MAX_AGE_S || nowMs - updatedAtMs > REFRESH_MAX_AGE_MS) return 'stale'
-  return null
+  return liveState(res, { offline, nowMs })
 }
 
 /** Board rows for display: departed rows removed, live claims removed unless the state is live. */
 export function visibleRows(list: Departure[], state: BoardState, nowMs: number): Departure[] {
   const rows = state == null ? list : list.map(asScheduled)
-  return rows
-    .filter((d) => effectiveDep(d) >= nowMs / 1000 - DEPARTED_GRACE_S)
-    .sort((a, b) => effectiveDep(a) - effectiveDep(b) || a.schedDep - b.schedDep)
+  return dropDeparted(rows, effectiveDep, nowMs, state == null).sort(
+    (a, b) => effectiveDep(a) - effectiveDep(b) || a.schedDep - b.schedDep,
+  )
 }

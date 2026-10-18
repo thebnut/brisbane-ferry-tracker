@@ -8,6 +8,7 @@ import {
   EmptyState,
   formatClock,
   Icon,
+  liveState,
   minutesUntil,
   OfflineBanner,
   SavedTripCard,
@@ -119,10 +120,13 @@ export function cardModel(item: SavedItem, res: DeparturesResponse | undefined, 
 function SavedList({ items, nowMs, online }: { items: SavedItem[]; nowMs: number; online: boolean }) {
   const { mode, fetcher } = useApi()
   const qs = useSavedDepartures(fetcher, mode, items)
-  // Offline: never show the last live estimates; timetable rows from the device's copies instead.
-  const models = items.map((it, i) =>
-    cardModel(it, online ? qs[i]?.data : asOffline(it, qs[i]?.data ?? null), nowMs),
-  )
+  // Not live (offline, a cached copy, or data generated over a minute ago): never show the last live estimates;
+  // timetable rows from the device's copies instead.
+  const models = items.map((it, i) => {
+    const data = qs[i]?.data
+    const live = liveState(data, { offline: !online, nowMs }) == null
+    return cardModel(it, live ? data : asOffline(it, data ?? null), nowMs)
+  })
   const soonest = models.reduce<number | null>(
     (best, m, i) =>
       m.next != null && (best == null || m.next < (models[best]?.next ?? Infinity)) ? i : best,

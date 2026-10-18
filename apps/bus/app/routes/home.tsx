@@ -13,12 +13,12 @@ import { fetchDepartures } from '../lib/api.ts'
 import { at } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { useApi } from '../lib/mode.ts'
-import { useAlerts, useManyDepartures } from '../lib/queries.ts'
+import { liveView, useAlerts, useManyDepartures } from '../lib/queries.ts'
 import { HOME_META, pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
 import { stopHref, stopMeta } from '../lib/stops.ts'
 import { type SavedStop, savedFromCookie, useSavedStops } from '../lib/storage.ts'
-import { useNow } from '../lib/useNow.ts'
+import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/home'
 
 /** Suggestions for a first visit (busiest busway platforms and city stops). */
@@ -88,14 +88,17 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const queries = useManyDepartures(fetcher, mode, ids, loaderData.initial)
   const alertsQ = useAlerts(fetcher, mode)
   const now = useNow(loaderData.renderedAt)
-  const first = queries.find((q) => q.data)?.data
+  const online = useOnline()
+  // Timetable only unless the data is live and fresh (offline, cached copy, stale).
+  const views = queries.map((q, i) => liveView(ids[i] as string, q.data, now, online))
+  const first = views.find((v) => v.data)?.data
   const refetchAll = () => {
     for (const q of queries) q.refetch()
   }
   const activeAlerts = (alertsQ.data?.alerts ?? []).length
   return (
     <>
-      <SiteHeader live={first ? first.rtState === 'live' : true} />
+      <SiteHeader live={first ? first.rtState === 'live' && online : online} />
       <UpdatedStrip
         updatedAt={first?.generatedAt ?? null}
         sourceS={first?.rtSourceTimestamp ?? null}
@@ -123,7 +126,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               {/* Phones: compact cards with the next 3 buses. */}
               <div className="flex flex-col gap-3 md:hidden">
                 {saved.map((s, i) => {
-                  const res = queries[i]?.data
+                  const res = views[i]?.data
                   const name = s.name || res?.stop.name || `Stop ${s.id}`
                   return (
                     <MyStopCard
@@ -149,7 +152,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               <div className="hidden flex-wrap gap-6 md:flex">
                 {saved.map((s, i) => {
                   const q = queries[i]
-                  const res = q?.data
+                  const res = views[i]?.data
                   return (
                     <section
                       key={s.id}

@@ -1,5 +1,6 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
 import type { DeparturesResponse } from '@bft/core/contract'
+import { isOnline } from '@bft/ui/connectivity'
 import { QueryClient, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { type ApiFetcher, browserFetcher, fetchDepartures, fetchTrip, fetchVehicles } from './api.ts'
@@ -51,7 +52,7 @@ export function departuresOptions(
         // Offline with no cached response from the service worker: fall back to the last copy we kept.
         // The copy was contract-checked by the proxy when it was first fetched.
         const cached = readOffline(from, to) as DeparturesResponse | null
-        if (typeof navigator !== 'undefined' && !navigator.onLine && Array.isArray(cached?.departures))
+        if (!isOnline() && Array.isArray(cached?.departures))
           return cached
         throw error
       }

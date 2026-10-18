@@ -294,7 +294,8 @@ export function createApp(deps: AppDeps): Hono<Env> {
           schedArr: null,
           schedDep: null,
           estArr: s.arr,
-          estDep: s.dep,
+          // Same rule as predictStop: a vehicle can't leave a stop before it arrives there.
+          estDep: Math.max(s.dep, s.arr),
           status: 'live',
           pickup: 0,
           dropOff: 0,

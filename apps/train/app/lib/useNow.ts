@@ -14,21 +14,8 @@ export function useNow(initialMs: number, intervalMs = 15_000): number {
   return now
 }
 
-/** navigator.onLine as state (true during SSR). */
-export function useOnline(): boolean {
-  const [online, setOnline] = useState(true)
-  useEffect(() => {
-    const update = () => setOnline(navigator.onLine)
-    update()
-    window.addEventListener('online', update)
-    window.addEventListener('offline', update)
-    return () => {
-      window.removeEventListener('online', update)
-      window.removeEventListener('offline', update)
-    }
-  }, [])
-  return online
-}
+/** Online as state (true during SSR): navigator.onLine plus whether API calls reach the network (@bft/ui). */
+export { useOnline } from '@bft/ui/connectivity'
 
 /** false during SSR and hydration, true after mount (client-only widgets). */
 export function useMounted(): boolean {

@@ -46,7 +46,8 @@ describe('offline timetable', () => {
     )
     expect(out?.rtState).toBe('unavailable')
     expect(out?.rtSourceTimestamp).toBeNull()
-    expect(out?.departures.map((d) => d.status)).toEqual(['scheduled', 'scheduled', 'cancelled'])
+    // Offline nothing confirms a bus is still at the stop, so one that left 30 s ago is gone too.
+    expect(out?.departures.map((d) => d.status)).toEqual(['scheduled', 'cancelled'])
     expect(out?.departures.every((d) => d.estDep == null && !d.gps)).toBe(true)
   })
   it('prefers the longer saved timetable copy', () => {

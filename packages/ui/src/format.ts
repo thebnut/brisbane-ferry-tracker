@@ -18,11 +18,29 @@ const dayMonthFormat = new Intl.DateTimeFormat('en-AU', {
   month: '2-digit',
 })
 
-/** "7:42 pm" (Brisbane). */
+/**
+ * "7:42 pm" (Brisbane). Seconds are dropped (Intl truncates), so a clock always shows the minute `clockMinute` gives;
+ * durations and delays between two shown times use `minutesBetween` so they match the clocks on screen.
+ */
 export function formatClock(epochS: number): string {
   // Some ICU builds emit a narrow no-break space before am/pm; normalise to a plain space.
   return clockFormat.format(epochS * 1000).replace(/\s/g, ' ')
 }
+
+/** The whole minute a clock time shows (epoch minutes, seconds truncated like formatClock). */
+export const clockMinute = (epochS: number): number => Math.floor(epochS / 60)
+
+/**
+ * Minutes between two clock times as displayed: "9:02 pm → 9:04 pm" is always 2 mins, whatever the seconds were.
+ * Negative when `toS` is shown before `fromS`.
+ */
+export const minutesBetween = (fromS: number, toS: number): number => clockMinute(toS) - clockMinute(fromS)
+
+/**
+ * Arrival to show after a departure: never before it. Live estimates for two different stops can disagree (a big
+ * early prediction at the destination), and "departs 9:36, arrives 9:35" would read as a bug.
+ */
+export const arrivalAfter = (depS: number, arrS: number): number => Math.max(depS, arrS)
 
 /** Brisbane calendar date, YYYY-MM-DD. */
 export function brisbaneDateKey(epochMs: number): string {
@@ -87,19 +105,20 @@ export function formatRelative(mins: number): string {
 /**
  * The status line under a live departure (AGENTS.md "Status Display Priority"):
  *  - scheduled only: null
- *  - live and at least a minute off schedule: "Scheduled: 7:46 pm"
+ *  - live and showing a different clock minute from the timetable: "Scheduled: 7:46 pm"
  *  - live and on time: "Sched Dept: 7:42 pm"
  */
 export function statusNote(live: boolean, schedDepS: number, estDepS: number | null): string | null {
   if (!live) return null
-  if (estDepS != null && Math.abs(estDepS - schedDepS) >= 60) return `Scheduled: ${formatClock(schedDepS)}`
+  if (estDepS != null && minutesBetween(schedDepS, estDepS) !== 0)
+    return `Scheduled: ${formatClock(schedDepS)}`
   return `Sched Dept: ${formatClock(schedDepS)}`
 }
 
-/** "+3 min late" / "2 min early" / null when within a minute. */
+/** "3 min late" / "2 min early" / null when both show the same clock minute (the difference of the shown times). */
 export function delayText(schedDepS: number, estDepS: number | null): string | null {
   if (estDepS == null) return null
-  const d = Math.round((estDepS - schedDepS) / 60)
+  const d = minutesBetween(schedDepS, estDepS)
   if (d >= 1) return `${d} min late`
   if (d <= -1) return `${-d} min early`
   return null

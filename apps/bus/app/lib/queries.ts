@@ -1,5 +1,6 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
 import type { AlertsResponse, DeparturesResponse, TripResponse } from '@bft/core/contract'
+import { dropDeparted, isOnline, type LiveState, liveState } from '@bft/ui/connectivity'
 import { QueryClient, useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import {
@@ -47,8 +48,8 @@ export function useFetcher(mode: DataMode): ApiFetcher {
   return useMemo(() => browserFetcher(mode), [mode])
 }
 
-// Browser only: workerd has a `navigator` without `onLine`, which must not read as offline during SSR.
-const offline = () => typeof window !== 'undefined' && navigator.onLine === false
+// Browser only (true during SSR): navigator.onLine, failed API calls and service-worker cache hits (@bft/ui).
+const offline = () => !isOnline()
 
 /** Keep a longer timetable for a saved stop, so it still shows scheduled times offline. */
 async function refreshOfflineCopy(fetcher: ApiFetcher, stopId: string) {
@@ -74,13 +75,20 @@ export function asOfflineTimetable(
   const copy = readOffline(stopId)?.body as DeparturesResponse | undefined
   const base = Array.isArray(copy?.departures) ? copy : res
   if (!base) return null
-  const cutoff = nowMs / 1000 - 60
+  return asTimetable(base, nowMs, 'unavailable')
+}
+
+/** A response as timetable times only: no live estimates or GPS, nothing that has already left. */
+export function asTimetable(
+  res: DeparturesResponse,
+  nowMs: number,
+  rtState: DeparturesResponse['rtState'],
+): DeparturesResponse {
   return {
-    ...base,
-    rtState: 'unavailable',
+    ...res,
+    rtState,
     rtSourceTimestamp: null,
-    departures: base.departures
-      .filter((d) => d.schedDep >= cutoff)
+    departures: dropDeparted(res.departures, (d) => d.schedDep, nowMs, false)
       .map((d) => ({
         ...d,
         status: d.status === 'cancelled' ? d.status : 'scheduled',
@@ -117,12 +125,27 @@ export function departuresOptions(
         throw error
       }
     },
-    // Re-derive on every render while offline, so departed buses drop off as time passes.
-    select: (d: DeparturesResponse) => (offline() ? (asOfflineTimetable(stopId, d, Date.now()) ?? d) : d),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
     refetchInterval: POLL_MS,
   }
+}
+
+/**
+ * What a stop board shows for a response (shared rule, @bft/ui liveState): live as sent; otherwise timetable times
+ * with the state for the banner. Offline uses the saved stop's longer copy. Pure, from `online` (useOnline) and
+ * `nowMs` (useNow), so the first client render matches the server HTML even for a page reloaded from the cache.
+ */
+export function liveView(
+  stopId: string,
+  res: DeparturesResponse | undefined,
+  nowMs: number,
+  online: boolean,
+): { data: DeparturesResponse | undefined; state: LiveState } {
+  const state = liveState(res, { offline: !online, nowMs })
+  if (!res || state == null) return { data: res, state }
+  if (state === 'offline') return { data: asOfflineTimetable(stopId, res, nowMs) ?? res, state }
+  return { data: asTimetable(res, nowMs, state), state }
 }
 
 export function useDepartures(

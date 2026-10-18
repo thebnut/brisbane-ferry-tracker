@@ -51,9 +51,9 @@
 <span class="hidden md:block">
 </span>
 <div class="hidden md:block">
-<label class="flex items-center gap-2 text-xs font-medium text-aqua-text md:text-sm">
-<span>Depart from:</span>
-<select class="h-9 rounded-button border-2 border-ferry-orange/30 bg-white px-2 font-semibold text-aqua-text hover:border-ferry-orange">
+<label class="flex min-w-0 items-center gap-2 text-xs font-medium text-aqua-text md:text-sm">
+<span class="shrink-0">Depart from:</span>
+<select class="h-9 min-w-0 truncate rounded-button border-2 border-ferry-orange/30 bg-white px-2 font-semibold text-aqua-text hover:border-ferry-orange">
 <option value="">Now</option>
 <option value="1792454400">10AM</option>
 <option value="1792461600">12PM</option>
@@ -139,8 +139,8 @@
 </div>
 <div class="grid gap-6 md:grid-cols-2 md:gap-8">
 <section aria-label="Bulimba to Riverside" class="flex flex-col gap-3" data-board="outbound">
-<div class="bg-board-header flex min-h-14 items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-3.5 py-2 shadow-sm">
-<div class="flex min-w-0 flex-1 items-center gap-2 text-base font-semibold text-aqua-text dark:text-ferry-aqua-light">
+<div class="bg-board-header flex min-h-14 flex-wrap items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-3.5 py-2 shadow-sm">
+<div class="flex min-w-0 grow basis-48 items-center gap-2 text-base font-semibold text-aqua-text dark:text-ferry-aqua-light">
 <span class="truncate md:hidden">Bulimba → Riverside</span>
 <span class="hidden min-w-0 flex-1 items-center gap-2 md:flex">
 <label class="relative min-w-0 flex-1">
@@ -204,10 +204,10 @@
 </label>
 </span>
 </div>
-<div class="md:hidden">
-<label class="flex items-center gap-2 text-xs font-medium text-aqua-text md:text-sm">
-<span>Depart from:</span>
-<select class="h-9 rounded-button border-2 border-ferry-orange/30 bg-white px-2 font-semibold text-aqua-text hover:border-ferry-orange">
+<div class="flex min-w-0 md:hidden">
+<label class="flex min-w-0 items-center gap-2 text-xs font-medium text-aqua-text md:text-sm">
+<span class="shrink-0">Depart from:</span>
+<select class="h-9 min-w-0 truncate rounded-button border-2 border-ferry-orange/30 bg-white px-2 font-semibold text-aqua-text hover:border-ferry-orange">
 <option value="">Now</option>
 <option value="1792454400">10AM</option>
 <option value="1792461600">12PM</option>
@@ -228,7 +228,7 @@
 <article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
 <button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
 <span class="flex min-w-0 flex-1 items-center gap-3">
-<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex min-w-0 flex-1 flex-col gap-1.5">
 <span class="flex flex-wrap items-center gap-1.5">
 <span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
 <span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
@@ -238,10 +238,14 @@
 </svg>GPS</span>
 <span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
 </span>
-<span class="font-extrabold whitespace-nowrap tabular text-xl">8:32 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span data-testid="times" class="flex flex-wrap items-baseline gap-x-1.5 font-extrabold tabular text-xl">
+<span class="whitespace-nowrap">8:32 am</span>
+<span class="whitespace-nowrap">
+<span class="mr-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
 <span class="sr-only"> arriving </span>
 <span class="font-medium text-gray-700 dark:text-night-text/80">9:00 am</span>
 <span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 28 mins</span>
+</span>
 </span>
 <span class="text-xs text-gray-600 dark:text-night-text/70">Binkinba · Sched Dept: 8:32 am</span>
 </span>
@@ -256,15 +260,19 @@
 <article class="w-full rounded-card px-4 py-3.5 text-left transition bg-hot border-2 border-ferry-orange shadow-hot" data-highlighted="true">
 <button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
 <span class="flex min-w-0 flex-1 items-center gap-3">
-<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex min-w-0 flex-1 flex-col gap-1.5">
 <span class="flex flex-wrap items-center gap-1.5">
 <span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
 <span class="text-[11px] font-extrabold tracking-wide text-ferry-orange-deep dark:text-ferry-sunset">EXPRESS · F11</span>
 </span>
-<span class="font-extrabold whitespace-nowrap tabular text-[22px]">8:41 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span data-testid="times" class="flex flex-wrap items-baseline gap-x-1.5 font-extrabold tabular text-[22px]">
+<span class="whitespace-nowrap">8:41 am</span>
+<span class="whitespace-nowrap">
+<span class="mr-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
 <span class="sr-only"> arriving </span>
 <span class="font-medium text-gray-700 dark:text-night-text/80">9:01 am</span>
 <span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 20 mins</span>
+</span>
 </span>
 <span class="text-xs text-gray-600 dark:text-night-text/70">Mudlark · Sched Dept: 8:41 am</span>
 </span>
@@ -279,7 +287,7 @@
 <article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
 <button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
 <span class="flex min-w-0 flex-1 items-center gap-3">
-<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex min-w-0 flex-1 flex-col gap-1.5">
 <span class="flex flex-wrap items-center gap-1.5">
 <span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
 <span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
@@ -289,10 +297,14 @@
 </svg>GPS</span>
 <span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
 </span>
-<span class="font-extrabold whitespace-nowrap tabular text-xl">8:48 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span data-testid="times" class="flex flex-wrap items-baseline gap-x-1.5 font-extrabold tabular text-xl">
+<span class="whitespace-nowrap">8:48 am</span>
+<span class="whitespace-nowrap">
+<span class="mr-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
 <span class="sr-only"> arriving </span>
 <span class="font-medium text-gray-700 dark:text-night-text/80">9:16 am</span>
 <span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 28 mins</span>
+</span>
 </span>
 <span class="text-xs text-gray-600 dark:text-night-text/70">Kuluwin · Scheduled: 8:49 am</span>
 </span>
@@ -308,15 +320,19 @@
 <article class="w-full rounded-card px-4 py-3.5 text-left transition bg-hot border-2 border-ferry-orange shadow-hot" data-highlighted="true">
 <button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
 <span class="flex min-w-0 flex-1 items-center gap-3">
-<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex min-w-0 flex-1 flex-col gap-1.5">
 <span class="flex flex-wrap items-center gap-1.5">
 <span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
 <span class="text-[11px] font-extrabold tracking-wide text-ferry-orange-deep dark:text-ferry-sunset">EXPRESS · F11</span>
 </span>
-<span class="font-extrabold whitespace-nowrap tabular text-[22px]">8:56 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span data-testid="times" class="flex flex-wrap items-baseline gap-x-1.5 font-extrabold tabular text-[22px]">
+<span class="whitespace-nowrap">8:56 am</span>
+<span class="whitespace-nowrap">
+<span class="mr-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
 <span class="sr-only"> arriving </span>
 <span class="font-medium text-gray-700 dark:text-night-text/80">9:16 am</span>
 <span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 20 mins</span>
+</span>
 </span>
 <span class="text-xs text-gray-600 dark:text-night-text/70">Mooroolbin II · Sched Dept: 8:56 am</span>
 </span>
@@ -331,15 +347,19 @@
 <article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
 <button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
 <span class="flex min-w-0 flex-1 items-center gap-3">
-<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex min-w-0 flex-1 flex-col gap-1.5">
 <span class="flex flex-wrap items-center gap-1.5">
 <span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
 <span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
 </span>
-<span class="font-extrabold whitespace-nowrap tabular text-xl">9:04 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span data-testid="times" class="flex flex-wrap items-baseline gap-x-1.5 font-extrabold tabular text-xl">
+<span class="whitespace-nowrap">9:04 am</span>
+<span class="whitespace-nowrap">
+<span class="mr-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
 <span class="sr-only"> arriving </span>
 <span class="font-medium text-gray-700 dark:text-night-text/80">9:32 am</span>
 <span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 28 mins</span>
+</span>
 </span>
 <span class="text-xs text-gray-600 dark:text-night-text/70">Mooroolbin II · Scheduled: 9:02 am</span>
 </span>
@@ -356,8 +376,8 @@
 </section>
 <div class="hidden md:block">
 <section aria-label="Riverside to Bulimba" class="flex flex-col gap-3" data-board="inbound">
-<div class="bg-board-header flex min-h-14 items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-3.5 py-2 shadow-sm">
-<div class="flex min-w-0 flex-1 items-center gap-2 text-base font-semibold text-aqua-text dark:text-ferry-aqua-light">
+<div class="bg-board-header flex min-h-14 flex-wrap items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-3.5 py-2 shadow-sm">
+<div class="flex min-w-0 grow basis-48 items-center gap-2 text-base font-semibold text-aqua-text dark:text-ferry-aqua-light">
 <span class="flex min-w-0 flex-1 items-center gap-2">
 <label class="relative min-w-0 flex-1">
 <span class="sr-only">From</span>
@@ -436,7 +456,7 @@
 <article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
 <button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
 <span class="flex min-w-0 flex-1 items-center gap-3">
-<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex min-w-0 flex-1 flex-col gap-1.5">
 <span class="flex flex-wrap items-center gap-1.5">
 <span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
 <span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
@@ -446,10 +466,14 @@
 </svg>GPS</span>
 <span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
 </span>
-<span class="font-extrabold whitespace-nowrap tabular text-xl">8:38 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span data-testid="times" class="flex flex-wrap items-baseline gap-x-1.5 font-extrabold tabular text-xl">
+<span class="whitespace-nowrap">8:38 am</span>
+<span class="whitespace-nowrap">
+<span class="mr-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
 <span class="sr-only"> arriving </span>
 <span class="font-medium text-gray-700 dark:text-night-text/80">9:06 am</span>
 <span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 28 mins</span>
+</span>
 </span>
 <span class="text-xs text-gray-600 dark:text-night-text/70">Neville Bonner · Sched Dept: 8:38 am</span>
 </span>
@@ -464,7 +488,7 @@
 <article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
 <button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
 <span class="flex min-w-0 flex-1 items-center gap-3">
-<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex min-w-0 flex-1 flex-col gap-1.5">
 <span class="flex flex-wrap items-center gap-1.5">
 <span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
 <span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
@@ -474,10 +498,14 @@
 </svg>GPS</span>
 <span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
 </span>
-<span class="font-extrabold whitespace-nowrap tabular text-xl">8:54 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span data-testid="times" class="flex flex-wrap items-baseline gap-x-1.5 font-extrabold tabular text-xl">
+<span class="whitespace-nowrap">8:54 am</span>
+<span class="whitespace-nowrap">
+<span class="mr-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
 <span class="sr-only"> arriving </span>
 <span class="font-medium text-gray-700 dark:text-night-text/80">9:23 am</span>
 <span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 29 mins</span>
+</span>
 </span>
 <span class="text-xs text-gray-600 dark:text-night-text/70">Binkinba · Sched Dept: 8:54 am</span>
 </span>
@@ -492,7 +520,7 @@
 <article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
 <button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
 <span class="flex min-w-0 flex-1 items-center gap-3">
-<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex min-w-0 flex-1 flex-col gap-1.5">
 <span class="flex flex-wrap items-center gap-1.5">
 <span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
 <span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
@@ -502,10 +530,14 @@
 </svg>GPS</span>
 <span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
 </span>
-<span class="font-extrabold whitespace-nowrap tabular text-xl">9:08 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span data-testid="times" class="flex flex-wrap items-baseline gap-x-1.5 font-extrabold tabular text-xl">
+<span class="whitespace-nowrap">9:08 am</span>
+<span class="whitespace-nowrap">
+<span class="mr-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
 <span class="sr-only"> arriving </span>
 <span class="font-medium text-gray-700 dark:text-night-text/80">9:36 am</span>
 <span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 28 mins</span>
+</span>
 </span>
 <span class="text-xs text-gray-600 dark:text-night-text/70">Beenung-urrung · Sched Dept: 9:08 am</span>
 </span>
@@ -520,15 +552,19 @@
 <article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
 <button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
 <span class="flex min-w-0 flex-1 items-center gap-3">
-<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex min-w-0 flex-1 flex-col gap-1.5">
 <span class="flex flex-wrap items-center gap-1.5">
 <span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
 <span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
 </span>
-<span class="font-extrabold whitespace-nowrap tabular text-xl">9:26 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span data-testid="times" class="flex flex-wrap items-baseline gap-x-1.5 font-extrabold tabular text-xl">
+<span class="whitespace-nowrap">9:26 am</span>
+<span class="whitespace-nowrap">
+<span class="mr-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
 <span class="sr-only"> arriving </span>
 <span class="font-medium text-gray-700 dark:text-night-text/80">9:55 am</span>
 <span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 29 mins</span>
+</span>
 </span>
 <span class="text-xs text-gray-600 dark:text-night-text/70">Mudlark · Scheduled: 9:24 am</span>
 </span>
@@ -544,15 +580,19 @@
 <article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
 <button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
 <span class="flex min-w-0 flex-1 items-center gap-3">
-<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex min-w-0 flex-1 flex-col gap-1.5">
 <span class="flex flex-wrap items-center gap-1.5">
 <span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
 <span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
 </span>
-<span class="font-extrabold whitespace-nowrap tabular text-xl">9:38 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span data-testid="times" class="flex flex-wrap items-baseline gap-x-1.5 font-extrabold tabular text-xl">
+<span class="whitespace-nowrap">9:38 am</span>
+<span class="whitespace-nowrap">
+<span class="mr-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
 <span class="sr-only"> arriving </span>
 <span class="font-medium text-gray-700 dark:text-night-text/80">10:06 am</span>
 <span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 28 mins</span>
+</span>
 </span>
 <span class="text-xs text-gray-600 dark:text-night-text/70">Mooroolbin II · Sched Dept: 9:38 am</span>
 </span>

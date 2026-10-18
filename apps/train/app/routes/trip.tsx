@@ -9,6 +9,7 @@ import {
   formatDuration,
   Icon,
   LineChip,
+  minutesBetween,
   minutesUntil,
   OfflineBanner,
   PlatformTile,
@@ -161,7 +162,9 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
             </div>
             <div className="flex flex-col gap-1">
               <dt className="text-xs text-gray-600 dark:text-night-text/70">Journey</dt>
-              <dd className="font-bold tabular">{dep && arr ? formatDuration((arr - dep) / 60) : '—'}</dd>
+              <dd className="font-bold tabular">
+                {dep && arr ? formatDuration(Math.max(0, minutesBetween(dep, arr))) : '—'}
+              </dd>
             </div>
             <div className="flex flex-col gap-1">
               <dt className="text-xs text-gray-600 dark:text-night-text/70">Occupancy</dt>

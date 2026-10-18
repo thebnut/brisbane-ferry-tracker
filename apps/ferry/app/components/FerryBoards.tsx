@@ -128,7 +128,7 @@ export function FerryBoards({
   )
 
   const offline = !online
-  const stateOf = (q: typeof out) => boardState(q.data, offline, now, q.dataUpdatedAt || renderedAt)
+  const stateOf = (q: typeof out) => boardState(q.data, offline, now)
   const view = (q: typeof out) =>
     q.data ? applyFilter(visibleRows(q.data.departures, stateOf(q), now), filter) : null
   const outList = view(out)
@@ -162,8 +162,8 @@ export function FerryBoards({
   const hour = Math.floor(now / 3_600_000)
   const slots = useMemo(() => generateTimeSlots(hour * 3_600_000), [hour])
   const departSelect = (
-    <label className="flex items-center gap-2 text-xs font-medium text-aqua-text md:text-sm">
-      <span>Depart from:</span>
+    <label className="flex min-w-0 items-center gap-2 text-xs font-medium text-aqua-text md:text-sm">
+      <span className="shrink-0">Depart from:</span>
       <select
         value={departAt ?? ''}
         onChange={(e) => {
@@ -171,7 +171,7 @@ export function FerryBoards({
           setDepartAt(v)
           writeDepartAt(v)
         }}
-        className="h-9 rounded-button border-2 border-ferry-orange/30 bg-white px-2 font-semibold text-aqua-text hover:border-ferry-orange"
+        className="h-9 min-w-0 truncate rounded-button border-2 border-ferry-orange/30 bg-white px-2 font-semibold text-aqua-text hover:border-ferry-orange"
       >
         <option value="">Now</option>
         {slots.map((s) =>
@@ -315,7 +315,7 @@ export function FerryBoards({
                 </span>
               </>
             }
-            trailing={<div className="md:hidden">{departSelect}</div>}
+            trailing={<div className="flex min-w-0 md:hidden">{departSelect}</div>}
             departures={outList}
             nowMs={now}
             loading={out.isPending}
