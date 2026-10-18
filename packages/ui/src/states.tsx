@@ -39,34 +39,52 @@ export function AlertCard({ title, children, severity = 'warning', meta }: Alert
   )
 }
 
-export type LineHealth = 'good' | 'minor' | 'major'
+export type LineHealth = 'good' | 'minor' | 'major' | 'works'
 
 export interface LineStatusProps {
-  lines: Array<{ id: string; name: string; color?: string; status: LineHealth; detail?: string }>
+  lines: Array<{
+    id: string
+    name: string
+    color?: string
+    status: LineHealth
+    detail?: string
+    /** Chip text override, e.g. "Platform change" (defaults per status). */
+    statusText?: string
+  }>
 }
 
 const HEALTH: Record<LineHealth, { text: string; className: string }> = {
-  good: { text: 'Good service', className: 'text-chip-later-text' },
-  minor: { text: 'Minor delays', className: 'text-ferry-orange-deep' },
-  major: { text: 'Disruption', className: 'text-cancel-text' },
+  good: { text: 'Good service', className: 'bg-chip-later-bg text-chip-later-text' },
+  minor: { text: 'Minor delays', className: 'bg-[#FFEDD5] text-[#9A3412]' },
+  major: { text: 'Disruption', className: 'bg-cancel-bg text-cancel-text' },
+  works: { text: 'Planned works', className: 'bg-[#E0F2FE] text-[#075985]' },
 }
 
-/** Line-status board (train alerts). */
+/** Line-status board (train alerts, T-Alerts): line colour bar, name, note and a status chip. */
 export function LineStatus({ lines }: LineStatusProps) {
   return (
     <ul className="divide-y divide-ferry-orange/10 overflow-hidden rounded-card bg-white/90 shadow-card dark:bg-night-card">
       {lines.map((l) => (
-        <li key={l.id} className="flex items-center gap-3 px-4 py-3">
+        <li key={l.id} data-status={l.status} className="flex min-h-11 items-center gap-2.5 px-3.5 py-2.5">
           <span
             aria-hidden="true"
-            className="h-8 w-1.5 rounded-full"
+            className="h-7.5 w-1.5 shrink-0 rounded-full"
             style={{ background: l.color ? `#${l.color}` : 'var(--color-ferry-aqua)' }}
           />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold">{l.name}</span>
-            {l.detail ? <span className="block truncate text-xs text-sched-text">{l.detail}</span> : null}
+            <span className="block truncate text-[15px] font-bold">{l.name}</span>
+            {l.detail ? (
+              <span className="block truncate text-xs text-gray-600 dark:text-night-text/70">{l.detail}</span>
+            ) : null}
           </span>
-          <span className={cx('text-xs font-bold', HEALTH[l.status].className)}>{HEALTH[l.status].text}</span>
+          <span
+            className={cx(
+              'shrink-0 rounded-full px-2.5 py-1 text-xs font-bold whitespace-nowrap',
+              HEALTH[l.status].className,
+            )}
+          >
+            {l.statusText ?? HEALTH[l.status].text}
+          </span>
         </li>
       ))}
     </ul>
