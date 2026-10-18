@@ -61,6 +61,7 @@ describe('liveGuardScript (R2-T7)', () => {
     expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
     await trackedFetch('/v1/bus/stops/1/departures')
     // Confirmed, but the app hasn't rendered its own judgement yet (hydration uses the server's clock): still hidden.
+    await new Promise((r) => setTimeout(r, 100))
     expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
     function App() {
       useLiveGuardRelease()
@@ -68,10 +69,24 @@ describe('liveGuardScript (R2-T7)', () => {
     }
     render(createElement(App))
     await vi.waitFor(() => expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false))
-    // From then on a confirmation lifts it at once.
+  })
+  it("only a board's own data confirms it: alerts and vehicles answering do not (Codex review round 2)", async () => {
+    html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
+    vi.stubGlobal('fetch', async () => new Response('{}'))
+    for (const path of ['/v1/alerts?mode=bus', '/v1/bus/vehicles?route=66', '/__fixtures/v1/ferry/vehicles'])
+      await trackedFetch(path)
+    await new Promise((r) => setTimeout(r, 100))
+    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
+    // A trip detail is a board too; so is a fixture-mode departures call.
+    await trackedFetch('/__fixtures/v1/train/trips/T1@20261018')
+    await vi.waitFor(() => expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false))
+    html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
+    await trackedFetch('/__fixtures/v1/ferry/stops/317584/departures?to=317590&limit=13')
+    await vi.waitFor(() => expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false))
+    // From then on a direct confirmation lifts it too (after the frames that render the new data).
     html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
     confirmLive()
-    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false)
+    await vi.waitFor(() => expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false))
   })
   it('a page served from the service worker cache arrives marked, whatever its age (serialised plugin)', async () => {
     const source = String(markCachedPages.cachedResponseWillBeUsed).replace(/\s*\n\s*/g, ' ')

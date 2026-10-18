@@ -47,13 +47,23 @@ function releaseLiveGuard() {
 }
 
 /**
- * A live API call got a good answer from the network: the page's data is current, so it may claim LIVE again (see
- * liveGuardScript) once the app has rendered with the device's clock (useLiveGuardRelease). An error status (a 503
- * from a struggling API) reaches the network but confirms nothing.
+ * A board's own live data (departures or a trip) came back good from the network, so the page may claim LIVE again
+ * (see liveGuardScript) once the app has rendered with the device's clock (useLiveGuardRelease). Other answers
+ * (alerts, vehicles, static files) confirm nothing about a cached board, and nor does an error status (a 503 from a
+ * struggling API). The guard lifts two frames later, after the app has rendered the new data (Codex review).
  */
 export function confirmLive() {
-  liveConfirmed = true
-  releaseLiveGuard()
+  if (typeof requestAnimationFrame === 'undefined') {
+    liveConfirmed = true
+    releaseLiveGuard()
+    return
+  }
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      liveConfirmed = true
+      releaseLiveGuard()
+    }),
+  )
 }
 
 /**
@@ -147,6 +157,9 @@ export function useOnline(): boolean {
 
 /** Live API paths (/v1/…, and the fixture copies under /__fixtures/v1/…). */
 const LIVE_PATH = /^(?:https?:\/\/[^/]+)?(?:\/__fixtures)?\/v1\//
+/** A board's own live data: a stop's departures or a trip (what the live guard waits for). */
+const BOARD_PATH =
+  /^(?:https?:\/\/[^/]+)?(?:\/__fixtures)?\/v1\/[a-z]+\/(?:stops\/[^/?]+\/departures|trips\/)/
 
 /**
  * fetch() that reports whether the network answered (see the module comment). Browser only. Any failure counts, but
@@ -161,7 +174,7 @@ export async function trackedFetch(input: string, init?: RequestInit): Promise<R
     if (res.headers.get(SW_CACHE_HEADER)) reportOffline()
     else if (live) {
       reportOnline()
-      if (res.ok) confirmLive()
+      if (res.ok && BOARD_PATH.test(input)) confirmLive()
     }
     return res
   } catch (error) {

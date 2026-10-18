@@ -74,3 +74,32 @@ for (const path of PAGES) {
     await expect(page.locator('html')).not.toHaveAttribute('data-live-unconfirmed', '')
   })
 }
+
+test("a cached page stays guarded until its own board's fresh departures arrive (Codex review round 2)", async ({
+  page,
+  context,
+}) => {
+  test.slow()
+  // Hold the board's departures back; any other live call answers at once.
+  let release = () => {}
+  const held = new Promise<void>((r) => {
+    release = r
+  })
+  await context.route('**/__fixtures/v1/train/stops/*/departures*', async (route) => {
+    await held
+    await route.continue()
+  })
+  await recordLiveClaims(page)
+  // The HTML looks five minutes old to the device, as for a page the service worker kept.
+  await page.addInitScript(() => {
+    const now = Date.now
+    Date.now = () => now() + 5 * 60_000
+  })
+  await page.goto('/station/central')
+  await page.waitForTimeout(3_000)
+  await expect(page.locator('html')).toHaveAttribute('data-live-unconfirmed', '')
+  release()
+  await page.waitForResponse((r) => r.url().includes('/departures') && r.ok(), { timeout: 30_000 })
+  await expect(page.locator('html')).not.toHaveAttribute('data-live-unconfirmed', '')
+  expect(await page.evaluate(() => (window as unknown as { __liveSeen: string[] }).__liveSeen)).toEqual([])
+})

@@ -237,12 +237,13 @@ export function DepartureCard({
               express ? 'text-[22px]' : 'text-xl',
             )}
           >
-            <span className={cx('whitespace-nowrap', cancelled && 'line-through decoration-2')}>
-              {time}
-              {dayMarker ? (
-                <span className="ml-1 text-sm font-medium text-ferry-orange-deep">{dayMarker}</span>
-              ) : null}
-            </span>
+            <span className={cx('whitespace-nowrap', cancelled && 'line-through decoration-2')}>{time}</span>
+            {/* Its own chunk, like the arrival's: wraps instead of overflowing beside the chip at 360 px. */}
+            {dayMarker ? (
+              <span className="text-sm font-medium whitespace-nowrap text-ferry-orange-deep">
+                {dayMarker}
+              </span>
+            ) : null}
             {arrival ? (
               // The arrival's day marker is its own chunk, so a late-night "→ 12:10 am (19/10)" can wrap beside the
               // countdown chip on a 360 px phone instead of overflowing.
