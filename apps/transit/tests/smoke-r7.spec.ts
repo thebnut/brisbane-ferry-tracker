@@ -86,3 +86,29 @@ test.describe('R7-T2: a tab opened offline never hits the error boundary, and lo
     })
   })
 })
+
+test.describe('R7: a page reached by a client navigation reloads offline from its copy, not the offline page', () => {
+  for (const [label, open] of [
+    ['the Train tab', (page: Page) => page.getByRole('link', { name: 'Train', exact: true }).first().click()],
+    ['a saved station', (page: Page) => page.locator('a[href="/train/station/central"]').first().click()],
+  ] as const)
+    test(label, async ({ page, context }) => {
+      test.slow()
+      await saveAcrossModes(page)
+      await page.goto('/')
+      await waitForServiceWorker(page, 'transit-pages')
+      await expect(page.locator('[data-saved-time]').first()).toBeVisible()
+      await open(page)
+      await expect(page).toHaveURL(/\/train/)
+      // The copy is saved once the page has settled (online).
+      await waitForServiceWorker(page, 'transit-pages')
+      await goOffline(context)
+      await page.reload()
+      // The page itself (its scheduled rows), offline: the header badge or the board's banner says so.
+      await expect(page.locator('[data-testid=departure], [data-testid=favourite]').first()).toBeVisible()
+      await expect(page.getByText(/^offline$|Offline · scheduled/i).first()).toBeVisible()
+      await expect(page.locator('[data-offline-page]')).toHaveCount(0)
+      await page.waitForTimeout(1_000)
+      expect(await visibleLiveClaims(page)).toEqual([])
+    })
+})

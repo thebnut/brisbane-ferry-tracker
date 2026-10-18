@@ -2,6 +2,7 @@ import { AppHeader, OfflineScreen, useFixtureCookie } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
 import {
   isOfflineFailure,
+  isOnline,
   LIVE_GUARD_CSS,
   liveGuardScript,
   NO_SCRIPT_LIVE_CSS,
@@ -19,6 +20,7 @@ import {
   Scripts,
   ScrollRestoration,
   type ShouldRevalidateFunctionArgs,
+  useLocation,
   useRevalidator,
   useRouteLoaderData,
 } from 'react-router'
@@ -124,6 +126,7 @@ export default function App() {
   )
   // Back online: refetch the live boards at once, not at the next poll (R3-X9).
   useRefetchOnReconnect(client)
+  useKeepPageCopies()
   // Effects run only once hydration has committed: tests wait for this marker (tests/csp.ts).
   useEffect(() => {
     document.documentElement.dataset.hydrated = ''
@@ -133,6 +136,34 @@ export default function App() {
       <Outlet />
     </QueryClientProvider>
   )
+}
+
+/** The service worker's page cache (app/sw.ts); entry.client.tsx saves the first page view into it. */
+const PAGES_CACHE = 'transit-pages'
+/** Pages that only redirect, never worth a copy. */
+const NO_COPY = /^\/(?:ask|feedback)$|^\/__/
+
+/**
+ * Saves a copy of every page this visit navigates to (R7): client navigations fetch only their loader data, so a page
+ * reached through the Mode Tabs or a saved card had no copy, and reloading it offline gave the service worker's
+ * offline page. A plain fetch (not a navigation) once the page has settled, online only; the service worker still
+ * uses a copy only if this build precaches its assets (#61).
+ */
+function useKeepPageCopies() {
+  const { pathname, search } = useLocation()
+  const [first] = useState(() => pathname + search)
+  useEffect(() => {
+    const path = pathname + search
+    if (path === first || NO_COPY.test(pathname) || !navigator.serviceWorker?.controller) return
+    const id = setTimeout(() => {
+      if (!isOnline()) return
+      void caches
+        .open(PAGES_CACHE)
+        .then((cache) => cache.add(path))
+        .catch(() => {})
+    }, 1_500)
+    return () => clearTimeout(id)
+  }, [pathname, search, first])
 }
 
 /** A screen opened offline whose data needs the network (R7-T2): retried until it loads, Mode Tabs kept. */
