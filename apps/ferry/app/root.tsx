@@ -6,8 +6,8 @@ import './app.css'
 import { Footer, SiteHeader } from './components/Chrome.tsx'
 import { makeQueryClient } from './lib/queries.ts'
 
-// No web-font request: Inter is listed first in the font stack and used when installed, otherwise system-ui, as on
-// the live site (a render-blocking Google Fonts stylesheet would cost LCP). Ferry's wordmark is the lockup image.
+// Inter is self-hosted from app.css (@fontsource-variable/inter, font-display: swap), so no third-party, render-
+// blocking font stylesheet. Ferry's wordmark is the lockup image, so Poppins isn't needed here.
 export const links: Route.LinksFunction = () => [
   { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
   { rel: 'icon', type: 'image/png', href: '/bf_favicon.png', sizes: '32x32' },

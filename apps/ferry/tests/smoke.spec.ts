@@ -115,6 +115,31 @@ test('offline shows the "Offline · scheduled" banner', async ({ page, context }
   await expect(page.getByText('Offline · scheduled')).toBeHidden()
 })
 
+test('first visit is cached for an offline reload (service worker)', async ({ page }) => {
+  // Playwright's Chromium does not serve navigations from the service worker under offline emulation or request
+  // routing, so this checks the pieces; the offline reload itself was verified in desktop Chrome with the server
+  // stopped (see the PR).
+  await rememberBulimbaRiverside(page)
+  await page.goto('/')
+  await expect(page.locator('[data-board=outbound]').getByTestId('departure').first()).toBeVisible()
+  const cachedHtml = () =>
+    page.evaluate(async () => {
+      if (!navigator.serviceWorker.controller) return ''
+      const res = await (await caches.open('ferry-pages')).match(location.href)
+      return res ? await res.text() : ''
+    })
+  await expect
+    .poll(async () => ((await cachedHtml()).match(/data-testid="departure"/g) ?? []).length)
+    .toBeGreaterThanOrEqual(5)
+  const precached = await page.evaluate(async () => {
+    const names = await caches.keys()
+    const pre = names.find((n) => n.startsWith('workbox-precache'))
+    return pre ? (await (await caches.open(pre)).keys()).map((r) => new URL(r.url).pathname) : []
+  })
+  expect(precached.some((p) => /ferry-lockup-360-.*\.webp$/.test(p))).toBe(true)
+  expect(precached.some((p) => /\/assets\/entry\.client-.*\.js$/.test(p))).toBe(true)
+})
+
 test('live data unavailable shows its banner', async ({ page }) => {
   await rememberBulimbaRiverside(page)
   await page.goto('/?rt=unavailable')

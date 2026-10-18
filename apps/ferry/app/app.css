@@ -1,3 +1,5 @@
+/* Inter, self-hosted (variable weight, font-display: swap; only the latin subset downloads via unicode-range). */
+@import "@fontsource-variable/inter/wght.css";
 @import "tailwindcss";
 @import "@bft/ui/theme.css";
 @source "./";

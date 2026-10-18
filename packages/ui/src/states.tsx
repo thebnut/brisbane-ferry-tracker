@@ -123,7 +123,10 @@ export type OfflineKind = 'offline' | 'unavailable' | 'stale' | 'reloading'
 const OFFLINE_TEXT: Record<OfflineKind, { title: string; body: string }> = {
   offline: { title: 'Offline · scheduled', body: 'You are offline. Showing saved timetable times.' },
   unavailable: { title: 'Live times unavailable', body: 'Showing scheduled times until live data returns.' },
-  stale: { title: 'Live times delayed', body: 'Live data is more than 5 minutes old.' },
+  stale: {
+    title: 'Live times delayed',
+    body: 'Live updates are late, so these are timetable times. We keep retrying.',
+  },
   reloading: { title: 'Timetable updating', body: 'Showing scheduled times while the new timetable loads.' },
 }
 

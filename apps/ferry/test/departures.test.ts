@@ -1,6 +1,13 @@
 import type { Departure } from '@bft/core/contract'
 import { describe, expect, it } from 'vitest'
-import { applyFilter, asScheduled, boardState, cardModel, hasExpress } from '../app/lib/departures.ts'
+import {
+  applyFilter,
+  asScheduled,
+  boardState,
+  cardModel,
+  hasExpress,
+  visibleRows,
+} from '../app/lib/departures.ts'
 import { generateTimeSlots } from '../app/lib/timeSlots.ts'
 
 const NOW = Date.UTC(2026, 9, 18, 9, 38) // 7:38 pm Brisbane
@@ -68,7 +75,31 @@ describe('board helpers', () => {
   })
   it('offline shows timetable times only', () => {
     expect(asScheduled(dep({}))).toMatchObject({ status: 'scheduled', estDep: null, gps: false })
-    expect(boardState(undefined, true)).toBe('offline')
+    expect(boardState(undefined, true, NOW, NOW)).toBe('offline')
+  })
+  it('live only while the source and the last refresh are fresh', () => {
+    const res = {
+      schemaVersion: 1 as const,
+      staticGeneration: 'g',
+      serviceDates: [],
+      rtSourceTimestamp: NOW / 1000 - 20,
+      rtState: 'live' as const,
+      generatedAt: NOW,
+      mode: 'ferry' as const,
+      stop: { key: 'a', name: 'A', stopIds: ['a'] },
+      to: null,
+      departures: [],
+    }
+    expect(boardState(res, false, NOW, NOW - 15_000)).toBeNull()
+    // Refreshes failing for over a minute: stale, even though the last body said live.
+    expect(boardState(res, false, NOW, NOW - 90_000)).toBe('stale')
+    expect(boardState({ ...res, rtSourceTimestamp: NOW / 1000 - 400 }, false, NOW, NOW)).toBe('stale')
+    expect(boardState({ ...res, rtState: 'unavailable' }, false, NOW, NOW)).toBe('unavailable')
+  })
+  it('drops departed rows and live claims when not live', () => {
+    const rows = [dep({ schedDep: s(19, 30), estDep: s(19, 30) }), dep({})]
+    expect(visibleRows(rows, null, NOW)).toHaveLength(1)
+    expect(visibleRows([dep({})], 'stale', NOW)[0]).toMatchObject({ status: 'scheduled', gps: false })
   })
 })
 

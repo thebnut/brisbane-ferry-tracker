@@ -14,7 +14,7 @@ import {
   StopSelect,
 } from '@bft/ui'
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { applyFilter, asScheduled, boardState, hasExpress, type ServiceFilter } from '../lib/departures.ts'
+import { applyFilter, boardState, hasExpress, type ServiceFilter, visibleRows } from '../lib/departures.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import {
@@ -121,18 +121,15 @@ export function FerryBoards({
   )
 
   const offline = !online
-  const view = (q: typeof out) => {
-    const list = q.data?.departures ?? null
-    if (!list) return null
-    const shown = offline || q.data?.rtState === 'unavailable' ? list.map(asScheduled) : list
-    return applyFilter(shown, filter)
-  }
+  const stateOf = (q: typeof out) => boardState(q.data, offline, now, q.dataUpdatedAt || renderedAt)
+  const view = (q: typeof out) =>
+    q.data ? applyFilter(visibleRows(q.data.departures, stateOf(q), now), filter) : null
   const outList = view(out)
   const backList = view(back)
   const express = hasExpress(out.data?.departures, back.data?.departures)
   const latest = out.data ?? back.data
-  const state = boardState(latest, offline)
-  const live = !offline && latest?.rtState === 'live'
+  const state = stateOf(out.data ? out : back)
+  const live = state == null && latest?.rtState === 'live'
   const updatedAt = Math.max(out.dataUpdatedAt || 0, back.dataUpdatedAt || 0)
   const fetching = out.isFetching || back.isFetching
 

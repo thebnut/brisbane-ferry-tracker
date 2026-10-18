@@ -82,9 +82,34 @@ export type ServiceFilter = 'all' | 'express'
 export const applyFilter = (list: Departure[], filter: ServiceFilter) =>
   filter === 'express' ? list.filter(isExpress) : list
 
-/** The data state a board shows, for the status banner. */
-export function boardState(res: DeparturesResponse | undefined, offline: boolean) {
-  if (offline) return 'offline' as const
+/** Live data older than this (or a refresh that has failed for this long) is shown as timetable times. */
+export const LIVE_MAX_AGE_S = 300
+export const REFRESH_MAX_AGE_MS = 60_000
+/** Rows that left more than a minute ago are dropped (cached data must not keep them as "Departing"). */
+export const DEPARTED_GRACE_S = 60
+
+export type BoardState = 'offline' | 'stale' | 'reloading' | 'unavailable' | null
+
+/**
+ * What a board can honestly claim. Live only while the response says live, its TransLink source is under 5 min old
+ * and the last successful refresh is under a minute old; otherwise the rows fall back to timetable times.
+ */
+export function boardState(
+  res: DeparturesResponse | undefined,
+  offline: boolean,
+  nowMs: number,
+  updatedAtMs: number,
+): BoardState {
+  if (offline) return 'offline'
   if (!res) return null
-  return res.rtState === 'live' ? null : res.rtState
+  if (res.rtState !== 'live') return res.rtState
+  const sourceAge = res.rtSourceTimestamp == null ? Infinity : nowMs / 1000 - res.rtSourceTimestamp
+  if (sourceAge > LIVE_MAX_AGE_S || nowMs - updatedAtMs > REFRESH_MAX_AGE_MS) return 'stale'
+  return null
+}
+
+/** Board rows for display: departed rows removed, live claims removed unless the state is live. */
+export function visibleRows(list: Departure[], state: BoardState, nowMs: number): Departure[] {
+  const rows = state == null ? list : list.map(asScheduled)
+  return rows.filter((d) => effectiveDep(d) >= nowMs / 1000 - DEPARTED_GRACE_S)
 }

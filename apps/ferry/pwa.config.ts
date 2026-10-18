@@ -31,7 +31,7 @@ export function pwa() {
     },
     workbox: {
       globDirectory: 'build/client',
-      globPatterns: ['assets/*.{js,css,png}', '*.{png,ico}'],
+      globPatterns: ['assets/*.{js,css,png,webp,woff2}', '*.{png,ico}'],
       // MapLibre (lazy chunk) is large; leave it to the HTTP cache.
       globIgnores: ['assets/maplibre*', 'assets/MapView*'],
       maximumFileSizeToCacheInBytes: 600 * 1024,
@@ -44,6 +44,7 @@ export function pwa() {
           urlPattern: ({ request, url }) => request.mode === 'navigate' && !url.pathname.startsWith('/__'),
           handler: 'NetworkFirst',
           options: {
+            // entry.client.tsx also writes the first page view into this cache.
             cacheName: 'ferry-pages',
             networkTimeoutSeconds: 4,
             expiration: { maxEntries: 30, maxAgeSeconds: 7 * 24 * 3600 },

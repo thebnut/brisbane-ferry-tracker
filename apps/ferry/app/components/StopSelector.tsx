@@ -4,7 +4,7 @@
  */
 import { BottomSheet, PrimaryButton, SecondaryButton } from '@bft/ui'
 import { StopSearch } from '@bft/ui/stop-search'
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { readRemember } from '../lib/storage.ts'
 import {
   choice,
@@ -14,6 +14,8 @@ import {
   terminalById,
   validDestinations,
 } from '../lib/terminals.ts'
+
+const MapView = lazy(() => import('@bft/ui/map'))
 
 export interface StopSelectorProps {
   initial: StopPair
@@ -25,6 +27,7 @@ export default function StopSelector({ initial, onSave, onClose }: StopSelectorP
   const [origin, setOrigin] = useState(initial.outbound.id)
   const [destination, setDestination] = useState(initial.inbound.id)
   const [remember, setRemember] = useState(readRemember)
+  const [mapFor, setMapFor] = useState<'origin' | 'destination' | null>(null)
 
   const origins = useMemo(() => TERMINALS.map((t) => ({ id: t.id, name: t.name })), [])
   const reachable = validDestinations(origin)
@@ -39,6 +42,36 @@ export default function StopSelector({ initial, onSave, onClose }: StopSelectorP
     const next = validDestinations(id)
     if (!next.includes(destination) && next[0]) setDestination(next[0])
   }
+
+  // Map picker (legacy StopSelectorMap): every terminal for the origin, only reachable ones for the destination.
+  const mapMarkers = (() => {
+    if (!mapFor) return []
+    const pool = mapFor === 'origin' ? TERMINALS : TERMINALS.filter((t) => reachable.includes(t.id))
+    const current = mapFor === 'origin' ? origin : destination
+    return pool.map((t) => ({
+      id: t.id,
+      lat: t.lat,
+      lon: t.lng,
+      tone: t.id === current ? ('selected' as const) : ('stop' as const),
+      label: `Choose ${t.name} as ${mapFor === 'origin' ? 'origin' : 'destination'}`,
+      onClick: () => {
+        if (mapFor === 'origin') changeOrigin(t.id)
+        else setDestination(t.id)
+        setMapFor(null)
+      },
+    }))
+  })()
+
+  const mapToggle = (which: 'origin' | 'destination') => (
+    <button
+      type="button"
+      aria-pressed={mapFor === which}
+      onClick={() => setMapFor((m) => (m === which ? null : which))}
+      className="self-start text-sm font-semibold text-aqua-text underline underline-offset-2"
+    >
+      {mapFor === which ? 'Hide map' : 'Pick on map'}
+    </button>
+  )
 
   const save = () => {
     const o = terminalById(origin)
@@ -64,6 +97,7 @@ export default function StopSelector({ initial, onSave, onClose }: StopSelectorP
           onChange={changeOrigin}
           placeholder="Origin terminal"
         />
+        {mapToggle('origin')}
         <StopSearch
           inline
           label="To"
@@ -72,6 +106,16 @@ export default function StopSelector({ initial, onSave, onClose }: StopSelectorP
           onChange={setDestination}
           placeholder="Destination terminal"
         />
+        {mapToggle('destination')}
+        {mapFor ? (
+          <Suspense fallback={<div className="h-64 rounded-card bg-map-ground" />}>
+            <MapView
+              markers={mapMarkers}
+              label={`Map of ferry terminals: choose the ${mapFor}`}
+              className="h-64 w-full overflow-hidden rounded-card bg-map-ground"
+            />
+          </Suspense>
+        ) : null}
         {destinations.length === 0 ? (
           <p className="text-sm text-cancel-text">No direct ferries from this terminal.</p>
         ) : null}
