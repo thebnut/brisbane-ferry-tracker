@@ -13,4 +13,6 @@ export interface WorkerEnv {
   RT_UPSTREAM: string
   CORS_ALLOW_ALL?: string
   SPIKE_ENABLED?: string
+  /** Secret (wrangler secret put DRILL_TOKEN). Enables POST /__drill/kill-alarm with a bearer token. */
+  DRILL_TOKEN?: string
 }

@@ -50,6 +50,13 @@ function getIsolate(env: WorkerEnv) {
       if (env.SPIKE_ENABLED !== '1') return c.json({ error: 'not found' }, 404)
       return c.json(await hubStub(env).benchmark(Number(c.req.query('runs') ?? 20)))
     })
+    // Phase 1 watchdog drill: kill the alarm chain, then watch /v1/health recover via the cron watchdog.
+    app.post('/__drill/kill-alarm', async (c) => {
+      const token = env.DRILL_TOKEN
+      if (!token || c.req.header('authorization') !== `Bearer ${token}`)
+        return c.json({ error: 'not found' }, 404)
+      return c.json(await hubStub(env).killAlarmForDrill())
+    })
     isolate = { app, snapshots }
   }
   return isolate

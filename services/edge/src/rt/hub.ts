@@ -40,6 +40,12 @@ export class RtHub extends DurableObject<WorkerEnv> {
     return this.core.getRaw(key)
   }
 
+  /** Watchdog drill: delete the alarm so the chain is dead until the cron watchdog re-arms it. */
+  async killAlarmForDrill(): Promise<{ killedAt: number }> {
+    await this.ctx.storage.deleteAlarm()
+    return { killedAt: Date.now() }
+  }
+
   /** Phase 0 spike only (SPIKE_ENABLED=1): rebuild the snapshot `runs` times from the stored feeds. */
   benchmark(runs: number): Promise<{ runs: number; seq: number | null }> {
     if (this.env.SPIKE_ENABLED !== '1') throw new Error('spike disabled')

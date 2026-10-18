@@ -46,6 +46,7 @@ export interface R2Pointer {
 }
 
 export interface R2Like {
+  get?(key: string): Promise<{ text(): Promise<string> } | null>
   delete(key: string): Promise<unknown>
   put(
     key: string,
@@ -280,6 +281,7 @@ export class HubCore {
     }
 
     const writes: Record<string, unknown> = {}
+    let rebuilt = false
     if (changed.length > 0 || indexesChanged || !this.snapshot) {
       const indexes: Partial<Record<Mode, ModeIndex>> = {}
       for (const [m, l] of this.modes) indexes[m] = l.index
@@ -301,12 +303,15 @@ export class HubCore {
         this.snapshot = snapshot
         this.snapshotJson = JSON.stringify(snapshot)
         this.meta.seq = snapshot.header.seq
-        Object.assign(writes, this.snapshotWrites(this.snapshotJson))
+        rebuilt = true
+        // With R2 bound the snapshot lives there (restored from R2 after a restart); keeping a second copy in DO
+        // storage every cycle costs CPU the Free plan doesn't have.
+        if (!this.d.r2) Object.assign(writes, this.snapshotWrites(this.snapshotJson))
       }
     }
     for (const f of changed) Object.assign(writes, this.rawWrites(f.key, this.raw.get(f.key) as RawFeed))
 
-    if (this.d.r2 && this.snapshotJson && writes['snap:0'] !== undefined) {
+    if (this.d.r2 && this.snapshotJson && rebuilt) {
       try {
         await this.publishR2(this.snapshotJson, now)
       } catch (e) {
@@ -343,17 +348,23 @@ export class HubCore {
     const prev = this.raw.get(f.key)
     const headers: Record<string, string> = { accept: 'application/x-protobuf' }
     if (prev?.etag) headers['if-none-match'] = prev.etag
+    // An explicit timer (cleared in finally) rather than AbortSignal.timeout: a pending timeout timer keeps the
+    // DO invocation alive for the full 5 s and bills it as duration.
+    const ctl = new AbortController()
+    const timer = setTimeout(
+      () => ctl.abort(new Error('upstream timeout')),
+      this.d.fetchTimeoutMs ?? FETCH_TIMEOUT_MS,
+    )
     try {
-      const res = await this.d.fetch(`${this.d.upstream}/${f.key}`, {
-        headers,
-        signal: AbortSignal.timeout(this.d.fetchTimeoutMs ?? FETCH_TIMEOUT_MS),
-      })
+      const res = await this.d.fetch(`${this.d.upstream}/${f.key}`, { headers, signal: ctl.signal })
       if (res.status === 304) return {}
       if (!res.ok) return { error: `HTTP ${res.status}` }
       const bytes = new Uint8Array(await res.arrayBuffer())
       return { raw: { bytes, etag: res.headers.get('etag'), fetchedAt: now } }
     } catch (e) {
       return { error: errorMessage(e) }
+    } finally {
+      clearTimeout(timer)
     }
   }
 
@@ -442,9 +453,16 @@ export class HubCore {
       if (p == null) return
       parts.push(p)
     }
-    if (parts.length > 0) {
-      this.snapshotJson = parts.join('')
-      this.snapshot = JSON.parse(this.snapshotJson) as RtSnapshot
+    let json = parts.length > 0 ? parts.join('') : null
+    if (!json && this.d.r2?.get) {
+      const ptr = await this.d.r2.get(R2_LATEST_KEY)
+      const key = ptr ? ((JSON.parse(await ptr.text()) as R2Pointer).key ?? null) : null
+      const obj = key ? await this.d.r2.get(key) : null
+      json = obj ? await obj.text() : null
+    }
+    if (json) {
+      this.snapshotJson = json
+      this.snapshot = JSON.parse(json) as RtSnapshot
       this.alerts = this.snapshot.alerts
     }
   }

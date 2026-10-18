@@ -41,6 +41,10 @@ class FakeR2 {
     this.ops.push(`delete:${key}`)
     this.files.delete(key)
   }
+  async get(key: string) {
+    const b = this.files.get(key)
+    return b ? { text: async () => new TextDecoder().decode(b) } : null
+  }
 }
 
 const TU = 'TripUpdates/Ferry'
@@ -371,6 +375,17 @@ describe('RtHub R2 publish', () => {
     const b = await pullFromR2(src, seq)
     expect(b.json).toBeNull()
     expect(src.reads.length - reads).toBe(1) // only the pointer
+  })
+
+  it('keeps the snapshot only in R2 (not DO storage) and restores it from R2 after a restart', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    expect([...h.storage.data.keys()].some((k) => k.startsWith('snap:'))).toBe(false)
+    const before = await h.hub.pull(null)
+    const after = await h.mk().pull(null)
+    expect(after.seq).toBe(before.seq)
+    expect(after.json).toBe(before.json)
   })
 
   it('deletes the snapshot from R2_KEEP_SNAPSHOTS cycles ago', async () => {
