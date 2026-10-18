@@ -71,19 +71,21 @@ test.describe('phone width 360 px, longest stop names (F1)', () => {
 test.describe('offline (F3)', () => {
   test('requests failing while the browser still says online: the banner shows at once, no LIVE', async ({
     page,
+    context,
   }) => {
     await remember(page, { id: '317584', name: 'Bulimba' }, { id: '317590', name: 'Riverside' })
     await page.goto('/')
     const board = page.locator('[data-board=outbound]')
     await expect(board.locator('[data-badge=live]').first()).toBeVisible()
     // Lie-fi: navigator.onLine stays true, but the API can't be reached.
-    await page.route('**/v1/**', (route) => route.abort('internetdisconnected'))
+    // context.route also covers the service worker's own network requests.
+    await context.route('**/v1/**', (route) => route.abort('internetdisconnected'))
     await page.getByRole('button', { name: 'Refresh' }).click()
     await expect(page.getByText('Offline · scheduled')).toBeVisible({ timeout: 3_000 })
     await expect(board.locator('[data-badge=live]')).toHaveCount(0)
     await expect(page.getByText('OFFLINE', { exact: true })).toBeVisible()
     // Back: the next successful request clears it.
-    await page.unroute('**/v1/**')
+    await context.unroute('**/v1/**')
     await page.getByRole('button', { name: 'Refresh' }).click()
     await expect(page.getByText('Offline · scheduled')).toBeHidden()
     await expect(board.locator('[data-badge=live]').first()).toBeVisible()

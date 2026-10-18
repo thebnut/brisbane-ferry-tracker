@@ -7,9 +7,10 @@
  *    start), never a status on today's line.
  *  - An alert that touches at least NETWORK_SHARE of the lines is network-wide ("Reduced train timetables" names every
  *    route): shown once as a network notice, not as a chip on each line.
- *  - Red "Disruption" is for no service, SEVERE alerts and unplanned causes (accident, breakdown, weather, police,
- *    medical, protest). TransLink tags every planned track closure REDUCED_SERVICE, so a planned or reduced service is
- *    amber ("Planned works" / "Reduced service"), not red.
+ *  - Red is for no service, SEVERE alerts, and service cut or rerouted (REDUCED_SERVICE, DETOUR, MODIFIED_SERVICE)
+ *    by an unplanned cause (accident, breakdown, weather, police, medical, protest). TransLink tags every planned
+ *    track closure REDUCED_SERVICE, so a planned or reduced service is amber ("Planned works" / "Reduced service").
+ *    Platform changes and delays stay amber whatever caused them.
  */
 import type { Alert } from '@bft/core/contract'
 import type { LineHealth } from '@bft/ui'
@@ -56,8 +57,8 @@ const UNPLANNED = new Set([
   'MEDICAL_EMERGENCY',
   'DEMONSTRATION',
 ])
-/** Effects that never stop or slow a train. */
-const BENIGN = new Set(['ACCESSIBILITY_ISSUE', 'ADDITIONAL_SERVICE', 'STOP_MOVED'])
+/** Effects that cut or reroute service. */
+const CUT = new Set(['REDUCED_SERVICE', 'DETOUR', 'MODIFIED_SERVICE'])
 const PLANNED = new Set(['MAINTENANCE', 'CONSTRUCTION'])
 const WEEKEND = /\bweekend\b|\bsaturday\b|\bsunday\b/
 
@@ -67,11 +68,11 @@ export function healthOf(a: Alert): { status: LineHealth; text?: string } {
   const cause = a.cause ?? ''
   const text = `${a.header} ${a.description ?? ''}`.toLowerCase()
   if (effect === 'NO_SERVICE') return { status: 'major', text: 'No trains' }
-  if (a.severity === 'SEVERE' || (UNPLANNED.has(cause) && !BENIGN.has(effect)))
-    return { status: 'major', text: 'Disruption' }
+  if (a.severity === 'SEVERE') return { status: 'major', text: 'Disruption' }
   if (/platform/.test(text) && /change|leave from|depart from/.test(text))
     return { status: 'minor', text: 'Platform change' }
   if (effect === 'SIGNIFICANT_DELAYS' || /delay/.test(text)) return { status: 'minor', text: 'Minor delays' }
+  if (UNPLANNED.has(cause) && CUT.has(effect)) return { status: 'major', text: 'Disruption' }
   const works = PLANNED.has(cause) || /track|closure|works|replace/.test(text)
   if (works || effect === 'MODIFIED_SERVICE')
     return { status: 'works', text: WEEKEND.test(text) ? 'Weekend works' : 'Planned works' }

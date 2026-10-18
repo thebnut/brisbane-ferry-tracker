@@ -5,7 +5,7 @@ const watchErrors = (page: Page) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   page.on('console', (m) => {
-    // Empty geohash cells are 404s by design; map tiles can fail offline.
+    // Map tiles can fail offline. (Empty geohash cells are empty tiles, not 404s, since smoke test X2.)
     if (m.type() === 'error' && !/openfreemap|tiles|Failed to load resource/i.test(m.text()))
       errors.push(m.text())
   })

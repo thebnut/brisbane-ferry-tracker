@@ -106,7 +106,9 @@ describe('line status with the live alerts of 18 Oct (T3)', () => {
       status: 'major',
       text: 'Disruption',
     })
-    expect(healthOf(alert({ effect: 'SIGNIFICANT_DELAYS', cause: 'ACCIDENT' })).status).toBe('major')
+    expect(healthOf(alert({ effect: 'DETOUR', cause: 'ACCIDENT' })).status).toBe('major')
+    // Delays and platform changes stay amber whatever caused them.
+    expect(healthOf(alert({ effect: 'SIGNIFICANT_DELAYS', cause: 'ACCIDENT' })).status).toBe('minor')
     expect(healthOf(alert({ effect: 'REDUCED_SERVICE', severity: 'SEVERE' })).status).toBe('major')
     expect(healthOf(alert({ effect: 'NO_SERVICE', cause: 'MAINTENANCE' })).text).toBe('No trains')
     // A lift outage is not a train disruption, whatever caused it.

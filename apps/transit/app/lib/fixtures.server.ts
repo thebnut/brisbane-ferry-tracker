@@ -56,7 +56,7 @@ export function fixtureData(path: string): Response | null {
   const stops = STOPS[mode]
     .filter((s) => geohashEncode(s.lat, s.lon, 5) === m[3])
     .map(({ key, name, code, lat, lon }) => (code ? { key, name, code, lat, lon } : { key, name, lat, lon }))
-  if (!stops.length) return new Response('Not found', { status: 404 })
+  // An empty cell is an empty tile, as the API answers it (X2).
   return json({ ...base, geohash: m[3], stops } satisfies GeoTileFile)
 }
 

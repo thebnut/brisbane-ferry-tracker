@@ -4,7 +4,7 @@
  * "Online" means the browser says so (navigator.onLine and its online/offline events) AND the last API call reached
  * the network. A call counts as failed when fetch() throws, when the service worker answered from its cache (its data
  * caches mark those responses, see `markCacheHits`), or when it is still unanswered after `SLOW_REQUEST_MS` (lie-fi).
- * The next call that reaches the network clears it.
+ * The next call that reaches the network clears it, and so does the browser's own "online" event.
  */
 import { useSyncExternalStore } from 'react'
 
@@ -44,12 +44,17 @@ export function isOnline(): boolean {
   return navigator.onLine !== false && !unreachable
 }
 
+/** The browser says it is back online: trust it until a request fails again (the next poll checks at once). */
+const onBrowserOnline = () => setUnreachable(false)
+
 function subscribe(onChange: () => void) {
+  if (listeners.size === 0) window.addEventListener('online', onBrowserOnline)
   listeners.add(onChange)
   window.addEventListener('online', onChange)
   window.addEventListener('offline', onChange)
   return () => {
     listeners.delete(onChange)
+    if (listeners.size === 0) window.removeEventListener('online', onBrowserOnline)
     window.removeEventListener('online', onChange)
     window.removeEventListener('offline', onChange)
   }
