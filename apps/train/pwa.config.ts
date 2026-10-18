@@ -1,12 +1,12 @@
 /**
- * PWA (vite-plugin-pwa 2 / Workbox): installable manifest, precached app shell (JS, CSS, icons, the station and
- * line data) and runtime caches so a visitor who goes offline still sees their stations' timetables:
+ * PWA (vite-plugin-pwa 2 / Workbox; the service worker is app/sw.ts): installable manifest, precached app shell
+ * (JS, CSS, icons, the station and line data) and runtime caches so a visitor who goes offline still sees their
+ * stations' timetables:
  *  - pages: network first, fall back to the last server-rendered copy
  *  - /v1/train departures and trips: network first (4 s timeout), keep today's responses for 24 h
  * The full-day timetable for favourites is kept separately in localStorage (app/lib/offline.ts).
  * Map tiles are not cached (OpenFreeMap's terms and size).
  */
-import { markCachedPages, markCacheHits } from '@bft/ui/connectivity'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export function pwa() {
@@ -32,40 +32,18 @@ export function pwa() {
         { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
       ],
     },
-    workbox: {
+    // Our own service worker (app/sw.ts) with Workbox bundled in: generateSW loaded the Workbox runtime with
+    // importScripts, which could fail and leave the page unstyled offline (R3-F1).
+    strategies: 'injectManifest',
+    srcDir: 'app',
+    filename: 'sw.ts',
+    injectManifest: {
       globDirectory: 'build/client',
       globPatterns: ['assets/*.{js,css,svg}', '*.{png,ico,svg}', 'data/train/*.json'],
       // MapLibre (lazy chunk) is large; leave it to the HTTP cache.
       globIgnores: ['assets/maplibre*', 'assets/MapView*'],
       maximumFileSizeToCacheInBytes: 600 * 1024,
-      navigateFallback: null,
-      cleanupOutdatedCaches: true,
-      clientsClaim: true,
-      skipWaiting: true,
-      runtimeCaching: [
-        {
-          urlPattern: ({ request, url }) => request.mode === 'navigate' && !url.pathname.startsWith('/__'),
-          handler: 'NetworkFirst',
-          options: {
-            cacheName: 'train-pages',
-            // Pages served from this cache never claim LIVE before a live call confirms it (R2-T7).
-            plugins: [markCachedPages],
-            networkTimeoutSeconds: 4,
-            expiration: { maxEntries: 40, maxAgeSeconds: 7 * 24 * 3600 },
-          },
-        },
-        {
-          urlPattern: ({ url }) => /^\/(__fixtures\/)?v1\/train\/(stops|trips)\//.test(url.pathname),
-          handler: 'NetworkFirst',
-          options: {
-            cacheName: 'train-data',
-            // Responses served from this cache are marked so the page shows them as offline, not live.
-            plugins: [markCacheHits],
-            networkTimeoutSeconds: 4,
-            expiration: { maxEntries: 120, maxAgeSeconds: 24 * 3600 },
-          },
-        },
-      ],
+      rollupFormat: 'iife',
     },
   })
 }

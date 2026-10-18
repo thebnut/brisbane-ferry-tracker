@@ -15,7 +15,8 @@ export async function waitForServiceWorker(page: Page, pagesCache: string, timeo
       return (await (await caches.open(name)).keys()).some((r) => r.url === location.href)
     }, pagesCache)
     if (ready) return
-    if (Date.now() > deadline) throw new Error(`service worker not ready with ${pagesCache} after ${timeout} ms`)
+    if (Date.now() > deadline)
+      throw new Error(`service worker not ready with ${pagesCache} after ${timeout} ms`)
     await page.waitForTimeout(250)
   }
 }
@@ -36,16 +37,19 @@ export async function goOffline(context: BrowserContext): Promise<() => Promise<
 
 /** LIVE and GPS claims a person can see (badges, pills, a bare "LIVE" label). */
 export const visibleLiveClaims = (page: Page) =>
-  page.evaluate(
-    () =>
-      [...document.querySelectorAll<HTMLElement>('[data-live-claim], [data-badge=live], [data-badge=gps], span')]
-        .filter(
-          (el) =>
-            el.matches('[data-live-claim], [data-badge=live], [data-badge=gps]') ||
-            (el.childElementCount === 0 && el.textContent?.trim() === 'LIVE'),
-        )
-        .filter((el) => el.checkVisibility())
-        .map((el) => el.outerHTML.slice(0, 100)),
+  page.evaluate(() =>
+    [
+      ...document.querySelectorAll<HTMLElement>(
+        '[data-live-claim], [data-badge=live], [data-badge=gps], span',
+      ),
+    ]
+      .filter(
+        (el) =>
+          el.matches('[data-live-claim], [data-badge=live], [data-badge=gps]') ||
+          (el.childElementCount === 0 && el.textContent?.trim() === 'LIVE'),
+      )
+      .filter((el) => el.checkVisibility())
+      .map((el) => el.outerHTML.slice(0, 100)),
   )
 
 /** The body's font comes from the app stylesheet (the browser default is a serif): the page is styled. */

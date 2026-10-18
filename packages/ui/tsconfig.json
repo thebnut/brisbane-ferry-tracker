@@ -2,14 +2,7 @@
   "extends": "@bft/config/tsconfig.react.json",
   "compilerOptions": {
     "allowImportingTsExtensions": true,
-    "types": [
-      "vitest/globals"
-    ]
+    "types": ["vitest/globals"]
   },
-  "include": [
-    "src",
-    "test",
-    "*.d.ts",
-    "e2e"
-  ]
+  "include": ["src", "test", "*.d.ts", "e2e"]
 }

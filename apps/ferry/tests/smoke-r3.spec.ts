@@ -50,7 +50,7 @@ test.describe('R3-F1: offline loads after the first visit', () => {
     await page.evaluate(async () => {
       const cache = await caches.open('ferry-pages')
       const res = await cache.match(location.href)
-      const html = (await res!.text())
+      const html = ((await res?.text()) ?? '')
         .replace(/\/assets\/root-[^"]+\.css/g, '/assets/root-0ldBu1ld.css')
         .replace(/\/assets\/entry\.client-[^"]+\.js/g, '/assets/entry.client-0ldBu1ld.js')
       await cache.put(location.href, new Response(html, { headers: { 'content-type': 'text/html' } }))

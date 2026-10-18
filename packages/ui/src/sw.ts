@@ -16,7 +16,7 @@ import { ExpirationPlugin } from 'workbox-expiration'
 import { cleanupOutdatedCaches, getCacheKeyForURL, precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
-import { markCacheHits, markCachedPages } from './connectivity.ts'
+import { markCachedPages, markCacheHits } from './connectivity.ts'
 
 interface CacheSpec {
   cacheName: string
@@ -71,12 +71,20 @@ export function usablePageCopy(isPrecached: (url: string) => boolean) {
   }
 }
 
-const escapeHtml = (s: string) =>
-  s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
 /** Policy for the offline page: no script at all, styles from this origin and its own <style>. */
-export const OFFLINE_PAGE_CSP =
-  "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'"
+export const OFFLINE_PAGE_CSP = [
+  "default-src 'self'",
+  "script-src 'none'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self' data:",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+].join('; ')
 
 /**
  * A styled offline page for a page this device has no usable copy of. It uses the app's precached stylesheet (fonts,
@@ -96,7 +104,23 @@ export function offlinePage({
 }): string {
   const links = stylesheets.map((h) => `<link rel="stylesheet" href="${escapeHtml(h)}">`).join('')
   const name = escapeHtml(appName)
-  return `<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta http-equiv="refresh" content="30"><title>Offline | ${name}</title>${links}<style>body{margin:0;font-family:"Inter Variable",Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f2937;background:#fff}main{max-width:32rem;margin:0 auto;padding:2.5rem 1rem}h1{font-size:1.25rem;margin:0 0 .75rem;padding-bottom:.5rem;border-bottom:3px solid ${escapeHtml(themeColor)}}p{line-height:1.5;margin:.5rem 0}[data-banner]{display:inline-block;font-weight:600;font-size:.875rem;padding:.25rem .625rem;border-radius:999px;background:#f3f4f6;color:#374151}a{color:inherit;font-weight:600}</style></head><body><main data-offline-page=""><p data-banner="offline">Offline</p><h1>${name}</h1><p>You are offline, and this page isn't saved on this device yet.</p><p>Pages you have opened before still open offline, with their timetable times.</p><p><a href="${escapeHtml(path)}">Try again</a> · <a href="/">Home</a></p></main></body></html>`
+  const style = [
+    'body{margin:0;font-family:"Inter Variable",Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f2937;background:#fff}',
+    'main{max-width:32rem;margin:0 auto;padding:2.5rem 1rem}',
+    `h1{font-size:1.25rem;margin:0 0 .75rem;padding-bottom:.5rem;border-bottom:3px solid ${escapeHtml(themeColor)}}`,
+    'p{line-height:1.5;margin:.5rem 0}',
+    '[data-banner]{display:inline-block;font-weight:600;font-size:.875rem;padding:.25rem .625rem;border-radius:999px;background:#f3f4f6;color:#374151}',
+    'a{color:inherit;font-weight:600}',
+  ].join('')
+  return [
+    '<!doctype html><html lang="en-AU"><head><meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
+    `<meta http-equiv="refresh" content="30"><title>Offline | ${name}</title>${links}<style>${style}</style></head>`,
+    `<body><main data-offline-page=""><p data-banner="offline">Offline</p><h1>${name}</h1>`,
+    "<p>You are offline, and this page isn't saved on this device yet.</p>",
+    '<p>Pages you have opened before still open offline, with their timetable times.</p>',
+    `<p><a href="${escapeHtml(path)}">Try again</a> · <a href="/">Home</a></p></main></body></html>`,
+  ].join('')
 }
 
 export function startServiceWorker(config: ServiceWorkerConfig): void {
@@ -187,7 +211,8 @@ async function refreshPages(cacheName: string): Promise<void> {
   await Promise.allSettled(
     requests.map(async (req) => {
       const res = await fetch(req.url, { credentials: 'same-origin', cache: 'no-store' })
-      if (res.ok && (res.headers.get('content-type') ?? '').includes('text/html')) await cache.put(req.url, res)
+      if (res.ok && (res.headers.get('content-type') ?? '').includes('text/html'))
+        await cache.put(req.url, res)
     }),
   )
 }
