@@ -74,6 +74,19 @@ export function pairForTerminal(terminal: Terminal, saved: StopPair | null): Sto
   return normalisePair({ outbound: origin, inbound: destination })
 }
 
+/**
+ * The pair a deep link asks for (`?from=<stopId>&to=<stopId>`, R3-F2), checked against the known terminals and their
+ * direct connections: an unknown origin is ignored (null); a missing or unreachable destination keeps the fallback
+ * pair's destination when the origin reaches it, otherwise the origin's first destination.
+ */
+export function pairFromParams(params: URLSearchParams, fallback: StopPair): StopPair | null {
+  const origin = terminalById(params.get('from') ?? '')
+  if (!origin) return null
+  const to = params.get('to')
+  const wanted = to && origin.destinations.includes(to) ? to : fallback.inbound.id
+  return normalisePair({ outbound: choice(origin), inbound: { id: wanted, name: '' } })
+}
+
 /** Change the origin, keeping the destination when still reachable (legacy handleTemporaryOriginChange). */
 export function withOrigin(pair: StopPair, originId: string): StopPair {
   const t = terminalById(originId)

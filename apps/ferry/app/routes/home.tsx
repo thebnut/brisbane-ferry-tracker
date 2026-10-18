@@ -5,13 +5,16 @@ import { validateDepartures } from '../lib/contract.server.ts'
 import { HOME_META, homeJsonLd, pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
 import { pairFromCookie } from '../lib/storage.ts'
-import { DEFAULT_STOPS } from '../lib/terminals.ts'
+import { DEFAULT_STOPS, pairFromParams } from '../lib/terminals.ts'
 import type { Route } from './+types/home'
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const { fixtures, rt, fetcher, env, fallback } = loaderEnv(request, context)
   // The saved pair travels in a cookie so its rows are in the HTML; first visits get the default pair.
-  const pair = pairFromCookie(request.headers.get('cookie')) ?? DEFAULT_STOPS
+  const saved = pairFromCookie(request.headers.get('cookie')) ?? DEFAULT_STOPS
+  // A deep link (?from=&to=) opens that pair for this visit without replacing the saved one (R3-F2).
+  const linked = pairFromParams(new URL(request.url).searchParams, saved)
+  const pair = linked ?? saved
   const [outbound, inbound] = await Promise.all([
     settle((signal) =>
       fetchDepartures(fetcher, pair.outbound.id, pair.inbound.id, { signal, validate: validateDepartures }),
@@ -22,6 +25,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   ])
   return {
     pair,
+    deepLink: linked != null,
     outbound,
     inbound,
     renderedAt: Date.now(),
@@ -48,6 +52,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     <>
       <FerryBoards
         pair={loaderData.pair}
+        deepLink={loaderData.deepLink}
         outbound={loaderData.outbound}
         inbound={loaderData.inbound}
         renderedAt={loaderData.renderedAt}

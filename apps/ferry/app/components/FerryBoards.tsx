@@ -62,6 +62,8 @@ export interface FerryBoardsProps {
   mode: DataMode
   /** Terminal pages fix the origin and never open the selector on load. */
   terminalPage?: boolean
+  /** The pair came from a ?from=&to= link: keep it (not the saved pair) and don't open the selector (R3-F2). */
+  deepLink?: boolean
   children?: ReactNode
 }
 
@@ -82,6 +84,7 @@ export function FerryBoards({
   renderedAt,
   mode,
   terminalPage,
+  deepLink,
   children,
 }: FerryBoardsProps) {
   const [pair, setPair] = useState(serverPair)
@@ -96,7 +99,7 @@ export function FerryBoards({
 
   // After hydration: saved pair (home only), first-visit selector, session "Depart from", fixture cookie.
   useEffect(() => {
-    if (!terminalPage) {
+    if (!terminalPage && !deepLink) {
       const saved = readSavedPair()
       if (
         saved &&
@@ -112,7 +115,7 @@ export function FerryBoards({
     setDepartAt(readDepartAt())
     // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is not in Safari; this is a plain preference cookie.
     document.cookie = `${FIXTURE_COOKIE}=${mode.fixtures ? '1' : '0'}; path=/; samesite=lax`
-  }, [terminalPage, serverPair, mode.fixtures])
+  }, [terminalPage, deepLink, serverPair, mode.fixtures])
 
   const same = (a: StopPair, b: StopPair) => a.outbound.id === b.outbound.id && a.inbound.id === b.inbound.id
   const useInitial = same(pair, serverPair) && departAt == null
