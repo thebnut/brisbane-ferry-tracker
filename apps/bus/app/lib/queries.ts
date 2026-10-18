@@ -47,7 +47,8 @@ export function useFetcher(mode: DataMode): ApiFetcher {
   return useMemo(() => browserFetcher(mode), [mode])
 }
 
-const offline = () => typeof navigator !== 'undefined' && !navigator.onLine
+// Browser only: workerd has a `navigator` without `onLine`, which must not read as offline during SSR.
+const offline = () => typeof window !== 'undefined' && navigator.onLine === false
 
 /** Keep a longer timetable for a saved stop, so it still shows scheduled times offline. */
 async function refreshOfflineCopy(fetcher: ApiFetcher, stopId: string) {
@@ -60,6 +61,36 @@ async function refreshOfflineCopy(fetcher: ApiFetcher, stopId: string) {
   }
 }
 
+/**
+ * Offline view of a stop: the longer saved timetable copy when there is one (else the given response), as
+ * scheduled-only rows (no live estimates or GPS), without departures that have already gone. Copies were
+ * contract-checked by the proxy when first fetched.
+ */
+export function asOfflineTimetable(
+  stopId: string,
+  res: DeparturesResponse | null,
+  nowMs: number,
+): DeparturesResponse | null {
+  const copy = readOffline(stopId)?.body as DeparturesResponse | undefined
+  const base = Array.isArray(copy?.departures) ? copy : res
+  if (!base) return null
+  const cutoff = nowMs / 1000 - 60
+  return {
+    ...base,
+    rtState: 'unavailable',
+    rtSourceTimestamp: null,
+    departures: base.departures
+      .filter((d) => d.schedDep >= cutoff)
+      .map((d) => ({
+        ...d,
+        status: d.status === 'cancelled' ? d.status : 'scheduled',
+        estDep: null,
+        estArrTo: null,
+        gps: false,
+      })),
+  }
+}
+
 export function departuresOptions(
   fetcher: ApiFetcher,
   mode: DataMode,
@@ -68,28 +99,26 @@ export function departuresOptions(
 ) {
   return {
     queryKey: ['departures', mode.fixtures, mode.rt, stopId] as const,
-    queryFn: async ({ signal }: { signal: AbortSignal }) => {
+    queryFn: async ({ signal }: { signal: AbortSignal }): Promise<DeparturesResponse> => {
       try {
         const res = await fetchDepartures(fetcher, stopId, { signal })
-        if (isSaved(stopId)) void refreshOfflineCopy(fetcher, stopId)
-        return res
+        if (!offline()) {
+          if (isSaved(stopId)) void refreshOfflineCopy(fetcher, stopId)
+          return res
+        }
+        // Offline but the service worker answered from its cache: never show those stale live estimates.
+        return asOfflineTimetable(stopId, res, Date.now()) ?? res
       } catch (error) {
-        // Offline with no cached response from the service worker: fall back to the saved timetable copy, minus
-        // the departures that have already gone. It was contract-checked by the proxy when first fetched.
-        const copy = readOffline(stopId)?.body as DeparturesResponse | undefined
-        if (offline() && Array.isArray(copy?.departures)) {
-          const nowS = Date.now() / 1000 - 60
-          return {
-            ...copy,
-            rtState: 'unavailable' as const,
-            departures: copy.departures
-              .filter((d) => d.schedDep >= nowS)
-              .map((d) => ({ ...d, status: 'scheduled' as const, estDep: null, gps: false })),
-          }
+        // Offline with no cached response: fall back to the saved timetable copy.
+        if (offline()) {
+          const fallback = asOfflineTimetable(stopId, null, Date.now())
+          if (fallback) return fallback
         }
         throw error
       }
     },
+    // Re-derive on every render while offline, so departed buses drop off as time passes.
+    select: (d: DeparturesResponse) => (offline() ? (asOfflineTimetable(stopId, d, Date.now()) ?? d) : d),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
     refetchInterval: POLL_MS,

@@ -126,11 +126,61 @@ test('nearby from a position, including stops across the tile edge', async ({ pa
 })
 
 test('route page lists stops and live buses', async ({ page }, testInfo) => {
+  const errors = watchErrors(page)
   await page.goto('/route/M2')
   await expect(page.getByRole('heading', { name: 'Route M2', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: /Stops towards/ })).toBeVisible()
   await expect(page.getByRole('heading', { name: /buses? on route M2/ })).toBeVisible()
+  await expect(page.getByRole('region', { name: /Map of route stops/ })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('route.png') })
+  // The map is client-only: no hydration mismatch from the server's MapLibre stub (Codex review).
+  expect(errors).toEqual([])
+})
+
+test('map page hydrates cleanly and shows stops', async ({ page }) => {
+  const errors = watchErrors(page)
+  await page.goto('/map?lat=-27.4732&lon=153.0195')
+  await expect(page.getByRole('region', { name: /Map of \d+ bus stops/ })).toBeVisible()
+  await expect(page.getByRole('region', { name: /Map of [1-9]\d* bus stops/ })).toBeVisible({
+    timeout: 15_000,
+  })
+  expect(errors).toEqual([])
+})
+
+test('malformed preference cookies do not break SSR', async ({ page }) => {
+  await page.goto('/about')
+  await page.context().addCookies([{ name: 'bft_theme', value: '%E0%A4%A', url: page.url() }])
+  const res = await page.goto('/stop/10802')
+  expect(res?.status()).toBe(200)
+  await expect(page.getByTestId('departure').first()).toBeVisible()
+})
+
+test('a saved stop opens offline from My stops with its saved timetable', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'service worker flow checked once')
+  await page.goto('/stop/19051')
+  await page.getByRole('button', { name: /Save Mater Hill/ }).click()
+  // Let the service worker take control, then visit home and the stop once online (caches page + .data).
+  await page.waitForFunction(async () => !!(await navigator.serviceWorker?.ready)?.active, null, {
+    timeout: 15_000,
+  })
+  await page.reload()
+  await page.goto('/')
+  await page
+    .getByRole('link', { name: /Mater Hill station, platform 1/ })
+    .first()
+    .click()
+  await expect(page.getByTestId('departure').first()).toBeVisible()
+  await page.goto('/')
+  await page.context().setOffline(true)
+  await page
+    .getByRole('link', { name: /Mater Hill station, platform 1/ })
+    .first()
+    .click()
+  await expect(page).toHaveURL(/\/stop\/19051/)
+  await expect(page.locator('[data-banner=offline]')).toBeVisible()
+  await expect(page.getByTestId('departure').first()).toBeVisible()
+  await expect(page.locator('[data-status=live]')).toHaveCount(0)
+  await page.context().setOffline(false)
 })
 
 test('alerts page shows detours first', async ({ page }, testInfo) => {

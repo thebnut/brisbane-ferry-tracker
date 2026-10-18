@@ -6,6 +6,7 @@
 import { occupancyText, RouteTile, routeTileVariant, SegmentedControl } from '@bft/ui'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { data, Link, useSearchParams } from 'react-router'
+import { ClientOnly } from '../components/ClientOnly.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute } from '../lib/api.ts'
 import { validateRoute } from '../lib/contract.server.ts'
@@ -112,15 +113,21 @@ export default function RoutePage({ loaderData }: Route.ComponentProps) {
           />
         ) : null}
         <DataBanner rtState={vehiclesQ.data?.rtState} hasData generation={vehiclesQ.data?.staticGeneration} />
-        <Suspense fallback={<div className="h-80 animate-pulse rounded-card bg-map-ground" />}>
-          <RouteMap
-            pattern={pattern}
-            vehicles={buses.map((b) => b.v)}
-            selectedTrip={trip}
-            color={route.color}
-            variant={variant}
-          />
-        </Suspense>
+        <ClientOnly fallback={<div className="h-80 animate-pulse rounded-card bg-map-ground md:h-[28rem]" />}>
+          {() => (
+            <Suspense
+              fallback={<div className="h-80 animate-pulse rounded-card bg-map-ground md:h-[28rem]" />}
+            >
+              <RouteMap
+                pattern={pattern}
+                vehicles={buses.map((b) => b.v)}
+                selectedTrip={trip}
+                color={route.color}
+                variant={variant}
+              />
+            </Suspense>
+          )}
+        </ClientOnly>
         <section
           aria-labelledby="buses"
           className="rounded-t-[22px] border-t border-ferry-orange/20 bg-white/97 px-4 pt-3 pb-2 shadow-[0_-8px_24px_rgb(0_0_0/0.08)] dark:bg-night-2"

@@ -1,6 +1,6 @@
 /**
  * PWA (vite-plugin-pwa 2 / Workbox): installable manifest, precached app shell, and runtime caches:
- *  - pages: network first, fall back to the last server-rendered copy (saved stops open offline)
+ *  - pages and their `.data` loader requests: network first, fall back to the last copy (saved stops open offline)
  *  - /v1/bus departures and trips: network first (4 s timeout), keep for 24 h
  *  - /data/bus/stops.json and lines.json: stale-while-revalidate (the search index is fetched once, then instant)
  *  - /data/bus/geo/*: stale-while-revalidate (nearby tiles you have used)
@@ -47,6 +47,17 @@ export function pwa() {
           handler: 'NetworkFirst',
           options: {
             cacheName: 'bus-pages',
+            networkTimeoutSeconds: 4,
+            expiration: { maxEntries: 40, maxAgeSeconds: 7 * 24 * 3600 },
+          },
+        },
+        {
+          // React Router client navigations fetch loader data from `<path>.data`; cache it like the pages so a
+          // saved stop opened from the offline home page still loads (its board then shows the offline timetable).
+          urlPattern: ({ url }) => url.pathname.endsWith('.data') && !url.pathname.startsWith('/__'),
+          handler: 'NetworkFirst',
+          options: {
+            cacheName: 'bus-route-data',
             networkTimeoutSeconds: 4,
             expiration: { maxEntries: 40, maxAgeSeconds: 7 * 24 * 3600 },
           },

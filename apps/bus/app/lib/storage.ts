@@ -142,7 +142,13 @@ export function getCookie(header: string | null, name: string): string | null {
   if (!header) return null
   for (const part of header.split(';')) {
     const [k, ...v] = part.trim().split('=')
-    if (k === name) return decodeURIComponent(v.join('='))
+    if (k !== name) continue
+    try {
+      return decodeURIComponent(v.join('='))
+    } catch {
+      // Malformed encoding: treat the cookie as absent.
+      return null
+    }
   }
   return null
 }

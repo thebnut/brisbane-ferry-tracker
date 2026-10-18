@@ -8,7 +8,7 @@ import {
 } from '@bft/core/contract'
 import { z } from 'zod'
 import { ApiError, type Validate } from './api.ts'
-import { dataSchemaForPath, LinesFile, RouteFile, StopIndexEntry, StopIndexFile } from './data-contract.ts'
+import { dataSchemaForPath, LinesFile, RouteFile, StopIndexFile } from './data-contract.ts'
 
 export function validator<S extends z.ZodType>(schema: S, what: string): Validate<z.infer<S>> {
   return (body) => {
@@ -24,13 +24,32 @@ export const validateAlerts = validator(AlertsResponse, 'alerts')
 export const validateLines = validator(LinesFile, 'lines')
 export const validateRoute = validator(RouteFile, 'route')
 
+const isStr = (v: unknown): v is string => typeof v === 'string'
+const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+
 /**
- * The 1.6 MB stop index is checked shallowly at the edge (envelope + the first 200 entries) so a proxied copy stays
- * inside the Workers Free 10 ms CPU budget; tests parse the whole file. Normally it is a static asset and never
- * reaches the Worker.
+ * Every StopIndexEntry field, checked by hand: zod over 12k entries costs tens of ms, too much for the Workers Free
+ * 10 ms CPU budget on a proxied copy (normally the file is a static asset and never reaches the Worker). Same rules
+ * as the zod schema, which the unit tests also run on the whole file.
  */
-export const ShallowStopIndex = StopIndexFile.extend({ stops: z.array(z.unknown()) }).refine(
-  (f) => z.array(StopIndexEntry).safeParse(f.stops.slice(0, 200)).success,
+export function isStopEntry(e: unknown): boolean {
+  if (!e || typeof e !== 'object') return false
+  const s = e as Record<string, unknown>
+  if (!isStr(s.key) || !isStr(s.name) || !isNum(s.lat) || !isNum(s.lon)) return false
+  if (s.code !== undefined && !isStr(s.code)) return false
+  if (!Array.isArray(s.routes) || !s.routes.every(isStr)) return false
+  if (s.platforms !== undefined) {
+    if (!Array.isArray(s.platforms)) return false
+    for (const p of s.platforms as unknown[]) {
+      const q = p as Record<string, unknown> | null
+      if (!q || !isStr(q.id) || (q.code !== undefined && !isStr(q.code))) return false
+    }
+  }
+  return true
+}
+
+export const FastStopIndex = StopIndexFile.extend({ stops: z.array(z.unknown()) }).refine(
+  (f) => f.stops.every(isStopEntry),
   'stop entries',
 )
 
@@ -40,7 +59,7 @@ export function schemaForPath(pathname: string): z.ZodType | null {
   if (/^\/v1\/[a-z]+\/trips\/[^/]+$/.test(pathname)) return TripResponse
   if (/^\/v1\/[a-z]+\/vehicles$/.test(pathname)) return VehiclesResponse
   if (pathname === '/v1/alerts') return AlertsResponse
-  if (/\/data\/bus\/stops\.json$/.test(pathname)) return ShallowStopIndex
+  if (/\/data\/bus\/stops\.json$/.test(pathname)) return FastStopIndex
   return dataSchemaForPath(pathname)
 }
 

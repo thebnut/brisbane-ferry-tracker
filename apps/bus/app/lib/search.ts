@@ -17,7 +17,7 @@ export interface SearchIndex {
 export function buildSearchIndex(entries: StopIndexEntry[]): SearchIndex {
   const byCode = new Map<string, number>()
   entries.forEach((e, i) => {
-    byCode.set(normaliseCode(e.code ?? e.key), i)
+    if (typeof e.code === 'string') byCode.set(normaliseCode(e.code), i)
     if (/^\d+$/.test(e.key)) byCode.set(normaliseCode(e.key), i)
   })
   const uf = new uFuzzy({

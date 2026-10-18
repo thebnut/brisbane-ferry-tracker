@@ -7,6 +7,7 @@ import { Icon, SegmentedControl } from '@bft/ui'
 import type { ViewBounds } from '@bft/ui/map'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
+import { ClientOnly } from '../components/ClientOnly.tsx'
 import { BusNav, DesktopNav, SiteHeader } from '../components/Shell.tsx'
 import { cellsCovering } from '../lib/geo.ts'
 import { useApi } from '../lib/mode.ts'
@@ -94,20 +95,24 @@ export default function MapPage() {
           </button>
         </div>
         <h1 className="sr-only">Bus stop map</h1>
-        <Suspense fallback={<div className="h-full w-full animate-pulse bg-map-ground" />}>
-          <MapView
-            key={geo.state === 'ok' ? 'located' : 'default'}
-            markers={me}
-            stops={stops}
-            onStopClick={(id) => navigate(stopPath(id))}
-            onViewChange={onView}
-            center={center}
-            zoom={15}
-            fitTo={[]}
-            label={`Map of ${stops.length} bus stops`}
-            className="h-full w-full bg-map-ground"
-          />
-        </Suspense>
+        <ClientOnly fallback={<div className="h-full w-full animate-pulse bg-map-ground" />}>
+          {() => (
+            <Suspense fallback={<div className="h-full w-full animate-pulse bg-map-ground" />}>
+              <MapView
+                key={geo.state === 'ok' ? 'located' : 'default'}
+                markers={me}
+                stops={stops}
+                onStopClick={(id) => navigate(stopPath(id))}
+                onViewChange={onView}
+                center={center}
+                zoom={15}
+                fitTo={[]}
+                label={`Map of ${stops.length} bus stops`}
+                className="h-full w-full bg-map-ground"
+              />
+            </Suspense>
+          )}
+        </ClientOnly>
         {scope === 'near' && zoomedOut ? (
           <p className="absolute inset-x-0 bottom-24 z-10 mx-auto w-fit rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-charcoal shadow-card md:bottom-6 dark:bg-night-card dark:text-night-text">
             Zoom in to see bus stops

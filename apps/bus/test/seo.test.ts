@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ShallowStopIndex, validateProxied } from '../app/lib/contract.server.ts'
+import { FastStopIndex, validateProxied } from '../app/lib/contract.server.ts'
 import {
   robotsTxt,
   routeShortsFromLinesText,
@@ -57,6 +57,9 @@ describe('stops and cookies', () => {
     expect(savedFromCookie(null)).toEqual([])
     expect(themeFromCookie('bft_theme=dark')).toBe('dark')
     expect(themeFromCookie('bft_theme=evil')).toBe('system')
+    // Malformed percent-encoding must not throw (it would 500 every SSR page).
+    expect(themeFromCookie('bft_theme=%E0%A4%A')).toBe('system')
+    expect(savedFromCookie('bft_bus_saved=%E0%A4%A')).toEqual([])
   })
 })
 
@@ -77,8 +80,18 @@ describe('edge contract check', () => {
       generation: 'g',
       stops: [{ key: '1', name: 'A', lat: 1, lon: 2, routes: [] }],
     }
-    expect(ShallowStopIndex.safeParse(ok).success).toBe(true)
-    expect(ShallowStopIndex.safeParse({ ...ok, stops: [{ key: 1 }] }).success).toBe(false)
+    expect(FastStopIndex.safeParse(ok).success).toBe(true)
+    expect(FastStopIndex.safeParse({ ...ok, stops: [{ key: 1 }] }).success).toBe(false)
+    // A bad entry anywhere fails, not just in the first few hundred (Codex review).
+    const many = Array.from({ length: 500 }, (_, i) => ({
+      key: String(i),
+      name: 'A',
+      lat: 1,
+      lon: 2,
+      routes: [],
+    }))
+    many[400] = { ...many[400], code: 5 } as never
+    expect(FastStopIndex.safeParse({ ...ok, stops: many }).success).toBe(false)
   })
   it('passes data 404s through (empty geo tiles)', async () => {
     const res = await validateProxied('/data/bus/geo/zzzzz.json', new Response('x', { status: 404 }))
