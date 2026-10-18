@@ -33,7 +33,7 @@ import { mayHaveStop, type StaticStore } from './data/static-store.ts'
 import { createLogger, errorMessage, type Logger } from './log.ts'
 import { FEED_MODE_SUFFIX, MODES } from './rt/feeds.ts'
 import type { SnapshotClient } from './snapshot-client.ts'
-import { stationsFor, tripStopPlatform } from './stations.ts'
+import { type Stations, stationsFor, tripStopPlatform } from './stations.ts'
 
 export interface AppDeps {
   store: StaticStore
@@ -138,14 +138,13 @@ export function createApp(deps: AppDeps): Hono<Env> {
 
     // Train: stopping patterns, plus every platform of the station so core can spot live platform changes
     // (`stationPlatforms`, added to MergeOptions by bft-train #42; ignored by older cores).
-    const stations =
-      mode === 'train' ? await stationsFor(deps.store, mode, generation).catch(() => null) : null
+    const stations = await stationsFor(deps.store, mode, generation).catch(() => null)
     const merge = (ds: StaticStopDay[]) => {
-      const stop = describeStop(ds, key)
+      const stop = describeStop(ds, key, stations)
       let to: DeparturesResponse['to'] = null
       let toStopIds: Set<string> | undefined
       if (toKey) {
-        const t = destinationStops(ds, toKey)
+        const t = destinationStops(ds, toKey, stations)
         toStopIds = t.ids
         to = { key: toKey, name: t.name ?? toKey }
       }
@@ -467,10 +466,14 @@ function envelope(
 
 const boarding = (n: number | undefined): 0 | 1 | 2 | 3 => (n === 1 || n === 2 || n === 3 ? n : 0)
 
-/** The stop's display name and every platform stop id it boards at. */
-function describeStop(days: StaticStopDay[], key: string): { name: string | null; ids: Set<string> } {
+/** The stop's display name (stop index first) and every platform stop id it boards at. */
+function describeStop(
+  days: StaticStopDay[],
+  key: string,
+  stations: Stations | null,
+): { name: string | null; ids: Set<string> } {
   const ids = new Set<string>()
-  let name: string | null = null
+  let name: string | null = stations?.names.get(key) ?? null
   for (const day of days) {
     for (const ev of day.events) {
       const s = day.stops[ev[6]]
@@ -483,15 +486,22 @@ function describeStop(days: StaticStopDay[], key: string): { name: string | null
   return { name, ids }
 }
 
-/** Destination stop ids for `to`: every downstream stop whose key (station slug) or id matches. */
-function destinationStops(days: StaticStopDay[], to: string): { name: string | null; ids: Set<string> } {
-  const ids = new Set<string>()
-  let name: string | null = null
+/**
+ * Destination stop ids for `to`: every platform the stop index lists for that station, plus any stop in the files
+ * whose key (station slug) or id matches. Downstream StopRefs may omit key and name, so the index comes first.
+ */
+function destinationStops(
+  days: StaticStopDay[],
+  to: string,
+  stations: Stations | null,
+): { name: string | null; ids: Set<string> } {
+  const ids = new Set<string>(stations?.platforms.get(to)?.keys() ?? [])
+  let name: string | null = stations?.names.get(to) ?? null
   for (const day of days) {
     for (const s of day.stops) {
       if (s.key === to || s.id === to) {
         ids.add(s.id)
-        name ??= s.name
+        name ??= s.name ?? null
       }
     }
   }

@@ -80,6 +80,7 @@ export function stopDays(day: TripIndexDay, stops: Map<string, StopRow>): Map<st
       routes: Map<number, number>
       heads: Map<string, number>
       stops: Map<string, number>
+      downstreams: Map<string, number>
     }
   >()
   const file = (key: string) => {
@@ -94,10 +95,17 @@ export function stopDays(day: TripIndexDay, stops: Map<string, StopRow>): Map<st
         routes: [],
         headsigns: [],
         stops: [],
+        downstreams: [],
         events: [],
       }
       out.set(key, f)
-      idx.set(f, { trips: new Map(), routes: new Map(), heads: new Map(), stops: new Map() })
+      idx.set(f, {
+        trips: new Map(),
+        routes: new Map(),
+        heads: new Map(),
+        stops: new Map(),
+        downstreams: new Map(),
+      })
     }
     return f
   }
@@ -145,7 +153,7 @@ export function stopDays(day: TripIndexDay, stops: Map<string, StopRow>): Map<st
         intern(ix.stops, f.stops, stopId, () => stopRef(stopId)),
         (pickup as 0 | 1 | 2 | 3) ?? 0,
         t.d,
-        ds,
+        intern(ix.downstreams, f.downstreams, ds.join(','), () => ds),
       ]
       f.events.push(ev)
     }

@@ -1,6 +1,6 @@
 /**
- * Train station platforms from `data/{mode}/stops.json` (StopIndexFile): which platform stop ids belong to a
- * station, and each platform's code. Used for live platform changes (bft-train, #42) on departures and trip detail.
+ * The stop index `data/{mode}/stops.json` (StopIndexFile): display names by stop key, and for stations which
+ * platform stop ids belong to them with each platform's code (live platform changes, bft-train #42).
  * Cached per manifest generation, since the path is rewritten in place each publish.
  */
 import type { Mode, RtStopUpdate, StopIndexFile } from '@bft/core'
@@ -8,6 +8,8 @@ import { readJson } from './data/source.ts'
 import type { StaticStore } from './data/static-store.ts'
 
 export interface Stations {
+  /** stop key → display name (StopRef.name is optional on downstream stops, so names come from here) */
+  names: Map<string, string>
   /** stationKey → (platform stop id → platform code) */
   platforms: Map<string, Map<string, string | undefined>>
   /** platform stop id → { stationKey, code } */
@@ -33,7 +35,9 @@ export function stationsFor(store: StaticStore, mode: Mode, generation: string):
 export function buildStations(file: StopIndexFile): Stations {
   const platforms = new Map<string, Map<string, string | undefined>>()
   const byStop = new Map<string, { stationKey: string; code: string | undefined }>()
+  const names = new Map<string, string>()
   for (const s of file.stops) {
+    names.set(s.key, s.name)
     const m = new Map<string, string | undefined>()
     for (const p of s.platforms ?? []) {
       m.set(p.id, p.code)
@@ -41,7 +45,7 @@ export function buildStations(file: StopIndexFile): Stations {
     }
     platforms.set(s.key, m)
   }
-  return { platforms, byStop }
+  return { names, platforms, byStop }
 }
 
 /**
