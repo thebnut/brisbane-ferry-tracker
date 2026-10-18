@@ -466,6 +466,72 @@ Sources:
 
 The archive's train files were 14–19 MB, and later hundreds of MB, because they enumerated every origin–destination pair over 7 days. Keying by stop, with downstream offsets per departure, removes that cross product. One day of the whole network is 11.5 MB gz spread across about 12.5k files, and any single request reads at most about 24 KB.
 
+### Phase 0 measurements: static pipeline
+
+Measured with `@bft/pipeline` (`pnpm --filter @bft/pipeline measure`) on the 17 Oct 2026 feed (feed version
+`20261017-20261216-3305c5ea`), service date D = Tuesday 20 Oct 2026, window D−1..D+6, final contract schema
+(`StaticStopDay` tuples with downstream arrival offsets, drop-off rules and seq deltas; StopRefs with names and
+platforms; RouteRefs with long names and colours). gz = fflate level 9 (deterministic across machines), br = brotli q11
+(measurement only). Apple-silicon Mac, Node 22.23.
+
+**Per stop-day file, one service day (D):**
+
+| Mode | Files | gz total | br total | br vs gz | median gz | p95 gz | max gz | gz, all 8 days |
+|---|---|---|---|---|---|---|---|---|
+| Ferry | 32 | 0.06 MB | 0.04 MB | −33% | 1.5 KB | 3.2 KB | 3.3 KB | 0.44 MB |
+| Train (per station) | 154 | 0.59 MB | 0.40 MB | −32% | 3.1 KB | 8.3 KB | 18.0 KB (Central) | 4.11 MB |
+| Tram | 55 | 0.13 MB | 0.07 MB | −43% | 2.3 KB | 2.7 KB | 4.3 KB | 1.05 MB |
+| Bus | 12,235 | 24.34 MB | 16.66 MB | −32% | 1.4 KB | 5.0 KB | 42.1 KB (Cultural Centre platform 2) | 175.86 MB |
+
+- The final schema is about 2× the earlier lower bounds (bus 24.3 MB vs 11.5 MB a day; train 0.59 MB vs 0.30 MB),
+  mostly from StopRef names (6.3 KB of the Cultural Centre file) and the drop-off/seq-delta half of each downstream
+  quadruple (about 10 KB there).
+- **Cultural Centre platform 2 misses the 30 KB target: 42.1 KB gz** (zlib −9: 40.9 KB; br: 24.5 KB). 1,435 boardings
+  × 18 downstream stops each. What would get it under 30 KB, measured on that file: dedupe identical downstream
+  vectors within the file (35.0 KB), plus omitting names on downstream-only StopRefs (about 29.5 KB), or the
+  pattern + trip-times layout below (21.6 KB + shared tables). Not changed in this phase: it alters the event tuple
+  the edge reads.
+- Files: 96,176 stop-day blobs + 32 trip indexes over 8 days, about 12,000 stop-days a day.
+- **Dedupe:** within one generation, 0%: every blob carries its `serviceDate`, so no two days share a blob.
+  Without that field (the index key already carries the date) 42,692 distinct blobs, 56% fewer. Dedupe across runs
+  works as designed: the next day's run on an unchanged feed writes only the new day plus changed files.
+- **R2 Class A per run** (measured by publishing into an empty target, then the next day's build into the same
+  store): first run 100,657 PUTs (382 MB); next-day run on the same feed 13,373 PUTs (13,020 new blobs, the rest
+  indexes, client data, manifests). About 400k a month: inside the 1M free tier, with room for a full feed change
+  (~100k) every week. The publisher never HEADs per object: what the bucket's own manifest already references is
+  skipped, so Class B is about 6 GETs a run.
+- **Storage growth:** about 75 MB a day of new blobs on an unchanged feed, about 600 MB for a full new feed. The
+  weekly GC (ADR-0002) is needed within about 3 months to stay under 10 GB; it isn't built yet (it deletes, so it
+  needs Brett's go-ahead).
+- **Generation index:** ferry 21 KB, train 90 KB, tram 35 KB raw; **bus 7.4 MB raw / 4.0 MB gz** (12k stops × 8
+  days × a 64-hex sha that doesn't compress; 0.9 MB per date). JSON.parse takes ~18 ms in Node on this Mac, so the
+  edge can't load the bus index per isolate on the Free plan's 10 ms CPU. Options: per-date index files (0.9 MB),
+  shorter content hashes (16 hex would halve it), or bus reads by shard (the shard array is 512 hashes per date, 33 KB
+  for all 8 days, and the bucket is computed with `shardOf(stopKey, count)` from `@bft/core`).
+- **Client data:** stops.json gz bus 313 KB, train 5.5 KB, ferry 1.1 KB, tram 1.5 KB; lines.json gz bus 66 KB,
+  train 3.8 KB, ferry 0.9 KB; geohash5 tiles bus 248, train 74, tram 7, ferry 10.
+- **Build:** whole network, 8 days, all modes: **68–70 s wall, 640–810 MB peak RSS** (from the zip, including
+  extraction and hashing). The next day's build into an existing store: 59 s. GitHub's runners are slower; expect
+  2–3 minutes, well inside the 7 GB runner.
+- **Validators:** MobilityData gtfs-validator 8.0.1 on this feed reports **no ERROR notices** (WARNING: duplicate
+  route names, colour contrast, missing recommended fields; INFO: 26 platforms without a parent station), in 9 s. CI
+  fails closed on any ERROR.
+
+**Layout benchmark (bus, one day):**
+
+| Layout | Files a day | Total gz | Mean bytes read per stop lookup | Largest read | Operating effort |
+|---|---|---|---|---|---|
+| Per-stop blobs (chosen) | 12,235 | 24.3 MB | 1.9 KB | 42.1 KB | One GET per board, immutable, no cross-file dependency; most files and Class A ops |
+| Grouped shards (512 a day) | 512 | 21.7 MB | 43.4 KB | 106.4 KB | Fits the 20k-file assets limit; 23× read amplification; a shard changes when any member does |
+| Pattern + trip-times | 12,235 + 2 shared | 7.1 MB | 0.6 KB + 156 KB shared tables | 21.6 KB + 156 KB | 3.4× smaller in total, but every board needs the day's pattern (56 KB) and time-profile (100 KB) tables: one more cache tier and a cross-file consistency rule |
+
+**Recommendation:** keep per-stop blobs on R2 (ADR-0002) for ferry, train and tram, and for bus reads from R2. Use
+the shards only where the file count binds (the assets fallback). Before Phase 6 (bus), fix the two bus-specific
+costs measured here: split the generation index per date (or read bus by shard), and adopt in-file downstream
+dedupe plus nameless downstream StopRefs to bring the busiest stop under 30 KB. Pattern + trip-times is the
+smallest, but the shared 156 KB tables per day per mode cost more on the edge (parse time against 10 ms CPU) than they
+save in storage, which is free at these sizes.
+
 ## 6. Cost model
 
 This was revised after Codex finding 9. The first draft assumed 10 requests per DAU, which implied only about 2 minutes of visible use a day.

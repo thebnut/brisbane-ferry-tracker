@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * bft-pipeline build   [--gtfs url|zip|dir] [--out dir] [--date YYYYMMDD] [--now ISO] [--modes ferry,train,tram,bus]
- *                      [--shards 512] [--previous-url URL] [--accept gen[,gen]] [--no-legacy]
- * bft-pipeline publish --from dir --target dir|assets|r2 [--to dir]
+ *                      [--shards 512] [--previous r2|uploader | --previous-url URL] [--accept gen[,gen]] [--no-legacy]
+ * bft-pipeline publish --from dir --target r2|uploader|dir|assets [--to dir|url] [--concurrency n]
  *
  * Exit codes: 0 published, 2 structural failure (nothing published), 3 quarantined (live manifest kept the
  * previous generation for the quarantined modes; the new one is in manifest.staging.json), 1 anything else.
@@ -13,7 +13,16 @@ import { ALL_MODES, DEFAULT_SHARDS, runBuild } from './build/build.ts'
 import { StructuralError } from './feed/load.ts'
 import { resolveFeed } from './feed/source.ts'
 import { publish } from './publish/publish.ts'
-import { AssetsTarget, DirTarget, HttpReader, type PublishTarget, R2Target } from './publish/targets.ts'
+import {
+  AssetsTarget,
+  DirTarget,
+  HttpReader,
+  type PublishTarget,
+  R2Target,
+  type Reader,
+  r2CredentialsFromApiToken,
+  UploaderTarget,
+} from './publish/targets.ts'
 import { StructuralFailure } from './validate/validators.ts'
 
 export const EXIT = { ok: 0, error: 1, structural: 2, quarantined: 3 } as const
@@ -37,6 +46,7 @@ async function build(args: string[]): Promise<number> {
       modes: { type: 'string' },
       shards: { type: 'string' },
       'previous-url': { type: 'string' },
+      previous: { type: 'string' },
       accept: { type: 'string' },
       'no-legacy': { type: 'boolean', default: false },
       'work-dir': { type: 'string' },
@@ -48,6 +58,11 @@ async function build(args: string[]): Promise<number> {
   const modes = values.modes ? (values.modes.split(',') as Mode[]) : ALL_MODES
   for (const m of modes) if (!ALL_MODES.includes(m)) throw new Error(`unknown mode ${m}`)
 
+  // Where the previous manifest and indexes live (for quarantine checks and manifest.previous): the publish target.
+  let previous: Reader | undefined
+  if (values['previous-url']) previous = new HttpReader(values['previous-url'])
+  else if (values.previous && values.previous !== 'out') previous = await remoteTarget(values.previous)
+
   const t0 = performance.now()
   const feed = await resolveFeed(values.gtfs, values['work-dir'])
   try {
@@ -58,7 +73,7 @@ async function build(args: string[]): Promise<number> {
       ...(values.date ? { date: values.date } : {}),
       modes,
       shards: values.shards ? Number(values.shards) : DEFAULT_SHARDS,
-      ...(values['previous-url'] ? { previous: new HttpReader(values['previous-url']) } : {}),
+      ...(previous ? { previous } : {}),
       accept: values.accept ? values.accept.split(',').map((s) => s.trim()) : [],
       legacy: !values['no-legacy'],
       log: (m) => console.log(m),
@@ -96,6 +111,41 @@ async function build(args: string[]): Promise<number> {
   }
 }
 
+export const DEFAULT_BUCKET = 'bft-transit-data'
+
+/**
+ * Remote targets. r2: S3 API with R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY, or credentials derived from
+ * CLOUDFLARE_API_TOKEN (account from R2_ACCOUNT_ID or CLOUDFLARE_ACCOUNT_ID, bucket from R2_BUCKET).
+ * uploader: the local `wrangler dev` uploader (UPLOADER_URL, UPLOADER_TOKEN), see scripts/publish-r2-local.sh.
+ */
+export async function remoteTarget(kind: string, to?: string): Promise<PublishTarget> {
+  const env = (k: string) => process.env[k] || undefined
+  const bucket = env('R2_BUCKET') ?? DEFAULT_BUCKET
+  if (kind === 'r2') {
+    const accountId = env('R2_ACCOUNT_ID') ?? env('CLOUDFLARE_ACCOUNT_ID')
+    if (!accountId) throw new Error('R2_ACCOUNT_ID or CLOUDFLARE_ACCOUNT_ID is not set')
+    let creds = { accessKeyId: env('R2_ACCESS_KEY_ID'), secretAccessKey: env('R2_SECRET_ACCESS_KEY') }
+    if (!creds.accessKeyId || !creds.secretAccessKey) {
+      const token = env('CLOUDFLARE_API_TOKEN')
+      if (!token) throw new Error('set R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY, or CLOUDFLARE_API_TOKEN')
+      creds = await r2CredentialsFromApiToken(token, accountId)
+    }
+    return new R2Target({
+      accountId,
+      bucket,
+      accessKeyId: creds.accessKeyId as string,
+      secretAccessKey: creds.secretAccessKey as string,
+    })
+  }
+  if (kind === 'uploader') {
+    const url = to ?? env('UPLOADER_URL') ?? 'http://127.0.0.1:8799'
+    const token = env('UPLOADER_TOKEN')
+    if (!token) throw new Error('UPLOADER_TOKEN is not set (scripts/publish-r2-local.sh sets it)')
+    return new UploaderTarget(url, token, bucket)
+  }
+  throw new Error(`unknown remote target ${kind}`)
+}
+
 async function publishCmd(args: string[]): Promise<number> {
   const { values } = parseArgs({
     args,
@@ -103,28 +153,22 @@ async function publishCmd(args: string[]): Promise<number> {
       from: { type: 'string', default: 'out' },
       target: { type: 'string', default: 'dir' },
       to: { type: 'string' },
+      concurrency: { type: 'string' },
     },
   })
   let target: PublishTarget
   if (values.target === 'dir' || values.target === 'assets') {
     if (!values.to) throw new Error('--to <dir> is required for dir and assets targets')
     target = values.target === 'dir' ? new DirTarget(values.to) : new AssetsTarget(values.to)
-  } else if (values.target === 'r2') {
-    const env = (k: string) => {
-      const v = process.env[k]
-      if (!v) throw new Error(`${k} is not set`)
-      return v
-    }
-    target = new R2Target({
-      accountId: env('R2_ACCOUNT_ID'),
-      bucket: env('R2_BUCKET'),
-      accessKeyId: env('R2_ACCESS_KEY_ID'),
-      secretAccessKey: env('R2_SECRET_ACCESS_KEY'),
-    })
-  } else throw new Error(`unknown --target ${values.target}`)
-  const stats = await publish(values.from as string, target, (m) => console.log(m))
+  } else target = await remoteTarget(values.target as string, values.to)
+  const t0 = performance.now()
+  const stats = await publish(values.from as string, target, {
+    log: (m) => console.log(m),
+    ...(values.concurrency ? { concurrency: Number(values.concurrency) } : {}),
+  })
   console.log(
-    `published to ${target.name}: ${stats.puts} puts (${(stats.bytes / 1e6).toFixed(1)} MB), ${stats.skipped} of ${stats.checks} content files already present`,
+    `published to ${target.name} in ${((performance.now() - t0) / 1000).toFixed(0)}s: ${stats.puts} PUTs (Class A, ` +
+      `${(stats.bytes / 1e6).toFixed(1)} MB), ${stats.reads} GETs (Class B), ${stats.skipped} content files already present`,
   )
   return EXIT.ok
 }

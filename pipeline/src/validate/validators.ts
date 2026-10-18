@@ -6,7 +6,7 @@
  *  - plausible service changes are quarantined: published under manifest.staging.json until accepted
  */
 import type { GenerationIndex, Mode } from '@bft/core'
-import { addDays, dayOfWeek } from '@bft/core'
+import { addDays } from '@bft/core'
 
 export class StructuralFailure extends Error {
   constructor(readonly problems: string[]) {
@@ -88,16 +88,12 @@ export function quarantineReasons(q: QuarantineInput): string[] {
   if (q.stationKeys) {
     const served = (idx: GenerationIndex | null, date: string) =>
       idx?.blobs[date] ? new Set(Object.keys(idx.blobs[date])) : null
-    const dates = q.index.serviceDates
-    for (const date of dates) {
+    for (const date of q.index.serviceDates) {
       const today = served(q.index, date) ?? new Set<string>()
-      // Expected service: the previous generation served it on this date, or this generation serves it on
-      // another date in the window with the same weekday.
+      // Expected service: the previous generation served it on this date. (Comparing weekdays within the window
+      // was tried and rejected: SEQ trackwork closes lines on weekends through separate calendar services, not
+      // calendar_dates, so it quarantined train most weekends on the 17 Oct 2026 feed.)
       const expected = new Set<string>(served(q.previous, date) ?? [])
-      for (const other of dates) {
-        if (other === date || dayOfWeek(other) !== dayOfWeek(date)) continue
-        for (const k of served(q.index, other) ?? []) expected.add(k)
-      }
       for (const key of [...expected].sort()) {
         if (!q.stationKeys.has(key) || today.has(key)) continue
         if (q.closureExplained(key, date)) continue

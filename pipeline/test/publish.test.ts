@@ -76,7 +76,7 @@ describe('assets target', () => {
 })
 
 describe('R2 target (S3 API)', () => {
-  it('HEADs content files, PUTs only missing ones with metadata, and signs every request', async () => {
+  it('never HEADs per object, skips what its own manifest references, signs every request', async () => {
     const store = new Map<string, { body: Uint8Array; type: string; cache: string }>()
     const calls: string[] = []
     const fake: typeof fetch = async (input, init) => {
@@ -118,8 +118,14 @@ describe('R2 target (S3 API)', () => {
 
     calls.length = 0
     const second = await publish(out, target)
-    expect(second.skipped).toBe(second.checks)
+    expect(second.checks).toBe(0)
+    expect(second.skipped).toBe(
+      first.puts - (await listFiles(out)).filter((f) => !f.startsWith('static/')).length,
+    )
     expect(calls.filter((c) => c.startsWith('PUT static/'))).toEqual([])
+    expect(calls.filter((c) => c.startsWith('HEAD'))).toEqual([])
+    // Class B reads: the target's manifest (+ staging probe) and one index per known generation.
+    expect(second.reads).toBe(2 + 4)
   })
 })
 

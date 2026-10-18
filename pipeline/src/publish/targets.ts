@@ -144,7 +144,7 @@ export class R2Target implements PublishTarget {
       method,
       ...init,
     })
-    return this.fetchImpl(req)
+    return withRetry(() => this.fetchImpl(req.clone()))
   }
   async exists(key: string): Promise<boolean> {
     const res = await this.send('HEAD', key)
@@ -164,6 +164,97 @@ export class R2Target implements PublishTarget {
       headers: { 'content-type': meta.contentType, 'cache-control': meta.cacheControl },
     })
     if (!res.ok) throw new Error(`R2 PUT ${key}: HTTP ${res.status} ${await res.text()}`)
+  }
+}
+
+/** Retry 429 / 5xx / network errors with backoff (R2 and the uploader can briefly throttle bulk uploads). */
+export async function withRetry(fn: () => Promise<Response>, attempts = 5): Promise<Response> {
+  let last: unknown
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fn()
+      if (res.status !== 429 && res.status < 500) return res
+      last = new Error(`HTTP ${res.status}`)
+    } catch (e) {
+      last = e
+    }
+    await new Promise((r) => setTimeout(r, 250 * 2 ** i))
+  }
+  throw last instanceof Error ? last : new Error(String(last))
+}
+
+/**
+ * R2 S3 credentials from a Cloudflare API token that has R2 write permission: the access key id is the token's id
+ * and the secret is the SHA-256 hex of the token value (Cloudflare R2 docs, "Get S3 API credentials from an API token").
+ */
+export async function r2CredentialsFromApiToken(
+  token: string,
+  accountId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ accessKeyId: string; secretAccessKey: string }> {
+  const { createHash } = await import('node:crypto')
+  let id: string | undefined
+  for (const url of [
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/tokens/verify`,
+    'https://api.cloudflare.com/client/v4/user/tokens/verify',
+  ]) {
+    const res = await fetchImpl(url, { headers: { authorization: `Bearer ${token}` } })
+    if (!res.ok) continue
+    const body = (await res.json()) as { success?: boolean; result?: { id?: string } }
+    if (body.success && body.result?.id) {
+      id = body.result.id
+      break
+    }
+  }
+  if (!id)
+    throw new Error(
+      'could not verify CLOUDFLARE_API_TOKEN (account and user token endpoints both refused it)',
+    )
+  return { accessKeyId: id, secretAccessKey: createHash('sha256').update(token).digest('hex') }
+}
+
+/**
+ * Publish through the local uploader Worker (pipeline/r2-uploader, `wrangler dev` with a remote R2 binding), so a
+ * laptop with a wrangler login can write to R2 without S3 keys. Every request carries a per-session token.
+ */
+export class UploaderTarget implements PublishTarget {
+  readonly name: string
+  constructor(
+    private readonly base: string,
+    private readonly token: string,
+    bucket: string,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {
+    this.name = `r2:${bucket} (via ${base})`
+  }
+  private send(method: string, key: string, init: RequestInit = {}): Promise<Response> {
+    const url = `${this.base.replace(/\/$/, '')}/${key.split('/').map(encodeURIComponent).join('/')}`
+    return withRetry(() =>
+      this.fetchImpl(url, {
+        ...init,
+        method,
+        headers: { ...(init.headers ?? {}), 'x-uploader-token': this.token },
+      }),
+    )
+  }
+  async exists(key: string): Promise<boolean> {
+    const res = await this.send('HEAD', key)
+    if (res.status === 404) return false
+    if (!res.ok) throw new Error(`uploader HEAD ${key}: HTTP ${res.status}`)
+    return true
+  }
+  async get(key: string): Promise<Uint8Array | null> {
+    const res = await this.send('GET', key)
+    if (res.status === 404) return null
+    if (!res.ok) throw new Error(`uploader GET ${key}: HTTP ${res.status}`)
+    return new Uint8Array(await res.arrayBuffer())
+  }
+  async put(key: string, body: Uint8Array, meta: PutMeta): Promise<void> {
+    const res = await this.send('PUT', key, {
+      body: body as unknown as RequestInit['body'],
+      headers: { 'content-type': meta.contentType, 'cache-control': meta.cacheControl },
+    })
+    if (!res.ok) throw new Error(`uploader PUT ${key}: HTTP ${res.status} ${await res.text()}`)
   }
 }
 

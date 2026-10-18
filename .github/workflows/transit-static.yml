@@ -1,9 +1,12 @@
 name: Transit static timetable
 
 # Builds the transit static data plane (docs/architecture/transit-architecture.md §3.2, ADR-0002): validates the SEQ
-# GTFS feed, builds stop-day blobs for D-1..D+6, uploads the output as a workflow artifact, and publishes only when a
-# CLOUDFLARE_API_TOKEN secret exists. It never commits to git and never touches GitHub Pages; the legacy daily job
-# (update-schedule.yml) is separate and unchanged.
+# GTFS feed, builds stop-day blobs for D-1..D+6, uploads the output as a workflow artifact, and publishes to R2
+# (bucket bft-transit-data) when the CLOUDFLARE_API_TOKEN secret exists. S3 credentials are derived from that token
+# (key id = token id, secret = sha256(token)), so the token needs R2 write permission. Publishing uploads only blobs
+# the bucket's own manifest doesn't already reference (no per-object HEADs), which keeps a daily run around 13k
+# Class A operations, inside the R2 free tier. It never commits to git and never touches GitHub Pages; the legacy daily
+# job (update-schedule.yml) is separate and unchanged.
 #
 # Exit codes of the build: 0 ok, 2 structural failure (nothing published), 3 quarantined (live manifest keeps the
 # previous generation of the quarantined modes; the new one is in manifest.staging.json). Promote a quarantined build
@@ -34,6 +37,7 @@ concurrency:
 
 env:
   GTFS_URL: https://gtfsrt.api.translink.com.au/GTFS/SEQ_GTFS.zip
+  R2_BUCKET: bft-transit-data
   GTFS_VALIDATOR_VERSION: 8.0.1
 
 jobs:
@@ -76,12 +80,14 @@ jobs:
         env:
           ACCEPT: ${{ inputs.accept }}
           DATE: ${{ inputs.date }}
-          PREVIOUS_URL: ${{ vars.TRANSIT_DATA_BASE_URL }}
+          # The previous generation (quarantine checks, manifest.previous) is read from R2 itself.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           args=(build --gtfs "$RUNNER_TEMP/gtfs.zip" --out "$RUNNER_TEMP/out" --work-dir "$RUNNER_TEMP/feed")
           [ -n "$ACCEPT" ] && args+=(--accept "$ACCEPT")
           [ -n "$DATE" ] && args+=(--date "$DATE")
-          [ -n "$PREVIOUS_URL" ] && args+=(--previous-url "$PREVIOUS_URL")
+          [ -n "$CLOUDFLARE_API_TOKEN" ] && args+=(--previous r2)
           set +e
           node --experimental-transform-types --disable-warning=ExperimentalWarning pipeline/src/cli.ts "${args[@]}" \
             2> >(tee "$RUNNER_TEMP/build-stderr.txt" >&2)
@@ -123,12 +129,11 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       HAS_CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
-      HAS_R2_KEYS: ${{ secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' }}
     steps:
-      - name: Skip (no Cloudflare credentials yet)
+      - name: Skip (no Cloudflare credentials)
         if: env.HAS_CF_TOKEN != 'true'
         run: echo "::notice::CLOUDFLARE_API_TOKEN is not set; the build is available as a workflow artifact only."
       - uses: actions/checkout@v4
@@ -149,24 +154,11 @@ jobs:
         with:
           name: transit-static-${{ github.run_id }}
           path: ${{ runner.temp }}/out
-      - name: Publish to R2 (S3 API; only uploads blobs not already present)
-        if: env.HAS_CF_TOKEN == 'true' && env.HAS_R2_KEYS == 'true'
-        env:
-          R2_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          R2_BUCKET: ${{ vars.TRANSIT_R2_BUCKET }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: pnpm --filter @bft/pipeline publish:data --from "$RUNNER_TEMP/out" --target r2
-      - name: Publish to the static-assets data Worker
-        if: env.HAS_CF_TOKEN == 'true' && env.HAS_R2_KEYS != 'true'
+      - name: Publish to R2 (only blobs the bucket doesn't already reference; manifest.json last)
+        if: env.HAS_CF_TOKEN == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          DATA_WORKER_DIR: ${{ vars.TRANSIT_DATA_WORKER_DIR }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          dir="${DATA_WORKER_DIR:-services/data}"
-          if [ ! -f "$dir/wrangler.jsonc" ] && [ ! -f "$dir/wrangler.toml" ]; then
-            echo "::warning::no data Worker config in $dir; skipping assets publish"; exit 0
-          fi
-          pnpm --filter @bft/pipeline publish:data --from "$RUNNER_TEMP/out" --target assets --to "$GITHUB_WORKSPACE/$dir/public"
-          cd "$dir" && npx --yes wrangler@4.151.1 deploy
+          node --experimental-transform-types --disable-warning=ExperimentalWarning pipeline/src/cli.ts \
+            publish --from "$RUNNER_TEMP/out" --target r2

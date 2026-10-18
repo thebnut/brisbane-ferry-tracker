@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Static timetable pipeline (transit-architecture.md §3.2, ADR-0002): GTFS zip → content-addressed stop-day blobs, trip indexes, client data and the legacy ferry latest.json.",
+  "description": "Static timetable pipeline (transit-architecture.md \u00a73.2, ADR-0002): GTFS zip \u2192 content-addressed stop-day blobs, trip indexes, client data and the legacy ferry latest.json.",
   "engines": {
     "node": ">=22.18"
   },
@@ -31,6 +31,7 @@
     "papaparse": "5.5.3",
     "typescript": "7.0.2",
     "vitest": "5.0.5",
+    "wrangler": "4.151.1",
     "zod": "4.6.7"
   }
 }

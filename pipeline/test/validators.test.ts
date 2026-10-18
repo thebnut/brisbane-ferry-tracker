@@ -221,8 +221,8 @@ describe('quarantineReasons', () => {
     )
   })
 
-  it('without a previous generation, compares the same weekday within the window', () => {
-    // 20261019 and 20261026 are both Mondays.
+  it('without a previous generation, a weekend closure in the window is not flagged', () => {
+    // 20261019 and 20261026 are both Mondays; the second has no service at b (trackwork-style calendar split).
     const next = idx({ '20261019': { trips: 5, keys: ['a', 'b'] }, '20261026': { trips: 5, keys: ['a'] } })
     expect(
       quarantineReasons({
@@ -232,7 +232,7 @@ describe('quarantineReasons', () => {
         stationKeys: new Set(['a', 'b']),
         closureExplained: () => false,
       }),
-    ).toEqual(["train 20261026: b has no service and calendar_dates doesn't explain it"])
+    ).toEqual([])
   })
 })
 

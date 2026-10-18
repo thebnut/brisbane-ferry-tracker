@@ -1,0 +1,10 @@
+// Local-only uploader: `wrangler dev` with a *remote* R2 binding, so a laptop can publish to R2 using the
+// developer's wrangler login (no API token or S3 keys handled). Never deployed. See pipeline/README.md.
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "bft-r2-uploader-local",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "r2_buckets": [{ "binding": "DATA", "bucket_name": "bft-transit-data", "remote": true }]
+}
