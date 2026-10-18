@@ -1,7 +1,7 @@
 /**
  * bft-api Worker entry: the Hono /v1 app, the 1-minute watchdog cron, and the RtHub Durable Object class.
  */
-import { budgetConfig, registerAi } from './ai/routes.ts'
+import { aiHealthStatus, registerAi } from './ai/routes.ts'
 import { createApp } from './app.ts'
 import { withRtNamespace } from './data/rt-prefix.ts'
 import { dataSourceFor } from './data/source.ts'
@@ -61,12 +61,7 @@ function getIsolate(rawEnv: WorkerEnv) {
       combinedFeeds: cfg.combined,
       polledModes: cfg.modes,
       log,
-      aiStatus: async () => {
-        const ai = budgetConfig(env)
-        if (!ai.enabled || !env.BUDGET) return { enabled: ai.enabled, budgetUsedUsd: null }
-        const ledger = await env.BUDGET.get(env.BUDGET.idFromName('global')).status()
-        return { enabled: true, budgetUsedUsd: ledger.spentUsd }
-      },
+      aiStatus: () => aiHealthStatus(env),
     })
     // Phase 0 spike: time N snapshot rebuilds inside workerd from outside (Date.now is frozen inside).
     app.get('/__spike/rt', async (c) => {

@@ -45,6 +45,23 @@ export function budgetConfig(env: AiEnv): BudgetConfig {
   }
 }
 
+/**
+ * AI status for /v1/health: the kill switch as configured, plus month-to-date spend from the Budget DO. A ledger
+ * failure keeps `enabled` truthful and reports spend as unknown (null) (Codex review).
+ */
+export async function aiHealthStatus(
+  env: AiEnv,
+): Promise<{ enabled: boolean; budgetUsedUsd: number | null }> {
+  const enabled = budgetConfig(env).enabled
+  if (!enabled || !env.BUDGET) return { enabled, budgetUsedUsd: null }
+  try {
+    const ledger = await env.BUDGET.get(env.BUDGET.idFromName('global')).status()
+    return { enabled, budgetUsedUsd: ledger.spentUsd }
+  } catch {
+    return { enabled, budgetUsedUsd: null }
+  }
+}
+
 const AskBody = z.object({ question: z.string().min(1).max(300), turnstileToken: z.string().optional() })
 
 /** Intents learned per isolate (deterministic parses and LLM tool plans). Answers are never cached. */

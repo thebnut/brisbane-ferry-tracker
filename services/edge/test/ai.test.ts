@@ -558,3 +558,25 @@ describe('/v1/health reports the AI status (was hardcoded off)', () => {
     expect(body.ai).toEqual({ enabled: true, budgetUsedUsd: 0.0015 })
   })
 })
+
+describe('aiHealthStatus (Codex review)', () => {
+  it('keeps enabled truthful when the ledger fails, and reports spend when it works', async () => {
+    const { aiHealthStatus } = await import('../src/ai/routes.ts')
+    const base = { AI_ENABLED: 'true', ANTHROPIC_API_KEY: 'k', AI_MONTHLY_BUDGET_USD: '10' }
+    const ns = (status: () => Promise<{ spentUsd: number }>) =>
+      ({ idFromName: () => 'g', get: () => ({ status }) }) as never
+    expect(await aiHealthStatus({ ...base, BUDGET: ns(async () => ({ spentUsd: 0.5 })) })).toEqual({
+      enabled: true,
+      budgetUsedUsd: 0.5,
+    })
+    expect(
+      await aiHealthStatus({
+        ...base,
+        BUDGET: ns(async () => {
+          throw new Error('do down')
+        }),
+      }),
+    ).toEqual({ enabled: true, budgetUsedUsd: null })
+    expect(await aiHealthStatus({})).toEqual({ enabled: false, budgetUsedUsd: null })
+  })
+})
