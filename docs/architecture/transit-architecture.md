@@ -578,6 +578,79 @@ for service detail and the live map once `services/edge` hosts the DO next to th
 snapshot in-process instead of the trip endpoint). The prototype lives in the `bft-train` Worker behind `TRIP_WS`
 until that move.
 
+### Phase 0 measurements: RtHub
+
+Measured 18 October 2026 (Saturday) on the 17 Oct SEQ feed. Raw output: [`measurements/rthub-spike-2026-10-18-*.json`](./measurements/); script: `services/edge/scripts/spike.ts`.
+- **Method.** Workers freeze `Date.now()` and `performance.now()` while code runs. So the cycle (decode + match + snapshot build + serialise, `services/edge/src/rt/build.ts`) was timed in Node 22 (same V8) with `process.cpuUsage()`: 40 runs after 5 warm-ups, against yesterday's and today's trip indexes. It was cross-checked in workerd (`wrangler dev`, timing 200 rebuilds from outside the isolate) and on Cloudflare staging (`wrangler tail` `cpuTime` per alarm).
+- **Feeds.** The sample protobufs (13:44 AEST) plus a fresh fetch (14:24 AEST) gave the same numbers within noise. **Weekday peak = 2× Saturday** (§5).
+
+**CPU per alarm cycle (Node, ms: p50 / p95, sample feeds)**
+
+| Layout | TripUpdates | Stop updates | Snapshot JSON / gz | Decode | Match + build | Serialise | **Total** | Weekday-peak p50 estimate |
+|---|---|---|---|---|---|---|---|---|
+| Per-mode ferry | 17 KB | 211 | 95 / 15 KB | 0.18 / 0.20 | 0.29 / 0.33 | 0.16 / 0.19 | **0.63 / 2.3** | 1.3 |
+| Per-mode train | 97 KB | 2,072 | 314 / 38 KB | 1.2 / 3.4 | 0.70 / 2.5 | 0.61 / 0.66 | **2.6 / 4.8** | 5.1 |
+| Per-mode ferry + train | 114 KB | 2,283 | 351 / 43 KB | 1.4 / 6.6 | 0.75 / 2.5 | 0.69 / 4.7 | **2.9 / 8.2** | 5.9 |
+| Per-mode ferry + train + tram | 132 KB | 2,648 | 398 / 47 KB | 1.7 / 4.4 | 0.85 / 3.2 | 0.79 / 0.85 | **3.5 / 6.2** | 6.9 |
+| Per-mode bus | 938 KB | 19,184 | 2.5 MB / 317 KB | 21 / 35 | 5.6 / 11 | 5.7 / 8.0 | **35 / 50** | 70 |
+| Combined (all modes) | 1,057 KB | 21,548 | 2.8 MB / 362 KB | 24 / 66 | 10 / 17 | 6.3 / 17 | **40 / 101** | 80 |
+
+- **workerd (`wrangler dev`):** ferry + train rebuilds took **2.5–2.7 ms** each (200 in 0.50–0.54 s), matching Node. The combined feeds took about **20 ms** each, with only ferry and train matched.
+- **Match rates (live, 18 Oct):** ferry 52/52 to 61/61, train 81/81 to 85/85, tram 23/23, bus 1,066/1,074, all tier 1, with no ambiguous matches.
+  - Train only reached 100% after a core fix: TransLink sends an after-midnight trip's `start_date` as the calendar date (00:18) while GTFS files it under the previous service date (24:18). Five REPLACEMENT trips missed until tiers 1 and 2 learned that convention (`packages/core/test/edge-findings.test.ts`).
+
+**Memory and reload cost, two service days of trip indexes** (one cold Node process per mode, like a fresh DO isolate)
+
+| Mode | Trips (2 days) | Trip index JSON | Heap held by the hub | Reload step per day (parse + `addDay`) |
+|---|---|---|---|---|
+| Ferry | 1,538 | 0.25 MB | 2.6 MB | 1.6 + 10.5 ms cold, 0.7 + 1.9 ms warm |
+| Train | 1,218 | 0.73 MB | 5.5 MB | 1.8 + 12.2 ms cold, 1.3 + 5.8 ms warm |
+| Tram | 464 | 0.35 MB | 2.5 MB | 1.5 + 11.4 ms cold, 0.3 + 2.3 ms warm |
+| Bus | 22,220 | 15.7 MB | **103–120 MB** | 25 + 85 ms, 25 + 105 ms |
+
+The first version built the matcher in one go and cost 92 ms (ferry), 300 ms (train) and 5.5 s (bus): every stop time resolved the timezone through a new `TZDate`. Two changes brought it down:
+- core now memoises `serviceDayStartEpoch`
+- `TripMatcher.addDay` lets the hub index **one service day per alarm cycle** and swap a mode in only when it is complete, so generations are never mixed
+
+**Cloudflare staging (`bft-api.brisbanetransit.workers.dev`, Workers Free, SQLite-backed DO)**
+
+| Measured | Value |
+|---|---|
+| Alarm CPU per cycle, ferry + train per-mode feeds, no static data loaded yet | STAGING_CPU |
+| Alarm wall time | about 2.2 s median, after clearing the fetch timeout timers (it was 5 s: pending `AbortSignal.timeout` timers kept invocations alive) |
+| Watchdog cron CPU | 0 ms (wall about 220 ms) |
+| Alarm outcomes | all `ok`: no CPU-limit terminations seen |
+| First cron after a fresh deploy | about 7 min (the watchdog then started the chain) |
+
+Staging CPU is about 4× the pure rebuild cost measured in Node and workerd. The rest is fetch body handling, storage and R2 writes of a 350 KB snapshot, and isolate overhead.
+- Two cuts so far: the snapshot is no longer duplicated into DO storage when R2 holds it, and raw feeds are persisted at most once a minute.
+- These numbers come from a warm isolate. A cold isolate's first trip-index reload step adds about 10 ms more.
+
+**Storage and request budget (ferry + train, per day)**
+- TransLink requests: 5,760 TripUpdates + 5,760 VehiclePositions per polled mode, plus 1,440 alerts.
+  - 24,480 for ferry + train per-mode, or 12,960 with `RT_MODES=all`.
+  - That is above the §7 Phase 1 target of 12k a day for per-mode polling. The per-mode feeds are 3.8–100 KB against the 1.1 MB combined feed, so total bytes are about 10× lower.
+- Durable Object requests: 5,760 alarms, 1,440 watchdog crons, plus one `getRaw` RPC per 10 s per active isolate (legacy proxy only).
+  - Snapshot reads go to R2, not the DO.
+  - That is about 7.2k a day plus traffic-dependent RPCs, against the Free plan's 100k.
+- DO SQLite rows written: 1 meta per cycle, plus 4 raw feeds a minute, about 11.5k a day (Free: 100k).
+- R2 Class A: 2 per cycle (snapshot, then `rt/latest.json`), about 11.5k a day or **345k a month**. Deleting the snapshot from 240 cycles ago is free and keeps about 85 MB of history.
+- R2 Class B: 1–2 per 10 s per active isolate (pointer, plus the snapshot when its seq moved). That is about 520k a month per continuously active isolate (Free: 10M).
+
+**Conclusions**
+- **Workers Free (10 ms CPU).**
+  - Per-mode ferry + train (+ tram) is the only layout whose pure rebuild fits with margin: 3–3.5 ms p50 Saturday, about 6–7 ms weekday peak.
+  - On staging the whole alarm invocation measured STAGING_CPU_SHORT, so it is at or above the nominal limit. Cloudflare hasn't terminated any invocation yet, but there is no headroom.
+  - Free is acceptable for staging and the Phase 1 shadow, not for launch.
+- **Workers Paid ($5, approved, not yet active)** is needed for:
+  - `RT_MODES=all` (combined feeds: 40 ms p50, 80 ms weekday estimate)
+  - any bus matching (35 ms p50)
+  - comfortable headroom for ferry + train
+  - Paid's 30 s default CPU limit covers all of these by two orders of magnitude.
+- **Bus does not fit in any plan's 128 MB DO** with the current Map-based matcher: 103–120 MB for two days.
+  - `RT_INDEX_MODES` defaults to excluding bus, so bus RT is published unmatched.
+  - Before Phase 6, move the matcher to typed arrays (the §3.3 "about 2 MB each" estimate assumed that), or index bus one day at a time.
+
 ## 6. Cost model
 
 This was revised after Codex finding 9. The first draft assumed 10 requests per DAU, which implied only about 2 minutes of visible use a day.

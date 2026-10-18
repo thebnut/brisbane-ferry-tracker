@@ -85,8 +85,8 @@ export function createApp(deps: AppDeps): Hono<Env> {
   }
 
   /** Snapshot plus the rtState for one mode's static generation. */
-  async function rt(mode: Mode | null, generation: string | null) {
-    const cur = await deps.snapshots.get()
+  async function rt(c: Context<Env>, mode: Mode | null, generation: string | null) {
+    const cur = await deps.snapshots.get(waitUntilOf(c))
     const nowMs = now()
     const snap = cur?.snapshot ?? null
     const genOk = mode == null || (generation != null && snap?.header.staticGeneration[mode] === generation)
@@ -124,7 +124,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const index = await deps.store.getIndex(generation, mode)
     if (!index) return c.json({ error: 'static index missing', detail: generation }, 503)
 
-    const r = await rt(mode, generation)
+    const r = await rt(c, mode, generation)
     const fromMs = at != null ? at * 1000 : r.nowMs
     const dates = overlappingServiceDates(fromMs).filter((d) => index.serviceDates.includes(d))
     if (!mayHaveStop(index, key)) return c.json({ error: 'unknown stop', detail: key }, 404)
@@ -183,7 +183,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     if (!/^.+@\d{8}$/.test(tripInstance)) return c.json({ error: 'bad trip instance' }, 400)
     const generation = await deps.store.currentGeneration(mode)
     if (!generation) return c.json({ error: 'no static data for mode', detail: mode }, 503)
-    const r = await rt(mode, generation)
+    const r = await rt(c, mode, generation)
     const rtTrip = r.snap?.trips[tripInstance]
     const vehicle = r.cur?.vehiclesByTrip.get(tripInstance) ?? null
     const { serviceDate } = parseTripInstanceKey(tripInstance)
@@ -280,7 +280,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
       bbox = snapped
     }
     const generation = await deps.store.currentGeneration(mode)
-    const r = await rt(mode, generation)
+    const r = await rt(c, mode, generation)
     const all = r.rtState === 'live' ? (r.snap?.vehicles ?? []) : []
     const vehicles = all.filter((v) => {
       if (v.mode !== mode) return false
@@ -304,7 +304,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     if (mode && !mode.success) return c.json({ error: 'unknown mode' }, 400)
     const route = c.req.query('route') || null
     const stop = c.req.query('stop') || null
-    const r = await rt(null, null)
+    const r = await rt(c, null, null)
     const nowS = Math.floor(r.nowMs / 1000)
     const alerts = (r.snap?.alerts ?? []).filter((a) => {
       // A mode filter keeps that mode's alerts plus network-wide notices (no route, no stop).
@@ -327,7 +327,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const nowMs = now()
     const [manifest, cur] = await Promise.all([
       deps.store.getManifest().catch(() => null),
-      deps.snapshots.get(),
+      deps.snapshots.get(waitUntilOf(c)),
     ])
     const status = deps.snapshots.status
     const h = cur?.snapshot.header
@@ -406,6 +406,16 @@ export function createApp(deps: AppDeps): Hono<Env> {
 }
 
 // ------------------------------------------------------------------ helpers
+
+/** The request's waitUntil, when running in a Worker (tests and scripts have no execution context). */
+function waitUntilOf(c: Context<Env>): ((p: Promise<unknown>) => void) | undefined {
+  try {
+    const ctx = c.executionCtx
+    return (p) => ctx.waitUntil(p)
+  } catch {
+    return undefined
+  }
+}
 
 function statsRecord<T>(stats: Partial<Record<string, T>>): Record<string, T> {
   const out: Record<string, T> = {}
