@@ -692,8 +692,8 @@ Ways to reach p95 ≤ 40 s:
   - any bus matching (35 ms p50)
   - Paid's 30 s default CPU limit covers all of these by two orders of magnitude.
 - **Bus memory: fixed by the compact matcher.** The Map-based matcher held 103–120 MB for two bus days, which does not fit a 128 MB DO.
-  - The compact typed-array matcher (same API) holds **18.3 MB** for two bus days. Train is 1.2 MB, ferry and tram 0.5 MB each.
-  - Its equivalence check against the old matcher (15,048 `match()` calls, all tiers and modes, plus 1,200 materialised trips) found 0 differences.
+  - The compact typed-array matcher (same API) holds **26.2 MB** for two bus days: 18.3 MB of JS heap plus the typed arrays' backing stores, measured as `heapUsed + arrayBuffers`. Train is 1.6 MB, ferry and tram 0.7 MB each.
+  - Its equivalence check against the old matcher found 0 differences: 58,036 `match()` calls (five descriptor variants per entity, four feeds, all modes, all tiers) plus 4,000 materialised trips.
   - **Staging with bus indexed** (`RT_MODES=ferry,train,bus`, `RT_INDEX_MODES=ferry,train,bus`):
     - bus 1,043/1,051 matched, 0 ambiguous, no out-of-memory
     - poll CPU **p50 143 ms, p95 212 ms** (cold loads up to 253 ms)

@@ -82,3 +82,54 @@ describe('RtTrip.gen', () => {
     expect(RtTrip.parse({ ...base, gen: 'g1' }).gen).toBe('g1')
   })
 })
+
+describe('compact matcher keeps the object matcher semantics (Codex review of the rewrite)', () => {
+  const trip = (id: string, dir: 0 | 1, hms: string) => ({
+    id,
+    route: 'R1-1',
+    dir,
+    stops: [
+      ['A', hms],
+      ['B', hms],
+    ] as Array<[string, string]>,
+  })
+
+  it('start keys never collide: 72:49:04 dir 0 is not a midnight dir 1 trip', () => {
+    const m = new TripMatcher('bus', [tripIndex(D, [trip('MID', 1, '00:00:00')])])
+    expect(m.match({ routeId: 'R1-1', directionId: 0, startTime: '72:49:04', startDate: D }, []).kind).toBe(
+      'unmatched',
+    )
+    expect(m.match({ routeId: 'R1-1', directionId: 1, startTime: '00:00:00', startDate: D }, []).kind).toBe(
+      'matched',
+    )
+  })
+
+  it('direction ids outside -1..1 match nothing instead of aliasing another route', () => {
+    const idx = tripIndex(D, [trip('X', 0, '08:00:00'), { ...trip('Y', 0, '08:00:00'), route: 'R2-1' }])
+    const m = new TripMatcher('bus', [idx])
+    expect(m.match({ routeId: 'R1-1', directionId: 3, startTime: '08:00:00', startDate: D }, []).kind).toBe(
+      'unmatched',
+    )
+  })
+
+  it('trips with no stop times keep the Infinity / 0 sentinels and are not tier-2 candidates', () => {
+    const idx = tripIndex(D, [{ id: 'E', route: 'R1-1', dir: 0, stops: [] }])
+    const m = new TripMatcher('bus', [idx])
+    expect(m.trip(`E@${D}`)).toMatchObject({ startS: Number.POSITIVE_INFINITY, endEpoch: 0 })
+    expect(m.match({ routeId: 'R1-1', directionId: 0, startTime: '00:00:00', startDate: D }, []).kind).toBe(
+      'unmatched',
+    )
+  })
+
+  it('a second addDay for the same date extends the start index', () => {
+    const m = new TripMatcher('bus', [])
+    m.addDay(tripIndex(D, [trip('P', 0, '08:00:00')]))
+    m.addDay(tripIndex(D, [trip('Q', 0, '09:00:00')]))
+    expect(
+      m.match({ routeId: 'R1-1', directionId: 0, startTime: '08:00:00', startDate: D }, []),
+    ).toMatchObject({ key: `P@${D}` })
+    expect(
+      m.match({ routeId: 'R1-1', directionId: 0, startTime: '09:00:00', startDate: D }, []),
+    ).toMatchObject({ key: `Q@${D}` })
+  })
+})

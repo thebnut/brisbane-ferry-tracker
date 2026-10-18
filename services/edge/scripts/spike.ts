@@ -31,10 +31,12 @@ const CACHE = arg('cache', join(process.env.TMPDIR ?? '/tmp', 'bft-spike-cache')
 const UPSTREAM = 'https://gtfsrt.api.translink.com.au/api/realtime/SEQ'
 
 const gc = (globalThis as { gc?: () => void }).gc ?? (() => {})
+/** Retained JS heap plus ArrayBuffer backing stores (typed arrays live outside heapUsed). */
 const heap = () => {
   gc()
   gc()
-  return process.memoryUsage().heapUsed
+  const m = process.memoryUsage()
+  return m.heapUsed + m.arrayBuffers
 }
 const unzipMaybe = (b: Buffer) => (b[0] === 0x1f && b[1] === 0x8b ? gunzipSync(b) : b)
 

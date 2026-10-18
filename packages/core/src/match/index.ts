@@ -58,8 +58,11 @@ export const tripPrefix = (tripId: string): string => tripId.split('-')[0] ?? tr
 
 const TIER4_WINDOW_S = 5 * 60
 const DAY_S = 24 * 3600
-/** startS stays below 2^18 s (72 h), so (routeKey, dir, startS) packs into one safe integer. */
-const START_SPAN = 1 << 18
+/**
+ * (routeKey, dir, startS) packs into one safe integer: startS from any parseable GTFS time (HHH:MM:SS) is below
+ * 2^32, and (rk * 3 + dir + 1) stays below 2^21, so the product stays below 2^53 with no collisions.
+ */
+const START_SPAN = 2 ** 32
 const MATERIALISED_CACHE = 512
 
 type Ints = Uint16Array | Int32Array
@@ -148,8 +151,12 @@ export class TripMatcher {
       arrS: new Int32Array(total),
       depS: new Int32Array(total),
     }
-    const starts = new Map<number, number | number[]>()
-    this.byStart.set(day.serviceDate, starts)
+    // Extend rather than replace: a second addDay for the same date keeps the earlier entries (as before).
+    let starts = this.byStart.get(day.serviceDate)
+    if (!starts) {
+      starts = new Map()
+      this.byStart.set(day.serviceDate, starts)
+    }
     let k = 0
     for (let i = 0; i < n; i++) {
       const t = day.trips[i] as TripIndexDay['trips'][number]
@@ -181,7 +188,8 @@ export class TripMatcher {
       }
       d.startS[i] = Number.isFinite(startS) ? startS : 0
       d.endS[i] = endS
-      addTo(starts, startKey(rk, t.d, d.startS[i] as number), g)
+      // A trip with no stop times is never a tier-2 candidate (its start was Infinity in the object matcher).
+      if (Number.isFinite(startS)) addTo(starts, startKey(rk, t.d, startS), g)
       pushTo(this.byRouteDir, rk * 3 + t.d + 1, g)
       if (this.mode === 'train') pushTo(this.byPrefix, `${tripPrefix(t.id)}|${rk}`, g)
     }
@@ -228,7 +236,7 @@ export class TripMatcher {
         const rtStart = gtfsTimeToSeconds(desc.startTime)
         if (prev != null && rtStart != null && rtStart < DAY_S) {
           const [d, i] = this.locate(prev)
-          if (d.startS[i] === rtStart + DAY_S) return this.matched(prev, 1)
+          if (startOf(d, i) === rtStart + DAY_S) return this.matched(prev, 1)
         }
       } else {
         const compatible: number[] = []
@@ -243,7 +251,10 @@ export class TripMatcher {
     const rk = rKey != null ? this.routeKeys.get(rKey) : undefined
     // Tier 2
     const startS = gtfsTimeToSeconds(desc.startTime)
-    if (rk != null && desc.directionId != null && startS != null && desc.startDate) {
+    // Direction ids outside -1..1 index nothing (as with the old string keys); never let them alias another route.
+    const dirOk =
+      desc.directionId == null || desc.directionId === 0 || desc.directionId === 1 || desc.directionId === -1
+    if (rk != null && dirOk && desc.directionId != null && startS != null && desc.startDate) {
       const list: number[] = []
       collect(this.byStart.get(desc.startDate)?.get(startKey(rk, desc.directionId, startS)), list)
       // Same calendar-date convention as tier 1: 00:18 on D may be 24:18 on D-1.
@@ -265,7 +276,7 @@ export class TripMatcher {
       if (list.length > 1) return { kind: 'ambiguous', tier: 3, candidates: list.length }
     }
     // Tier 4
-    if (rk != null) {
+    if (rk != null && dirOk) {
       const timed = obs.filter((o) => o.seq != null && (o.arr != null || o.dep != null))
       if (timed.length > 0) {
         const dirs = desc.directionId != null ? [desc.directionId] : [0, 1, -1]
@@ -375,10 +386,11 @@ export class TripMatcher {
       routeId,
       routeKey: routeKey(routeId),
       dir: d.dir[i] as number,
-      startS: d.startS[i] as number,
+      startS: startOf(d, i),
       stops,
       stopIds,
-      endEpoch: d.dayStart + (d.endS[i] as number),
+      // Empty trips keep the object matcher's sentinels: start Infinity, end 0.
+      endEpoch: isEmpty(d, i) ? 0 : d.dayStart + (d.endS[i] as number),
     }
     if (this.cache.size >= MATERIALISED_CACHE) this.cache.delete(this.cache.keys().next().value as number)
     this.cache.set(g, t)
@@ -387,6 +399,9 @@ export class TripMatcher {
 }
 
 const startKey = (rk: number, dir: number, startS: number): number => (rk * 3 + dir + 1) * START_SPAN + startS
+const isEmpty = (d: CompactDay, i: number): boolean => d.off[i] === d.off[i + 1]
+const startOf = (d: CompactDay, i: number): number =>
+  isEmpty(d, i) ? Number.POSITIVE_INFINITY : (d.startS[i] as number)
 
 function findSeq(d: CompactDay, i: number, seq: number): number {
   for (let k = d.off[i] as number; k < (d.off[i + 1] as number); k++) if (d.seq[k] === seq) return k
