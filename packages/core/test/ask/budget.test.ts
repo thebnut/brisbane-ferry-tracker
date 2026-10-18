@@ -86,6 +86,18 @@ describe('budget ledger', () => {
     )
     expect(reconcile(nov, 'late', 0.4).spentUsd).toBeCloseTo(0.4)
   })
+  it('keeps settlement records bounded: pruned after 24 h (Codex review round 8)', () => {
+    const cfg = { ...on, monthlyBudgetUsd: 1000 }
+    let st = emptyBudgetState('20261018')
+    for (let i = 0; i < 1000; i++) {
+      st = reserve(st, cfg, `r${i}`, 0.001, null, false, 0).state
+      st = reconcile(st, `r${i}`, 0.0005, 0)
+    }
+    expect(Object.keys(st.settled ?? {})).toHaveLength(1000)
+    const later = rollBudget(st, '20261019', 25 * 3600_000)
+    expect(Object.keys(later.settled ?? {})).toHaveLength(0)
+    expect(later.spentUsd).toBeCloseTo(0.5)
+  })
   it('worst case for one round (3k in, 400 out) is about $0.0005', () => {
     expect(worstCaseUsd(3000, 400)).toBeCloseTo(0.0005, 6)
     expect(actualUsd(1000, 100)).toBeLessThan(worstCaseUsd(3000, 400))

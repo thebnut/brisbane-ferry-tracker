@@ -33,7 +33,7 @@ export interface BudgetState {
   perIp: Record<string, number>
   alerted: boolean
   /** Reservations already charged in full as stale: a late reconcile only adds any excess (idempotent). */
-  settled?: Record<string, number>
+  settled?: Record<string, { usd: number; at: number }>
 }
 
 export const emptyBudgetState = (day: string): BudgetState => ({
@@ -87,11 +87,16 @@ export function rollBudget(state: BudgetState, day: string, now: number, staleMs
     if (now - r.at > staleMs) {
       reservedUsd -= r.usd
       spentUsd += r.usd
-      settled = { ...settled, [id]: r.usd }
+      settled = { ...settled, [id]: { usd: r.usd, at: now } }
       delete reservations[id]
     }
   }
-  return { ...s, reservations, reservedUsd: Math.max(0, reservedUsd), spentUsd, settled }
+  // Settlement records only need to outlive late reconciles (callers finish in seconds; stale is 5 min). Keep them
+  // 24 h so the ledger value stays small (Durable Object values are capped at 2 MB; Codex review round 8). A
+  // reconcile arriving later than that is charged again: over-counting is the safe direction for a hard cap.
+  const pruned: Record<string, { usd: number; at: number }> = {}
+  for (const [id, v] of Object.entries(settled)) if (now - v.at <= SETTLED_RETENTION_MS) pruned[id] = v
+  return { ...s, reservations, reservedUsd: Math.max(0, reservedUsd), spentUsd, settled: pruned }
 }
 
 /**
@@ -126,13 +131,19 @@ export function reserve(
   return { state: alert ? { ...next, alerted: true } : next, result: { ok: true, id, alert } }
 }
 
+export const SETTLED_RETENTION_MS = 24 * 3600_000
+
 /** Replace a reservation with the actual cost. Unknown ids (already released) still record the spend. */
-export function reconcile(state: BudgetState, id: string, usd: number): BudgetState {
-  const charged = state.settled?.[id]
+export function reconcile(state: BudgetState, id: string, usd: number, now = Date.now()): BudgetState {
+  const charged = state.settled?.[id]?.usd
   if (charged != null) {
     // Already recorded (stale charge or an earlier reconcile): add only spend not yet recorded. Idempotent.
     if (usd <= charged) return state
-    return { ...state, settled: { ...state.settled, [id]: usd }, spentUsd: state.spentUsd + (usd - charged) }
+    return {
+      ...state,
+      settled: { ...state.settled, [id]: { usd, at: now } },
+      spentUsd: state.spentUsd + (usd - charged),
+    }
   }
   const r = state.reservations[id]
   const reservations = { ...state.reservations }
@@ -140,7 +151,7 @@ export function reconcile(state: BudgetState, id: string, usd: number): BudgetSt
   return {
     ...state,
     reservations,
-    settled: { ...state.settled, [id]: usd },
+    settled: { ...state.settled, [id]: { usd, at: now } },
     reservedUsd: Math.max(0, state.reservedUsd - (r?.usd ?? 0)),
     spentUsd: state.spentUsd + usd,
   }
