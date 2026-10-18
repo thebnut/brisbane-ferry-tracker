@@ -25,7 +25,10 @@
     "ALLOW_FIXTURES": "1",
     // "1" serves fixture data to everyone (dev and Playwright without the live API).
     "FIXTURES": "0",
-    "SITE_URL": "https://www.brisbaneferry.com"
+    "SITE_URL": "https://www.brisbaneferry.com",
+    // Local dev uses the STAGING widget like staging. localhost is on neither widget, so the sheet shows the bot-check
+    // error there; Playwright overrides this with the test sitekey.
+    "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
   },
   "env": {
     "staging": {
@@ -39,8 +42,8 @@
         "FIXTURE_FALLBACK": "1",
         "SITE_URL": "https://www.brisbaneferry.com",
         // Invisible Turnstile widget for the feedback sheet: the STAGING widget "bft-transit-ask" (public sitekey; its
-        // secret lives on bft-api, which verifies through the API binding). No top-level value: localhost isn't one of
-        // the widget's hostnames. Production uses the PROD widget (test/wrangler-config.test.ts).
+        // secret lives on bft-api, which verifies through the API binding). Production uses the PROD widget
+        // (test/wrangler-config.test.ts).
         "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
       },
       // The SSR loader and the /v1 proxy call the API Worker in-process through this binding.

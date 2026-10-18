@@ -26,8 +26,8 @@ describe('wrangler.jsonc Turnstile sitekeys', () => {
     expect(c.services).toEqual([{ binding: 'API', service: 'bft-api-prod' }])
   })
 
-  it('local dev has no sitekey (localhost is on neither widget), and no env ships the test key', () => {
-    expect(read().vars).not.toHaveProperty('TURNSTILE_SITEKEY')
+  it('local dev uses the STAGING widget too, and no env ships the test key', () => {
+    expect(read().vars.TURNSTILE_SITEKEY).toBe(STAGING_SITEKEY)
     for (const env of [undefined, 'staging', 'production'])
       expect(read(env).vars.TURNSTILE_SITEKEY, String(env)).not.toBe(TEST_SITEKEY)
   })
