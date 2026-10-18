@@ -192,6 +192,17 @@ describe('the home page’s live judgement (R7-T1)', () => {
       ).live,
     ).toBe(true)
     expect(homeLiveState(items, [{ data: undefined, pending: true }], opts).live).toBe(false)
+    // A card whose request failed (no data, no longer pending) isn't live either (Codex review).
+    expect(
+      homeLiveState(
+        items,
+        [
+          { data: live, pending: false },
+          { data: undefined, pending: false },
+        ],
+        opts,
+      ).live,
+    ).toBe(false)
   })
 
   it('a page from the device’s copy is offline until a card has its own network answer', () => {
@@ -209,7 +220,7 @@ describe('the home page’s live judgement (R7-T1)', () => {
     // A network answer after the page: confirmed, and live once every card is.
     const fresh = { ...live, generatedAt: NOW + 60_000 }
     expect(
-      homeLiveState(items, [{ data: fresh, pending: false }], { ...cached, nowMs: NOW + 60_000 }),
+      homeLiveState([{}], [{ data: fresh, pending: false }], { ...cached, nowMs: NOW + 60_000 }),
     ).toEqual({ live: true, unconfirmed: false })
   })
 

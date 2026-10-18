@@ -33,3 +33,36 @@ describe('demo mode is easy to leave (R7-B1)', () => {
     expect(screen.getByRole('link', { name: 'Exit demo' }).getAttribute('href')).toBe('?fixtures=0')
   })
 })
+
+describe('demo data left on the device (Codex review of R7-B1)', () => {
+  it('drops copies made from demo data, and the runtime caches when it found any', async () => {
+    const { clearDemoLeftovers } = await import('../src/demo.tsx')
+    localStorage.setItem(
+      'bft-bus-offline:10802',
+      JSON.stringify({ body: { staticGeneration: 'fixture-20261020' } }),
+    )
+    localStorage.setItem(
+      'bft-bus-offline:1',
+      JSON.stringify({ body: { staticGeneration: '20261017-20261216-x' } }),
+    )
+    localStorage.setItem('bft-bus-saved', '[]')
+    const deleted: string[] = []
+    const cacheStorage = {
+      keys: async () => ['workbox-precache-v2-x', 'bus-pages', 'bus-data'],
+      delete: async (n: string) => {
+        deleted.push(n)
+        return true
+      },
+    } as unknown as CacheStorage
+    expect(await clearDemoLeftovers({}, localStorage, cacheStorage)).toBe(1)
+    expect(localStorage.getItem('bft-bus-offline:10802')).toBeNull()
+    expect(localStorage.getItem('bft-bus-offline:1')).not.toBeNull()
+    expect(deleted).toEqual(['bus-pages', 'bus-data'])
+    deleted.length = 0
+    expect(await clearDemoLeftovers({}, localStorage, cacheStorage)).toBe(0)
+    expect(deleted).toEqual([])
+    await clearDemoLeftovers({ force: true }, localStorage, cacheStorage)
+    expect(deleted).toEqual(['bus-pages', 'bus-data'])
+    localStorage.clear()
+  })
+})

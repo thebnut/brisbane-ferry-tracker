@@ -7,5 +7,6 @@ export default [
   route('trip/:tripInstance', 'routes/trip.tsx'),
   route('map', 'routes/map.tsx'),
   route('alerts', 'routes/alerts.tsx'),
+  route('feedback', 'routes/feedback.tsx'),
   route('*', 'routes/not-found.tsx'),
 ] satisfies RouteConfig

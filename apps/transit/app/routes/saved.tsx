@@ -133,8 +133,8 @@ type CardData = (DeparturesResponse & OfflineCopy) | undefined
  *  - `unconfirmed`: the page came from the device's copy (the service worker's, or old by the device clock) and no
  *    card has its own network answer yet, so it shows the offline banner like a board rendered from a cached page;
  *  - `live` (the header pill): online, confirmed, and every saved card has an answer that is live and fresh. A card
- *    still waiting for its answer is not live: before R7-T1 a pending card counted as live, so an offline reload kept
- *    LIVE up for as long as the requests took to fail.
+ *    still waiting for its answer, or whose request failed, is not live: before R7-T1 a pending card counted as live,
+ *    so an offline reload kept LIVE up for as long as the requests took to fail (Codex review: a failed one too).
  * With nothing saved there is nothing to judge: LIVE while online on a fresh page.
  */
 export function homeLiveState(
@@ -149,11 +149,12 @@ export function homeLiveState(
   const unconfirmed = unconfirmedBefore != null && !answered && (items == null || items.length > 0)
   if (!online || unconfirmed) return { live: false, unconfirmed }
   if (items == null || items.length === 0) return { live: unconfirmedBefore == null, unconfirmed }
-  const withData = cards.filter((c) => c.data != null)
+  // Every saved card, each with an answer (one still waiting, or one that failed, has nothing live to show).
   const live =
-    withData.length > 0 &&
-    !cards.some((c) => c.pending) &&
-    withData.every((c) => liveState(c.data, { offline: false, nowMs, unconfirmedBefore }) == null)
+    cards.length === items.length &&
+    cards.every(
+      (c) => c.data != null && liveState(c.data, { offline: false, nowMs, unconfirmedBefore }) == null,
+    )
   return { live, unconfirmed }
 }
 

@@ -256,9 +256,13 @@ export const RECONNECT_PROBE_MS = 2_500
  */
 export function probeWhileUnreachable(probe: () => void, intervalMs = RECONNECT_PROBE_MS): () => void {
   let id: ReturnType<typeof setInterval> | undefined
+  // A hidden tab doesn't poll, so it doesn't probe either (Codex review); onReconnect refetches when it is shown.
+  const tick = () => {
+    if (document.visibilityState !== 'hidden') probe()
+  }
   const update = () => {
     const probing = unreachable && navigator.onLine !== false
-    if (probing && id === undefined) id = setInterval(probe, intervalMs)
+    if (probing && id === undefined) id = setInterval(tick, intervalMs)
     else if (!probing && id !== undefined) {
       clearInterval(id)
       id = undefined

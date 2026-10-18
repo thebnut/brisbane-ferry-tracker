@@ -10,7 +10,10 @@ import { pinUpcoming } from './upcoming.ts'
 const SAVED = [{ id: '10802', name: 'Cultural Centre station, platform 1' }]
 
 for (const path of ['/', '/stop/10802'])
-  test(`R7: a saved stop (${path}) is LIVE again within 3 s of the network returning`, async ({ page, context }) => {
+  test(`R7: a saved stop (${path}) is LIVE again within 3 s of the network returning`, async ({
+    page,
+    context,
+  }) => {
     test.slow()
     await page.addInitScript((saved) => localStorage.setItem('bft-bus-saved', JSON.stringify(saved)), SAVED)
     await pinUpcoming(context)
@@ -52,3 +55,11 @@ for (const path of ['/', '/stop/10802'])
     await expect(page.locator('[data-banner=offline]')).toHaveCount(0)
     console.log(`${path}: LIVE ${Date.now() - back} ms after the service worker's network returned`)
   })
+
+test('R7: /feedback sends people to the transit feedback sheet (bus has none of its own)', async ({
+  request,
+}) => {
+  const res = await request.get('/feedback', { maxRedirects: 0 })
+  expect(res.status()).toBe(302)
+  expect(res.headers().location).toMatch(/^https:\/\/[^/]+\/feedback$/)
+})

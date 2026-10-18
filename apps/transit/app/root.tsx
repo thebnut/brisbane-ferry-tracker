@@ -140,8 +140,12 @@ export default function App() {
 
 /** The service worker's page cache (app/sw.ts); entry.client.tsx saves the first page view into it. */
 const PAGES_CACHE = 'transit-pages'
+/** Its maxEntries in app/sw.ts. */
+const PAGES_MAX = 40
 /** Pages that only redirect, never worth a copy. */
 const NO_COPY = /^\/(?:ask|feedback)$|^\/__/
+/** Demo and test switches: a copy of such a page would come back under an ordinary visit's history. */
+const NO_COPY_PARAMS = ['fixtures', 'rt']
 
 /**
  * Saves a copy of every page this visit navigates to (R7): client navigations fetch only their loader data, so a page
@@ -155,11 +159,19 @@ function useKeepPageCopies() {
   useEffect(() => {
     const path = pathname + search
     if (path === first || NO_COPY.test(pathname) || !navigator.serviceWorker?.controller) return
+    const params = new URLSearchParams(search)
+    if (NO_COPY_PARAMS.some((k) => params.has(k))) return
     const id = setTimeout(() => {
       if (!isOnline()) return
       void caches
         .open(PAGES_CACHE)
-        .then((cache) => cache.add(path))
+        .then(async (cache) => {
+          await cache.add(path)
+          // Written outside Workbox, so its expiration doesn't count these: keep the cache within its limit (oldest
+          // first; Cache Storage lists entries in insertion order), as app/sw.ts configures it (Codex review).
+          const keys = await cache.keys()
+          await Promise.all(keys.slice(0, Math.max(0, keys.length - PAGES_MAX)).map((k) => cache.delete(k)))
+        })
         .catch(() => {})
     }, 1_500)
     return () => clearTimeout(id)
