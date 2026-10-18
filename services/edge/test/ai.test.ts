@@ -5,6 +5,7 @@
 import { type BudgetConfig, DEFAULT_BUDGET, emptyBudgetState, reconcile, reserve } from '@bft/core'
 import { describe, expect, it, vi } from 'vitest'
 import { type AiDeps, budgetConfig, ipKey, ipv6Prefix48, registerAi, siteverify } from '../src/ai/routes.ts'
+import { admitInWindow, VERIFY_BUDGET, VERIFY_BUDGET_NAME } from '../src/ai/verify-window.ts'
 import { createApp } from '../src/app.ts'
 import { silentLogger } from '../src/log.ts'
 import { SnapshotClient } from '../src/snapshot-client.ts'
@@ -695,14 +696,32 @@ describe('POST /v1/turnstile/verify (for the feedback relays)', () => {
     expect(await r.json()).toEqual({ error: 'siteverify_unavailable' })
   })
 
-  it('is rate limited per CF-Connecting-IP (never the body remoteip) and globally, before any siteverify call', async () => {
+  /** A Budget DO namespace whose 'turnstile-verify' instance is one real counter (what a singleton DO gives us). */
+  function verifyBudget(limit = VERIFY_BUDGET.limit) {
+    let w: Parameters<typeof admitInWindow>[0] = null
+    const names: string[] = []
+    const stub = {
+      admitVerify: vi.fn(async (_l: number, windowMs: number) => {
+        const r = admitInWindow(w, Date.now(), limit, windowMs)
+        w = r.window
+        return r.ok
+      }),
+    }
+    const ns = {
+      idFromName: (n: string) => {
+        names.push(n)
+        return n
+      },
+      get: () => stub,
+    }
+    return { ns, stub, names }
+  }
+
+  it('is limited per CF-Connecting-IP (never the body remoteip) before the budget and siteverify', async () => {
     const sv = vi.fn(async () => ({ success: true, hostname: 'h', action: 'feedback' }))
     const perIp = { limit: vi.fn(async ({ key }: { key: string }) => ({ success: key !== '198.51.100.66' })) }
-    const global = { limit: vi.fn(async () => ({ success: true })) }
-    const s = setup(
-      { TURNSTILE_SECRET: 'sek', VERIFY_LIMITER: perIp, VERIFY_GLOBAL_LIMITER: global },
-      { siteverify: sv },
-    )
+    const b = verifyBudget()
+    const s = setup({ TURNSTILE_SECRET: 'sek', VERIFY_LIMITER: perIp, BUDGET: b.ns }, { siteverify: sv })
     const req = (ip: string, remoteip?: string) =>
       s.app.request('/v1/turnstile/verify', {
         method: 'POST',
@@ -714,23 +733,56 @@ describe('POST /v1/turnstile/verify (for the feedback relays)', () => {
     expect(limited.status).toBe(429)
     expect(limited.headers.get('retry-after')).toBe('60')
     expect(sv).not.toHaveBeenCalled()
-    expect(global.limit).not.toHaveBeenCalled()
+    expect(b.stub.admitVerify).not.toHaveBeenCalled()
     expect((await req('203.0.113.2')).status).toBe(200)
     expect(perIp.limit.mock.calls.map(([o]) => o.key)).toEqual(['198.51.100.66', '203.0.113.2'])
-    expect(global.limit).toHaveBeenCalledWith({ key: 'all' })
-
-    global.limit.mockResolvedValue({ success: false })
-    expect((await req('203.0.113.3')).status).toBe(429)
-    expect(sv).toHaveBeenCalledTimes(1)
+    expect(b.names).toEqual([VERIFY_BUDGET_NAME])
+    expect(b.stub.admitVerify).toHaveBeenCalledWith(VERIFY_BUDGET.limit, VERIFY_BUDGET.windowMs)
   })
 
-  it('a limiter that errors fails closed (503, no siteverify)', async () => {
+  it('the aggregate budget is one counter across locations: two edge isolates share it', async () => {
+    const sv = vi.fn(async () => ({ success: true, hostname: 'h', action: 'feedback' }))
+    const b = verifyBudget(3)
+    // Two isolates in different Cloudflare locations: separate apps (and per-location limiters), one DO.
+    const sydney = setup({ TURNSTILE_SECRET: 'sek', BUDGET: b.ns }, { siteverify: sv })
+    const tokyo = setup({ TURNSTILE_SECRET: 'sek', BUDGET: b.ns }, { siteverify: sv })
+    const statuses: number[] = []
+    for (const app of [sydney.app, tokyo.app, sydney.app, tokyo.app, sydney.app])
+      statuses.push((await verifyReq(app, { token: 't' })).status)
+    expect(statuses).toEqual([200, 200, 200, 429, 429])
+    expect(sv).toHaveBeenCalledTimes(3)
+  })
+
+  it('admitInWindow: a fixed window of `limit`, then a fresh one', () => {
+    let w: Parameters<typeof admitInWindow>[0] = null
+    const at = (t: number) => {
+      const r = admitInWindow(w, t, 2, 1000)
+      w = r.window
+      return r.ok
+    }
+    expect([at(0), at(10), at(20), at(999), at(1000), at(1001)]).toEqual([
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+    ])
+    expect(at(1002)).toBe(false)
+  })
+
+  it('a limiter or budget DO that errors fails closed (503, no siteverify)', async () => {
     const sv = vi.fn()
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const broken = { limit: async () => Promise.reject(new Error('down')) }
     const s = setup({ TURNSTILE_SECRET: 'sek', VERIFY_LIMITER: broken }, { siteverify: sv })
-    const r = await verifyReq(s.app, { token: 't' })
-    expect(r.status).toBe(503)
+    expect((await verifyReq(s.app, { token: 't' })).status).toBe(503)
+    const deadDo = {
+      idFromName: () => 'x',
+      get: () => ({ admitVerify: async () => Promise.reject(new Error('DO down')) }),
+    }
+    const s2 = setup({ TURNSTILE_SECRET: 'sek', BUDGET: deadDo }, { siteverify: sv })
+    expect((await verifyReq(s2.app, { token: 't' })).status).toBe(503)
     expect(sv).not.toHaveBeenCalled()
   })
 

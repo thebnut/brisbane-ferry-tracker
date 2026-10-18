@@ -21,6 +21,7 @@ import { answerIntent } from './answer.ts'
 import { askLlm } from './llm.ts'
 import { loadIndexes, resolverFor } from './resolver.ts'
 import { type EvidenceLog, type InternalFetch, runTool, slimDeparture } from './tools.ts'
+import { VERIFY_BUDGET, VERIFY_BUDGET_NAME } from './verify-window.ts'
 
 export interface AiEnv {
   AI_ENABLED?: string
@@ -34,9 +35,8 @@ export interface AiEnv {
   IP_HASH_SALT?: string
   BUDGET?: DurableObjectNamespace<import('./budget-do.ts').Budget>
   ASK_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
-  /** /v1/turnstile/verify: per caller IP (CF-Connecting-IP), and one global key. */
+  /** /v1/turnstile/verify local burst limit per caller IP (CF-Connecting-IP); the aggregate budget is in BUDGET. */
   VERIFY_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
-  VERIFY_GLOBAL_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
 }
 
 export function budgetConfig(env: AiEnv): BudgetConfig {
@@ -353,10 +353,11 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
    * anything: it only says whether a token the caller already holds is valid, for which hostname and action, and
    * siteverify redeems the token as it answers (tokens are single-use), so a checked token can't be replayed against
    * feedback. The hostname and action checks are the caller's (api/_turnstile.js).
-   * Bounded before any siteverify call (Codex review of #66): per caller IP and globally. The caller IP is the
-   * platform's CF-Connecting-IP, never the body's `remoteip` (that only goes to siteverify). The Workers forward the
-   * visitor's IP over the service binding; Vercel's calls arrive from its egress IPs. A limiter that errors fails
-   * closed; a missing binding (local dev, tests) is allowed, as for the feedback limiter.
+   * Bounded before any siteverify call (Codex review of #66): a local burst limit per caller IP (the platform's
+   * CF-Connecting-IP, never the body's `remoteip`, which only goes to siteverify; the Workers forward the visitor's IP
+   * over the service binding, Vercel's calls arrive from its egress IPs), then an aggregate budget counted in one
+   * Durable Object instance, so it holds across Cloudflare locations (verify-window.ts). A limiter or DO that errors
+   * fails closed; a missing binding (local dev, tests) is allowed, as for the feedback limiter.
    */
   app.post('/v1/turnstile/verify', async (c) => {
     const env = getEnv(c)
@@ -367,11 +368,15 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
     try {
       const ip = c.req.header('cf-connecting-ip') ?? 'anon'
       const perIp = env.VERIFY_LIMITER ? (await env.VERIFY_LIMITER.limit({ key: ip })).success : true
-      const all =
-        perIp && env.VERIFY_GLOBAL_LIMITER
-          ? (await env.VERIFY_GLOBAL_LIMITER.limit({ key: 'all' })).success
-          : perIp
-      if (!all) return c.json({ error: 'rate_limited' }, 429, { ...noStore, 'retry-after': '60' })
+      const admitted =
+        perIp &&
+        (env.BUDGET
+          ? await env.BUDGET.get(env.BUDGET.idFromName(VERIFY_BUDGET_NAME)).admitVerify(
+              VERIFY_BUDGET.limit,
+              VERIFY_BUDGET.windowMs,
+            )
+          : true)
+      if (!admitted) return c.json({ error: 'rate_limited' }, 429, { ...noStore, 'retry-after': '60' })
     } catch (error) {
       console.error(`[turnstile] verify limiter failed (${error instanceof Error ? error.name : 'error'})`)
       return c.json({ error: 'limiter_unavailable' }, 503, noStore)
