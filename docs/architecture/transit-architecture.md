@@ -578,6 +578,160 @@ for service detail and the live map once `services/edge` hosts the DO next to th
 snapshot in-process instead of the trip endpoint). The prototype lives in the `bft-train` Worker behind `TRIP_WS`
 until that move.
 
+### Phase 0 measurements: RtHub
+
+Measured 18 October 2026 (Saturday) on the 17 Oct SEQ feed. Raw output: [`measurements/rthub-spike-2026-10-18-*.json`](./measurements/); script: `services/edge/scripts/spike.ts`.
+- **Method.** Workers freeze `Date.now()` and `performance.now()` while code runs. So the cycle (decode + match + snapshot build + serialise, `services/edge/src/rt/build.ts`) was timed in Node 22 (same V8) with `process.cpuUsage()`: 40 runs after 5 warm-ups, against yesterday's and today's trip indexes. It was cross-checked in workerd (`wrangler dev`, timing 200 rebuilds from outside the isolate) and on Cloudflare staging (`wrangler tail` `cpuTime` per alarm).
+- **Feeds.** The sample protobufs (13:44 AEST) plus a fresh fetch (14:24 AEST) gave the same numbers within noise. **Weekday peak = 2× Saturday** (§5).
+
+**CPU per alarm cycle (Node, ms: p50 / p95, sample feeds)**
+
+| Layout | TripUpdates | Stop updates | Snapshot JSON / gz | Decode | Match + build | Serialise | **Total** | Weekday-peak p50 estimate |
+|---|---|---|---|---|---|---|---|---|
+| Per-mode ferry | 17 KB | 211 | 95 / 15 KB | 0.18 / 0.20 | 0.29 / 0.33 | 0.16 / 0.19 | **0.63 / 2.3** | 1.3 |
+| Per-mode train | 97 KB | 2,072 | 314 / 38 KB | 1.2 / 3.4 | 0.70 / 2.5 | 0.61 / 0.66 | **2.6 / 4.8** | 5.1 |
+| Per-mode ferry + train | 114 KB | 2,283 | 351 / 43 KB | 1.4 / 6.6 | 0.75 / 2.5 | 0.69 / 4.7 | **2.9 / 8.2** | 5.9 |
+| Per-mode ferry + train + tram | 132 KB | 2,648 | 398 / 47 KB | 1.7 / 4.4 | 0.85 / 3.2 | 0.79 / 0.85 | **3.5 / 6.2** | 6.9 |
+| Per-mode bus | 938 KB | 19,184 | 2.5 MB / 317 KB | 21 / 35 | 5.6 / 11 | 5.7 / 8.0 | **35 / 50** | 70 |
+| Combined (all modes) | 1,057 KB | 21,548 | 2.8 MB / 362 KB | 24 / 66 | 10 / 17 | 6.3 / 17 | **40 / 101** | 80 |
+
+- **workerd (`wrangler dev`):** ferry + train rebuilds took **2.5–2.7 ms** each (200 in 0.50–0.54 s), matching Node. The combined feeds took about **20 ms** each, with only ferry and train matched.
+- **Match rates (live, 18 Oct):** ferry 52/52 to 61/61, train 81/81 to 85/85, tram 23/23, bus 1,066/1,074, all tier 1, with no ambiguous matches.
+  - Train only reached 100% after a core fix: TransLink sends an after-midnight trip's `start_date` as the calendar date (00:18) while GTFS files it under the previous service date (24:18). Five REPLACEMENT trips missed until tiers 1 and 2 learned that convention (`packages/core/test/edge-findings.test.ts`).
+
+**Memory and reload cost, two service days of trip indexes** (one cold Node process per mode, like a fresh DO isolate). These are the Map-based matcher's numbers; the compact matcher's are in the conclusions and in `measurements/rthub-spike-2026-10-18-compact-matcher.json`.
+
+| Mode | Trips (2 days) | Trip index JSON | Heap held by the hub | Reload step per day (parse + `addDay`) |
+|---|---|---|---|---|
+| Ferry | 1,538 | 0.25 MB | 2.6 MB | 1.6 + 10.5 ms cold, 0.7 + 1.9 ms warm |
+| Train | 1,218 | 0.73 MB | 5.5 MB | 1.8 + 12.2 ms cold, 1.3 + 5.8 ms warm |
+| Tram | 464 | 0.35 MB | 2.5 MB | 1.5 + 11.4 ms cold, 0.3 + 2.3 ms warm |
+| Bus | 22,220 | 15.7 MB | **103–120 MB** | 25 + 85 ms, 25 + 105 ms |
+
+The first version built the matcher in one go and cost 92 ms (ferry), 300 ms (train) and 5.5 s (bus): every stop time resolved the timezone through a new `TZDate`. Two changes brought it down:
+- core now memoises `serviceDayStartEpoch`
+- `TripMatcher.addDay` lets the hub index **one service day per alarm cycle** and swap a mode in only when it is complete, so generations are never mixed
+
+**Cloudflare staging (`bft-api.brisbanetransit.workers.dev`, Workers Free, SQLite-backed DO, R2 `bft-transit-data`)**
+
+Real pipeline generation `20261017-20261216-3305c5ea-*` (all four modes), `RT_MODES=ferry,train`. CPU and wall times are from `wrangler tail` (`cpuTime` / `wallTime` per invocation), Saturday 18 October 15:30–15:35 AEST.
+
+| Measured | Value |
+|---|---|
+| **Poll alarm CPU, ferry + train fully loaded and matched** | **p50 15 ms, range 10–23 ms** (18 warm polls) |
+| Poll alarm CPU, cold isolate loading a trip-index day | 33 ms (2 cycles after a deploy) |
+| Keep-alive alarm (no poll) | 0 ms CPU, about 12 ms wall |
+| Poll alarm CPU before static data was loaded (no matching) | p50 13–17 ms, range 7–30 ms |
+| Poll alarm wall time | p50 about 1.5–2.2 s (upstream fetches, storage, R2). It was 5 s before the fetch-timeout timers were cleared. |
+| `/v1` request CPU (edge isolate) | p50 2 ms, p95 8 ms |
+| Watchdog cron | 0 ms CPU, about 220 ms wall |
+| Outcomes | every invocation `ok`: no CPU-limit terminations seen, even at 33 ms |
+| First cron after the very first deploy | about 7 min, after which the watchdog started the chain |
+| Live match rate | ferry 62/62, train 84/84, all tier 1, 0 ambiguous |
+| Shadow diff, staging `/v1` (real data) vs legacy `latest.json` (same feed) | 346 pairs, 16,181 departures, **0 differences** |
+| Freshness (source age), Bulimba → Riverside departures, one client polling every 15 s for 10 min | **p50 34 s, p95 54 s, max 84 s: misses the ≤ 40 s p95 target.** A variant that waited up to 250 ms for the refresh measured p50 45 s, p95 55 s, and was reverted. |
+| Latency, Brisbane client → BNE PoP | **p50 28 ms, p75 43 ms** (target p75 < 150 ms). p95 381 ms: cold isolates loading the stop index and blobs. A blocking R2 refresh costs about 1 s, hence stale-while-revalidate. |
+| Watchdog drill (`POST /__drill/kill-alarm`: delete the alarm, and in-flight alarms skip their re-arm) | **Recovered in 60 s and 46 s** (two drills): the time from the last good poll to the first poll in a fresh instance started by the 1-minute cron watchdog. That is within the design bound (45 s stale threshold plus up to 60 s cron). The first naive kill was absorbed: an in-flight keep-alive alarm re-armed in `finally`, which is the robustness rule working. |
+
+**A resident hub survives deploys (a finding).** With the keep-alive, Cloudflare did not restart the object on deploy: its `startedAt` predated two deploys, so new hub code would never have taken effect.
+- The watchdog now passes the Worker's `version_metadata` id, and a hub on an older version calls `ctx.abort()`. The stored alarm then fires in a fresh instance on the new code.
+- Verified: after a redeploy the hub restarted within 42 s.
+
+**Durable Object eviction (a finding).** Cloudflare evicts an idle Durable Object after about 10 s.
+- With a 15 s alarm the hub ran in a fresh isolate on every alarm (`startedAt` changed every cycle). It never finished its one-day-per-cycle trip-index load, so `rtState` stayed `reloading`, and it paid the restore every cycle.
+- `wrangler dev` does not evict, so this showed only on Cloudflare.
+- The fix is a 7.5 s keep-alive alarm that polls only when 15 s have passed since the last poll. TransLink still sees one request per feed every 15 s.
+- The cost is residency: 128 MB × 86,400 s is about **11,000 GB-s a day of DO duration**, against the Free plan's 13,000 GB-s a day, or 330k of Paid's included 400k GB-s a month.
+- DO requests: 11,520 alarms a day.
+
+Staging CPU is 4–5× the pure rebuild cost measured in Node and workerd. The rest is fetch body handling, DO storage and R2 writes of the 350 KB snapshot, and runtime overhead.
+- Cuts made so far:
+  - the snapshot is not duplicated into DO storage when R2 holds it
+  - raw feeds are persisted at most once a minute
+  - fetch timers are cleared
+  - edge snapshot reads are stale-while-revalidate (a blocking refresh cost about 1 s per request)
+- Further cuts if Free must be kept:
+  - publish to R2 every second cycle
+  - drop the uncompressed `snap` JSON in favour of a per-mode split, only ferry for the ferry app
+
+**Storage and request budget (ferry + train, per day)**
+- **TransLink requests:** 5,760 TripUpdates + 5,760 VehiclePositions per polled mode, plus 1,440 alerts.
+  - That is 24,480 a day for ferry + train per-mode, or 12,960 with `RT_MODES=all`.
+  - Per-mode polling is above the §7 Phase 1 target of 12k a day. The per-mode feeds are 3.8–100 KB against the 1.1 MB combined feed, so total bytes are about 10× lower.
+- **Durable Object requests:** 11,520 alarms (keep-alive), 1,440 watchdog crons, plus one `getRaw` RPC per 10 s per active isolate (legacy proxy only).
+  - Snapshot reads go to R2, not the DO.
+  - That is about 13k a day plus traffic-dependent RPCs, against the Free plan's 100k.
+- **DO SQLite rows written:** 1 meta per poll, plus 4 raw feeds a minute, about 11.5k a day (Free: 100k).
+- **R2 Class A:** 2 per poll (snapshot, then `rt/latest.json`), about 11.5k a day or **345k a month** (Free: 1M).
+  - Deleting the snapshot from 240 polls ago is free and keeps about 85 MB of history.
+- **R2 Class B:** 1–2 per 10 s per active isolate (the pointer, plus the snapshot when its seq moved), in the background.
+  - That is about 520k a month per continuously active isolate (Free: 10M).
+
+**Freshness, explained.** The source age a client sees adds up as follows:
+- About 5 s: TransLink's header age when the hub fetches.
+- Up to 15 s: the hub's poll interval.
+- 1–2 s: publishing to R2.
+- One refresh lag at the edge. With stale-while-revalidate, a request triggers a background refresh and is served the previous copy.
+  - With one 15 s client, that lag is a whole client interval.
+  - With real traffic, refreshes happen every 10 s whoever asks, so the lag is the 10 s throttle.
+
+Ways to reach p95 ≤ 40 s:
+- Poll every 10 s, TransLink's own `max-age`. That costs about 1.5× the TransLink and R2 writes.
+- Read one R2 object instead of the pointer and then the snapshot.
+- On a custom domain, share one refresh per PoP through the Cache API, or Workers Cache (Paid).
+- Re-measure under real traffic before tuning.
+
+**Conclusions**
+- **Workers Free (10 ms CPU).** The pure rebuild of per-mode ferry + train (+ tram) fits: 3–3.5 ms p50 Saturday, about 6–7 ms weekday peak.
+  - But the whole poll invocation on staging measures **p50 15 ms (10–33 ms)**, above the nominal 10 ms limit. Cloudflare hasn't terminated any invocation so far, so it is not enforcing 10 ms strictly here, but there is no headroom to rely on.
+  - DO duration from keep-alive residency also sits at about 85% of the Free daily allowance.
+  - Free is acceptable for staging and the Phase 1 shadow, not for launch.
+- **Workers Paid ($5, approved, not yet active)** is needed for:
+  - headroom for ferry + train
+  - `RT_MODES=all` (combined feeds: 40 ms p50 rebuild, 80 ms weekday estimate; about 20 ms in workerd with only ferry + train matched)
+  - any bus matching (35 ms p50)
+  - Paid's 30 s default CPU limit covers all of these by two orders of magnitude.
+- **Bus memory: fixed by the compact matcher.** The Map-based matcher held 103–120 MB for two bus days, which does not fit a 128 MB DO.
+  - The compact typed-array matcher (same API) holds **26.2 MB** for two bus days: 18.3 MB of JS heap plus the typed arrays' backing stores, measured as `heapUsed + arrayBuffers`. Train is 1.6 MB, ferry and tram 0.7 MB each.
+  - Its equivalence check against the old matcher found 0 differences: 58,036 `match()` calls (five descriptor variants per entity, four feeds, all modes, all tiers) plus 4,000 materialised trips.
+  - **Staging with bus indexed** (`RT_MODES=ferry,train,bus`, `RT_INDEX_MODES=ferry,train,bus`):
+    - bus 1,043/1,051 matched, 0 ambiguous, no out-of-memory
+    - poll CPU **p50 143 ms, p95 212 ms** (cold loads up to 253 ms)
+    - every invocation `ok` even on Free, but that is 14× the nominal limit
+  - So bus matching waits for Workers Paid. `RT_INDEX_MODES` still defaults to excluding bus, and `/v1/bus` reports `rtState: unavailable` until then.
+
+**Workers Paid staging (18 October 16:30–16:55 AEST, #45).** Configuration: `RT_MODES=all` (combined feeds), `RT_INDEX_MODES=ferry,train,tram,bus`, `limits.cpu_ms` 2000, compact matcher, R2 snapshot ring (no deletes).
+
+| Measured | Value |
+|---|---|
+| Live match rate | ferry 54/54, train 82/82, tram 24/24, bus 1,023/1,032. All tier 1, 0 ambiguous |
+| Poll alarm CPU, all modes matched | **p50 170 ms, p95 241 ms**, max 248 ms (cold index loads in the first cycles). All `ok`, well inside `cpu_ms` 2000 |
+| Hub working set (Node, through a live `StaticStore`, hub load order) | **34.4 MB**: indexes 18.6 MB, decoded combined feeds and snapshot 15.9 MB. Large (bus) trip-index blobs are not cached |
+| TransLink requests | about 12,960 a day (combined feeds), meeting the §7 target |
+| `/v1` request CPU (edge) | p50 40 ms, p95 61 ms. It was 2 ms with ferry + train: isolates now parse a 2.9 MB combined snapshot when they refresh |
+| Freshness, one 15 s client, 10 min | source age p50 42 s, **p95 52 s** (target ≤ 40 s) |
+| Latency, Brisbane → BNE | p50 32 ms, but **p75 355 ms, p95 3.1 s**. Cold or refreshing isolates load and parse the 2.9 MB snapshot |
+
+**Per-mode snapshot split (#48, staging 18 October 17:09–17:20 AEST, Paid, `RT_MODES=all`, bus indexed).** The hub publishes `rt/{mode}/snapshot-{slot}.json` per mode, plus an alerts document (only when the alerts change) and one pointer. That is about 864k Class A writes a month.
+
+| | Combined | Split |
+|---|---|---|
+| Document an isolate serving `/v1/ferry` reads | 2.9 MB | **43 KB**. Train 303 KB, tram 58 KB, bus 2.2 MB, alerts 60 KB |
+| `/v1/ferry` request CPU | p50 40 ms | **p50 3 ms**, p95 23 ms |
+| Poll alarm CPU | p50 170 ms | p50 113 ms, p95 140 ms |
+| Latency (one 15 s client) | p75 355 ms, p95 3.1 s | p75 365 ms, p95 1.4 s |
+| Freshness p95 | 52 s | 56 s (target ≤ 40 s: not met) |
+
+The remaining latency tail and staleness come from per-isolate caching on workers.dev, not from snapshot size:
+- About 20% of requests block on a two-read R2 refresh, which takes about 360 ms.
+- A cold isolate takes 1.4–3.3 s.
+- Isolates serve their own older copies.
+
+Next:
+1. A single-read refresh: a pointer per mode, or the document inline in the pointer for small modes.
+2. At the hosting move, one shared refresh per PoP through the Cache API (already coded; a no-op on workers.dev) or Workers Cache.
+3. Re-measure under real traffic.
+
 ## 6. Cost model
 
 This was revised after Codex finding 9. The first draft assumed 10 requests per DAU, which implied only about 2 minutes of visible use a day.

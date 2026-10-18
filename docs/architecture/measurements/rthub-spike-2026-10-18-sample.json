@@ -1,0 +1,489 @@
+{
+  "at": "2026-10-18T04:24:54.108Z",
+  "node": "v22.23.1",
+  "dates": [
+    "20261017",
+    "20261018"
+  ],
+  "runs": 40,
+  "fresh": false,
+  "memory": {
+    "ferry": {
+      "trips": 1538,
+      "jsonMB": 0.25,
+      "heapMB": 2.6,
+      "reloadSteps": [
+        {
+          "parseMs": 1.2,
+          "addDayMs": 10.3
+        },
+        {
+          "parseMs": 0.5,
+          "addDayMs": 1.7
+        }
+      ]
+    },
+    "train": {
+      "trips": 1218,
+      "jsonMB": 0.73,
+      "heapMB": 5.5,
+      "reloadSteps": [
+        {
+          "parseMs": 1.9,
+          "addDayMs": 12.4
+        },
+        {
+          "parseMs": 1.4,
+          "addDayMs": 6.2
+        }
+      ]
+    },
+    "bus": {
+      "trips": 22220,
+      "jsonMB": 15.68,
+      "heapMB": 103.5,
+      "reloadSteps": [
+        {
+          "parseMs": 22.7,
+          "addDayMs": 80.2
+        },
+        {
+          "parseMs": 22.6,
+          "addDayMs": 96.8
+        }
+      ]
+    },
+    "tram": {
+      "trips": 464,
+      "jsonMB": 0.35,
+      "heapMB": 2.5,
+      "reloadSteps": [
+        {
+          "parseMs": 1.5,
+          "addDayMs": 10.3
+        },
+        {
+          "parseMs": 0.3,
+          "addDayMs": 2.2
+        }
+      ]
+    }
+  },
+  "results": [
+    {
+      "layout": "combined (all modes)",
+      "bytes": {
+        "tu": 1082504,
+        "vp": 111255
+      },
+      "entities": 1193,
+      "stopUpdates": 21548,
+      "snapshot": {
+        "trips": 1192,
+        "vehicles": 696,
+        "jsonKB": 2844,
+        "gzKB": 362
+      },
+      "stats": {
+        "ferry": {
+          "total": 45,
+          "matched": 45,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 45
+          },
+          "addedDropped": 0
+        },
+        "train": {
+          "total": 81,
+          "matched": 81,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 81
+          },
+          "addedDropped": 0
+        },
+        "bus": {
+          "total": 1044,
+          "matched": 1035,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 1035,
+            "added": 8
+          },
+          "addedDropped": 1
+        },
+        "tram": {
+          "total": 23,
+          "matched": 23,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 23
+          },
+          "addedDropped": 0
+        }
+      },
+      "cpuMs": {
+        "decode": {
+          "p50": 24.06,
+          "p95": 65.68
+        },
+        "build": {
+          "p50": 10.24,
+          "p95": 17.07
+        },
+        "serialise": {
+          "p50": 6.27,
+          "p95": 16.88
+        },
+        "total": {
+          "p50": 40.14,
+          "p95": 101.1
+        }
+      },
+      "weekdayPeakEstimateMs": 80.3
+    },
+    {
+      "layout": "per-mode ferry",
+      "bytes": {
+        "tu": 17531,
+        "vp": 3327
+      },
+      "entities": 52,
+      "stopUpdates": 211,
+      "snapshot": {
+        "trips": 52,
+        "vehicles": 19,
+        "jsonKB": 95,
+        "gzKB": 15
+      },
+      "stats": {
+        "ferry": {
+          "total": 52,
+          "matched": 52,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 52
+          },
+          "addedDropped": 0
+        }
+      },
+      "cpuMs": {
+        "decode": {
+          "p50": 0.18,
+          "p95": 0.2
+        },
+        "build": {
+          "p50": 0.29,
+          "p95": 0.33
+        },
+        "serialise": {
+          "p50": 0.16,
+          "p95": 0.19
+        },
+        "total": {
+          "p50": 0.63,
+          "p95": 2.29
+        }
+      },
+      "weekdayPeakEstimateMs": 1.3
+    },
+    {
+      "layout": "per-mode train",
+      "bytes": {
+        "tu": 100198,
+        "vp": 8198
+      },
+      "entities": 81,
+      "stopUpdates": 2072,
+      "snapshot": {
+        "trips": 81,
+        "vehicles": 49,
+        "jsonKB": 314,
+        "gzKB": 38
+      },
+      "stats": {
+        "train": {
+          "total": 81,
+          "matched": 81,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 81
+          },
+          "addedDropped": 0
+        }
+      },
+      "cpuMs": {
+        "decode": {
+          "p50": 1.24,
+          "p95": 3.41
+        },
+        "build": {
+          "p50": 0.7,
+          "p95": 2.5
+        },
+        "serialise": {
+          "p50": 0.61,
+          "p95": 0.66
+        },
+        "total": {
+          "p50": 2.56,
+          "p95": 4.81
+        }
+      },
+      "weekdayPeakEstimateMs": 5.1
+    },
+    {
+      "layout": "per-mode ferry+train",
+      "bytes": {
+        "tu": 117729,
+        "vp": 11525
+      },
+      "entities": 133,
+      "stopUpdates": 2283,
+      "snapshot": {
+        "trips": 133,
+        "vehicles": 68,
+        "jsonKB": 351,
+        "gzKB": 43
+      },
+      "stats": {
+        "ferry": {
+          "total": 52,
+          "matched": 52,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 52
+          },
+          "addedDropped": 0
+        },
+        "train": {
+          "total": 81,
+          "matched": 81,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 81
+          },
+          "addedDropped": 0
+        }
+      },
+      "cpuMs": {
+        "decode": {
+          "p50": 1.42,
+          "p95": 6.62
+        },
+        "build": {
+          "p50": 0.75,
+          "p95": 2.54
+        },
+        "serialise": {
+          "p50": 0.69,
+          "p95": 4.74
+        },
+        "total": {
+          "p50": 2.94,
+          "p95": 8.17
+        }
+      },
+      "weekdayPeakEstimateMs": 5.9
+    },
+    {
+      "layout": "per-mode ferry+train+tram",
+      "bytes": {
+        "tu": 135358,
+        "vp": 12609
+      },
+      "entities": 157,
+      "stopUpdates": 2648,
+      "snapshot": {
+        "trips": 157,
+        "vehicles": 75,
+        "jsonKB": 398,
+        "gzKB": 47
+      },
+      "stats": {
+        "ferry": {
+          "total": 52,
+          "matched": 52,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 52
+          },
+          "addedDropped": 0
+        },
+        "train": {
+          "total": 81,
+          "matched": 81,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 81
+          },
+          "addedDropped": 0
+        },
+        "tram": {
+          "total": 24,
+          "matched": 24,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 24
+          },
+          "addedDropped": 0
+        }
+      },
+      "cpuMs": {
+        "decode": {
+          "p50": 1.66,
+          "p95": 4.38
+        },
+        "build": {
+          "p50": 0.85,
+          "p95": 3.17
+        },
+        "serialise": {
+          "p50": 0.79,
+          "p95": 0.85
+        },
+        "total": {
+          "p50": 3.47,
+          "p95": 6.15
+        }
+      },
+      "weekdayPeakEstimateMs": 6.9
+    },
+    {
+      "layout": "per-mode bus",
+      "bytes": {
+        "tu": 960842,
+        "vp": 100475
+      },
+      "entities": 1074,
+      "stopUpdates": 19184,
+      "snapshot": {
+        "trips": 1074,
+        "vehicles": 632,
+        "jsonKB": 2544,
+        "gzKB": 317
+      },
+      "stats": {
+        "bus": {
+          "total": 1074,
+          "matched": 1066,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 1066,
+            "added": 8
+          },
+          "addedDropped": 0
+        }
+      },
+      "cpuMs": {
+        "decode": {
+          "p50": 20.7,
+          "p95": 35.22
+        },
+        "build": {
+          "p50": 5.62,
+          "p95": 10.63
+        },
+        "serialise": {
+          "p50": 5.71,
+          "p95": 8.03
+        },
+        "total": {
+          "p50": 35.1,
+          "p95": 50.17
+        }
+      },
+      "weekdayPeakEstimateMs": 70.2
+    },
+    {
+      "layout": "per-mode ferry+train+bus+tram",
+      "bytes": {
+        "tu": 1096200,
+        "vp": 113084
+      },
+      "entities": 1231,
+      "stopUpdates": 21832,
+      "snapshot": {
+        "trips": 1231,
+        "vehicles": 707,
+        "jsonKB": 2885,
+        "gzKB": 354
+      },
+      "stats": {
+        "ferry": {
+          "total": 52,
+          "matched": 52,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 52
+          },
+          "addedDropped": 0
+        },
+        "train": {
+          "total": 81,
+          "matched": 81,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 81
+          },
+          "addedDropped": 0
+        },
+        "bus": {
+          "total": 1074,
+          "matched": 1066,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 1066,
+            "added": 8
+          },
+          "addedDropped": 0
+        },
+        "tram": {
+          "total": 24,
+          "matched": 24,
+          "ambiguous": 0,
+          "unmatched": 0,
+          "byTier": {
+            "1": 24
+          },
+          "addedDropped": 0
+        }
+      },
+      "cpuMs": {
+        "decode": {
+          "p50": 25.03,
+          "p95": 102.52
+        },
+        "build": {
+          "p50": 5.96,
+          "p95": 10.12
+        },
+        "serialise": {
+          "p50": 6.39,
+          "p95": 6.74
+        },
+        "total": {
+          "p50": 37.43,
+          "p95": 115.75
+        }
+      },
+      "weekdayPeakEstimateMs": 74.9
+    }
+  ]
+}

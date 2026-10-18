@@ -1,0 +1,98 @@
+# Phase 1 shadow diff (docs/architecture/transit-architecture.md §7): /v1/ferry departures from a locally built
+# output tree vs the legacy app's departures computed from a freshly generated latest.json, for every ferry pair.
+# Read-only: builds into $RUNNER_TEMP, never commits, never touches GitHub Pages, R2 or any deployment.
+name: transit-shadow-diff
+
+on:
+  schedule:
+    # 04:30 AEST, after the 03:00 legacy schedule job and the 03:15 static pipeline run.
+    - cron: '30 18 * * *'
+  workflow_dispatch:
+    inputs:
+      at:
+        description: 'Optional extra window start (ISO 8601, e.g. 2026-10-19T13:30:00Z)'
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: transit-shadow-diff
+  cancel-in-progress: true
+
+jobs:
+  shadow-diff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GTFS_URL: https://gtfsrt.api.translink.com.au/GTFS/SEQ_GTFS.zip
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Download the SEQ GTFS feed
+        run: |
+          mkdir -p "$RUNNER_TEMP/gtfs"
+          curl -fsSL "$GTFS_URL" -o "$RUNNER_TEMP/SEQ_GTFS.zip"
+          unzip -q "$RUNNER_TEMP/SEQ_GTFS.zip" -d "$RUNNER_TEMP/gtfs"
+
+      # TODO(bft-pipeline): switch to `pnpm --filter @bft/pipeline build:data` once the pipeline CLI lands on this
+      # stack; until then the edge dev tree (same key layout and core shapes) stands in for it.
+      - name: Build the /v1 output tree
+        working-directory: services/edge
+        run: |
+          D0=$(TZ=Australia/Brisbane date -d yesterday +%Y%m%d)
+          D1=$(TZ=Australia/Brisbane date +%Y%m%d)
+          D2=$(TZ=Australia/Brisbane date -d tomorrow +%Y%m%d)
+          node --experimental-transform-types --no-warnings scripts/dev-tree.ts \
+            --gtfs "$RUNNER_TEMP/gtfs" --out "$RUNNER_TEMP/tree" --dates "$D0,$D1,$D2" --modes ferry
+
+      - name: Generate the legacy latest.json (in a temp copy, like the daily job)
+        run: |
+          mkdir -p "$RUNNER_TEMP/legacy/schedule-processor"
+          cp schedule-processor/package.json schedule-processor/package-lock.json schedule-processor/process-schedule.js \
+            "$RUNNER_TEMP/legacy/schedule-processor/"
+          cd "$RUNNER_TEMP/legacy/schedule-processor"
+          npm ci --silent
+          TZ=UTC node process-schedule.js
+
+      - name: Shadow diff
+        id: diff
+        working-directory: services/edge
+        env:
+          EXTRA_AT: ${{ inputs.at }}
+        run: |
+          LEGACY="$RUNNER_TEMP/legacy/schedule-data/latest.json"
+          REPORT="$RUNNER_TEMP/report"
+          status=0
+          node --experimental-transform-types --no-warnings scripts/shadow-diff.ts \
+            --legacy "$LEGACY" --data "$RUNNER_TEMP/tree" --out "$REPORT/now" || status=$?
+          # Across midnight: tonight 23:30 Brisbane (13:30 UTC).
+          TONIGHT=$(TZ=Australia/Brisbane date +%Y-%m-%dT13:30:00Z)
+          node --experimental-transform-types --no-warnings scripts/shadow-diff.ts \
+            --legacy "$LEGACY" --data "$RUNNER_TEMP/tree" --at "$TONIGHT" --out "$REPORT/midnight" || status=$?
+          if [ -n "$EXTRA_AT" ]; then
+            node --experimental-transform-types --no-warnings scripts/shadow-diff.ts \
+              --legacy "$LEGACY" --data "$RUNNER_TEMP/tree" --at "$EXTRA_AT" --out "$REPORT/custom" || status=$?
+          fi
+          for f in "$REPORT"/*/shadow-diff.md; do cat "$f" >> "$GITHUB_STEP_SUMMARY"; echo >> "$GITHUB_STEP_SUMMARY"; done
+          exit $status
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: transit-shadow-diff-${{ github.run_id }}
+          path: ${{ runner.temp }}/report
+          retention-days: 30

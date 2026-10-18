@@ -315,6 +315,8 @@ export const RtTrip = z.object({
   /** When a CANCELED record expires (scheduled end of the trip, epoch s). */
   until: z.number().int().optional(),
   vehicleId: z.string().optional(),
+  /** Static generation this record was matched against (the hub's provenance for carried-over cancellations). */
+  gen: z.string().optional(),
   updates: z.array(RtStopUpdate),
   /**
    * For ADDED / DUPLICATED trips whose stop list resolves against static stops: the RT-only stopping pattern
@@ -335,6 +337,8 @@ export type RtTrip = z.infer<typeof RtTrip>
 
 export const Vehicle = z.object({
   id: z.string(),
+  /** Mode of the vehicle's route (from its per-mode feed or its matched route), so /v1/{mode}/vehicles can filter. */
+  mode: Mode.optional(),
   label: z.string().optional(),
   tripKey: z.string().optional(),
   routeId: z.string().optional(),

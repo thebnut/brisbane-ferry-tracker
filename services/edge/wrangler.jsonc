@@ -1,0 +1,77 @@
+// API Worker + RtHub Durable Object (transit-architecture.md §3.3, §3.8, ADR-0003).
+// Deploy staging (needs `wrangler login`): `pnpm --filter @bft/edge deploy:staging` → bft-api.brisbanetransit.workers.dev
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bft-api-dev",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "dde2914802079766f7671528e7cbae75",
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "workers_dev": true,
+  "version_metadata": { "binding": "CF_VERSION" },
+  // Watchdog: re-arms the RtHub alarm chain if the last good cycle is older than 45 s.
+  "triggers": { "crons": ["* * * * *"] },
+  "durable_objects": {
+    "bindings": [{ "name": "RT_HUB", "class_name": "RtHub" }, { "name": "BUDGET", "class_name": "Budget" }]
+  },
+  // Free plan: SQLite-backed Durable Objects only.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RtHub"] },
+    { "tag": "v2", "new_sqlite_classes": ["Budget"] }
+  ],
+  // /v1/ask and /mcp burst protection only (local, eventually consistent): 3 requests a minute per IP.
+  "ratelimits": [{ "name": "ASK_LIMITER", "namespace_id": "8001", "simple": { "limit": 3, "period": 60 } }],
+  // Local dev reads the assets data Worker (services/data serving ./out). Staging reads R2 (DATA_BUCKET), which
+  // takes precedence whenever it is bound; the DATA service binding stays an optional fallback.
+  "services": [{ "binding": "DATA", "service": "bft-data-dev" }],
+  "vars": {
+    "RT_MODES": "ferry,train",
+    "RT_UPSTREAM": "https://gtfsrt.api.translink.com.au/api/realtime/SEQ",
+    "CORS_ALLOW_ALL": "false",
+    "AI_ENABLED": "false",
+    "AI_MONTHLY_BUDGET_USD": "0"
+  },
+  "env": {
+    // bft-api.brisbanetransit.workers.dev (Workers Free; SQLite-backed DO). No routes or custom domains.
+    "staging": {
+      "name": "bft-api",
+      "workers_dev": true,
+      "version_metadata": { "binding": "CF_VERSION" },
+      "triggers": { "crons": ["* * * * *"] },
+      "durable_objects": {
+        "bindings": [
+          { "name": "RT_HUB", "class_name": "RtHub" },
+          { "name": "BUDGET", "class_name": "Budget" }
+        ]
+      },
+      "ratelimits": [
+        { "name": "ASK_LIMITER", "namespace_id": "8001", "simple": { "limit": 3, "period": 60 } }
+      ],
+      "r2_buckets": [{ "binding": "DATA_BUCKET", "bucket_name": "bft-transit-data" }],
+      // Intentionally no DATA service binding: staging reads R2. (Wrangler warns that the top-level DATA binding
+      // is not inherited; that is the point.)
+      "services": [],
+      // Workers Paid (active 18 Oct 2026). Measured: a bus-indexed RT_MODES=all poll is ~150 ms p50 / ~250 ms
+      // cold; 2 s caps a runaway cycle at ~8x the worst observed while leaving ample headroom.
+      "limits": { "cpu_ms": 2000 },
+      // Paid sizing: combined feeds (12,960 TransLink requests a day) with every mode matched, bus included (the
+      // compact matcher fits two bus days in ~26 MB). The top-level config keeps the Free-safe ferry,train defaults.
+      "vars": {
+        "RT_MODES": "all",
+        "RT_INDEX_MODES": "ferry,train,tram,bus",
+        "RT_UPSTREAM": "https://gtfsrt.api.translink.com.au/api/realtime/SEQ",
+        "CORS_ALLOW_ALL": "false",
+        // Kill switch, read per request. ON in staging since 18 Oct (Brett approved; ANTHROPIC_API_KEY, TURNSTILE_SECRET and
+        // IP_HASH_SALT are Worker secrets). To turn AI off instantly: set "false" and redeploy, or
+        // `wrangler secret delete ANTHROPIC_API_KEY --env staging` (budgetConfig fails closed without a key).
+        "AI_ENABLED": "true",
+        // Brett's hard cap (18 Oct): US$10 a month, enforced by the Budget DO ledger.
+        "AI_MONTHLY_BUDGET_USD": "10",
+        "AI_PER_IP_DAILY": "10",
+        "AI_GATEWAY": "bft",
+        "CF_ACCOUNT_ID": "dde2914802079766f7671528e7cbae75"
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@bft/data",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Assets-only Worker that serves the pipeline output tree (manifest, static blobs, data/, legacy/) until R2 is enabled.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy:staging": "wrangler deploy --env staging"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.1"
+  }
+}
