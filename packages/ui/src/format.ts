@@ -47,6 +47,21 @@ export function brisbaneDateKey(epochMs: number): string {
   return dateKeyFormat.format(epochMs)
 }
 
+const weekdayFormat = new Intl.DateTimeFormat('en-AU', {
+  timeZone: TIMEZONE,
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+})
+
+/**
+ * "7:42 pm" today, else "Sat 24 Oct, 3:00 am" (Brisbane), for alert periods and other times that can be days away.
+ */
+export function formatWhen(epochS: number, nowMs: number): string {
+  if (brisbaneDateKey(epochS * 1000) === brisbaneDateKey(nowMs)) return formatClock(epochS)
+  return `${weekdayFormat.format(epochS * 1000).replace(/,/g, '')}, ${formatClock(epochS)}`
+}
+
 /** "(19/10)" when the time falls on a later Brisbane calendar day than `nowMs`, else null. */
 export function dayMarker(epochS: number, nowMs: number): string | null {
   if (brisbaneDateKey(epochS * 1000) <= brisbaneDateKey(nowMs)) return null

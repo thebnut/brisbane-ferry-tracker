@@ -3,10 +3,19 @@
  * touch a favourite's lines (or stations) first; "All lines" shows every line's status.
  */
 import type { Alert } from '@bft/core/contract'
-import { AlertCard, ErrorState, FilterPills, formatClock, Icon, LineStatus } from '@bft/ui'
+import { AlertCard, ErrorState, FilterPills, formatWhen, Icon, LineStatus } from '@bft/ui'
 import { useEffect, useMemo, useState } from 'react'
 import { SECTION, Shell } from '../components/Chrome.tsx'
-import { isActive, lineStatus, linesOfAlert } from '../lib/alerts.ts'
+import {
+  currentEnd,
+  isActive,
+  isNetworkWide,
+  lineStatus,
+  linesOfAlert,
+  networkNotices,
+  nextStart,
+  upcomingAlerts,
+} from '../lib/alerts.ts'
 import { fetchAlerts } from '../lib/api.ts'
 import { validateAlerts } from '../lib/contract.server.ts'
 import { reachableFrom, stationByKey } from '../lib/network.ts'
@@ -51,11 +60,16 @@ function favouriteScope(favs: Favourite[]) {
   return { lines, stations }
 }
 
-const when = (a: Alert) => {
-  const p = a.activePeriods[0]
-  if (!p?.end) return null
-  return `Until ${formatClock(p.end)}`
+/** "Until Sun 25 Oct, 10:59 pm" for an active alert, "From Sat 24 Oct, 3:00 am" for an upcoming one. */
+const when = (a: Alert, nowS: number) => {
+  const start = nextStart(a, nowS)
+  if (start != null) return `From ${formatWhen(start, nowS * 1000)}`
+  const end = currentEnd(a, nowS)
+  return end != null ? `Until ${formatWhen(end, nowS * 1000)}` : null
 }
+
+const severityOf = (a: Alert) =>
+  a.severity === 'SEVERE' ? 'severe' : a.severity === 'INFO' ? 'info' : ('warning' as const)
 
 export default function Alerts({ loaderData }: Route.ComponentProps) {
   const { mode, renderedAt } = loaderData
@@ -67,7 +81,13 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
   const [view, setView] = useState<'mine' | 'all'>('all')
   useEffect(() => setView(favs.length ? 'mine' : 'all'), [favs.length])
 
-  const alerts = useMemo(() => (q.data?.alerts ?? []).filter((a) => isActive(a, nowS)), [q.data, nowS])
+  // Network-wide notices show once at the top; upcoming alerts never mark today's lines (T3).
+  const network = useMemo(() => networkNotices(q.data?.alerts ?? [], nowS), [q.data, nowS])
+  const alerts = useMemo(
+    () => (q.data?.alerts ?? []).filter((a) => isActive(a, nowS) && !isNetworkWide(a)),
+    [q.data, nowS],
+  )
+  const upcoming = useMemo(() => upcomingAlerts(q.data?.alerts ?? [], nowS), [q.data, nowS])
   const scope = useMemo(() => favouriteScope(favs), [favs])
   const affectsMe = (a: Alert) =>
     linesOfAlert(a).some((l) => scope.lines.has(l)) ||
@@ -96,6 +116,16 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
         {q.isError && !q.data ? (
           <ErrorState onRetry={() => q.refetch()}>Alerts didn't load.</ErrorState>
         ) : null}
+        {network.map((a) => (
+          <AlertCard
+            key={a.id}
+            title={a.header}
+            severity={severityOf(a)}
+            meta={['All lines', when(a, nowS)].filter(Boolean).join(' · ')}
+          >
+            {a.description}
+          </AlertCard>
+        ))}
         {mine.map((a) => (
           <article
             key={a.id}
@@ -128,11 +158,31 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
               <AlertCard
                 key={a.id}
                 title={a.header}
-                severity={a.severity === 'SEVERE' ? 'severe' : a.severity === 'INFO' ? 'info' : 'warning'}
-                meta={[linesOfAlert(a).join(', '), when(a)].filter(Boolean).join(' · ') || undefined}
+                severity={severityOf(a)}
+                meta={[linesOfAlert(a).join(', '), when(a, nowS)].filter(Boolean).join(' · ') || undefined}
               >
                 {a.description}
               </AlertCard>
+            ))}
+          </>
+        ) : null}
+        {upcoming.length ? (
+          <>
+            <h2 className={`${SECTION.h2} mt-2`}>Upcoming</h2>
+            {upcoming.map((a) => (
+              <div key={a.id} data-testid="upcoming-alert">
+                <AlertCard
+                  title={a.header}
+                  severity="info"
+                  meta={
+                    [isNetworkWide(a) ? 'All lines' : linesOfAlert(a).join(', '), when(a, nowS)]
+                      .filter(Boolean)
+                      .join(' · ') || undefined
+                  }
+                >
+                  {a.description}
+                </AlertCard>
+              </div>
             ))}
           </>
         ) : null}

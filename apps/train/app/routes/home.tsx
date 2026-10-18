@@ -76,7 +76,11 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
 /** A query's rows as the board would show them (timetable only unless live, departed trains dropped). */
 function useLiveRows(q: ReturnType<typeof useDepartures>, nowMs: number) {
   const online = useOnline()
-  const state = boardState(q.data, !online || (q.data as { offline?: boolean } | undefined)?.offline === true, nowMs)
+  const state = boardState(
+    q.data,
+    !online || (q.data as { offline?: boolean } | undefined)?.offline === true,
+    nowMs,
+  )
   return visibleRows(q.data?.departures ?? [], state, nowMs)
 }
 
@@ -205,8 +209,9 @@ const metres = (lat: number, lon: number, s: Station) => {
 function NearestLines({ station, nowMs, mode }: { station: Station; nowMs: number; mode: DataMode }) {
   const fetcher = useFetcher(mode)
   const q = useDepartures(fetcher, mode, station.key, null, null, 12)
+  const rows = useLiveRows(q, nowMs)
   const perLine = new Map<string, { name: string; color: string; mins: number }>()
-  for (const d of useLiveRows(q, nowMs)) {
+  for (const d of rows) {
     if (d.status === 'cancelled') continue
     const c = trainCard(d, nowMs, station.key, null)
     const k = `${c.line.name}|${c.headsign}`

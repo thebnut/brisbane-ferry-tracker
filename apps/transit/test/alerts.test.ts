@@ -43,7 +43,7 @@ describe('merged alerts', () => {
     expect(scopeText(a({ modes: ['bus'], routes: ['66-4949'] }))).toBe('BUS · ROUTE 66')
     expect(scopeText(a({ modes: ['bus'], routes: ['66-1', '199-2'] }))).toBe('BUS · 2 ROUTES')
     expect(scopeText(a({ modes: ['ferry'], routes: ['F1-4055'] }))).toBe('FERRY · F1')
-    expect(scopeText(a({ modes: ['bus'], stops: ['1832'] }))).toBe('BUS · 1 STOP')
+    expect(scopeText(a({ modes: ['bus'], stops: ['1832'], header: 'Notice' }))).toBe('BUS · 1 STOP')
     expect(scopeText(a({ modes: ['train'] }))).toBe('TRAIN · ALL LINES')
     // Train line names need the train network (loaded on demand).
     expect(scopeText(a({ modes: ['train'], routes: ['BRSP-5203'] }), trainLinesOf)).toBe(
@@ -51,6 +51,24 @@ describe('merged alerts', () => {
     )
     expect(scopeText(a({ modes: ['train'], routes: ['BRSP-5203'] }))).toBe('TRAIN · ALL LINES')
     expect(scopeText(a({}))).toBe('ALL SERVICES')
+    // X3: a stop closure with no mode from the feed says which stop, never "ALL SERVICES".
+    expect(
+      scopeText(
+        a({ modes: [], stops: ['116'], header: 'George Street, Brisbane City - temporary stop closure' }),
+      ),
+    ).toBe('1 STOP · GEORGE STREET, BRISBANE CITY')
+    expect(scopeText(a({ modes: [], stops: ['320891', '320899'], header: 'Stop changes' }))).toBe('2 STOPS')
+    expect(
+      scopeText(
+        a({
+          modes: ['bus'],
+          stops: ['10736'],
+          header: "O'Connell Terrace, Bowen Hills - temporary stop closure",
+        }),
+      ),
+    ).toBe("BUS · 1 STOP · O'CONNELL TERRACE, BOWEN HILLS")
+    // No mode, but the routes are train lines (live 18 Oct: "Weekend track closure - Gold Coast line").
+    expect(scopeText(a({ modes: [], routes: ['BRSP-5203'] }), trainLinesOf)).toMatch(/^TRAIN · /)
   })
 
   it('drops ended alerts and puts disruptions first', () => {

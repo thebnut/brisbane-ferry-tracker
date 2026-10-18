@@ -1,10 +1,10 @@
 /** TanStack Query hooks for the transit pages: 15 s polling while visible, tiles kept for the session. */
 import type { AlertsResponse, Departure, DeparturesResponse } from '@bft/core/contract'
+import { isOnline } from '@bft/ui/connectivity'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useRouteLoaderData } from 'react-router'
 import { type ApiFetcher, browserFetcher, fetchAlerts, fetchDepartures } from './api.ts'
-import { isOnline } from '@bft/ui/connectivity'
 import { asScheduled, offlineRows, type SavedItem, writeSavedCopy } from './saved.ts'
 
 export const POLL_MS = 15_000
