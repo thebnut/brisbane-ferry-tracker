@@ -9,7 +9,7 @@
  * - `ensureRunning()` (called by the Worker's 1-minute cron) re-arms the chain when the last completed cycle is
  *   more than 45 s old or no alarm is set.
  */
-import { type Alert, addDays, brisbaneDate, type Mode, type RtSnapshot, type TripIndexDay } from '@bft/core'
+import { type Alert, addDays, brisbaneDate, type Mode, type RtSnapshot } from '@bft/core'
 import { fromBinary } from '@bufbuild/protobuf'
 import { gzip } from '../data/source.ts'
 import type { StaticStore } from '../data/static-store.ts'
@@ -103,7 +103,13 @@ export class HubCore {
   private readonly decoded = new Map<string, FeedMessage>()
   private readonly modes = new Map<Mode, LoadedMode>()
   /** One-day-per-cycle trip index loading, so a reload never blows one invocation's CPU budget. */
-  private pending: { mode: Mode; generation: string; dates: string[]; days: TripIndexDay[] } | null = null
+  private pending: {
+    mode: Mode
+    generation: string
+    dates: string[]
+    index: ModeIndex
+    loaded: number
+  } | null = null
   private alerts: Alert[] = []
   private running: Promise<void> | null = null
 
@@ -336,7 +342,8 @@ export class HubCore {
 
   /**
    * Keep yesterday's and today's trip indexes loaded for each polled mode, reloading when the manifest's
-   * generation changes. Loads at most one TripIndexDay per cycle and swaps a mode in only when complete, so the
+   * generation changes. Fetches, parses and indexes at most one TripIndexDay per cycle (see the Phase 0
+   * measurements for the CPU cost) and swaps a mode in only when complete, so the
    * snapshot never mixes generations. Returns true when a mode's index was swapped.
    */
   private async stepIndexes(now: number): Promise<boolean> {
@@ -345,16 +352,13 @@ export class HubCore {
     if (this.pending) {
       const p = this.pending
       const index = await this.d.store.getIndex(p.generation, p.mode)
-      const date = p.dates[p.days.length] as string
+      const date = p.dates[p.loaded] as string
       const day = index ? await this.d.store.tripIndexDay(index, date) : null
       if (!day) throw new Error(`trip index ${p.mode} ${p.generation} ${date} missing`)
-      p.days.push(day)
-      if (p.days.length === p.dates.length) {
-        this.modes.set(p.mode, {
-          generation: p.generation,
-          dates: p.dates,
-          index: new ModeIndex(p.mode, p.days),
-        })
+      p.index.addDay(day)
+      p.loaded++
+      if (p.loaded === p.dates.length) {
+        this.modes.set(p.mode, { generation: p.generation, dates: p.dates, index: p.index })
         this.pending = null
         this.log.info('rt trip index loaded', { mode: p.mode, generation: p.generation, dates: p.dates })
         return true
@@ -370,7 +374,7 @@ export class HubCore {
       const dates = want.filter((d) => index.tripIndex?.[d])
       if (dates.length === 0) continue
       if (loaded && loaded.generation === generation && same(loaded.dates, dates)) continue
-      this.pending = { mode, generation, dates, days: [] }
+      this.pending = { mode, generation, dates, index: new ModeIndex(mode, []), loaded: 0 }
       return this.stepIndexes(now)
     }
     return false

@@ -49,6 +49,58 @@ async function loadIndexes(): Promise<Map<string, TripIndexDay>> {
   return m
 }
 
+async function measureModeInChild(mode: Mode): Promise<unknown> {
+  const { execFileSync } = await import('node:child_process')
+  const out = execFileSync(
+    process.execPath,
+    [
+      '--expose-gc',
+      '--experimental-transform-types',
+      '--no-warnings',
+      process.argv[1] as string,
+      '--memory-mode',
+      mode,
+      '--dates',
+      DATES.join(','),
+      '--cache',
+      CACHE,
+      '--gtfs',
+      GTFS,
+    ],
+    { encoding: 'utf8', maxBuffer: 1 << 26 },
+  )
+  return JSON.parse(out)
+}
+
+/** Child (cold process, like a fresh DO isolate): heap for one mode's two days, and CPU per hub reload step. */
+async function memoryMode(mode: Mode) {
+  const days = await loadIndexes()
+  const json = DATES.map((d) => JSON.stringify(days.get(`${mode}|${d}`) ?? null))
+  days.clear()
+  const before = heap()
+  const ms = (u: NodeJS.CpuUsage) => (u.user + u.system) / 1000
+  // One hub reload step per day: JSON.parse of that day's trip index, then ModeIndex.addDay.
+  const idx = new ModeIndex(mode, [])
+  const steps: Array<{ parseMs: number; addDayMs: number }> = []
+  for (const j of json) {
+    const t0 = process.cpuUsage()
+    const day = JSON.parse(j) as TripIndexDay | null
+    const t1 = process.cpuUsage(t0)
+    if (day) idx.addDay(day)
+    const t2 = process.cpuUsage(t0)
+    steps.push({ parseMs: +ms(t1).toFixed(1), addDayMs: +(ms(t2) - ms(t1)).toFixed(1) })
+  }
+  const after = heap()
+  console.log(
+    JSON.stringify({
+      trips: idx.matcher.size,
+      jsonMB: +(json.reduce((a, j) => a + j.length, 0) / 1e6).toFixed(2),
+      heapMB: +((after - before) / 1e6).toFixed(1),
+      reloadSteps: steps,
+    }),
+  )
+}
+
 async function feedBytes(key: string, sample: string | undefined): Promise<Uint8Array> {
   if (flag('fresh') || !sample || !existsSync(sample)) {
     const res = await fetch(`${UPSTREAM}/${key}`)
@@ -74,23 +126,17 @@ async function main() {
   const days = await loadIndexes()
   const al = await feedBytes('alerts', '/tmp/bft-gtfs/al.pb')
 
-  // Memory: two service days of trip indexes per mode, as the hub holds them (parsed JSON + matcher maps).
-  const memory: Record<string, { trips: number; jsonMB: number; heapMB: number }> = {}
+  // Memory and load CPU for two service days of trip indexes per mode, as the hub holds them (parsed JSON plus
+  // matcher maps). Each mode is measured in a child process so earlier modes' garbage doesn't skew the heap delta.
+  const memory: Record<string, unknown> = {}
   const indexes: Partial<Record<Mode, ModeIndex>> = {}
   for (const mode of MODES) {
     const json = DATES.map((d) => JSON.stringify(days.get(`${mode}|${d}`) ?? null))
-    const before = heap()
     const parsed = json
       .map((j) => JSON.parse(j) as TripIndexDay | null)
       .filter((x): x is TripIndexDay => x != null)
-    const idx = new ModeIndex(mode, parsed)
-    const after = heap()
-    indexes[mode] = idx
-    memory[mode] = {
-      trips: idx.matcher.size,
-      jsonMB: +(json.reduce((a, j) => a + j.length, 0) / 1e6).toFixed(2),
-      heapMB: +((after - before) / 1e6).toFixed(1),
-    }
+    indexes[mode] = new ModeIndex(mode, parsed)
+    memory[mode] = await measureModeInChild(mode)
   }
 
   const combinedTu = await feedBytes('TripUpdates', '/tmp/bft-gtfs/tu.pb')
@@ -214,4 +260,6 @@ async function main() {
   console.log(JSON.stringify(report, null, 2))
 }
 
-await main()
+const memoryOnly = arg('memory-mode')
+if (memoryOnly) await memoryMode(memoryOnly as Mode)
+else await main()

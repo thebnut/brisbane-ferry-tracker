@@ -60,49 +60,55 @@ export class TripMatcher {
   private readonly byStart = new Map<string, IndexedTrip[]>()
   private readonly byPrefix = new Map<string, IndexedTrip[]>()
   private readonly byRouteDir = new Map<string, IndexedTrip[]>()
-  readonly serviceDates: string[]
+  readonly serviceDates: string[] = []
 
   constructor(
     readonly mode: Mode,
     days: TripIndexDay[],
   ) {
-    this.serviceDates = days.map((d) => d.serviceDate)
-    for (const day of days) {
-      for (const t of day.trips) {
-        const route = day.routes[t.r]
-        const stops = new Map<number, { stopId: string; depEpoch: number; arrEpoch: number }>()
-        const stopIds = new Set<string>()
-        let startS = Number.POSITIVE_INFINITY
-        let endEpoch = 0
-        for (let i = 0; i + 5 < t.st.length; i += 6) {
-          const stopId = day.stops[t.st[i] as number] as string
-          const seq = t.st[i + 1] as number
-          const arrS = t.st[i + 2] as number
-          const depS = t.st[i + 3] as number
-          startS = Math.min(startS, depS)
-          const arrEpoch = gtfsToEpoch(day.serviceDate, arrS)
-          const depEpoch = gtfsToEpoch(day.serviceDate, depS)
-          endEpoch = Math.max(endEpoch, arrEpoch)
-          stops.set(seq, { stopId, depEpoch, arrEpoch })
-          stopIds.add(stopId)
-        }
-        const it: IndexedTrip = {
-          id: t.id,
-          serviceDate: day.serviceDate,
-          routeId: route?.id ?? '',
-          routeKey: routeKey(route?.id ?? ''),
-          dir: t.d,
-          startS,
-          stops,
-          stopIds,
-          endEpoch,
-        }
-        this.byTripDate.set(tripInstanceKey(t.id, day.serviceDate), it)
-        push(this.byTripId, t.id, it)
-        push(this.byStart, `${it.routeKey}|${it.dir}|${startS}|${day.serviceDate}`, it)
-        push(this.byPrefix, `${tripPrefix(t.id)}|${it.routeKey}`, it)
-        push(this.byRouteDir, `${it.routeKey}|${it.dir}`, it)
+    for (const day of days) this.addDay(day)
+  }
+
+  /**
+   * Index one more service day. Lets the RT hub spread a reload across alarm cycles (one day per cycle) to stay
+   * inside the Workers Free CPU budget.
+   */
+  addDay(day: TripIndexDay): void {
+    this.serviceDates.push(day.serviceDate)
+    for (const t of day.trips) {
+      const route = day.routes[t.r]
+      const stops = new Map<number, { stopId: string; depEpoch: number; arrEpoch: number }>()
+      const stopIds = new Set<string>()
+      let startS = Number.POSITIVE_INFINITY
+      let endEpoch = 0
+      for (let i = 0; i + 5 < t.st.length; i += 6) {
+        const stopId = day.stops[t.st[i] as number] as string
+        const seq = t.st[i + 1] as number
+        const arrS = t.st[i + 2] as number
+        const depS = t.st[i + 3] as number
+        startS = Math.min(startS, depS)
+        const arrEpoch = gtfsToEpoch(day.serviceDate, arrS)
+        const depEpoch = gtfsToEpoch(day.serviceDate, depS)
+        endEpoch = Math.max(endEpoch, arrEpoch)
+        stops.set(seq, { stopId, depEpoch, arrEpoch })
+        stopIds.add(stopId)
       }
+      const it: IndexedTrip = {
+        id: t.id,
+        serviceDate: day.serviceDate,
+        routeId: route?.id ?? '',
+        routeKey: routeKey(route?.id ?? ''),
+        dir: t.d,
+        startS,
+        stops,
+        stopIds,
+        endEpoch,
+      }
+      this.byTripDate.set(tripInstanceKey(t.id, day.serviceDate), it)
+      push(this.byTripId, t.id, it)
+      push(this.byStart, `${it.routeKey}|${it.dir}|${startS}|${day.serviceDate}`, it)
+      push(this.byPrefix, `${tripPrefix(t.id)}|${it.routeKey}`, it)
+      push(this.byRouteDir, `${it.routeKey}|${it.dir}`, it)
     }
   }
 

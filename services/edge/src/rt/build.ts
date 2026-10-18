@@ -59,25 +59,30 @@ export class ModeIndex {
   readonly stopIds = new Set<string>()
   /** headsign and route per trip instance (DUPLICATED trips copy them from the original). */
   readonly tripMeta = new Map<string, { h: string; r: RouteRef | undefined }>()
-  readonly generation: string
-  readonly serviceDates: string[]
+  generation: string
+  readonly serviceDates: string[] = []
 
   constructor(
     readonly mode: Mode,
     days: TripIndexDay[],
   ) {
-    this.matcher = new TripMatcher(mode, days)
+    this.matcher = new TripMatcher(mode, [])
     this.generation = days[0]?.generation ?? ''
-    this.serviceDates = days.map((d) => d.serviceDate)
-    for (const day of days) {
-      for (const r of day.routes) {
-        this.routes.set(r.id, r)
-        this.routesByKey.set(routeKey(r.id), r)
-      }
-      for (const s of day.stops) this.stopIds.add(s)
-      for (const t of day.trips)
-        this.tripMeta.set(tripInstanceKey(t.id, day.serviceDate), { h: t.h, r: day.routes[t.r] })
+    for (const day of days) this.addDay(day)
+  }
+
+  /** Index one more service day (the hub adds one per alarm cycle to stay inside the CPU budget). */
+  addDay(day: TripIndexDay): void {
+    this.generation ||= day.generation
+    this.serviceDates.push(day.serviceDate)
+    this.matcher.addDay(day)
+    for (const r of day.routes) {
+      this.routes.set(r.id, r)
+      this.routesByKey.set(routeKey(r.id), r)
     }
+    for (const s of day.stops) this.stopIds.add(s)
+    for (const t of day.trips)
+      this.tripMeta.set(tripInstanceKey(t.id, day.serviceDate), { h: t.h, r: day.routes[t.r] })
   }
 
   route(routeId: string | undefined): RouteRef | undefined {
