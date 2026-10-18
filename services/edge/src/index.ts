@@ -9,7 +9,7 @@ import { createLogger, errorMessage } from './log.ts'
 import { pullFromR2 } from './r2-snapshots.ts'
 import { parseRtModes } from './rt/feeds.ts'
 import type { SnapshotScope } from './rt/split.ts'
-import { SnapshotClient } from './snapshot-client.ts'
+import { parseMaxStale, SnapshotClient } from './snapshot-client.ts'
 
 export { RtHub } from './rt/hub.ts'
 
@@ -37,12 +37,13 @@ function getIsolate(env: WorkerEnv) {
       getRaw: (key: string) => hubStub(env).getRaw(key),
     }
     const waitUntil = (p: Promise<unknown>) => pendingWaitUntil?.(p)
-    const snapshots = new SnapshotClient(hubClient, Date.now, waitUntil)
+    const maxStale = parseMaxStale(env.RT_SNAPSHOT_MAX_STALE_MS)
+    const snapshots = new SnapshotClient(hubClient, Date.now, waitUntil, undefined, undefined, maxStale)
     const scoped = new Map<SnapshotScope, SnapshotClient>()
     const snapshotsFor = (scope: SnapshotScope) => {
       let cl = scoped.get(scope)
       if (!cl) {
-        cl = new SnapshotClient(hubClient, Date.now, waitUntil, undefined, scope)
+        cl = new SnapshotClient(hubClient, Date.now, waitUntil, undefined, scope, maxStale)
         scoped.set(scope, cl)
       }
       return cl

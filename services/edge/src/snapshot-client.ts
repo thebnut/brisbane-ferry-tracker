@@ -14,8 +14,15 @@ import type { HubStatus, PullResult, RawFeed } from './rt/hub-core.ts'
 import type { SnapshotScope } from './rt/split.ts'
 
 export const SNAPSHOT_REFRESH_MS = 10_000
-/** Older than this, a request waits for the refresh instead of being served the isolate's copy. */
+/** Default for RT_SNAPSHOT_MAX_STALE_MS: older than this, a request waits for the refresh. */
 export const SNAPSHOT_MAX_STALE_MS = 60_000
+
+/** RT_SNAPSHOT_MAX_STALE_MS (ms), clamped to at least the 10 s refresh interval; unset or invalid: the default. */
+export function parseMaxStale(value: string | undefined): number {
+  const n = Number(value)
+  if (!value || !Number.isFinite(n) || n <= 0) return SNAPSHOT_MAX_STALE_MS
+  return Math.max(SNAPSHOT_REFRESH_MS, Math.floor(n))
+}
 
 export interface CurrentSnapshot {
   seq: number
@@ -58,6 +65,8 @@ export class SnapshotClient {
     private readonly cache: CacheLike | null = sharedCache(),
     /** Which snapshot document this client follows: one mode, alerts, or (undefined) the whole snapshot. */
     readonly scope?: SnapshotScope,
+    /** Older than this, a request waits for the refresh instead of being served the isolate's copy. */
+    private readonly maxStaleMs: number = SNAPSHOT_MAX_STALE_MS,
   ) {
     this.shared = new SharedFetch(() => this.refresh(), SNAPSHOT_REFRESH_MS, now)
   }
@@ -83,7 +92,7 @@ export class SnapshotClient {
     // Refresh attempts are throttled on their own clock, so a failing hub or R2 isn't asked on every request
     // (Codex re-review #4); `loadedAt` still reflects only successful loads.
     const mayAttempt = now - this.attemptedAt >= SNAPSHOT_REFRESH_MS
-    if (this.current && age < SNAPSHOT_MAX_STALE_MS) {
+    if (this.current && age < this.maxStaleMs) {
       if (age >= SNAPSHOT_REFRESH_MS && mayAttempt && !this.inflight) {
         ;(waitUntil ?? this.waitUntil)(this.attempt().catch(() => null))
       }

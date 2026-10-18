@@ -13,6 +13,8 @@ export interface WorkerEnv {
   RT_UPSTREAM: string
   /** Alarm interval in ms (default 15000). */
   RT_CYCLE_MS?: string
+  /** How old (ms) an isolate's snapshot copy may be before a request waits for the refresh (default 60000). */
+  RT_SNAPSHOT_MAX_STALE_MS?: string
   CORS_ALLOW_ALL?: string
   SPIKE_ENABLED?: string
   /** version_metadata binding: lets the cron restart a resident hub that still runs an older deploy. */

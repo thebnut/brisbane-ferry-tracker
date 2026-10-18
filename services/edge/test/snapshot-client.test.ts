@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PullResult } from '../src/rt/hub-core.ts'
-import { SnapshotClient } from '../src/snapshot-client.ts'
+import { parseMaxStale, SnapshotClient } from '../src/snapshot-client.ts'
 import { Clock } from './fixtures.ts'
 
 const snap = (seq: number) =>
@@ -117,5 +117,25 @@ describe('SnapshotClient stale-while-revalidate', () => {
     release()
     expect((await a)?.seq).toBe(1)
     expect((await b)?.seq).toBe(1)
+  })
+
+  it('RT_SNAPSHOT_MAX_STALE_MS: a shorter limit makes requests wait for the refresh sooner', async () => {
+    expect(parseMaxStale(undefined)).toBe(60_000)
+    expect(parseMaxStale('abc')).toBe(60_000)
+    expect(parseMaxStale('0')).toBe(60_000)
+    expect(parseMaxStale('25000')).toBe(25_000)
+    expect(parseMaxStale('2000')).toBe(10_000) // never below the refresh interval
+
+    const clock = new Clock(0)
+    let seq = 1
+    const hub = { pull: async () => ({ seq, json: snap(seq), status }), getRaw: async () => null }
+    const short = new SnapshotClient(hub, clock.now, () => {}, null, undefined, 25_000)
+    const dflt = new SnapshotClient(hub, clock.now, () => {}, null)
+    await short.get()
+    await dflt.get()
+    clock.advance(26_000)
+    seq = 2
+    expect((await short.get())?.seq).toBe(2) // past 25 s: waited for the refresh
+    expect((await dflt.get())?.seq).toBe(1) // default 60 s: served the copy, refresh in background
   })
 })
