@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Unified Journey · States</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1C2024}a:hover{color:#000}
+.tn{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1700px; height: 844px; box-sizing: border-box; background: #DDE0E4; font-family: 'Instrument Sans', system-ui, sans-serif; color: #1C2024; display: flex; justify-content: space-between">
+  <div style="width: 390px; display: flex; flex-direction: column">
+    <div style="height: 40px; display: flex; align-items: center; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3A4047">Loading · planning</div>
+    <div style="flex: 1; background: #F3F4F6; border-radius: 24px; overflow: hidden; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px">
+      <div style="font-size: 20px; font-weight: 700">New Farm → South Bank</div>
+      <div style="font-size: 14px; color: #3A4047; display: flex; align-items: center; gap: 8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3A4047" stroke-width="2.5" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>Checking ferry, train and bus…</div>
+      <div style="background: #FFFFFF; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px"><div style="width: 45%; height: 24px; border-radius: 6px; background: #E6E8EB"></div><div style="display: flex; gap: 3px; height: 8px"><span style="flex: 2; background: #E6E8EB; border-radius: 4px"></span><span style="flex: 8; background: #E6E8EB; border-radius: 4px"></span><span style="flex: 5; background: #E6E8EB; border-radius: 4px"></span></div><div style="width: 70%; height: 14px; border-radius: 6px; background: #EEF0F2"></div></div>
+      <div style="background: #FFFFFF; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px"><div style="width: 38%; height: 24px; border-radius: 6px; background: #E6E8EB"></div><div style="display: flex; gap: 3px; height: 8px"><span style="flex: 4; background: #E6E8EB; border-radius: 4px"></span><span style="flex: 9; background: #E6E8EB; border-radius: 4px"></span></div><div style="width: 60%; height: 14px; border-radius: 6px; background: #EEF0F2"></div></div>
+      <div style="background: #FFFFFF; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px"><div style="width: 50%; height: 24px; border-radius: 6px; background: #E6E8EB"></div><div style="display: flex; gap: 3px; height: 8px"><span style="flex: 3; background: #E6E8EB; border-radius: 4px"></span><span style="flex: 6; background: #E6E8EB; border-radius: 4px"></span><span style="flex: 6; background: #E6E8EB; border-radius: 4px"></span></div><div style="width: 65%; height: 14px; border-radius: 6px; background: #EEF0F2"></div></div>
+    </div>
+  </div>
+  <div style="width: 390px; display: flex; flex-direction: column">
+    <div style="height: 40px; display: flex; align-items: center; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3A4047">Empty · nothing tonight</div>
+    <div style="flex: 1; background: #F3F4F6; border-radius: 24px; overflow: hidden; padding: 32px 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#1C2024" stroke-width="1.5" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+      <h2 style="margin: 0; font-size: 22px; font-weight: 700">No more ways home tonight</h2>
+      <p style="margin: 0; font-size: 15px; line-height: 1.45; color: #3A4047">Last bus and ferry have gone. Earliest arrival tomorrow is <b class="tn">5:41 am <span style="color: #A3330A">(19/10)</span></b> by bus 199 and CityCat F1.</p>
+      <div style="display: flex; gap: 3px; height: 8px; width: 220px; border-radius: 4px; overflow: hidden" aria-hidden="true"><span style="flex: 6; background: #F2B705"></span><span style="flex: 16; background: #FF6B35"></span></div>
+      <button style="height: 48px; padding: 0 20px; border-radius: 14px; border: 0; background: #1C2024; color: #FFFFFF; font: 700 15px 'Instrument Sans', sans-serif">Set a reminder for 5:30 am</button>
+    </div>
+  </div>
+  <div style="width: 390px; display: flex; flex-direction: column">
+    <div style="height: 40px; display: flex; align-items: center; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3A4047">Offline · saved journeys only</div>
+    <div style="flex: 1; background: #F3F4F6; border-radius: 24px; overflow: hidden; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px">
+      <div role="status" style="background: #1C2024; color: #FFFFFF; border-radius: 14px; padding: 12px 14px; font-size: 14px; line-height: 1.4"><b>Offline.</b> Saved journeys use the timetable from 7:31 pm. New searches need a connection.</div>
+      <div style="background: #FFFFFF; border: 1px dashed #A9AFB5; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 8px"><div style="display: flex; justify-content: space-between"><b>Home → Work</b><span style="font-size: 12px; font-weight: 700; color: #5B6168">SCHEDULED</span></div><div class="tn" style="font-size: 26px; font-weight: 700">7:38 pm</div><div style="display: flex; gap: 3px; height: 8px; border-radius: 4px; overflow: hidden" aria-hidden="true"><span style="flex: 3; background: #C9CDD2"></span><span style="flex: 6; background: #F2B705"></span><span style="flex: 16; background: #FF6B35"></span></div><div style="font-size: 13px; color: #3A4047">Arrive 8:02 pm · cancellations can't be checked</div></div>
+      <div style="background: #FFFFFF; border: 1px dashed #A9AFB5; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 8px"><div style="display: flex; justify-content: space-between"><b>Work → Gym</b><span style="font-size: 12px; font-weight: 700; color: #5B6168">SCHEDULED</span></div><div class="tn" style="font-size: 26px; font-weight: 700">7:46 pm</div><div style="display: flex; gap: 3px; height: 8px; border-radius: 4px; overflow: hidden" aria-hidden="true"><span style="flex: 5; background: #C9CDD2"></span><span style="flex: 8; background: #5B3FD1"></span></div></div>
+      <button disabled style="height: 56px; border-radius: 16px; border: 0; background: #C9CDD2; color: #3A4047; font: 600 17px 'Instrument Sans', sans-serif; text-align: left; padding: 0 18px">Where to? · needs connection</button>
+    </div>
+  </div>
+  <div style="width: 390px; display: flex; flex-direction: column">
+    <div style="height: 40px; display: flex; align-items: center; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3A4047">Error · planner failed</div>
+    <div style="flex: 1; background: #F3F4F6; border-radius: 24px; overflow: hidden; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px">
+      <div style="font-size: 20px; font-weight: 700">New Farm → South Bank</div>
+      <div role="alert" style="background: #FFFFFF; border: 2px solid #A3330A; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <div style="font-weight: 700; font-size: 17px; color: #A3330A; display: flex; gap: 8px; align-items: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg>Couldn't plan this journey</div>
+        <p style="margin: 0; font-size: 15px; line-height: 1.45">The journey planner isn't responding. Live departures still work, so you can check a stop directly.</p>
+        <button style="height: 48px; border-radius: 12px; border: 0; background: #1C2024; color: #FFFFFF; font: 700 15px 'Instrument Sans', sans-serif">Try again</button>
+      </div>
+      <div style="font-size: 12px; font-weight: 700; color: #5B6168; text-transform: uppercase; letter-spacing: 0.06em">Departures near you instead</div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 10px"><span style="font-size: 14px; font-weight: 800; padding: 2px 8px; border-radius: 6px; background: #F2B705; color: #2D3436">199</span><span style="flex: 1; font-size: 14px">Merthyr Rd · <span style="color: #1C7A3E; font-weight: 700">● LIVE</span></span><b class="tn" style="font-size: 20px">4 min</b></div>
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 10px"><span style="font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #B8400F; color: #FFFFFF">F1</span><span style="flex: 1; font-size: 14px">New Farm Park · SCHEDULED</span><b class="tn" style="font-size: 20px">15 min</b></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1700,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

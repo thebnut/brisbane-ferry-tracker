@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus · Route 66 live map</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#8A6400}a:hover{color:#5c4300}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F4EFE3; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #2D3436; position: relative; overflow: hidden; font-variant-numeric: tabular-nums">
+  <svg width="390" height="844" viewBox="0 0 390 844" role="img" aria-label="Route 66 map from Roma Street to UQ Lakes with two live buses" style="position: absolute; inset: 0">
+    <rect width="390" height="844" fill="#F4EFE3"></rect>
+    <g stroke="#E6DFCF" stroke-width="10" fill="none"><path d="M-10 120 L400 180"></path><path d="M60 -10 L120 860"></path><path d="M-10 420 L400 380"></path><path d="M300 -10 L260 860"></path></g>
+    <path d="M-20 300 C 80 250, 150 340, 180 300 S 260 200, 300 260 S 330 420, 230 450 S 80 470, 110 560 S 260 640, 410 600" stroke="#B9DCE6" stroke-width="34" fill="none" stroke-linecap="round"></path>
+    <path d="M150 90 L170 170 L205 245 L215 330 L240 400 L290 470 L300 560 L250 640 L190 700" stroke="#FFFFFF" stroke-width="14" fill="none" stroke-linejoin="round" stroke-linecap="round"></path>
+    <path d="M150 90 L170 170 L205 245 L215 330 L240 400 L290 470 L300 560 L250 640 L190 700" stroke="#2D3436" stroke-width="7" fill="none" stroke-linejoin="round" stroke-linecap="round"></path>
+    <g fill="#fff" stroke="#2D3436" stroke-width="3"><circle cx="150" cy="90" r="7"></circle><circle cx="170" cy="170" r="7"></circle><circle cx="215" cy="330" r="7"></circle><circle cx="240" cy="400" r="7"></circle><circle cx="290" cy="470" r="7"></circle><circle cx="300" cy="560" r="7"></circle><circle cx="250" cy="640" r="7"></circle><circle cx="190" cy="700" r="7"></circle></g>
+    <circle cx="205" cy="245" r="13" fill="#2D3436"></circle><circle cx="205" cy="245" r="5" fill="#F2B705"></circle>
+    <g font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="700" fill="#2D3436"><text x="162" y="94">Roma Street</text><text x="182" y="174">King George Sq</text><text x="96" y="250">Cultural Centre</text><text x="96" y="264" font-size="11" fill="#5c4300">You · Plat 1</text><text x="227" y="334">South Bank</text><text x="252" y="404">Mater Hill</text><text x="210" y="474">Buranda</text><text x="312" y="564">PA</text><text x="262" y="644">Boggo Rd</text><text x="104" y="704">UQ Lakes</text></g>
+    <g><rect x="166" y="196" width="46" height="28" rx="10" fill="#F2B705" stroke="#2D3436" stroke-width="2.5"></rect><text x="189" y="215" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="14" font-weight="800" fill="#2D3436">66</text></g>
+    <g><rect x="270" y="506" width="46" height="28" rx="10" fill="#F2B705" stroke="#2D3436" stroke-width="2.5"></rect><text x="293" y="525" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="14" font-weight="800" fill="#2D3436">66</text></g>
+  </svg>
+  <div style="position: absolute; top: 16px; left: 12px; right: 12px; display: flex; gap: 8px; align-items: center">
+    <a href="A-Detail.dc.html" aria-label="Back" style="width: 48px; height: 48px; border-radius: 24px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.12); display: flex; align-items: center; justify-content: center; color: #2D3436"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+    <div style="flex: 1; height: 48px; border-radius: 24px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.12); display: flex; align-items: center; gap: 10px; padding: 0 8px 0 6px">
+      <span style="background: #F2B705; font-weight: 800; border-radius: 12px; padding: 4px 10px">66</span>
+      <span style="flex: 1; font-size: 14px; font-weight: 700">RBWH ⇄ UQ Lakes</span>
+      <button aria-label="Switch direction" style="width: 40px; height: 40px; border-radius: 20px; border: 0; background: #F3EBD9; color: #2D3436; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"></path></svg></button>
+    </div>
+  </div>
+  <button aria-label="Centre on my location" style="position: absolute; right: 16px; bottom: 290px; width: 52px; height: 52px; border-radius: 26px; border: 0; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15); color: #2D3436; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg></button>
+  <section style="position: absolute; left: 0; right: 0; bottom: 0; background: #fff; border-radius: 24px 24px 0 0; box-shadow: 0 -4px 20px rgba(45,52,54,0.12); padding: 10px 16px 26px">
+    <div style="width: 40px; height: 5px; border-radius: 3px; background: #DCD3BF; margin: 0 auto 12px"></div>
+    <div style="display: flex; justify-content: space-between; align-items: baseline"><h2 style="margin: 0; font-size: 18px; font-weight: 800">2 buses on this route</h2><span style="font-size: 12px; color: #5F6B6D">GPS · 20 s ago</span></div>
+    <a href="A-Detail.dc.html" style="text-decoration: none; color: #2D3436; display: flex; align-items: center; gap: 12px; min-height: 60px; border-bottom: 1px solid #F3EBD9">
+      <span style="width: 12px; height: 12px; border-radius: 6px; background: #13865A"></span>
+      <span style="flex: 1"><b style="font-size: 15px">To UQ Lakes · bus 1874</b><br><span style="font-size: 12px; color: #A3271F; font-weight: 700">+3 min late</span><span style="font-size: 12px; color: #5F6B6D"> · Few seats</span></span>
+      <span style="background: #F2B705; border-radius: 999px; padding: 7px 12px; font-weight: 800">4 min</span>
+    </a>
+    <a href="A-Detail.dc.html" style="text-decoration: none; color: #2D3436; display: flex; align-items: center; gap: 12px; min-height: 60px">
+      <span style="width: 12px; height: 12px; border-radius: 6px; background: #13865A"></span>
+      <span style="flex: 1"><b style="font-size: 15px">To UQ Lakes · bus 1902</b><br><span style="font-size: 12px; color: #5F6B6D">Passed your stop · Many seats</span></span>
+      <span style="font-size: 13px; color: #5F6B6D; font-weight: 600">at Buranda</span>
+    </a>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

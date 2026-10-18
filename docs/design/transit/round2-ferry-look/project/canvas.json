@@ -1,0 +1,324 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-10-18T03:20:00Z"
+ },
+ "title": "Brisbane transit family, ferry look",
+ "launch": {
+  "view": "canvas",
+  "page": "brand"
+ },
+ "pages": [
+  {
+   "id": "brand",
+   "name": "Brand"
+  },
+  {
+   "id": "train",
+   "name": "Train"
+  },
+  {
+   "id": "bus",
+   "name": "Bus"
+  },
+  {
+   "id": "transit",
+   "name": "Transit"
+  }
+ ],
+ "boards": {
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1600,
+   "h": 1040,
+   "title": "Family brand: logos, colour, type, components",
+   "page": "brand"
+  },
+  "T-Home.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Home",
+   "page": "train"
+  },
+  "T-Search.dc.html": {
+   "x": 470,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Search / picker",
+   "page": "train"
+  },
+  "T-Departures.dc.html": {
+   "x": 940,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Departures",
+   "page": "train"
+  },
+  "T-Detail.dc.html": {
+   "x": 1410,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Service detail",
+   "page": "train"
+  },
+  "T-Map.dc.html": {
+   "x": 1880,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Live map",
+   "page": "train"
+  },
+  "T-Alerts.dc.html": {
+   "x": 2350,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Service alerts",
+   "page": "train"
+  },
+  "T-States.dc.html": {
+   "x": 0,
+   "y": 964,
+   "w": 1700,
+   "h": 844,
+   "title": "Loading \u00b7 empty \u00b7 offline \u00b7 error",
+   "page": "train"
+  },
+  "T-DarkWidget.dc.html": {
+   "x": 1780,
+   "y": 964,
+   "w": 1200,
+   "h": 844,
+   "title": "Dark mode + iOS widgets",
+   "page": "train"
+  },
+  "T-Desktop.dc.html": {
+   "x": 3060,
+   "y": 964,
+   "w": 1280,
+   "h": 900,
+   "title": "Desktop",
+   "page": "train",
+   "expand": "fill"
+  },
+  "B-Home.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Home",
+   "page": "bus"
+  },
+  "B-Search.dc.html": {
+   "x": 470,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Search / picker",
+   "page": "bus"
+  },
+  "B-Departures.dc.html": {
+   "x": 940,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Departures",
+   "page": "bus"
+  },
+  "B-Detail.dc.html": {
+   "x": 1410,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Service detail",
+   "page": "bus"
+  },
+  "B-Map.dc.html": {
+   "x": 1880,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Live map",
+   "page": "bus"
+  },
+  "B-Alerts.dc.html": {
+   "x": 2350,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Service alerts",
+   "page": "bus"
+  },
+  "B-States.dc.html": {
+   "x": 0,
+   "y": 964,
+   "w": 1700,
+   "h": 844,
+   "title": "Loading \u00b7 empty \u00b7 offline \u00b7 error",
+   "page": "bus"
+  },
+  "B-DarkWidget.dc.html": {
+   "x": 1780,
+   "y": 964,
+   "w": 1200,
+   "h": 844,
+   "title": "Dark mode + iOS widgets",
+   "page": "bus"
+  },
+  "B-Desktop.dc.html": {
+   "x": 3060,
+   "y": 964,
+   "w": 1280,
+   "h": 900,
+   "title": "Desktop",
+   "page": "bus",
+   "expand": "fill"
+  },
+  "X-Home.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Home",
+   "page": "transit"
+  },
+  "X-Search.dc.html": {
+   "x": 470,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Search / picker",
+   "page": "transit"
+  },
+  "X-Departures.dc.html": {
+   "x": 940,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Departures",
+   "page": "transit"
+  },
+  "X-Detail.dc.html": {
+   "x": 1410,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Service detail",
+   "page": "transit"
+  },
+  "X-Map.dc.html": {
+   "x": 1880,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Live map",
+   "page": "transit"
+  },
+  "X-Alerts.dc.html": {
+   "x": 2350,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Service alerts",
+   "page": "transit"
+  },
+  "X-States.dc.html": {
+   "x": 0,
+   "y": 964,
+   "w": 1700,
+   "h": 844,
+   "title": "Loading \u00b7 empty \u00b7 offline \u00b7 error",
+   "page": "transit"
+  },
+  "X-DarkWidget.dc.html": {
+   "x": 1780,
+   "y": 964,
+   "w": 1200,
+   "h": 844,
+   "title": "Dark mode + iOS widgets",
+   "page": "transit"
+  },
+  "X-Desktop.dc.html": {
+   "x": 3060,
+   "y": 964,
+   "w": 1280,
+   "h": 900,
+   "title": "Desktop",
+   "page": "transit",
+   "expand": "fill"
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "T-Home.dc.html",
+  "T-Search.dc.html",
+  "T-Departures.dc.html",
+  "T-Detail.dc.html",
+  "T-Map.dc.html",
+  "T-Alerts.dc.html",
+  "T-States.dc.html",
+  "T-DarkWidget.dc.html",
+  "T-Desktop.dc.html",
+  "B-Home.dc.html",
+  "B-Search.dc.html",
+  "B-Departures.dc.html",
+  "B-Detail.dc.html",
+  "B-Map.dc.html",
+  "B-Alerts.dc.html",
+  "B-States.dc.html",
+  "B-DarkWidget.dc.html",
+  "B-Desktop.dc.html",
+  "X-Home.dc.html",
+  "X-Search.dc.html",
+  "X-Departures.dc.html",
+  "X-Detail.dc.html",
+  "X-Map.dc.html",
+  "X-Alerts.dc.html",
+  "X-States.dc.html",
+  "X-DarkWidget.dc.html",
+  "X-Desktop.dc.html"
+ ],
+ "notes": {
+  "brandTitle": {
+   "x": 0,
+   "y": -300,
+   "text": "BrisbaneFerry look, applied to the family",
+   "kind": "title1",
+   "maxW": 1600,
+   "page": "brand"
+  },
+  "Ttitle": {
+   "x": 0,
+   "y": -300,
+   "text": "BrisbaneTrain: ferry look + platform tiles + stopping-pattern strips",
+   "kind": "title1",
+   "maxW": 4340,
+   "page": "train"
+  },
+  "Btitle": {
+   "x": 0,
+   "y": -300,
+   "text": "BrisbaneBus: ferry look + route tiles + big countdown",
+   "kind": "title1",
+   "maxW": 4340,
+   "page": "bus"
+  },
+  "Xtitle": {
+   "x": 0,
+   "y": -300,
+   "text": "BrisbaneTransit: mode tabs + nearby, ferry look",
+   "kind": "title1",
+   "maxW": 4340,
+   "page": "transit"
+  }
+ },
+ "designSystems": []
+}

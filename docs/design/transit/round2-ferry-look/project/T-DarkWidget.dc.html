@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneTrain dark mode and widgets</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Poppins:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#FF8C42}a:hover{color:#FFB37A}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+</style>
+</helmet>
+<div style="width: 1200px; height: 844px; display: flex; font-family: Inter, system-ui, sans-serif; background: #E9E1DC">
+
+<div style="width: 390px; height: 844px; flex: 0 0 390px; overflow: hidden; display: flex; flex-direction: column; background: linear-gradient(160deg, #14191B 0%, #1B2326 100%); color: #F1F5F6">
+<header style="flex: 0 0 auto; background: linear-gradient(90deg, #1B2326, #2A211D, #17242A); border-bottom: 2px solid rgba(255,140,66,0.55); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 6px">
+<img src="/_blob/c529a31f2397418a458da66f4007f78e" alt="" style="width: 56px; height: 56px">
+<div style="display: flex; flex-direction: column; line-height: 1.05">
+<span style="font-family: Poppins, sans-serif; font-weight: 700; font-size: 21px; color: #5DCCDB">BrisbaneTrain</span>
+<span style="font-family: Poppins, sans-serif; font-weight: 600; font-size: 16px; color: #FE8E22">Departure Boards</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" aria-label="Settings" style="width: 44px; height: 44px; border-radius: 999px; background: #222B2E; border: 1px solid rgba(255,140,66,0.3); display: flex; align-items: center; justify-content: center; color: #5DCCDB; padding: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"></path></svg></button>
+<span style="font-size: 12px; font-weight: 800; color: #1B1B1B; background: #FF8C42; border-radius: 999px; padding: 7px 14px; box-shadow: 0 0 15px rgba(255,140,66,0.45); animation: pulse 2s infinite">LIVE</span>
+</div>
+</header>
+<main style="flex: 1 1 auto; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="border-radius: 12px; padding: 10px 12px; background: #222B2E; border: 1px solid rgba(255,140,66,0.2); font-weight: 700; color: #5DCCDB">Roma Street → Indooroopilly</div>
+
+<div style="border-radius: 12px; padding: 14px; background: linear-gradient(90deg, #3A2618, #222B2E); border: 2px solid #FF8C42; box-shadow: 0 0 18px rgba(255,140,66,0.3); display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="width: 56px; height: 56px; flex: 0 0 56px; border-radius: 12px; background: #FF8C42; color: #1B1B1B; display: flex; flex-direction: column; align-items: center; justify-content: center"><span style="font-size: 10px; font-weight: 800">NOW</span><span style="font-size: 24px; font-weight: 800; line-height: 1">7</span><span style="font-size: 10px; font-weight: 700; text-decoration: line-through">4</span></span>
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; gap: 5px; align-items: center"><span style="padding: 3px 8px; border-radius: 999px; background: #FF8C42; color: #1B1B1B; font-size: 11px; font-weight: 800">LIVE</span><span style="padding: 3px 8px; border-radius: 999px; background: #5DCCDB; color: #0F2A2E; font-size: 11px; font-weight: 800">GPS</span><span style="font-size: 11px; font-weight: 800; color: #FFB37A">EXPRESS</span></div>
+<div style="font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums">2:45 pm <span style="font-weight: 400; color: #9CA3AF">→</span> <span style="font-weight: 500; font-size: 17px; color: #D1D5DB">2:56</span></div>
+</div>
+<span style="padding: 6px 12px; border-radius: 999px; background: #FF8C42; color: #1B1B1B; font-size: 18px; font-weight: 800">4 min</span>
+</div>
+<div style="position: relative; height: 14px">
+<div style="position: absolute; left: 5px; right: 5px; top: 5px; height: 4px; border-radius: 2px; background: #5B9BE0"></div>
+<div style="position: relative; display: flex; justify-content: space-between"><sc-for list="{{exp}}" as="d" hint-placeholder-count="6"><span style="{{d.style}}"></span></sc-for></div>
+</div>
+<span style="font-size: 12px; color: #C7CED1"><strong style="color: #8DBDF0">Springfield line</strong> · Few seats</span>
+</div>
+
+<div style="border-radius: 12px; padding: 14px; background: #222B2E; display: flex; align-items: center; gap: 12px">
+<span style="width: 56px; height: 52px; flex: 0 0 56px; border-radius: 12px; background: #2E3A3E; color: #5DCCDB; display: flex; flex-direction: column; align-items: center; justify-content: center"><span style="font-size: 10px; font-weight: 700">PLAT</span><span style="font-size: 22px; font-weight: 800; line-height: 1">4</span></span>
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; gap: 5px; align-items: center"><span style="padding: 3px 8px; border-radius: 999px; background: #FF8C42; color: #1B1B1B; font-size: 11px; font-weight: 800">LIVE</span><span style="font-size: 12px; font-weight: 700; color: #FBBF24">+3 min late</span></div>
+<span style="font-size: 20px; font-weight: 700">2:49 pm <span style="font-weight: 400; color: #9CA3AF">→</span> <span style="font-weight: 500; font-size: 16px; color: #D1D5DB">3:04</span></span>
+</div>
+<span style="padding: 6px 12px; border-radius: 999px; background: #3A2E25; color: #FFB37A; border: 1px solid #FF8C42; font-size: 17px; font-weight: 800">8 min</span>
+</div>
+
+<div style="border-radius: 12px; padding: 12px 14px; background: #1E2629; border: 1px dashed #5A4A42; display: flex; align-items: center; gap: 12px">
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px"><div style="display: flex; gap: 6px; align-items: center"><span style="padding: 3px 8px; border-radius: 999px; background: #F87171; color: #1B1B1B; font-size: 11px; font-weight: 800">CANCELLED</span><span style="font-size: 12px; color: #C7CED1">Rosewood line</span></div><span style="font-size: 18px; font-weight: 700; color: #9CA3AF; text-decoration: line-through">2:57 pm</span></div>
+<span style="font-size: 12px; color: #C7CED1">Next: 3:05 pm</span>
+</div>
+
+<div style="border-radius: 12px; padding: 14px; background: #222B2E; display: flex; align-items: center; gap: 12px">
+<span style="width: 56px; height: 52px; flex: 0 0 56px; border-radius: 12px; background: #2E3A3E; color: #5DCCDB; display: flex; flex-direction: column; align-items: center; justify-content: center"><span style="font-size: 10px; font-weight: 700">PLAT</span><span style="font-size: 22px; font-weight: 800; line-height: 1">4</span></span>
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px"><span style="align-self: flex-start; padding: 3px 8px; border-radius: 999px; background: #374151; color: #D1D5DB; font-size: 11px; font-weight: 700">SCHEDULED</span><span style="font-size: 20px; font-weight: 700">3:05 pm <span style="font-weight: 400; color: #9CA3AF">→</span> <span style="font-weight: 500; font-size: 16px; color: #D1D5DB">3:20</span></span></div>
+<span style="padding: 6px 12px; border-radius: 999px; background: #14301F; color: #86EFAC; border: 1px solid #2F6B45; font-size: 16px; font-weight: 700">24 min</span>
+</div>
+</main>
+</div>
+
+<div style="flex: 1 1 auto; padding: 48px 56px; display: flex; flex-direction: column; gap: 28px; background: linear-gradient(160deg, #F7C9A8 0%, #E9B7C4 45%, #9FC3DE 100%)">
+<span style="font-size: 15px; font-weight: 800; color: #2D3436; letter-spacing: 0.06em; text-transform: uppercase">iOS Home Screen widgets</span>
+
+<div style="display: flex; gap: 24px; align-items: flex-start">
+<div style="width: 170px; height: 170px; box-sizing: border-box; border-radius: 24px; padding: 14px; background: linear-gradient(135deg, #FFE5D9, #FFFFFF 60%, #E6F2FF); box-shadow: 0 10px 24px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 4px; color: #2D3436">
+<div style="display: flex; align-items: center; gap: 4px"><img src="/_blob/c529a31f2397418a458da66f4007f78e" alt="" style="width: 26px; height: 26px"><span style="font-size: 12px; font-weight: 700; color: #1E7C80">Roma St → Indro</span></div>
+<span style="font-size: 40px; font-weight: 800; line-height: 1; margin-top: 6px; font-variant-numeric: tabular-nums">4<span style="font-size: 18px"> min</span></span>
+<span style="font-size: 13px; font-weight: 700; color: #C2410C">Plat 7 · Express</span>
+<span style="font-size: 12px; color: #4B5563; margin-top: auto">Then 2:49 · 3:05</span>
+</div>
+<div style="width: 364px; height: 170px; box-sizing: border-box; border-radius: 24px; padding: 14px 16px; background: linear-gradient(135deg, #FFE5D9, #FFFFFF 60%, #E6F2FF); box-shadow: 0 10px 24px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 8px; color: #2D3436">
+<div style="display: flex; align-items: center; gap: 6px"><img src="/_blob/c529a31f2397418a458da66f4007f78e" alt="" style="width: 26px; height: 26px"><span style="font-size: 13px; font-weight: 700; color: #1E7C80">Roma Street → Indooroopilly</span><span style="margin-left: auto; font-size: 10px; font-weight: 800; color: #FFFFFF; background: #E55A2B; border-radius: 999px; padding: 3px 8px">LIVE</span></div>
+<sc-for list="{{rowsLight}}" as="r" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; font-variant-numeric: tabular-nums">
+<span style="{{r.plat}}">{{r.platText}}</span>
+<span style="font-size: 16px; font-weight: 700; flex: 1 1 auto">{{r.time}} <span style="font-size: 12px; font-weight: 600; color: #4B5563">{{r.note}}</span></span>
+<span style="font-size: 16px; font-weight: 800; color: #C2410C">{{r.in}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="display: flex; gap: 24px; align-items: flex-start">
+<div style="width: 170px; height: 170px; box-sizing: border-box; border-radius: 24px; padding: 14px; background: #1B2326; box-shadow: 0 10px 24px rgba(0,0,0,0.25); display: flex; flex-direction: column; gap: 4px; color: #F1F5F6">
+<div style="display: flex; align-items: center; gap: 4px"><img src="/_blob/c529a31f2397418a458da66f4007f78e" alt="" style="width: 26px; height: 26px"><span style="font-size: 12px; font-weight: 700; color: #5DCCDB">Roma St → Indro</span></div>
+<span style="font-size: 40px; font-weight: 800; line-height: 1; margin-top: 6px">4<span style="font-size: 18px"> min</span></span>
+<span style="font-size: 13px; font-weight: 700; color: #FFB37A">Plat 7 · Express</span>
+<span style="font-size: 12px; color: #C7CED1; margin-top: auto">Then 2:49 · 3:05</span>
+</div>
+<div style="width: 364px; height: 170px; box-sizing: border-box; border-radius: 24px; padding: 14px 16px; background: #1B2326; box-shadow: 0 10px 24px rgba(0,0,0,0.25); display: flex; flex-direction: column; gap: 8px; color: #F1F5F6">
+<div style="display: flex; align-items: center; gap: 6px"><img src="/_blob/c529a31f2397418a458da66f4007f78e" alt="" style="width: 26px; height: 26px"><span style="font-size: 13px; font-weight: 700; color: #5DCCDB">Roma Street → Indooroopilly</span><span style="margin-left: auto; font-size: 10px; font-weight: 800; color: #1B1B1B; background: #FF8C42; border-radius: 999px; padding: 3px 8px">LIVE</span></div>
+<sc-for list="{{rowsDark}}" as="r" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; font-variant-numeric: tabular-nums">
+<span style="{{r.plat}}">{{r.platText}}</span>
+<span style="font-size: 16px; font-weight: 700; flex: 1 1 auto">{{r.time}} <span style="font-size: 12px; font-weight: 600; color: #C7CED1">{{r.note}}</span></span>
+<span style="font-size: 16px; font-weight: 800; color: #FFB37A">{{r.in}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<span style="font-size: 13px; color: #2D3436; max-width: 560px; line-height: 1.4">Small: next train for one saved trip. Medium: next three, platform first. Platform changes show as an orange tile.</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const c = '#5B9BE0';
+const dot = (on) => on
+? 'width: 14px; height: 14px; box-sizing: border-box; border-radius: 999px; background: ' + c + '; border: 3px solid #222B2E; box-shadow: 0 0 0 1px ' + c
+: 'width: 10px; height: 10px; margin-top: 2px; box-sizing: border-box; border-radius: 999px; background: #222B2E; border: 2px solid ' + c;
+const tile = (bg, fg) => 'width: 30px; height: 26px; border-radius: 7px; background: ' + bg + '; color: ' + fg + '; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center';
+const rows = (dark) => [
+{ plat: tile(dark ? '#FF8C42' : '#E55A2B', dark ? '#1B1B1B' : '#FFFFFF'), platText: '7', time: '2:45', note: 'Express', in: '4 min' },
+{ plat: tile(dark ? '#2E3A3E' : '#FFFFFF', dark ? '#5DCCDB' : '#1E7C80'), platText: '4', time: '2:49', note: '+3 late', in: '8 min' },
+{ plat: tile(dark ? '#2E3A3E' : '#FFFFFF', dark ? '#5DCCDB' : '#1E7C80'), platText: '4', time: '3:05', note: 'All stops', in: '24 min' }
+];
+return { exp: [1, 0, 0, 1, 0, 1].map((v) => ({ style: dot(v) })), rowsLight: rows(false), rowsDark: rows(true) };
+}
+}
+</script>
+</body>
+</html>

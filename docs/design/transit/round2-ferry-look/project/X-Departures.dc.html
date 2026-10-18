@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Transit · Ferry tab departures</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#E55A2B}a:hover{color:#B8400F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: linear-gradient(135deg, #FFE5D9 0%, #FFFFFF 50%, #E6F2FF 100%); font-family: Inter, system-ui, sans-serif; color: #2D3436; overflow: hidden">
+
+<header style="display: flex; align-items: center; justify-content: space-between; padding: 4px 12px 4px 6px; background: linear-gradient(90deg, #FFFFFF, #FFE5D9, #E6F2FF); border-bottom: 2px solid rgba(255,107,53,0.5); box-shadow: 0 10px 15px -5px rgba(0,0,0,0.1)">
+<img src="/_blob/18cf5597f2ae16936eb06cd2fc413912" alt="BrisbaneFerry Departure Boards" style="height: 64px; width: auto">
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" style="font: inherit; font-size: 12px; font-weight: 600; color: #007C99; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,107,53,0.2); border-radius: 999px; padding: 0 12px; height: 44px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1)">Settings</button>
+<span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF6B35; border-radius: 999px; padding: 6px 12px; box-shadow: 0 0 15px rgba(255,107,53,0.5)">LIVE</span>
+</div>
+</header>
+
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 12px; background: linear-gradient(90deg, #FFFFFF, rgba(255,229,217,0.5)); border-bottom: 1px solid rgba(255,107,53,0.2); font-size: 12px">
+<span style="display: flex; align-items: center; gap: 5px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>7:38 pm</span>
+<div style="display: flex; gap: 6px">
+<button type="button" style="font: inherit; font-size: 12px; font-weight: 700; color: #FFFFFF; background: #E55A2B; border: 0; border-radius: 999px; padding: 0 12px; height: 34px">All</button>
+<button type="button" style="font: inherit; font-size: 12px; font-weight: 600; color: #B8400F; background: #FFFFFF; border: 1px solid rgba(255,107,53,0.3); border-radius: 999px; padding: 0 12px; height: 34px">Express</button>
+<button type="button" style="font: inherit; font-size: 12px; font-weight: 600; color: #007C99; background: #FFFFFF; border: 1px solid rgba(255,107,53,0.2); border-radius: 999px; padding: 0 12px; height: 34px">Map</button>
+</div>
+</div>
+
+<main style="flex: 1 1 auto; overflow: hidden; padding: 12px 14px 0; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 12px; padding: 10px 14px; background: linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,229,217,0.5)); border: 1px solid rgba(255,107,53,0.1); font-weight: 600; color: #007C99; font-size: 16px">
+<span>Bulimba → Riverside</span>
+<button type="button" aria-label="Swap direction" style="width: 40px; height: 40px; border-radius: 999px; border: 1px solid rgba(255,107,53,0.25); background: #FFFFFF; display: flex; align-items: center; justify-content: center; padding: 0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E55A2B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"></path></svg></button>
+</div>
+
+<sc-for list="{{deps}}" as="d" hint-placeholder-count="5">
+<article style="{{d.card}}">
+<div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap">
+<sc-if value="{{d.live}}" hint-placeholder-val="{{ true }}"><span style="padding: 3px 9px; border-radius: 999px; background: #FF6B35; color: #FFFFFF; font-size: 11px; font-weight: 700">LIVE</span></sc-if>
+<sc-if value="{{d.gps}}" hint-placeholder-val="{{ false }}"><span style="padding: 3px 9px; border-radius: 999px; background: #007C99; color: #FFFFFF; font-size: 11px; font-weight: 700">GPS</span></sc-if>
+<sc-if value="{{d.sched}}" hint-placeholder-val="{{ false }}"><span style="padding: 3px 9px; border-radius: 999px; background: #F3F4F6; color: #4B5563; font-size: 11px; font-weight: 600">SCHEDULED</span></sc-if>
+<sc-if value="{{d.cancelled}}" hint-placeholder-val="{{ false }}"><span style="padding: 3px 9px; border-radius: 999px; background: #FEE2E2; color: #991B1B; font-size: 11px; font-weight: 800">CANCELLED</span></sc-if>
+<span style="font-size: 11px; font-weight: 800; letter-spacing: 0.04em; color: {{d.svcColor}}">{{d.svc}}</span>
+</div>
+<div style="font-size: {{d.size}}; font-weight: 800; font-variant-numeric: tabular-nums; text-decoration: {{d.strike}}; white-space: nowrap">{{d.time}} <span style="font-weight: 400; color: #6B7280">→</span> <span style="font-weight: 500; color: #374151">{{d.arr}}</span></div>
+<span style="font-size: 12px; color: #4B5563">{{d.note}}</span>
+</div>
+<sc-if value="{{d.hasChip}}" hint-placeholder-val="{{ true }}"><span style="{{d.chip}}">{{d.count}}</span></sc-if>
+</article>
+</sc-for>
+
+<button type="button" style="font: inherit; font-size: 15px; font-weight: 700; color: #E55A2B; background: linear-gradient(90deg, #FFFFFF, #FFE5D9); border: 2px solid rgba(255,107,53,0.3); border-radius: 8px; min-height: 48px">More departures</button>
+</main>
+
+<nav aria-label="Modes" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 6px 18px; background: rgba(255,255,255,0.95); border-top: 1px solid rgba(255,107,53,0.2)">
+<sc-for list="{{tabs}}" as="b" hint-placeholder-count="5">
+<a href="{{b.href}}" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{b.color}}; font-size: 11px; font-weight: {{b.weight}}; min-height: 52px; justify-content: center">
+<span style="display: flex; align-items: center; justify-content: center; width: 48px; height: 30px; border-radius: 999px; background: {{b.pill}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{b.icon}}"></path></svg></span>
+{{b.label}}
+</a>
+</sc-for>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const I = {
+ferry: 'M3 18c2 1.5 4 1.5 6 0s4-1.5 6 0 4 1.5 6 0M5 15l-1-5h16l-2 5M8 10V6h8v4M12 3v3',
+train: 'M7 3h10a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zM4 10h16M8 21l2-4M16 21l-2-4M8.5 13.5h.01M15.5 13.5h.01',
+bus: 'M6 3h12a2 2 0 0 1 2 2v12H4V5a2 2 0 0 1 2-2zM4 11h16M7 20v-3M17 20v-3M7.5 14h.01M16.5 14h.01',
+near: 'M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+saved: 'M6 3h12v18l-6-4-6 4z'
+};
+const plain = 'border-radius: 12px; padding: 14px 16px; background: rgba(255,255,255,0.9); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 92px; box-sizing: border-box';
+const hot = 'border-radius: 12px; padding: 14px 16px; background: linear-gradient(90deg, #FFE5D9, #FFFFFF); border: 2px solid #FF6B35; box-shadow: 0 0 20px rgba(255,107,53,0.45); display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 92px; box-sizing: border-box';
+const dim = plain + '; opacity: 0.85';
+const cb = 'padding: 6px 12px; border-radius: 999px; font-size: 16px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; ';
+const chip = (m) => m <= 5 ? cb + 'background: #E55A2B; color: #FFFFFF' : m <= 15 ? cb + 'background: #FF8C42; color: #2D3436' : cb + 'background: #DCFCE7; color: #166534; border: 1px solid #86EFAC';
+const d = (o) => Object.assign({ live: false, gps: false, sched: false, cancelled: false, strike: 'none', size: '20px', svc: 'ALL STOPS', svcColor: '#4B5563', hasChip: true, card: plain }, o);
+const tabs = [['Ferry', I.ferry, 'X-Departures.dc.html'], ['Train', I.train, 'X-Detail.dc.html'], ['Bus', I.bus, 'X-Search.dc.html'], ['Nearby', I.near, 'X-Map.dc.html'], ['Saved', I.saved, 'X-Home.dc.html']];
+const active = 'Ferry';
+return {
+deps: [
+d({ card: hot, live: true, gps: true, svc: 'EXPRESS · F11', svcColor: '#B8400F', size: '22px', time: '7:42 pm', arr: '7:54 pm', note: 'Mooroolbin II · Sched Dept 7:42 pm', count: 'in 4 mins', chip: chip(4) }),
+d({ live: true, svc: 'ALL STOPS · F1', time: '7:49 pm', arr: '8:08 pm', note: 'Scheduled 7:46 pm · +3 min late', count: 'in 11 mins', chip: chip(11) }),
+d({ card: dim, cancelled: true, svc: 'ALL STOPS · F1', time: '8:01 pm', arr: '8:20 pm', strike: 'line-through', note: 'Next F1 at 8:16 pm', hasChip: false, count: '', chip: '' }),
+d({ sched: true, svc: 'EXPRESS · F11', svcColor: '#B8400F', size: '22px', time: '8:12 pm', arr: '8:24 pm', note: 'Journey 12 min', count: 'in 34 mins', chip: chip(34) })
+],
+tabs: tabs.map(([label, icon, href]) => ({ label, icon, href, color: label === active ? '#B8400F' : '#4B5563', weight: label === active ? '700' : '500', pill: label === active ? '#FFE5D9' : 'transparent' }))
+};
+}
+}
+</script>
+</body>
+</html>

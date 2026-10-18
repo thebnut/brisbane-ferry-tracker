@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Departures, Line First</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B32C4}a:hover{color:#36239A}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F6F7F9; font-family: 'Figtree', system-ui, sans-serif; color: #1D2226; display: flex; flex-direction: column; font-variant-numeric: tabular-nums">
+  <header style="padding: 16px 16px 8px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 6px">
+      <a href="C-Home.dc.html" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #1D2226; margin-left: -10px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></a>
+      <h1 style="flex: 1; margin: 0; font-size: 20px; font-weight: 800">Roma Street → Indooroopilly</h1>
+      <button aria-label="Swap direction" style="width: 44px; height: 44px; border: 1px solid #DDE0E5; border-radius: 22px; background: #FFFFFF; display: flex; align-items: center; justify-content: center; color: #1D2226"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"></path></svg></button>
+    </div>
+    <div style="display: flex; gap: 8px">
+      <button aria-pressed="true" style="min-height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: #1D2226; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 700">All</button>
+      <button aria-pressed="false" style="min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid #DDE0E5; background: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600">Express</button>
+      <span style="margin-left: auto; align-self: center; display: flex; gap: 10px; font-size: 12px; color: #4F5860"><span style="display: flex; align-items: center; gap: 4px"><span style="width: 9px; height: 9px; border-radius: 5px; background: #4F5860"></span>stops</span><span style="display: flex; align-items: center; gap: 4px"><span style="width: 9px; height: 9px; border-radius: 5px; border: 2px solid #4F5860; box-sizing: border-box"></span>skips</span></span>
+    </div>
+  </header>
+  <main style="flex: 1; overflow: hidden; padding: 4px 16px; display: flex; flex-direction: column; gap: 10px">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+      <a href="C-Detail.dc.html" style="{{r.card}}">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span style="{{r.chip}}">{{r.line}}</span>
+          <span style="{{r.tagStyle}}">{{r.tag}}</span>
+          <span style="margin-left: auto; text-align: right"><span style="{{r.dueStyle}}">{{r.due}}</span></span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 10px; margin-top: 6px">
+          <span style="{{r.timeStyle}}">{{r.time}}</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #4F5860">{{r.arr}}</span>
+          <span style="{{r.platStyle}}">{{r.plat}}</span>
+        </div>
+        <div aria-hidden="true" style="position: relative; height: 16px; margin-top: 10px">
+          <span style="{{r.rail}}"></span>
+          <span style="position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center">
+            <sc-for list="{{r.dots}}" as="d" hint-placeholder-count="6"><span style="{{d.s}}"></span></sc-for>
+          </span>
+        </div>
+      </a>
+    </sc-for>
+  </main>
+  <div style="height: 24px"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const C = { spr: '#0A7A6E', ips: '#1E9F4A' };
+    const dots = (pattern, color, dim) => pattern.map((p) => ({ s: 'box-sizing: border-box; border-radius: 50%; ' + (p ? 'width: 12px; height: 12px; background: ' + (dim ? '#B8BEC4' : color) : 'width: 10px; height: 10px; background: #FFFFFF; border: 2px solid ' + (dim ? '#B8BEC4' : color)) }));
+    const EXP = [1, 0, 0, 1, 0, 1], ALL = [1, 1, 1, 1, 1, 1];
+    const row = (o) => {
+      const color = C[o.l];
+      const cancel = o.k === 'cancel';
+      return {
+        line: o.line, tag: o.tag, due: o.due, time: o.time, arr: o.arr, plat: o.plat,
+        card: 'text-decoration: none; color: inherit; background: #FFFFFF; border-radius: 20px; padding: 14px 16px; ' + (o.k === 'next' ? 'border: 2px solid #5B3FD1' : 'border: 1px solid #E6E8EC'),
+        chip: 'font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; color: #FFFFFF; background: ' + (cancel ? '#6A737B' : color),
+        tagStyle: 'font-size: 12px; font-weight: 700; ' + ({ live: 'color: #17602E', late: 'color: #8A4200', cancel: 'color: #B3261E', sched: 'color: #4F5860' })[o.ts],
+        dueStyle: 'font-size: 24px; font-weight: 800; ' + (o.k === 'next' ? 'color: #4B32C4' : ''),
+        timeStyle: "font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; " + (cancel ? 'text-decoration: line-through; color: #6A737B' : ''),
+        platStyle: o.plat ? 'margin-left: auto; font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 8px; ' + (o.changed ? 'background: #FFE2A8; color: #5C3D00' : 'background: #ECE8FB; color: #3F2A9E') : 'display: none',
+        rail: 'position: absolute; left: 6px; right: 6px; top: 6px; height: 4px; border-radius: 2px; background: ' + (cancel ? '#B8BEC4' : color),
+        dots: dots(o.p, color, cancel)
+      };
+    };
+    return { rows: [
+      row({ l: 'spr', line: 'Springfield · Express', tag: '● LIVE', ts: 'live', due: '3 min', time: '8:07', arr: '→ 8:19', plat: 'Plat 8', p: EXP, k: 'next' }),
+      row({ l: 'ips', line: 'Ipswich · All stops', tag: '+2 min late', ts: 'late', due: '10 min', time: '8:14', arr: '→ 8:29', plat: 'Now plat 7 (was 9)', changed: true, p: ALL }),
+      row({ l: 'ips', line: 'Rosewood · All stops', tag: 'CANCELLED', ts: 'cancel', due: '', time: '8:17', arr: 'next 8:27', plat: '', p: ALL, k: 'cancel' }),
+      row({ l: 'spr', line: 'Springfield · Express', tag: 'SCHEDULED', ts: 'sched', due: '18 min', time: '8:22', arr: '→ 8:34', plat: 'Plat 8', p: EXP }),
+      row({ l: 'ips', line: 'Ipswich · All stops', tag: 'SCHEDULED', ts: 'sched', due: '23 min', time: '8:27', arr: '→ 8:42', plat: 'Plat 9', p: ALL })
+    ]};
+  }
+}
+</script>
+</body>
+</html>

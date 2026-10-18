@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Service alerts, Platform Board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&amp;family=JetBrains+Mono:wght@500;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4A2FC0}a:hover{color:#331F8F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #EDEDEA; font-family: 'Barlow Condensed', system-ui, sans-serif; color: #111315; display: flex; flex-direction: column">
+  <header style="background: #111315; color: #FFFFFF; padding: 18px 16px 14px">
+    <h1 style="margin: 0; font-size: 34px; font-weight: 800; line-height: 1">ALERTS</h1>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #B9BCC0; margin-top: 6px">2 ON YOUR TRIPS · 7 NETWORK</div>
+  </header>
+  <main style="flex: 1; overflow: hidden; padding: 12px 10px; display: flex; flex-direction: column; gap: 8px">
+    <article style="background: #FFFFFF; border-radius: 4px; overflow: hidden">
+      <div style="display: flex; align-items: center; gap: 8px; background: #B3261E; color: #FFFFFF; padding: 6px 12px; font-size: 16px; font-weight: 800"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>CANCELLED<span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px">07:52</span></div>
+      <div style="padding: 10px 12px">
+        <div style="font-size: 22px; font-weight: 700; line-height: 1.1">08:17 ROSEWOOD SERVICE</div>
+        <div style="font-size: 17px; color: #33373C; margin-top: 4px; line-height: 1.3">Crew shortage. Next: 08:27 from platform 9.</div>
+        <span style="display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 700; padding: 1px 6px; background: #1E9F4A; color: #FFFFFF">IPSWICH/ROSEWOOD</span>
+      </div>
+    </article>
+    <article style="background: #FFFFFF; border-radius: 4px; overflow: hidden">
+      <div style="display: flex; align-items: center; gap: 8px; background: #FFB547; color: #111315; padding: 6px 12px; font-size: 16px; font-weight: 800"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 3 2 20h20z"></path></svg>REDUCED SERVICE<span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px">TONIGHT</span></div>
+      <div style="padding: 10px 12px">
+        <div style="font-size: 22px; font-weight: 700; line-height: 1.1">EVERY 30 MIN AFTER 7 PM</div>
+        <div style="font-size: 17px; color: #33373C; margin-top: 4px; line-height: 1.3">Track work at Corinda. Roma Street to Ipswich.</div>
+        <span style="display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 700; padding: 1px 6px; background: #1E9F4A; color: #FFFFFF">IPSWICH/ROSEWOOD</span>
+      </div>
+    </article>
+    <h2 style="margin: 8px 4px 0; font-size: 18px; font-weight: 800">NETWORK</h2>
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <a href="#" style="display: flex; align-items: center; gap: 10px; background: #FFFFFF; padding: 0 12px; min-height: 56px; text-decoration: none; color: #111315"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 800; width: 52px">SAT 25</span><span style="flex: 1; font-size: 19px; font-weight: 700">BUSES REPLACE TRAINS</span><span style="font-size: 13px; font-weight: 700; padding: 1px 6px; background: #00843D; color: #FFFFFF">CABOOLTURE</span></a>
+      <a href="#" style="display: flex; align-items: center; gap: 10px; background: #FFFFFF; padding: 0 12px; min-height: 56px; text-decoration: none; color: #111315"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 800; width: 52px">NOW</span><span style="flex: 1; font-size: 19px; font-weight: 700">LIFT OUT · BOWEN HILLS P3</span><span style="font-size: 13px; font-weight: 700; padding: 1px 6px; border: 1.5px solid #111315">STATION</span></a>
+      <a href="#" style="display: flex; align-items: center; gap: 10px; background: #FFFFFF; padding: 0 12px; min-height: 56px; text-decoration: none; color: #111315"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 800; width: 52px">SUN 26</span><span style="flex: 1; font-size: 19px; font-weight: 700">TIMETABLE CHANGE</span><span style="font-size: 13px; font-weight: 700; padding: 1px 6px; background: #E8A300; color: #111315">AIRPORT</span></a>
+    </div>
+  </main>
+  <nav aria-label="Main" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #111315; padding: 6px 6px 24px">
+    <a href="B-Home.dc.html" style="min-height: 52px; display: flex; align-items: center; justify-content: center; color: #B9BCC0; text-decoration: none; font-size: 15px; font-weight: 600; border-top: 3px solid transparent">TRIPS</a>
+    <a href="B-Search.dc.html" style="min-height: 52px; display: flex; align-items: center; justify-content: center; color: #B9BCC0; text-decoration: none; font-size: 15px; font-weight: 600; border-top: 3px solid transparent">STATIONS</a>
+    <a href="B-Map.dc.html" style="min-height: 52px; display: flex; align-items: center; justify-content: center; color: #B9BCC0; text-decoration: none; font-size: 15px; font-weight: 600; border-top: 3px solid transparent">MAP</a>
+    <a href="B-Alerts.dc.html" aria-current="page" style="min-height: 52px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 700; border-top: 3px solid #A996FF">ALERTS</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

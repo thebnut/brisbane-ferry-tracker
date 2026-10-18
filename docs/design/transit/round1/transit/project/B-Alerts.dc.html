@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Unified Journey · Alerts</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1C2024}a:hover{color:#000}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F4F6; font-family: 'Instrument Sans', system-ui, sans-serif; color: #1C2024; display: flex; flex-direction: column; overflow: hidden">
+  <header style="padding: 20px 20px 10px; display: flex; flex-direction: column; gap: 12px">
+    <h1 style="margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em">Alerts</h1>
+    <div role="tablist" aria-label="Alert scope" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: #E3E5E8; border-radius: 14px; padding: 4px">
+      <button role="tab" aria-selected="true" style="height: 40px; border: 0; border-radius: 10px; background: #FFFFFF; font: 700 14px 'Instrument Sans', sans-serif; color: #1C2024">My journeys</button>
+      <button role="tab" aria-selected="false" style="height: 40px; border: 0; border-radius: 10px; background: transparent; font: 600 14px 'Instrument Sans', sans-serif; color: #3A4047">Nearby</button>
+      <button role="tab" aria-selected="false" style="height: 40px; border: 0; border-radius: 10px; background: transparent; font: 600 14px 'Instrument Sans', sans-serif; color: #3A4047">Network</button>
+    </div>
+  </header>
+  <main style="flex: 1; overflow: hidden; padding: 4px 16px; display: flex; flex-direction: column; gap: 12px">
+    <section style="background: #FFFFFF; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 16px">Home → Work</b><span style="font-size: 12px; font-weight: 800; color: #A3330A; text-transform: uppercase">Affects tonight</span></div>
+      <div style="display: flex; gap: 3px; height: 8px; border-radius: 4px; overflow: hidden" aria-hidden="true"><span style="flex: 3; background: repeating-linear-gradient(90deg, #9AA1A8 0 4px, transparent 4px 7px)"></span><span style="flex: 6; background: #F2B705"></span><span style="flex: 2; background: repeating-linear-gradient(90deg, #9AA1A8 0 4px, transparent 4px 7px)"></span><span style="flex: 16; background: repeating-linear-gradient(45deg, #FF6B35 0 6px, #FFE5D9 6px 12px)"></span></div>
+      <div style="display: flex; gap: 10px"><span style="flex: none; font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: #B8400F; color: #FFFFFF; height: fit-content">Ferry</span><span style="font-size: 15px; line-height: 1.4"><b>F1 services every 30 min after 7 pm</b> (crew shortage). The 7:58 pm from Teneriffe is cancelled.</span></div>
+      <div style="background: #F3F4F6; border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.4">Your next good option still arrives <b>8:02 pm</b>. We'll warn you 10 min before leaving if that changes.</div>
+      <a href="B-Departures.dc.html" style="font-weight: 700; font-size: 14px">See journey options</a>
+    </section>
+    <section style="background: #FFFFFF; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 16px">Work → Gym</b><span style="font-size: 12px; font-weight: 800; color: #3F2A9E; text-transform: uppercase">Planned · Sun 26 Oct</span></div>
+      <div style="display: flex; gap: 10px"><span style="flex: none; font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: #5B3FD1; color: #FFFFFF; height: fit-content">Train</span><span style="font-size: 15px; line-height: 1.4">Ipswich line: buses replace trains Roma Street–Corinda all day.</span></div>
+    </section>
+    <div style="font-size: 12px; font-weight: 700; color: #5B6168; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px">No alerts</div>
+    <div style="display: flex; align-items: center; gap: 10px; font-size: 15px; padding: 0 4px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C7A3E" stroke-width="2.5" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Airport · all legs running normally</div>
+  </main>
+  <nav aria-label="Main" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 4px 8px 24px; background: #FFFFFF; border-top: 1px solid #E3E5E8">
+    <a href="B-Home.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0; min-height: 50px; text-decoration: none; font-size: 12px; font-weight: 600; color: #5B6168"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>Journeys</a>
+    <a href="B-Map.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0; min-height: 50px; text-decoration: none; font-size: 12px; font-weight: 600; color: #5B6168"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Map</a>
+    <a href="B-Alerts.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0; min-height: 50px; text-decoration: none; font-size: 12px; font-weight: 700; color: #1C2024"><svg width="22" height="22" viewBox="0 0 24 24" fill="#1C2024" stroke="#1C2024" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21h4"/></svg>Alerts</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

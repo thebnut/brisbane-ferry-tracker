@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Live map, Ferry Sibling</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5B3FD1}a:hover{color:#432CA8}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F2EFE8; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #2D3436; position: relative; overflow: hidden; font-variant-numeric: tabular-nums">
+  <svg width="390" height="844" viewBox="0 0 390 844" aria-hidden="true" style="position: absolute; inset: 0">
+    <path d="M410 300 C 330 330, 300 260, 240 300 S 150 420, 210 470 S 140 560, 60 520 S -20 600, -20 640" fill="none" stroke="#C9DEEA" stroke-width="34"></path>
+    <path d="M330 200 L 260 330 L 190 390 L 120 430 L 40 470 L -20 520" fill="none" stroke="#0A7A6E" stroke-width="7" stroke-linecap="round"></path>
+    <path d="M260 330 L 190 380 L 110 410 L 30 420 L -20 425" fill="none" stroke="#1E9F4A" stroke-width="7" stroke-linecap="round" opacity="0.9"></path>
+    <path d="M260 330 L 300 200 L 330 90" fill="none" stroke="#A9A3BE" stroke-width="5" stroke-linecap="round"></path>
+    <circle cx="260" cy="330" r="9" fill="#FFFFFF" stroke="#2D3436" stroke-width="4"></circle>
+    <circle cx="190" cy="388" r="7" fill="#FFFFFF" stroke="#2D3436" stroke-width="3"></circle>
+    <circle cx="120" cy="428" r="9" fill="#FFFFFF" stroke="#5B3FD1" stroke-width="5"></circle>
+    <circle cx="232" cy="350" r="18" fill="#5B3FD1" opacity="0.18"></circle>
+    <circle cx="232" cy="350" r="10" fill="#5B3FD1" stroke="#FFFFFF" stroke-width="3"></circle>
+    <circle cx="150" cy="400" r="10" fill="#1E9F4A" stroke="#FFFFFF" stroke-width="3"></circle>
+    <circle cx="60" cy="460" r="10" fill="#0A7A6E" stroke="#FFFFFF" stroke-width="3"></circle>
+  </svg>
+  <div style="position: absolute; left: 270px; top: 318px; font-size: 13px; font-weight: 800; background: #FFFFFF; padding: 3px 8px; border-radius: 8px">Roma Street</div>
+  <div style="position: absolute; left: 196px; top: 396px; font-size: 12px; font-weight: 600; color: #4A5457">Toowong</div>
+  <div style="position: absolute; left: 56px; top: 444px; font-size: 13px; font-weight: 800; background: #FFFFFF; padding: 3px 8px; border-radius: 8px; color: #3F2A9E">Indooroopilly</div>
+  <div style="position: absolute; left: 156px; top: 300px; background: #5B3FD1; color: #FFFFFF; padding: 5px 10px; border-radius: 10px; font-size: 13px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,0.18)">8:07 Express · 3 min</div>
+  <header style="position: absolute; top: 14px; left: 12px; right: 12px; display: flex; gap: 8px; align-items: center">
+    <a href="A-Departures.dc.html" aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; background: #FFFFFF; display: flex; align-items: center; justify-content: center; color: #2D3436; box-shadow: 0 2px 8px rgba(0,0,0,0.12)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></a>
+    <div style="display: flex; gap: 6px">
+      <button aria-pressed="true" style="min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: #2D3436; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 700">Your trip</button>
+      <button aria-pressed="false" style="min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: #FFFFFF; color: #2D3436; font: inherit; font-size: 13px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.1)">All lines here</button>
+    </div>
+  </header>
+  <button aria-label="Centre on my location" style="position: absolute; right: 14px; top: 470px; width: 48px; height: 48px; border-radius: 24px; border: 0; background: #FFFFFF; color: #3F2A9E; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg></button>
+  <section style="position: absolute; left: 0; right: 0; bottom: 0; background: #FFFFFF; border-radius: 24px 24px 0 0; box-shadow: 0 -4px 20px rgba(45,52,54,0.12); padding: 10px 16px 28px">
+    <div style="width: 40px; height: 5px; border-radius: 3px; background: #D9D2C5; margin: 0 auto 10px"></div>
+    <h2 style="margin: 0 0 8px; font-size: 16px; font-weight: 800">3 trains heading your way</h2>
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 52px">
+        <span style="width: 14px; height: 14px; border-radius: 7px; background: #0A7A6E"></span>
+        <div style="flex: 1"><div style="font-size: 15px; font-weight: 700">8:07 Springfield express</div><div style="font-size: 12px; color: #5F6B6E">At Roma Street, Plat 8 · Many seats</div></div>
+        <span style="padding: 6px 12px; border-radius: 999px; background: #5B3FD1; color: #FFFFFF; font-size: 14px; font-weight: 800">3 min</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 52px">
+        <span style="width: 14px; height: 14px; border-radius: 7px; background: #1E9F4A"></span>
+        <div style="flex: 1"><div style="font-size: 15px; font-weight: 700">8:14 Ipswich all stops</div><div style="font-size: 12px; color: #5F6B6E">Approaching Bowen Hills · +2 min</div></div>
+        <span style="padding: 6px 12px; border-radius: 999px; background: #ECE8FB; color: #3F2A9E; font-size: 14px; font-weight: 800">10 min</span>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

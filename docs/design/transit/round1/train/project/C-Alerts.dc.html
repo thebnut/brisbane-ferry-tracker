@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Line status, Line First</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B32C4}a:hover{color:#36239A}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F6F7F9; font-family: 'Figtree', system-ui, sans-serif; color: #1D2226; display: flex; flex-direction: column">
+  <header style="padding: 22px 20px 8px">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em">Line status</h1>
+    <div style="font-size: 13px; color: #4F5860">Your lines first · checked 8:04</div>
+  </header>
+  <main style="flex: 1; overflow: hidden; padding: 8px 16px; display: flex; flex-direction: column; gap: 10px">
+    <article style="background: #FFFFFF; border: 1px solid #E6E8EC; border-radius: 20px; padding: 14px 16px">
+      <div style="display: flex; align-items: center; gap: 10px"><span style="width: 12px; height: 32px; border-radius: 6px; background: #1E9F4A"></span><span style="flex: 1; font-size: 17px; font-weight: 700">Ipswich/Rosewood</span><span style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: #FCE4E2; color: #8C1D18"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>Cancellation</span></div>
+      <p style="margin: 10px 0 0 22px; font-size: 14px; line-height: 1.45; color: #3A4248">8:17 am Rosewood cancelled (crew). Reduced to every 30 min after 7 pm for track work at Corinda.</p>
+    </article>
+    <article style="background: #FFFFFF; border: 1px solid #E6E8EC; border-radius: 20px; padding: 14px 16px; display: flex; align-items: center; gap: 10px; min-height: 60px; box-sizing: border-box">
+      <span style="width: 12px; height: 32px; border-radius: 6px; background: #0A7A6E"></span><span style="flex: 1; font-size: 17px; font-weight: 700">Springfield</span><span style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #E3F4E8; color: #17602E"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg>Good service</span>
+    </article>
+    <h2 style="margin: 8px 4px 0; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: #4F5860">ALL LINES</h2>
+    <div style="background: #FFFFFF; border: 1px solid #E6E8EC; border-radius: 20px; padding: 4px 16px">
+      <sc-for list="{{lines}}" as="l" hint-placeholder-count="8">
+        <a href="#" style="display: flex; align-items: center; gap: 10px; min-height: 48px; text-decoration: none; color: inherit; border-bottom: 1px solid #EEF0F3">
+          <span style="{{l.bar}}"></span>
+          <span style="flex: 1; font-size: 15px; font-weight: 600">{{l.name}}</span>
+          <span style="{{l.st}}">{{l.status}}</span>
+        </a>
+      </sc-for>
+    </div>
+  </main>
+  <nav aria-label="Main" style="margin: 0 16px 26px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #1D2226; border-radius: 999px; padding: 6px">
+    <a href="C-Home.dc.html" style="min-height: 48px; display: flex; align-items: center; justify-content: center; color: #D5D9DD; text-decoration: none; font-size: 14px; font-weight: 600">Trips</a>
+    <a href="C-Search.dc.html" style="min-height: 48px; display: flex; align-items: center; justify-content: center; color: #D5D9DD; text-decoration: none; font-size: 14px; font-weight: 600">Lines</a>
+    <a href="C-Map.dc.html" style="min-height: 48px; display: flex; align-items: center; justify-content: center; color: #D5D9DD; text-decoration: none; font-size: 14px; font-weight: 600">Map</a>
+    <a href="C-Alerts.dc.html" aria-current="page" style="min-height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: #FFFFFF; color: #1D2226; text-decoration: none; font-size: 14px; font-weight: 700">Alerts</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = {
+      good: 'font-size: 13px; font-weight: 600; color: #17602E',
+      works: 'font-size: 13px; font-weight: 700; color: #5C3D00; background: #FFF1D6; padding: 2px 8px; border-radius: 999px',
+      delay: 'font-size: 13px; font-weight: 700; color: #8A4200'
+    };
+    const lines = [
+      ['Airport', '#E8A300', 'Good service', 'good'], ['Beenleigh', '#D6262E', 'Minor delays', 'delay'],
+      ['Caboolture', '#00843D', 'Works Sat 25', 'works'], ['Cleveland', '#0091C7', 'Good service', 'good'],
+      ['Ferny Grove', '#6A4C9C', 'Good service', 'good'], ['Shorncliffe', '#1F4E9C', 'Works Sat 25', 'works'],
+      ['Redcliffe Peninsula', '#00A5A8', 'Works Sat 25', 'works']
+    ].map(([name, c, status, k]) => ({ name, status, bar: 'width: 12px; height: 24px; border-radius: 6px; background: ' + c, st: st[k] }));
+    return { lines };
+  }
+}
+</script>
+</body>
+</html>

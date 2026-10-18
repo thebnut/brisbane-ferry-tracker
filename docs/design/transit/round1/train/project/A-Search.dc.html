@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pick a trip, Ferry Sibling</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5B3FD1}a:hover{color:#432CA8}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FFFBF4; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #2D3436; display: flex; flex-direction: column">
+  <header style="display: flex; align-items: center; gap: 8px; padding: 16px 12px 8px">
+    <a href="Main.dc.html" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #2D3436"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></a>
+    <h1 style="margin: 0; font-size: 20px; font-weight: 800">Plan a trip</h1>
+  </header>
+  <div style="margin: 4px 16px 0; background: #FFFFFF; border-radius: 18px; box-shadow: 0 2px 10px rgba(45,52,54,0.08); padding: 8px 14px; display: flex; flex-direction: column">
+    <label style="display: flex; align-items: center; gap: 12px; min-height: 52px; border-bottom: 1px solid #F0EADF">
+      <span style="width: 12px; height: 12px; border-radius: 6px; border: 3px solid #5B3FD1; box-sizing: border-box"></span>
+      <span style="font-size: 12px; font-weight: 700; color: #5F6B6E; width: 34px">FROM</span>
+      <input value="Roma Street" style="flex: 1; border: 0; font: inherit; font-size: 17px; font-weight: 700; color: #2D3436; background: transparent; outline: none">
+    </label>
+    <label style="display: flex; align-items: center; gap: 12px; min-height: 52px">
+      <span style="width: 12px; height: 12px; border-radius: 6px; background: #5B3FD1"></span>
+      <span style="font-size: 12px; font-weight: 700; color: #5F6B6E; width: 34px">TO</span>
+      <input value="Ind" style="flex: 1; border: 0; font: inherit; font-size: 17px; font-weight: 700; color: #2D3436; background: transparent; outline: none">
+      <button aria-label="Swap direction" style="width: 44px; height: 44px; border: 0; border-radius: 22px; background: #ECE8FB; color: #3F2A9E; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"></path></svg></button>
+    </label>
+  </div>
+  <div style="padding: 14px 20px 6px; font-size: 13px; color: #5F6B6E">Only stations with a direct train from Roma Street</div>
+  <div style="flex: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 8px">
+    <button style="text-align: left; border: 2px solid #5B3FD1; background: #FFFFFF; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; font: inherit; color: inherit; min-height: 64px">
+      <div style="flex: 1">
+        <div style="font-size: 17px; font-weight: 700"><span style="background: #ECE8FB">Ind</span>ooroopilly</div>
+        <div style="display: flex; gap: 6px; margin-top: 4px">
+          <span style="font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: #1E9F4A; color: #FFFFFF">Ipswich/Rosewood</span>
+          <span style="font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: #0A7A6E; color: #FFFFFF">Springfield</span>
+        </div>
+      </div>
+      <span style="font-size: 13px; color: #5F6B6E">12–15 min</span>
+    </button>
+    <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: #5F6B6E; padding: 10px 4px 2px">RECENT FROM ROMA STREET</div>
+    <button style="text-align: left; border: 0; background: #FFFFFF; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; font: inherit; color: inherit; min-height: 56px; box-shadow: 0 1px 4px rgba(45,52,54,0.06)">
+      <span style="flex: 1; font-size: 16px; font-weight: 600">Ipswich</span>
+      <span style="width: 28px; height: 6px; border-radius: 3px; background: #1E9F4A"></span>
+    </button>
+    <button style="text-align: left; border: 0; background: #FFFFFF; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; font: inherit; color: inherit; min-height: 56px; box-shadow: 0 1px 4px rgba(45,52,54,0.06)">
+      <span style="flex: 1; font-size: 16px; font-weight: 600">Springfield Central</span>
+      <span style="width: 28px; height: 6px; border-radius: 3px; background: #0A7A6E"></span>
+    </button>
+    <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: #5F6B6E; padding: 10px 4px 2px">HIDDEN</div>
+    <div style="border-radius: 16px; padding: 12px 14px; background: #F3EEE4; display: flex; align-items: center; gap: 12px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5F6B6E" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>
+      <span style="font-size: 14px; color: #4A5457">Stations with no direct train from Roma Street are hidden. <a href="#" style="font-weight: 700">Show all</a></span>
+    </div>
+  </div>
+  <div style="padding: 12px 16px 28px">
+    <a href="A-Departures.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 56px; border-radius: 16px; background: #5B3FD1; color: #FFFFFF; font-size: 17px; font-weight: 800; text-decoration: none">Show departures</a>
+    <label style="display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; font-size: 14px; color: #2D3436"><input type="checkbox" checked style="width: 20px; height: 20px; accent-color: #5B3FD1">Save this trip to Home</label>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
