@@ -1,0 +1,105 @@
+import { expect, type Page, test } from '@playwright/test'
+
+const collectErrors = (page: Page) => {
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text())
+  })
+  return errors
+}
+
+test('station page has departure rows in the server HTML', async ({ request }) => {
+  const html = await (await request.get('/station/central')).text()
+  expect(html.match(/data-testid="departure"/g)?.length ?? 0).toBeGreaterThanOrEqual(10)
+  expect(html).toContain('Next train from Central')
+  expect(html).toContain('"@type":"TrainStation"')
+})
+
+test('station board: platform tiles, strips, countdowns; hydrates cleanly', async ({ page }, testInfo) => {
+  const errors = collectErrors(page)
+  await page.goto('/station/roma-street?to=indooroopilly')
+  const board = page.locator('[data-board=roma-street]')
+  await expect(board.getByTestId('departure').first()).toBeVisible()
+  await expect(board.getByRole('img', { name: /Platform/ }).first()).toBeVisible()
+  await expect(board.getByRole('list', { name: /Stops from here to Indooroopilly/ }).first()).toBeVisible()
+  await expect(page.getByText(/updated \d+ s ago/)).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('station.png') })
+  expect(errors).toEqual([])
+})
+
+test('reachable-only picker narrows the board to one destination', async ({ page }) => {
+  await page.goto('/station/bowen-hills')
+  await page.getByRole('button', { name: /Choose where you're going/ }).click()
+  const sheet = page.getByRole('dialog')
+  const fg = sheet.locator('[data-line="Ferny Grove"]').first()
+  await expect(fg).toBeVisible()
+  await expect(
+    sheet.locator('[data-line="Doomben"]').getByRole('button', { name: 'Ferny Grove' }),
+  ).toHaveCount(0)
+  await fg.getByRole('button', { name: 'Ferny Grove', exact: true }).click()
+  await expect(page).toHaveURL(/\/station\/bowen-hills\?to=ferny-grove/)
+  await expect(page.locator('[data-board=bowen-hills]').getByTestId('departure').first()).toBeVisible()
+})
+
+test('service detail shows the stopping pattern and the train', async ({ page }) => {
+  await page.goto('/station/central')
+  await page.locator('[data-board=central] [data-testid=departure] a').first().click()
+  await expect(page).toHaveURL(/\/trip\//)
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(/to /)
+  await expect(page.getByRole('list', { name: 'Stopping pattern' })).toBeVisible()
+})
+
+test('search: fuzzy station name, then a reachable destination', async ({ page }) => {
+  await page.goto('/stations')
+  const from = page.getByRole('combobox', { name: 'From' })
+  await from.fill('bowen hils')
+  await page.getByRole('option', { name: 'Bowen Hills' }).click()
+  await expect(page).toHaveURL(/from=bowen-hills/)
+  await expect(page.getByText('Only stations with a direct train from Bowen Hills are shown.')).toBeVisible()
+  await page
+    .locator('[data-line="Airport"]')
+    .getByRole('button', { name: 'Domestic Airport' })
+    .first()
+    .click()
+  await expect(page.getByTestId('trip-match')).toContainText('Bowen Hills → Domestic Airport')
+})
+
+test('alerts: line status board', async ({ page }) => {
+  await page.goto('/alerts')
+  await expect(page.getByRole('heading', { name: 'Service alerts' })).toBeVisible()
+  await expect(page.getByText('Platform change', { exact: true })).toBeVisible()
+  await expect(page.getByText('Good service').first()).toBeVisible()
+})
+
+test('favourite shows on home and its day is saved for offline', async ({ page, context }) => {
+  await page.goto('/station/roma-street?to=indooroopilly')
+  await page.getByRole('button', { name: 'Save as favourite' }).click()
+  await page.goto('/')
+  await expect(page.getByTestId('favourite')).toContainText('Roma Street → Indooroopilly')
+  await expect
+    .poll(() =>
+      page.evaluate(() => localStorage.getItem('bft-train-offline:roma-street:indooroopilly')?.length ?? 0),
+    )
+    .toBeGreaterThan(1000)
+  await page.goto('/station/roma-street?to=indooroopilly')
+  await expect(page.getByTestId('departure').first()).toBeVisible()
+  await context.setOffline(true)
+  await expect(page.getByText('Offline · scheduled').first()).toBeVisible()
+  await expect(page.getByText(/saved timetable/).first()).toBeVisible()
+})
+
+test('sitemap lists all 154 stations; robots keeps staging out', async ({ request }) => {
+  const xml = await (await request.get('/sitemap.xml')).text()
+  expect(xml.match(/\/station\//g)).toHaveLength(154)
+  expect(await (await request.get('/robots.txt')).text()).toContain('Disallow: /')
+  expect((await request.get('/station/atlantis')).status()).toBe(404)
+})
+
+test('dark mode follows the device', async ({ browser }) => {
+  const ctx = await browser.newContext({ colorScheme: 'dark' })
+  const page = await ctx.newPage()
+  await page.goto('/station/central')
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  await ctx.close()
+})

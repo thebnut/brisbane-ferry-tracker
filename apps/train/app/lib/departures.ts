@@ -98,7 +98,8 @@ export function trainCard(d: Departure, nowMs: number, from: string, to: string 
     tripInstance: d.tripInstance,
     time,
     dayMarker: dayMarker(dep, nowMs),
-    arrival: arr != null ? { time: shortArrival(time, formatClock(arr)), dayMarker: dayMarker(arr, nowMs) } : null,
+    arrival:
+      arr != null ? { time: shortArrival(time, formatClock(arr)), dayMarker: dayMarker(arr, nowMs) } : null,
     journey: journeyMins != null && journeyMins > 0 ? formatDuration(journeyMins) : null,
     badges,
     line,

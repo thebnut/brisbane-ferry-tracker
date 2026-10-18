@@ -79,11 +79,12 @@ export function StationBoard({
   const title = `${from.name}${to ? ` → ${to.name}` : ''}`
 
   return (
-    <section aria-label={`Departures ${title}`} className="flex min-w-0 flex-col gap-2.5" data-board={from.key}>
-      <BoardHeader
-        as="h2"
-        onSwap={canSwap && to ? () => navigate(boardHref(to.key, from.key)) : undefined}
-      >
+    <section
+      aria-label={`Departures ${title}`}
+      className="flex min-w-0 flex-col gap-2.5"
+      data-board={from.key}
+    >
+      <BoardHeader as="h2" onSwap={canSwap && to ? () => navigate(boardHref(to.key, from.key)) : undefined}>
         {compactHeader ? (
           <span className="truncate text-base font-bold">{title}</span>
         ) : (
@@ -94,7 +95,9 @@ export function StationBoard({
             className="flex min-w-0 items-center gap-1 text-left text-base font-bold"
           >
             <span className="truncate">{title}</span>
-            {to ? null : <span className="shrink-0 text-sm font-semibold text-ferry-orange-deep">· Going to…</span>}
+            {to ? null : (
+              <span className="shrink-0 text-sm font-semibold text-ferry-orange-deep">· Going to…</span>
+            )}
             <Icon name="chevronDown" size={18} className="shrink-0 text-ferry-orange" />
           </button>
         )}

@@ -161,21 +161,42 @@ export function stationDay(fx: FixtureDay, key: string): StaticStopDay | null {
 }
 
 const KINDS = ['NGR', 'IMU', 'SMU', 'EMU'] as const
+const PLATFORM_CHANGE_STATIONS = new Set(['roma-street', 'central', 'fortitude-valley', 'bowen-hills'])
 
-/** Synthetic RT for trips running or starting within the next hour on the given service dates. */
+let bounds: Array<[number, number]> | null = null
+let rtCache: { key: string; snap: RtSnapshot } | null = null
+
+/**
+ * Synthetic RT for trips running or starting within the next hour on the given service dates. Cached per 15 s
+ * cycle (like the real hub's snapshot), so polling stays inside the Workers Free CPU budget.
+ */
 export function synthRt(fx: FixtureDay, dates: string[], nowS: number): RtSnapshot {
+  const cycle = Math.floor(nowS / 15)
+  const cacheKey = `${dates.join(',')}|${cycle}`
+  if (rtCache?.key === cacheKey) return rtCache.snap
+  const snap = buildRt(fx, dates, cycle * 15)
+  rtCache = { key: cacheKey, snap }
+  return snap
+}
+
+function buildRt(fx: FixtureDay, dates: string[], nowS: number): RtSnapshot {
   const idx = fx.tripIndex
   const trips: Record<string, RtTrip> = {}
   const vehicles: Vehicle[] = []
+  // First departure and last arrival (GTFS seconds) per trip, computed once per isolate.
+  bounds ??= idx.trips.map((t) => [t.st[3] as number, t.st[t.st.length - 4] as number])
   for (const date of dates) {
-    for (const t of idx.trips) {
+    const base = gtfsToEpoch(date, 0)
+    for (let ti = 0; ti < idx.trips.length; ti++) {
+      const [s0, s1] = bounds[ti] as [number, number]
+      const start = base + s0
+      const end = base + s1
+      if (nowS < start - 60 * 60 || nowS > end + 120) continue
+      const t = idx.trips[ti] as Trip
       const rows = rowsOf(t)
       const first = rows[0]
       const last = rows[rows.length - 1]
       if (!first || !last) continue
-      const start = gtfsToEpoch(date, first.dep)
-      const end = gtfsToEpoch(date, last.arr)
-      if (nowS < start - 60 * 60 || nowS > end + 120) continue
       const key = tripInstanceKey(t.id, date)
       const h = hash(key)
       if (h % 15 === 4) {
@@ -189,17 +210,19 @@ export function synthRt(fx: FixtureDay, dates: string[], nowS: number): RtSnapsh
         { seq: first.seq, stopId: idx.stops[first.si], rel: 'SCHEDULED', arrDelay: delay, depDelay: delay },
       ]
       if (h % 5 === 2) {
-        // Platform change at the first station with 3+ platforms that it calls at (not the terminus).
-        for (const r of rows.slice(0, -1)) {
-          const stopId = idx.stops[r.si] as string
-          const p = platformOf(stopId)
-          if (!p || p.station.platforms.length < 3 || r.pickup === 1) continue
-          const others = p.station.platforms.filter((x) => x.id !== stopId)
-          const to = others[h % others.length]
-          if (!to) break
-          if (r.seq === first.seq) updates.shift()
-          updates.push({ seq: r.seq, stopId: to.id, rel: 'SCHEDULED', arrDelay: delay, depDelay: delay })
-          break
+        // Platform change at a busy city station it calls at (where they really happen), else at the first station
+        // with 3+ platforms; never at the terminus.
+        const calls = rows.slice(0, -1).filter((r) => r.pickup !== 1)
+        const at =
+          calls.find((r) =>
+            PLATFORM_CHANGE_STATIONS.has(platformOf(idx.stops[r.si] as string)?.station.key ?? ''),
+          ) ?? calls.find((r) => (platformOf(idx.stops[r.si] as string)?.station.platforms.length ?? 0) >= 3)
+        const stopId = at ? (idx.stops[at.si] as string) : ''
+        const others = platformOf(stopId)?.station.platforms.filter((x) => x.id !== stopId) ?? []
+        const to = others[h % Math.max(1, others.length)]
+        if (at && to) {
+          if (at.seq === first.seq) updates.shift()
+          updates.push({ seq: at.seq, stopId: to.id, rel: 'SCHEDULED', arrDelay: delay, depDelay: delay })
         }
       }
       const third = rows[2]
@@ -213,8 +236,8 @@ export function synthRt(fx: FixtureDay, dates: string[], nowS: number): RtSnapsh
       let prev = first
       let next = first
       for (const s of rows) {
-        if (gtfsToEpoch(date, s.dep) + delay <= nowS) prev = s
-        if (gtfsToEpoch(date, s.arr) + delay >= nowS) {
+        if (base + s.dep + delay <= nowS) prev = s
+        if (base + s.arr + delay >= nowS) {
           next = s
           break
         }
@@ -224,7 +247,7 @@ export function synthRt(fx: FixtureDay, dates: string[], nowS: number): RtSnapsh
       const b = platformOf(idx.stops[next.si] as string)?.station
       if (!a || !b) continue
       const span = next.arr - prev.dep
-      const f = span > 0 ? Math.min(1, Math.max(0, (nowS - delay - gtfsToEpoch(date, prev.dep)) / span)) : 1
+      const f = span > 0 ? Math.min(1, Math.max(0, (nowS - delay - (base + prev.dep)) / span)) : 1
       vehicles.push({
         id: vehicleId,
         label: `${KINDS[h % KINDS.length]} ${700 + (h % 90)}`,

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = 8788
+const PORT = 8789
 
 /**
  * Smoke tests against the production build running in workerd (`wrangler dev`), in fixture mode so no live API is
@@ -17,7 +17,7 @@ export default defineConfig({
   ],
   webServer: {
     command: `pnpm build && wrangler dev --port ${PORT} --var FIXTURES:1 --var ALLOW_FIXTURES:1`,
-    url: `http://localhost:${PORT}/privacy`,
+    url: `http://localhost:${PORT}/robots.txt`,
     timeout: 120_000,
     reuseExistingServer: !process.env.CI,
   },
