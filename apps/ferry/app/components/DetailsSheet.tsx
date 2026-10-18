@@ -39,7 +39,16 @@ export interface DetailsSheetProps {
   onClose: () => void
 }
 
-export function DetailsSheet({ departure, fromName, toName, toId, nowMs, fetcher, mode, onClose }: DetailsSheetProps) {
+export function DetailsSheet({
+  departure,
+  fromName,
+  toName,
+  toId,
+  nowMs,
+  fetcher,
+  mode,
+  onClose,
+}: DetailsSheetProps) {
   const trip = useTrip(fetcher, mode, departure?.tripInstance ?? null)
   if (!departure) return null
   const d = departure
@@ -96,7 +105,9 @@ export function DetailsSheet({ departure, fromName, toName, toId, nowMs, fetcher
             {d.gps || vehicle ? <StatusBadge kind="gps" /> : null}
             {d.status === 'scheduled' ? <StatusBadge kind="scheduled" /> : null}
             {d.status === 'cancelled' ? <StatusBadge kind="cancelled" /> : null}
-            <span className="text-[11px] font-extrabold tracking-wide text-ferry-orange-deep">{serviceLabel(d)}</span>
+            <span className="text-[11px] font-extrabold tracking-wide text-ferry-orange-deep">
+              {serviceLabel(d)}
+            </span>
           </div>
           <p className="text-sm text-gray-700">
             {cleanStopName(fromName)} → {cleanStopName(toName)}
@@ -129,7 +140,9 @@ export function DetailsSheet({ departure, fromName, toName, toId, nowMs, fetcher
               <p className="text-2xl font-extrabold tabular">
                 {formatClock(arr)}
                 {dayMarker(arr, nowMs) ? (
-                  <span className="ml-2 text-lg font-medium text-ferry-orange-dark">{dayMarker(arr, nowMs)}</span>
+                  <span className="ml-2 text-lg font-medium text-ferry-orange-dark">
+                    {dayMarker(arr, nowMs)}
+                  </span>
                 ) : null}
               </p>
               <p className="mt-1 text-sm text-sched-text">Journey time: {formatDuration((arr - dep) / 60)}</p>

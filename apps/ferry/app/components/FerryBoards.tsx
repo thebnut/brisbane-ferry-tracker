@@ -65,7 +65,15 @@ function SheetFallback() {
   )
 }
 
-export function FerryBoards({ pair: serverPair, outbound, inbound, renderedAt, mode, terminalPage, children }: FerryBoardsProps) {
+export function FerryBoards({
+  pair: serverPair,
+  outbound,
+  inbound,
+  renderedAt,
+  mode,
+  terminalPage,
+  children,
+}: FerryBoardsProps) {
   const [pair, setPair] = useState(serverPair)
   const [filter, setFilter] = useState<ServiceFilter>('all')
   const [departAt, setDepartAt] = useState<number | null>(null)
@@ -80,19 +88,37 @@ export function FerryBoards({ pair: serverPair, outbound, inbound, renderedAt, m
   useEffect(() => {
     if (!terminalPage) {
       const saved = readSavedPair()
-      if (saved && (saved.outbound.id !== serverPair.outbound.id || saved.inbound.id !== serverPair.inbound.id)) {
+      if (
+        saved &&
+        (saved.outbound.id !== serverPair.outbound.id || saved.inbound.id !== serverPair.inbound.id)
+      ) {
         setPair(saved)
       }
       if (shouldShowSelector()) setShowSelector(true)
     }
     setDepartAt(readDepartAt())
+    // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is not in Safari; this is a plain preference cookie.
     document.cookie = `${FIXTURE_COOKIE}=${mode.fixtures ? '1' : '0'}; path=/; samesite=lax`
   }, [terminalPage, serverPair, mode.fixtures])
 
   const same = (a: StopPair, b: StopPair) => a.outbound.id === b.outbound.id && a.inbound.id === b.inbound.id
   const useInitial = same(pair, serverPair) && departAt == null
-  const out = useDepartures(fetcher, mode, pair.outbound.id, pair.inbound.id, departAt, useInitial ? outbound : null)
-  const back = useDepartures(fetcher, mode, pair.inbound.id, pair.outbound.id, departAt, useInitial ? inbound : null)
+  const out = useDepartures(
+    fetcher,
+    mode,
+    pair.outbound.id,
+    pair.inbound.id,
+    departAt,
+    useInitial ? outbound : null,
+  )
+  const back = useDepartures(
+    fetcher,
+    mode,
+    pair.inbound.id,
+    pair.outbound.id,
+    departAt,
+    useInitial ? inbound : null,
+  )
 
   const offline = !online
   const view = (q: typeof out) => {
@@ -128,7 +154,9 @@ export function FerryBoards({ pair: serverPair, outbound, inbound, renderedAt, m
     changePair(next)
   }
 
-  const slots = useMemo(() => generateTimeSlots(now), [Math.floor(now / 3_600_000)])
+  // Recompute the "Depart from" slots once an hour, not on every clock tick.
+  const hour = Math.floor(now / 3_600_000)
+  const slots = useMemo(() => generateTimeSlots(hour * 3_600_000), [hour])
   const departSelect = (
     <label className="flex items-center gap-2 text-xs font-medium text-aqua-text md:text-sm">
       <span>Depart from:</span>
@@ -190,25 +218,49 @@ export function FerryBoards({ pair: serverPair, outbound, inbound, renderedAt, m
       </StatusStrip>
 
       <main className="mx-auto max-w-6xl px-3 py-5 md:px-4 md:py-8">
-        <div className="mb-4 flex min-h-12 flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div
+          className={`mb-4 flex-col gap-2 md:flex md:min-h-12 md:flex-row md:items-center md:justify-between ${state ? 'flex' : 'hidden'}`}
+        >
           {state ? <OfflineBanner kind={state} /> : <span className="hidden md:block" />}
           <div className="hidden md:block">{departSelect}</div>
         </div>
 
         {/* Phone: origin and destination dropdowns with swap; one board (outbound). */}
         <div className="mb-3 flex items-center gap-2 rounded-card border-2 border-ferry-orange/30 bg-white/90 px-2.5 py-2 shadow-lg md:hidden">
-          <StopSelect label="From" value={pair.outbound.id} options={ALL_STOPS} onChange={(id) => changePair(withOrigin(pair, id))} />
+          <StopSelect
+            label="From"
+            value={pair.outbound.id}
+            options={ALL_STOPS}
+            onChange={(id) => changePair(withOrigin(pair, id))}
+          />
           <button
             type="button"
             onClick={() => changePair(swapPair(pair))}
             aria-label="Swap direction"
             className="flex size-10 shrink-0 items-center justify-center rounded-full text-ferry-orange-dark hover:bg-ferry-orange-light"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7" strokeLinecap="round" strokeLinejoin="round" />
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <path
+                d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </button>
-          <StopSelect label="To" value={pair.inbound.id} options={destOptions} onChange={(id) => changePair(withDestination(pair, id))} />
+          <StopSelect
+            label="To"
+            value={pair.inbound.id}
+            options={destOptions}
+            onChange={(id) => changePair(withDestination(pair, id))}
+          />
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 md:gap-8">
@@ -221,9 +273,19 @@ export function FerryBoards({ pair: serverPair, outbound, inbound, renderedAt, m
                   {fromName} → {toName}
                 </span>
                 <span className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
-                  <StopSelect label="From" value={pair.outbound.id} options={ALL_STOPS} onChange={(id) => changePair(withOrigin(pair, id))} />
+                  <StopSelect
+                    label="From"
+                    value={pair.outbound.id}
+                    options={ALL_STOPS}
+                    onChange={(id) => changePair(withOrigin(pair, id))}
+                  />
                   <span aria-hidden="true">→</span>
-                  <StopSelect label="To" value={pair.inbound.id} options={destOptions} onChange={(id) => changePair(withDestination(pair, id))} />
+                  <StopSelect
+                    label="To"
+                    value={pair.inbound.id}
+                    options={destOptions}
+                    onChange={(id) => changePair(withDestination(pair, id))}
+                  />
                 </span>
               </>
             }
@@ -249,7 +311,12 @@ export function FerryBoards({ pair: serverPair, outbound, inbound, renderedAt, m
                     onChange={(id) => changePair(withDestination(pair, id))}
                   />
                   <span aria-hidden="true">→</span>
-                  <StopSelect label="To" value={pair.outbound.id} options={ALL_STOPS} onChange={(id) => changePair(withOrigin(pair, id))} />
+                  <StopSelect
+                    label="To"
+                    value={pair.outbound.id}
+                    options={ALL_STOPS}
+                    onChange={(id) => changePair(withOrigin(pair, id))}
+                  />
                 </span>
               }
               onSwap={() => changePair(swapPair(pair))}
@@ -302,4 +369,3 @@ export function FerryBoards({ pair: serverPair, outbound, inbound, renderedAt, m
     </>
   )
 }
-

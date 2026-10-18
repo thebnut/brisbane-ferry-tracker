@@ -6,7 +6,14 @@ import { BottomSheet, PrimaryButton, SecondaryButton } from '@bft/ui'
 import { StopSearch } from '@bft/ui/stop-search'
 import { useMemo, useState } from 'react'
 import { readRemember } from '../lib/storage.ts'
-import { choice, normalisePair, type StopPair, TERMINALS, terminalById, validDestinations } from '../lib/terminals.ts'
+import {
+  choice,
+  normalisePair,
+  type StopPair,
+  TERMINALS,
+  terminalById,
+  validDestinations,
+} from '../lib/terminals.ts'
 
 export interface StopSelectorProps {
   initial: StopPair
@@ -49,7 +56,14 @@ export default function StopSelector({ initial, onSave, onClose }: StopSelectorP
           save()
         }}
       >
-        <StopSearch inline label="From" options={origins} value={origin} onChange={changeOrigin} placeholder="Origin terminal" />
+        <StopSearch
+          inline
+          label="From"
+          options={origins}
+          value={origin}
+          onChange={changeOrigin}
+          placeholder="Origin terminal"
+        />
         <StopSearch
           inline
           label="To"

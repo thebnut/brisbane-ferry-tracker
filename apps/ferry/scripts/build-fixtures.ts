@@ -4,8 +4,8 @@
  *   pnpm --filter @bft/ferry fixtures [gtfsDir=/tmp/bft-gtfs/x] [serviceDate=20261020]
  *
  * Writes:
- *  - app/data/terminals.json: every ferry terminal (id, name, slug, lat, lng) and the terminals reachable directly
- *    from it (any ferry trip in the feed that calls at both, in that order). Replaces the legacy hard-coded
+ *  - app/data/terminals.json: every ferry terminal (id, name, slug, lat, lng), the terminals reachable directly
+ *    from it and the routes boarding there (trips running in the 7 days from serviceDate). Replaces the legacy hard-coded
  *    FERRY_STOPS / TEMPORARY_CONNECTIVITY. Slugs keep today's /terminal/<slug> URLs (checked by a test).
  *  - fixtures/ferry-day.json: one weekday of ferry StaticStopDay files (built the way the pipeline does, as in
  *    packages/core/test/helpers.ts) plus the TripIndexDay. Fixture mode rebases them onto "today".
@@ -14,6 +14,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  addDays,
   type CalendarDateRow,
   type CalendarRow,
   gtfsTimeToSeconds,
@@ -81,7 +82,10 @@ const cleanName = (name: string) => name.replace(/ ferry terminal$/i, '')
 // Brisbane River services only (F1, F11, F12, F2x): the bay island ferries (F50 Coochiemudlo, SMBI) are not part of
 // BrisbaneFerry, matching the legacy app's 22 terminals.
 const RIVER_ROUTE = /^F([1-9]|[1-4]\d)$/
-const routes = readCsv('routes.txt', (r) => r.route_type === '4' && RIVER_ROUTE.test(r.route_short_name as string))
+const routes = readCsv(
+  'routes.txt',
+  (r) => r.route_type === '4' && RIVER_ROUTE.test(r.route_short_name as string),
+)
 const routeById = new Map(routes.map((r) => [r.route_id as string, r]))
 const trips = readCsv('trips.txt', (r) => routeById.has(r.route_id as string))
 const tripById = new Map(trips.map((t) => [t.trip_id as string, t]))
@@ -110,8 +114,15 @@ for (const r of stopTimes) {
 for (const list of byTrip.values()) list.sort((a, b) => a.seq - b.seq)
 
 // ---- terminals + connectivity (all ferry trips in the feed) ----
+// Connectivity and routes use trips running in the week from `serviceDate` (later timetable periods in the feed
+// don't count yet), like the legacy app's rolling schedule window.
+const weekServices = new Set<string>()
+for (let i = 0; i < 7; i++)
+  for (const s of calendar.activeServices(addDays(serviceDate, i))) weekServices.add(s)
+const inWeek = (tripId: string) => weekServices.has(tripById.get(tripId)?.service_id as string)
 const reach = new Map<string, Set<string>>()
-for (const list of byTrip.values()) {
+for (const [tripId, list] of byTrip) {
+  if (!inWeek(tripId)) continue
   list.forEach((s, i) => {
     if (s.pickup === 1) return
     const set = reach.get(s.stopId) ?? new Set<string>()
@@ -123,6 +134,7 @@ for (const list of byTrip.values()) {
 const routesAt = new Map<string, Set<string>>()
 const routeStops = new Map<string, Set<string>>()
 for (const [tripId, list] of byTrip) {
+  if (!inWeek(tripId)) continue
   const code = routeById.get(tripById.get(tripId)?.route_id as string)?.route_short_name as string
   list.forEach((s, i) => {
     const rs = routeStops.get(code) ?? new Set<string>()
@@ -236,7 +248,12 @@ for (const t of dayTrips) {
     const ds: number[] = []
     for (const d of list.slice(i + 1)) {
       if (d.dropOff === 1) continue
-      ds.push(idx(day.stops, stopRef(d.stopId), (x) => x.id === d.stopId), d.arr - s.dep, d.dropOff, d.seq - s.seq)
+      ds.push(
+        idx(day.stops, stopRef(d.stopId), (x) => x.id === d.stopId),
+        d.arr - s.dep,
+        d.dropOff,
+        d.seq - s.seq,
+      )
     }
     const ev: StopEventTuple = [
       idx(day.trips, tripId, (x) => x === tripId),

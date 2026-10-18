@@ -52,7 +52,8 @@ export function normalisePair(pair: StopPair | null | undefined): StopPair {
   const origin = pair && terminalById(pair.outbound.id)
   if (!origin) return DEFAULT_STOPS
   const dests = origin.destinations
-  const dest = pair && dests.includes(pair.inbound.id) ? terminalById(pair.inbound.id) : terminalById(dests[0] ?? '')
+  const dest =
+    pair && dests.includes(pair.inbound.id) ? terminalById(pair.inbound.id) : terminalById(dests[0] ?? '')
   if (!dest) return DEFAULT_STOPS
   return { outbound: choice(origin), inbound: choice(dest) }
 }
@@ -82,7 +83,8 @@ export function withDestination(pair: StopPair, destinationId: string): StopPair
   return { outbound: pair.outbound, inbound: choice(t) }
 }
 
-export const swapPair = (pair: StopPair): StopPair => normalisePair({ outbound: pair.inbound, inbound: pair.outbound })
+export const swapPair = (pair: StopPair): StopPair =>
+  normalisePair({ outbound: pair.inbound, inbound: pair.outbound })
 
 /** Distance in metres (haversine). */
 export function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {

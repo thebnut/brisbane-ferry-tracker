@@ -11,7 +11,10 @@ import { validateProxied } from '../app/lib/contract.server.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import { sitemapXml } from '../app/lib/seo.ts'
 
-const requestHandler = createRequestHandler(() => import('virtual:react-router/server-build'), import.meta.env.MODE)
+const requestHandler = createRequestHandler(
+  () => import('virtual:react-router/server-build'),
+  import.meta.env.MODE,
+)
 
 export async function proxyApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
@@ -36,12 +39,16 @@ export default {
     const url = new URL(request.url)
     if (request.method === 'GET' && url.pathname.startsWith('/v1/')) return proxyApi(request, env)
     if (url.pathname.startsWith('/__fixtures/v1/')) {
-      if (env.ALLOW_FIXTURES !== '1' && env.FIXTURES !== '1') return new Response('Not found', { status: 404 })
+      if (env.ALLOW_FIXTURES !== '1' && env.FIXTURES !== '1')
+        return new Response('Not found', { status: 404 })
       return handleFixtureApi(url, Date.now())
     }
     if (url.pathname === '/sitemap.xml') {
       return new Response(sitemapXml(env.SITE_URL, Date.now()), {
-        headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' },
+        headers: {
+          'content-type': 'application/xml; charset=utf-8',
+          'cache-control': 'public, max-age=3600',
+        },
       })
     }
     const context = new RouterContextProvider()

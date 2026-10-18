@@ -60,6 +60,7 @@ export function savePair(pair: StopPair, remember: boolean): void {
       sessionStorage.setItem(STORAGE_KEYS.SELECTED_STOPS_SESSION, JSON.stringify(pair))
     }
     const maxAge = remember ? '; max-age=31536000' : ''
+    // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is not in Safari; this is a plain preference cookie.
     document.cookie = `${PAIR_COOKIE}=${pair.outbound.id}.${pair.inbound.id}; path=/; samesite=lax${maxAge}`
   }, undefined)
 }
@@ -91,7 +92,10 @@ export function pairFromCookie(cookieHeader: string | null): StopPair | null {
   const v = getCookie(cookieHeader, PAIR_COOKIE)
   const m = v ? /^(\d+)\.(\d+)$/.exec(v) : null
   if (!m) return null
-  return normalisePair({ outbound: { id: m[1] as string, name: '' }, inbound: { id: m[2] as string, name: '' } })
+  return normalisePair({
+    outbound: { id: m[1] as string, name: '' },
+    inbound: { id: m[2] as string, name: '' },
+  })
 }
 
 /** Offline copy of the last good response per pair (shown as scheduled times when offline). */

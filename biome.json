@@ -12,7 +12,9 @@
       "!**/.wrangler",
       "!**/fixtures/**/*.json",
       "!**/.react-router",
-      "!**/assets/**/*.svg"
+      "!**/assets/**/*.svg",
+      "!**/test-results",
+      "!**/playwright-report"
     ]
   },
   "formatter": {

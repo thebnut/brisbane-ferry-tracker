@@ -44,9 +44,13 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  const title = isRouteErrorResponse(error) && error.status === 404 ? 'Page not found' : 'Something went wrong'
+  const title =
+    isRouteErrorResponse(error) && error.status === 404 ? 'Page not found' : 'Something went wrong'
   return (
     <>
+      {/* React 19 hoists these into <head>; error pages must never be indexed. */}
+      <title>{`${title} | Brisbane Ferry`}</title>
+      <meta name="robots" content="noindex" />
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 py-10">
         <h1 className="text-xl font-bold text-aqua-text">{title}</h1>

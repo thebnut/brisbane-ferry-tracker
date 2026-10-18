@@ -14,7 +14,13 @@ import { cleanStopName } from '../lib/names.ts'
 import { pageMeta, SITE_URL, terminalJsonLd, terminalMeta, terminalRoutes } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
 import { pairFromCookie } from '../lib/storage.ts'
-import { nearbyTerminals, pairForTerminal, TERMINALS, terminalBySlug, terminalPath } from '../lib/terminals.ts'
+import {
+  nearbyTerminals,
+  pairForTerminal,
+  TERMINALS,
+  terminalBySlug,
+  terminalPath,
+} from '../lib/terminals.ts'
 import type { Route } from './+types/terminal'
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
@@ -23,9 +29,15 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const { fixtures, rt, fetcher, env } = loaderEnv(request, context)
   const pair = pairForTerminal(terminal, pairFromCookie(request.headers.get('cookie')))
   const [outbound, inbound, all] = await Promise.all([
-    settle((signal) => fetchDepartures(fetcher, pair.outbound.id, pair.inbound.id, { signal, validate: validateDepartures })),
-    settle((signal) => fetchDepartures(fetcher, pair.inbound.id, pair.outbound.id, { signal, validate: validateDepartures })),
-    settle((signal) => fetchDepartures(fetcher, terminal.id, '', { limit: 40, signal, validate: validateDepartures })),
+    settle((signal) =>
+      fetchDepartures(fetcher, pair.outbound.id, pair.inbound.id, { signal, validate: validateDepartures }),
+    ),
+    settle((signal) =>
+      fetchDepartures(fetcher, pair.inbound.id, pair.outbound.id, { signal, validate: validateDepartures }),
+    ),
+    settle((signal) =>
+      fetchDepartures(fetcher, terminal.id, '', { limit: 40, signal, validate: validateDepartures }),
+    ),
   ])
   return {
     terminal,
@@ -44,7 +56,8 @@ export function headers() {
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {
-  if (!loaderData) return [{ title: 'Page not found | Brisbane Ferry' }, { name: 'robots', content: 'noindex' }]
+  if (!loaderData)
+    return [{ title: 'Page not found | Brisbane Ferry' }, { name: 'robots', content: 'noindex' }]
   const m = terminalMeta(loaderData.terminal, loaderData.siteUrl)
   return [
     ...pageMeta({ ...m, siteUrl: loaderData.siteUrl }),
@@ -52,18 +65,29 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   ]
 }
 
-const formatDistance = (m: number) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`)
+const formatDistance = (m: number) =>
+  m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`
 const T = {
   table: 'mt-2 w-full max-w-xl text-left text-sm',
   th: 'border-b border-gray-300 py-1 pr-4 font-semibold text-gray-700',
   td: 'border-b border-gray-100 py-1 pr-4 tabular',
 }
 
-function TerminalSection({ terminal, upcoming }: { terminal: Route.ComponentProps['loaderData']['terminal']; upcoming: Departure[] }) {
+function TerminalSection({
+  terminal,
+  upcoming,
+}: {
+  terminal: Route.ComponentProps['loaderData']['terminal']
+  upcoming: Departure[]
+}) {
   const routes = terminalRoutes(terminal)
   const others = TERMINALS.filter((t) => t.id !== terminal.id)
   return (
-    <section className={SECTION.section} data-terminal-page={terminal.slug} aria-labelledby="terminal-heading">
+    <section
+      className={SECTION.section}
+      data-terminal-page={terminal.slug}
+      aria-labelledby="terminal-heading"
+    >
       <nav aria-label="Breadcrumb" className="text-xs text-gray-600">
         <a className="underline hover:text-ferry-orange-deep" href="/">
           Brisbane Ferry
@@ -75,8 +99,9 @@ function TerminalSection({ terminal, upcoming }: { terminal: Route.ComponentProp
       </h1>
       <p className={SECTION.text}>
         Live CityCat and ferry departures from {terminal.name} ferry terminal on the Brisbane River.
-        {routes.length ? ` It is served by ${routes.map((r) => `${r.code} (${r.label})`).join(', ')}.` : ''} The board above
-        updates with real-time TransLink data; pick any destination to see services in both directions.
+        {routes.length ? ` It is served by ${routes.map((r) => `${r.code} (${r.label})`).join(', ')}.` : ''}{' '}
+        The board above updates with real-time TransLink data; pick any destination to see services in both
+        directions.
       </p>
       {routes.length ? (
         <>
@@ -122,7 +147,9 @@ function TerminalSection({ terminal, upcoming }: { terminal: Route.ComponentProp
           </table>
         </div>
       ) : (
-        <p className={SECTION.text}>Live times are not available right now. The board above will retry automatically.</p>
+        <p className={SECTION.text}>
+          Live times are not available right now. The board above will retry automatically.
+        </p>
       )}
       <h2 className={SECTION.subheading}>Nearby terminals</h2>
       <ul className={SECTION.list}>

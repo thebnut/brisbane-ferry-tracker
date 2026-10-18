@@ -6,11 +6,11 @@
  * Query `rt=unavailable|stale|reloading` forces an rtState to exercise the banners.
  */
 import {
-  addDays,
   AlertsResponse,
+  addDays,
   currentServiceDate,
-  DeparturesResponse,
   type DepartureStatus,
+  DeparturesResponse,
   gtfsToEpoch,
   mergeDepartures,
   parseTripInstanceKey,
@@ -20,8 +20,8 @@ import {
   type RtTrip,
   SCHEMA_VERSION,
   type StaticStopDay,
-  TripResponse,
   type TripIndexDay,
+  TripResponse,
   tripInstanceKey,
   type Vehicle,
   VehiclesResponse,
@@ -102,7 +102,9 @@ function synthRt(day: FixtureDay, dates: string[], nowS: number): RtSnapshot {
         tier: 1,
         ts: nowS - 12,
         vehicleId,
-        updates: [{ seq: first.seq, stopId: first.stopId, rel: 'SCHEDULED', arrDelay: delay, depDelay: delay }],
+        updates: [
+          { seq: first.seq, stopId: first.stopId, rel: 'SCHEDULED', arrDelay: delay, depDelay: delay },
+        ],
       }
       if (nowS < first.dep + delay) continue
       // Position: interpolate between the stops either side of "now".
@@ -161,7 +163,12 @@ function envelope(day: FixtureDay, dates: string[], rt: RtSnapshot, rtState: RtS
     schemaVersion: SCHEMA_VERSION,
     staticGeneration: day.tripIndex.generation,
     serviceDates: dates,
-    rtSourceTimestamp: rtState === 'unavailable' ? null : rtState === 'stale' ? Math.floor(nowMs / 1000) - 600 : rt.header.sourceTimestamp,
+    rtSourceTimestamp:
+      rtState === 'unavailable'
+        ? null
+        : rtState === 'stale'
+          ? Math.floor(nowMs / 1000) - 600
+          : rt.header.sourceTimestamp,
     rtState,
     generatedAt: nowMs,
   }
@@ -250,9 +257,10 @@ export async function handleFixtureApi(url: URL, nowMs: number): Promise<Respons
   }
 
   if (path === '/v1/ferry/vehicles') {
-    return json(VehiclesResponse.parse({ ...env, mode: 'ferry', vehicles: rtState === 'live' ? rt.vehicles : [] }))
+    return json(
+      VehiclesResponse.parse({ ...env, mode: 'ferry', vehicles: rtState === 'live' ? rt.vehicles : [] }),
+    )
   }
   if (path === '/v1/alerts') return json(AlertsResponse.parse({ ...env, alerts: [] }))
   return json({ error: 'not_found' }, 404)
 }
-

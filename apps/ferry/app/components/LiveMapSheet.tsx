@@ -20,7 +20,14 @@ export interface LiveMapSheetProps {
   onSelect: (d: Departure) => void
 }
 
-export default function LiveMapSheet({ pair, departures, fetcher, mode, onClose, onSelect }: LiveMapSheetProps) {
+export default function LiveMapSheet({
+  pair,
+  departures,
+  fetcher,
+  mode,
+  onClose,
+  onSelect,
+}: LiveMapSheetProps) {
   const vehicles = useVehicles(fetcher, mode, true)
   const byTrip = useMemo(() => new Map(departures.map((d) => [d.tripInstance, d])), [departures])
   const relevant = (vehicles.data?.vehicles ?? []).filter((v) => v.tripKey && byTrip.has(v.tripKey))
@@ -69,11 +76,17 @@ export default function LiveMapSheet({ pair, departures, fetcher, mode, onClose,
       />
       <p className="mt-2 flex gap-4 text-xs text-sched-text">
         <span className="flex items-center gap-1.5">
-          <span aria-hidden="true" className="size-3 rounded-full border-2 border-white bg-ferry-orange-dark shadow" />
+          <span
+            aria-hidden="true"
+            className="size-3 rounded-full border-2 border-white bg-ferry-orange-dark shadow"
+          />
           Express
         </span>
         <span className="flex items-center gap-1.5">
-          <span aria-hidden="true" className="size-3 rounded-full border-2 border-white bg-ferry-aqua shadow" />
+          <span
+            aria-hidden="true"
+            className="size-3 rounded-full border-2 border-white bg-ferry-aqua shadow"
+          />
           All stops
         </span>
       </p>

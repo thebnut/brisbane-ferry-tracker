@@ -98,7 +98,11 @@ export function homeJsonLd(siteUrl = SITE_URL) {
   }
 }
 
-export function terminalJsonLd(terminal: Terminal, meta: { url: string; title: string; description: string }, siteUrl = SITE_URL) {
+export function terminalJsonLd(
+  terminal: Terminal,
+  meta: { url: string; title: string; description: string },
+  siteUrl = SITE_URL,
+) {
   return {
     '@context': 'https://schema.org',
     '@graph': [
@@ -108,7 +112,12 @@ export function terminalJsonLd(terminal: Terminal, meta: { url: string; title: s
         name: `${terminal.name} ferry terminal`,
         url: meta.url,
         geo: { '@type': 'GeoCoordinates', latitude: terminal.lat, longitude: terminal.lng },
-        address: { '@type': 'PostalAddress', addressLocality: 'Brisbane', addressRegion: 'QLD', addressCountry: 'AU' },
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: 'Brisbane',
+          addressRegion: 'QLD',
+          addressCountry: 'AU',
+        },
         containedInPlace: { '@type': 'City', name: 'Brisbane' },
       },
       {
@@ -133,13 +142,22 @@ export function terminalJsonLd(terminal: Terminal, meta: { url: string; title: s
 }
 
 /** Head tags shared by every page: canonical/noindex, OG and Twitter cards (index.html + postbuild renderPage). */
-export function pageMeta(opts: { title: string; description: string; url: string; noindex?: boolean; ogDescription?: string; siteUrl?: string }) {
+export function pageMeta(opts: {
+  title: string
+  description: string
+  url: string
+  noindex?: boolean
+  ogDescription?: string
+  siteUrl?: string
+}) {
   const siteUrl = opts.siteUrl ?? SITE_URL
   const og = opts.ogDescription ?? opts.description
   return [
     { title: opts.title },
     { name: 'description', content: opts.description },
-    opts.noindex ? { name: 'robots', content: 'noindex' } : { tagName: 'link', rel: 'canonical', href: opts.url },
+    opts.noindex
+      ? { name: 'robots', content: 'noindex' }
+      : { tagName: 'link', rel: 'canonical', href: opts.url },
     { property: 'og:type', content: 'website' },
     { property: 'og:site_name', content: 'Brisbane Ferry' },
     { property: 'og:locale', content: 'en_AU' },
@@ -149,7 +167,10 @@ export function pageMeta(opts: { title: string; description: string; url: string
     { property: 'og:image', content: `${siteUrl}/og-image.jpg` },
     { property: 'og:image:width', content: '1200' },
     { property: 'og:image:height', content: '630' },
-    { property: 'og:image:alt', content: 'BrisbaneFerry Departure Boards logo: live CityCat and ferry departures' },
+    {
+      property: 'og:image:alt',
+      content: 'BrisbaneFerry Departure Boards logo: live CityCat and ferry departures',
+    },
     { name: 'twitter:card', content: 'summary_large_image' },
     { name: 'twitter:title', content: opts.title },
     { name: 'twitter:description', content: og },
@@ -164,7 +185,12 @@ export function sitemapXml(siteUrl: string, nowMs: number): string {
   const today = dateKey.format(nowMs)
   const urls: Array<{ loc: string; lastmod?: string; changefreq: string; priority: string }> = [
     { loc: '/', lastmod: today, changefreq: 'daily', priority: '1.0' },
-    ...TERMINALS.map((t) => ({ loc: terminalPath(t.slug), lastmod: today, changefreq: 'daily', priority: '0.8' })),
+    ...TERMINALS.map((t) => ({
+      loc: terminalPath(t.slug),
+      lastmod: today,
+      changefreq: 'daily',
+      priority: '0.8',
+    })),
     { loc: '/privacy', changefreq: 'yearly', priority: '0.2' },
     { loc: '/terms', changefreq: 'yearly', priority: '0.2' },
   ]

@@ -51,7 +51,8 @@ export function departuresOptions(
         // Offline with no cached response from the service worker: fall back to the last copy we kept.
         // The copy was contract-checked by the proxy when it was first fetched.
         const cached = readOffline(from, to) as DeparturesResponse | null
-        if (typeof navigator !== 'undefined' && !navigator.onLine && Array.isArray(cached?.departures)) return cached
+        if (typeof navigator !== 'undefined' && !navigator.onLine && Array.isArray(cached?.departures))
+          return cached
         throw error
       }
     },

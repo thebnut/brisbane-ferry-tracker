@@ -8,19 +8,27 @@ export function loader() {
 
 export const meta: Route.MetaFunction = () => [
   { title: 'Page not found | Brisbane Ferry' },
-  { name: 'description', content: 'This page does not exist. See live Brisbane ferry departures for every terminal.' },
+  {
+    name: 'description',
+    content: 'This page does not exist. See live Brisbane ferry departures for every terminal.',
+  },
   { name: 'robots', content: 'noindex' },
 ]
 
 export function ErrorBoundary() {
   return (
     <>
+      <title>Page not found | Brisbane Ferry</title>
+      <meta name="robots" content="noindex" />
       <SiteHeader />
       <main className={SECTION.section}>
         <h1 className={SECTION.heading}>Page not found</h1>
         <p className={SECTION.text}>
-          That page doesn't exist. The <a className="underline" href="/">live departure boards</a> are on the home page,
-          or pick a ferry terminal:
+          That page doesn't exist. The{' '}
+          <a className="underline" href="/">
+            live departure boards
+          </a>{' '}
+          are on the home page, or pick a ferry terminal:
         </p>
         <TerminalLinks />
       </main>

@@ -73,7 +73,12 @@ export const fetchDepartures = (
   fetcher: ApiFetcher,
   from: string,
   to: string,
-  opts: { limit?: number; at?: number | null; signal?: AbortSignal; validate?: Validate<DeparturesResponse> } = {},
+  opts: {
+    limit?: number
+    at?: number | null
+    signal?: AbortSignal
+    validate?: Validate<DeparturesResponse>
+  } = {},
 ) => getJson(fetcher, departuresPath(from, to, opts), opts.validate, opts.signal)
 
 export const fetchTrip = (fetcher: ApiFetcher, tripInstance: string, signal?: AbortSignal) =>

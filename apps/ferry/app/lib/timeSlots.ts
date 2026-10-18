@@ -6,7 +6,9 @@
 const OFFSET_S = 10 * 3600
 const HOUR = 3600
 
-export type Slot = { type: 'slot'; at: number; label: string; today: boolean } | { type: 'separator'; label: string }
+export type Slot =
+  | { type: 'slot'; at: number; label: string; today: boolean }
+  | { type: 'separator'; label: string }
 
 const hourLabel = (atS: number) => {
   const h = Math.floor(((atS + OFFSET_S) % 86400) / HOUR)
@@ -22,7 +24,11 @@ export function generateTimeSlots(nowMs: number): Slot[] {
   const startHour = Math.floor(((start + OFFSET_S) % 86400) / HOUR)
   const endHour = startHour % 2 === 0 ? 22 : 23
   const slots: Slot[] = []
-  for (let t = start; t < dayStart + 86400 && Math.floor(((t + OFFSET_S) % 86400) / HOUR) <= endHour; t += 2 * HOUR) {
+  for (
+    let t = start;
+    t < dayStart + 86400 && Math.floor(((t + OFFSET_S) % 86400) / HOUR) <= endHour;
+    t += 2 * HOUR
+  ) {
     slots.push({ type: 'slot', at: t, label: hourLabel(t), today: true })
   }
   if (slots.length > 0 && slots.length < 10) slots.push({ type: 'separator', label: 'Tomorrow' })
