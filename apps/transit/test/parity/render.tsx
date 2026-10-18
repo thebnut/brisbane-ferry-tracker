@@ -3,6 +3,8 @@
  * that provides the root loader data both builds supply, with every /v1 and /__fixtures request answered by that app's
  * fixture API at a fixed time. Returns normalised markup for comparison with the committed golden file.
  */
+
+import { join } from 'node:path'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import type { ComponentType } from 'react'
@@ -104,6 +106,8 @@ export function normalise(html: string, base: string): string {
   out = out.replace(/<nav aria-label="(Main|Sections|Bus sections|Train sections)"[\s\S]*?<\/nav>/g, '<nav/>')
   // The bus app wraps its phone nav in a div.
   out = out.replace(/<div class="md:hidden"><nav\/><\/div>/g, '<nav/>')
+  // Asset URLs in tests are absolute file paths (/@fs/<checkout>/packages/…): drop the checkout location.
+  out = out.replaceAll(`/@fs${join(process.cwd(), '..', '..')}/`, '/@fs/')
   if (base) out = out.replaceAll(`href="${base}/`, 'href="/').replaceAll(`href="${base}"`, 'href="/"')
   return out.replace(/></g, '>\n<')
 }
