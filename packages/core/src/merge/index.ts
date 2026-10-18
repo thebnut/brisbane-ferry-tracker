@@ -7,7 +7,9 @@ import {
   downstreamOf,
   type RtSnapshot,
   type RtState,
+  type RtTrip,
   type StaticStopDay,
+  type StopRef,
   tripInstanceKey,
   type Vehicle,
 } from '../contract/index.ts'
@@ -28,6 +30,33 @@ export interface MergeOptions {
   routes?: ReadonlySet<string>
   /** Stop ids you can board at for this stop key. Defaults to the platforms referenced by the stop-day files. */
   boardingStopIds?: ReadonlySet<string>
+  /**
+   * Every platform of the boarding station (stop id → platform code), for platform changes to a platform that no
+   * timetabled event uses that day. Without it, only platforms that appear in the stop-day files are recognised.
+   */
+  stationPlatforms?: ReadonlyMap<string, string | undefined>
+}
+
+/**
+ * Live platform change (train): the RT update for this stop occurrence names a different stop id that is another
+ * platform of the same parent station. Returns the new stop id and platform code, or null when there is no change.
+ * A stop id from another station (a feed error, or a different stop) is never treated as a platform change.
+ */
+export function platformChange(
+  rtTrip: RtTrip | undefined,
+  seq: number,
+  scheduled: StopRef | undefined,
+  day: Pick<StaticStopDay, 'stops' | 'stopKey'>,
+  stationPlatforms?: ReadonlyMap<string, string | undefined>,
+): { stopId: string; platform: string | null } | null {
+  const rtStopId = rtTrip?.updates.find((u) => u.seq === seq)?.stopId
+  if (!scheduled || !rtStopId || rtStopId === scheduled.id) return null
+  if (stationPlatforms?.has(rtStopId))
+    return { stopId: rtStopId, platform: stationPlatforms.get(rtStopId) ?? null }
+  const station = scheduled.key ?? day.stopKey
+  const other = day.stops.find((s) => s.id === rtStopId && (s.key ?? s.id) === station)
+  if (!other || (scheduled.key == null && other.key == null)) return null
+  return { stopId: other.id, platform: other.platform ?? null }
 }
 
 export function vehiclesByTrip(vehicles: Vehicle[]): Map<string, Vehicle> {
@@ -91,14 +120,16 @@ export function mergeDepartures(
 
       const platformStop = day.stops[platformIdx]
       const vehicle = vehicles.get(key)
+      const change =
+        p.status === 'live' ? platformChange(rtTrip, seq, platformStop, day, opts.stationPlatforms) : null
       const row: Departure = {
         tripInstance: key,
         stopSequence: seq,
         route,
         headsign: day.headsigns[headsignIdx] ?? '',
         directionId: dir,
-        stopId: platformStop?.id ?? '',
-        platform: platformStop?.platform ?? null,
+        stopId: change?.stopId ?? platformStop?.id ?? '',
+        platform: change ? change.platform : (platformStop?.platform ?? null),
         schedDep,
         estDep: p.estDep,
         schedArrTo,
@@ -107,6 +138,8 @@ export function mergeDepartures(
         gps: vehicle != null && opts.rtState === 'live',
         vehicleId: vehicle?.id ?? rtTrip?.vehicleId ?? null,
       }
+      if (change && platformStop?.platform && platformStop.platform !== change.platform)
+        row.scheduledPlatform = platformStop.platform
       if (opts.withStopsAfter) {
         const after: string[] = []
         for (let i = 0; i + 3 < ds.length; i += 4) {

@@ -278,6 +278,83 @@ export const LinesFile = z.object({
 export type LinesFile = z.infer<typeof LinesFile>
 
 // ---------------------------------------------------------------------------
+// Static client data (same schemas as feat/p1-static-pipeline, which writes these files)
+// ---------------------------------------------------------------------------
+
+/**
+ * Static client data, rewritten in place each publish (paths are stable, `generation` says which build wrote them):
+ *  - data/{mode}/stops.json        search index
+ *  - data/{mode}/geo/{geohash5}.json nearby tile
+ *  - data/{mode}/lines.json        route colours and stopping patterns
+ */
+export const StopIndexEntry = z.object({
+  /** Stop key (train: parent station slug; otherwise stop_id). */
+  key: z.string(),
+  name: z.string(),
+  /** Public stop code (bus stop number), if any. */
+  code: z.string().optional(),
+  lat: z.number(),
+  lon: z.number(),
+  /** Platforms (train stations, busway stations): stop_id and platform code. */
+  platforms: z.array(z.object({ id: z.string(), code: z.string().optional() })).optional(),
+  /** Route short names serving this stop in the build window. */
+  routes: z.array(z.string()),
+})
+export type StopIndexEntry = z.infer<typeof StopIndexEntry>
+
+export const StopIndexFile = z.object({
+  schemaVersion: z.literal(SCHEMA_VERSION),
+  mode: Mode,
+  generation: z.string(),
+  stops: z.array(StopIndexEntry),
+})
+export type StopIndexFile = z.infer<typeof StopIndexFile>
+
+export const GeoTileFile = z.object({
+  schemaVersion: z.literal(SCHEMA_VERSION),
+  mode: Mode,
+  generation: z.string(),
+  geohash: z.string().length(5),
+  stops: z.array(StopIndexEntry.pick({ key: true, name: true, code: true, lat: true, lon: true })),
+})
+export type GeoTileFile = z.infer<typeof GeoTileFile>
+
+export const StopPattern = z.object({
+  directionId: z.union([z.literal(0), z.literal(1), z.literal(-1)]),
+  headsign: z.string(),
+  /** Stop keys in order (train: station slugs). */
+  stops: z.array(z.string()),
+  /** Trips using this pattern across the build window. */
+  trips: z.number().int(),
+})
+export type StopPattern = z.infer<typeof StopPattern>
+
+export const Line = z.object({
+  /** route_short_name; one line groups every route_id that shares it. */
+  short: z.string(),
+  long: z.string().optional(),
+  color: z
+    .string()
+    .regex(/^[0-9A-Fa-f]{6}$/)
+    .optional(),
+  textColor: z
+    .string()
+    .regex(/^[0-9A-Fa-f]{6}$/)
+    .optional(),
+  routeIds: z.array(z.string()),
+  patterns: z.array(StopPattern),
+})
+export type Line = z.infer<typeof Line>
+
+export const LinesFile = z.object({
+  schemaVersion: z.literal(SCHEMA_VERSION),
+  mode: Mode,
+  generation: z.string(),
+  lines: z.array(Line),
+})
+export type LinesFile = z.infer<typeof LinesFile>
+
+// ---------------------------------------------------------------------------
 // 2. Realtime snapshot (rt/snapshot-{seq}.json.br) and the stop-event state machine
 // ---------------------------------------------------------------------------
 
@@ -427,9 +504,14 @@ export const Departure = z.object({
   route: RouteRef,
   headsign: z.string(),
   directionId: z.number().int(),
-  /** Boarding stop id and platform code (train), if known. */
+  /** Boarding stop id and platform code (train), if known. With a live platform change these are the new platform. */
   stopId: z.string(),
   platform: z.string().nullable(),
+  /**
+   * Set only for a platform change: the timetabled platform code, when RT moved the service to a different platform of
+   * the same parent station (train). `platform` is then the new one.
+   */
+  scheduledPlatform: z.string().optional(),
   /** Epoch seconds. */
   schedDep: z.number().int(),
   estDep: z.number().int().nullable(),
@@ -455,6 +537,11 @@ export type DeparturesResponse = z.infer<typeof DeparturesResponse>
 export const TripStop = z.object({
   stopId: z.string(),
   name: z.string().optional(),
+  /** Platform code (train), the live one when RT changed it; `scheduledPlatform` is set only for a change. */
+  platform: z.string().nullable().optional(),
+  scheduledPlatform: z.string().optional(),
+  /** Parent station key (train). */
+  stationKey: z.string().optional(),
   stopSequence: z.number().int(),
   schedArr: z.number().int().nullable(),
   schedDep: z.number().int().nullable(),
