@@ -700,6 +700,23 @@ Ways to reach p95 ≤ 40 s:
     - every invocation `ok` even on Free, but that is 14× the nominal limit
   - So bus matching waits for Workers Paid. `RT_INDEX_MODES` still defaults to excluding bus, and `/v1/bus` reports `rtState: unavailable` until then.
 
+**Workers Paid staging (18 October 16:30–16:55 AEST, #45).** Configuration: `RT_MODES=all` (combined feeds), `RT_INDEX_MODES=ferry,train,tram,bus`, `limits.cpu_ms` 2000, compact matcher, R2 snapshot ring (no deletes).
+
+| Measured | Value |
+|---|---|
+| Live match rate | ferry 54/54, train 82/82, tram 24/24, bus 1,023/1,032. All tier 1, 0 ambiguous |
+| Poll alarm CPU, all modes matched | **p50 170 ms, p95 241 ms**, max 248 ms (cold index loads in the first cycles). All `ok`, well inside `cpu_ms` 2000 |
+| Hub working set (Node, through a live `StaticStore`, hub load order) | **34.4 MB**: indexes 18.6 MB, decoded combined feeds and snapshot 15.9 MB. Large (bus) trip-index blobs are not cached |
+| TransLink requests | about 12,960 a day (combined feeds), meeting the §7 target |
+| `/v1` request CPU (edge) | p50 40 ms, p95 61 ms. It was 2 ms with ferry + train: isolates now parse a 2.9 MB combined snapshot when they refresh |
+| Freshness, one 15 s client, 10 min | source age p50 42 s, **p95 52 s** (target ≤ 40 s) |
+| Latency, Brisbane → BNE | p50 32 ms, but **p75 355 ms, p95 3.1 s**. Cold or refreshing isolates load and parse the 2.9 MB snapshot |
+
+**Next step: split the snapshot per mode.** Above about 300 KB, §3.3 already says to split it.
+- The hub would write `rt/{mode}/snapshot-{slot}.json` per mode, plus one pointer carrying every mode's seq and key. That is 5 Class A writes per poll, about 860k a month, under the free 1M.
+- `/v1/{mode}` would then read only its own mode: ferry is about 100 KB and train about 320 KB, against bus at 2.5 MB.
+- That brings ferry and train latency and edge CPU back to the per-mode numbers, and shortens the refresh path for freshness.
+
 ## 6. Cost model
 
 This was revised after Codex finding 9. The first draft assumed 10 requests per DAU, which implied only about 2 minutes of visible use a day.
