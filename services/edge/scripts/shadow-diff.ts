@@ -325,7 +325,10 @@ async function main() {
       let v1Rows = await v1(origin, dest, at, until)
       // A remote /v1 page covers less than 24 h: compare only up to its last departure.
       let limitMs = until
-      if (api && v1Rows.length === 100) limitMs = (v1Rows.at(-1)?.schedDep ?? 0) * 1000
+      // Stop just before the page's last departure time: rows tied at that second may be beyond the page.
+      if (api && v1Rows.length === 100) limitMs = (v1Rows.at(-1)?.schedDep ?? 0) * 1000 - 1
+      // Live /v1 still lists a late-running service scheduled before now; the schedule-only legacy filter doesn't.
+      if (api) v1Rows = v1Rows.filter((d) => d.schedDep * 1000 > at)
       v1Rows = v1Rows.filter((d) => d.schedDep * 1000 < limitMs + 1)
       pairs.push(comparePair(origin, dest, legacyRows, v1Rows, limitMs + 1))
     }

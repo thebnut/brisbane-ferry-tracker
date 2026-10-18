@@ -612,44 +612,70 @@ The first version built the matcher in one go and cost 92 ms (ferry), 300 ms (tr
 - core now memoises `serviceDayStartEpoch`
 - `TripMatcher.addDay` lets the hub index **one service day per alarm cycle** and swap a mode in only when it is complete, so generations are never mixed
 
-**Cloudflare staging (`bft-api.brisbanetransit.workers.dev`, Workers Free, SQLite-backed DO)**
+**Cloudflare staging (`bft-api.brisbanetransit.workers.dev`, Workers Free, SQLite-backed DO, R2 `bft-transit-data`)**
+
+Real pipeline generation `20261017-20261216-3305c5ea-*` (all four modes), `RT_MODES=ferry,train`. CPU and wall times are from `wrangler tail` (`cpuTime` / `wallTime` per invocation), Saturday 18 October 15:30–15:35 AEST.
 
 | Measured | Value |
 |---|---|
-| Alarm CPU per cycle, ferry + train per-mode feeds, no static data loaded yet | STAGING_CPU |
-| Alarm wall time | about 2.2 s median, after clearing the fetch timeout timers (it was 5 s: pending `AbortSignal.timeout` timers kept invocations alive) |
-| Watchdog cron CPU | 0 ms (wall about 220 ms) |
-| Alarm outcomes | all `ok`: no CPU-limit terminations seen |
-| First cron after a fresh deploy | about 7 min (the watchdog then started the chain) |
+| **Poll alarm CPU, ferry + train fully loaded and matched** | **p50 15 ms, range 10–23 ms** (18 warm polls) |
+| Poll alarm CPU, cold isolate loading a trip-index day | 33 ms (2 cycles after a deploy) |
+| Keep-alive alarm (no poll) | 0 ms CPU, about 12 ms wall |
+| Poll alarm CPU before static data was loaded (no matching) | p50 13–17 ms, range 7–30 ms |
+| Poll alarm wall time | p50 about 1.5–2.2 s (upstream fetches, storage, R2). It was 5 s before the fetch-timeout timers were cleared. |
+| `/v1` request CPU (edge isolate) | p50 2 ms, p95 8 ms |
+| Watchdog cron | 0 ms CPU, about 220 ms wall |
+| Outcomes | every invocation `ok`: no CPU-limit terminations seen, even at 33 ms |
+| First cron after the very first deploy | about 7 min, after which the watchdog started the chain |
+| Live match rate | ferry 62/62, train 84/84, all tier 1, 0 ambiguous |
+| Shadow diff, staging `/v1` (real data) vs legacy `latest.json` (same feed) | 346 pairs, 16,181 departures, **0 differences** |
+| Freshness (source age), Bulimba → Riverside departures, 15 s client polling | FRESHNESS_ROW |
+| Latency, Brisbane client → BNE PoP | LATENCY_ROW |
+| Watchdog drill (alarm deleted via `POST /__drill/kill-alarm`) | DRILL_ROW |
 
-Staging CPU is about 4× the pure rebuild cost measured in Node and workerd. The rest is fetch body handling, storage and R2 writes of a 350 KB snapshot, and isolate overhead.
-- Two cuts so far: the snapshot is no longer duplicated into DO storage when R2 holds it, and raw feeds are persisted at most once a minute.
-- These numbers come from a warm isolate. A cold isolate's first trip-index reload step adds about 10 ms more.
+**Durable Object eviction (a finding).** Cloudflare evicts an idle Durable Object after about 10 s.
+- With a 15 s alarm the hub ran in a fresh isolate on every alarm (`startedAt` changed every cycle). It never finished its one-day-per-cycle trip-index load, so `rtState` stayed `reloading`, and it paid the restore every cycle.
+- `wrangler dev` does not evict, so this showed only on Cloudflare.
+- The fix is a 7.5 s keep-alive alarm that polls only when 15 s have passed since the last poll. TransLink still sees one request per feed every 15 s.
+- The cost is residency: 128 MB × 86,400 s is about **11,000 GB-s a day of DO duration**, against the Free plan's 13,000 GB-s a day, or 330k of Paid's included 400k GB-s a month.
+- DO requests: 11,520 alarms a day.
+
+Staging CPU is 4–5× the pure rebuild cost measured in Node and workerd. The rest is fetch body handling, DO storage and R2 writes of the 350 KB snapshot, and runtime overhead.
+- Cuts made so far:
+  - the snapshot is not duplicated into DO storage when R2 holds it
+  - raw feeds are persisted at most once a minute
+  - fetch timers are cleared
+  - edge snapshot reads are stale-while-revalidate (a blocking refresh cost about 1 s per request)
+- Further cuts if Free must be kept:
+  - publish to R2 every second cycle
+  - drop the uncompressed `snap` JSON in favour of a per-mode split, only ferry for the ferry app
 
 **Storage and request budget (ferry + train, per day)**
-- TransLink requests: 5,760 TripUpdates + 5,760 VehiclePositions per polled mode, plus 1,440 alerts.
-  - 24,480 for ferry + train per-mode, or 12,960 with `RT_MODES=all`.
-  - That is above the §7 Phase 1 target of 12k a day for per-mode polling. The per-mode feeds are 3.8–100 KB against the 1.1 MB combined feed, so total bytes are about 10× lower.
-- Durable Object requests: 5,760 alarms, 1,440 watchdog crons, plus one `getRaw` RPC per 10 s per active isolate (legacy proxy only).
+- **TransLink requests:** 5,760 TripUpdates + 5,760 VehiclePositions per polled mode, plus 1,440 alerts.
+  - That is 24,480 a day for ferry + train per-mode, or 12,960 with `RT_MODES=all`.
+  - Per-mode polling is above the §7 Phase 1 target of 12k a day. The per-mode feeds are 3.8–100 KB against the 1.1 MB combined feed, so total bytes are about 10× lower.
+- **Durable Object requests:** 11,520 alarms (keep-alive), 1,440 watchdog crons, plus one `getRaw` RPC per 10 s per active isolate (legacy proxy only).
   - Snapshot reads go to R2, not the DO.
-  - That is about 7.2k a day plus traffic-dependent RPCs, against the Free plan's 100k.
-- DO SQLite rows written: 1 meta per cycle, plus 4 raw feeds a minute, about 11.5k a day (Free: 100k).
-- R2 Class A: 2 per cycle (snapshot, then `rt/latest.json`), about 11.5k a day or **345k a month**. Deleting the snapshot from 240 cycles ago is free and keeps about 85 MB of history.
-- R2 Class B: 1–2 per 10 s per active isolate (pointer, plus the snapshot when its seq moved). That is about 520k a month per continuously active isolate (Free: 10M).
+  - That is about 13k a day plus traffic-dependent RPCs, against the Free plan's 100k.
+- **DO SQLite rows written:** 1 meta per poll, plus 4 raw feeds a minute, about 11.5k a day (Free: 100k).
+- **R2 Class A:** 2 per poll (snapshot, then `rt/latest.json`), about 11.5k a day or **345k a month** (Free: 1M).
+  - Deleting the snapshot from 240 polls ago is free and keeps about 85 MB of history.
+- **R2 Class B:** 1–2 per 10 s per active isolate (the pointer, plus the snapshot when its seq moved), in the background.
+  - That is about 520k a month per continuously active isolate (Free: 10M).
 
 **Conclusions**
-- **Workers Free (10 ms CPU).**
-  - Per-mode ferry + train (+ tram) is the only layout whose pure rebuild fits with margin: 3–3.5 ms p50 Saturday, about 6–7 ms weekday peak.
-  - On staging the whole alarm invocation measured STAGING_CPU_SHORT, so it is at or above the nominal limit. Cloudflare hasn't terminated any invocation yet, but there is no headroom.
+- **Workers Free (10 ms CPU).** The pure rebuild of per-mode ferry + train (+ tram) fits: 3–3.5 ms p50 Saturday, about 6–7 ms weekday peak.
+  - But the whole poll invocation on staging measures **p50 15 ms (10–33 ms)**, above the nominal 10 ms limit. Cloudflare hasn't terminated any invocation so far, so it is not enforcing 10 ms strictly here, but there is no headroom to rely on.
+  - DO duration from keep-alive residency also sits at about 85% of the Free daily allowance.
   - Free is acceptable for staging and the Phase 1 shadow, not for launch.
 - **Workers Paid ($5, approved, not yet active)** is needed for:
-  - `RT_MODES=all` (combined feeds: 40 ms p50, 80 ms weekday estimate)
+  - headroom for ferry + train
+  - `RT_MODES=all` (combined feeds: 40 ms p50 rebuild, 80 ms weekday estimate; about 20 ms in workerd with only ferry + train matched)
   - any bus matching (35 ms p50)
-  - comfortable headroom for ferry + train
   - Paid's 30 s default CPU limit covers all of these by two orders of magnitude.
 - **Bus does not fit in any plan's 128 MB DO** with the current Map-based matcher: 103–120 MB for two days.
-  - `RT_INDEX_MODES` defaults to excluding bus, so bus RT is published unmatched.
-  - Before Phase 6, move the matcher to typed arrays (the §3.3 "about 2 MB each" estimate assumed that), or index bus one day at a time.
+  - `RT_INDEX_MODES` defaults to excluding bus, so bus RT is polled but unmatched, and `/v1/bus` reports `rtState: unavailable`.
+  - A compact typed-array matcher (the follow-up PR) is the fix; the §3.3 "about 2 MB each" estimate assumed that.
 
 ## 6. Cost model
 

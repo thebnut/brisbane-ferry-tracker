@@ -21,6 +21,7 @@ Design: `docs/architecture/transit-architecture.md` §3.3, §3.8, §3.10 and ADR
 | `RT_MODES` | `ferry,train` | Per-mode TransLink feeds to poll, or `all` for the combined feeds. Free plan: per-mode ferry+train(+tram) fits 10 ms CPU; `all` needs Workers Paid (see the Phase 0 measurements). |
 | `RT_INDEX_MODES` | polled modes minus bus | Modes whose trip indexes the hub loads. Bus doesn't fit a 128 MB DO with the current matcher. |
 | `RT_UPSTREAM` | TransLink SEQ | GTFS-RT base URL. |
+| `RT_CYCLE_MS` | `15000` | Poll interval. The alarm itself fires every 7.5 s (or less) so the DO stays resident: Cloudflare evicts an object after ~10 s idle, which would drop its trip indexes every cycle. |
 | `CORS_ALLOW_ALL` | `false` | Break-glass wildcard CORS, as in the legacy proxy. |
 | `DATA_BUCKET` (R2) | staging: `bft-transit-data` | Static tree + `rt/` snapshots. Takes precedence over `DATA`. |
 | `DATA` (service) | dev: `bft-data-dev` | Assets Worker fallback (`services/data`). |
