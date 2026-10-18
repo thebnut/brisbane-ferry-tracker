@@ -214,7 +214,10 @@ export const alert = (id: string, header: string, routeId?: string): EntityInit 
   id,
   alert: {
     headerText: { translation: [{ text: header, language: 'en' }] },
-    informedEntity: [routeId ? { routeId, routeType: 4 } : { routeType: 4 }],
+    informedEntity:
+      routeId === undefined
+        ? [{ agencyId: 'TL' }]
+        : [{ routeId, ...(routeId.startsWith('F') ? { routeType: 4 } : {}) }],
   },
 })
 

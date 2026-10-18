@@ -56,7 +56,14 @@ async function setup(opts: { modes?: string; warm?: boolean } = {}) {
     ]),
   )
   up.set(vp, feed(nowS(), [vehicle('V1', 'T1', D, -27.45, 153.05), vehicle('V9', 'T3', D, -27.6, 153.3)]))
-  up.set('alerts', feed(nowS(), [alert('a1', 'Bulimba works', 'F1-4055'), alert('a2', 'Network notice')]))
+  up.set(
+    'alerts',
+    feed(nowS(), [
+      alert('a1', 'Bulimba works', 'F1-4055'),
+      alert('a2', 'Network notice'),
+      alert('a3', 'Bus detour', '66-4055'),
+    ]),
+  )
   if (opts.warm !== false) {
     for (let i = 0; i < 3; i++) {
       await hub.alarm()
@@ -225,6 +232,9 @@ describe('other /v1 routes', () => {
     const s = await setup()
     const all = AlertsResponse.parse(await (await s.get('/v1/alerts?mode=ferry')).json())
     expect(all.alerts.map((a) => a.id)).toEqual(['a1', 'a2'])
+    // The bus alert (route of a mode we don't load) never leaks into a ferry query as if it were network-wide.
+    const all3 = AlertsResponse.parse(await (await s.get('/v1/alerts')).json())
+    expect(all3.alerts.map((a) => a.id)).toEqual(['a1', 'a2', 'a3'])
     const route = AlertsResponse.parse(await (await s.get('/v1/alerts?route=F1')).json())
     expect(route.alerts.map((a) => a.id)).toEqual(['a1'])
     expect((await s.get('/v1/alerts?mode=train')).headers.get('cache-control')).toBe('public, max-age=60')

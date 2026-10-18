@@ -24,9 +24,9 @@ let pendingWaitUntil: ((p: Promise<unknown>) => void) | null = null
 function getIsolate(env: WorkerEnv) {
   if (!isolate) {
     const cfg = parseRtModes(env.RT_MODES)
-    const hub = hubStub(env)
+    // A DO stub is bound to the request that created it, so make one per call (env bindings are reusable).
     const snapshots = new SnapshotClient(
-      { pull: (since) => hub.pull(since), getRaw: (key) => hub.getRaw(key) },
+      { pull: (since) => hubStub(env).pull(since), getRaw: (key) => hubStub(env).getRaw(key) },
       Date.now,
       (p) => pendingWaitUntil?.(p),
     )
@@ -41,7 +41,7 @@ function getIsolate(env: WorkerEnv) {
     // Phase 0 spike: time N snapshot rebuilds inside workerd from outside (Date.now is frozen inside).
     app.get('/__spike/rt', async (c) => {
       if (env.SPIKE_ENABLED !== '1') return c.json({ error: 'not found' }, 404)
-      return c.json(await hub.benchmark(Number(c.req.query('runs') ?? 20)))
+      return c.json(await hubStub(env).benchmark(Number(c.req.query('runs') ?? 20)))
     })
     isolate = { app, snapshots }
   }

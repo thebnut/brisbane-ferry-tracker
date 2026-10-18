@@ -242,7 +242,7 @@ export class HubCore {
         const msg = fromBinary(FeedMessageSchema, r.raw.bytes)
         this.raw.set(f.key, r.raw)
         this.decoded.set(f.key, msg)
-        if (f.kind === 'alerts') this.alerts = buildAlerts(msg, this.routeModes())
+        if (f.kind === 'alerts') this.alerts = buildAlerts(msg, this.routeModes(), this.stopModes())
         changed.push(f)
       } catch (e) {
         errors.push(`${f.key}: decode failed: ${errorMessage(e)}`)
@@ -253,6 +253,12 @@ export class HubCore {
       !fetched.some((r, i) => due[i]?.kind === 'alerts' && r.error)
     ) {
       this.meta.alertsAt = now
+    }
+
+    // Alert modes come from the loaded routes and stops, so re-derive them when an index swaps in.
+    const alertsFeed = this.decoded.get('alerts')
+    if (indexesChanged && alertsFeed && !changed.some((f) => f.kind === 'alerts')) {
+      this.alerts = buildAlerts(alertsFeed, this.routeModes(), this.stopModes())
     }
 
     const writes: Record<string, unknown> = {}
@@ -314,6 +320,12 @@ export class HubCore {
     } catch (e) {
       return { error: errorMessage(e) }
     }
+  }
+
+  private stopModes(): Map<string, Mode> {
+    const m = new Map<string, Mode>()
+    for (const [mode, l] of this.modes) for (const id of l.index.stopIds) m.set(id, mode)
+    return m
   }
 
   private routeModes(): Map<string, Mode> {

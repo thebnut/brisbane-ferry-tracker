@@ -250,6 +250,22 @@ describe('RtHub snapshot', () => {
     expect(snap.header.staticGeneration.ferry).toBe('g2')
   })
 
+  it('alert modes are re-derived once the trip index has loaded (alerts fetched before it)', async () => {
+    const h = setup()
+    h.up.set(
+      'alerts',
+      feed(h.nowS(), [
+        {
+          id: 'a9',
+          alert: { headerText: { translation: [{ text: 'x' }] }, informedEntity: [{ routeId: 'F11-4055' }] },
+        },
+      ]),
+    )
+    await warm(h)
+    const snap = JSON.parse((await h.hub.pull(null)).json as string)
+    expect(snap.alerts[0]).toMatchObject({ id: 'a9', modes: ['ferry'] })
+  })
+
   it('pull only re-sends the snapshot when seq changed', async () => {
     const h = setup()
     await warm(h)

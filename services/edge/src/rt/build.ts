@@ -479,8 +479,16 @@ function text(t: TranslatedString | undefined): string | undefined {
   return (en ?? t.translation[0])?.text || undefined
 }
 
-/** Alerts feed → contract Alerts. Mode comes from the informed entity's route_type, or the route's mode. */
-export function buildAlerts(feed: FeedMessage, routeModes: Map<string, Mode> = new Map()): Alert[] {
+/**
+ * Alerts feed → contract Alerts. Modes come from the informed entities' route_type, or the mode of a known route or
+ * stop. An alert naming only routes/stops of modes we don't load gets no modes, so it is never mistaken for a
+ * network-wide notice (those name no route and no stop).
+ */
+export function buildAlerts(
+  feed: FeedMessage,
+  routeModes: Map<string, Mode> = new Map(),
+  stopModes: Map<string, Mode> = new Map(),
+): Alert[] {
   const out: Alert[] = []
   for (const ent of feed.entity) {
     const a: PbAlert | undefined = ent.alert
@@ -494,7 +502,11 @@ export function buildAlerts(feed: FeedMessage, routeModes: Map<string, Mode> = n
         const m = routeModes.get(routeKey(ie.routeId))
         if (m) modes.add(m)
       }
-      if (ie.stopId) stops.add(ie.stopId)
+      if (ie.stopId) {
+        stops.add(ie.stopId)
+        const m = stopModes.get(ie.stopId)
+        if (m) modes.add(m)
+      }
       if (has(ie, 'routeType')) {
         const m = modeForRouteType(ie.routeType)
         if (m) modes.add(m)

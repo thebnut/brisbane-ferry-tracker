@@ -124,6 +124,9 @@ export class SnapshotClient {
       )
       this.raws.set(key, f)
     }
-    return f.get().catch(() => f.lastGood)
+    return f.get().catch((e) => {
+      console.error(JSON.stringify({ level: 'error', msg: 'hub getRaw failed', key, error: String(e) }))
+      return f.lastGood
+    })
   }
 }

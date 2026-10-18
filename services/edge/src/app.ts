@@ -283,7 +283,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const r = await rt(null, null)
     const nowS = Math.floor(r.nowMs / 1000)
     const alerts = (r.snap?.alerts ?? []).filter((a) => {
-      if (mode?.success && a.modes.length > 0 && !a.modes.includes(mode.data)) return false
+      // A mode filter keeps that mode's alerts plus network-wide notices (no route, no stop).
+      const networkWide = a.modes.length === 0 && a.routes.length === 0 && a.stops.length === 0
+      if (mode?.success && !a.modes.includes(mode.data) && !networkWide) return false
       if (route && !a.routes.some((x) => x === route || routeKey(x) === route)) return false
       if (stop && !a.stops.includes(stop)) return false
       // Drop alerts whose every active period has ended.

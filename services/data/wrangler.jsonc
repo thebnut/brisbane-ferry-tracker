@@ -1,12 +1,12 @@
 // Assets-only Worker serving the pipeline output tree (common storage layout) until R2 is enabled.
 // Static-asset requests are free and don't count against Worker CPU. Free plan: 20k files per version.
-// Point `assets.directory` at the pipeline's output dir before deploying (default: ../../pipeline/out).
+// Before deploying, put the pipeline output tree (its "assets" publish target) in ./out (gitignored).
 {
   "$schema": "../edge/node_modules/wrangler/config-schema.json",
   "name": "bft-data-dev",
   "compatibility_date": "2026-10-15",
   "account_id": "dde2914802079766f7671528e7cbae75",
   "workers_dev": true,
-  "assets": { "directory": "../../pipeline/out", "not_found_handling": "none" },
+  "assets": { "directory": "./out", "not_found_handling": "none" },
   "env": { "staging": { "name": "bft-data" } }
 }
