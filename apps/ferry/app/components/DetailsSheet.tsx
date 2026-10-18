@@ -118,10 +118,14 @@ export function DetailsSheet({
           <p className="text-sm text-gray-700">
             {cleanStopName(fromName)} → {cleanStopName(toName)}
           </p>
-          <p className="text-xs text-sched-text">
-            Vehicle: {vessel ?? 'Unknown'}
-            {status ? ` | ${status}` : ''}
-          </p>
+          {/* No vessel line on a scheduled trip with no vehicle (round 2: "Vehicle: Unknown" said nothing). */}
+          {vessel || status ? (
+            <p className="text-xs text-sched-text">
+              {vessel ? `Vehicle: ${vessel}` : null}
+              {vessel && status ? ' | ' : null}
+              {status}
+            </p>
+          ) : null}
         </div>
       }
     >

@@ -124,7 +124,10 @@ const recordLiveClaims = (page: Page) =>
     const tick = () => {
       w.__guardAtFirstFrame ??= document.documentElement.hasAttribute('data-live-unconfirmed')
       for (const el of document.querySelectorAll<HTMLElement>('span')) {
-        const claim = el.dataset.badge === 'live' || el.dataset.badge === 'gps' || el.textContent === 'LIVE'
+        const claim =
+          el.dataset.badge === 'live' ||
+          el.dataset.badge === 'gps' ||
+          (el.childElementCount === 0 && el.textContent === 'LIVE')
         if (claim && el.checkVisibility())
           seen.push(`${Math.round(performance.now())} ms: ${el.outerHTML.slice(0, 80)}`)
       }
