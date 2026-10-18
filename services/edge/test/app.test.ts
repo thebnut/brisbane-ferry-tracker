@@ -66,7 +66,7 @@ async function setup(opts: { modes?: string; warm?: boolean } = {}) {
   )
   if (opts.warm !== false) {
     for (let i = 0; i < 3; i++) {
-      await hub.alarm()
+      await hub.cycle()
       clock.advance(1000)
     }
   }

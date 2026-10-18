@@ -103,7 +103,7 @@ describe('/v1/train', () => {
       config: parseRtModes('train'),
       upstream: 'https://up.test/api/realtime/SEQ',
     })
-    for (let i = 0; i < 2; i++) await hub.alarm()
+    for (let i = 0; i < 2; i++) await hub.cycle()
     const app = createApp({
       store: storeFor(tree, clock.now),
       snapshots: new SnapshotClient(

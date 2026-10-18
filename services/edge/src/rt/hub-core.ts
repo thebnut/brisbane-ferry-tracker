@@ -18,6 +18,9 @@ import { buildAlerts, buildSnapshot, ModeIndex } from './build.ts'
 import { type FeedSpec, feedsFor, type RtConfig } from './feeds.ts'
 
 export const CYCLE_MS = 15_000
+/** Alarm cadence that keeps the object resident (it is evicted after ~10 s idle); polls still run every CYCLE_MS. */
+export const KEEPALIVE_MS = 7_500
+const POLL_SLACK_MS = 500
 export const ALERTS_EVERY_MS = 60_000
 export const FETCH_TIMEOUT_MS = 5_000
 export const WATCHDOG_STALE_MS = 45_000
@@ -65,6 +68,8 @@ export interface HubDeps {
   upstream: string
   r2?: R2Like
   log?: Logger
+  /** Alarm interval; 15 s by default (RT_CYCLE_MS). */
+  cycleMs?: number
   /** Per upstream fetch; 5 s in production, shorter in tests. */
   fetchTimeoutMs?: number
 }
@@ -83,6 +88,9 @@ export interface HubStatus {
   lastError: string | null
   stats: RtSnapshot['header']['stats'] | null
   generations: Partial<Record<Mode, string>>
+  /** When this hub instance (DO isolate) started, and any trip-index load in progress: eviction diagnostics. */
+  startedAt?: number
+  loading?: { mode: Mode; generation: string; loaded: number; of: number } | null
 }
 
 export interface PullResult {
@@ -127,25 +135,41 @@ export class HubCore {
   private alerts: Alert[] = []
   private running: Promise<void> | null = null
   private rawPersistedAt = 0
+  private readonly startedAt: number
+  private readonly cycleMs: number
+  private readonly alarmMs: number
+  private lastPollStart = Number.NEGATIVE_INFINITY
 
   constructor(private readonly d: HubDeps) {
     this.feeds = feedsFor(d.config)
+    this.startedAt = d.now()
+    this.cycleMs = d.cycleMs ?? CYCLE_MS
+    this.alarmMs = Math.min(KEEPALIVE_MS, this.cycleMs)
     this.log = d.log ?? silentLogger
   }
 
   // ---------------------------------------------------------------- scheduling
 
+  /**
+   * The alarm fires every KEEPALIVE_MS (7.5 s) and polls when a full cycle (15 s) has passed since the last poll.
+   * Measured on staging: an object idle for ~10 s between alarms is evicted, so a 15 s chain got a fresh isolate on
+   * every alarm, lost its trip indexes and paid the restore each time. The in-between alarms do no work.
+   */
   async alarm(): Promise<void> {
     // Re-arm first: whatever happens below, the chain continues.
     const started = this.d.now()
-    await this.d.storage.setAlarm(started + CYCLE_MS)
+    await this.d.storage.setAlarm(started + this.alarmMs)
     try {
-      await this.cycle()
+      if (started - this.lastPollStart >= this.cycleMs - POLL_SLACK_MS) {
+        this.lastPollStart = started
+        await this.cycle()
+      }
     } catch (e) {
       this.meta.lastError = errorMessage(e)
       this.log.error('rt cycle failed', { error: this.meta.lastError })
     } finally {
-      if ((await this.d.storage.getAlarm()) == null) await this.d.storage.setAlarm(this.d.now() + CYCLE_MS)
+      if ((await this.d.storage.getAlarm()) == null)
+        await this.d.storage.setAlarm(this.d.now() + this.alarmMs)
     }
   }
 
@@ -203,6 +227,15 @@ export class HubCore {
       lastError: this.meta.lastError,
       stats: h?.stats ?? null,
       generations,
+      startedAt: this.startedAt,
+      loading: this.pending
+        ? {
+            mode: this.pending.mode,
+            generation: this.pending.generation,
+            loaded: this.pending.loaded,
+            of: this.pending.dates.length,
+          }
+        : null,
     }
   }
 
@@ -412,8 +445,10 @@ export class HubCore {
       }
       return false
     }
+    const manifest = await this.d.store.getManifest()
+    if (!manifest) throw new Error('no manifest.json')
     for (const mode of this.d.config.indexModes) {
-      const generation = await this.d.store.currentGeneration(mode)
+      const generation = manifest.modes[mode]?.current
       if (!generation) continue
       const loaded = this.modes.get(mode)
       const index = await this.d.store.getIndex(generation, mode)

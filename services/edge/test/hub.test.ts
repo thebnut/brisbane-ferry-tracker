@@ -9,6 +9,7 @@ import {
   ALERTS_EVERY_MS,
   CYCLE_MS,
   HubCore,
+  KEEPALIVE_MS,
   R2_KEEP_SNAPSHOTS,
   snapshotKey,
   WATCHDOG_STALE_MS,
@@ -93,7 +94,16 @@ describe('RtHub alarm robustness', () => {
     const h = setup()
     await h.hub.alarm()
     expect(h.storage.events[0]).toBe('setAlarm')
-    expect(h.storage.alarmAt).toBe(epoch(D, '07:55:00') * 1000 + CYCLE_MS)
+    expect(h.storage.alarmAt).toBe(epoch(D, '07:55:00') * 1000 + KEEPALIVE_MS)
+  })
+
+  it('keep-alive alarms every 7.5 s, polls every 15 s', async () => {
+    const h = setup()
+    for (let i = 0; i < 8; i++) {
+      await h.hub.alarm()
+      h.clock.advance(KEEPALIVE_MS)
+    }
+    expect(h.up.calls.filter((c) => c.path === TU)).toHaveLength(4)
   })
 
   it('keeps the chain alive when the cycle throws (store unreachable)', async () => {
@@ -104,7 +114,7 @@ describe('RtHub alarm robustness', () => {
     }
     await h.hub.alarm()
     expect(h.storage.alarmAt).not.toBeNull()
-    expect(h.hub.status().lastError).toMatch(/data worker down/)
+    expect(h.hub.status().lastError).toMatch(/no manifest.json|data worker down/)
   })
 
   it('re-arms in finally if the alarm went missing during the cycle', async () => {
@@ -115,7 +125,7 @@ describe('RtHub alarm robustness', () => {
       return orig(u, i)
     }
     await h.hub.alarm()
-    expect(h.storage.alarmAt).toBe(h.clock.t + CYCLE_MS)
+    expect(h.storage.alarmAt).toBe(h.clock.t + KEEPALIVE_MS)
   })
 
   it('times out a hanging upstream fetch and still publishes the other feeds', async () => {
@@ -167,7 +177,7 @@ describe('RtHub alarm robustness', () => {
     // The runtime fires the alarm; the chain continues on its own.
     await h.hub.alarm()
     expect(h.hub.status().lastCycleAt).toBeGreaterThan(before)
-    expect(h.storage.alarmAt).toBe(h.clock.t + CYCLE_MS)
+    expect(h.storage.alarmAt).toBe(h.clock.t + KEEPALIVE_MS)
     expect((await h.hub.ensureRunning()).rearmed).toBe(false)
   })
 

@@ -11,6 +11,8 @@ export interface WorkerEnv {
   /** Modes whose trip indexes the hub loads (default: polled modes except bus, see parseRtModes). */
   RT_INDEX_MODES?: string
   RT_UPSTREAM: string
+  /** Alarm interval in ms (default 15000). */
+  RT_CYCLE_MS?: string
   CORS_ALLOW_ALL?: string
   SPIKE_ENABLED?: string
   /** Secret (wrangler secret put DRILL_TOKEN). Enables POST /__drill/kill-alarm with a bearer token. */

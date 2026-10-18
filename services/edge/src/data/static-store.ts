@@ -74,15 +74,18 @@ export class StaticStore {
     this.manifest = new SharedFetch(
       async () => {
         const raw = await readJson(source, MANIFEST_KEY)
-        return raw == null ? null : Manifest.parse(raw)
+        // Throw rather than cache null, so a manifest that appears later is picked up on the next read.
+        if (raw == null) throw new Error('manifest.json not found')
+        return Manifest.parse(raw)
       },
       opts.manifestMaxAgeMs ?? 60_000,
       opts.now,
     )
   }
 
+  /** The manifest, or null when there is none yet. Read errors after a good read fall back to the last good one. */
   getManifest(): Promise<Manifest | null> {
-    return this.manifest.get()
+    return this.manifest.get().catch(() => null)
   }
 
   async currentGeneration(mode: Mode): Promise<string | null> {
