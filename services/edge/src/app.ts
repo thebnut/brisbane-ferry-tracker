@@ -91,8 +91,15 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const cur = await deps.snapshots.get(waitUntilOf(c))
     const nowMs = now()
     const snap = cur?.snapshot ?? null
-    const genOk = mode == null || (generation != null && snap?.header.staticGeneration[mode] === generation)
-    const rtState: RtState = rtStateFor(snap?.header.sourceTimestamp ?? null, Math.floor(nowMs / 1000), genOk)
+    const hubGen = mode == null ? undefined : snap?.header.staticGeneration[mode]
+    const genOk = mode == null || (generation != null && hubGen === generation)
+    // A mode the hub doesn't index at all (bus, see RT_INDEX_MODES) has no RT to merge: unavailable, not reloading.
+    const indexed = mode == null || hubGen !== undefined
+    const rtState: RtState = rtStateFor(
+      indexed ? (snap?.header.sourceTimestamp ?? null) : null,
+      Math.floor(nowMs / 1000),
+      genOk,
+    )
     const ageS = snap ? Math.max(0, (nowMs - snap.header.fetchedAt) / 1000) : 0
     return {
       cur,

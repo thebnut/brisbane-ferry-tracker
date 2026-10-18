@@ -135,6 +135,12 @@ describe('GET /v1/{mode}/stops/{key}/departures', () => {
     expect(body.departures.every((d) => d.status === 'scheduled' && d.estDep == null)).toBe(true)
   })
 
+  it('is unavailable for a mode the hub does not index', async () => {
+    const s = await setup()
+    const body = VehiclesResponse.parse(await (await s.get('/v1/bus/vehicles')).json())
+    expect(body.rtState).toBe('unavailable')
+  })
+
   it('is unavailable (scheduled rows) before the hub has published anything', async () => {
     const s = await setup({ warm: false })
     const body = DeparturesResponse.parse(await (await s.get('/v1/ferry/stops/317584/departures')).json())
