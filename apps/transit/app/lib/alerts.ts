@@ -7,18 +7,54 @@
 import { alertKind, whenText } from '@bft/bus/app/lib/alerts.ts'
 import { routeShortOf } from '@bft/bus/app/lib/stops.ts'
 import type { Alert, DeparturesResponse } from '@bft/core/contract'
+import { terminalById } from '@bft/ferry/app/lib/terminals.ts'
 import type { AlertSeverityKind, TransitMode } from '@bft/ui'
 import { readSavedItems, type SavedItem } from './saved.ts'
 import { safe } from './storage.ts'
 
 export const ALERT_MODES: TransitMode[] = ['ferry', 'train', 'bus']
 
-/** The alert's mode for the card (first of ferry/train/bus), or null for a network-wide notice. */
-export const alertMode = (a: Alert): TransitMode | null =>
-  (a.modes.find((m) => m !== 'tram') as TransitMode | undefined) ?? null
+/** The mode of a stop id, where it can be told (null: unknown). */
+export type StopModeOf = (stopId: string) => TransitMode | null
+
+/**
+ * Stop ids → mode: ferry terminals are bundled; train platforms need the train network (train-lines.ts
+ * `isTrainPlatform`), and only with it can any other numeric stop id be called a bus stop. Parent ids ("place_…")
+ * stay unknown.
+ */
+export function stopModeOf(isTrainPlatform?: (stopId: string) => boolean): StopModeOf {
+  return (id) =>
+    terminalById(id)
+      ? 'ferry'
+      : !isTrainPlatform
+        ? null
+        : isTrainPlatform(id)
+          ? 'train'
+          : /^\d+$/.test(id)
+            ? 'bus'
+            : null
+}
+
+/**
+ * The alert's modes (R2-X7b): the feed's own, else the modes of its stops (TransLink often sends a stop closure with
+ * no mode). Null for a network-wide notice (no route, no stop); empty when its routes or stops can't be placed, so it
+ * shows under All but under no mode chip.
+ */
+export function alertModes(a: Alert, stopMode?: StopModeOf): TransitMode[] | null {
+  const own = a.modes.filter((m): m is TransitMode => m !== 'tram')
+  if (own.length) return own
+  if (a.modes.length) return []
+  if (a.routes.length === 0 && a.stops.length === 0) return null
+  const fromStops = stopMode ? a.stops.map(stopMode).filter((m): m is TransitMode => m != null) : []
+  return [...new Set(fromStops)]
+}
+
+/** The alert's mode for the card (first of ferry/train/bus), or null for a network-wide or unplaced notice. */
+export const alertMode = (a: Alert, stopMode?: StopModeOf): TransitMode | null =>
+  alertModes(a, stopMode)?.[0] ?? null
 
 /** Does the alert belong under a mode chip? Network-wide notices show under every mode. */
-export const inMode = (a: Alert, m: TransitMode) => a.modes.length === 0 || a.modes.includes(m)
+export const inMode = (a: Alert, m: TransitMode, modes = alertModes(a)) => modes == null || modes.includes(m)
 
 export function severityOf(a: Alert, nowS: number): AlertSeverityKind {
   const kind = alertKind(a, nowS)
@@ -54,10 +90,10 @@ function stopsText(a: Alert): string {
  * "ALL SERVICES". An alert with stops but no routes always says which stops (X3): TransLink often leaves its mode
  * unknown, which used to read as "ALL SERVICES" for a single stop closure.
  */
-export function scopeText(a: Alert, trainLines?: TrainLinesOf): string {
+export function scopeText(a: Alert, trainLines?: TrainLinesOf, stopMode?: StopModeOf): string {
   const lines = trainLines?.(a) ?? []
   // No mode from the feed, but its routes are train lines (e.g. a closure sent before the train index loaded).
-  const mode = alertMode(a) ?? (lines.length ? 'train' : null)
+  const mode = alertMode(a, stopMode) ?? (lines.length ? 'train' : null)
   if (!mode) return a.stops.length ? stopsText(a) : 'ALL SERVICES'
   const head = mode.toUpperCase()
   const shorts = [...new Set(a.routes.map(routeShortOf))]
