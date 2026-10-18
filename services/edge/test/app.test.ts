@@ -2,6 +2,7 @@ import {
   AlertsResponse,
   DeparturesResponse,
   ErrorResponse,
+  GeoTileFile,
   HealthResponse,
   TripResponse,
   VehiclesResponse,
@@ -285,6 +286,29 @@ describe('other /v1 routes', () => {
     expect((await s.get(`/v1/ferry/trips/NOPE@${D}`)).status).toBe(404)
   })
 
+  it('an added trip never departs a stop before it arrives (estDep clamped to estArr)', async () => {
+    const s = await setup()
+    // TransLink can send a departure prediction earlier than the arrival at the same stop (big early predictions).
+    s.up.set(
+      'TripUpdates/Ferry',
+      feed(s.nowS(), [
+        tripUpdate('x', { tripId: 'X1', startDate: D, routeId: 'F1-4055', scheduleRelationship: 1 }, [
+          { seq: 1, stopId: '317584', arrTime: epoch(D, '09:00:40'), depTime: epoch(D, '09:00:10') },
+          { seq: 2, stopId: '317590', arrTime: epoch(D, '09:12:00') },
+        ]),
+      ]),
+    )
+    for (let i = 0; i < 3; i++) {
+      await s.hub.cycle()
+      s.clock.advance(1000)
+    }
+    const res = await s.get(`/v1/ferry/trips/${encodeURIComponent(`rt:X1@${D}`)}`)
+    expect(res.status).toBe(200)
+    const body = TripResponse.parse(await res.json())
+    expect(body.stops[0]).toMatchObject({ estArr: epoch(D, '09:00:40'), estDep: epoch(D, '09:00:40') })
+    for (const stop of body.stops) expect(stop.estDep ?? 0).toBeGreaterThanOrEqual(stop.estArr ?? 0)
+  })
+
   it('vehicles filtered by mode, route and a snapped bbox', async () => {
     const s = await setup()
     const all = VehiclesResponse.parse(await (await s.get('/v1/ferry/vehicles')).json())
@@ -351,6 +375,16 @@ describe('other /v1 routes', () => {
     expect(d.status).toBe(200)
     expect(await d.json()).toMatchObject({ mode: 'ferry' })
     expect((await s.get('/data/ferry/nope.json')).status).toBe(404)
+    // A tile with no stops isn't published: a well-formed tile path is an empty tile, not a 404 (X2).
+    const empty = await s.get('/data/ferry/geo/r7hu1.json')
+    expect(empty.status).toBe(200)
+    expect(GeoTileFile.parse(await empty.json())).toMatchObject({
+      mode: 'ferry',
+      geohash: 'r7hu1',
+      stops: [],
+    })
+    expect((await s.get('/data/ferry/geo/r7hu.json')).status).toBe(404)
+    expect((await s.get('/data/ferry/geo/aaaaa.json')).status).toBe(404)
     const l = await s.get('/schedule-data/latest.json')
     expect(l.status).toBe(200)
     expect(await l.json()).toMatchObject({ generated: '2026-10-19T17:20:00Z' })

@@ -3,6 +3,7 @@
  * full-day timetable of a favourite ("Offline · scheduled").
  */
 import type { DeparturesResponse } from '@bft/core/contract'
+import { isOnline } from '@bft/ui/connectivity'
 import { QueryClient, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import {
@@ -44,8 +45,8 @@ export function useFetcher(mode: DataMode): ApiFetcher {
   return useMemo(() => browserFetcher(mode), [mode])
 }
 
-/** Is the browser offline? (false during SSR). */
-const isOffline = () => typeof navigator !== 'undefined' && !navigator.onLine
+/** Is the browser offline, or are API calls failing? (false during SSR). */
+const isOffline = () => !isOnline()
 
 export function departuresOptions(
   fetcher: ApiFetcher,

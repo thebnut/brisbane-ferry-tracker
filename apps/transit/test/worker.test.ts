@@ -149,12 +149,14 @@ describe('fixtures', () => {
     expect(modes.has('bus')).toBe(true)
   })
 
-  it('ferry and train geo tiles come from the apps’ stop lists; empty cells are 404', async () => {
+  it('ferry and train geo tiles come from the apps’ stop lists; empty cells are empty tiles', async () => {
     const ferry = fixtureData('/data/ferry/geo/r7hgd.json')
     expect(GeoTileFile.parse(await ferry?.json()).stops.length).toBeGreaterThan(0)
     const train = fixtureData('/data/train/geo/r7hgd.json')
     expect(GeoTileFile.parse(await train?.json()).stops.some((s) => s.key === 'central')).toBe(true)
-    expect(fixtureData('/data/ferry/geo/zzzzz.json')?.status).toBe(404)
+    const empty = fixtureData('/data/ferry/geo/zzzzz.json')
+    expect(empty?.status).toBe(200)
+    expect(GeoTileFile.parse(await empty?.json()).stops).toEqual([])
   })
 
   it('each mode is answered by its own app’s fixture API', async () => {

@@ -77,7 +77,7 @@ describe('board helpers', () => {
     expect(asScheduled(dep({}))).toMatchObject({ status: 'scheduled', estDep: null, gps: false })
     expect(boardState(undefined, true, NOW, NOW)).toBe('offline')
   })
-  it('live only while the source and the last refresh are fresh', () => {
+  it('live only while the TransLink source and the response itself are fresh', () => {
     const res = {
       schemaVersion: 1 as const,
       staticGeneration: 'g',
@@ -90,11 +90,13 @@ describe('board helpers', () => {
       to: null,
       departures: [],
     }
-    expect(boardState(res, false, NOW, NOW - 15_000)).toBeNull()
-    // Refreshes failing for over a minute: stale, even though the last body said live.
-    expect(boardState(res, false, NOW, NOW - 90_000)).toBe('stale')
-    expect(boardState({ ...res, rtSourceTimestamp: NOW / 1000 - 400 }, false, NOW, NOW)).toBe('stale')
-    expect(boardState({ ...res, rtState: 'unavailable' }, false, NOW, NOW)).toBe('unavailable')
+    expect(boardState(res, false, NOW)).toBeNull()
+    expect(boardState(res, true, NOW)).toBe('offline')
+    // Generated over a minute ago (failing refreshes, or a copy from the service worker's cache that was fetched just
+    // now): stale, even though the body says live. Judged on the data's own timestamp, not the fetch time.
+    expect(boardState({ ...res, generatedAt: NOW - 90_000 }, false, NOW)).toBe('stale')
+    expect(boardState({ ...res, rtSourceTimestamp: NOW / 1000 - 400 }, false, NOW)).toBe('stale')
+    expect(boardState({ ...res, rtState: 'unavailable' }, false, NOW)).toBe('unavailable')
   })
   it('re-sorts by timetable time when live estimates are dropped', () => {
     const late = dep({ tripInstance: 'a@20261018', schedDep: s(19, 45), estDep: s(19, 50) })

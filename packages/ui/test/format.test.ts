@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  arrivalAfter,
   countdownTone,
   dayMarker,
   delayText,
@@ -8,6 +9,8 @@ import {
   formatCountdown,
   formatDistance,
   formatDuration,
+  formatWhen,
+  minutesBetween,
   minutesUntil,
   statusNote,
   vesselName,
@@ -97,5 +100,29 @@ describe('formatDistance', () => {
     expect(formatDistance(4)).toBe('10 m')
     expect(formatDistance(123)).toBe('120 m')
     expect(formatDistance(1890)).toBe('1.9 km')
+  })
+})
+
+describe('clock-consistent durations (F2)', () => {
+  const t = (h: number, m: number, sec = 0) => Date.UTC(2026, 9, 18, h - 10, m, sec) / 1000
+  it('durations and delays are the difference of the clock minutes shown', () => {
+    // "9:02 pm → 9:04 pm" is 2 mins even though only 80 s apart.
+    expect(formatClock(t(21, 2, 50))).toBe('9:02 pm')
+    expect(formatClock(t(21, 4, 10))).toBe('9:04 pm')
+    expect(minutesBetween(t(21, 2, 50), t(21, 4, 10))).toBe(2)
+    // Same clock minute: no "1 min late" next to two equal times.
+    expect(delayText(t(21, 2), t(21, 2, 59))).toBeNull()
+    expect(statusNote(true, t(21, 2), t(21, 2, 59))).toBe('Sched Dept: 9:02 pm')
+    // Scheduled 9:31, shown 9:19 (40 s past): 12 min early, as the two clocks read.
+    expect(delayText(t(21, 31), t(21, 19, 40))).toBe('12 min early')
+  })
+  it('an arrival is never shown before its departure', () => {
+    expect(arrivalAfter(t(21, 36, 29), t(21, 35))).toBe(t(21, 36, 29))
+    expect(arrivalAfter(t(21, 36), t(21, 50))).toBe(t(21, 50))
+  })
+  it('formatWhen: clock today, weekday and date otherwise', () => {
+    const now = t(21, 0) * 1000
+    expect(formatWhen(t(22, 59), now)).toBe('10:59 pm')
+    expect(formatWhen(t(21, 0) + 6 * 86400 - 18 * 3600, now)).toBe('Sat 24 Oct, 3:00 am')
   })
 })

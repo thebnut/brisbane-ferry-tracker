@@ -37,8 +37,12 @@ test('search p95 under 50 ms at 4× CPU throttle', async ({ page, browserName, i
   })
   for (const q of QUERIES) {
     await field.fill('')
+    const before = await page.evaluate(() => window.__bftSearch?.times.length ?? 0)
     await field.pressSequentially(q, { delay: 60 })
-    await expect(page.getByRole('list', { name: 'Matching stops' }).locator('visible=true')).toBeVisible()
+    // Wait for the search itself, not for results: the fixture subset has no match for some queries ("gympie rd").
+    await expect
+      .poll(() => page.evaluate(() => window.__bftSearch?.times.length ?? 0))
+      .toBeGreaterThan(before)
   }
   const times = await page.evaluate(() => window.__bftSearch?.times ?? [])
   const sorted = [...times].sort((a, b) => a - b)

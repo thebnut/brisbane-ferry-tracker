@@ -17,12 +17,12 @@ import {
 } from '@bft/ui'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { SECTION, Shell } from '../components/Chrome.tsx'
+import { SECTION, Shell, useReportLive } from '../components/Chrome.tsx'
 import { boardHref } from '../components/StationBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
 import { at } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
-import { effectiveDep, trainCard } from '../lib/departures.ts'
+import { boardState, effectiveDep, trainCard, visibleRows } from '../lib/departures.ts'
 import { lineLabel } from '../lib/lineNames.ts'
 import { STATIONS, type Station, stationByKey, stationHref } from '../lib/network.ts'
 import { canPrefetch, prefetchFavourites } from '../lib/offline.ts'
@@ -30,7 +30,7 @@ import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import { HOME_META, homeJsonLd, pageMeta } from '../lib/seo.ts'
 import { loaderEnv, settle, siteInfo } from '../lib/server.server.ts'
 import { type Favourite, favouriteId, favouritesFromCookie, readFavourites } from '../lib/storage.ts'
-import { useNow } from '../lib/useNow.ts'
+import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/home'
 
 const POPULAR = [
@@ -73,6 +73,19 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   ]
 }
 
+/** A query's rows as the board would show them (timetable only unless live, departed trains dropped). */
+function useLiveRows(key: string, q: ReturnType<typeof useDepartures>, nowMs: number) {
+  const online = useOnline()
+  const state = boardState(
+    q.data,
+    !online || (q.data as { offline?: boolean } | undefined)?.offline === true,
+    nowMs,
+  )
+  // The header pill is LIVE only while every board on the page is.
+  useReportLive(key, state == null)
+  return visibleRows(q.data?.departures ?? [], state, nowMs)
+}
+
 function FavouriteCard({
   fav,
   initial,
@@ -90,7 +103,9 @@ function FavouriteCard({
   const q = useDepartures(fetcher, mode, fav.from, fav.to, initial, 4)
   const from = stationByKey(fav.from) as Station
   const to = stationByKey(fav.to)
-  const rows = (q.data?.departures ?? []).filter((d) => d.status !== 'cancelled')
+  const rows = useLiveRows(`fav:${fav.from}>${fav.to ?? ''}`, q, nowMs).filter(
+    (d) => d.status !== 'cancelled',
+  )
   const next = rows[0] ? trainCard(rows[0], nowMs, fav.from, fav.to) : null
   const then = rows.slice(1, 3)
   return (
@@ -198,8 +213,9 @@ const metres = (lat: number, lon: number, s: Station) => {
 function NearestLines({ station, nowMs, mode }: { station: Station; nowMs: number; mode: DataMode }) {
   const fetcher = useFetcher(mode)
   const q = useDepartures(fetcher, mode, station.key, null, null, 12)
+  const rows = useLiveRows(`nearest:${station.key}`, q, nowMs)
   const perLine = new Map<string, { name: string; color: string; mins: number }>()
-  for (const d of q.data?.departures ?? []) {
+  for (const d of rows) {
     if (d.status === 'cancelled') continue
     const c = trainCard(d, nowMs, station.key, null)
     const k = `${c.line.name}|${c.headsign}`
@@ -286,7 +302,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   }, [fetcher])
 
   return (
-    <Shell active="home">
+    <Shell
+      active="home"
+      // From the loader data until the cards report (useReportLive).
+      live={Object.values(loaderData.boards).every((r) => !r || boardState(r, false, nowMs) == null)}
+    >
       <div className="mx-auto flex max-w-2xl flex-col gap-3.5">
         <h1 className="text-xl font-extrabold">Your trips</h1>
         {favourites.length ? (

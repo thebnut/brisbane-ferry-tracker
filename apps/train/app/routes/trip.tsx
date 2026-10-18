@@ -9,11 +9,14 @@ import {
   formatDuration,
   Icon,
   LineChip,
+  liveState,
+  minutesBetween,
   minutesUntil,
   OfflineBanner,
   PlatformTile,
   ServiceTimeline,
   StatusBadge,
+  tripAsTimetable,
 } from '@bft/ui'
 import { useMemo } from 'react'
 import { data, Link, useRouteLoaderData } from 'react-router'
@@ -69,9 +72,12 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const fetcher = useFetcher(mode)
   const socket = useTripSocket(root?.tripWs ?? null, key, mode)
   const q = useTrip(fetcher, mode, key, loaderData.trip, !socket.connected)
-  const trip = q.data ?? loaderData.trip
   const nowMs = useNow(renderedAt, 1000)
   const online = useOnline()
+  // Offline, or data too old to call live: the timetable only (no LIVE/GPS badge, estimates or position).
+  const raw = q.data ?? loaderData.trip
+  const state = liveState(raw ?? undefined, { offline: !online, nowMs })
+  const trip = raw && state != null ? tripAsTimetable(raw) : raw
   const nowS = Math.floor(nowMs / 1000)
   const view = useMemo(() => (trip ? buildTimeline(trip, nowS, from, to) : null), [trip, nowS, from, to])
 
@@ -99,7 +105,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const backTo = boardKey ? `${stationHref(boardKey)}${to ? `?to=${to}` : ''}` : at('/stations')
 
   return (
-    <Shell active="stations">
+    <Shell active="stations" live={state == null}>
       <div className="mx-auto flex max-w-2xl flex-col gap-3.5">
         <Link
           to={backTo}
@@ -114,7 +120,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
             detail="Showing the last update. Live positions resume when you're back online."
           />
         ) : null}
-        {online && trip.rtState !== 'live' ? <OfflineBanner kind={trip.rtState} /> : null}
+        {online && state != null && state !== 'offline' ? <OfflineBanner kind={state} /> : null}
         <section
           aria-labelledby="trip-title"
           className={
@@ -161,7 +167,9 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
             </div>
             <div className="flex flex-col gap-1">
               <dt className="text-xs text-gray-600 dark:text-night-text/70">Journey</dt>
-              <dd className="font-bold tabular">{dep && arr ? formatDuration((arr - dep) / 60) : '—'}</dd>
+              <dd className="font-bold tabular">
+                {dep && arr ? formatDuration(Math.max(0, minutesBetween(dep, arr))) : '—'}
+              </dd>
             </div>
             <div className="flex flex-col gap-1">
               <dt className="text-xs text-gray-600 dark:text-night-text/70">Occupancy</dt>

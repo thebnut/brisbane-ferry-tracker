@@ -1,14 +1,20 @@
 /** Map /v1 departures to train departure-card view models (T-Departures). */
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import {
+  arrivalAfter,
   type BadgeKind,
   dayMarker,
   delayText,
+  dropDeparted,
   formatClock,
   formatDuration,
+  type LiveState,
+  liveState,
+  minutesBetween,
   minutesUntil,
   type PatternStop,
   statusNote,
+  timetableStatus,
 } from '@bft/ui'
 import { cleanStopName } from './names.ts'
 import { type DisplayLine, lineFor, stationKeyOfStop, stripFor } from './network.ts'
@@ -23,17 +29,11 @@ export function asScheduled(d: Departure): Departure {
   return {
     ...rest,
     platform: scheduledPlatform ?? d.platform,
-    status: 'scheduled',
+    status: timetableStatus(d.status),
     estDep: null,
     estArrTo: null,
     gps: false,
   }
-}
-
-/** "3:04" when the arrival has the same am/pm as the departure ("2:52 pm → 3:04"), as in T-Departures. */
-export function shortArrival(dep: string, arr: string): string {
-  const suffix = / (am|pm)$/.exec(dep)?.[0]
-  return suffix && arr.endsWith(suffix) ? arr.slice(0, -suffix.length) : arr
 }
 
 export interface TrainCard {
@@ -63,7 +63,8 @@ export interface TrainCard {
 export function trainCard(d: Departure, nowMs: number, from: string, to: string | null): TrainCard {
   const live = d.status === 'live'
   const dep = effectiveDep(d)
-  const arr = d.estArrTo ?? d.schedArrTo
+  const rawArr = d.estArrTo ?? d.schedArrTo
+  const arr = rawArr != null ? arrivalAfter(dep, rawArr) : null
   const line = lineFor(d.route, d.headsign)
   const headsign = cleanStopName(d.headsign)
   const stopsAfter = d.stopsAfter
@@ -78,7 +79,8 @@ export function trainCard(d: Departure, nowMs: number, from: string, to: string 
   if (d.status === 'cancelled') badges.push('cancelled')
   if (d.status === 'skipped') badges.push('skipped')
   if (d.status === 'unknown') badges.push('unknown')
-  const journeyMins = arr != null ? Math.round((arr - dep) / 60) : null
+  // From the clock minutes shown, so the journey always matches the two times on the card.
+  const journeyMins = arr != null ? minutesBetween(dep, arr) : null
   const cancelled = d.status === 'cancelled'
   const skipped = d.status === 'skipped'
   const time = formatClock(dep)
@@ -98,8 +100,7 @@ export function trainCard(d: Departure, nowMs: number, from: string, to: string 
     tripInstance: d.tripInstance,
     time,
     dayMarker: dayMarker(dep, nowMs),
-    arrival:
-      arr != null ? { time: shortArrival(time, formatClock(arr)), dayMarker: dayMarker(arr, nowMs) } : null,
+    arrival: arr != null ? { time: formatClock(arr), dayMarker: dayMarker(arr, nowMs) } : null,
     journey: journeyMins != null && journeyMins > 0 ? formatDuration(journeyMins) : null,
     badges,
     line,
@@ -122,11 +123,18 @@ export function trainCard(d: Departure, nowMs: number, from: string, to: string 
   }
 }
 
-/** The data state a board shows, for the status banner. */
-export function boardState(res: DeparturesResponse | undefined, offline: boolean) {
-  if (offline) return 'offline' as const
-  if (!res) return null
-  return res.rtState === 'live' ? null : res.rtState
+/**
+ * The data state a board shows (shared rule, @bft/ui liveState): null = live; otherwise the banner, and the rows are
+ * shown as timetable times. Offline, the API's rtState, or data that is too old to call live.
+ */
+export function boardState(res: DeparturesResponse | undefined, offline: boolean, nowMs: number): LiveState {
+  return liveState(res, { offline, nowMs })
+}
+
+/** Rows to show: live claims removed unless live, and trains that have left dropped (@bft/ui dropDeparted). */
+export function visibleRows(list: Departure[], state: LiveState, nowMs: number): Departure[] {
+  const rows = state == null ? list : list.map(asScheduled)
+  return dropDeparted(rows, effectiveDep, nowMs, state == null)
 }
 
 /** Live platform changes in a list (for the "Platform change" banner). */

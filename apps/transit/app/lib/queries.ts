@@ -1,5 +1,6 @@
 /** TanStack Query hooks for the transit pages: 15 s polling while visible, tiles kept for the session. */
 import type { AlertsResponse, Departure, DeparturesResponse } from '@bft/core/contract'
+import { isOnline } from '@bft/ui/connectivity'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useRouteLoaderData } from 'react-router'
@@ -26,7 +27,8 @@ export function useApi(): { mode: DataMode; fetcher: ApiFetcher } {
 }
 
 // Browser only: workerd has a `navigator` without `onLine`, which must not read as offline during SSR.
-export const isOffline = () => typeof window !== 'undefined' && navigator.onLine === false
+/** Offline, or API calls failing / answered from the service worker's cache (@bft/ui connectivity). */
+export const isOffline = () => !isOnline()
 
 export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsResponse | null = null) {
   return useQuery({

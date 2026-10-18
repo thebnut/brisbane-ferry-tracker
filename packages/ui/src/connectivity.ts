@@ -1,0 +1,169 @@
+/**
+ * Connectivity and live-data freshness, shared by every app so they all say "offline" at the same moment.
+ *
+ * "Online" means the browser says so (navigator.onLine and its online/offline events) AND the last API call reached
+ * the network. A call counts as failed when fetch() throws, when the service worker answered from its cache (its data
+ * caches mark those responses, see `markCacheHits`), or when it is still unanswered after `SLOW_REQUEST_MS` (lie-fi).
+ * The next call that reaches the network clears it, and so does the browser's own "online" event.
+ */
+import { useSyncExternalStore } from 'react'
+
+/** Header the service worker adds to /v1 responses it serves from its cache instead of the network. */
+export const SW_CACHE_HEADER = 'x-bft-cache'
+
+/** A request still unanswered after this long marks the connection as down until a request succeeds. */
+export const SLOW_REQUEST_MS = 8_000
+
+/** Live data whose TransLink source is older than this is shown as timetable times. */
+export const LIVE_SOURCE_MAX_AGE_S = 300
+/**
+ * Live data generated longer ago than this is shown as timetable. Judged on the response's own `generatedAt`, never
+ * on when it was fetched: a copy from the service worker's cache (or a page reloaded from it) is fetched "now" but
+ * generated minutes ago. Polling is every 15 s, so this is four missed refreshes.
+ */
+export const LIVE_REFRESH_MAX_AGE_MS = 60_000
+
+let unreachable = false
+const listeners = new Set<() => void>()
+
+function setUnreachable(value: boolean) {
+  if (unreachable === value) return
+  unreachable = value
+  for (const l of listeners) l()
+}
+
+/** An API call couldn't reach the network. */
+export const reportOffline = () => setUnreachable(true)
+/** An API call reached the network. */
+export const reportOnline = () => setUnreachable(false)
+
+/** Current answer, outside React (false only in a browser that is offline or whose API calls are failing). */
+export function isOnline(): boolean {
+  if (typeof window === 'undefined') return true
+  // workerd has a `navigator` without `onLine`; only an explicit false counts.
+  return navigator.onLine !== false && !unreachable
+}
+
+/** The browser says it is back online: trust it until a request fails again (the next poll checks at once). */
+const onBrowserOnline = () => setUnreachable(false)
+
+function subscribe(onChange: () => void) {
+  if (listeners.size === 0) window.addEventListener('online', onBrowserOnline)
+  listeners.add(onChange)
+  window.addEventListener('online', onChange)
+  window.addEventListener('offline', onChange)
+  return () => {
+    listeners.delete(onChange)
+    if (listeners.size === 0) window.removeEventListener('online', onBrowserOnline)
+    window.removeEventListener('online', onChange)
+    window.removeEventListener('offline', onChange)
+  }
+}
+
+/** `isOnline()` as React state: true during SSR and hydration, then the live answer. */
+export function useOnline(): boolean {
+  return useSyncExternalStore(subscribe, isOnline, () => true)
+}
+
+/** Live API paths (/v1/…, and the fixture copies under /__fixtures/v1/…). */
+const LIVE_PATH = /^(?:https?:\/\/[^/]+)?(?:\/__fixtures)?\/v1\//
+
+/**
+ * fetch() that reports whether the network answered (see the module comment). Browser only. Any failure counts, but
+ * only a live /v1 response from the network clears it: static data files (stop indexes, geo tiles) come from
+ * stale-while-revalidate caches even with no connection, so they say nothing about being online.
+ */
+export async function trackedFetch(input: string, init?: RequestInit): Promise<Response> {
+  const live = LIVE_PATH.test(input)
+  const slow = live ? setTimeout(reportOffline, SLOW_REQUEST_MS) : undefined
+  try {
+    const res = await fetch(input, init)
+    if (res.headers.get(SW_CACHE_HEADER)) reportOffline()
+    else if (live) reportOnline()
+    return res
+  } catch (error) {
+    if (!init?.signal?.aborted) reportOffline()
+    throw error
+  } finally {
+    clearTimeout(slow)
+  }
+}
+
+/**
+ * Workbox runtime-caching plugin for the /v1 data caches: marks a response served from the cache (the network failed
+ * or timed out) with `SW_CACHE_HEADER`, so the page knows it is looking at an old copy. workbox-build serialises it
+ * into the generated service worker with toString(), so it must not reference anything outside its own body.
+ */
+export const markCacheHits = {
+  // One expression on purpose: the generated service worker joins lines with spaces, and this codebase's style has no
+  // semicolons, so statements would run together (test/connectivity.test.ts compiles the serialised form).
+  cachedResponseWillBeUsed: async ({ cachedResponse }: { cachedResponse?: Response }) =>
+    cachedResponse &&
+    new Response(cachedResponse.body, {
+      status: cachedResponse.status,
+      statusText: cachedResponse.statusText,
+      headers: new Headers([...cachedResponse.headers, ['x-bft-cache', 'sw']]),
+    }),
+}
+
+export type LiveState = 'offline' | 'stale' | 'reloading' | 'unavailable' | null
+
+/**
+ * What a board can honestly claim. null = live. Otherwise the banner to show, and the rows fall back to timetable
+ * times: offline, the API's own rtState, or 'stale' when the TransLink source is over 5 min old or the response was
+ * generated over a minute ago (both judged on the data's own timestamps).
+ */
+export function liveState(
+  res: { rtState: string; rtSourceTimestamp: number | null; generatedAt: number } | undefined,
+  { offline, nowMs }: { offline: boolean; nowMs: number },
+): LiveState {
+  if (offline) return 'offline'
+  if (!res) return null
+  if (res.rtState !== 'live') {
+    return res.rtState === 'stale' || res.rtState === 'reloading' || res.rtState === 'unavailable'
+      ? res.rtState
+      : 'unavailable'
+  }
+  const sourceAge = res.rtSourceTimestamp == null ? Infinity : nowMs / 1000 - res.rtSourceTimestamp
+  if (sourceAge > LIVE_SOURCE_MAX_AGE_S || nowMs - res.generatedAt > LIVE_REFRESH_MAX_AGE_MS) return 'stale'
+  return null
+}
+
+/**
+ * A row's status once live estimates are removed: only "live" becomes "scheduled". Cancelled and skipped stay (never
+ * boardable), and so does "unknown" (core's stale cancellation: it must not read as an ordinary scheduled service).
+ */
+export function timetableStatus<S extends string>(status: S): S | 'scheduled' {
+  return status === 'live' ? 'scheduled' : status
+}
+
+/**
+ * A trip detail with its live claims removed (offline, or data too old): no vehicle (so no GPS badge or position), no
+ * live estimates, statuses per `timetableStatus`.
+ */
+export function tripAsTimetable<
+  T extends {
+    status: string
+    vehicle: unknown
+    stops: Array<{ status: string; estArr: number | null; estDep: number | null }>
+  },
+>(trip: T): T {
+  return {
+    ...trip,
+    status: timetableStatus(trip.status),
+    vehicle: null,
+    stops: trip.stops.map((s) => ({ ...s, status: timetableStatus(s.status), estArr: null, estDep: null })),
+  }
+}
+
+/** Rows that left more than a minute ago are dropped while live. */
+export const DEPARTED_GRACE_S = 60
+
+/**
+ * Remove rows that have already left. While live a row stays for a minute as "Departing"; when the data isn't live
+ * (offline, stale) a row is gone once its time has passed, since nothing can confirm it is still at the stop.
+ */
+export function dropDeparted<T>(rows: T[], departsAt: (row: T) => number, nowMs: number, live: boolean): T[] {
+  const cutoff = nowMs / 1000 - (live ? DEPARTED_GRACE_S : 0)
+  return rows.filter((r) => departsAt(r) >= cutoff)
+}

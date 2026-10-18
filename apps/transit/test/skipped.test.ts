@@ -70,4 +70,26 @@ describe('skipped services', () => {
       boardable: false,
     })
   })
+
+  it('Ask rows mark next-day times like the boards (X6)', () => {
+    const lateNight = Date.UTC(2026, 9, 18, 13, 50) // 11:50 pm Sun 18 Oct, Brisbane
+    const row = {
+      tripInstance: 't',
+      route: 'F1',
+      headsign: 'UQ St Lucia',
+      platform: null,
+      departs: '5:49 am',
+      inMinutes: 359,
+      arrives: '6:30 am',
+      status: 'scheduled' as const,
+    }
+    expect(askRowProps(row, lateNight)).toMatchObject({
+      dayMarker: '(19/10)',
+      arrival: { time: '6:30 am', dayMarker: '(19/10)' },
+    })
+    // Leaves tonight, arrives after midnight.
+    const p = askRowProps({ ...row, departs: '11:55 pm', inMinutes: 5, arrives: '12:20 am' }, lateNight)
+    expect(p.dayMarker).toBeNull()
+    expect(p.arrival?.dayMarker).toBe('(19/10)')
+  })
 })

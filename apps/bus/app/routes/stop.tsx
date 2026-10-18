@@ -14,12 +14,12 @@ import { at } from '../lib/base.ts'
 import { validateAlerts, validateDepartures } from '../lib/contract.server.ts'
 import { isActive, routesIn } from '../lib/departures.ts'
 import { useApi } from '../lib/mode.ts'
-import { useAlerts, useDepartures } from '../lib/queries.ts'
+import { liveView, useAlerts, useDepartures } from '../lib/queries.ts'
 import { pageMeta, SITE_URL, stopJsonLd, stopMetaTags } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
 import { routeHref, routeShortOf, stopMeta } from '../lib/stops.ts'
 import { pushRecent, toggleSaved, useSavedStops } from '../lib/storage.ts'
-import { useNow } from '../lib/useNow.ts'
+import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/stop'
 
 const StopMap = lazy(() => import('../components/StopMap.tsx'))
@@ -78,7 +78,9 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
   const saved = useSavedStops()
   const [route, setRoute] = useState('all')
   const [showMap, setShowMap] = useState(false)
-  const res = q.data
+  // Timetable only unless the data is live and fresh (offline, cached copy, stale).
+  const online = useOnline()
+  const { data: res, state } = liveView(stopId, q.data, now, online)
   const name = res?.stop.name ?? `Stop ${stopId}`
   const routes = useMemo(() => (res ? routesIn(res.departures) : []), [res])
   const platform = res?.departures.find((d) => d.stopId === stopId)?.platform ?? null
@@ -92,7 +94,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
 
   return (
     <>
-      <SiteHeader live={res?.rtState === 'live'} />
+      <SiteHeader live={state == null && res?.rtState === 'live'} />
       <UpdatedStrip
         updatedAt={res?.generatedAt ?? null}
         sourceS={res?.rtSourceTimestamp ?? null}

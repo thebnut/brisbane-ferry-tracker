@@ -9,6 +9,7 @@ import emblem from '@bft/ui/assets/emblem-transit.svg?url'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { useRouteLoaderData } from 'react-router'
 import { FIXTURE_COOKIE } from '../lib/storage.ts'
+import { useOnline } from '../lib/useNow.ts'
 
 // Loaded on first open: keeps the bottom sheet and segmented control off every page's first load.
 const SettingsSheet = lazy(() => import('./SettingsSheet.tsx'))
@@ -36,6 +37,8 @@ export function FixtureNotice() {
 
 export function TransitHeader({ live = true }: { live?: boolean }) {
   const [settings, setSettings] = useState(false)
+  // Never LIVE while offline, whatever the page's data says.
+  const online = useOnline()
   return (
     <>
       <AppHeader mode="transit" logoSrc={emblem}>
@@ -45,7 +48,7 @@ export function TransitHeader({ live = true }: { live?: boolean }) {
         <span className="hidden md:inline">
           <SettingsPill onClick={() => setSettings(true)} />
         </span>
-        <LivePill live={live} />
+        <LivePill live={live && online} />
       </AppHeader>
       <FixtureNotice />
       {settings ? (

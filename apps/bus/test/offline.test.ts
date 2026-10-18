@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { asOfflineTimetable } from '../app/lib/queries.ts'
+import { asOfflineTimetable, liveView } from '../app/lib/queries.ts'
 import { writeOffline } from '../app/lib/storage.ts'
 
 const NOW = 1_792_300_000_000
@@ -46,7 +46,8 @@ describe('offline timetable', () => {
     )
     expect(out?.rtState).toBe('unavailable')
     expect(out?.rtSourceTimestamp).toBeNull()
-    expect(out?.departures.map((d) => d.status)).toEqual(['scheduled', 'scheduled', 'cancelled'])
+    // Offline nothing confirms a bus is still at the stop, so one that left 30 s ago is gone too.
+    expect(out?.departures.map((d) => d.status)).toEqual(['scheduled', 'cancelled'])
     expect(out?.departures.every((d) => d.estDep == null && !d.gps)).toBe(true)
   })
   it('prefers the longer saved timetable copy', () => {
@@ -55,5 +56,32 @@ describe('offline timetable', () => {
   })
   it('returns null with nothing to show', () => {
     expect(asOfflineTimetable('10802', null, NOW)).toBeNull()
+  })
+})
+
+describe('liveView (B3/B4)', () => {
+  it('fresh live data passes through; old data loses live claims but keeps unknown, skipped and cancelled', () => {
+    const r = res([
+      row(300),
+      row(400, { status: 'unknown' }),
+      row(500, { status: 'skipped' }),
+      row(600, { status: 'cancelled' }),
+    ])
+    expect(liveView('10802', { ...r, generatedAt: NOW }, NOW, true)).toMatchObject({ state: null })
+    const old = liveView('10802', { ...r, generatedAt: NOW - 120_000 }, NOW, true)
+    expect(old.state).toBe('stale')
+    expect(old.data?.rtState).toBe('stale')
+    expect(old.data?.departures.map((d) => d.status)).toEqual([
+      'scheduled',
+      'unknown',
+      'skipped',
+      'cancelled',
+    ])
+    expect(old.data?.departures.every((d) => d.estDep == null && !d.gps)).toBe(true)
+  })
+  it('offline uses the saved timetable view', () => {
+    const view = liveView('10802', { ...res([row(300)]), generatedAt: NOW }, NOW, false)
+    expect(view.state).toBe('offline')
+    expect(view.data?.departures[0]?.status).toBe('scheduled')
   })
 })

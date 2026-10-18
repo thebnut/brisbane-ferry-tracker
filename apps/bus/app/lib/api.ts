@@ -4,6 +4,7 @@
  * which answers 502 when the API drifts from the contract. The browser bundle carries only the types, not zod.
  */
 import type { AlertsResponse, DeparturesResponse, TripResponse, VehiclesResponse } from '@bft/core/contract'
+import { trackedFetch } from '@bft/ui/connectivity'
 import type { GeoTileFile, LinesFile, RouteFile, StopIndexFile } from './data-contract.ts'
 
 export type ApiErrorKind = 'network' | 'http' | 'contract'
@@ -33,7 +34,7 @@ export function browserFetcher(opts: { fixtures: boolean; rt?: string | null }):
     let url = opts.fixtures ? `/__fixtures${path}` : path
     if (opts.fixtures && opts.rt && path.startsWith('/v1/'))
       url += `${url.includes('?') ? '&' : '?'}rt=${encodeURIComponent(opts.rt)}`
-    return fetch(url, { signal: init?.signal, headers: { accept: 'application/json' } })
+    return trackedFetch(url, { signal: init?.signal, headers: { accept: 'application/json' } })
   }
 }
 

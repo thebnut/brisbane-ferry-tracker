@@ -106,13 +106,13 @@ test('save and unsave a stop', async ({ page }) => {
 
 test('route filter and per-stop map', async ({ page }) => {
   await page.goto('/stop/10802')
-  await page
-    .getByRole('group', { name: 'Filter by route' })
-    .getByRole('button', { name: 'M2', exact: true })
-    .click()
+  // The first route pill, not a fixed route: pills follow departure order, which depends on the time of day.
+  const pill = page.getByRole('group', { name: 'Filter by route' }).getByRole('button').nth(1)
+  const route = (await pill.textContent())?.trim() ?? ''
+  await pill.click()
   const rows = page.getByTestId('departure')
   await expect(rows.first()).toBeVisible()
-  for (const t of await rows.allTextContents()) expect(t).toMatch(/^Route M2/)
+  for (const t of await rows.allTextContents()) expect(t).toMatch(new RegExp(`^Route ${route}(?![0-9])`))
   await page.getByRole('button', { name: 'Map' }).click()
   await expect(page.getByRole('region', { name: /Map of Cultural Centre/ })).toBeVisible()
 })

@@ -5,13 +5,13 @@
  */
 import { AppHeader, BottomSheet, LivePill, SettingsPill } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-train.svg?url'
-import { type ReactNode, useEffect, useState } from 'react'
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 import { useRouteLoaderData } from 'react-router'
 import { ATTRIBUTION } from '../lib/seo.ts'
 import { FIXTURE_COOKIE, type Theme, writeTheme } from '../lib/storage.ts'
 import { useOnline } from '../lib/useNow.ts'
 import type { loader as rootLoader } from '../root.tsx'
-import { TrainNav } from './nav.tsx'
+import { DesktopNav, TrainNav } from './nav.tsx'
 
 export { NAV } from './nav.tsx'
 
@@ -25,9 +25,19 @@ export const SECTION = {
   h2: 'text-[13px] font-bold tracking-[0.06em] text-aqua-text uppercase dark:text-ferry-aqua-light',
 }
 
-export function SiteHeader({ onSettings, live = true }: { onSettings?: () => void; live?: boolean }) {
+export function SiteHeader({
+  onSettings,
+  live = true,
+  active,
+}: {
+  onSettings?: () => void
+  live?: boolean
+  /** Current section: shows the desktop section links (phones use the bottom nav). */
+  active?: string
+}) {
   return (
     <AppHeader mode="train" logoSrc={emblem}>
+      {active != null ? <DesktopNav active={active} /> : null}
       {onSettings ? <SettingsPill onClick={onSettings} compact /> : null}
       <LivePill live={live} />
     </AppHeader>
@@ -105,29 +115,62 @@ function FixtureNotice() {
   )
 }
 
+/** Boards report whether their data is live and fresh; the header pill is LIVE only while every one is. */
+const LiveReport = createContext<((key: string, live: boolean | null) => void) | null>(null)
+
+/** Tell the page header whether this board's data is live (shared liveState). Reported after hydration. */
+export function useReportLive(key: string, live: boolean) {
+  const report = useContext(LiveReport)
+  useEffect(() => {
+    report?.(key, live)
+    return () => report?.(key, null)
+  }, [report, key, live])
+}
+
 /** Header, optional status strip, page body, bottom nav and footer. */
 export function Shell({
   active,
   strip,
+  live: dataLive,
   children,
 }: {
   active: string
   strip?: ReactNode
+  /**
+   * Is the page's live data fresh (shared liveState), from its loader data? It decides the server render and the
+   * first client render; once the boards report (useReportLive, after hydration) their reports decide.
+   */
+  live?: boolean
   children: ReactNode
 }) {
   const [settings, setSettings] = useState(false)
-  // The header pill is about the connection; the data state (stale, reloading, scheduled) has its own banner.
-  const live = useOnline()
+  const [reports, setReports] = useState<Record<string, boolean>>({})
+  const report = useCallback(
+    (key: string, value: boolean | null) =>
+      setReports((r) => {
+        if (value == null) {
+          if (!(key in r)) return r
+          const { [key]: _gone, ...rest } = r
+          return rest
+        }
+        return r[key] === value ? r : { ...r, [key]: value }
+      }),
+    [],
+  )
+  // Never LIVE while offline, nor over data too old to call live on any board of the page (smoke test T5).
+  const online = useOnline()
+  const reported = Object.values(reports)
+  const live = online && (reported.length ? reported.every(Boolean) : dataLive !== false)
   return (
-    <>
-      <SiteHeader live={live} onSettings={() => setSettings(true)} />
+    <LiveReport.Provider value={report}>
+      <SiteHeader live={live} active={active} onSettings={() => setSettings(true)} />
       <FixtureNotice />
       {strip}
       <main className="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">{children}</main>
       <Footer />
       <TrainNav active={active} />
       <SettingsSheet open={settings} onClose={() => setSettings(false)} />
-    </>
+    </LiveReport.Provider>
   )
 }
 

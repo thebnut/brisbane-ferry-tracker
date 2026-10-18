@@ -32,19 +32,41 @@ export function severityOf(a: Alert, nowS: number): AlertSeverityKind {
 /** Train line labels an alert touches ("Springfield line"), when the train network is loaded. */
 export type TrainLinesOf = (a: Alert) => string[]
 
-/** "BUS · ROUTE 66", "TRAIN · SPRINGFIELD LINE", "FERRY · F1", "ALL SERVICES". */
+/**
+ * Where a stop alert is, from TransLink's header ("George Street, Brisbane City - temporary stop closure" → "GEORGE
+ * STREET, BRISBANE CITY"); null when the header has no "place - what" form.
+ */
+export function placeOf(a: Alert): string | null {
+  const i = a.header.indexOf(' - ')
+  const place = i > 0 ? a.header.slice(0, i).trim() : ''
+  return place ? place.toUpperCase() : null
+}
+
+/** "1 STOP · GEORGE STREET, BRISBANE CITY", "3 STOPS", for an alert that names stops but no routes. */
+function stopsText(a: Alert): string {
+  const count = a.stops.length === 1 ? '1 STOP' : `${a.stops.length} STOPS`
+  const place = placeOf(a)
+  return place ? `${count} · ${place}` : count
+}
+
+/**
+ * "BUS · ROUTE 66", "TRAIN · SPRINGFIELD LINE", "FERRY · F1", "BUS · 1 STOP · GEORGE STREET, BRISBANE CITY",
+ * "ALL SERVICES". An alert with stops but no routes always says which stops (X3): TransLink often leaves its mode
+ * unknown, which used to read as "ALL SERVICES" for a single stop closure.
+ */
 export function scopeText(a: Alert, trainLines?: TrainLinesOf): string {
-  const mode = alertMode(a)
-  if (!mode) return 'ALL SERVICES'
+  const lines = trainLines?.(a) ?? []
+  // No mode from the feed, but its routes are train lines (e.g. a closure sent before the train index loaded).
+  const mode = alertMode(a) ?? (lines.length ? 'train' : null)
+  if (!mode) return a.stops.length ? stopsText(a) : 'ALL SERVICES'
   const head = mode.toUpperCase()
   const shorts = [...new Set(a.routes.map(routeShortOf))]
   if (mode === 'train') {
-    const lines = trainLines?.(a) ?? []
     if (lines.length === 1) return `${head} · ${(lines[0] as string).toUpperCase()}`
     if (lines.length > 1) return `${head} · ${lines.length} LINES`
   } else if (shorts.length === 1) return `${head} · ${mode === 'bus' ? 'ROUTE ' : ''}${shorts[0]}`
   else if (shorts.length > 1) return `${head} · ${shorts.length} ROUTES`
-  if (a.stops.length) return `${head} · ${a.stops.length === 1 ? '1 STOP' : `${a.stops.length} STOPS`}`
+  if (a.stops.length) return `${head} · ${stopsText(a)}`
   return `${head} · ALL ${mode === 'train' ? 'LINES' : mode === 'ferry' ? 'SERVICES' : 'ROUTES'}`
 }
 

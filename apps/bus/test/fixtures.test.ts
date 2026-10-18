@@ -79,7 +79,8 @@ describe('fixture /v1 API', () => {
     const r = RouteFile.parse((await get('/data/bus/routes/M2.json')).body)
     expect(r.patterns[0]?.stops.length).toBeGreaterThan(5)
     GeoTileFile.parse((await get('/data/bus/geo/r7hgd.json')).body)
-    expect((await get('/data/bus/geo/zzzzz.json')).res.status).toBe(404)
+    // An empty cell is an empty tile, as the API answers it (X2).
+    expect(GeoTileFile.parse((await get('/data/bus/geo/zzzzz.json')).body).stops).toEqual([])
   })
 })
 

@@ -1,6 +1,13 @@
 import type { Departure } from '@bft/core/contract'
 import { describe, expect, it } from 'vitest'
-import { asScheduled, offlineRows, platformChanges, shortArrival, trainCard } from '../app/lib/departures.ts'
+import {
+  asScheduled,
+  boardState,
+  offlineRows,
+  platformChanges,
+  trainCard,
+  visibleRows,
+} from '../app/lib/departures.ts'
 import { corridorFor, stationByKey } from '../app/lib/network.ts'
 
 const NOW = Date.UTC(2026, 9, 19, 22, 0) // 8:00 am Brisbane, 20 Oct
@@ -66,9 +73,27 @@ describe('trainCard', () => {
     expect(c).toMatchObject({ cancelled: true, minutes: null, note: 'This service is cancelled' })
     expect(c.badges).toContain('cancelled')
   })
-  it('arrival time drops a repeated am/pm', () => {
-    expect(shortArrival('2:45 pm', '2:56 pm')).toBe('2:56')
-    expect(shortArrival('11:55 am', '12:10 pm')).toBe('12:10 pm')
+  it('arrival time always has am/pm, and the journey is the difference of the shown minutes (T4, F2)', () => {
+    // Departs 8:04:50, arrives 8:16:10: shown "8:04 am → 8:16 am", so 12 mins (not round(11.33) = 11).
+    const c = trainCard(
+      dep({ estDep: nowS + 4 * 60 + 50, schedArrTo: nowS + 16 * 60 + 10 }),
+      NOW,
+      'central',
+      null,
+    )
+    expect(c.time).toBe('8:04 am')
+    expect(c.arrival?.time).toBe('8:16 am')
+    expect(c.journey).toBe('12 mins')
+  })
+  it('never shows an arrival before the departure (big early prediction at the destination)', () => {
+    const c = trainCard(
+      dep({ estDep: nowS + 300, estArrTo: nowS + 200, schedArrTo: nowS + 900 }),
+      NOW,
+      'central',
+      null,
+    )
+    expect(c.arrival?.time).toBe(c.time)
+    expect(c.journey).toBeNull()
   })
 })
 
@@ -83,5 +108,34 @@ describe('offline', () => {
     const out = offlineRows(rows, nowS, 5)
     expect(out).toHaveLength(2)
     expect(out.every((d) => d.status === 'scheduled')).toBe(true)
+  })
+})
+
+describe('board state (F3/T5)', () => {
+  const res = (over: Record<string, unknown> = {}) => ({
+    schemaVersion: 1 as const,
+    staticGeneration: 'g',
+    serviceDates: [],
+    rtSourceTimestamp: nowS - 20,
+    rtState: 'live' as const,
+    generatedAt: NOW - 5_000,
+    mode: 'train' as const,
+    stop: { key: 'central', name: 'Central', stopIds: [] },
+    to: null,
+    departures: [],
+    ...over,
+  })
+  it('is live only while online and the data itself is fresh', () => {
+    expect(boardState(res(), false, NOW)).toBeNull()
+    expect(boardState(res(), true, NOW)).toBe('offline')
+    // A copy generated 2 minutes ago (service worker cache, offline reload) is not live, whenever it was fetched.
+    expect(boardState(res({ generatedAt: NOW - 120_000 }), false, NOW)).toBe('stale')
+  })
+  it('not live: rows lose live claims and trains that have left are dropped', () => {
+    const rows = [dep({ estDep: nowS - 30, schedDep: nowS - 30 }), dep({ tripInstance: 'T2@20261020' })]
+    expect(visibleRows(rows, null, NOW)).toHaveLength(2)
+    const stale = visibleRows(rows, 'stale', NOW)
+    expect(stale.map((d) => d.tripInstance)).toEqual(['T2@20261020'])
+    expect(stale.every((d) => d.status === 'scheduled' && d.estDep == null && !d.gps)).toBe(true)
   })
 })

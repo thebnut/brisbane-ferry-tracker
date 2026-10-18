@@ -93,8 +93,10 @@ export interface BoardHeaderProps {
 
 export function BoardHeader({ children, onSwap, trailing, as: Tag = 'div' }: BoardHeaderProps) {
   return (
-    <div className="bg-board-header flex min-h-14 items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-3.5 py-2 shadow-sm">
-      <Tag className="flex min-w-0 flex-1 items-center gap-2 text-base font-semibold text-aqua-text dark:text-ferry-aqua-light">
+    // Wraps: when the title (at least 12rem) and the trailing control don't fit side by side on a narrow phone, the
+    // control drops to its own line rather than pushing the page wider.
+    <div className="bg-board-header flex min-h-14 flex-wrap items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-3.5 py-2 shadow-sm">
+      <Tag className="flex min-w-0 grow basis-48 items-center gap-2 text-base font-semibold text-aqua-text dark:text-ferry-aqua-light">
         {children}
       </Tag>
       {trailing}
@@ -207,7 +209,7 @@ export function DepartureCard({
     <>
       <span className="flex min-w-0 flex-1 items-center gap-3">
         {leading}
-        <span className="flex min-w-0 flex-col gap-1.5">
+        <span className="flex min-w-0 flex-1 flex-col gap-1.5">
           <span className="flex flex-wrap items-center gap-1.5">
             {badges.map((b) => (
               <StatusBadge key={b} kind={b} />
@@ -225,20 +227,24 @@ export function DepartureCard({
               </span>
             ) : null}
           </span>
+          {/* Departure and arrival are separate unbreakable chunks: on a narrow card the arrival wraps to its own
+              line instead of running under the countdown chip. */}
           <span
+            data-testid="times"
             className={cx(
-              'font-extrabold whitespace-nowrap tabular',
+              'flex flex-wrap items-baseline gap-x-1.5 font-extrabold tabular',
               express ? 'text-[22px]' : 'text-xl',
-              cancelled && 'line-through decoration-2',
             )}
           >
-            {time}
-            {dayMarker ? (
-              <span className="ml-1 text-sm font-medium text-ferry-orange-deep">{dayMarker}</span>
-            ) : null}
+            <span className={cx('whitespace-nowrap', cancelled && 'line-through decoration-2')}>
+              {time}
+              {dayMarker ? (
+                <span className="ml-1 text-sm font-medium text-ferry-orange-deep">{dayMarker}</span>
+              ) : null}
+            </span>
             {arrival ? (
-              <>
-                <span className="mx-1.5 font-normal text-gray-500" aria-hidden="true">
+              <span className={cx('whitespace-nowrap', cancelled && 'line-through decoration-2')}>
+                <span className="mr-1.5 font-normal text-gray-500" aria-hidden="true">
                   →
                 </span>
                 <span className="sr-only"> arriving </span>
@@ -249,7 +255,7 @@ export function DepartureCard({
                 {journey ? (
                   <span className="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· {journey}</span>
                 ) : null}
-              </>
+              </span>
             ) : null}
           </span>
           {note ? <span className="text-xs text-gray-600 dark:text-night-text/70">{note}</span> : null}

@@ -12,7 +12,7 @@ import { StationBoard } from '../components/StationBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
 import { at } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
-import type { ServiceFilter } from '../lib/departures.ts'
+import { boardState, type ServiceFilter } from '../lib/departures.ts'
 import { lineLabel } from '../lib/lineNames.ts'
 import {
   isReachable,
@@ -188,8 +188,10 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
     </StatusStrip>
   )
 
+  // The header pill follows the boards: from the loader data until each StationBoard reports (useReportLive).
+  const seeded = [outbound, to ? inbound : null].every((r) => !r || boardState(r, false, nowMs) == null)
   return (
-    <Shell active="stations" strip={strip}>
+    <Shell active="stations" strip={strip} live={seeded}>
       <div className={to && inbound ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : 'mx-auto max-w-2xl'}>
         <StationBoard
           key={`${station.key}:${to?.key ?? ''}`}

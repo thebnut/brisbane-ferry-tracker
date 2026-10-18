@@ -104,8 +104,12 @@ export function normalise(html: string, base: string): string {
   let out = html
   // Navigation landmarks: the swapped nav module (bus "Main"/"Sections", train "Main"; transit "… sections").
   out = out.replace(/<nav aria-label="(Main|Sections|Bus sections|Train sections)"[\s\S]*?<\/nav>/g, '<nav/>')
-  // The bus app wraps its phone nav in a div.
+  // The bus and train apps wrap their phone nav in a div.
   out = out.replace(/<div class="md:hidden"><nav\/><\/div>/g, '<nav/>')
+  // Where and how many nav landmarks each build has is part of the intended difference too: the standalone train app
+  // adds header links on desktop (T-Desktop), where BrisbaneTransit keeps its section pills (train-nav.tsx). The
+  // transit build's own swapped nav is asserted separately (renderPage's `transitNav`).
+  out = out.replaceAll('<nav/>', '')
   // Asset URLs in tests are absolute file paths (/@fs/<checkout>/packages/…): drop the checkout location.
   out = out.replaceAll(`/@fs${join(process.cwd(), '..', '..')}/`, '/@fs/')
   if (base) out = out.replaceAll(`href="${base}/`, 'href="/').replaceAll(`href="${base}"`, 'href="/"')

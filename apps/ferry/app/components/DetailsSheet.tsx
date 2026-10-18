@@ -4,11 +4,13 @@
  */
 import type { Departure } from '@bft/core/contract'
 import {
+  arrivalAfter,
   BottomSheet,
   dayMarker,
   delayText,
   formatClock,
   formatDuration,
+  minutesBetween,
   StatusBadge,
   StoppingPattern,
   vesselName,
@@ -56,7 +58,8 @@ export function DetailsSheet({
   if (!departure) return null
   const d = departure
   const dep = effectiveDep(d)
-  const arr = d.estArrTo ?? d.schedArrTo
+  const rawArr = d.estArrTo ?? d.schedArrTo
+  const arr = rawArr != null ? arrivalAfter(dep, rawArr) : null
   const vehicle = live && trip.data?.rtState === 'live' ? (trip.data.vehicle ?? null) : null
   const vessel = vesselName(vehicle?.id ?? d.vehicleId)
   const status = vehicle?.status ? VEHICLE_STATUS[vehicle.status] : null
@@ -148,7 +151,9 @@ export function DetailsSheet({
                   </span>
                 ) : null}
               </p>
-              <p className="mt-1 text-sm text-sched-text">Journey time: {formatDuration((arr - dep) / 60)}</p>
+              <p className="mt-1 text-sm text-sched-text">
+                Journey time: {formatDuration(minutesBetween(dep, arr))}
+              </p>
             </>
           ) : (
             <p className="text-lg text-sched-text">Arrival time not available</p>

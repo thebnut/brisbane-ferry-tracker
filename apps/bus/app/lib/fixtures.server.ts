@@ -306,7 +306,7 @@ async function handleFixtureData(path: string, env: Env | null): Promise<Respons
       .map(({ key, name, code, lat, lon }) =>
         code ? { key, name, code, lat, lon } : { key, name, lat, lon },
       )
-    if (stops.length === 0) return new Response('Not found', { status: 404 })
+    // An empty cell is an empty tile, as the API answers it (X2).
     return json({ ...base, geohash: m[1], stops })
   }
   return new Response('Not found', { status: 404 })
