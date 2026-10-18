@@ -1,19 +1,20 @@
 // @vitest-environment jsdom
 /** R2-B6 (offline copy choice) and R2-T7 (a cached render never claims LIVE before freshness is known). */
-import { render } from '@testing-library/react'
+import { render, renderHook } from '@testing-library/react'
 import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   bestOfflineCopy,
-  confirmLive,
   LIVE_REFRESH_MAX_AGE_MS,
   LIVE_UNCONFIRMED_ATTR,
   liveGuardScript,
+  liveState,
   markCachedPages,
-  reportOffline,
+  RENDER_MARGIN_MS,
   reportOnline,
-  trackedFetch,
+  resetUnconfirmedBefore,
   useLiveGuardRelease,
+  useUnconfirmedBefore,
 } from '../src/connectivity.ts'
 
 const NOW = Date.UTC(2026, 9, 18, 12, 40)
@@ -22,6 +23,8 @@ const run = (script: string) => new Function(script)()
 
 afterEach(() => {
   html.removeAttribute(LIVE_UNCONFIRMED_ATTR)
+  resetUnconfirmedBefore()
+  delete (window as { __bftRenderedAt?: number }).__bftRenderedAt
   reportOnline()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
@@ -45,47 +48,18 @@ describe('liveGuardScript (R2-T7)', () => {
     run(liveGuardScript(NOW))
     expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
   })
-  it('only a good live answer from the network confirms freshness (Codex review: a 503 does not)', async () => {
+  it('records the render time for the per-board cutoff', () => {
+    vi.useFakeTimers({ now: NOW })
+    run(liveGuardScript(NOW - 2_000))
+    expect((window as { __bftRenderedAt?: number }).__bftRenderedAt).toBe(NOW - 2_000)
+  })
+  it('the CSS guard lifts once the app has rendered its own judgement', async () => {
     html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
-    reportOffline()
-    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
-    vi.stubGlobal('fetch', async () => new Response('{}', { status: 503 }))
-    await trackedFetch('/v1/bus/stops/1/departures')
-    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
-    vi.stubGlobal('fetch', async () => new Response('{}', { headers: { 'x-bft-cache': 'sw' } }))
-    await trackedFetch('/v1/bus/stops/1/departures')
-    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
-    // Static data files say nothing about live freshness.
-    vi.stubGlobal('fetch', async () => new Response('{}'))
-    await trackedFetch('/data/bus/stops.json')
-    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
-    await trackedFetch('/v1/bus/stops/1/departures')
-    // Confirmed, but the app hasn't rendered its own judgement yet (hydration uses the server's clock): still hidden.
-    await new Promise((r) => setTimeout(r, 100))
-    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
     function App() {
       useLiveGuardRelease()
       return null
     }
     render(createElement(App))
-    await vi.waitFor(() => expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false))
-  })
-  it("only a board's own data confirms it: alerts and vehicles answering do not (Codex review round 2)", async () => {
-    html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
-    vi.stubGlobal('fetch', async () => new Response('{}'))
-    for (const path of ['/v1/alerts?mode=bus', '/v1/bus/vehicles?route=66', '/__fixtures/v1/ferry/vehicles'])
-      await trackedFetch(path)
-    await new Promise((r) => setTimeout(r, 100))
-    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
-    // A trip detail is a board too; so is a fixture-mode departures call.
-    await trackedFetch('/__fixtures/v1/train/trips/T1@20261018')
-    await vi.waitFor(() => expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false))
-    html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
-    await trackedFetch('/__fixtures/v1/ferry/stops/317584/departures?to=317590&limit=13')
-    await vi.waitFor(() => expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false))
-    // From then on a direct confirmation lifts it too (after the frames that render the new data).
-    html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
-    confirmLive()
     await vi.waitFor(() => expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false))
   })
   it('a page served from the service worker cache arrives marked, whatever its age (serialised plugin)', async () => {
@@ -113,6 +87,51 @@ describe('liveGuardScript (R2-T7)', () => {
   })
   it('is a constant expression of numbers (no injected text)', () => {
     expect(liveGuardScript(NOW + 0.7)).toContain(`Date.now()-${NOW}>`)
+  })
+})
+
+describe('per-board confirmation after a cached page (R2-T7, Codex review rounds 2 and 3)', () => {
+  const RENDERED = NOW - 20_000
+  const board = (generatedAt: number) => ({
+    rtState: 'live',
+    rtSourceTimestamp: NOW / 1000 - 10,
+    generatedAt,
+  })
+  const cachedPage = () => {
+    ;(window as { __bftRenderedAt?: number }).__bftRenderedAt = RENDERED
+    html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
+    resetUnconfirmedBefore()
+  }
+
+  it('a fresh page has no cutoff; a cached one cuts off what came with its render', () => {
+    resetUnconfirmedBefore()
+    expect(renderHook(() => useUnconfirmedBefore()).result.current).toBeNull()
+    cachedPage()
+    expect(renderHook(() => useUnconfirmedBefore()).result.current).toBe(RENDERED + RENDER_MARGIN_MS)
+    // Read once at load: lifting the CSS guard later doesn't change it.
+    html.removeAttribute(LIVE_UNCONFIRMED_ATTR)
+    expect(renderHook(() => useUnconfirmedBefore()).result.current).toBe(RENDERED + RENDER_MARGIN_MS)
+  })
+
+  it("a 20-second-old cached board isn't live, whatever other calls answer; its own fresh data is", () => {
+    cachedPage()
+    const cutoff = renderHook(() => useUnconfirmedBefore()).result.current
+    // Both boards came with the cached HTML (one generated a few seconds after the root's clock read).
+    const a = board(RENDERED - 300)
+    const b = board(RENDERED + 3_000)
+    expect(liveState(a, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('stale')
+    expect(liveState(b, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('stale')
+    // Board A's own answer arrives (generated now); board B is still the cached copy.
+    expect(liveState(board(NOW - 200), { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBeNull()
+    expect(liveState(b, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('stale')
+    // On a fresh page the same 20-second-old data is live (the usual one-minute rule).
+    expect(liveState(a, { offline: false, nowMs: NOW, unconfirmedBefore: null })).toBeNull()
+  })
+
+  it('an unmarked page without a recorded render time still cuts off everything already on hand', () => {
+    html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
+    resetUnconfirmedBefore()
+    expect(renderHook(() => useUnconfirmedBefore()).result.current).toBe(Number.POSITIVE_INFINITY)
   })
 })
 

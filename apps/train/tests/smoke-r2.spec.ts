@@ -75,31 +75,51 @@ for (const path of PAGES) {
   })
 }
 
-test("a cached page stays guarded until its own board's fresh departures arrive (Codex review round 2)", async ({
+test('a cached page: each board claims LIVE only after its own fresh departures arrive (Codex review rounds 2-3)', async ({
   page,
   context,
 }) => {
   test.slow()
-  // Hold the board's departures back; any other live call answers at once.
+  // Serve the page as the service worker's page cache does (markCachedPages marks the <html> tag).
+  await context.route('**/station/roma-street?to=indooroopilly', async (route) => {
+    if (route.request().resourceType() !== 'document') return route.continue()
+    const res = await route.fetch()
+    const body = (await res.text()).replace(/<html(?=[\s>])/, '<html data-live-unconfirmed=""')
+    await route.fulfill({ response: res, body })
+  })
+  // Hold the return board's departures back; the outbound board's answer goes through.
   let release = () => {}
   const held = new Promise<void>((r) => {
     release = r
   })
-  await context.route('**/__fixtures/v1/train/stops/*/departures*', async (route) => {
+  await context.route('**/__fixtures/v1/train/stops/indooroopilly/departures*', async (route) => {
     await held
     await route.continue()
   })
   await recordLiveClaims(page)
-  // The HTML looks five minutes old to the device, as for a page the service worker kept.
-  await page.addInitScript(() => {
-    const now = Date.now
-    Date.now = () => now() + 5 * 60_000
+  await page.goto('/station/roma-street?to=indooroopilly')
+  const outbound = page.locator('[data-board=roma-street]')
+  const back = page.locator('[data-board=indooroopilly]')
+  // After hydration both boards came with the cached HTML: neither is live. (Counts, not visibility: a phone shows
+  // one board at a time.)
+  await expect(outbound.locator('[data-banner=stale]')).toHaveCount(1)
+  await expect(back.locator('[data-banner=stale]')).toHaveCount(1)
+  // The outbound board's own fresh answer (polled every 15 s) makes it live; the held board stays as it was.
+  await page.waitForResponse((r) => r.url().includes('/stops/roma-street/departures') && r.ok(), {
+    timeout: 45_000,
   })
-  await page.goto('/station/central')
-  await page.waitForTimeout(3_000)
-  await expect(page.locator('html')).toHaveAttribute('data-live-unconfirmed', '')
+  await expect(outbound.locator('[data-banner=stale]')).toHaveCount(0)
+  await expect(back.locator('[data-banner=stale]')).toHaveCount(1)
+  await expect(back.locator('[data-badge=live]')).toHaveCount(0)
+  // The header pill waits for every board.
+  await expect(page.locator('header').getByText('LIVE', { exact: true })).toHaveCount(0)
   release()
-  await page.waitForResponse((r) => r.url().includes('/departures') && r.ok(), { timeout: 30_000 })
-  await expect(page.locator('html')).not.toHaveAttribute('data-live-unconfirmed', '')
-  expect(await page.evaluate(() => (window as unknown as { __liveSeen: string[] }).__liveSeen)).toEqual([])
+  await page.waitForResponse((r) => r.url().includes('/stops/indooroopilly/departures') && r.ok(), {
+    timeout: 45_000,
+  })
+  await expect(back.locator('[data-banner=stale]')).toHaveCount(0)
+  // Nothing claimed LIVE before its board's own fresh data was on screen: the recorder saw no LIVE while both boards
+  // were cached (it runs for the first 10 s, all before the first poll).
+  const seen = await page.evaluate(() => (window as unknown as { __liveSeen: string[] }).__liveSeen)
+  expect(seen).toEqual([])
 })

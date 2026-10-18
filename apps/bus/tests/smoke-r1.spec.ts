@@ -1,5 +1,6 @@
 /** Regression tests for Dev's smoke test round 1b (18 Oct 2026): B1 stop names, B2 phone width, B3/B4 offline, B5. */
 import { expect, type Page, test } from '@playwright/test'
+import { pinUpcoming } from './upcoming.ts'
 
 const watchErrors = (page: Page) => {
   const errors: string[] = []
@@ -62,7 +63,9 @@ test('page loaded while offline hydrates without a mismatch and shows no LIVE (B
 
 test('offline: the banner stays and LIVE never comes back while offline (B3)', async ({ page, context }) => {
   test.slow()
+  await pinUpcoming(context)
   await page.goto('/stop/10802')
+  await page.getByRole('button', { name: 'Refresh' }).click()
   await expect(page.locator('[data-status=live]').first()).toBeVisible()
   await context.setOffline(true)
   await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 2_000 })
@@ -88,7 +91,9 @@ test('opening a busy stop from the home chips does not save it (B5)', async ({ p
 })
 
 test('trip page: no LIVE or GPS while offline (Codex review)', async ({ page, context }) => {
+  await pinUpcoming(context)
   await page.goto('/stop/10802')
+  await page.getByRole('button', { name: 'Refresh' }).click()
   await page.locator('[data-status=live] a').first().click()
   await expect(page.getByRole('list', { name: 'Stops on this trip' })).toBeVisible()
   await context.setOffline(true)

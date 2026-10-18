@@ -156,8 +156,10 @@ export function liveView(
   res: DeparturesResponse | undefined,
   nowMs: number,
   online: boolean,
+  /** useUnconfirmedBefore(): data that came with a cached page isn't live (R2-T7). */
+  unconfirmedBefore: number | null = null,
 ): { data: DeparturesResponse | undefined; state: LiveState } {
-  const state = liveState(res, { offline: !online, nowMs })
+  const state = liveState(res, { offline: !online, nowMs, unconfirmedBefore })
   if (!res || state == null) return { data: res, state }
   if (state === 'offline') return { data: asOfflineTimetable(stopId, res, nowMs) ?? res, state }
   return { data: asTimetable(res, nowMs, state), state }

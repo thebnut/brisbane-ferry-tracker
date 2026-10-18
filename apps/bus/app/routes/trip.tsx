@@ -3,6 +3,7 @@
  * badges and the countdown at your stop; occupancy, bus and journey tiles; the stops on this trip with the bus as
  * a ringed dot. Server-rendered from /v1/bus/trips, then polled.
  */
+
 import type { TripResponse } from '@bft/core/contract'
 import {
   BigCountdown,
@@ -24,6 +25,7 @@ import {
   TripTimeline,
   tripAsTimetable,
 } from '@bft/ui'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { data, Link, useNavigate } from 'react-router'
 import { BusNav, DataBanner, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute, fetchTrip } from '../lib/api.ts'
@@ -94,7 +96,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const saved = useSavedStops()
   const online = useOnline()
   // Offline, or data too old to call live: the timetable only (no LIVE/GPS badge, estimates or position).
-  const state = liveState(q.data, { offline: !online, nowMs: now })
+  const unconfirmedBefore = useUnconfirmedBefore()
+  const state = liveState(q.data, { offline: !online, nowMs: now, unconfirmedBefore })
   const trip = q.data && state != null ? tripAsTimetable(q.data) : q.data
   return (
     <>

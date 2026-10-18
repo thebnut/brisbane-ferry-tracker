@@ -127,8 +127,13 @@ export function trainCard(d: Departure, nowMs: number, from: string, to: string 
  * The data state a board shows (shared rule, @bft/ui liveState): null = live; otherwise the banner, and the rows are
  * shown as timetable times. Offline, the API's rtState, or data that is too old to call live.
  */
-export function boardState(res: DeparturesResponse | undefined, offline: boolean, nowMs: number): LiveState {
-  return liveState(res, { offline, nowMs })
+export function boardState(
+  res: DeparturesResponse | undefined,
+  offline: boolean,
+  nowMs: number,
+  unconfirmedBefore: number | null = null,
+): LiveState {
+  return liveState(res, { offline, nowMs, unconfirmedBefore })
 }
 
 /**

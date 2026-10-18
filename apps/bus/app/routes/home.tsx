@@ -3,8 +3,10 @@
  * Saved stops travel in a cookie (first 3) so their rows are in the server HTML. Desktop shows full boards side by
  * side.
  */
+
 import type { DeparturesResponse } from '@bft/core/contract'
 import { formatClock, Icon, type MiniDeparture, MyStopCard, minutesUntil } from '@bft/ui'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { Link } from 'react-router'
 import { SearchPanel } from '../components/SearchPanel.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
@@ -90,7 +92,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const now = useNow(loaderData.renderedAt)
   const online = useOnline()
   // Timetable only unless the data is live and fresh (offline, cached copy, stale).
-  const views = queries.map((q, i) => liveView(ids[i] as string, q.data, now, online))
+  const unconfirmedBefore = useUnconfirmedBefore()
+  const views = queries.map((q, i) => liveView(ids[i] as string, q.data, now, online, unconfirmedBefore))
   const first = views.find((v) => v.data)?.data
   const refetchAll = () => {
     for (const q of queries) q.refetch()

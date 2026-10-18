@@ -3,6 +3,7 @@
  * "Then …"), soonest highlighted. Saved items live in each app's own storage on this device (saved.ts), so the list
  * renders after hydration; offline, cards show scheduled times from the device's copies ("Offline · scheduled").
  */
+
 import type { DeparturesResponse } from '@bft/core/contract'
 import {
   dayMarker,
@@ -15,6 +16,7 @@ import {
   SavedTripCard,
   vesselName,
 } from '@bft/ui'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { AskBox } from '../components/AskBox.tsx'
@@ -135,11 +137,12 @@ function SavedList({
   nowMs: number
   online: boolean
 }) {
+  const unconfirmedBefore = useUnconfirmedBefore()
   // Not live (offline, a cached copy, or data generated over a minute ago): never show the last live estimates;
   // timetable rows from the device's copies instead.
   const models = items.map((it, i) => {
     const data = qs[i]?.data
-    const live = liveState(data, { offline: !online, nowMs }) == null
+    const live = liveState(data, { offline: !online, nowMs, unconfirmedBefore }) == null
     return cardModel(it, live ? data : asOffline(it, data ?? null), nowMs)
   })
   const soonest = models.reduce<number | null>(
@@ -196,7 +199,10 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   const { mode, fetcher } = useApi()
   const qs = useSavedDepartures(fetcher, mode, items ?? [])
   // LIVE in the header only while every loaded card's data is live and fresh (same rule as the cards).
-  const live = online && qs.every((q) => !q.data || liveState(q.data, { offline: false, nowMs: now }) == null)
+  const unconfirmedBefore = useUnconfirmedBefore()
+  const live =
+    online &&
+    qs.every((q) => !q.data || liveState(q.data, { offline: false, nowMs: now, unconfirmedBefore }) == null)
   return (
     <>
       <TransitHeader live={live} />

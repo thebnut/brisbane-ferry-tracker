@@ -3,6 +3,7 @@
  * rtState/offline banners, "Depart from" time, dropdown headers with swap, details sheet, live map and the stop
  * selector. Rendered on the server with the loader's rows, then polled every 15 s while visible.
  */
+
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import {
   FilterPills,
@@ -13,6 +14,7 @@ import {
   StatusStrip,
   StopSelect,
 } from '@bft/ui'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   applyFilter,
@@ -132,7 +134,9 @@ export function FerryBoards({
   )
 
   const offline = !online
-  const stateOf = (q: typeof out) => boardState(q.data, offline, now)
+  // Data that came with a cached page isn't live until its board's own fresh answer arrives (R2-T7).
+  const unconfirmedBefore = useUnconfirmedBefore()
+  const stateOf = (q: typeof out) => boardState(q.data, offline, now, unconfirmedBefore)
   const view = (q: typeof out) =>
     q.data ? applyFilter(visibleRows(q.data.departures, stateOf(q), now), filter) : null
   const outList = view(out)

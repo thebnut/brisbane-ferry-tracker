@@ -3,8 +3,10 @@
  * are in the HTML from the loader; the board then polls every 15 s. With a destination, desktop shows both
  * directions side by side. Unknown stations are 404s; an unreachable `to` is dropped.
  */
+
 import type { DeparturesResponse } from '@bft/core/contract'
 import { FilterPills, formatAge, formatClock, Icon, StatusStrip } from '@bft/ui'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { useCallback, useEffect, useState } from 'react'
 import { data, Link } from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
@@ -189,7 +191,10 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   )
 
   // The header pill follows the boards: from the loader data until each StationBoard reports (useReportLive).
-  const seeded = [outbound, to ? inbound : null].every((r) => !r || boardState(r, false, nowMs) == null)
+  const unconfirmedBefore = useUnconfirmedBefore()
+  const seeded = [outbound, to ? inbound : null].every(
+    (r) => !r || boardState(r, false, nowMs, unconfirmedBefore) == null,
+  )
   return (
     <Shell active="stations" strip={strip} live={seeded}>
       <div className={to && inbound ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : 'mx-auto max-w-2xl'}>
