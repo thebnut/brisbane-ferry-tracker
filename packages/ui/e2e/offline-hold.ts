@@ -51,6 +51,7 @@ function watcher(rows: string) {
         'Live times delayed',
         'No buses due',
         'No trains',
+        'No more trains',
         'No ferries',
       ])
         if (text.includes(bad)) note(`text "${bad}"`)

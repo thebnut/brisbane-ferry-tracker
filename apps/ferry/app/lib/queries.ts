@@ -61,7 +61,11 @@ export function departuresOptions(
         const res = await fetchDepartures(fetcher, from, to, { at, signal })
         // Judged on this response, not only on the connection flag another request may have just cleared, and never
         // older than the board on screen (R6-B1).
-        if (replacesBoard(res, client.getQueryData<DeparturesResponse>(queryKey))) {
+        // The board may be showing the kept copy (FerryBoards, offline), so compare with the newer of the two.
+        const shown = client.getQueryData<DeparturesResponse>(queryKey)
+        const kept = at ? null : (readOffline(from, to) as DeparturesResponse | null)
+        const newest = kept && (!shown || kept.generatedAt > shown.generatedAt) ? kept : shown
+        if (replacesBoard(res, newest)) {
           if (!at) writeOffline(from, to, res)
           return res
         }
