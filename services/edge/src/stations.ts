@@ -14,6 +14,8 @@ export interface Stations {
   platforms: Map<string, Map<string, string | undefined>>
   /** platform stop id → { stationKey, code } */
   byStop: Map<string, { stationKey: string; code: string | undefined }>
+  /** Set-down-only stop key → where to board instead (StopIndexEntry.boardAt). */
+  boardAt: Map<string, Array<{ key: string; name: string }>>
 }
 
 const cache = new Map<string, Promise<Stations | null>>()
@@ -36,8 +38,10 @@ export function buildStations(file: StopIndexFile): Stations {
   const platforms = new Map<string, Map<string, string | undefined>>()
   const byStop = new Map<string, { stationKey: string; code: string | undefined }>()
   const names = new Map<string, string>()
+  const boardAt = new Map<string, Array<{ key: string; name: string }>>()
   for (const s of file.stops) {
     names.set(s.key, s.name)
+    if (s.boardAt) boardAt.set(s.key, s.boardAt)
     const m = new Map<string, string | undefined>()
     for (const p of s.platforms ?? []) {
       m.set(p.id, p.code)
@@ -45,7 +49,7 @@ export function buildStations(file: StopIndexFile): Stations {
     }
     platforms.set(s.key, m)
   }
-  return { names, platforms, byStop }
+  return { names, platforms, byStop, boardAt }
 }
 
 /**

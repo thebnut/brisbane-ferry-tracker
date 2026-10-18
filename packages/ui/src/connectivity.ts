@@ -34,9 +34,14 @@ function setUnreachable(value: boolean) {
 
 /** An API call couldn't reach the network. */
 export const reportOffline = () => setUnreachable(true)
-/** An API call reached the network: live data is current again, so the page may claim LIVE (see liveGuardScript). */
-export const reportOnline = () => {
-  setUnreachable(false)
+/** An API call reached the network. */
+export const reportOnline = () => setUnreachable(false)
+
+/**
+ * A live API call got a good answer from the network: the page's data is current, so it may claim LIVE again (see
+ * liveGuardScript). An error status (a 503 from a struggling API) reaches the network but confirms nothing.
+ */
+export function confirmLive() {
   if (typeof document !== 'undefined') document.documentElement.removeAttribute(LIVE_UNCONFIRMED_ATTR)
 }
 
@@ -47,12 +52,32 @@ export const reportOnline = () => {
 export const LIVE_UNCONFIRMED_ATTR = 'data-live-unconfirmed'
 
 /**
+ * Workbox runtime-caching plugin for the page (navigation) caches (R2-T7): HTML served from the cache gets
+ * LIVE_UNCONFIRMED_ATTR on its <html> tag, whatever its age, so its live claims stay hidden until a live call gets a
+ * good answer (confirmLive). liveGuardScript adds the clock and offline checks for anything this misses. Serialised
+ * into the service worker like markCacheHits: one self-contained expression. The body is rewritten, so the length
+ * and encoding headers of the stored copy no longer apply.
+ */
+export const markCachedPages = {
+  cachedResponseWillBeUsed: async ({ cachedResponse }: { cachedResponse?: Response }) =>
+    cachedResponse &&
+    new Response((await cachedResponse.text()).replace(/<html(?=[\s>])/i, '<html data-live-unconfirmed=""'), {
+      status: cachedResponse.status,
+      statusText: cachedResponse.statusText,
+      headers: new Headers(
+        [...cachedResponse.headers].filter(([k]) => k !== 'content-length' && k !== 'content-encoding'),
+      ),
+    }),
+}
+
+/**
  * Inline <head> script for the root layout (R2-T7): a cached render must never claim LIVE before freshness is known.
  * The service worker serves a page's last HTML when the network is down, with the LIVE markup it had when rendered,
  * and it paints before the app hydrates and judges the data. Before first paint this compares the render time with
  * the device clock (the same minute as LIVE_REFRESH_MAX_AGE_MS) and checks navigator.onLine; if the HTML is old or the
- * device is offline it sets LIVE_UNCONFIRMED_ATTR, which hides the live claims until a live API call reaches the
- * network (reportOnline). By then the app's own state decides what is live. A fresh online page is untouched, and
+ * device is offline it sets LIVE_UNCONFIRMED_ATTR, which hides the live claims until a live API call gets a good
+ * answer from the network (confirmLive). Pages the service worker serves from its cache arrive already marked
+ * (markCachedPages). By then the app's own state decides what is live. A fresh online page is untouched, and
  * React never sees a difference (an attribute on <html>, which the layouts render with suppressHydrationWarning).
  */
 export function liveGuardScript(renderedAt: number): string {
@@ -102,7 +127,10 @@ export async function trackedFetch(input: string, init?: RequestInit): Promise<R
   try {
     const res = await fetch(input, init)
     if (res.headers.get(SW_CACHE_HEADER)) reportOffline()
-    else if (live) reportOnline()
+    else if (live) {
+      reportOnline()
+      if (res.ok) confirmLive()
+    }
     return res
   } catch (error) {
     if (!init?.signal?.aborted) reportOffline()

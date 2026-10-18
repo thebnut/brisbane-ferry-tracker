@@ -3,11 +3,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   bestOfflineCopy,
+  confirmLive,
   LIVE_REFRESH_MAX_AGE_MS,
   LIVE_UNCONFIRMED_ATTR,
   liveGuardScript,
+  markCachedPages,
   reportOffline,
   reportOnline,
+  trackedFetch,
 } from '../src/connectivity.ts'
 
 const NOW = Date.UTC(2026, 9, 18, 12, 40)
@@ -16,6 +19,8 @@ const run = (script: string) => new Function(script)()
 
 afterEach(() => {
   html.removeAttribute(LIVE_UNCONFIRMED_ATTR)
+  reportOnline()
+  vi.unstubAllGlobals()
   vi.restoreAllMocks()
   vi.useRealTimers()
 })
@@ -37,12 +42,48 @@ describe('liveGuardScript (R2-T7)', () => {
     run(liveGuardScript(NOW))
     expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
   })
-  it('a live API call that reaches the network confirms freshness; a failed one does not', () => {
+  it('only a good live answer from the network confirms freshness (Codex review: a 503 does not)', async () => {
     html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
     reportOffline()
     expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
-    reportOnline()
+    vi.stubGlobal('fetch', async () => new Response('{}', { status: 503 }))
+    await trackedFetch('/v1/bus/stops/1/departures')
+    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
+    vi.stubGlobal('fetch', async () => new Response('{}', { headers: { 'x-bft-cache': 'sw' } }))
+    await trackedFetch('/v1/bus/stops/1/departures')
+    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
+    // Static data files say nothing about live freshness.
+    vi.stubGlobal('fetch', async () => new Response('{}'))
+    await trackedFetch('/data/bus/stops.json')
+    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
+    await trackedFetch('/v1/bus/stops/1/departures')
     expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false)
+    html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
+    confirmLive()
+    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false)
+  })
+  it('a page served from the service worker cache arrives marked, whatever its age (serialised plugin)', async () => {
+    const source = String(markCachedPages.cachedResponseWillBeUsed).replace(/\s*\n\s*/g, ' ')
+    const fn = new Function(`return (${source})`)() as typeof markCachedPages.cachedResponseWillBeUsed
+    const page =
+      '<!DOCTYPE html><html lang="en-AU" class="dark"><head></head><body><span data-live-claim="">LIVE</span></body></html>'
+    const marked = await fn({
+      cachedResponse: new Response(page, {
+        status: 200,
+        headers: {
+          'content-type': 'text/html',
+          'content-length': String(page.length),
+          'content-encoding': 'gzip',
+        },
+      }),
+    })
+    const text = (await marked?.text()) ?? ''
+    expect(text).toContain('<html data-live-unconfirmed="" lang="en-AU" class="dark">')
+    expect(text.match(/data-live-unconfirmed/g)).toHaveLength(1)
+    expect(marked?.headers.get('content-type')).toBe('text/html')
+    expect(marked?.headers.get('content-length')).toBeNull()
+    expect(marked?.headers.get('content-encoding')).toBeNull()
+    expect(await fn({})).toBeUndefined()
   })
   it('is a constant expression of numbers (no injected text)', () => {
     expect(liveGuardScript(NOW + 0.7)).toContain(`Date.now()-${NOW}>`)

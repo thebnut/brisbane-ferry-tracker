@@ -222,6 +222,11 @@ export const StopIndexEntry = z.object({
   platforms: z.array(z.object({ id: z.string(), code: z.string().optional() })).optional(),
   /** Route short names serving this stop in the build window. */
   routes: z.array(z.string()),
+  /**
+   * Set only on a stop where no service picks up (every stop event is set-down only, e.g. UQ Lakes station 1882):
+   * where to board instead, the stops under the same parent station that do pick up. May be empty.
+   */
+  boardAt: z.array(z.object({ key: z.string(), name: z.string() })).optional(),
 })
 export type StopIndexEntry = z.infer<typeof StopIndexEntry>
 
@@ -455,7 +460,13 @@ export type Departure = z.infer<typeof Departure>
 
 export const DeparturesResponse = Envelope.extend({
   mode: Mode,
-  stop: z.object({ key: z.string(), name: z.string(), stopIds: z.array(z.string()) }),
+  stop: z.object({
+    key: z.string(),
+    name: z.string(),
+    stopIds: z.array(z.string()),
+    /** A set-down-only stop: where to board instead (StopIndexEntry.boardAt). */
+    boardAt: z.array(z.object({ key: z.string(), name: z.string() })).optional(),
+  }),
   to: z.object({ key: z.string(), name: z.string() }).nullable(),
   departures: z.array(Departure),
 })

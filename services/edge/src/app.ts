@@ -248,6 +248,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
       to,
       departures,
     }
+    // A set-down-only stop (no service picks up here): say where to board instead.
+    const boardAt = stations?.boardAt.get(key)
+    if (boardAt) body.stop.boardAt = boardAt
     // `at` queries are mostly about later departures, so they can be cached longer.
     // `at` far from now (the Depart-from picker) can be cached for a minute; near now, or with any live, cancelled or
     // skipped row, it keeps the snapshot-capped max-age (Codex review #6).

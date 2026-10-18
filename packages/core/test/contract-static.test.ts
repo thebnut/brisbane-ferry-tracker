@@ -95,6 +95,24 @@ describe('client data files', () => {
         },
       ],
     })
+    // A set-down-only bus stop lists where to board instead (smoke round 2, ADDENDUM 2).
+    const uq = StopIndexFile.parse({
+      schemaVersion: 1,
+      mode: 'bus',
+      generation: 'g',
+      stops: [
+        {
+          key: '1882',
+          name: 'UQ Lakes station',
+          lat: -27.498,
+          lon: 153.018,
+          routes: ['M2'],
+          boardAt: [{ key: '11501', name: 'UQ Lakes stop A' }],
+        },
+      ],
+    })
+    expect(uq.stops[0]?.boardAt).toEqual([{ key: '11501', name: 'UQ Lakes stop A' }])
+    expect(() => StopIndexFile.parse({ ...uq, stops: [{ ...uq.stops[0], boardAt: [{ key: 1 }] }] })).toThrow()
     GeoTileFile.parse({
       schemaVersion: 1,
       mode: 'bus',

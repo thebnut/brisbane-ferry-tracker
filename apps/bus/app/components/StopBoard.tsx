@@ -15,7 +15,7 @@ import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { rowLabel, rowViews } from '../lib/departures.ts'
-import { tripHref } from '../lib/stops.ts'
+import { stopHref, tripHref } from '../lib/stops.ts'
 
 export const linkRenderer = ({
   href,
@@ -97,7 +97,10 @@ export function DepartureList({
     return <SkeletonRows />
   }
   const views = rowViews(data.departures, nowMs, { alerts, routes })
-  if (views.length === 0 && offline && !routes?.size) {
+  // A set-down-only stop's own data says so, online or offline.
+  const boardAt = data.stop.boardAt
+  // Offline, an empty board (filtered or not) only means the copies on hand have run out (Codex review).
+  if (views.length === 0 && offline && !boardAt) {
     return (
       <div
         data-empty="offline"
@@ -106,14 +109,51 @@ export function DepartureList({
       >
         <img src={emblem} alt="" width={96} height={96} className="opacity-90" />
         <h2 className="text-xl font-extrabold">
-          {saved
-            ? 'Offline: no more times in the saved timetable'
-            : 'Offline: no saved timetable for this stop'}
+          {routes?.size
+            ? 'Offline: no saved times for this route'
+            : saved
+              ? 'Offline: no more times in the saved timetable'
+              : 'Offline: no saved timetable for this stop'}
         </h2>
         <p className="text-sm text-sched-text">
           Buses may still be running. Times come back when you reconnect.
           {saved ? null : ' Save a stop to My stops to keep its timetable for offline use.'}
         </p>
+      </div>
+    )
+  }
+  if (views.length === 0 && boardAt && !routes?.size) {
+    // A set-down-only stop (ADDENDUM 2: UQ Lakes station 1882): buses only drop off here, so its empty board is
+    // correct; point to the stops under the same station where they pick up.
+    return (
+      <div
+        data-empty="drop-off-only"
+        className="flex flex-col items-center gap-3 rounded-card bg-white/90 px-6 py-8 text-center shadow-card dark:bg-night-card"
+        role="status"
+      >
+        <img src={emblem} alt="" width={96} height={96} className="opacity-90" />
+        <h2 className="text-xl font-extrabold">
+          {boardAt.length ? 'Buses only drop off here' : 'No buses pick up here'}
+        </h2>
+        {boardAt.length ? (
+          <>
+            <p className="text-sm text-sched-text">Board at:</p>
+            <ul className="flex flex-wrap justify-center gap-2" aria-label="Board at">
+              {boardAt.map((s) => (
+                <li key={s.key}>
+                  <Link
+                    to={stopHref(s.key)}
+                    className="inline-block rounded-full border border-ferry-orange/30 bg-white px-3 py-1.5 text-sm font-semibold text-aqua-text hover:border-ferry-orange dark:bg-night-card dark:text-ferry-aqua-light"
+                  >
+                    {s.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="text-sm text-sched-text">Buses only drop off at this stop.</p>
+        )}
       </div>
     )
   }

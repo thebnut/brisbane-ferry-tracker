@@ -30,6 +30,8 @@ export function buildClientData(
   const st = feed.stopTimes
   const stopRoutes = new Map<string, Set<string>>()
   const platforms = new Map<string, Map<string, string>>()
+  /** Keys with at least one boarding (pickup_type != 1, not the trip's last stop), as in stop-days.ts. */
+  const boarding = new Set<string>()
   const lines = new Map<string, { routes: Map<string, RouteRow>; patterns: Map<string, StopPattern> }>()
 
   for (const ti of tripIdxs) {
@@ -46,6 +48,7 @@ export function buildClientData(
         stopRoutes.set(key, rs)
       }
       rs.add(route.short)
+      if (st.pickup[r] !== 1 && r < t.start + t.count - 1) boarding.add(key)
       if (mode === 'train') {
         const s = feed.stops[si] as StopRow
         let p = platforms.get(key)
@@ -69,6 +72,17 @@ export function buildClientData(
     else line.patterns.set(pk, { directionId: t.directionId, headsign, stops: seqKeys, trips: 1 })
   }
 
+  // Set-down-only bus stops (ADDENDUM 2: UQ Lakes station): the boarding stops sharing their parent station.
+  const boardingByParent = new Map<string, Array<{ key: string; name: string }>>()
+  if (mode === 'bus')
+    for (const key of boarding) {
+      const row = feed.stops[feed.stopIndex.get(key) as number] as StopRow
+      if (!row.parent) continue
+      const list = boardingByParent.get(row.parent) ?? []
+      list.push({ key, name: row.name })
+      boardingByParent.set(row.parent, list)
+    }
+
   const entries: StopIndexEntry[] = [...stopRoutes.keys()].sort(cmp).map((key) => {
     const row =
       mode === 'train'
@@ -82,6 +96,10 @@ export function buildClientData(
       routes: [...(stopRoutes.get(key) as Set<string>)].sort(natural),
     }
     if (row.code) e.code = row.code
+    if (mode === 'bus' && !boarding.has(key))
+      e.boardAt = [...(boardingByParent.get(row.parent) ?? [])].sort(
+        (a, b) => natural(a.name, b.name) || cmp(a.key, b.key),
+      )
     const p = platforms.get(key)
     if (p)
       e.platforms = [...p.entries()]

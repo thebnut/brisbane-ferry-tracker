@@ -56,6 +56,17 @@ describe('merged alerts', () => {
     expect(alertModes(dohles, stopModeOf())).toEqual([])
   })
 
+  it("a route-only alert with no mode belongs to its routes' mode (Codex review)", () => {
+    const springfield = a({ routes: ['BRSP-5203'] })
+    const modes = alertModes(springfield, stopModeOf(isTrainPlatform), trainLinesOf)
+    expect(modes).toEqual(['train'])
+    expect(inMode(springfield, 'train', modes)).toBe(true)
+    expect(scopeText(springfield, trainLinesOf)).toMatch(/^TRAIN · /)
+    expect(alertModes(a({ routes: ['F1-4055'] }))).toEqual(['ferry'])
+    // An unknown route alone can't be placed.
+    expect(alertModes(a({ routes: ['XYZ-1'] }), stopModeOf(isTrainPlatform), trainLinesOf)).toEqual([])
+  })
+
   it('severity from the GTFS-RT effect, planned when not yet active', () => {
     expect(severityOf(a({ effect: 'DETOUR', modes: ['bus'] }), NOW)).toBe('detour')
     expect(severityOf(a({ effect: 'NO_SERVICE' }), NOW)).toBe('cancelled')

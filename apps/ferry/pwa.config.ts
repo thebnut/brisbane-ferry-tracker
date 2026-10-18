@@ -5,7 +5,7 @@
  *  - /v1/ferry departures and trips: network first (4 s timeout), keep today's responses for 24 h
  * Map tiles are not cached (OpenFreeMap's terms and size).
  */
-import { markCacheHits } from '@bft/ui/connectivity'
+import { markCachedPages, markCacheHits } from '@bft/ui/connectivity'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export function pwa() {
@@ -47,6 +47,8 @@ export function pwa() {
           options: {
             // entry.client.tsx also writes the first page view into this cache.
             cacheName: 'ferry-pages',
+            // Pages served from this cache never claim LIVE before a live call confirms it (R2-T7).
+            plugins: [markCachedPages],
             networkTimeoutSeconds: 4,
             expiration: { maxEntries: 30, maxAgeSeconds: 7 * 24 * 3600 },
           },

@@ -262,6 +262,50 @@ describe('client data', () => {
   })
 })
 
+describe('set-down-only bus stops (smoke round 2, ADDENDUM 2)', () => {
+  it('a stop where every bus only sets down lists the boarding stops of its parent station', async () => {
+    // UQ Lakes: station 1882 is set-down only (pickup_type=1); stops A and C under the same parent pick up.
+    const feed = baseFeed()
+    const stops = feed['stops.txt'] as string[][]
+    const row = (id: string, name: string, parent: string, type = '0') => [
+      id,
+      id,
+      name,
+      '',
+      ' -27.498',
+      ' 153.018',
+      '1',
+      '',
+      type,
+      parent,
+      '',
+    ]
+    stops.push(row('place_uqlksa', 'UQ Lakes', '', '1'))
+    stops.push(row('1882', 'UQ Lakes station', 'place_uqlksa'))
+    stops.push(row('11501', 'UQ Lakes stop A', 'place_uqlksa'))
+    stops.push(row('11503', 'UQ Lakes stop C', 'place_uqlksa'))
+    const trips = feed['trips.txt'] as string[][]
+    const times = feed['stop_times.txt'] as string[][]
+    trips.push(['66-1', 'WK', 'UQ-in', 'UQ Lakes', '0', '', ''])
+    times.push(['UQ-in', '08:00:00', '08:00:00', '10802', '10', '0', '0'])
+    // Not the last stop, and still no pickup.
+    times.push(['UQ-in', '08:20:00', '08:20:00', '1882', '20', '1', '0'])
+    times.push(['UQ-in', '08:22:00', '08:22:00', '11501', '30', '0', '0'])
+    trips.push(['66-1', 'WK', 'UQ-out', 'City', '1', '', ''])
+    times.push(['UQ-out', '09:00:00', '09:00:00', '11503', '10', '0', '0'])
+    times.push(['UQ-out', '09:20:00', '09:20:00', '10802', '20', '0', '0'])
+    const dir = await tmp()
+    await runBuild({ feedDir: await writeFeed(feed), outDir: dir, nowMs: NOW, modes: ['bus'] })
+    const s = await readJsonFile<StopIndexFile>(dir, 'data/bus/stops.json')
+    // Stop A is boarding only where it isn't the last stop: here it is, so only C is listed.
+    expect(s.stops.find((x) => x.key === '1882')?.boardAt).toEqual([
+      { key: '11503', name: 'UQ Lakes stop C' },
+    ])
+    expect(s.stops.find((x) => x.key === '11503')?.boardAt).toBeUndefined()
+    expect(s.stops.find((x) => x.key === '10802')?.boardAt).toBeUndefined()
+  })
+})
+
 describe('mode-restricted builds', () => {
   it('apply SEQ golden facts only to the modes built', async () => {
     // The synthetic train stations carry the real slugs (central, bowen-hills, domestic-airport).

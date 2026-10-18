@@ -126,14 +126,18 @@ export function buildTree(generation = 'g1', trips = TRIPS, mode: Mode = 'ferry'
   }
   tree.publish(generation)
   put('legacy/latest.json', { generated: '2026-10-19T17:20:00Z', departures: [] })
-  // Stop index: every stop the trips use, plus one stop with no service (a known key that returns no rows).
+  // Stop index: every stop the trips use, plus one stop with no service (a known key that returns no rows) and a
+  // set-down-only stop that lists where to board instead (smoke round 2, ADDENDUM 2).
   const ids = [...new Set(Object.values(trips).flatMap((ts) => ts.flatMap((t) => t.stops.map((x) => x[0]))))]
   const entry = (key: string) => ({ key, name: `${key} ferry terminal`, lat: -27.4, lon: 153, routes: [] })
   put(`data/${mode}/stops.json`, {
     schemaVersion: 1,
     mode,
     generation,
-    stops: [...ids, 'QUIET'].map(entry),
+    stops: [
+      ...[...ids, 'QUIET'].map(entry),
+      { ...entry('DROPOFF'), boardAt: [{ key: 'QUIET', name: 'QUIET ferry terminal' }] },
+    ],
   })
   return tree
 }

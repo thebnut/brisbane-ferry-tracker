@@ -144,7 +144,8 @@ export function StationBoard({
         </ErrorState>
       ) : null}
 
-      {res && cards.length === 0 && state === 'offline' && filter !== 'express' ? (
+      {/* Offline, an empty board (express filter or not) only means the copies on hand ran out (Codex review). */}
+      {res && cards.length === 0 && state === 'offline' ? (
         <EmptyState title="Offline: no saved timetable for these times">
           Trains may still be running. Times come back when you reconnect.
         </EmptyState>

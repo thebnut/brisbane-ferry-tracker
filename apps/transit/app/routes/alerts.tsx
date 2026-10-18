@@ -39,7 +39,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const list = alerts?.alerts ?? []
   const scopes = Object.fromEntries(list.map((a) => [a.id, scopeText(a, trainLinesOf, stopMode)]))
   // Modes of alerts the feed left without one, from their stops (R2-X7b), with the train network on hand here.
-  const modes = Object.fromEntries(list.map((a) => [a.id, alertModes(a, stopMode)]))
+  const modes = Object.fromEntries(list.map((a) => [a.id, alertModes(a, stopMode, trainLinesOf)]))
   return { alerts, scopes, modes, renderedAt: Date.now() }
 }
 
@@ -78,7 +78,7 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
   }, [q.data, loaderData.scopes])
   const stopMode = useMemo(() => stopModeOf(train?.isTrainPlatform), [train])
   const modesOf = (a: Alert) =>
-    (a.id in loaderData.modes ? loaderData.modes[a.id] : alertModes(a, stopMode)) ?? null
+    (a.id in loaderData.modes ? loaderData.modes[a.id] : alertModes(a, stopMode, train?.trainLinesOf)) ?? null
   const [filter, setFilter] = useState<Filter>('all')
   const all = useMemo(() => sortAlerts(q.data?.alerts ?? [], nowS), [q.data, nowS])
   const mine = scope ? all.filter((a) => impactOn(a, scope)) : []
