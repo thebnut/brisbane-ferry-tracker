@@ -422,3 +422,88 @@ describe('RtHub R2 publish', () => {
     expect(h.storage.alarmAt).not.toBeNull()
   })
 })
+
+describe('Codex review regressions', () => {
+  it('#1 a fresh object never reuses a seq already published to R2', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    const published = (await h.hub.pull(null)).seq as number
+    // The object's own storage is lost (new namespace, or a failed write), R2 still has the pointer.
+    h.storage.data.clear()
+    const fresh = h.mk()
+    h.up.set(TU, feed(h.nowS(), []))
+    await fresh.cycle()
+    expect((await fresh.pull(null)).seq).toBe(published + 1)
+    expect(r2.files.has(snapshotKey(published + 1))).toBe(true)
+  })
+
+  it('#3 a failed R2 publish is retried on the next cycle even when feeds are unchanged', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    r2.fail = true
+    h.up.set(TU, feed(h.nowS(), []))
+    await h.hub.cycle()
+    const seq = (await h.hub.pull(null)).seq as number
+    r2.fail = false
+    await h.hub.cycle() // all 304s, nothing rebuilt
+    const pointer = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
+    expect(pointer.seq).toBe(seq)
+    expect(h.hub.status().lastError).toBeNull()
+  })
+
+  it('#2 a DUPLICATED trip takes its identity and start time from TripProperties', async () => {
+    const h = setup()
+    await warm(h)
+    h.up.set(
+      TU,
+      feed(h.nowS(), [
+        {
+          id: 'dup',
+          tripUpdate: {
+            trip: {
+              tripId: 'T1',
+              startDate: D,
+              startTime: '08:00:00',
+              routeId: 'F1-4055',
+              scheduleRelationship: 6,
+            },
+            tripProperties: { tripId: 'T1-0900', startDate: D, startTime: '09:00:00' },
+            stopTimeUpdate: [
+              { stopSequence: 1, stopId: '317584', departure: { delay: 0 } },
+              { stopSequence: 3, stopId: '317590', arrival: { delay: 60 } },
+            ],
+          },
+        },
+      ]),
+    )
+    await h.hub.cycle()
+    const snap = RtSnapshot.parse(JSON.parse((await h.hub.pull(null)).json as string))
+    const t = snap.trips[`rt:T1-0900@${D}`]
+    expect(t?.rel).toBe('DUPLICATED')
+    expect(t?.added?.stops.map((x) => [x.stopId, x.dep])).toEqual([
+      ['317584', epoch(D, '09:00:00')],
+      ['317590', epoch(D, '09:16:00')],
+    ])
+  })
+
+  it('#4 a cancellation is not carried into a new static generation', async () => {
+    const h = setup()
+    await warm(h)
+    h.up.set(
+      TU,
+      feed(h.nowS(), [tripUpdate('c', { tripId: 'T2', startDate: D, scheduleRelationship: 3 }, [])]),
+    )
+    await h.hub.cycle()
+    h.tree.publish('g2') // same trip ids, new generation
+    for (let i = 0; i < 3; i++) {
+      h.clock.advance(CYCLE_MS)
+      h.up.set(TU, feed(h.nowS(), []))
+      await h.hub.cycle()
+    }
+    const snap = RtSnapshot.parse(JSON.parse((await h.hub.pull(null)).json as string))
+    expect(snap.header.staticGeneration.ferry).toBe('g2')
+    expect(snap.trips[`T2@${D}`]).toBeUndefined()
+  })
+})

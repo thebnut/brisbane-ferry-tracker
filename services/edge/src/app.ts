@@ -49,6 +49,8 @@ export interface AppDeps {
 type Env = { Variables: { rid: string; log: Logger } }
 
 const DEFAULT_LIMIT = 20
+/** `at` within this of now is treated as a live query for caching. */
+const AT_LIVE_WINDOW_MS = 2 * 60_000
 const MAX_LIMIT = 100
 /** bbox queries snap outward to this grid (degrees) so cache keys stay bounded. */
 export const BBOX_GRID = 0.05
@@ -199,7 +201,10 @@ export function createApp(deps: AppDeps): Hono<Env> {
       departures,
     }
     // `at` queries are mostly about later departures, so they can be cached longer.
-    return c.json(body, 200, { 'cache-control': at != null ? 'public, max-age=60' : r.cacheControl })
+    // `at` far from now (the Depart-from picker) can be cached for a minute; near now it carries live predictions, so
+    // it keeps the snapshot-capped max-age (Codex review #6).
+    const farAt = at != null && Math.abs(at * 1000 - r.nowMs) > AT_LIVE_WINDOW_MS
+    return c.json(body, 200, { 'cache-control': farAt ? 'public, max-age=60' : r.cacheControl })
   })
 
   // ---------------------------------------------------------------- trip detail
@@ -370,10 +375,13 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const h = cur?.snapshot.header
     const generations: Record<string, string> = {}
     for (const [m, v] of Object.entries(manifest?.modes ?? {})) if (v) generations[m] = v.current
-    const ageS = h ? Math.round((nowMs - h.fetchedAt) / 100) / 10 : null
+    // Judge the source, not the build: a hub that keeps rebuilding from retained data while TripUpdates fail must
+    // not look healthy (Codex review #5). ageS is the age of TransLink's header time behind the snapshot.
+    const ageS = h ? Math.round((nowMs - h.sourceTimestamp * 1000) / 100) / 10 : null
+    const buildAgeS = h ? (nowMs - h.fetchedAt) / 1000 : null
     const body: HealthResponse = {
       schemaVersion: SCHEMA_VERSION,
-      ok: manifest != null && ageS != null && ageS < 120,
+      ok: manifest != null && ageS != null && ageS < 120 && buildAgeS != null && buildAgeS < 120,
       now: nowMs,
       manifest: { updatedAt: manifest?.updatedAt ?? null, generations },
       rt: {

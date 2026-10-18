@@ -178,6 +178,9 @@ describe('GET /v1/{mode}/stops/{key}/departures', () => {
     )
     expect(late.departures[0]?.tripInstance).toBe('LATE@20261019')
     expect((await s.get('/v1/ferry/stops/317584/departures?at=soon')).status).toBe(400)
+    // at ≈ now carries live predictions: still capped by snapshot age.
+    const near = await s.get(`/v1/ferry/stops/317584/departures?at=${s.nowS() + 30}`)
+    expect(near.headers.get('cache-control')).toMatch(/^public, max-age=([0-9]|10)$/)
   })
 
   it('late in the evening carries on into the next service day', async () => {
@@ -297,6 +300,19 @@ describe('other /v1 routes', () => {
     expect(body.rt.stats?.ferry?.matched).toBe(2)
     s.clock.advance(5 * 60_000)
     expect((await s.get('/v1/health')).status).toBe(503)
+  })
+
+  it('health fails when TripUpdates go stale even though the hub keeps rebuilding', async () => {
+    const s = await setup()
+    // TransLink's header time stops advancing; the hub still rebuilds from retained data every cycle.
+    s.clock.advance(5 * 60_000)
+    s.up.fail.add('TripUpdates/Ferry')
+    s.up.set('VehiclePositions/Ferry', feed(s.nowS(), []))
+    await s.hub.cycle()
+    s.clock.advance(11_000)
+    const body = HealthResponse.parse(await (await s.get('/v1/health')).json())
+    expect(body.ok).toBe(false)
+    expect(body.rt.ageS).toBeGreaterThan(120)
   })
 
   it('/data passthrough and the legacy latest.json', async () => {

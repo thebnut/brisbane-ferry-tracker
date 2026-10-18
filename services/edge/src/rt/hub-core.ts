@@ -135,6 +135,8 @@ export class HubCore {
   private alerts: Alert[] = []
   private running: Promise<void> | null = null
   private rawPersistedAt = 0
+  /** The current snapshot still needs publishing to R2 (a publish failed, or it was just rebuilt). */
+  private r2Pending = false
   private readonly startedAt: number
   private readonly cycleMs: number
   private readonly alarmMs: number
@@ -351,18 +353,25 @@ export class HubCore {
       this.rawPersistedAt = now
     }
 
-    if (this.d.r2 && this.snapshotJson && rebuilt) {
-      try {
-        await this.publishR2(this.snapshotJson, now)
-      } catch (e) {
-        errors.push(`r2: ${errorMessage(e)}`)
-      }
-    }
-
+    // Persist first: the new seq is durably reserved before it is published, so a crash between the two can never
+    // republish different content under a seq readers already hold (Codex review #1).
+    if (rebuilt && this.d.r2) this.r2Pending = true
     this.meta.lastCycleAt = this.d.now()
     this.meta.lastError = errors.length > 0 ? errors.join('; ') : null
     writes.meta = { ...this.meta }
     await this.d.storage.put(writes)
+
+    // Publish (or retry a failed publish) even when nothing changed this cycle (Codex review #3).
+    if (this.d.r2 && this.snapshotJson && this.r2Pending) {
+      try {
+        await this.publishR2(this.snapshotJson, now)
+        this.r2Pending = false
+      } catch (e) {
+        errors.push(`r2: ${errorMessage(e)}`)
+        this.meta.lastError = errors.join('; ')
+        await this.d.storage.put({ meta: { ...this.meta } })
+      }
+    }
     if (errors.length > 0) this.log.warn('rt cycle partial', { errors, seq: this.meta.seq })
   }
 
@@ -487,20 +496,27 @@ export class HubCore {
     if (this.restored) return
     this.restored = true
     const meta = await this.d.storage.get<Meta>('meta')
-    if (!meta) return
-    this.meta = { ...this.meta, ...meta }
-    const parts: string[] = []
-    for (let i = 0; i < meta.snapChunks; i++) {
-      const p = await this.d.storage.get<string>(`snap:${i}`)
-      if (p == null) return
-      parts.push(p)
+    if (meta) this.meta = { ...this.meta, ...meta }
+    let json: string | null = null
+    if (meta && meta.snapChunks > 0) {
+      const parts: string[] = []
+      for (let i = 0; i < meta.snapChunks; i++) {
+        const p = await this.d.storage.get<string>(`snap:${i}`)
+        if (p == null) break
+        parts.push(p)
+      }
+      if (parts.length === meta.snapChunks) json = parts.join('')
     }
-    let json = parts.length > 0 ? parts.join('') : null
-    if (!json && this.d.r2?.get) {
+    if (this.d.r2?.get) {
       const ptr = await this.d.r2.get(R2_LATEST_KEY)
-      const key = ptr ? ((JSON.parse(await ptr.text()) as R2Pointer).key ?? null) : null
-      const obj = key ? await this.d.r2.get(key) : null
-      json = obj ? await obj.text() : null
+      const pointer = ptr ? (JSON.parse(await ptr.text()) as R2Pointer) : null
+      // Never reuse a published seq (Codex review #1): continue after whatever R2 already holds, even when this
+      // object's own storage is empty or behind.
+      if (pointer && pointer.seq > this.meta.seq) this.meta.seq = pointer.seq
+      if (!json && pointer?.key) {
+        const obj = await this.d.r2.get(pointer.key)
+        json = obj ? await obj.text() : null
+      }
     }
     if (json) {
       this.snapshotJson = json

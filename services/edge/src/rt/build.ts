@@ -218,16 +218,29 @@ function resolveAdded(
   let original: IndexedTrip | undefined
   let originalKey: string | undefined
   let shift = 0
-  if (rel === 'DUPLICATED' && desc.tripId) {
-    // The duplicated trip's schedule is the original's, shifted to the new start time.
-    const m = idx.matcher.match({ tripId: desc.tripId }, [])
+  // DUPLICATED (GTFS-RT spec): the descriptor names the original trip; the duplicate's own trip_id, start_date and
+  // start_time are in TripProperties. The duplicate's schedule is the original's, shifted to the new start.
+  const props = tu.tripProperties
+  const dup =
+    rel === 'DUPLICATED'
+      ? {
+          tripId: props?.tripId || undefined,
+          startDate: props?.startDate || desc.startDate,
+          startTime: props?.startTime || desc.startTime,
+        }
+      : null
+  if (dup && desc.tripId) {
+    const m = idx.matcher.match(
+      { tripId: desc.tripId, startDate: desc.startDate, startTime: desc.startTime },
+      [],
+    )
     if (m.kind === 'matched') {
       originalKey = m.key
       original = idx.matcher.trip(m.key)
-      const newStart = parseStart(desc.startTime)
+      const newStart = parseStart(dup.startTime)
       const first = original ? [...original.stops.values()][0] : undefined
-      if (original && first && newStart != null && desc.startDate) {
-        shift = gtfsToEpoch(desc.startDate, newStart) - first.depEpoch
+      if (original && first && newStart != null && dup.startDate) {
+        shift = gtfsToEpoch(dup.startDate, newStart) - first.depEpoch
       }
     }
   }
@@ -260,12 +273,14 @@ function resolveAdded(
   const meta = originalKey ? idx.tripMeta.get(originalKey) : undefined
   const route = idx.route(desc.routeId) ?? meta?.r
   if (!route) return null
-  const date = desc.startDate ?? originalKey?.slice(-8)
+  const date = (dup ? dup.startDate : desc.startDate) ?? originalKey?.slice(-8)
   if (!date || !/^\d{8}$/.test(date)) return null
   const headsign = (tu.tripProperties?.tripHeadsign || meta?.h) ?? ''
   const dir = desc.directionId === 0 || desc.directionId === 1 ? desc.directionId : -1
   return {
-    key: `rt:${desc.tripId ?? tu.vehicle?.id ?? 'added'}${rel === 'DUPLICATED' ? `+${desc.startTime ?? ''}` : ''}@${date}`,
+    key: dup
+      ? `rt:${dup.tripId ?? `${desc.tripId}+${dup.startTime ?? ''}`}@${date}`
+      : `rt:${desc.tripId ?? tu.vehicle?.id ?? 'added'}@${date}`,
     added: { route, headsign, directionId: dir, stops },
   }
 }
@@ -386,9 +401,18 @@ export function buildSnapshot(input: BuildInput): BuildResult {
   }
 
   // Cancellations persist until their scheduled end, even when the feed drops them.
+  // Carry a cancellation forward only while its trip instance still exists in the current static generation: after a
+  // feed swap, a reused trip_id must not inherit the old generation's cancellation (Codex review #4).
   for (const prev of Object.values(input.previous?.trips ?? {})) {
     if (trips[prev.key]) continue
-    if (isRecordLive(prev, nowS, false)) trips[prev.key] = prev
+    if (!isRecordLive(prev, nowS, false)) continue
+    const prevGen = input.previous?.header.staticGeneration ?? {}
+    const sameGeneration = modes.some((m) => {
+      const idx = input.indexes[m]
+      return idx?.matcher.trip(prev.key) != null && prevGen[m] === idx.generation
+    })
+    if (!sameGeneration) continue
+    trips[prev.key] = prev
   }
 
   const vehicles: Vehicle[] = []
