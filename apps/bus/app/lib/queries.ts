@@ -88,14 +88,13 @@ export function asTimetable(
     ...res,
     rtState,
     rtSourceTimestamp: null,
-    departures: dropDeparted(res.departures, (d) => d.schedDep, nowMs, false)
-      .map((d) => ({
-        ...d,
-        status: d.status === 'cancelled' ? d.status : 'scheduled',
-        estDep: null,
-        estArrTo: null,
-        gps: false,
-      })),
+    departures: dropDeparted(res.departures, (d) => d.schedDep, nowMs, false).map((d) => ({
+      ...d,
+      status: d.status === 'cancelled' ? d.status : 'scheduled',
+      estDep: null,
+      estArrTo: null,
+      gps: false,
+    })),
   }
 }
 

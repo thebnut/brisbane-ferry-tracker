@@ -8,6 +8,7 @@ import {
   currentServiceDate,
   type Departure,
   type DeparturesResponse,
+  type GeoTileFile,
   gtfsToEpoch,
   type HealthResponse,
   type MergeOptions,
@@ -474,7 +475,24 @@ export function createApp(deps: AppDeps): Hono<Env> {
     if (!rest || rest.split('/').some((s) => s === '..' || s === ''))
       return c.json({ error: 'bad path' }, 400)
     const obj = await deps.store.source.get(`data/${mode}/${rest}`)
-    if (!obj) return c.json({ error: 'not found' }, 404)
+    if (!obj) {
+      // The pipeline publishes only tiles that have stops, but a client asks for its cell and the 8 around it.
+      // A well-formed tile path in a mode with data is "no stops here": answer an empty tile, not a 404 that every
+      // browser logs as an error (smoke test X2). The fixture servers already do the same.
+      const tile = /^geo\/([0-9b-hjkmnp-z]{5})\.json$/.exec(rest)
+      const generation = tile ? await deps.store.currentGeneration(mode, waitUntilOf(c)) : null
+      if (tile && generation) {
+        const empty: GeoTileFile = {
+          schemaVersion: SCHEMA_VERSION,
+          mode,
+          generation,
+          geohash: tile[1] as string,
+          stops: [],
+        }
+        return c.json(empty, 200, { 'cache-control': 'public, max-age=300' })
+      }
+      return c.json({ error: 'not found' }, 404)
+    }
     const headers: Record<string, string> = {
       'content-type': rest.endsWith('.json') ? 'application/json' : 'application/octet-stream',
       // Paths are stable and rewritten each publish, so cacheable but not immutable.

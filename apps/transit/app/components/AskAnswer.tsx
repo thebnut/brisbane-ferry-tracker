@@ -1,8 +1,33 @@
 /** The Ask box's answer: text, a friendly note for any AI limit, and the rows as shared departure cards. */
-import { type BadgeKind, DepartureCard, RouteTile } from '@bft/ui'
+import { type BadgeKind, DepartureCard, dayMarker, RouteTile } from '@bft/ui'
 import type { AskDeparture, AskResult } from '../lib/ask.ts'
 
-export function askRowProps(d: AskDeparture) {
+/** Minutes after midnight of a "7:42 pm" clock text, or null. */
+function clockMinutes(text: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})\s*(am|pm)$/i.exec(text.trim())
+  if (!m) return null
+  const h = Number(m[1]) % 12
+  return (m[3]?.toLowerCase() === 'pm' ? h + 12 : h) * 60 + Number(m[2])
+}
+
+/**
+ * "(19/10)" markers for an answer row, as the boards show them (X6). Rows carry clock text only; the departure's day
+ * comes from `inMinutes`, and an arrival whose clock is earlier than the departure's is the next day.
+ */
+export function askDayMarkers(d: AskDeparture, nowMs: number) {
+  const dep = clockMinutes(d.departs)
+  const arr = d.arrives ? clockMinutes(d.arrives) : null
+  // The instant whose Brisbane clock (UTC+10, no DST) shows `departs`, nearest to now + inMinutes.
+  const approxS = Math.floor(nowMs / 1000) + d.inMinutes * 60
+  const localMin = Math.floor(((approxS + 10 * 3600) % 86400) / 60)
+  const depS =
+    dep == null ? approxS : approxS + (((((dep - localMin + 720) % 1440) + 1440) % 1440) - 720) * 60
+  const arrS = dep != null && arr != null ? depS + ((arr - dep + 1440) % 1440) * 60 : null
+  return { dep: dayMarker(depS, nowMs), arr: arrS != null ? dayMarker(arrS, nowMs) : null }
+}
+
+export function askRowProps(d: AskDeparture, nowMs = Date.now()) {
+  const markers = askDayMarkers(d, nowMs)
   const cancelled = d.status === 'cancelled'
   const skipped = d.status === 'skipped'
   const badges: BadgeKind[] = cancelled
@@ -16,7 +41,8 @@ export function askRowProps(d: AskDeparture) {
           : ['scheduled']
   return {
     time: d.departs,
-    arrival: d.arrives && !skipped ? { time: d.arrives } : null,
+    dayMarker: markers.dep,
+    arrival: d.arrives && !skipped ? { time: d.arrives, dayMarker: markers.arr } : null,
     badges,
     service: `${d.route} to ${d.headsign}`.toUpperCase(),
     note: skipped ? 'Not stopping here' : d.platform ? `Platform ${d.platform}` : null,
@@ -27,7 +53,8 @@ export function askRowProps(d: AskDeparture) {
   }
 }
 
-export default function AskAnswer({ result }: { result: AskResult }) {
+/** Rendered only after the visitor asks (never on the server), so `nowMs` defaults to the device clock. */
+export default function AskAnswer({ result, nowMs = Date.now() }: { result: AskResult; nowMs?: number }) {
   return (
     <div className="flex flex-col gap-2.5" aria-live="polite">
       <p
@@ -46,11 +73,12 @@ export default function AskAnswer({ result }: { result: AskResult }) {
         </p>
       ) : null}
       {result.departures.map((d, i) => {
-        const p = askRowProps(d)
+        const p = askRowProps(d, nowMs)
         return (
           <DepartureCard
             key={`${d.tripInstance}:${d.departs}`}
             time={p.time}
+            dayMarker={p.dayMarker}
             arrival={p.arrival}
             badges={p.badges}
             service={p.service}

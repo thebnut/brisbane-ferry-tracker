@@ -42,7 +42,13 @@ export function BigCountdown({
   return (
     <span className="flex shrink-0 flex-col items-end" data-countdown={cancelled ? 'cancelled' : minutes}>
       {text == null ? (
-        <span className={cx(big, 'leading-none font-extrabold tabular')}>
+        // A clock time ("10:45 pm") is twice as wide as a countdown: smaller on phones so the destination keeps room.
+        <span
+          className={cx(
+            size === 'lg' ? 'text-[26px] sm:text-[34px]' : 'text-[24px] sm:text-[30px]',
+            'leading-none font-extrabold whitespace-nowrap tabular',
+          )}
+        >
           {time}
           {dayMarker ? (
             <span className="ml-1 text-sm font-bold text-ferry-orange-deep">{dayMarker}</span>
@@ -152,9 +158,11 @@ export function RouteDepartureCard({
     <>
       <RouteTile route={route} variant={routeTileVariant(route, routeLong)} size="lg" />
       <span className="flex min-w-0 flex-1 flex-col gap-1">
+        {/* Up to two lines before an ellipsis: a long headsign mustn't be cut to a few letters on a phone (B2). */}
         <span
+          data-testid="destination"
           className={cx(
-            'truncate text-base font-bold text-charcoal md:text-lg dark:text-night-text',
+            'line-clamp-2 text-base leading-snug font-bold break-words text-charcoal md:text-lg dark:text-night-text',
             cancelled && 'line-through decoration-2',
           )}
         >

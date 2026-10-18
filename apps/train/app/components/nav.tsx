@@ -1,5 +1,6 @@
 /**
- * BrisbaneTrain section navigation (Home, Stations, Map, Alerts) as the one-handed bottom nav. Kept in its own module
+ * BrisbaneTrain section navigation (Home, Stations, Map, Alerts): the one-handed bottom nav on phones, links in the
+ * header on desktop (T-Desktop has no bottom nav; smoke test T6). Kept in its own module
  * because BrisbaneTransit swaps exactly this file at build time for its Mode Tabs (apps/transit/modes.config.ts), so
  * the train pages themselves are reused unchanged.
  */
@@ -14,21 +15,47 @@ export const NAV: NavItem[] = [
   { key: 'alerts', label: 'Alerts', icon: 'bell', href: at('/alerts') },
 ]
 
+/** Bottom navigation (phones only). */
 export function TrainNav({ active }: { active: string }) {
   return (
-    <BottomNav
-      items={NAV}
-      active={active}
-      renderLink={(item, className, inner) => (
+    <div className="md:hidden">
+      <BottomNav
+        items={NAV}
+        active={active}
+        renderLink={(item, className, inner) => (
+          <Link
+            to={item.href}
+            prefetch="intent"
+            className={className}
+            aria-current={item.key === active ? 'page' : undefined}
+          >
+            {inner}
+          </Link>
+        )}
+      />
+    </div>
+  )
+}
+
+/** Desktop navigation links in the header. */
+export function DesktopNav({ active }: { active: string }) {
+  return (
+    <nav aria-label="Sections" className="hidden items-center gap-1.5 md:flex">
+      {NAV.map((i) => (
         <Link
-          to={item.href}
+          key={i.key}
+          to={i.href}
           prefetch="intent"
-          className={className}
-          aria-current={item.key === active ? 'page' : undefined}
+          aria-current={i.key === active ? 'page' : undefined}
+          className={
+            i.key === active
+              ? 'flex h-9 items-center rounded-full bg-ferry-orange-aa px-3 text-sm font-bold text-white'
+              : 'flex h-9 items-center rounded-full border border-ferry-orange/20 bg-white px-3 text-sm font-semibold text-aqua-text hover:border-ferry-orange/50 dark:bg-night-card dark:text-ferry-aqua-light'
+          }
         >
-          {inner}
+          {i.label}
         </Link>
-      )}
-    />
+      ))}
+    </nav>
   )
 }

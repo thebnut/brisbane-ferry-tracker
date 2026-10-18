@@ -15,6 +15,11 @@ export const NAV: NavItem[] = [
   { key: 'alerts', label: 'Alerts', icon: 'bell', href: at('/alerts') },
 ]
 
+/** Inside BrisbaneTransit the section pills are the desktop nav too (above), so the header adds nothing. */
+export function DesktopNav(_: { active: string }) {
+  return null
+}
+
 export function TrainNav({ active }: { active: string }) {
   return (
     <SectionTabs

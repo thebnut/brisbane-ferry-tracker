@@ -24,15 +24,15 @@ import {
 } from '@bft/ui'
 import { data, Link, useNavigate } from 'react-router'
 import { BusNav, DataBanner, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
-import { ApiError, fetchTrip } from '../lib/api.ts'
-import { validateTrip } from '../lib/contract.server.ts'
+import { ApiError, fetchRoute, fetchTrip } from '../lib/api.ts'
+import { validateRoute, validateTrip } from '../lib/contract.server.ts'
 import { useApi } from '../lib/mode.ts'
 import { useTrip } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
 import { routeHref, stopHref } from '../lib/stops.ts'
 import { toggleSaved, useSavedStops } from '../lib/storage.ts'
-import { at, schedAt, timeline } from '../lib/trip.ts'
+import { at, schedAt, stopNamesFor, timeline } from '../lib/trip.ts'
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/trip'
 
@@ -51,10 +51,17 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     }
   })
   if (unknown) throw data(null, { status: 404 })
+  // The trip endpoint names no bus stops: take the names from this route's stop file (small, cached), so the
+  // timeline says "Adelaide St Stop 12", not "Stop 6298" (smoke test B1). Only this trip's stops go in the page.
+  const route = trip
+    ? await settle((signal) => fetchRoute(fetcher, trip.route.short, { signal, validate: validateRoute }))
+    : null
+  const stopNames = stopNamesFor(trip, route)
   return {
     key,
     from: from && /^[\w-]{1,32}$/.test(from) ? from : null,
     trip,
+    stopNames,
     renderedAt: Date.now(),
     siteUrl: env?.SITE_URL ?? SITE_URL,
   }
@@ -117,6 +124,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
             trip={trip}
             from={from}
             now={now}
+            stopNames={loaderData.stopNames}
             saved={saved.some((s) => s.id === from)}
             onTrack={() => navigate(`${routeHref(trip.route.short)}?trip=${encodeURIComponent(key)}`)}
           />
@@ -132,12 +140,14 @@ function TripBody({
   trip,
   from,
   now,
+  stopNames,
   saved,
   onTrack,
 }: {
   trip: TripResponse
   from: string | null
   now: number
+  stopNames: Record<string, string>
   saved: boolean
   onTrack: () => void
 }) {
@@ -224,7 +234,7 @@ function TripBody({
         >
           Stops on this trip
         </h2>
-        <TripTimeline stops={timeline(trip, from, now)} />
+        <TripTimeline stops={timeline(trip, from, now, stopNames)} />
       </section>
       <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+var(--bft-bottom-bar,64px))] z-20 border-t border-ferry-orange/20 bg-white/95 px-4 py-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 dark:bg-night-2/95">
         <div className="mx-auto flex max-w-3xl gap-2.5">

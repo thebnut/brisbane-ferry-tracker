@@ -10,6 +10,8 @@ export const STORAGE_KEYS = {
   SELECTED_STOPS_SESSION: 'brisbane-ferry-selected-stops-session',
   REMEMBER_SELECTION: 'brisbane-ferry-remember-selection',
   DEPARTURE_TIME: 'brisbane-ferry-departure-time',
+  /** Set once the stop selector has opened by itself, so it never opens unasked again on this device. */
+  SELECTOR_SEEN: 'brisbane-ferry-selector-seen',
 } as const
 
 export const PAIR_COOKIE = 'bft_pair'
@@ -37,11 +39,20 @@ export function readSavedPair(): StopPair | null {
   )
 }
 
-/** First visit, or "Remember selection" off: show the stop selector (legacy rule). */
+/**
+ * Open the stop selector by itself only on a device's first visit: nothing remembered and never shown before. The
+ * legacy app also reopened it on every load while "Remember selection" was off; that read as nagging (smoke test X1),
+ * so later visits show the default board, whose From/To pickers and Settings change the stops.
+ */
 export function shouldShowSelector(): boolean {
   const remember = safe(() => localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION), null) === 'true'
   const saved = safe(() => localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS), null)
-  return !saved || !remember
+  const seen = safe(() => localStorage.getItem(STORAGE_KEYS.SELECTOR_SEEN), null) === '1'
+  return !(saved && remember) && !seen
+}
+
+export function markSelectorSeen(): void {
+  safe(() => localStorage.setItem(STORAGE_KEYS.SELECTOR_SEEN, '1'), undefined)
 }
 
 export function readRemember(): boolean {

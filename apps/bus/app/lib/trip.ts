@@ -1,13 +1,28 @@
 /** Trip detail helpers (B-Detail timeline). */
 import type { TripResponse, TripStop } from '@bft/core/contract'
 import { type BusTimelineStop, formatClock } from '@bft/ui'
+import type { RouteFile } from './data-contract.ts'
 import { stopCode } from './stops.ts'
 
 export const at = (s: TripStop) => s.estDep ?? s.schedDep ?? s.estArr ?? s.schedArr ?? 0
 export const schedAt = (s: TripStop) => s.schedDep ?? s.schedArr ?? 0
 
+/** Names of a trip's stops from its route's stop file (the trip endpoint carries ids only for buses). */
+export function stopNamesFor(trip: TripResponse | null, route: RouteFile | null): Record<string, string> {
+  if (!trip || !route) return {}
+  const ids = new Set(trip.stops.map((s) => s.stopId))
+  const names: Record<string, string> = {}
+  for (const p of route.patterns) for (const s of p.stops) if (ids.has(s.key)) names[s.key] = s.name
+  return names
+}
+
 /** Timeline kinds: stops before the bus are past; the bus's stop (or your stop if no GPS) is "here". */
-export function timeline(trip: TripResponse, from: string | null, nowMs: number): BusTimelineStop[] {
+export function timeline(
+  trip: TripResponse,
+  from: string | null,
+  nowMs: number,
+  names: Record<string, string> = {},
+): BusTimelineStop[] {
   const nowS = nowMs / 1000
   const stops = trip.stops
   let hereIdx = -1
@@ -39,7 +54,7 @@ export function timeline(trip: TripResponse, from: string | null, nowMs: number)
     ].filter(Boolean)
     return {
       key: `${s.stopId}:${s.stopSequence}`,
-      name: s.name ?? `Stop ${s.stopId}`,
+      name: s.name ?? names[s.stopId] ?? `Stop ${s.stopId}`,
       meta: metaParts.join(' · ') || undefined,
       time: at(s) ? formatClock(at(s)) : '',
       kind: isFrom && kind === 'next' ? 'here' : kind,

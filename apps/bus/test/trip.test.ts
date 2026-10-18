@@ -1,6 +1,7 @@
 import type { TripResponse, TripStop } from '@bft/core/contract'
 import { describe, expect, it } from 'vitest'
-import { timeline } from '../app/lib/trip.ts'
+import type { RouteFile } from '../app/lib/data-contract.ts'
+import { stopNamesFor, timeline } from '../app/lib/trip.ts'
 
 const T0 = 1_792_300_000
 const stop = (id: string, i: number): TripStop => ({
@@ -43,5 +44,37 @@ describe('trip timeline', () => {
   it('without a position, stops whose time has passed are past', () => {
     const t = timeline(trip(null), null, (T0 + 250) * 1000)
     expect(t.map((s) => s.kind)).toEqual(['past', 'past', 'past', 'end'])
+  })
+  it('names stops from the route file when the trip carries only ids (B1)', () => {
+    const t = trip(null)
+    t.stops = t.stops.map(({ name: _name, ...rest }) => rest)
+    const route = {
+      schemaVersion: 1,
+      mode: 'bus',
+      generation: 'g',
+      short: 'M2',
+      color: '000000',
+      textColor: 'FFFFFF',
+      patterns: [
+        {
+          directionId: 0,
+          headsign: 'UQ Lakes',
+          trips: 1,
+          stops: [
+            { key: 'a', name: 'Adelaide Street', lat: 0, lon: 0 },
+            { key: 'c', name: 'Cultural Centre', lat: 0, lon: 0 },
+            { key: 'z', name: 'Not on this trip', lat: 0, lon: 0 },
+          ],
+        },
+      ],
+    } as RouteFile
+    const names = stopNamesFor(t, route)
+    expect(names).toEqual({ a: 'Adelaide Street', c: 'Cultural Centre' })
+    expect(timeline(t, null, T0 * 1000, names).map((s) => s.name)).toEqual([
+      'Adelaide Street',
+      'Stop b',
+      'Cultural Centre',
+      'Stop d',
+    ])
   })
 })

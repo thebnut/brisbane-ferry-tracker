@@ -2,6 +2,7 @@ import {
   AlertsResponse,
   DeparturesResponse,
   ErrorResponse,
+  GeoTileFile,
   HealthResponse,
   TripResponse,
   VehiclesResponse,
@@ -374,6 +375,16 @@ describe('other /v1 routes', () => {
     expect(d.status).toBe(200)
     expect(await d.json()).toMatchObject({ mode: 'ferry' })
     expect((await s.get('/data/ferry/nope.json')).status).toBe(404)
+    // A tile with no stops isn't published: a well-formed tile path is an empty tile, not a 404 (X2).
+    const empty = await s.get('/data/ferry/geo/r7hu1.json')
+    expect(empty.status).toBe(200)
+    expect(GeoTileFile.parse(await empty.json())).toMatchObject({
+      mode: 'ferry',
+      geohash: 'r7hu1',
+      stops: [],
+    })
+    expect((await s.get('/data/ferry/geo/r7hu.json')).status).toBe(404)
+    expect((await s.get('/data/ferry/geo/aaaaa.json')).status).toBe(404)
     const l = await s.get('/schedule-data/latest.json')
     expect(l.status).toBe(200)
     expect(await l.json()).toMatchObject({ generated: '2026-10-19T17:20:00Z' })

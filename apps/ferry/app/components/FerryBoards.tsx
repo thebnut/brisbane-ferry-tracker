@@ -26,6 +26,7 @@ import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import {
   FIXTURE_COOKIE,
+  markSelectorSeen,
   readDepartAt,
   readSavedPair,
   savePair,
@@ -101,7 +102,10 @@ export function FerryBoards({
       ) {
         setPair(saved)
       }
-      if (shouldShowSelector()) setShowSelector(true)
+      if (shouldShowSelector()) {
+        setShowSelector(true)
+        markSelectorSeen()
+      }
     }
     setDepartAt(readDepartAt())
     // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is not in Safari; this is a plain preference cookie.

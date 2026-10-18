@@ -11,7 +11,7 @@ import { ATTRIBUTION } from '../lib/seo.ts'
 import { FIXTURE_COOKIE, type Theme, writeTheme } from '../lib/storage.ts'
 import { useOnline } from '../lib/useNow.ts'
 import type { loader as rootLoader } from '../root.tsx'
-import { TrainNav } from './nav.tsx'
+import { DesktopNav, TrainNav } from './nav.tsx'
 
 export { NAV } from './nav.tsx'
 
@@ -25,9 +25,19 @@ export const SECTION = {
   h2: 'text-[13px] font-bold tracking-[0.06em] text-aqua-text uppercase dark:text-ferry-aqua-light',
 }
 
-export function SiteHeader({ onSettings, live = true }: { onSettings?: () => void; live?: boolean }) {
+export function SiteHeader({
+  onSettings,
+  live = true,
+  active,
+}: {
+  onSettings?: () => void
+  live?: boolean
+  /** Current section: shows the desktop section links (phones use the bottom nav). */
+  active?: string
+}) {
   return (
     <AppHeader mode="train" logoSrc={emblem}>
+      {active != null ? <DesktopNav active={active} /> : null}
       {onSettings ? <SettingsPill onClick={onSettings} compact /> : null}
       <LivePill live={live} />
     </AppHeader>
@@ -120,7 +130,7 @@ export function Shell({
   const live = useOnline()
   return (
     <>
-      <SiteHeader live={live} onSettings={() => setSettings(true)} />
+      <SiteHeader live={live} active={active} onSettings={() => setSettings(true)} />
       <FixtureNotice />
       {strip}
       <main className="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">{children}</main>
