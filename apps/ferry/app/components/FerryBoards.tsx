@@ -144,8 +144,10 @@ export function FerryBoards({
   const express = hasExpress(out.data?.departures, back.data?.departures)
   const latest = out.data ?? back.data
   const state = stateOf(out.data ? out : back)
-  // LIVE in the header only while every board with data is live (each confirms itself after a cached page, R2-T7).
-  const live = latest?.rtState === 'live' && [out, back].every((q) => !q.data || stateOf(q) == null)
+  // Every board with data is live (after a cached page each board confirms itself with its own data, R2-T7): the
+  // header's LIVE and the map, which shows both directions.
+  const boardsLive = [out, back].every((q) => !q.data || stateOf(q) == null)
+  const live = latest?.rtState === 'live' && boardsLive
   // The time of the data shown (a service-worker copy keeps its own time), not when it was fetched.
   const updatedAt = Math.max(out.data?.generatedAt ?? 0, back.data?.generatedAt ?? 0)
   const fetching = out.isFetching || back.isFetching
@@ -388,7 +390,7 @@ export function FerryBoards({
         <Suspense fallback={<SheetFallback />}>
           <LiveMapSheet
             pair={pair}
-            live={!degraded}
+            live={boardsLive}
             departures={[...(out.data?.departures ?? []), ...(back.data?.departures ?? [])]}
             fetcher={fetcher}
             mode={mode}

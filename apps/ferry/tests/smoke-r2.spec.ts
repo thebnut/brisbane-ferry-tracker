@@ -126,3 +126,45 @@ test("a cached page: the header and an inbound departure wait for the inbound bo
   await expect(sheet.locator('[data-badge=live], [data-badge=gps]')).toHaveCount(0)
   release()
 })
+
+test('a cached page: the live map (both directions) waits for every board, not just one (Codex review round 5)', async ({
+  page,
+  context,
+}) => {
+  test.slow()
+  await page.addInitScript(() => {
+    localStorage.setItem('brisbane-ferry-remember-selection', 'true')
+    localStorage.setItem(
+      'brisbane-ferry-selected-stops',
+      JSON.stringify({
+        outbound: { id: '317584', name: 'Bulimba' },
+        inbound: { id: '317590', name: 'Riverside' },
+      }),
+    )
+  })
+  await context.route(
+    (url) => url.pathname === '/',
+    async (route) => {
+      if (route.request().resourceType() !== 'document') return route.continue()
+      const res = await route.fetch()
+      const body = (await res.text()).replace(/<html(?=[\s>])/, '<html data-live-unconfirmed=""')
+      await route.fulfill({ response: res, body })
+    },
+  )
+  // Hold the outbound board's departures; the inbound board's answer goes through.
+  let release = () => {}
+  const held = new Promise<void>((r) => {
+    release = r
+  })
+  await context.route('**/__fixtures/v1/ferry/stops/317584/departures*', async (route) => {
+    await held
+    await route.continue()
+  })
+  await page.goto('/')
+  await page.waitForResponse((r) => r.url().includes('/stops/317590/departures') && r.ok(), {
+    timeout: 45_000,
+  })
+  await page.getByRole('button', { name: 'Map' }).click()
+  await expect(page.getByText('Live positions are unavailable right now.')).toBeVisible()
+  release()
+})
