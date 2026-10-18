@@ -249,6 +249,6 @@ describe('overlapping copy refreshes (Codex review round 2)', () => {
     expect(calls).toBe(1)
     release(new Response(JSON.stringify({ ...res([row(300)]), generatedAt: NOW })))
     await a
-    expect((readOffline('20000')?.body as { generatedAt: number }).generatedAt).toBe(NOW)
+    expect((readOffline('20000')?.body as { generatedAt?: number } | undefined)?.generatedAt).toBe(NOW)
   })
 })

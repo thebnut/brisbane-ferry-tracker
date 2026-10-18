@@ -83,6 +83,10 @@ export function StationBoard({
     const list = rows.map((d) => trainCard(d, nowMs, from.key, to?.key ?? null))
     return filter === 'express' ? list.filter((c) => c.express) : list
   }, [res, nowMs, from.key, to?.key, filter, state])
+  // Offline with nothing to show before this board's first answer since the page loaded (an offline reload starts
+  // with the cached page's data, maybe last night's): its copies on hand are still being read, so it is loading, not
+  // "no saved timetable" (R6-B1).
+  const checking = state === 'offline' && cards.length === 0 && !q.isFetchedAfterMount
   const changes = res && state == null ? platformChanges(res.departures) : []
   const firstLive = cards.findIndex((c) => !c.cancelled)
   const canSwap = !!to && isReachable(to.key, from.key)
@@ -149,7 +153,7 @@ export function StationBoard({
       ) : null}
 
       {/* Offline, an empty board (express filter or not) only means the copies on hand ran out (Codex review). */}
-      {res && cards.length === 0 && state === 'offline' ? (
+      {res && cards.length === 0 && state === 'offline' && !checking ? (
         <EmptyState title="Offline: no saved timetable for these times">
           Trains may still be running. Times come back when you reconnect.
         </EmptyState>
@@ -161,8 +165,8 @@ export function StationBoard({
         </EmptyState>
       ) : null}
 
-      {!res && !q.isError ? (
-        <div role="status" className="flex flex-col gap-2.5" aria-label="Loading live trains">
+      {(!res && !q.isError) || checking ? (
+        <div role="status" data-loading="" className="flex flex-col gap-2.5" aria-label="Loading trains">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-24 animate-pulse rounded-card bg-white/70 dark:bg-night-card" />
           ))}

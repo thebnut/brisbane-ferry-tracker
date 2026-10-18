@@ -14,7 +14,7 @@ import {
   StatusStrip,
   StopSelect,
 } from '@bft/ui'
-import { useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { bestOfflineCopy, useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   applyFilter,
@@ -30,6 +30,7 @@ import {
   FIXTURE_COOKIE,
   markSelectorSeen,
   readDepartAt,
+  readOffline,
   readSavedPair,
   savePair,
   shouldShowSelector,
@@ -140,19 +141,28 @@ export function FerryBoards({
   // Data that came with a cached page isn't live until its board's own fresh answer arrives (R2-T7).
   const unconfirmedBefore = useUnconfirmedBefore()
   const stateOf = (q: typeof out) => boardState(q.data, offline, now, unconfirmedBefore)
-  const view = (q: typeof out) =>
-    q.data ? applyFilter(visibleRows(q.data.departures, stateOf(q), now), filter) : null
-  const outList = view(out)
-  const backList = view(back)
-  const express = hasExpress(out.data?.departures, back.data?.departures)
-  const latest = out.data ?? back.data
+  // Offline, a board shows the best copy on hand: its data, or the copy kept on this device. After an offline reload
+  // its data is the cached page's (maybe last night's, every row gone) until the first poll (R6-B1). Read only once
+  // the board is offline, after hydration, so the first render still matches the HTML.
+  const shown = (q: typeof out, from: string, to: string) =>
+    q.data && departAt == null && stateOf(q) === 'offline'
+      ? (bestOfflineCopy([q.data, readOffline(from, to) as DeparturesResponse | null], now) ?? q.data)
+      : q.data
+  const outData = shown(out, pair.outbound.id, pair.inbound.id)
+  const backData = shown(back, pair.inbound.id, pair.outbound.id)
+  const view = (q: typeof out, data: typeof outData) =>
+    data ? applyFilter(visibleRows(data.departures, stateOf(q), now), filter) : null
+  const outList = view(out, outData)
+  const backList = view(back, backData)
+  const express = hasExpress(outData?.departures, backData?.departures)
+  const latest = outData ?? backData
   const state = stateOf(out.data ? out : back)
   // Every board with data is live (after a cached page each board confirms itself with its own data, R2-T7): the
   // header's LIVE and the map, which shows both directions.
   const boardsLive = [out, back].every((q) => !q.data || stateOf(q) == null)
   const live = latest?.rtState === 'live' && boardsLive
   // The time of the data shown (a service-worker copy keeps its own time), not when it was fetched.
-  const updatedAt = Math.max(out.data?.generatedAt ?? 0, back.data?.generatedAt ?? 0)
+  const updatedAt = Math.max(outData?.generatedAt ?? 0, backData?.generatedAt ?? 0)
   const fetching = out.isFetching || back.isFetching
 
   const refresh = useCallback(() => {

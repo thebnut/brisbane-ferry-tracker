@@ -31,7 +31,8 @@ function watcher(rows: string) {
       const banner = visible('[data-banner=offline]').length > 0
       armed ||= banner
       if (armed && !banner) note('no offline banner')
-      if (armed && visible(rows).length === 0) note('no rows')
+      // A board still reading its copies on hand shows a loading state (data-loading), never "no saved timetable".
+      if (armed && visible(rows).length === 0 && !visible('[data-loading]').length) note('no rows')
       for (const el of visible('[data-banner=stale],[data-banner=unavailable],[data-banner=reloading]'))
         note(`banner ${el.dataset.banner}`)
       // A live row only counts once the app has rendered: before that a cached page's HTML paints as saved, with its
