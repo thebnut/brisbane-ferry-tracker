@@ -55,7 +55,7 @@ describe('bestOfflineCopy (R2-B6)', () => {
     generatedAt,
     departures: offsets.map((o) => ({ schedDep: nowS + o })),
   })
-  it("keeps the board on screen over an hours-old service-worker answer whose rows have all gone", () => {
+  it('keeps the board on screen over an hours-old service-worker answer whose rows have all gone', () => {
     const shown = copy(NOW - 60_000, [120, 600, 1200])
     const sw = copy(NOW - 94 * 60_000, [-5000, -4000, -3000, -2000])
     expect(bestOfflineCopy([shown, sw], NOW)).toBe(shown)
