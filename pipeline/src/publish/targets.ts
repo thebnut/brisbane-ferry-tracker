@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
 import { AwsClient } from 'aws4fetch'
+import type { ListedObject } from '../gc/gc.ts'
 
 export interface PutMeta {
   contentType: string
@@ -165,6 +166,73 @@ export class R2Target implements PublishTarget {
     })
     if (!res.ok) throw new Error(`R2 PUT ${key}: HTTP ${res.status} ${await res.text()}`)
   }
+  /** ListObjectsV2, 1,000 keys a page (Class A). */
+  async list(prefix: string): Promise<ListedObject[]> {
+    const out: ListedObject[] = []
+    let token: string | undefined
+    do {
+      const q = new URLSearchParams({ 'list-type': '2', 'max-keys': '1000', prefix })
+      if (token) q.set('continuation-token', token)
+      const req = await this.client.sign(`${this.base}?${q}`, { method: 'GET' })
+      const res = await withRetry(() => this.fetchImpl(req.clone()))
+      if (!res.ok) throw new Error(`R2 LIST ${prefix}: HTTP ${res.status} ${await res.text()}`)
+      const page = parseListObjectsV2(await res.text())
+      out.push(...page.objects)
+      token = page.next
+    } while (token)
+    return out
+  }
+  /** DeleteObjects (free), at most 1,000 keys. Throws if R2 reports any per-key error. */
+  async deleteMany(keys: string[]): Promise<void> {
+    if (!keys.length) return
+    if (keys.length > 1000) throw new Error(`DeleteObjects takes at most 1000 keys, got ${keys.length}`)
+    const body = `<?xml version="1.0" encoding="UTF-8"?><Delete><Quiet>true</Quiet>${keys
+      .map((k) => `<Object><Key>${xmlEscape(k)}</Key></Object>`)
+      .join('')}</Delete>`
+    const { createHash } = await import('node:crypto')
+    const req = await this.client.sign(`${this.base}?delete`, {
+      method: 'POST',
+      body,
+      headers: {
+        'content-type': 'application/xml',
+        'content-md5': createHash('md5').update(body).digest('base64'),
+      },
+    })
+    const res = await withRetry(() => this.fetchImpl(req.clone()))
+    const text = await res.text()
+    if (!res.ok) throw new Error(`R2 DELETE batch: HTTP ${res.status} ${text}`)
+    if (/<Error>/.test(text)) throw new Error(`R2 DELETE batch reported errors: ${text.slice(0, 2000)}`)
+  }
+}
+
+const xmlEscape = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const xmlUnescape = (s: string) =>
+  s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+
+/** The parts of an S3 ListObjectsV2 response the GC needs. */
+export function parseListObjectsV2(xml: string): { objects: ListedObject[]; next?: string } {
+  const objects: ListedObject[] = []
+  for (const m of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+    const part = m[1] as string
+    const tag = (t: string) => new RegExp(`<${t}>([\\s\\S]*?)</${t}>`).exec(part)?.[1]
+    const key = tag('Key')
+    if (key === undefined) continue
+    objects.push({
+      key: xmlUnescape(key),
+      size: Number(tag('Size') ?? 0),
+      uploaded: Date.parse(tag('LastModified') ?? ''),
+    })
+  }
+  const truncated = /<IsTruncated>true<\/IsTruncated>/.test(xml)
+  const next = /<NextContinuationToken>([\s\S]*?)<\/NextContinuationToken>/.exec(xml)?.[1]
+  if (truncated && !next) throw new Error('R2 LIST is truncated but has no continuation token')
+  return truncated && next ? { objects, next: xmlUnescape(next) } : { objects }
 }
 
 /** Retry 429 / 5xx / network errors with backoff (R2 and the uploader can briefly throttle bulk uploads). */
@@ -255,6 +323,43 @@ export class UploaderTarget implements PublishTarget {
       headers: { 'content-type': meta.contentType, 'cache-control': meta.cacheControl },
     })
     if (!res.ok) throw new Error(`uploader PUT ${key}: HTTP ${res.status} ${await res.text()}`)
+  }
+  private async op(
+    op: string,
+    init: RequestInit & { query?: Record<string, string> } = {},
+  ): Promise<Response> {
+    const q = new URLSearchParams({ op, ...(init.query ?? {}) })
+    const { query: _q, ...rest } = init
+    return withRetry(() =>
+      this.fetchImpl(`${this.base.replace(/\/$/, '')}/?${q}`, {
+        ...rest,
+        headers: { ...(rest.headers ?? {}), 'x-uploader-token': this.token },
+      }),
+    )
+  }
+  async list(prefix: string): Promise<ListedObject[]> {
+    const out: ListedObject[] = []
+    let cursor: string | undefined
+    do {
+      const res = await this.op('list', { method: 'GET', query: { prefix, ...(cursor ? { cursor } : {}) } })
+      if (!res.ok) throw new Error(`uploader LIST ${prefix}: HTTP ${res.status} ${await res.text()}`)
+      const page = (await res.json()) as {
+        objects: Array<{ key: string; size: number; uploaded: string }>
+        cursor?: string
+      }
+      for (const o of page.objects) out.push({ key: o.key, size: o.size, uploaded: Date.parse(o.uploaded) })
+      cursor = page.cursor
+    } while (cursor)
+    return out
+  }
+  async deleteMany(keys: string[]): Promise<void> {
+    if (!keys.length) return
+    const res = await this.op('delete', {
+      method: 'POST',
+      body: JSON.stringify({ keys }),
+      headers: { 'content-type': 'application/json' },
+    })
+    if (!res.ok) throw new Error(`uploader DELETE batch: HTTP ${res.status} ${await res.text()}`)
   }
 }
 
