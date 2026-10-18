@@ -3,12 +3,12 @@
  * LIVE pills, bottom navigation (Home, Stations, Map, Alerts), footer with the TransLink attribution, and the
  * settings sheet (theme). Fixture mode is labelled so demo data is never mistaken for live times.
  */
-import { AppHeader, BottomSheet, LivePill, SettingsPill } from '@bft/ui'
+import { AppHeader, BottomSheet, DemoExitLink, LivePill, SettingsPill } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-train.svg?url'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 import { useRouteLoaderData } from 'react-router'
 import { ATTRIBUTION } from '../lib/seo.ts'
-import { FIXTURE_COOKIE, type Theme, writeTheme } from '../lib/storage.ts'
+import { type Theme, writeTheme } from '../lib/storage.ts'
 import { useOnline } from '../lib/useNow.ts'
 import type { loader as rootLoader } from '../root.tsx'
 import { DesktopNav, TrainNav } from './nav.tsx'
@@ -96,13 +96,6 @@ export function SettingsSheet({ open, onClose }: { open: boolean; onClose: () =>
 
 function FixtureNotice() {
   const root = useRouteLoaderData<typeof rootLoader>('root')
-  useEffect(() => {
-    // Keep fixture mode across navigation once it was asked for with ?fixtures=1.
-    if (!root?.fixtures) return
-    if (new URLSearchParams(location.search).get('fixtures') === '1')
-      // biome-ignore lint/suspicious/noDocumentCookie: session cookie for a developer switch.
-      document.cookie = `${FIXTURE_COOKIE}=1; path=/; samesite=lax`
-  }, [root?.fixtures])
   if (!root?.fixtures) return null
   return (
     <p
@@ -110,7 +103,7 @@ function FixtureNotice() {
       data-fixtures="true"
       className="bg-golden/25 px-3 py-1 text-center text-xs font-semibold text-charcoal dark:text-night-text"
     >
-      Demo data: a recorded weekday timetable with simulated live times, not real departures.
+      Demo data: a recorded weekday timetable with simulated live times, not real departures. <DemoExitLink />
     </p>
   )
 }

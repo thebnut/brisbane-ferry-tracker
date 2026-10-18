@@ -6,6 +6,7 @@
 
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import {
+  DemoExitLink,
   FilterPills,
   formatAge,
   formatClock,
@@ -13,6 +14,7 @@ import {
   PillButton,
   StatusStrip,
   StopSelect,
+  useFixtureCookie,
 } from '@bft/ui'
 import { bestOfflineCopy, useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
@@ -115,9 +117,10 @@ export function FerryBoards({
       }
     }
     setDepartAt(readDepartAt())
-    // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is not in Safari; this is a plain preference cookie.
-    document.cookie = `${FIXTURE_COOKIE}=${mode.fixtures ? '1' : '0'}; path=/; samesite=lax`
-  }, [terminalPage, deepLink, serverPair, mode.fixtures])
+  }, [terminalPage, deepLink, serverPair])
+  // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0. Never from the data mode alone: an API
+  // failure that fell back to fixtures (FIXTURE_FALLBACK) used to make demo mode stick for the session (R7-B1).
+  useFixtureCookie(FIXTURE_COOKIE, mode.fixtures)
 
   const same = (a: StopPair, b: StopPair) => a.outbound.id === b.outbound.id && a.inbound.id === b.inbound.id
   const useInitial = same(pair, serverPair) && departAt == null
@@ -276,7 +279,7 @@ export function FerryBoards({
             className="mb-4 rounded-card border border-aqua-text/30 bg-ferry-light-blue px-3.5 py-2.5 text-sm text-charcoal"
           >
             <strong className="font-bold">Demo data.</strong> A recorded weekday timetable with simulated live
-            times, not today's real departures.
+            times, not today's real departures. <DemoExitLink />
           </p>
         ) : null}
 

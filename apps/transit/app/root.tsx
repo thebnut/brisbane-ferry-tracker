@@ -1,4 +1,4 @@
-import { AppHeader, OfflineScreen } from '@bft/ui'
+import { AppHeader, OfflineScreen, useFixtureCookie } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
 import {
   isOfflineFailure,
@@ -27,7 +27,7 @@ import './app.css'
 import { DesktopModeBar, ModeBar } from './components/ModeBar.tsx'
 import { makeQueryClient } from './lib/query-client.ts'
 import { getEnv, getNonce, isFixtureMode } from './lib/server.server.ts'
-import { getCookie, THEME_COOKIE } from './lib/storage.ts'
+import { FIXTURE_COOKIE, getCookie, THEME_COOKIE } from './lib/storage.ts'
 
 // No web-font request (as in the standalone apps): Inter and Poppins are used when installed, else system-ui.
 export const links: Route.LinksFunction = () => [
@@ -117,6 +117,11 @@ export default function App() {
   const [client] = useState(makeQueryClient)
   // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
   useLiveGuardRelease()
+  // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0 (R7-B1).
+  useFixtureCookie(
+    FIXTURE_COOKIE,
+    (useRouteLoaderData('root') as { fixtures?: boolean } | undefined)?.fixtures === true,
+  )
   // Back online: refetch the live boards at once, not at the next poll (R3-X9).
   useRefetchOnReconnect(client)
   // Effects run only once hydration has committed: tests wait for this marker (tests/csp.ts).

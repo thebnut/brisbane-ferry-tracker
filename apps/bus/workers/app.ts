@@ -20,6 +20,7 @@ import {
   stopKeysFromIndexText,
   urlsetXml,
 } from '../app/lib/seo.ts'
+import { fixtureFallbackOn } from '../app/lib/server.server.ts'
 import { routePath, stopPath } from '../app/lib/stops.ts'
 import {
   canonicalRedirect,
@@ -45,11 +46,11 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
   try {
     const res = await upstream(env, `${url.pathname}${url.search}`)
-    if (res.status >= 500 && env.FIXTURE_FALLBACK === '1') return handleFixtureApi(url, Date.now(), env)
+    if (res.status >= 500 && fixtureFallbackOn(env)) return handleFixtureApi(url, Date.now(), env)
     // Contract check at the edge, so the browser can trust the shape without shipping zod.
     return await validateProxied(url.pathname, res)
   } catch (error) {
-    if (env.FIXTURE_FALLBACK === '1') return handleFixtureApi(url, Date.now(), env)
+    if (fixtureFallbackOn(env)) return handleFixtureApi(url, Date.now(), env)
     return Response.json(
       { error: 'upstream_unavailable', detail: error instanceof Error ? error.message : String(error) },
       { status: 502, headers: { 'cache-control': 'no-store' } },
@@ -64,7 +65,7 @@ async function dataText(env: Env, path: string): Promise<string | null> {
   const local = await env.ASSETS.fetch(new Request(`https://assets${path}`))
   if (local.ok) return local.text()
   const res =
-    env.FIXTURES === '1' || env.FIXTURE_FALLBACK === '1'
+    env.FIXTURES === '1' || fixtureFallbackOn(env)
       ? await handleFixtureApi(new URL(`https://fixtures/__fixtures${path}`), Date.now(), env)
       : await upstream(env, path).catch(() => null)
   return res?.ok ? res.text() : null

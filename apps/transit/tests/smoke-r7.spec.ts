@@ -11,7 +11,7 @@ import { expect, type Page, test } from '@playwright/test'
 import { pinUpcoming } from './upcoming.ts'
 
 /** A ferry pair, a train station and a bus stop saved on this device (each app's own storage). */
-export const saveAcrossModes = (page: Page) =>
+const saveAcrossModes = (page: Page) =>
   page.addInitScript(() => {
     localStorage.setItem('brisbane-ferry-remember-selection', 'true')
     localStorage.setItem(

@@ -1,3 +1,4 @@
+import { useFixtureCookie } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import {
   LIVE_GUARD_CSS,
@@ -23,7 +24,7 @@ import { Footer, SiteHeader } from './components/Shell.tsx'
 import { cloudflareContext } from './lib/context.ts'
 import { makeQueryClient } from './lib/queries.ts'
 import { getEnv, isFixtureMode } from './lib/server.server.ts'
-import { THEME_SCRIPT, themeFromCookie } from './lib/storage.ts'
+import { FIXTURE_COOKIE, THEME_SCRIPT, themeFromCookie } from './lib/storage.ts'
 
 // No web-font request: Inter is first in the font stack and used when installed, otherwise system-ui (a
 // render-blocking Google Fonts stylesheet would cost LCP). The wordmark falls back the same way.
@@ -81,6 +82,8 @@ export default function App() {
   const [client] = useState(makeQueryClient)
   // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
   useLiveGuardRelease()
+  // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0 (R7-B1).
+  useFixtureCookie(FIXTURE_COOKIE, useRouteLoaderData<typeof loader>('root')?.mode.fixtures === true)
   // Back online: refetch the live boards at once, not at the next poll (R3-X9).
   useRefetchOnReconnect(client)
   return (

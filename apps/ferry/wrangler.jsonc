@@ -38,8 +38,6 @@
         "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
         "ALLOW_FIXTURES": "1",
         "FIXTURES": "0",
-        // Until bft-api has ferry data: answer with fixture data (and say so on the page) when the API errors.
-        "FIXTURE_FALLBACK": "1",
         "SITE_URL": "https://www.brisbaneferry.com",
         // Invisible Turnstile widget for the feedback sheet: the STAGING widget "bft-transit-ask" (public sitekey; its
         // secret lives on bft-api, which verifies through the API binding). Production uses the PROD widget

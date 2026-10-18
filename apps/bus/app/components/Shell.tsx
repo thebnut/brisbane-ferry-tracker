@@ -3,6 +3,7 @@ import type { RtState } from '@bft/core/contract'
 import {
   AppHeader,
   BottomSheet,
+  DemoExitLink,
   formatAge,
   formatClock,
   LivePill,
@@ -143,7 +144,7 @@ export function DataBanner({
       className="rounded-card border border-aqua-text/30 bg-ferry-light-blue px-3.5 py-2.5 text-sm text-charcoal dark:bg-night-card dark:text-night-text"
     >
       <strong className="font-bold">Demo data.</strong> A recorded weekday timetable with simulated live
-      times, for previewing the app.
+      times, for previewing the app. <DemoExitLink />
     </p>
   ) : null
   let rt: ReactNode = null

@@ -4,25 +4,18 @@
  * keep their own app's header and lockup; only the bottom bar is shared.
  */
 
-import { AppHeader, formatClock, LivePill, SettingsPill, StatusStrip } from '@bft/ui'
+import { AppHeader, DemoExitLink, formatClock, LivePill, SettingsPill, StatusStrip } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
-import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
+import { lazy, type ReactNode, Suspense, useState } from 'react'
 import { useRouteLoaderData } from 'react-router'
-import { FIXTURE_COOKIE } from '../lib/storage.ts'
 import { useOnline } from '../lib/useNow.ts'
 
 // Loaded on first open: keeps the bottom sheet and segmented control off every page's first load.
 const SettingsSheet = lazy(() => import('./SettingsSheet.tsx'))
 
-/** Demo-data note in fixture mode (and keeps fixture mode across navigation once asked for with ?fixtures=1). */
+/** Demo-data note in fixture mode, with the way out (the root keeps the hour-long cookie, R7-B1). */
 export function FixtureNotice() {
   const root = useRouteLoaderData('root') as { fixtures?: boolean } | undefined
-  useEffect(() => {
-    if (!root?.fixtures) return
-    if (new URLSearchParams(location.search).get('fixtures') === '1')
-      // biome-ignore lint/suspicious/noDocumentCookie: session cookie for a developer switch.
-      document.cookie = `${FIXTURE_COOKIE}=1; path=/; samesite=lax`
-  }, [root?.fixtures])
   if (!root?.fixtures) return null
   return (
     <p
@@ -30,7 +23,7 @@ export function FixtureNotice() {
       data-fixtures="true"
       className="bg-golden/25 px-3 py-1 text-center text-xs font-semibold text-charcoal dark:text-night-text"
     >
-      Demo data: a recorded weekday timetable with simulated live times, not real departures.
+      Demo data: a recorded weekday timetable with simulated live times, not real departures. <DemoExitLink />
     </p>
   )
 }
