@@ -1,6 +1,7 @@
+import type { AiEnv } from './ai/routes.ts'
 import type { RtHub } from './rt/hub.ts'
 
-export interface WorkerEnv {
+export interface WorkerEnv extends AiEnv {
   RT_HUB: DurableObjectNamespace<RtHub>
   /** Static-assets data Worker (services/data), until R2 is enabled. */
   DATA?: Fetcher

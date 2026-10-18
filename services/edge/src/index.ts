@@ -1,6 +1,7 @@
 /**
  * bft-api Worker entry: the Hono /v1 app, the 1-minute watchdog cron, and the RtHub Durable Object class.
  */
+import { registerAi } from './ai/routes.ts'
 import { createApp } from './app.ts'
 import { dataSourceFor } from './data/source.ts'
 import { StaticStore } from './data/static-store.ts'
@@ -12,6 +13,7 @@ import type { SnapshotScope } from './rt/split.ts'
 import { parseMaxStale, SnapshotClient } from './snapshot-client.ts'
 
 export { RtHub } from './rt/hub.ts'
+export { Budget } from './ai/budget-do.ts'
 
 const HUB_NAME = 'hub'
 const log = createLogger({ svc: 'bft-api' })
@@ -69,6 +71,12 @@ function getIsolate(env: WorkerEnv) {
         return c.json({ error: 'not found' }, 404)
       return c.json(await hubStub(env).killAlarmForDrill())
     })
+    // Phase 8: /v1/ask (deterministic first; LLM only when AI_ENABLED, budgeted) and the read-only /mcp server.
+    registerAi(
+      app,
+      { store, generationKey: async () => (await store.getManifest())?.updatedAt ?? 'none' },
+      (c) => c.env as WorkerEnv,
+    )
     isolate = { app, snapshots }
   }
   return isolate

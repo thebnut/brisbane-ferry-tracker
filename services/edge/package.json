@@ -17,8 +17,10 @@
     "deploy:data-staging": "pnpm --filter @bft/data deploy:staging"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.135.0",
     "@bft/core": "workspace:*",
     "@bufbuild/protobuf": "2.16.0",
+    "@leeoniya/ufuzzy": "1.0.19",
     "hono": "4.13.13"
   },
   "devDependencies": {
