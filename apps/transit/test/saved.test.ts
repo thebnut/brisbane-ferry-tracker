@@ -7,7 +7,7 @@ import { FAVOURITES_KEY } from '@bft/train/app/lib/storage.ts'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { stationName, trainBoardHref } from '../app/lib/hrefs.ts'
 import { offlineRows, readSavedItems, writeSavedCopy } from '../app/lib/saved.ts'
-import { cardModel, greeting } from '../app/routes/saved.tsx'
+import { cardModel, greeting, homeLiveState } from '../app/routes/saved.tsx'
 
 const NOW = Date.UTC(2026, 9, 19, 9, 30) // 7:30 pm Brisbane
 const s = NOW / 1000
@@ -159,5 +159,47 @@ describe('Saved mixes every app’s own saved items', () => {
   it('greets in Brisbane time', () => {
     expect(greeting(Date.UTC(2026, 9, 19, 22))).toBe('Good morning')
     expect(greeting(NOW)).toBe('Good evening')
+  })
+})
+
+describe('the home page’s live judgement (R7-T1)', () => {
+  const items = [{}, {}]
+  const opts = { online: true, nowMs: NOW, unconfirmedBefore: null }
+  const live = res([dep({ status: 'live', estDep: s + 120 })])
+
+  it('LIVE only once every saved card has a live answer: a pending card is not live', () => {
+    expect(homeLiveState(items, [{ data: live, pending: false }, { data: undefined, pending: true }], opts)).toEqual({
+      live: false,
+      unconfirmed: false,
+    })
+    expect(homeLiveState(items, [{ data: live, pending: false }, { data: live, pending: false }], opts).live).toBe(
+      true,
+    )
+    expect(homeLiveState(items, [{ data: undefined, pending: true }], opts).live).toBe(false)
+  })
+
+  it('a page from the device’s copy is offline until a card has its own network answer', () => {
+    const cached = { ...opts, unconfirmedBefore: NOW + 10_000 }
+    // Saved items not read yet, or cards still waiting: offline banner, no LIVE.
+    expect(homeLiveState(null, [], cached)).toEqual({ live: false, unconfirmed: true })
+    expect(homeLiveState(items, [{ data: undefined, pending: true }], cached)).toEqual({
+      live: false,
+      unconfirmed: true,
+    })
+    // An answer that came with the page, or an offline copy, confirms nothing.
+    expect(homeLiveState(items, [{ data: live, pending: false }], cached).unconfirmed).toBe(true)
+    const copy = { ...live, generatedAt: NOW + 60_000, offline: true as const }
+    expect(homeLiveState(items, [{ data: copy, pending: false }], cached).unconfirmed).toBe(true)
+    // A network answer after the page: confirmed, and live once every card is.
+    const fresh = { ...live, generatedAt: NOW + 60_000 }
+    expect(
+      homeLiveState(items, [{ data: fresh, pending: false }], { ...cached, nowMs: NOW + 60_000 }),
+    ).toEqual({ live: true, unconfirmed: false })
+  })
+
+  it('never LIVE offline; with nothing saved, LIVE only on a fresh page', () => {
+    expect(homeLiveState(items, [{ data: live, pending: false }], { ...opts, online: false }).live).toBe(false)
+    expect(homeLiveState([], [], opts)).toEqual({ live: true, unconfirmed: false })
+    expect(homeLiveState([], [], { ...opts, unconfirmedBefore: NOW })).toEqual({ live: false, unconfirmed: false })
   })
 })

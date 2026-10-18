@@ -161,6 +161,8 @@ export interface SavedTripCardProps {
   highlighted?: boolean
   /** Shown instead of the time row (no departures, loading, offline without a copy). */
   empty?: ReactNode
+  /** `empty` is a loading state (marked data-loading), not a final one. */
+  loading?: boolean
   href: string
   /** The link's name is its content (mode, place, times), so screen readers hear the departures too. */
   renderLink?: (props: { href: string; className: string; children: ReactNode }) => ReactNode
@@ -178,6 +180,7 @@ export function SavedTripCard({
   later,
   highlighted = false,
   empty,
+  loading = false,
   href,
   renderLink,
 }: SavedTripCardProps) {
@@ -214,12 +217,16 @@ export function SavedTripCard({
         ) : null}
       </span>
       {empty ? (
-        <span className="text-sm text-sched-text dark:text-night-text/70">{empty}</span>
+        <span data-loading={loading ? '' : undefined} className="text-sm text-sched-text dark:text-night-text/70">
+          {empty}
+        </span>
       ) : (
         <>
           <span className="flex items-center justify-between gap-2.5">
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-[21px] font-extrabold tabular">{time}</span>
+              <span data-saved-time="" className="text-[21px] font-extrabold tabular">
+                {time}
+              </span>
               {detail ? (
                 <span className="truncate text-[13px] text-gray-600 dark:text-night-text/70">{detail}</span>
               ) : null}

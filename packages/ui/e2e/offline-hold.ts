@@ -88,6 +88,28 @@ async function partialOffline(context: BrowserContext, page: Page): Promise<() =
   }
 }
 
+/**
+ * Lie-fi (R7-T1): connected to a network that answers nothing. Every request hangs, `navigator.onLine` stays true and
+ * no event says otherwise, so only the requests' own timeouts (the service worker's 4 s, the page's 8 s) can tell the
+ * page it is offline. Back online, the held requests go through and the browser says `online`.
+ */
+async function lieFi(context: BrowserContext, page: Page): Promise<() => Promise<void>> {
+  let holding = true
+  const held: import('@playwright/test').Route[] = []
+  const handler = (route: import('@playwright/test').Route) => {
+    if (holding) held.push(route)
+    else void route.fallback().catch(() => {})
+  }
+  await context.route('**/*', handler)
+  return async () => {
+    holding = false
+    await context.unroute('**/*', handler)
+    await Promise.allSettled(held.map((r) => r.fallback()))
+    await page.waitForTimeout(1_100)
+    await page.evaluate(() => window.dispatchEvent(new Event('online')))
+  }
+}
+
 /** The browser keeps firing `online` as the connection flaps (again after a reload). */
 const flap = (page: Page) =>
   page.evaluate(() => {
@@ -127,7 +149,13 @@ export function offlineHoldSuite({
   prepare,
   holdMs = 65_000,
   label = '',
+  lieFi: withLieFi = false,
+  bannerWithinMs = 20_000,
 }: {
+  /** Also run the lie-fi variant (requests hang with navigator.onLine true). */
+  lieFi?: boolean
+  /** How soon the offline banner must show after an offline reload. */
+  bannerWithinMs?: number
   /** Names a variant (e.g. "saved"). */
   label?: string
   /** A board page. */
@@ -150,7 +178,10 @@ export function offlineHoldSuite({
       flaky: true,
       go: partialOffline,
     },
-  ] as const
+    ...(withLieFi
+      ? [{ name: 'lie-fi (every request hangs, navigator.onLine stays true)', flaky: false, go: lieFi }]
+      : []),
+  ]
   test.describe(`R6-B1: a board held offline stays an offline timetable board${label ? ` (${label})` : ''}`, () => {
     for (const kind of kinds)
       for (const reload of [false, true])
@@ -178,7 +209,7 @@ export function offlineHoldSuite({
             await page.addInitScript(watcher, rows)
             await page.reload()
             if (kind.flaky) await flap(page)
-            await expect(page.locator('[data-banner=offline]').first()).toBeVisible({ timeout: 20_000 })
+            await expect(page.locator('[data-banner=offline]').first()).toBeVisible({ timeout: bannerWithinMs })
           } else {
             await expect(page.locator('[data-banner=offline]').first()).toBeVisible({ timeout: 20_000 })
             await page.evaluate(watcher, rows)

@@ -16,7 +16,7 @@ import {
   SavedTripCard,
   vesselName,
 } from '@bft/ui'
-import { useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { type OfflineCopy, useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { AskBox } from '../components/AskBox.tsx'
@@ -126,6 +126,37 @@ export function cardModel(item: SavedItem, res: DeparturesResponse | undefined, 
   }
 }
 
+type CardData = (DeparturesResponse & OfflineCopy) | undefined
+
+/**
+ * The home page's own live judgement (R7-T1), as each mode board makes it for its one board (#60/#61/#68):
+ *  - `unconfirmed`: the page came from the device's copy (the service worker's, or old by the device clock) and no
+ *    card has its own network answer yet, so it shows the offline banner like a board rendered from a cached page;
+ *  - `live` (the header pill): online, confirmed, and every saved card has an answer that is live and fresh. A card
+ *    still waiting for its answer is not live: before R7-T1 a pending card counted as live, so an offline reload kept
+ *    LIVE up for as long as the requests took to fail.
+ * With nothing saved there is nothing to judge: LIVE while online on a fresh page.
+ */
+export function homeLiveState(
+  items: readonly unknown[] | null,
+  cards: ReadonlyArray<{ data: CardData; pending: boolean }>,
+  { online, nowMs, unconfirmedBefore }: { online: boolean; nowMs: number; unconfirmedBefore: number | null },
+): { live: boolean; unconfirmed: boolean } {
+  const answered = cards.some(
+    ({ data }) =>
+      data != null && !data.offline && (unconfirmedBefore == null || data.generatedAt > unconfirmedBefore),
+  )
+  const unconfirmed = unconfirmedBefore != null && !answered && (items == null || items.length > 0)
+  if (!online || unconfirmed) return { live: false, unconfirmed }
+  if (items == null || items.length === 0) return { live: unconfirmedBefore == null, unconfirmed }
+  const withData = cards.filter((c) => c.data != null)
+  const live =
+    withData.length > 0 &&
+    !cards.some((c) => c.pending) &&
+    withData.every((c) => liveState(c.data, { offline: false, nowMs, unconfirmedBefore }) == null)
+  return { live, unconfirmed }
+}
+
 function SavedList({
   items,
   qs,
@@ -177,6 +208,7 @@ function SavedList({
             later={m.later}
             highlighted={i === soonest && (m.minutes ?? 99) <= 15}
             empty={empty}
+            loading={!!q?.isPending}
             href={it.href}
             renderLink={({ href, className, children }) => (
               <Link to={href} className={className} prefetch="intent">
@@ -198,11 +230,12 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   useEffect(() => setItems(readSavedItems()), [])
   const { mode, fetcher } = useApi()
   const qs = useSavedDepartures(fetcher, mode, items ?? [])
-  // LIVE in the header only while every loaded card's data is live and fresh (same rule as the cards).
   const unconfirmedBefore = useUnconfirmedBefore()
-  const live =
-    online &&
-    qs.every((q) => !q.data || liveState(q.data, { offline: false, nowMs: now, unconfirmedBefore }) == null)
+  const { live, unconfirmed } = homeLiveState(
+    items,
+    qs.map((q) => ({ data: q.data, pending: q.isPending })),
+    { online, nowMs: now, unconfirmedBefore },
+  )
   return (
     <>
       <TransitHeader live={live} />
@@ -218,11 +251,16 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
           {greeting(now)}
         </h1>
         <AskBox />
-        {/* A card built from offline copies keeps the banner until its own network answer (R6-B1). */}
-        {!online || qs.some((q) => q.data?.offline) ? (
+        {/* A card built from offline copies keeps the banner until its own network answer (R6-B1), and so does a page
+            served from the device's copy until a card has one (R7-T1). */}
+        {!online || unconfirmed || qs.some((q) => q.data?.offline) ? (
           <OfflineBanner kind="offline" detail="Showing saved timetables. No live times." />
         ) : null}
-        {items == null ? null : items.length ? (
+        {items == null ? (
+          <p data-loading="" className="text-sm text-sched-text dark:text-night-text/70">
+            Loading your saved stops…
+          </p>
+        ) : items.length ? (
           <SavedList items={items} qs={qs} nowMs={now} online={online} />
         ) : (
           <EmptyState title="Nothing saved yet">
