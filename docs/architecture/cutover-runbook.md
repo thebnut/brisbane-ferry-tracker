@@ -33,9 +33,9 @@ Every step lists a **check**, a **rollback** and the **report entry** to add (`~
   - new workflows: `transit-static.yml` (daily R2 publish) and `transit-shadow-diff.yml`
   - `update-schedule.yml` (the daily `latest.json` commit) is **unchanged**
 - **Order, for any release that carries the feedback Turnstile change (#66) or later:**
-  1. Deploy `bft-api-prod` from that release's `main` commit **first**: `pnpm --filter @bft/edge deploy:production`.
-  2. Check `POST https://api.brisbaneferry.com/v1/turnstile/verify` with a dummy token. It must answer a JSON refusal (`success: false`), not 404.
-  3. **Only then** merge the release PR into `main`, which deploys the legacy app on Vercel prod.
+  1. Take the release PR's **head commit**: the reviewed, smoke-tested develop SHA that the merge will bring in, say `<rc>`. Deploy `bft-api-prod` from a checkout detached at `<rc>` **first**: `git checkout --detach <rc>`, `pnpm install --frozen-lockfile`, then `pnpm --filter @bft/edge deploy:production`. (`deploy:production` deploys whatever is checked out; it doesn't pick a commit.)
+  2. Check `POST https://api.brisbaneferry.com/v1/turnstile/verify` with body `{"token":"dummy"}`. It must answer HTTP 200 JSON with `success: false`, not 404. That probe can't post feedback; it uses one call of the verify rate limits.
+  3. **Only then** merge the release PR (head `<rc>`) into `main`. That deploys the legacy app on Vercel prod. If main's merge commit differs from `<rc>` only by main's own `schedule-data/` commits, the `bft-api-prod` code is the same.
 
   In the other order, web feedback on www.brisbaneferry.com fails closed (503) until `bft-api-prod` catches up. iOS feedback is unaffected. See also step 0.
 - **Check:** Vercel production deploys from main and is green. The site behaves as before (spot-check the boards, the map, a terminal page, and the iOS app against prod).
@@ -279,7 +279,7 @@ Web feedback (the legacy modal, the ferry `FeedbackSheet` and the sheet transit 
   - Requests with `Origin: capacitor://localhost` (or `ionic://localhost`) skip Turnstile and keep the per-IP rate limit and validation.
   - Newer builds also send `X-BFT-Client: ios/1`; it's allowed in CORS. Installed builds don't send it, so it is **not required** (`IOS_REQUIRE_CLIENT_HEADER = false` in `api/_turnstile.js`). Requiring it would break feedback in every installed build until an app update, for no security gain.
   - **Trade-off:** a browser page can't send that Origin, so browsers can't use the iOS path. Non-browser clients (curl, scripts) can send any Origin and header, so for them feedback is protected only by the rate limit and validation, as it was before Turnstile.
-  - **Brett's decision (19 Oct):** keep `IOS_REQUIRE_CLIENT_HEADER = false` until an iOS app update that sends `X-BFT-Client: ios/1` has shipped and been adopted. **Then** flip it to `true` in `api/_turnstile.js` (one constant; its tests cover both values), in a PR into develop with the usual review, released like any other change. Until then, the Origin alone qualifies.
+  - **Brett's decision (19 Oct):** keep `IOS_REQUIRE_CLIENT_HEADER = false` until an iOS app update that sends `X-BFT-Client: ios/1` has shipped and been adopted. **Then** flip it to `true` in `api/_turnstile.js`, in a PR into develop with the usual review, released like any other change. That PR must also update the tests: today's tests expect header-less iOS feedback to succeed and don't exercise the required-header mode, so add coverage for it (header present → allowed; header missing → treated as web, so 403 without a token). Until then, the Origin alone qualifies.
 - **CSP:** `https://challenges.cloudflare.com` in `script-src` and `frame-src` only, per [Cloudflare's Turnstile CSP reference](https://developers.cloudflare.com/turnstile/reference/content-security-policy/). That covers `vercel.json`, the `index.html` meta and the ferry Worker; transit already had it. No `connect-src` change: that is only for pre-clearance mode, which isn't used.
 - **Privacy:** `public/privacy.html` (also served by the ferry and transit apps) now names Cloudflare Turnstile for web feedback.
 - **Tests:** the test sitekey `1x00000000000000000000AA` appears only in the Playwright configs, with the script stubbed (`apps/ferry/tests/turnstile-stub.ts`). Never put it in deployed config.
