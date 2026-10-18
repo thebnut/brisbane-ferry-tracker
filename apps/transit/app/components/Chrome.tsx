@@ -63,7 +63,7 @@ export function TransitHeader({ live = true }: { live?: boolean }) {
 /** "Last updated 7:38 pm" strip with a right-hand summary ("3 saved · all modes"). */
 export function TransitStrip({ updatedAt, children }: { updatedAt: number | null; children?: ReactNode }) {
   return (
-    <StatusStrip updated={updatedAt ? `Last updated ${formatClock(updatedAt / 1000)}` : 'Timetable'}>
+    <StatusStrip updated={updatedAt ? `Last updated ${formatClock(updatedAt / 1000)}` : null}>
       {children}
     </StatusStrip>
   )

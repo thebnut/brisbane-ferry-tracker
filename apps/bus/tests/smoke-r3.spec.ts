@@ -40,3 +40,9 @@ test('R3-B10: the public stop number with its leading zero opens the stop (no 40
 })
 
 reconnectSuite({ path: '/stop/10802' })
+
+test('R3-X11: the home page never shows "Timetable" next to the LIVE badge', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('header').getByText('LIVE', { exact: true })).toBeVisible()
+  await expect(page.getByText('Timetable', { exact: true })).toHaveCount(0)
+})

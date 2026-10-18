@@ -53,3 +53,9 @@ reconnectSuite({
     })
   },
 })
+
+test('R3-X11: the home page never shows "Timetable" next to the LIVE badge', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('header').getByText('LIVE', { exact: true })).toBeVisible()
+  await expect(page.getByText('Timetable', { exact: true })).toHaveCount(0)
+})

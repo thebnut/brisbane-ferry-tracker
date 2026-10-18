@@ -134,8 +134,8 @@ export function LivePill({ live = true }: LivePillProps) {
 }
 
 export interface StatusStripProps {
-  /** e.g. "Last updated 2:41 pm". */
-  updated: ReactNode
+  /** e.g. "Last updated 2:41 pm". Nothing while there is no data yet (never a status that contradicts LIVE, R3-X11). */
+  updated?: ReactNode
   /** e.g. "updated 12 s ago". */
   detail?: ReactNode
   children?: ReactNode
@@ -149,10 +149,14 @@ export function StatusStrip({ updated, detail, children }: StatusStripProps) {
           className="flex items-center gap-1.5 text-sm text-charcoal tabular dark:text-night-text"
           aria-live="polite"
         >
-          <Icon name="clock" size={16} className="text-ferry-orange" />
-          <span>{updated}</span>
-          {detail ? (
-            <span className="text-xs text-sched-text dark:text-night-text/70">· {detail}</span>
+          {updated ? (
+            <>
+              <Icon name="clock" size={16} className="text-ferry-orange" />
+              <span>{updated}</span>
+              {detail ? (
+                <span className="text-xs text-sched-text dark:text-night-text/70">· {detail}</span>
+              ) : null}
+            </>
           ) : null}
         </p>
         <div className="flex flex-wrap items-center gap-1.5">{children}</div>
