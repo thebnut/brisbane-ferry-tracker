@@ -39,16 +39,20 @@ case "$app" in
     pages=(/ /stations /station/central /alerts)
     sitemap=/sitemap.xml
     live=(/v1/train/stops/central/departures /v1/alerts?mode=train)
+    fixprobe=/station/central
     ;;
   bus)
     pages=(/ /stop/1832 /alerts /about)
     sitemap=/sitemaps/pages.xml
     live=(/v1/bus/stops/1832/departures /v1/alerts?mode=bus)
+    # A stop in the recorded fixture day, so fixture mode always has rows (and the Demo data banner) to show.
+    fixprobe=/stop/10780
     ;;
   transit)
     pages=(/ /train/station/central /bus/stop/1832 /ferry/terminal/bulimba /alerts)
     sitemap=
     live=(/v1/train/stops/central/departures /v1/ferry/stops/317584/departures?to=317590 /v1/alerts)
+    fixprobe=/train/station/central
     ;;
   *) echo "app must be train, bus or transit" >&2; exit 2 ;;
 esac
@@ -141,14 +145,21 @@ for p in "${live[@]}"; do
 done
 
 echo "Fixtures"
+# Fixture mode renders a "Demo data" banner and fixture-* generations on the probe page.
+demo_on() { grep -qE 'Demo data|fixture-20[0-9]{2}' "$tmp/$1.body"; }
 code="$(fetch "$base/__fixtures/v1/alerts" fixtures)"
+fcode="$(fetch "$base$fixprobe?fixtures=1" fixturepage)"
+fplain="$(fetch "$base$fixprobe" fixtureplain)"
 if [[ "$prod" == 1 ]]; then
   check "$([[ "$code" == 404 ]] && echo 1 || echo 0)" "/__fixtures/v1/alerts -> 404 (no fixtures in production)" "got $code"
-  code="$(fetch "$base${pages[1]}?fixtures=1" fixturepage)"
-  check "$([[ "$code" == 200 ]] && ! grep -q 'Demo data' "$tmp/fixturepage.body" && echo 1 || echo 0)" \
-    "${pages[1]}?fixtures=1 serves live data (no \"Demo data\" notice)"
+  check "$([[ "$fcode" == 200 ]] && ! demo_on fixturepage && echo 1 || echo 0)" \
+    "$fixprobe?fixtures=1 serves live data (no Demo data banner or fixture generation)" "got $fcode"
 else
+  # Staging allows ?fixtures=1: the probe must see demo data there, which shows the --prod check can detect it.
   printf '  INFO  /__fixtures/v1/alerts -> %s (staging allows ?fixtures=1)\n' "$code"
+  check "$([[ "$fcode" == 200 ]] && demo_on fixturepage && echo 1 || echo 0)" \
+    "$fixprobe?fixtures=1 shows the Demo data banner here (so the --prod probe can detect fixture mode)" "got $fcode"
+  check "$([[ "$fplain" == 200 ]] && ! demo_on fixtureplain && echo 1 || echo 0)" "$fixprobe without ?fixtures=1 serves live data" "got $fplain"
 fi
 
 if [[ "$www" == 1 ]]; then
