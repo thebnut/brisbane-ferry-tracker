@@ -630,14 +630,14 @@ export function OccupancyMeter({ occupancy }: { occupancy: string | null | undef
 // Trip timeline
 // ---------------------------------------------------------------------------
 
-export type TimelineKind = 'past' | 'here' | 'next' | 'end'
+export type BusTimelineKind = 'past' | 'here' | 'next' | 'end'
 
-export interface TimelineStop {
+export interface BusTimelineStop {
   key: string
   name: string
   meta?: string
   time: string
-  kind: TimelineKind
+  kind: BusTimelineKind
   /** "not stopping" etc. */
   struck?: boolean
 }
@@ -647,7 +647,7 @@ export function TripTimeline({
   stops,
   label = 'Stops on this trip',
 }: {
-  stops: TimelineStop[]
+  stops: BusTimelineStop[]
   label?: string
 }) {
   return (

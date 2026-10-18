@@ -1,13 +1,13 @@
 /** Trip detail helpers (B-Detail timeline). */
 import type { TripResponse, TripStop } from '@bft/core/contract'
-import { formatClock, type TimelineStop } from '@bft/ui'
+import { type BusTimelineStop, formatClock } from '@bft/ui'
 import { stopCode } from './stops.ts'
 
 export const at = (s: TripStop) => s.estDep ?? s.schedDep ?? s.estArr ?? s.schedArr ?? 0
 export const schedAt = (s: TripStop) => s.schedDep ?? s.schedArr ?? 0
 
 /** Timeline kinds: stops before the bus are past; the bus's stop (or your stop if no GPS) is "here". */
-export function timeline(trip: TripResponse, from: string | null, nowMs: number): TimelineStop[] {
+export function timeline(trip: TripResponse, from: string | null, nowMs: number): BusTimelineStop[] {
   const nowS = nowMs / 1000
   const stops = trip.stops
   let hereIdx = -1
@@ -22,7 +22,7 @@ export function timeline(trip: TripResponse, from: string | null, nowMs: number)
   return stops.map((s, i) => {
     const isFrom = s.stopId === from
     const last = i === stops.length - 1
-    const kind: TimelineStop['kind'] =
+    const kind: BusTimelineStop['kind'] =
       i === hereIdx && trip.vehicle
         ? 'here'
         : i < hereIdx || (hereIdx === i && !trip.vehicle)

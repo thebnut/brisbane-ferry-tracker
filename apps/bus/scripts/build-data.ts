@@ -292,6 +292,7 @@ type Lookup = {
   trips: Map<string, number>
   routes: Map<string, number>
   heads: Map<string, number>
+  ds: Map<string, number>
   stops: Map<string, number>
 }
 const lookups = new Map<number, Lookup>()
@@ -307,10 +308,17 @@ const dayFor = (si: number): [StaticStopDay, Lookup] => {
       routes: [],
       headsigns: [],
       stops: [],
+      downstreams: [],
       events: [],
     }
     stopDays.set(si, d)
-    lookups.set(si, { trips: new Map(), routes: new Map(), heads: new Map(), stops: new Map() })
+    lookups.set(si, {
+      trips: new Map(),
+      routes: new Map(),
+      heads: new Map(),
+      stops: new Map(),
+      ds: new Map(),
+    })
   }
   return [d, lookups.get(si) as Lookup]
 }
@@ -353,7 +361,8 @@ tripsRaw.forEach((t, ti) => {
       idx(day.stops, lk.stops, String(si), () => stopRef(si)),
       stPick[r] as 0 | 1 | 2 | 3,
       dirOf(t),
-      ds,
+      // Per-file deduped downstream table (#41 contract): the event stores an index into it.
+      idx(day.downstreams, lk.ds, ds.join(','), () => ds),
     ]
     day.events.push(ev)
   })

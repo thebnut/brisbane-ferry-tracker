@@ -16,6 +16,7 @@ import {
   currentServiceDate,
   type DepartureStatus,
   DeparturesResponse,
+  downstreamOf,
   gtfsToEpoch,
   mergeDepartures,
   parseTripInstanceKey,
@@ -168,7 +169,7 @@ export function synthRt(
       const dep = gtfsToEpoch(sd.serviceDate, ev[3])
       if (dep < nowS - 15 * 60 || dep > nowS + 45 * 60) continue
       const key = tripInstanceKey(sd.trips[ev[0]] as string, sd.serviceDate)
-      const ds = ev[9]
+      const ds = downstreamOf(sd, ev)
       const lastOffset = ds.length >= 4 ? (ds[ds.length - 3] as number) : 0
       add(key, ev[1], sd.stops[ev[6]]?.id ?? sd.stopKey, dep + lastOffset)
     }
@@ -382,13 +383,14 @@ export async function handleFixtureApi(url: URL, nowMs: number, env: Env | null 
         arr: gtfsToEpoch(serviceDate, ev[2]),
         dep,
       })
-      for (let i = 0; i + 3 < ev[9].length; i += 4) {
-        const s = d.stops[ev[9][i] as number]
-        const arr = dep + (ev[9][i + 1] as number)
+      const ds = downstreamOf(d, ev)
+      for (let i = 0; i + 3 < ds.length; i += 4) {
+        const s = d.stops[ds[i] as number]
+        const arr = dep + (ds[i + 1] as number)
         rows.push({
           stopId: s?.id ?? '',
           name: s?.name,
-          seq: ev[1] + (ev[9][i + 3] as number),
+          seq: ev[1] + (ds[i + 3] as number),
           arr,
           dep: arr,
         })
