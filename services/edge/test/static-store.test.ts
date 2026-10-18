@@ -83,4 +83,25 @@ describe('StaticStore trip-index caching', () => {
     expect(src.reads.filter((k) => k.includes(small))).toHaveLength(1)
     expect(src.reads.filter((k) => k.includes(large))).toHaveLength(3)
   })
+
+  it('concurrent loads of either size share one read', async () => {
+    const small = 'd'.repeat(64)
+    const large = 'e'.repeat(64)
+    const big = { ...day, pad: 'x'.repeat(TRIP_INDEX_CACHE_MAX_BYTES + 10) }
+    const src = new MemoryDataSource(
+      new Map([
+        [`static/blobs/${small}.json.gz`, new TextEncoder().encode(JSON.stringify(day))],
+        [`static/blobs/${large}.json.gz`, new TextEncoder().encode(JSON.stringify(big))],
+      ]),
+    )
+    const store = new StaticStore(src)
+    const [a, b] = await Promise.all([store.tripIndexDay(idx(large), D), store.tripIndexDay(idx(large), D)])
+    expect(a).toBe(b)
+    await Promise.all([store.tripIndexDay(idx(small), D), store.tripIndexDay(idx(small), D)])
+    expect(src.reads.filter((k) => k.includes(large))).toHaveLength(1)
+    expect(src.reads.filter((k) => k.includes(small))).toHaveLength(1)
+    // Once settled, a large one is not retained: the next call reads again.
+    await store.tripIndexDay(idx(large), D)
+    expect(src.reads.filter((k) => k.includes(large))).toHaveLength(2)
+  })
 })

@@ -67,6 +67,7 @@ export class StaticStore {
   private readonly blobs = new Lru<Promise<unknown | null>>(256)
   /** Trip indexes are large (a whole mode-day), so only a few are kept. */
   private readonly tripIndexes = new Lru<Promise<unknown | null>>(4)
+  private readonly tripIndexLoads = new Map<string, Promise<unknown | null>>()
   private readonly validate: boolean
 
   constructor(
@@ -142,13 +143,20 @@ export class StaticStore {
     const sha = index.tripIndex?.[serviceDate]
     if (!sha) return null
     const key = blobKey(sha)
-    let raw = await this.tripIndexes.get(key)
-    if (raw === undefined) {
-      const bytes = await readBytes(this.source, key)
-      if (!bytes) return null
-      raw = await decodeJson(bytes)
-      if (bytes.byteLength <= TRIP_INDEX_CACHE_MAX_BYTES) this.tripIndexes.set(key, Promise.resolve(raw))
+    // Completed small results are cached; concurrent loads of any size share one in-flight read and parse.
+    let p = this.tripIndexes.get(key) ?? this.tripIndexLoads.get(key)
+    if (!p) {
+      p = (async () => {
+        const bytes = await readBytes(this.source, key)
+        if (!bytes) return null
+        const raw = await decodeJson(bytes)
+        if (bytes.byteLength <= TRIP_INDEX_CACHE_MAX_BYTES) this.tripIndexes.set(key, Promise.resolve(raw))
+        return raw
+      })()
+      this.tripIndexLoads.set(key, p)
+      void p.finally(() => this.tripIndexLoads.delete(key)).catch(() => {})
     }
+    const raw = await p
     if (raw == null) return null
     return this.validate ? TripIndexDay.parse(raw) : (raw as TripIndexDay)
   }
