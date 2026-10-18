@@ -8,7 +8,7 @@ import { budgetConfig, ipKey, ipv6Prefix48, registerAi } from '../src/ai/routes.
 import { createApp } from '../src/app.ts'
 import { silentLogger } from '../src/log.ts'
 import { SnapshotClient } from '../src/snapshot-client.ts'
-import { Clock, D, buildTree, epoch, storeFor } from './fixtures.ts'
+import { buildTree, Clock, D, epoch, storeFor } from './fixtures.ts'
 
 const NAMES: Record<string, string> = {
   '317584': 'Bulimba ferry terminal',

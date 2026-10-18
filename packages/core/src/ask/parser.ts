@@ -112,9 +112,11 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
   // Time constraints the grammar can't represent (first/last service, another day, a clock time) must not be
   // silently answered as "next departures" (Codex PR review). Leave them to the LLM / hint.
   if (
-    /\b(first|last|final|earliest|latest|tomorrow|yesterday|weekend|saturday|sunday|monday|tuesday|wednesday|thursday|friday|after|before|until|by)\b/.test(
+    /\b(first|last|final|earliest|latest|tomorrow|yesterday|tonight|weekend|saturday|sunday|monday|tuesday|wednesday|thursday|friday|after|before|until|by|noon|midday|midnight|morning|afternoon|evening|later|o'?clock)\b/.test(
       s,
     ) ||
+    /\bin (a|an|one|two|three|four|five|ten|half an?|\d+) (min|mins|minutes?|hours?|hrs?)\b/.test(s) ||
+    /\bat \d/.test(s) ||
     /\b\d{1,2}([:.]\d{2})?\s*(am|pm)\b|\b\d{1,2}[:.]\d{2}\b/.test(s)
   ) {
     return fail('no_match', 'unsupported time constraint')

@@ -12,8 +12,8 @@ import { parseRtModes } from './rt/feeds.ts'
 import type { SnapshotScope } from './rt/split.ts'
 import { parseMaxStale, SnapshotClient } from './snapshot-client.ts'
 
-export { RtHub } from './rt/hub.ts'
 export { Budget } from './ai/budget-do.ts'
+export { RtHub } from './rt/hub.ts'
 
 const HUB_NAME = 'hub'
 const log = createLogger({ svc: 'bft-api' })

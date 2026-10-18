@@ -13,10 +13,7 @@
   // Watchdog: re-arms the RtHub alarm chain if the last good cycle is older than 45 s.
   "triggers": { "crons": ["* * * * *"] },
   "durable_objects": {
-    "bindings": [
-      { "name": "RT_HUB", "class_name": "RtHub" },
-      { "name": "BUDGET", "class_name": "Budget" }
-    ]
+    "bindings": [{ "name": "RT_HUB", "class_name": "RtHub" }, { "name": "BUDGET", "class_name": "Budget" }]
   },
   // Free plan: SQLite-backed Durable Objects only.
   "migrations": [
@@ -48,7 +45,9 @@
           { "name": "BUDGET", "class_name": "Budget" }
         ]
       },
-      "ratelimits": [{ "name": "ASK_LIMITER", "namespace_id": "8001", "simple": { "limit": 3, "period": 60 } }],
+      "ratelimits": [
+        { "name": "ASK_LIMITER", "namespace_id": "8001", "simple": { "limit": 3, "period": 60 } }
+      ],
       "r2_buckets": [{ "binding": "DATA_BUCKET", "bucket_name": "bft-transit-data" }],
       // Intentionally no DATA service binding: staging reads R2. (Wrangler warns that the top-level DATA binding
       // is not inherited; that is the point.)

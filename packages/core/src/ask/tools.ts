@@ -85,13 +85,21 @@ export const FINAL_ANSWER_TOOL = {
 export interface Evidence {
   departures: ReadonlySet<string>
   alerts: ReadonlySet<string>
-  /** At least one get_alerts call succeeded with fresh data in this request. */
-  alertsChecked: boolean
+  /** A successful get_departures call in this request returned no rows. */
+  emptyDepartureQuery: boolean
+  /** A successful get_alerts call on fresh data in this request returned no alerts. */
+  emptyFreshAlertQuery: boolean
 }
 
-/** A final answer is grounded only if every ref was returned by a successful tool call in this request. */
+/**
+ * A final answer is grounded only if every ref was returned by a successful tool call in this request, and a
+ * negative claim ("no services", "no alerts") is backed by a successful query that actually came back empty
+ * (Codex review round 3).
+ */
 export function isGroundedAnswer(final: FinalAnswer, ev: Evidence): boolean {
   if (final.kind === 'departures') return final.refs.every((r) => ev.departures.has(r))
-  if (final.kind === 'alerts') return ev.alertsChecked && final.refs.every((r) => ev.alerts.has(r))
+  if (final.kind === 'alerts')
+    return final.refs.length > 0 ? final.refs.every((r) => ev.alerts.has(r)) : ev.emptyFreshAlertQuery
+  if (final.reason === 'no_service') return ev.emptyDepartureQuery
   return true
 }

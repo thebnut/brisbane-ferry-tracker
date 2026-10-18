@@ -49,13 +49,13 @@ export async function answerIntent(
       const to = intent.kind === 'next_departure' ? intent.to : undefined
       const mode = from.mode
       // Filter by route before limiting: fetch a wider window when a route is requested (Codex review round 2).
-      const q = new URLSearchParams({ limit: intent.route ? '60' : '5' })
+      const q = new URLSearchParams({ limit: '5' })
+      if (intent.route) q.set('route', intent.route)
       if (to) q.set('to', to.key)
       const res = await fetchApi(`/v1/${mode}/stops/${encodeURIComponent(from.key)}/departures?${q}`)
       if (!res.ok) return { answer: `Sorry, I couldn't load departures for ${from.name} right now.` }
       const body = (await res.json()) as DeparturesResponse
-      let rows = body.departures.filter((d) => d.status !== 'skipped')
-      if (intent.route) rows = rows.filter((d) => d.route.short.toUpperCase() === intent.route)
+      const rows = body.departures.filter((d) => d.status !== 'skipped')
       const head = to
         ? `${MODE_WORD[mode]}s from ${body.stop.name} to ${body.to?.name ?? to.name}`
         : `${MODE_WORD[mode]}s from ${body.stop.name}`

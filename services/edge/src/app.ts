@@ -141,6 +141,16 @@ export function createApp(deps: AppDeps): Hono<Env> {
       ? Math.min(MAX_LIMIT, Math.max(1, Math.floor(limitQ)))
       : DEFAULT_LIMIT
     // `at` (epoch s): list departures from that time instead of now (the ferry app's "Depart from" picker).
+    // `route` (comma-separated route short names): filter before the row limit (used by /v1/ask route questions).
+    const routeQ = c.req.query('route')
+    const routes = routeQ
+      ? new Set(
+          routeQ
+            .split(',')
+            .map((r) => r.trim())
+            .filter(Boolean),
+        )
+      : undefined
     const atQ = c.req.query('at')
     const at = atQ == null || atQ === '' ? null : Number(atQ)
     if (at != null && (!Number.isInteger(at) || at < 0))
@@ -201,6 +211,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
         limit,
         rtState: r.rtState,
         boardingStopIds: stop.ids,
+        ...(routes ? { routes } : {}),
       }
       if (mode === 'train') {
         mergeOptions.withStopsAfter = true

@@ -30,7 +30,8 @@ export class EvidenceLog {
   private n = 0
   readonly departures = new Map<string, DepartureEvidence>()
   readonly alerts = new Map<string, Alert>()
-  alertsChecked = false
+  emptyDepartureQuery = false
+  emptyFreshAlertQuery = false
   nextRef(prefix: 'd' | 'a'): string {
     this.n += 1
     return `${prefix}${this.n}`
@@ -100,6 +101,7 @@ export async function runTool(
       )
       if (!res.ok) return { tool: 'get_departures', ok: false, result: { error: `HTTP ${res.status}` } }
       const body = (await res.json()) as DeparturesResponse
+      if (ctx.evidence && body.departures.length === 0) ctx.evidence.emptyDepartureQuery = true
       const rows = body.departures.map((d) => {
         const ref = ctx.evidence?.nextRef('d')
         if (ref)
@@ -134,7 +136,8 @@ export async function runTool(
       if (!res.ok) return { tool: 'get_alerts', ok: false, result: { error: `HTTP ${res.status}` } }
       const body = (await res.json()) as AlertsResponse
       // An empty list only means "none" when the alert feed is fresh.
-      if (ctx.evidence && body.rtState === 'live') ctx.evidence.alertsChecked = true
+      if (ctx.evidence && body.rtState === 'live' && body.alerts.length === 0)
+        ctx.evidence.emptyFreshAlertQuery = true
       return {
         tool: 'get_alerts',
         ok: true,

@@ -121,10 +121,9 @@ export function reserve(
 export function reconcile(state: BudgetState, id: string, usd: number): BudgetState {
   const charged = state.settled?.[id]
   if (charged != null) {
-    // Already charged in full when it went stale: add only an excess over that charge, once.
-    const settled = { ...state.settled }
-    delete settled[id]
-    return { ...state, settled, spentUsd: state.spentUsd + Math.max(0, usd - charged) }
+    // Already recorded (stale charge or an earlier reconcile): add only spend not yet recorded. Idempotent.
+    if (usd <= charged) return state
+    return { ...state, settled: { ...state.settled, [id]: usd }, spentUsd: state.spentUsd + (usd - charged) }
   }
   const r = state.reservations[id]
   const reservations = { ...state.reservations }
@@ -132,6 +131,7 @@ export function reconcile(state: BudgetState, id: string, usd: number): BudgetSt
   return {
     ...state,
     reservations,
+    settled: { ...state.settled, [id]: usd },
     reservedUsd: Math.max(0, state.reservedUsd - (r?.usd ?? 0)),
     spentUsd: state.spentUsd + usd,
   }

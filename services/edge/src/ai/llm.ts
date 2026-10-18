@@ -11,16 +11,16 @@
  */
 import Anthropic from '@anthropic-ai/sdk'
 import {
+  actualUsd,
+  anthropicTools,
   FINAL_ANSWER_TOOL,
   type FinalAnswer,
   FinalAnswerInput,
-  type ToolName,
-  actualUsd,
-  anthropicTools,
   isGroundedAnswer,
+  type ToolName,
   worstCaseUsd,
 } from '@bft/core'
-import { EvidenceLog, type ToolContext, runTool } from './tools.ts'
+import { EvidenceLog, runTool, type ToolContext } from './tools.ts'
 
 export const MODEL = 'claude-haiku-5-5'
 const MAX_TOKENS = 400
@@ -136,7 +136,8 @@ export async function askLlm(question: string, deps: LlmDeps): Promise<LlmResult
       const ev = {
         departures: new Set(evidence.departures.keys()),
         alerts: new Set(evidence.alerts.keys()),
-        alertsChecked: evidence.alertsChecked,
+        emptyDepartureQuery: evidence.emptyDepartureQuery,
+        emptyFreshAlertQuery: evidence.emptyFreshAlertQuery,
       }
       if (!isGroundedAnswer(parsed.data, ev)) return fail('ungrounded', round + 1)
       return { ok: true, final: parsed.data, evidence, costUsd: cost, rounds: round + 1 }

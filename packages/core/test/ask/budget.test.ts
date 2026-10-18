@@ -58,6 +58,11 @@ describe('budget ledger', () => {
     // A late reconcile doesn't double-charge (Codex review round 2): smaller actual adds nothing, larger adds the excess.
     expect(reconcile(rolled, 'a', 0.0005).spentUsd).toBeCloseTo(0.002)
     expect(reconcile(rolled, 'a', 0.003).spentUsd).toBeCloseTo(0.003)
+    // Repeated reconciles are idempotent (Codex review round 3).
+    const twice = reconcile(reconcile(rolled, 'a', 0.001), 'a', 0.001)
+    expect(twice.spentUsd).toBeCloseTo(0.002)
+    const normal = reserve(emptyBudgetState('20261018'), on, 'b', 0.002, null, false, 0).state
+    expect(reconcile(reconcile(normal, 'b', 0.001), 'b', 0.001).spentUsd).toBeCloseTo(0.001)
   })
   it('worst case for one round (3k in, 400 out) is about $0.0005', () => {
     expect(worstCaseUsd(3000, 400)).toBeCloseTo(0.0005, 6)
@@ -75,11 +80,22 @@ describe('tools', () => {
     ])
   })
   it('accepts only final answers whose refs came from successful tool calls', () => {
-    const ev = { departures: new Set(['d1', 'd2']), alerts: new Set(['a1']), alertsChecked: true }
+    const ev = {
+      departures: new Set(['d1', 'd2']),
+      alerts: new Set(['a1']),
+      emptyDepartureQuery: false,
+      emptyFreshAlertQuery: false,
+    }
     expect(isGroundedAnswer({ kind: 'departures', refs: ['d1'] }, ev)).toBe(true)
     expect(isGroundedAnswer({ kind: 'departures', refs: ['d9'] }, ev)).toBe(false)
-    expect(isGroundedAnswer({ kind: 'alerts', refs: [] }, ev)).toBe(true)
-    expect(isGroundedAnswer({ kind: 'alerts', refs: [] }, { ...ev, alertsChecked: false })).toBe(false)
+    expect(isGroundedAnswer({ kind: 'alerts', refs: ['a1'] }, ev)).toBe(true)
+    // Negative claims need a successful query that came back empty (Codex review round 3).
+    expect(isGroundedAnswer({ kind: 'alerts', refs: [] }, ev)).toBe(false)
+    expect(isGroundedAnswer({ kind: 'alerts', refs: [] }, { ...ev, emptyFreshAlertQuery: true })).toBe(true)
+    expect(isGroundedAnswer({ kind: 'cannot_answer', reason: 'no_service' }, ev)).toBe(false)
+    expect(
+      isGroundedAnswer({ kind: 'cannot_answer', reason: 'no_service' }, { ...ev, emptyDepartureQuery: true }),
+    ).toBe(true)
     expect(isGroundedAnswer({ kind: 'cannot_answer', reason: 'trip_planning' }, ev)).toBe(true)
     expect(FinalAnswerInput.safeParse({ kind: 'departures', refs: [] }).success).toBe(false)
   })
