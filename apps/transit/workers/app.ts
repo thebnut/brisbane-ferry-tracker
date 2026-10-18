@@ -132,7 +132,7 @@ export default {
 async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
   const url = new URL(request.url)
   // The mounted Ferry screens include the feedback sheet, which posts to /api/feedback on this origin.
-  const legacy = await handleLegacy(request, env)
+  const legacy = await handleLegacy(request, env, { app: 'transit' })
   if (legacy) return legacy
   if (url.pathname === '/v1/ask' && request.method === 'POST') return proxyAsk(request, env)
   if (request.method === 'GET' && (url.pathname.startsWith('/v1/') || url.pathname.startsWith('/data/')))
