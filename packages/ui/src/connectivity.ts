@@ -244,21 +244,56 @@ interface PolledQuery {
 const isPolled = (q: PolledQuery) =>
   q.observers.some((o) => (o.options as { refetchInterval?: unknown }).refetchInterval != null)
 
-/** onReconnect for an app's QueryClient, refetching every active polled query at once (R3-X9). */
+/** While API calls fail but the browser says it is online, the live boards retry this often (R7). */
+export const RECONNECT_PROBE_MS = 2_500
+
+/**
+ * Calls `probe` every `intervalMs` while API calls are failing (or answered from the service worker's cache) and the
+ * browser still says it is online. That connection can come back without any event: DevTools' "Service Workers →
+ * Offline" unticked, a flaky link, a captive network let through. Until the next 15 s poll reached the network,
+ * nothing noticed, so a saved stop took 15–25 s to show LIVE again (R7). Once a probe gets through, onReconnect
+ * refetches every board. With navigator.onLine false the browser's `online` event does the job instead.
+ */
+export function probeWhileUnreachable(probe: () => void, intervalMs = RECONNECT_PROBE_MS): () => void {
+  let id: ReturnType<typeof setInterval> | undefined
+  const update = () => {
+    const probing = unreachable && navigator.onLine !== false
+    if (probing && id === undefined) id = setInterval(probe, intervalMs)
+    else if (!probing && id !== undefined) {
+      clearInterval(id)
+      id = undefined
+    }
+  }
+  const unsubscribe = subscribe(update)
+  update()
+  return () => {
+    unsubscribe()
+    if (id !== undefined) clearInterval(id)
+  }
+}
+
+/**
+ * onReconnect for an app's QueryClient, refetching every active polled query at once (R3-X9), and probing them while
+ * the connection is down without the browser knowing (probeWhileUnreachable).
+ */
 export function useRefetchOnReconnect(client: RefetchableClient): void {
-  useEffect(
-    () =>
-      onReconnect(() => {
-        void client
-          .refetchQueries(
-            { type: 'active', predicate: isPolled },
-            // A board already fetching keeps its request (one reaching the network is what told us we're back).
-            { cancelRefetch: false },
-          )
-          .catch(() => {})
-      }),
-    [client],
-  )
+  useEffect(() => {
+    const refetch = () => {
+      void client
+        .refetchQueries(
+          { type: 'active', predicate: isPolled },
+          // A board already fetching keeps its request (one reaching the network is what told us we're back).
+          { cancelRefetch: false },
+        )
+        .catch(() => {})
+    }
+    const offReconnect = onReconnect(refetch)
+    const offProbe = probeWhileUnreachable(refetch)
+    return () => {
+      offReconnect()
+      offProbe()
+    }
+  }, [client])
 }
 
 /** `isOnline()` as React state: true during SSR and hydration, then the live answer. */
