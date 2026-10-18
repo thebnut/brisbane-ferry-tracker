@@ -8,7 +8,7 @@ import type { Alert } from '@bft/core/contract'
 import { FilterPills, NoticeStrip, PillButton, SaveButton } from '@bft/ui'
 import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { data } from 'react-router'
+import { data, redirect } from 'react-router'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { DepartureList, linkRenderer } from '../components/StopBoard.tsx'
 import { ApiError, fetchAlerts, fetchDepartures } from '../lib/api.ts'
@@ -19,7 +19,7 @@ import { useApi } from '../lib/mode.ts'
 import { liveView, useAlerts, useDepartures } from '../lib/queries.ts'
 import { pageMeta, SITE_URL, stopJsonLd, stopMetaTags } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
-import { routeHref, routeShortOf, stopMeta } from '../lib/stops.ts'
+import { canonicalStopId, routeHref, routeShortOf, stopHref, stopMeta } from '../lib/stops.ts'
 import { pushRecent, toggleSaved, useSavedStops } from '../lib/storage.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/stop'
@@ -29,6 +29,10 @@ const StopMap = lazy(() => import('../components/StopMap.tsx'))
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const stopId = params.stopId
   if (!/^[\w-]{1,32}$/.test(stopId)) throw data(null, { status: 404 })
+  // The page shows the public stop number ("Stop 010813"), so people type and share it: send it to the stop's page
+  // instead of asking the API for an id that doesn't exist (two 404s per visit, R3-B10).
+  const canonical = canonicalStopId(stopId)
+  if (canonical !== stopId) throw redirect(`${stopHref(canonical)}${new URL(request.url).search}`, 301)
   const { fetcher, env } = loaderEnv(request, context)
   let unknown = false
   const [departures, alerts] = await Promise.all([
