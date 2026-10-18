@@ -8,6 +8,8 @@ export interface WorkerEnv {
   DATA_BUCKET?: R2Bucket
   /** `ferry,train` (per-mode feeds) or `all` (combined feeds). */
   RT_MODES?: string
+  /** Modes whose trip indexes the hub loads (default: polled modes except bus, see parseRtModes). */
+  RT_INDEX_MODES?: string
   RT_UPSTREAM: string
   CORS_ALLOW_ALL?: string
   SPIKE_ENABLED?: string

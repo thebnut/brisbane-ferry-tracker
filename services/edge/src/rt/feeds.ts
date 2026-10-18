@@ -25,22 +25,34 @@ export interface FeedSpec {
 }
 
 export interface RtConfig {
-  /** Modes whose trips are matched and published. */
+  /** Modes whose feeds are polled and published. */
   modes: Mode[]
   /** True: poll the combined feeds (all modes). False: one feed per polled mode. */
   combined: boolean
+  /** Modes whose trip indexes the hub loads and matches against (a subset of `modes`). */
+  indexModes: Mode[]
 }
 
-/** `RT_MODES=all` polls the combined feeds; `ferry,train` polls those per-mode feeds. */
-export function parseRtModes(value: string | undefined): RtConfig {
+const parseModeList = (v: string): Mode[] =>
+  [...new Set(v.split(',').map((s) => s.trim().toLowerCase()))].filter((s): s is Mode =>
+    (MODES as readonly string[]).includes(s),
+  )
+
+/**
+ * `RT_MODES=all` polls the combined feeds; `ferry,train` polls those per-mode feeds.
+ * `RT_INDEX_MODES` picks which modes get trip indexes. It defaults to every polled mode except bus: two days of
+ * bus trip indexes take ~100-120 MB of heap in the current matcher (Phase 0 measurements), which does not fit a
+ * 128 MB Durable Object. Bus RT is published unmatched until a compact (typed-array) matcher lands.
+ */
+export function parseRtModes(value: string | undefined, indexModes?: string): RtConfig {
   const v = (value ?? 'ferry,train').trim().toLowerCase()
-  if (v === 'all') return { modes: [...MODES], combined: true }
-  const modes = v
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s): s is Mode => (MODES as readonly string[]).includes(s))
+  const combined = v === 'all'
+  const modes = combined ? [...MODES] : parseModeList(v)
   if (modes.length === 0) throw new Error(`RT_MODES has no known mode: ${value}`)
-  return { modes: [...new Set(modes)], combined: false }
+  const idx = indexModes
+    ? parseModeList(indexModes).filter((m) => modes.includes(m))
+    : modes.filter((m) => m !== 'bus')
+  return { modes, combined, indexModes: idx }
 }
 
 export function feedsFor(cfg: RtConfig): FeedSpec[] {

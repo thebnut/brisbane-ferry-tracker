@@ -24,7 +24,7 @@ let pendingWaitUntil: ((p: Promise<unknown>) => void) | null = null
 
 function getIsolate(env: WorkerEnv) {
   if (!isolate) {
-    const cfg = parseRtModes(env.RT_MODES)
+    const cfg = parseRtModes(env.RT_MODES, env.RT_INDEX_MODES)
     // A DO stub is bound to the request that created it, so make one per call (env bindings are reusable).
     // Snapshots come from R2 when it is bound, otherwise from the hub over RPC. Raw feeds (legacy proxy) always
     // come from the hub; they are shared per isolate for 10 s.

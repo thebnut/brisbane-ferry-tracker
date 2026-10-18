@@ -394,7 +394,7 @@ export class HubCore {
       }
       return false
     }
-    for (const mode of this.d.config.modes) {
+    for (const mode of this.d.config.indexModes) {
       const generation = await this.d.store.currentGeneration(mode)
       if (!generation) continue
       const loaded = this.modes.get(mode)

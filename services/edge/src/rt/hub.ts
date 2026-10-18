@@ -17,7 +17,7 @@ export class RtHub extends DurableObject<WorkerEnv> {
       fetch: (input, init) => fetch(input, init),
       now: Date.now,
       store: new StaticStore(dataSourceFor(env)),
-      config: parseRtModes(env.RT_MODES),
+      config: parseRtModes(env.RT_MODES, env.RT_INDEX_MODES),
       upstream: env.RT_UPSTREAM,
       r2: env.DATA_BUCKET,
       log: createLogger({ svc: 'bft-rthub' }),
