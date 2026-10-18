@@ -15,6 +15,9 @@
       "!**/fixtures/**/*.json",
       "!**/.react-router",
       "!**/assets/**/*.svg",
+      "!**/public/**/*.svg",
+      "!apps/train/app/data/*.json",
+      "!apps/train/public/data",
       "!**/test-results",
       "!**/playwright-report"
     ]

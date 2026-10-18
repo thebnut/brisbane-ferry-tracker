@@ -1,0 +1,7 @@
+build/
+.react-router/
+.wrangler/
+test-results/
+playwright-report/
+.dev.vars
+.shot.mjs
