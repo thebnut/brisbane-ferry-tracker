@@ -4,7 +4,7 @@
  */
 import { type BudgetConfig, DEFAULT_BUDGET, emptyBudgetState, reconcile, reserve } from '@bft/core'
 import { describe, expect, it, vi } from 'vitest'
-import { budgetConfig, ipKey, ipv6Prefix48, registerAi } from '../src/ai/routes.ts'
+import { type AiDeps, budgetConfig, ipKey, ipv6Prefix48, registerAi, siteverify } from '../src/ai/routes.ts'
 import { createApp } from '../src/app.ts'
 import { silentLogger } from '../src/log.ts'
 import { SnapshotClient } from '../src/snapshot-client.ts'
@@ -16,7 +16,10 @@ const NAMES: Record<string, string> = {
   '317586': 'Hawthorne ferry terminal',
 }
 
-function setup(env: Record<string, unknown> = {}, extra: { verifyTurnstile?: () => Promise<boolean> } = {}) {
+function setup(
+  env: Record<string, unknown> = {},
+  extra: { verifyTurnstile?: () => Promise<boolean>; siteverify?: AiDeps['siteverify'] } = {},
+) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   vi.setSystemTime(clock.t)
   const tree = buildTree()
@@ -632,5 +635,87 @@ describe('aiHealthStatus (Codex review)', () => {
       }),
     ).toEqual({ enabled: true, budgetUsedUsd: null })
     expect(await aiHealthStatus({})).toEqual({ enabled: false, budgetUsedUsd: null })
+  })
+})
+
+describe('POST /v1/turnstile/verify (for the feedback relays)', () => {
+  const verifyReq = (
+    app: { request: (p: string, i: RequestInit) => Response | Promise<Response> },
+    body: unknown,
+  ) =>
+    app.request('/v1/turnstile/verify', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+    })
+
+  it('verifies with the Worker secret and returns only success, hostname and action', async () => {
+    const calls: unknown[][] = []
+    const s = setup(
+      { TURNSTILE_SECRET: 'sek' },
+      {
+        siteverify: async (...args) => {
+          calls.push(args)
+          return { success: true, hostname: 'www.brisbaneferry.com', action: 'feedback' }
+        },
+      },
+    )
+    const r = await verifyReq(s.app, { token: 'tok', remoteip: '203.0.113.1' })
+    expect(r.status).toBe(200)
+    expect(r.headers.get('cache-control')).toBe('no-store')
+    const text = await r.text()
+    expect(JSON.parse(text)).toEqual({ success: true, hostname: 'www.brisbaneferry.com', action: 'feedback' })
+    expect(text).not.toContain('sek')
+    expect(calls).toEqual([['sek', 'tok', '203.0.113.1']])
+  })
+
+  it('no secret → 503, bad body → 400, siteverify unreachable → 502 (callers fail closed)', async () => {
+    const never = vi.fn()
+    expect((await verifyReq(setup({}, { siteverify: never }).app, { token: 't' })).status).toBe(503)
+    const s = setup({ TURNSTILE_SECRET: 'sek' }, { siteverify: never })
+    for (const bad of [
+      {},
+      { token: '' },
+      { token: 'x'.repeat(2049) },
+      { token: 't', remoteip: 'x'.repeat(65) },
+    ])
+      expect((await verifyReq(s.app, bad)).status).toBe(400)
+    expect(never).not.toHaveBeenCalled()
+    const down = setup(
+      { TURNSTILE_SECRET: 'sek' },
+      {
+        siteverify: async () => {
+          throw new TypeError('fetch failed')
+        },
+      },
+    )
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const r = await verifyReq(down.app, { token: 't' })
+    expect(r.status).toBe(502)
+    expect(await r.json()).toEqual({ error: 'siteverify_unavailable' })
+  })
+
+  it('siteverify(): posts secret, token and IP as a form; throws on a non-2xx answer', async () => {
+    const f = vi.fn(async (_u: string | URL | Request, init?: RequestInit) => {
+      const form = init?.body as FormData
+      expect([form.get('secret'), form.get('response'), form.get('remoteip')]).toEqual([
+        'sek',
+        'tok',
+        '192.0.2.1',
+      ])
+      return Response.json({ success: true, hostname: 'h', action: 'feedback', 'error-codes': [] })
+    })
+    expect(await siteverify('sek', 'tok', '192.0.2.1', f as typeof fetch)).toEqual({
+      success: true,
+      hostname: 'h',
+      action: 'feedback',
+    })
+    expect(String(f.mock.calls[0]?.[0])).toBe('https://challenges.cloudflare.com/turnstile/v0/siteverify')
+    await expect(
+      siteverify('sek', 'tok', null, (async () => new Response('', { status: 500 })) as typeof fetch),
+    ).rejects.toThrow()
+    expect(
+      await siteverify('sek', 'tok', null, (async () => Response.json({ success: 'yes' })) as typeof fetch),
+    ).toEqual({ success: false, hostname: null, action: null })
   })
 })

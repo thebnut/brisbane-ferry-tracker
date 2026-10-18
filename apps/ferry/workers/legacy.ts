@@ -4,7 +4,9 @@
  *  - /api/gtfs-proxy?endpoint=…  raw GTFS-RT from the API Worker's hub (never its own upstream fetch)
  *  - /api/feedback (POST)        relays feedback to the Discord webhook (FEEDBACK_DISCORD_WEBHOOK_URL), per-IP rate
  *                                limited by the FEEDBACK_LIMITER binding; shares api/_feedback-discord.js with the
- *                                legacy Vercel route (api/feedback.js)
+ *                                legacy Vercel route (api/feedback.js). Web posts need a Turnstile token, verified
+ *                                by bft-api's /v1/turnstile/verify over the API binding (this Worker holds no
+ *                                Turnstile secret); the iOS app posts token-less (trade-off in api/_turnstile.js)
  * CORS matches api/_cors.js byte for byte (same allowlist, headers and preflight).
  */
 import {
@@ -13,6 +15,7 @@ import {
   relayFeedback,
   UNAVAILABLE_BODY,
 } from '../../../api/_feedback-discord.js'
+import { checkTurnstile, IOS_CLIENT_HEADER, verifyWithApi } from '../../../api/_turnstile.js'
 
 const STATIC_ALLOWED = new Set([
   'https://brisbaneferry.com',
@@ -43,7 +46,7 @@ export function legacyCorsHeaders(origin: string | null, allowAll = false): Head
   h.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
   h.set(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-BFT-Client',
   )
   return h
 }
@@ -52,6 +55,14 @@ const withCors = (res: Response, origin: string | null, allowAll: boolean): Resp
   const out = new Response(res.body, res)
   for (const [k, v] of legacyCorsHeaders(origin, allowAll)) out.headers.set(k, v)
   return out
+}
+
+/** bft-api's POST /v1/turnstile/verify: in-process through the API binding, or over HTTPS when it's absent. */
+function postVerify(env: Env, body: string, signal: AbortSignal): Promise<Response> {
+  const init: RequestInit = { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal }
+  return env.API
+    ? env.API.fetch(new Request('https://bft-api/v1/turnstile/verify', init))
+    : fetch(`${env.API_BASE}/v1/turnstile/verify`, init)
 }
 
 export interface LegacyOptions {
@@ -119,6 +130,16 @@ export async function handleLegacy(
   } catch {
     // A missing or malformed body fails validation like an empty feedback (Codex review: it used to throw).
   }
+  const denied = await checkTurnstile({
+    origin,
+    clientHeader: request.headers.get(IOS_CLIENT_HEADER),
+    body: parsed,
+    host: url.host,
+    remoteip: request.headers.get('cf-connecting-ip'),
+    verify: (token, remoteip) =>
+      verifyWithApi((body, signal) => postVerify(env, body, signal), token, remoteip),
+  })
+  if (denied) return json(denied.body, denied.status)
   const { status, body } = await relayFeedback({
     webhookUrl: env.FEEDBACK_DISCORD_WEBHOOK_URL,
     body: parsed,

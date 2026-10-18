@@ -13,9 +13,28 @@ import { handleLegacy, isAllowedOrigin } from '../workers/legacy.ts'
 
 const HOOK = 'https://discord.test/api/webhooks/0/test-token-secret'
 
+type Verdict = { success: boolean; hostname: string | null; action: string | null }
+const OK_VERDICT: Verdict = { success: true, hostname: 'www.brisbaneferry.com', action: 'feedback' }
+
+/** bft-api's /v1/turnstile/verify behind the API binding (siteverify mocked: no network). */
+function verifyApi(answer: Verdict | Response | Error = OK_VERDICT) {
+  const bodies: unknown[] = []
+  const urls: string[] = []
+  const api = {
+    fetch: vi.fn(async (r: Request) => {
+      urls.push(r.url)
+      bodies.push(await r.json())
+      if (answer instanceof Error) throw answer
+      return answer instanceof Response ? answer : Response.json(answer)
+    }),
+  }
+  return { api: api as unknown as Fetcher, fetch: api.fetch, bodies, urls }
+}
+
 const env = (over: Partial<Env> = {}): Env =>
   ({
     ASSETS: {} as Fetcher,
+    API: verifyApi().api,
     API_BASE: 'https://api.example',
     SITE_URL: 'https://www.brisbaneferry.com',
     ...over,
@@ -81,17 +100,19 @@ describe('legacy endpoints on the ferry origin (cutover blocker)', () => {
     expect(r.headers.get('access-control-allow-origin')).toBe('capacitor://localhost')
     const spy = fetchSpy
     const e = env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK })
-    for (const body of ['null', '"text"', 'not json']) {
-      const f = (await handleLegacy(
-        new Request('https://x/api/feedback', {
-          method: 'POST',
-          body,
-          headers: { origin: 'https://www.brisbaneferry.com' },
-        }),
-        e,
-      )) as Response
-      expect(f.status, body).toBe(400)
-      expect(f.headers.get('access-control-allow-origin')).toBe('https://www.brisbaneferry.com')
+    for (const [origin, want] of [
+      ['https://www.brisbaneferry.com', 403],
+      ['capacitor://localhost', 400],
+    ] as const) {
+      for (const body of ['null', '"text"', 'not json']) {
+        const f = (await handleLegacy(
+          new Request('https://x/api/feedback', { method: 'POST', body, headers: { origin } }),
+          e,
+        )) as Response
+        // Web: no token in a malformed body, so the Turnstile gate answers first.
+        expect(f.status, `${origin} ${body}`).toBe(want)
+        expect(f.headers.get('access-control-allow-origin')).toBe(origin)
+      }
     }
     expect(spy).not.toHaveBeenCalled()
   })
@@ -110,11 +131,15 @@ describe('legacy endpoints on the ferry origin (cutover blocker)', () => {
 describe('/api/feedback → Discord webhook', () => {
   const NOW = new Date('2026-10-19T01:02:03.000Z')
   const limiter = (success: boolean) => ({ limit: vi.fn(async () => ({ success })) })
+  /** Object bodies get a Turnstile token unless they set their own (or `turnstileToken: undefined`). */
   const post = (body: unknown, e: Env, headers: Record<string, string> = {}) =>
     handleLegacy(
       new Request('https://www.brisbaneferry.com/api/feedback', {
         method: 'POST',
-        body: typeof body === 'string' ? body : JSON.stringify(body),
+        body:
+          typeof body === 'string'
+            ? body
+            : JSON.stringify({ turnstileToken: 'tok-web', ...(body as object) }),
         headers: {
           'content-type': 'application/json',
           origin: 'https://www.brisbaneferry.com',
@@ -187,9 +212,9 @@ describe('/api/feedback → Discord webhook', () => {
     await handleLegacy(
       new Request('https://bft-transit.example/api/feedback', {
         method: 'POST',
-        body: JSON.stringify({ feedback: 'Transit sheet feedback here' }),
+        body: JSON.stringify({ feedback: 'Transit sheet feedback here', turnstileToken: 'tok' }),
       }),
-      e,
+      { ...e, API: verifyApi({ ...OK_VERDICT, hostname: 'bft-transit.example' }).api },
       { app: 'transit' },
     )
     const sent = spy.mock.calls.map(([, init]) => JSON.parse(String((init as RequestInit).body)).embeds[0])
@@ -270,7 +295,6 @@ describe('/api/feedback → Discord webhook', () => {
       [{ feedback: 'x'.repeat(1001) }, 'Feedback must be less than 1000 characters'],
       [{ feedback: 'This is long enough feedback', email: 'bad' }, 'Invalid email format'],
       [{ feedback: 'This is long enough feedback', email: 42 }, 'Invalid email format'],
-      ['not json', 'Feedback must be at least 10 characters long'],
     ]
     for (const [body, error] of cases) {
       const res = await post(body, e)
@@ -310,6 +334,155 @@ describe('/api/feedback → Discord webhook', () => {
     const res = await post(good, env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK }))
     expect(res.status).toBe(200)
     expect(logged.join('\n')).toContain('FEEDBACK_LIMITER binding missing')
+  })
+})
+
+describe('/api/feedback Turnstile gate (api/_turnstile.js)', () => {
+  const good = { feedback: 'This is long enough feedback' }
+  const limiter = (success: boolean) => ({ limit: vi.fn(async () => ({ success })) })
+  const post = (e: Env, body: Record<string, unknown>, headers: Record<string, string> = {}) =>
+    handleLegacy(
+      new Request('https://www.brisbaneferry.com/api/feedback', {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: {
+          'content-type': 'application/json',
+          origin: 'https://www.brisbaneferry.com',
+          'cf-connecting-ip': '203.0.113.9',
+          ...headers,
+        },
+      }),
+      e,
+    ) as Promise<Response>
+  beforeEach(() => {
+    for (const m of ['warn', 'error'] as const) vi.spyOn(console, m).mockImplementation(() => {})
+  })
+
+  it('a valid web token is verified through the API binding with the client IP, then posted to Discord', async () => {
+    const v = verifyApi()
+    fetchSpy.mockResolvedValue(new Response('{}'))
+    const res = await post(env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, API: v.api }), {
+      ...good,
+      turnstileToken: 'tok-1',
+    })
+    expect(res.status).toBe(200)
+    expect(v.urls).toEqual(['https://bft-api/v1/turnstile/verify'])
+    expect(v.bodies).toEqual([{ token: 'tok-1', remoteip: '203.0.113.9' }])
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(`${HOOK}?wait=true`)
+  })
+
+  it('without the API binding it verifies over HTTPS at API_BASE', async () => {
+    fetchSpy.mockImplementation(async (input) =>
+      String(input).endsWith('/v1/turnstile/verify') ? Response.json(OK_VERDICT) : new Response('{}'),
+    )
+    const res = await post(env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, API: undefined }), {
+      ...good,
+      turnstileToken: 't',
+    })
+    expect(res.status).toBe(200)
+    expect(fetchSpy.mock.calls.map(([u]) => String(u))).toEqual([
+      'https://api.example/v1/turnstile/verify',
+      `${HOOK}?wait=true`,
+    ])
+  })
+
+  it.each([
+    ['missing token', {}, OK_VERDICT],
+    ['empty token', { turnstileToken: '' }, OK_VERDICT],
+    ['non-string token', { turnstileToken: 42 }, OK_VERDICT],
+    ['oversized token', { turnstileToken: 'x'.repeat(2049) }, OK_VERDICT],
+    ['invalid token', { turnstileToken: 't' }, { success: false, hostname: null, action: null }],
+    ['wrong hostname', { turnstileToken: 't' }, { ...OK_VERDICT, hostname: 'brisbanetransit.com' }],
+    ['no hostname', { turnstileToken: 't' }, { ...OK_VERDICT, hostname: null }],
+    ['wrong action (an Ask token)', { turnstileToken: 't' }, { ...OK_VERDICT, action: 'ask' }],
+  ])('%s → 403 with an error body and no Discord call', async (_name, extra, verdict) => {
+    const v = verifyApi(verdict as Verdict)
+    const res = await post(env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, API: v.api }), { ...good, ...extra })
+    expect(res.status).toBe(403)
+    expect((await res.json()).error).toMatch(/bot check failed/)
+    expect(res.headers.get('access-control-allow-origin')).toBe('https://www.brisbaneferry.com')
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['the binding throws', new Error('binding down')],
+    ['bft-api answers 502 (siteverify unreachable)', Response.json({ error: 'x' }, { status: 502 })],
+    ['bft-api answers 503 (no secret)', Response.json({ error: 'x' }, { status: 503 })],
+    ['bft-api answers non-JSON', new Response('oops')],
+  ])('fails closed when %s: 503, no Discord call', async (_name, answer) => {
+    const v = verifyApi(answer)
+    const res = await post(env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, API: v.api }), {
+      ...good,
+      turnstileToken: 'tok-secret-value',
+    })
+    expect(res.status).toBe(503)
+    expect((await res.json()).error).toMatch(/temporarily unavailable/)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    for (const call of [...vi.mocked(console.error).mock.calls, ...vi.mocked(console.warn).mock.calls])
+      expect(call.join(' ')).not.toContain('tok-secret-value')
+  })
+
+  it('iOS (Capacitor Origin): no token needed, with or without the app header, and still rate limited', async () => {
+    const v = verifyApi()
+    fetchSpy.mockResolvedValue(new Response('{}'))
+    const lim = limiter(true)
+    const e = env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, API: v.api, FEEDBACK_LIMITER: lim as never })
+    expect((await post(e, good, { origin: 'capacitor://localhost' })).status).toBe(200)
+    expect((await post(e, good, { origin: 'capacitor://localhost', 'x-bft-client': 'ios/1' })).status).toBe(
+      200,
+    )
+    expect(v.fetch).not.toHaveBeenCalled()
+    expect(lim.limit).toHaveBeenCalledTimes(2)
+    const blocked = await post(
+      env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, API: v.api, FEEDBACK_LIMITER: limiter(false) as never }),
+      good,
+      { origin: 'capacitor://localhost', 'x-bft-client': 'ios/1' },
+    )
+    expect(blocked.status).toBe(429)
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    [
+      'a browser Origin with the iOS header',
+      { origin: 'https://www.brisbaneferry.com', 'x-bft-client': 'ios/1' },
+    ],
+    ['an evil Origin with the iOS header', { origin: 'https://evil.example', 'x-bft-client': 'ios/1' }],
+    ['no Origin with the iOS header (curl)', { origin: '', 'x-bft-client': 'ios/1' }],
+    [
+      'http://localhost (any local page) with the iOS header',
+      { origin: 'http://localhost', 'x-bft-client': 'ios/1' },
+    ],
+    [
+      'the Capacitor Origin with a malformed app header',
+      { origin: 'capacitor://localhost', 'x-bft-client': 'web' },
+    ],
+  ])('spoof attempt, %s, without a token → 403, no Discord call', async (_name, headers) => {
+    const res = await post(env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK }), good, headers)
+    expect(res.status).toBe(403)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('the rate limit runs before verification: a limited web client never reaches bft-api', async () => {
+    const v = verifyApi()
+    const res = await post(
+      env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, API: v.api, FEEDBACK_LIMITER: limiter(false) as never }),
+      { ...good, turnstileToken: 't' },
+    )
+    expect(res.status).toBe(429)
+    expect(v.fetch).not.toHaveBeenCalled()
+  })
+
+  it('preflight allows the X-BFT-Client header for newer iOS builds', async () => {
+    const pre = (await handleLegacy(
+      new Request('https://www.brisbaneferry.com/api/feedback', {
+        method: 'OPTIONS',
+        headers: { origin: 'capacitor://localhost' },
+      }),
+      env(),
+    )) as Response
+    expect(pre.headers.get('access-control-allow-headers')).toContain('X-BFT-Client')
   })
 })
 

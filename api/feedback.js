@@ -1,10 +1,18 @@
 import { applyCors } from './_cors.js';
 import { RATE_LIMITED_BODY, feedbackApp, relayFeedback } from './_feedback-discord.js';
 import { createMemoryRateLimiter } from './_rate-limit.js';
+import { IOS_CLIENT_HEADER, checkTurnstile, verifyWithApi } from './_turnstile.js';
 
 // Feedback goes to a Discord channel through FEEDBACK_DISCORD_WEBHOOK_URL
 // (Vercel env, production and preview). The Workers version is
 // apps/ferry/workers/legacy.ts; both share _feedback-discord.js.
+//
+// Web submissions need a Turnstile token, checked by bft-api-prod (which holds
+// TURNSTILE_SECRET; this route has none) and then by _turnstile.js (action and
+// hostname). The iOS app posts token-less; see _turnstile.js for that trade-off.
+// The Vercel preview host (brisbane-ferry-tracker.vercel.app) isn't one of the
+// widget's hostnames, so web feedback fails there by design.
+export const TURNSTILE_VERIFY_URL = 'https://api.brisbaneferry.com/v1/turnstile/verify';
 
 // 3 submissions per IP per 10 minutes, per warm instance (best effort: see
 // _rate-limit.js). A Vercel Firewall rate-limit rule is the robust option.
@@ -52,9 +60,32 @@ export default async function handler(req, res) {
     return res.status(429).json(RATE_LIMITED_BODY);
   }
 
+  const parsed = readBody(req);
+  const ip = clientIp(req);
+  const denied = await checkTurnstile({
+    origin: req.headers.origin,
+    clientHeader: req.headers[IOS_CLIENT_HEADER],
+    body: parsed,
+    host: req.headers.host,
+    remoteip: ip === 'unknown' ? null : ip,
+    verify: (token, remoteip) =>
+      verifyWithApi(
+        (body, signal) =>
+          fetch(TURNSTILE_VERIFY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+            signal,
+          }),
+        token,
+        remoteip,
+      ),
+  });
+  if (denied) return res.status(denied.status).json(denied.body);
+
   const { status, body } = await relayFeedback({
     webhookUrl: process.env.FEEDBACK_DISCORD_WEBHOOK_URL,
-    body: readBody(req),
+    body: parsed,
     app: feedbackApp(req.headers.origin, 'legacy-web'),
     referer: req.headers.referer,
     userAgent: req.headers['user-agent'],
