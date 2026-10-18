@@ -21,6 +21,7 @@ export const CYCLE_MS = 15_000
 export const ALERTS_EVERY_MS = 60_000
 export const FETCH_TIMEOUT_MS = 5_000
 export const WATCHDOG_STALE_MS = 45_000
+export const RAW_PERSIST_EVERY_MS = 60_000
 /** DO storage values are capped (2 MiB on SQLite-backed objects); chunk well below that. */
 const CHUNK_BYTES = 1 << 20
 const CHUNK_CHARS = 512 * 1024
@@ -125,6 +126,7 @@ export class HubCore {
   } | null = null
   private alerts: Alert[] = []
   private running: Promise<void> | null = null
+  private rawPersistedAt = 0
 
   constructor(private readonly d: HubDeps) {
     this.feeds = feedsFor(d.config)
@@ -309,7 +311,12 @@ export class HubCore {
         if (!this.d.r2) Object.assign(writes, this.snapshotWrites(this.snapshotJson))
       }
     }
-    for (const f of changed) Object.assign(writes, this.rawWrites(f.key, this.raw.get(f.key) as RawFeed))
+    // Raw protobufs only matter after a restart (the legacy proxy serves memory first, and the hub refetches within
+    // 15 s), so persist them at most once a minute: every cycle cost Free-plan CPU on staging.
+    if (now - this.rawPersistedAt >= RAW_PERSIST_EVERY_MS) {
+      for (const [key, raw] of this.raw) Object.assign(writes, this.rawWrites(key, raw))
+      this.rawPersistedAt = now
+    }
 
     if (this.d.r2 && this.snapshotJson && rebuilt) {
       try {
