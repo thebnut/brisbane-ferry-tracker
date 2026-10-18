@@ -6,12 +6,14 @@
  *  - /sitemap.xml     generated, same URLs as the legacy postbuild sitemap
  *  - everything else  React Router SSR
  */
+
+import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
 import { validateProxied } from '../app/lib/contract.server.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import { sitemapXml } from '../app/lib/seo.ts'
-import { fixtureFallbackOn } from '../app/lib/server.server.ts'
+import { fixtureFallbackOn, isFixtureMode } from '../app/lib/server.server.ts'
 import { handleLegacy } from './legacy.ts'
 import { newNonce, withSecurityHeaders } from './security.ts'
 
@@ -66,5 +68,11 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
   }
   const context = new RouterContextProvider()
   context.set(cloudflareContext, { env, ctx, nonce })
-  return requestHandler(request, context)
+  const res = await requestHandler(request, context)
+  // A visitor's demo session (not FIXTURES=1 for everyone): marked so no cache keeps it (R7-B1).
+  if (env.FIXTURES === '1' || !isFixtureMode(request, env)) return res
+  const marked = new Response(res.body, res)
+  marked.headers.set(DEMO_HEADER, '1')
+  marked.headers.set('cache-control', 'private, no-store')
+  return marked
 }

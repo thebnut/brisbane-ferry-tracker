@@ -495,3 +495,32 @@ export function dropDeparted<T>(rows: T[], departsAt: (row: T) => number, nowMs:
   const cutoff = nowMs / 1000 - (live ? DEPARTED_GRACE_S : 0)
   return rows.filter((r) => departsAt(r) >= cutoff)
 }
+
+/**
+ * Header each Worker adds to a page or loader-data response rendered in a visitor's demo session (?fixtures=1 and
+ * its cookie, R7-B1): the service worker never keeps such a response (skipDemoResponses), and neither does
+ * savePageCopy, so a demo page can never come back later under an ordinary visit's URL.
+ */
+export const DEMO_HEADER = 'x-bft-demo'
+
+/** Workbox plugin for the page and loader-data caches: demo responses are never stored. */
+export const skipDemoResponses = {
+  cacheWillUpdate: async ({ response }: { response: Response }) =>
+    response.headers.has(DEMO_HEADER) ? null : response,
+}
+
+/**
+ * Saves the page at `url` into the service worker's page cache (the first page view, and transit's client
+ * navigations): fetched again from the network, kept only if it is an ordinary HTML page (not an error, not demo).
+ */
+export async function savePageCopy(cacheName: string, url: string): Promise<boolean> {
+  const res = await fetch(url, { credentials: 'same-origin' })
+  if (
+    !res.ok ||
+    res.headers.has(DEMO_HEADER) ||
+    !(res.headers.get('content-type') ?? '').includes('text/html')
+  )
+    return false
+  await (await caches.open(cacheName)).put(url, res)
+  return true
+}

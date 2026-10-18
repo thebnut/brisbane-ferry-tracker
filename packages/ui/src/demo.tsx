@@ -18,20 +18,25 @@ export function fixtureCookie(name: string, on: boolean): string {
 
 /** A copy made from demo data: fixture responses and data files carry a `fixture-…` generation. */
 const FIXTURE_COPY = /"(?:staticGeneration|generation)":"fixture-/
-/**
- * The apps' offline timetable copies (bus, train, transit Saved, ferry). Kept per stop whatever the data mode, and
- * some (train's day copies) carry no generation, so leaving demo mode drops them all; they refill online.
- */
+/** The apps' offline timetable copies (bus, train, transit Saved, ferry), kept per stop whatever the data mode. */
 export const OFFLINE_COPY_PREFIXES = ['bft-bus-v1:', 'bft-train-offline:', 'bft-transit-v1:', 'bft-ferry-v1:']
-/** Set while this device is in a visitor's demo session (?fixtures=1 and its hour-long cookie). */
-export const DEMO_SESSION_KEY = 'bft-demo-session'
+/** Set once the one-off clean-up of demo data stored before R7-B1 has run on this device. */
+export const DEMO_MIGRATION_KEY = 'bft-demo-cleanup'
+const DEMO_MIGRATION = 'r7'
+
+let demoSession = false
+/**
+ * Is this page in a visitor's demo session (?fixtures=1 and its cookie)? Then nothing it shows is kept on the device:
+ * the apps' offline-copy writers skip their write, and the Workers mark its HTML and loader data (DEMO_HEADER) so no
+ * cache keeps them. Demo data therefore never sits where real data lives (R7-B1, Codex review). FIXTURES=1 (forced,
+ * development and tests) is not a session: its pages are all demo, and they keep copies as usual.
+ */
+export const isDemoSession = () => demoSession
 
 /**
- * Demo data left on the device after demo mode (Codex review of R7-B1): offline copies in localStorage and the
- * service worker's page, route-data and live caches hold demo answers under ordinary URLs, so an offline reload or a
- * slow network could bring "Demo data" back. With `all` (leaving a demo session) it drops every offline copy and every
- * runtime cache (the precached app shell stays; everything refills from the network); otherwise only values made from
- * demo data, and the runtime caches when any was found. Returns how many stored copies were removed.
+ * Removes demo data from the device: every localStorage value made from demo data (a `fixture-…` generation) and,
+ * when any was found or with `all`, the apps' offline copies and the runtime caches (the precached app shell stays;
+ * everything refills from the network). Returns how many stored copies were removed.
  */
 export async function clearDemoLeftovers(
   { all = false }: { all?: boolean } = {},
@@ -44,7 +49,7 @@ export async function clearDemoLeftovers(
       const key = storage.key(i)
       if (key == null) continue
       if (
-        (all && (key === DEMO_SESSION_KEY || OFFLINE_COPY_PREFIXES.some((p) => key.startsWith(p)))) ||
+        (all && OFFLINE_COPY_PREFIXES.some((p) => key.startsWith(p))) ||
         FIXTURE_COPY.test(storage.getItem(key) ?? '')
       )
         stale.push(key)
@@ -62,52 +67,52 @@ export async function clearDemoLeftovers(
   return stale.length
 }
 
-const readCookie = (name: string) =>
-  document.cookie
-    .split('; ')
-    .find((c) => c.startsWith(`${name}=`))
-    ?.slice(name.length + 1) ?? null
-const inDemoSession = () => {
+/**
+ * Where demo mode is allowed (staging, development), demo data stored before R7-B1 may still be on the device under
+ * ordinary keys and URLs (train's day copies carry no generation): drop every offline copy and runtime cache once.
+ * Production never allowed demo mode, so it has none and keeps its copies.
+ */
+async function migrateOnce(): Promise<void> {
   try {
-    return localStorage.getItem(DEMO_SESSION_KEY) != null
+    if (localStorage.getItem(DEMO_MIGRATION_KEY) === DEMO_MIGRATION) return
+    await clearDemoLeftovers({ all: true })
+    localStorage.setItem(DEMO_MIGRATION_KEY, DEMO_MIGRATION)
   } catch {
-    return false
+    // Storage blocked: nothing kept there either.
   }
 }
 
 /**
- * For each app's root: keeps the demo cookie in step with the URL, and demo data off the device outside demo mode.
- *  - `?fixtures=1` (when the server put this page in demo mode) starts the hour and marks a demo session;
- *  - `?fixtures=0` ends it at once and clears demo data off the device;
- *  - a page outside demo mode ends a demo session the same way (the hour ran out), and drops any copy made from demo
- *    data it finds;
- *  - a demo page with neither the parameter nor the cookie is an old copy from the service worker (its session is
- *    over): demo data is cleared and the page loads again from the network (or the offline page).
- * `forced` (FIXTURES=1, development and tests) is demo mode for everyone: nothing to start or end.
+ * For each app's root (ferry: its boards): demo mode from the server's judgement of this page.
+ *  - `active`: the server rendered this page in demo mode; `forced`: FIXTURES=1, demo for everyone (no session);
+ *    `allowed`: this Worker allows demo mode at all (ALLOW_FIXTURES).
+ *  - `?fixtures=1` on a demo page starts the cookie's hour; `?fixtures=0` ends it, drops any copy made from demo data
+ *    and takes the parameter out of the URL (so a later reload is an ordinary visit).
  */
-export function useFixtureCookie(name: string, active: boolean, forced = false): void {
+export function useFixtureCookie(name: string, active: boolean, forced = false, allowed = true): void {
+  // During render, before any board below fetches and writes its copy.
+  demoSession = active && !forced
   useEffect(() => {
     if (forced) return
-    const q = new URLSearchParams(location.search).get('fixtures')
-    const mark = () => {
-      try {
-        localStorage.setItem(DEMO_SESSION_KEY, String(Date.now()))
-      } catch {
-        // Storage blocked: the cookie's hour still ends it.
-      }
-    }
-    if (q === '0') {
+    if (allowed) void migrateOnce()
+    const params = new URLSearchParams(location.search)
+    const q = params.get('fixtures')
+    if (q === '1' && active) {
       // biome-ignore lint/suspicious/noDocumentCookie: a short-lived developer switch; the Cookie Store API isn't in Safari.
-      document.cookie = fixtureCookie(name, false)
-      void clearDemoLeftovers({ all: true })
-    } else if (active && q === '1') {
-      // biome-ignore lint/suspicious/noDocumentCookie: as above.
       document.cookie = fixtureCookie(name, true)
-      mark()
-    } else if (active && readCookie(name) === '1') mark()
-    else if (active) void clearDemoLeftovers({ all: true }).then(() => location.reload())
-    else void clearDemoLeftovers({ all: inDemoSession() })
-  }, [name, active, forced])
+    } else if (q === '0') {
+      // biome-ignore lint/suspicious/noDocumentCookie: as above.
+      document.cookie = fixtureCookie(name, false)
+      void clearDemoLeftovers()
+      params.delete('fixtures')
+      const search = params.toString()
+      history.replaceState(
+        history.state,
+        '',
+        `${location.pathname}${search ? `?${search}` : ''}${location.hash}`,
+      )
+    }
+  }, [name, active, forced, allowed])
 }
 
 /** "Exit demo": this page with `?fixtures=0`, a full load so the server renders it with real data. */

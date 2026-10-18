@@ -7,6 +7,7 @@ import {
   liveGuardScript,
   NO_SCRIPT_LIVE_CSS,
   retryWhenBack,
+  savePageCopy,
   useLiveGuardRelease,
   useRefetchOnReconnect,
 } from '@bft/ui/connectivity'
@@ -55,6 +56,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     fixtures,
     /** FIXTURES=1: demo data for everyone (development, tests), no demo session to start or end. */
     fixturesForced: env?.FIXTURES === '1',
+    /** ALLOW_FIXTURES: this Worker lets visitors switch demo mode on (never in production). */
+    demoAllowed: env?.ALLOW_FIXTURES === '1',
     tripWs: null,
     theme: t === 'light' || t === 'dark' ? t : ('system' as const),
     turnstileSitekey: env?.TURNSTILE_SITEKEY ?? null,
@@ -122,8 +125,15 @@ export default function App() {
   // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
   useLiveGuardRelease()
   // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0 (R7-B1).
-  const rootData = useRouteLoaderData('root') as { fixtures?: boolean; fixturesForced?: boolean } | undefined
-  useFixtureCookie(FIXTURE_COOKIE, rootData?.fixtures === true, rootData?.fixturesForced === true)
+  const rootData = useRouteLoaderData('root') as
+    | { fixtures?: boolean; fixturesForced?: boolean; demoAllowed?: boolean }
+    | undefined
+  useFixtureCookie(
+    FIXTURE_COOKIE,
+    rootData?.fixtures === true,
+    rootData?.fixturesForced === true,
+    rootData?.demoAllowed === true,
+  )
   // Back online: refetch the live boards at once, not at the next poll (R3-X9).
   useRefetchOnReconnect(client)
   useKeepPageCopies()
@@ -163,10 +173,10 @@ function useKeepPageCopies() {
     if (NO_COPY_PARAMS.some((k) => params.has(k))) return
     const id = setTimeout(() => {
       if (!isOnline()) return
-      void caches
-        .open(PAGES_CACHE)
-        .then(async (cache) => {
-          await cache.add(path)
+      void savePageCopy(PAGES_CACHE, path)
+        .then(async (saved) => {
+          if (!saved) return
+          const cache = await caches.open(PAGES_CACHE)
           // Written outside Workbox, so its expiration doesn't count these: keep the cache within its limit (oldest
           // first; Cache Storage lists entries in insertion order), as app/sw.ts configures it (Codex review).
           const keys = await cache.keys()

@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./format": "./src/format.ts",
     "./connectivity": "./src/connectivity.ts",
+    "./demo": "./src/demo.tsx",
     "./map": "./src/map/MapView.tsx",
     "./stop-search": "./src/StopSearch.tsx",
     "./theme.css": "./src/theme.css",

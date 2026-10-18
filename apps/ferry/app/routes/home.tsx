@@ -31,7 +31,12 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     renderedAt: Date.now(),
     // After an API failure with FIXTURE_FALLBACK the browser polls the fixture API too (and shows the demo notice).
     // FIXTURES=1 or a fallback answer: demo data without a visitor's demo session (useFixtureCookie).
-    mode: { fixtures: fixtures || fallback.used, rt, forced: env?.FIXTURES === '1' || fallback.used },
+    mode: {
+      fixtures: fixtures || fallback.used,
+      rt,
+      forced: env?.FIXTURES === '1' || fallback.used,
+      allowed: env?.ALLOW_FIXTURES === '1',
+    },
     siteUrl: env?.SITE_URL ?? SITE_URL,
   }
 }

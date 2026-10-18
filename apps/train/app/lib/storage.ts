@@ -3,6 +3,7 @@
  * rows into the home page HTML), the offline full-day timetable per favourite, and the theme preference.
  */
 import type { Departure } from '@bft/core/contract'
+import { isDemoSession } from '@bft/ui/demo'
 
 export const FAVOURITES_KEY = 'bft-train-favourites'
 export const FAV_COOKIE = 'bft_fav'
@@ -114,6 +115,8 @@ export interface OfflineDay {
 const offlineKey = (from: string, to: string | null) => `${OFFLINE_PREFIX}${from}:${to ?? ''}`
 
 export function writeOfflineDay(day: OfflineDay): void {
+  // A visitor's demo session keeps nothing on the device (R7-B1).
+  if (isDemoSession()) return
   safe(() => localStorage.setItem(offlineKey(day.from, day.to), JSON.stringify(day)), undefined)
 }
 

@@ -13,11 +13,12 @@ import { cloudflareContext as busContext } from '@bft/bus/app/lib/context.ts'
 import { cloudflareContext as ferryContext } from '@bft/ferry/app/lib/context.ts'
 import { handleLegacy } from '@bft/ferry/workers/legacy.ts'
 import { cloudflareContext as trainContext } from '@bft/train/app/lib/context.ts'
+import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
 import { validateProxied } from '../app/lib/contract.server.ts'
 import { fixtureAsk, handleFixtureApi } from '../app/lib/fixtures.server.ts'
-import { apiFetch } from '../app/lib/server.server.ts'
+import { apiFetch, isFixtureMode } from '../app/lib/server.server.ts'
 import {
   canonicalRedirect,
   newNonce,
@@ -163,5 +164,11 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
   context.set(ferryContext, { env: { ...env, SITE_URL: env.FERRY_SITE_URL ?? env.SITE_URL }, ctx, nonce })
   context.set(trainContext, { env: { ...env, SITE_URL: env.TRAIN_SITE_URL ?? env.SITE_URL }, ctx, nonce })
   context.set(busContext, { env: { ...env, SITE_URL: env.BUS_SITE_URL ?? env.SITE_URL }, ctx, nonce })
-  return requestHandler(request, context)
+  const res = await requestHandler(request, context)
+  // A visitor's demo session (not FIXTURES=1 for everyone): marked so no cache keeps it (R7-B1).
+  if (env.FIXTURES === '1' || !isFixtureMode(request, env)) return res
+  const marked = new Response(res.body, res)
+  marked.headers.set(DEMO_HEADER, '1')
+  marked.headers.set('cache-control', 'private, no-store')
+  return marked
 }

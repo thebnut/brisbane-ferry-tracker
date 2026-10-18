@@ -1,3 +1,4 @@
+import { savePageCopy } from '@bft/ui/connectivity'
 import { StrictMode, startTransition } from 'react'
 import { hydrateRoot } from 'react-dom/client'
 import { HydratedRouter } from 'react-router/dom'
@@ -19,8 +20,8 @@ function registerServiceWorker() {
   navigator.serviceWorker
     .register('/sw.js', { scope: '/' })
     .then(() => navigator.serviceWorker.ready)
-    .then(() => caches.open(PAGES_CACHE))
-    .then((cache) => cache.add(location.href))
+    // Never a demo page (DEMO_HEADER, R7-B1).
+    .then(() => savePageCopy(PAGES_CACHE, location.href))
     .catch(() => {})
 }
 if ('serviceWorker' in navigator && import.meta.env.PROD) {

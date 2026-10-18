@@ -1,3 +1,4 @@
+import { isDemoSession } from '@bft/ui/demo'
 /**
  * Saved (X-Home): one list mixing what each standalone app already saves on this device, read with that app's own
  * storage code, so a trip saved in the Ferry, Train or Bus tab shows up here with no second copy:
@@ -66,6 +67,8 @@ const OFFLINE_PREFIX = 'bft-transit-v1:'
 
 /** This page's own copy of a card's last good response (20 rows), for offline. */
 export function writeSavedCopy(item: SavedItem, res: DeparturesResponse): void {
+  // A visitor's demo session keeps nothing on the device (R7-B1).
+  if (isDemoSession()) return
   safe(() => localStorage.setItem(`${OFFLINE_PREFIX}${item.id}`, JSON.stringify(res)), undefined)
 }
 

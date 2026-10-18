@@ -16,7 +16,7 @@ import { CacheExpiration, ExpirationPlugin } from 'workbox-expiration'
 import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
-import { markCachedPages, markCacheHits } from './connectivity.ts'
+import { DEMO_HEADER, markCachedPages, markCacheHits, skipDemoResponses } from './connectivity.ts'
 
 export interface CacheSpec {
   cacheName: string
@@ -140,7 +140,7 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
     cacheName: config.pages.cacheName,
     networkTimeoutSeconds: 4,
     // Order matters: a copy from another build is dropped before it's marked as a cached page (R2-T7).
-    plugins: [expire(config.pages), usablePageCopy(isPrecached), markCachedPages],
+    plugins: [expire(config.pages), skipDemoResponses, usablePageCopy(isPrecached), markCachedPages],
   })
   const stylesheets = config.manifest
     .map((e) => (typeof e === 'string' ? e : e.url))
@@ -177,7 +177,11 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
     const spec = config.routeData
     registerRoute(
       ({ url }) => url.pathname.endsWith('.data') && !url.pathname.startsWith('/__'),
-      new NetworkFirst({ cacheName: spec.cacheName, networkTimeoutSeconds: 4, plugins: [expire(spec)] }),
+      new NetworkFirst({
+        cacheName: spec.cacheName,
+        networkTimeoutSeconds: 4,
+        plugins: [expire(spec), skipDemoResponses],
+      }),
     )
   }
   registerRoute(
@@ -244,7 +248,11 @@ async function refreshPages(cacheName: string): Promise<void> {
   await Promise.allSettled(
     requests.map(async (req) => {
       const res = await fetch(req.url, { credentials: 'same-origin', cache: 'no-store' })
-      if (res.ok && (res.headers.get('content-type') ?? '').includes('text/html'))
+      if (
+        res.ok &&
+        !res.headers.has(DEMO_HEADER) &&
+        (res.headers.get('content-type') ?? '').includes('text/html')
+      )
         await cache.put(req.url, res)
     }),
   )
