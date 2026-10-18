@@ -210,6 +210,7 @@ const dayFor = (stopId: string): StaticStopDay => {
       routes: [],
       headsigns: [],
       stops: [],
+      downstreams: [],
       events: [],
     }
     stopDays.set(stopId, d)
@@ -265,7 +266,8 @@ for (const t of dayTrips) {
       idx(day.stops, stopRef(s.stopId), (x) => x.id === s.stopId),
       s.pickup as 0 | 1 | 2 | 3,
       dir,
-      ds,
+      // Per-file deduped downstream table (core contract, #41): the event stores an index into it.
+      idx(day.downstreams, ds, (x) => x.length === ds.length && x.every((v, k) => v === ds[k])),
     ]
     day.events.push(ev)
   })
