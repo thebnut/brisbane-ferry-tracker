@@ -567,7 +567,15 @@ export class HubCore {
       if (!e || !r2.get) return null
       const obj = await r2.get(e.key)
       const text = obj ? await obj.text() : null
-      return text != null && snapshotSeq(text) === e.seq ? (JSON.parse(text) as RtSnapshot) : null
+      const seq = text != null ? snapshotSeq(text) : null
+      if (text == null || seq == null) return null
+      // A per-mode latest object is overwritten before the pointer: after a partial publish it can be newer than
+      // the pointer, and it is that mode's newest committed content, so accept it and move the seq watermark past
+      // it (Codex review of #49). Ring slots (alerts) must match exactly.
+      const overwritten = e.key.endsWith('/latest.json')
+      if (overwritten ? seq < e.seq : seq !== e.seq) return null
+      if (seq > this.meta.seq) this.meta.seq = seq
+      return JSON.parse(text) as RtSnapshot
     }
     const load = async (f: NonNullable<R2Pointer['files']>) => {
       const docs: Array<[Mode, RtSnapshot]> = []

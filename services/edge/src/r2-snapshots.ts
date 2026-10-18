@@ -20,14 +20,21 @@ export async function pullFromR2(
   src: DataSource,
   sinceSeq: number | null,
   scope?: SnapshotScope,
+  nowMs: number = Date.now(),
 ): Promise<PullResult> {
   // Modes: one read of rt/{mode}/latest.json, which the hub overwrites every poll (single-read refresh). Fall back
   // to the pointer when it isn't there (an older hub, or a mode the hub doesn't publish).
   if (scope && scope !== 'alerts') {
     const json = await readSnapshot(src, modeLatestKey(scope))
     const seq = json != null ? snapshotSeq(json) : null
-    if (json != null && seq != null)
-      return { seq, json: seq === sinceSeq ? null : json, status: statusOf(json, seq) }
+    if (json != null && seq != null) {
+      const status = statusOf(json, seq)
+      // A latest object that stopped advancing (the hub rolled back to a ring publisher, which never deletes it)
+      // must not freeze readers: past DIRECT_STALE_MS, take the pointer path instead (Codex review of #49).
+      if (status.fetchedAt == null || nowMs - status.fetchedAt <= DIRECT_STALE_MS) {
+        return { seq, json: seq === sinceSeq ? null : json, status }
+      }
+    }
   }
   const pointerBytes = await readBytes(src, R2_LATEST_KEY)
   if (!pointerBytes) {
@@ -85,6 +92,9 @@ function statusOf(json: string, seq: number): HubStatus {
     generations: h.staticGeneration,
   }
 }
+
+/** A per-mode latest object older than this is treated as abandoned (polls run every 15 s). */
+export const DIRECT_STALE_MS = 45_000
 
 async function readSnapshot(src: DataSource, key: string): Promise<string | null> {
   const bytes = await readBytes(src, key)

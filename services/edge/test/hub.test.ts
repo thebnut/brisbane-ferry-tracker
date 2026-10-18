@@ -792,16 +792,16 @@ describe('Codex review regressions', () => {
     const h = setup({ r2 })
     await warm(h)
     const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
-    // The ferry slot fails its seq check on the first read; meanwhile another publish moved the pointer on.
-    const bad = JSON.parse(new TextDecoder().decode(r2.files.get(ptr.files.ferry.key)))
+    // The alerts ring slot fails its exact seq check on the first read; meanwhile another publish moved the pointer.
+    const bad = JSON.parse(new TextDecoder().decode(r2.files.get(ptr.files.alerts.key)))
     bad.header.seq = 999_999
-    const goodBytes = r2.files.get(ptr.files.ferry.key) as Uint8Array
-    r2.files.set(ptr.files.ferry.key, new TextEncoder().encode(JSON.stringify(bad)))
+    const goodBytes = r2.files.get(ptr.files.alerts.key) as Uint8Array
+    r2.files.set(ptr.files.alerts.key, new TextEncoder().encode(JSON.stringify(bad)))
     let pointerReads = 0
     const realGet = r2.get.bind(r2)
     r2.get = async (key: string) => {
       if (key === 'rt/latest.json' && ++pointerReads === 2) {
-        r2.files.set(ptr.files.ferry.key, goodBytes)
+        r2.files.set(ptr.files.alerts.key, goodBytes)
         return { text: async () => JSON.stringify({ ...ptr, seq: ptr.seq + 5 }) }
       }
       return realGet(key)
@@ -812,5 +812,61 @@ describe('Codex review regressions', () => {
     h.up.set(TU, feed(h.nowS(), []))
     await fresh.cycle()
     expect((await fresh.pull(null)).seq).toBe(ptr.seq + 6)
+  })
+
+  it('single-read review: a partial publish (mode written, pointer not) still restores retained cancellations', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    h.up.set(
+      TU,
+      feed(h.nowS(), [tripUpdate('c', { tripId: 'T2', startDate: D, scheduleRelationship: 3 }, [])]),
+    )
+    await h.hub.cycle()
+    // Next publish: the mode object is overwritten, then the pointer PUT fails.
+    const realPut = r2.put.bind(r2)
+    r2.put = async (key: string, value: Uint8Array | string) => {
+      if (key === 'rt/latest.json') throw new Error('r2 down')
+      return realPut(key, value)
+    }
+    h.clock.advance(CYCLE_MS)
+    h.up.set(TU, feed(h.nowS(), []))
+    await h.hub.cycle()
+    r2.put = realPut
+    const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
+    const modeSeq = snapshotSeq(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry'))))
+    expect(modeSeq).toBe(ptr.seq + 1)
+    const fresh = h.mk()
+    const restored = RtSnapshot.parse(JSON.parse((await fresh.pull(null)).json as string))
+    expect(restored.trips[`T2@${D}`]?.rel).toBe('CANCELED')
+    h.clock.advance(CYCLE_MS)
+    h.up.set(TU, feed(h.nowS(), []))
+    await fresh.cycle()
+    const after = RtSnapshot.parse(JSON.parse((await fresh.pull(null, 'ferry')).json as string))
+    expect(after.trips[`T2@${D}`]?.rel).toBe('CANCELED')
+    expect(after.header.seq).toBe((modeSeq as number) + 1) // never reuses the partially published seq
+  })
+
+  it('single-read review: a stale latest object (older publisher took over) falls back to the pointer', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    const latest = JSON.parse(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry'))))
+    // An older ring publisher now writes rt/ferry/snapshot-{slot} + a pointer naming it; latest.json is abandoned.
+    const seq = latest.header.seq + 5
+    const ringKey = scopeKey('ferry', seq)
+    const newer = { ...latest, header: { ...latest.header, seq, fetchedAt: h.clock.t } }
+    r2.files.set(ringKey, new TextEncoder().encode(JSON.stringify(newer)))
+    const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
+    ptr.seq = seq
+    ptr.files.ferry = { key: ringKey, seq }
+    r2.files.set('rt/latest.json', new TextEncoder().encode(JSON.stringify(ptr)))
+    const src = new MemoryDataSource(r2.files)
+    // Fresh enough: the direct object still wins.
+    expect((await pullFromR2(src, null, 'ferry', latest.header.fetchedAt + 10_000)).seq).toBe(
+      latest.header.seq,
+    )
+    // Abandoned: the pointer path gives the newer ring snapshot.
+    expect((await pullFromR2(src, null, 'ferry', latest.header.fetchedAt + 60_000)).seq).toBe(seq)
   })
 })
