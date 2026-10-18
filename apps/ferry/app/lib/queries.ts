@@ -41,7 +41,7 @@ export function departuresOptions(
   initial: DeparturesResponse | null,
 ) {
   return {
-    queryKey: ['departures', mode.fixtures, mode.rt, from, to, at] as const,
+    queryKey: ['ferry', 'departures', mode.fixtures, mode.rt, from, to, at] as const,
     queryFn: async ({ signal }: { signal: AbortSignal }) => {
       try {
         const res = await fetchDepartures(fetcher, from, to, { at, signal })
@@ -75,7 +75,7 @@ export function useDepartures(
 
 export function useTrip(fetcher: ApiFetcher, mode: DataMode, tripInstance: string | null) {
   return useQuery({
-    queryKey: ['trip', mode.fixtures, mode.rt, tripInstance],
+    queryKey: ['ferry', 'trip', mode.fixtures, mode.rt, tripInstance],
     queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance as string, signal),
     enabled: !!tripInstance,
     refetchInterval: POLL_MS,
@@ -84,7 +84,7 @@ export function useTrip(fetcher: ApiFetcher, mode: DataMode, tripInstance: strin
 
 export function useVehicles(fetcher: ApiFetcher, mode: DataMode, enabled: boolean) {
   return useQuery({
-    queryKey: ['vehicles', mode.fixtures, mode.rt],
+    queryKey: ['ferry', 'vehicles', mode.fixtures, mode.rt],
     queryFn: ({ signal }) => fetchVehicles(fetcher, signal),
     enabled,
     refetchInterval: POLL_MS,

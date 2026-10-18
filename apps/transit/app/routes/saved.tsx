@@ -69,7 +69,8 @@ export interface CardModel {
 
 /** One saved card from a departures response (pure, tested). */
 export function cardModel(item: SavedItem, res: DeparturesResponse | undefined, nowMs: number): CardModel {
-  const rows = (res?.departures ?? []).filter((d) => d.status !== 'cancelled')
+  // Only boardable services: a cancelled or skipped (not stopping here) one is never "next".
+  const rows = (res?.departures ?? []).filter((d) => d.status !== 'cancelled' && d.status !== 'skipped')
   const first = rows[0]
   const dep = first ? (first.estDep ?? first.schedDep) : null
   const arr = first ? (first.estArrTo ?? first.schedArrTo) : null

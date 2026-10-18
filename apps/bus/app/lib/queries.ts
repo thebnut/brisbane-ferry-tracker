@@ -98,7 +98,7 @@ export function departuresOptions(
   initial: DeparturesResponse | null,
 ) {
   return {
-    queryKey: ['departures', mode.fixtures, mode.rt, stopId] as const,
+    queryKey: ['bus', 'departures', mode.fixtures, mode.rt, stopId] as const,
     queryFn: async ({ signal }: { signal: AbortSignal }): Promise<DeparturesResponse> => {
       try {
         const res = await fetchDepartures(fetcher, stopId, { signal })
@@ -152,7 +152,7 @@ export function useTrip(
   initial: TripResponse | null,
 ) {
   return useQuery({
-    queryKey: ['trip', mode.fixtures, mode.rt, tripInstance],
+    queryKey: ['bus', 'trip', mode.fixtures, mode.rt, tripInstance],
     queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance, { signal }),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
@@ -162,7 +162,7 @@ export function useTrip(
 
 export function useVehicles(fetcher: ApiFetcher, mode: DataMode, route: string | null, enabled = true) {
   return useQuery({
-    queryKey: ['vehicles', mode.fixtures, mode.rt, route],
+    queryKey: ['bus', 'vehicles', mode.fixtures, mode.rt, route],
     queryFn: ({ signal }) => fetchVehicles(fetcher, route, signal),
     enabled,
     refetchInterval: POLL_MS,
@@ -171,7 +171,7 @@ export function useVehicles(fetcher: ApiFetcher, mode: DataMode, route: string |
 
 export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsResponse | null = null) {
   return useQuery({
-    queryKey: ['alerts', mode.fixtures, mode.rt],
+    queryKey: ['bus', 'alerts', mode.fixtures, mode.rt],
     queryFn: ({ signal }) => fetchAlerts(fetcher, { signal }),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
@@ -186,7 +186,7 @@ export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsRe
  */
 export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boolean) {
   const q = useQuery({
-    queryKey: ['stop-index', mode.fixtures],
+    queryKey: ['bus', 'stop-index', mode.fixtures],
     queryFn: ({ signal }) => fetchStopIndex(fetcher, signal),
     enabled,
     staleTime: Number.POSITIVE_INFINITY,
@@ -200,7 +200,7 @@ export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boole
 
 export function useLines(fetcher: ApiFetcher, mode: DataMode, enabled = true) {
   return useQuery({
-    queryKey: ['lines', mode.fixtures],
+    queryKey: ['bus', 'lines', mode.fixtures],
     queryFn: ({ signal }) => fetchLines(fetcher, { signal }),
     enabled,
     staleTime: Number.POSITIVE_INFINITY,
@@ -211,7 +211,7 @@ export function useLines(fetcher: ApiFetcher, mode: DataMode, enabled = true) {
 export function useGeoTiles(fetcher: ApiFetcher, mode: DataMode, geohashes: string[]) {
   const results = useQueries({
     queries: geohashes.map((gh) => ({
-      queryKey: ['geo', mode.fixtures, gh],
+      queryKey: ['bus', 'geo', mode.fixtures, gh],
       queryFn: ({ signal }: { signal: AbortSignal }) => fetchGeoTile(fetcher, gh, signal),
       staleTime: Number.POSITIVE_INFINITY,
     })),

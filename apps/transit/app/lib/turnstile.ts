@@ -38,6 +38,15 @@ function loadScript(): Promise<TurnstileApi> {
   return script
 }
 
+/** `p`, or null once `ms` have passed. */
+export function within<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms)
+  })
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer))
+}
+
 export interface InvisibleTurnstile {
   /** Start loading and solving in the background (on focus), so a token is ready by submit. */
   warm: () => void
@@ -59,7 +68,11 @@ export function invisibleTurnstile(sitekey: string, container: () => HTMLElement
     settle = null
   }
 
-  async function solve(timeoutMs: number): Promise<string | null> {
+  /**
+   * Load (once), render or reset, execute. Never awaited without `within()`: a script request that stalls without
+   * load or error events must not leave the Ask box "Asking…" (Codex review of #50, finding 3).
+   */
+  async function solve(): Promise<string | null> {
     try {
       api ??= await loadScript()
       const el = container()
@@ -82,8 +95,7 @@ export function invisibleTurnstile(sitekey: string, container: () => HTMLElement
         settle = resolve
       })
       api.execute(id)
-      const timer = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs))
-      return await Promise.race([result, timer])
+      return await result
     } catch {
       return null
     }
@@ -94,13 +106,14 @@ export function invisibleTurnstile(sitekey: string, container: () => HTMLElement
   return {
     warm() {
       if (fresh() || inflight) return
-      inflight = solve(15_000).finally(() => {
+      inflight = within(solve(), 15_000).finally(() => {
         inflight = null
       })
     },
     async token(timeoutMs = 8000) {
       let t = fresh()
-      if (!t) t = await (inflight ?? solve(timeoutMs))
+      // The whole wait is bounded, including the script load and a warm-up already in flight.
+      if (!t) t = await within(inflight ?? solve(), timeoutMs)
       // Single use: drop it and start on the next one.
       ready = null
       return t

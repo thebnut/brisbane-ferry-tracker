@@ -11,7 +11,7 @@ export function useGeoTiles(fetcher: ApiFetcher, mode: DataMode, cells: string[]
   const pairs = NEARBY_MODES.flatMap((m) => cells.map((gh) => [m, gh] as const))
   const results = useQueries({
     queries: pairs.map(([m, gh]) => ({
-      queryKey: ['geo', mode.fixtures, m, gh],
+      queryKey: ['transit', 'geo', mode.fixtures, m, gh],
       queryFn: ({ signal }: { signal: AbortSignal }) => fetchGeoTile(fetcher, m, gh, signal),
       staleTime: Number.POSITIVE_INFINITY,
       gcTime: 30 * 60_000,
@@ -42,7 +42,7 @@ export function useStopDepartures(
 ) {
   return useQueries({
     queries: stops.map((s) => ({
-      queryKey: ['departures', mode.fixtures, mode.rt, s.mode, s.key, null, limit],
+      queryKey: ['transit', 'departures', mode.fixtures, mode.rt, s.mode, s.key, null, limit],
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         fetchDepartures(fetcher, s.mode, s.key, { limit, signal }),
       refetchInterval: POLL_MS,

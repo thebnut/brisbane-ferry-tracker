@@ -68,9 +68,12 @@ export const meta: Route.MetaFunction = () => [
 const LABEL: Record<NearbyMode, string> = { ferry: 'Ferry', train: 'Train', bus: 'Bus' }
 type Filter = 'all' | NearbyMode
 
-/** Upcoming departures of a stop, soonest first, cancelled ones kept (shown struck through). */
+/** Upcoming departures of a stop, soonest first: cancelled ones kept (struck through), skipped ones dropped. */
 export function upcoming(rows: Departure[] | undefined, nowMs: number, n = 3): Departure[] {
-  return (rows ?? []).filter((d) => minutesUntil(d.estDep ?? d.schedDep, nowMs) >= 0).slice(0, n)
+  // A skipped service doesn't stop here: no countdown or "Hurry" for it (the stop's own board explains it).
+  return (rows ?? [])
+    .filter((d) => d.status !== 'skipped' && minutesUntil(d.estDep ?? d.schedDep, nowMs) >= 0)
+    .slice(0, n)
 }
 
 function StopBlock({

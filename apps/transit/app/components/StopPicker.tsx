@@ -22,7 +22,7 @@ export default function StopPicker({
   const [q, setQ] = useState('')
   const { all, pending } = useQueries({
     queries: NEARBY_MODES.map((m) => ({
-      queryKey: ['stop-index', mode.fixtures, m],
+      queryKey: ['transit', 'stop-index', mode.fixtures, m],
       queryFn: ({ signal }: { signal: AbortSignal }) => fetchStopIndex(fetcher, m, signal),
       staleTime: Number.POSITIVE_INFINITY,
     })),

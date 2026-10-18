@@ -56,7 +56,7 @@ export function departuresOptions(
   initial: DeparturesResponse | null,
 ) {
   return {
-    queryKey: ['departures', mode.fixtures, mode.rt, from, to, limit] as const,
+    queryKey: ['train', 'departures', mode.fixtures, mode.rt, from, to, limit] as const,
     queryFn: async ({
       signal,
     }: {
@@ -109,7 +109,7 @@ export function useTrip(
   enabled = true,
 ) {
   return useQuery({
-    queryKey: ['trip', mode.fixtures, mode.rt, tripInstance],
+    queryKey: ['train', 'trip', mode.fixtures, mode.rt, tripInstance],
     queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance, { signal }),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
@@ -120,7 +120,7 @@ export function useTrip(
 
 export function useVehicles(fetcher: ApiFetcher, mode: DataMode, enabled: boolean) {
   return useQuery({
-    queryKey: ['vehicles', mode.fixtures, mode.rt],
+    queryKey: ['train', 'vehicles', mode.fixtures, mode.rt],
     queryFn: ({ signal }) => fetchVehicles(fetcher, signal),
     enabled,
     refetchInterval: POLL_MS,
@@ -133,7 +133,7 @@ export function useAlerts(
   initial: Awaited<ReturnType<typeof fetchAlerts>> | null,
 ) {
   return useQuery({
-    queryKey: ['alerts', mode.fixtures, mode.rt],
+    queryKey: ['train', 'alerts', mode.fixtures, mode.rt],
     queryFn: ({ signal }) => fetchAlerts(fetcher, { signal }),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,

@@ -30,7 +30,7 @@ export const isOffline = () => typeof window !== 'undefined' && navigator.onLine
 
 export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsResponse | null = null) {
   return useQuery({
-    queryKey: ['alerts', 'all', mode.fixtures, mode.rt],
+    queryKey: ['transit', 'alerts', 'all', mode.fixtures, mode.rt],
     queryFn: ({ signal }) => fetchAlerts(fetcher, { signal }),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
@@ -42,7 +42,7 @@ export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsRe
 /** Saved cards: live while online (keeping a 20-row copy for offline), scheduled copies when offline. */
 export function savedOptions(fetcher: ApiFetcher, mode: DataMode, item: SavedItem) {
   return {
-    queryKey: ['saved', mode.fixtures, mode.rt, item.id],
+    queryKey: ['transit', 'saved', mode.fixtures, mode.rt, item.id],
     queryFn: async ({ signal }: { signal: AbortSignal }): Promise<DeparturesResponse> => {
       try {
         const res = await fetchDepartures(fetcher, item.mode, item.key, { to: item.to, limit: 20, signal })

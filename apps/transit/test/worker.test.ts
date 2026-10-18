@@ -3,7 +3,7 @@ import { AlertsResponse, GeoTileFile } from '@bft/core/contract'
 import { describe, expect, it, vi } from 'vitest'
 import { schemaForPath, validateProxied } from '../app/lib/contract.server.ts'
 import { fixtureAsk, fixtureData, handleFixtureApi } from '../app/lib/fixtures.server.ts'
-import { proxyApi, proxyAsk } from '../workers/app.ts'
+import { proxyApi, proxyAsk, readLimited } from '../workers/app.ts'
 
 vi.mock('virtual:react-router/server-build', () => ({}))
 
@@ -87,6 +87,33 @@ describe('POST /v1/ask proxy', () => {
     )
     expect(res.status).toBe(413)
     expect(env.API?.fetch).not.toHaveBeenCalled()
+  })
+
+  it('stops reading a streamed body at the limit, without a content-length', async () => {
+    let pulls = 0
+    const stream = new ReadableStream<Uint8Array>({
+      pull(c) {
+        pulls++
+        c.enqueue(new Uint8Array(1024))
+        if (pulls > 1000) c.close()
+      },
+    })
+    const req = new Request('https://t/v1/ask', {
+      method: 'POST',
+      body: stream,
+      duplex: 'half',
+    } as RequestInit)
+    expect(await readLimited(req, 2048)).toBeNull()
+    expect(pulls).toBeLessThan(10)
+    expect(await readLimited(new Request('https://t', { method: 'POST', body: '{"q":1}' }), 2048)).toBe(
+      '{"q":1}',
+    )
+    const declared = new Request('https://t', {
+      method: 'POST',
+      body: 'x',
+      headers: { 'content-length': '99999' },
+    })
+    expect(await readLimited(declared, 2048)).toBeNull()
   })
 
   it('GET proxy answers 502 when the API is down', async () => {

@@ -55,7 +55,7 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
 /** The station index file (pipeline output, served as a static asset; cached by the service worker). */
 function useStopIndex() {
   return useQuery({
-    queryKey: ['stops.json'],
+    queryKey: ['train', 'stops.json'],
     queryFn: async () => (await (await fetch('/data/train/stops.json')).json()) as StopIndexFile,
     staleTime: Number.POSITIVE_INFINITY,
   })

@@ -38,10 +38,46 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
   }
 }
 
+const ASK_MAX_BYTES = 2048
+
+/**
+ * The request body as text, or null when it is over `max` bytes or can't be read. Stops reading (and cancels the
+ * stream) at the limit, so an oversized body never sits in Worker memory (Codex review of #50, finding 4).
+ */
+export async function readLimited(request: Request, max: number): Promise<string | null> {
+  const declared = Number(request.headers.get('content-length'))
+  if (declared > max) return null
+  if (!request.body) return ''
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > max) {
+        await reader.cancel().catch(() => {})
+        return null
+      }
+      chunks.push(value)
+    }
+  } catch {
+    return null
+  }
+  const all = new Uint8Array(size)
+  let at = 0
+  for (const c of chunks) {
+    all.set(c, at)
+    at += c.byteLength
+  }
+  return new TextDecoder().decode(all)
+}
+
 /** POST /v1/ask: body passed through (≤ 2 KB); the API sees the visitor's IP for its per-IP quota and Turnstile. */
 export async function proxyAsk(request: Request, env: Env): Promise<Response> {
-  const body = await request.text()
-  if (body.length > 2048) return Response.json({ error: 'bad_request' }, { status: 413, headers: noStore })
+  const body = await readLimited(request, ASK_MAX_BYTES)
+  if (body == null) return Response.json({ error: 'bad_request' }, { status: 413, headers: noStore })
   const headers: Record<string, string> = { 'content-type': 'application/json', accept: 'application/json' }
   const ip = request.headers.get('cf-connecting-ip')
   if (ip) headers['cf-connecting-ip'] = ip

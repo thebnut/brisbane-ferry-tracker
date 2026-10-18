@@ -1,21 +1,29 @@
 /** The Ask box's answer: text, a friendly note for any AI limit, and the rows as shared departure cards. */
-import { DepartureCard, RouteTile } from '@bft/ui'
+import { type BadgeKind, DepartureCard, RouteTile } from '@bft/ui'
 import type { AskDeparture, AskResult } from '../lib/ask.ts'
 
 export function askRowProps(d: AskDeparture) {
   const cancelled = d.status === 'cancelled'
+  const skipped = d.status === 'skipped'
+  const badges: BadgeKind[] = cancelled
+    ? ['cancelled']
+    : skipped
+      ? ['skipped']
+      : d.status === 'live'
+        ? ['live']
+        : d.status === 'unknown'
+          ? ['unknown']
+          : ['scheduled']
   return {
     time: d.departs,
-    arrival: d.arrives ? { time: d.arrives } : null,
-    badges: cancelled
-      ? (['cancelled'] as const)
-      : d.status === 'live'
-        ? (['live'] as const)
-        : (['scheduled'] as const),
+    arrival: d.arrives && !skipped ? { time: d.arrives } : null,
+    badges,
     service: `${d.route} to ${d.headsign}`.toUpperCase(),
-    note: d.platform ? `Platform ${d.platform}` : null,
-    minutes: cancelled ? null : d.inMinutes,
+    note: skipped ? 'Not stopping here' : d.platform ? `Platform ${d.platform}` : null,
+    // No countdown for a service you can't board.
+    minutes: cancelled || skipped ? null : d.inMinutes,
     cancelled,
+    boardable: !cancelled && !skipped,
   }
 }
 
@@ -42,9 +50,14 @@ export default function AskAnswer({ result }: { result: AskResult }) {
         return (
           <DepartureCard
             key={`${d.tripInstance}:${d.departs}`}
-            {...p}
-            badges={[...p.badges]}
-            highlighted={i === 0 && !p.cancelled}
+            time={p.time}
+            arrival={p.arrival}
+            badges={p.badges}
+            service={p.service}
+            note={p.note}
+            minutes={p.minutes}
+            cancelled={p.cancelled}
+            highlighted={i === 0 && p.boardable}
             leading={<RouteTile route={d.route} size="sm" />}
           />
         )
