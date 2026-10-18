@@ -20,6 +20,7 @@ import {
   urlsetXml,
 } from '../app/lib/seo.ts'
 import { routePath, stopPath } from '../app/lib/stops.ts'
+import { newNonce, withSecurityHeaders } from './security.ts'
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
@@ -104,26 +105,28 @@ async function sitemap(url: URL, env: Env): Promise<Response | null> {
 
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url)
-    if (
-      request.method === 'GET' &&
-      (url.pathname.startsWith('/v1/') || url.pathname.startsWith('/data/bus/'))
-    )
-      return proxyApi(request, env)
-    if (url.pathname.startsWith('/__fixtures/')) {
-      if (!fixturesAllowed(env)) return new Response('Not found', { status: 404 })
-      return handleFixtureApi(url, Date.now(), env)
-    }
-    if (url.pathname === '/robots.txt')
-      return new Response(robotsTxt(env.SITE_URL), {
-        headers: { 'content-type': 'text/plain; charset=utf-8' },
-      })
-    if (url.pathname === '/sitemap.xml' || url.pathname.startsWith('/sitemaps/')) {
-      const res = await sitemap(url, env)
-      if (res) return res
-    }
-    const context = new RouterContextProvider()
-    context.set(cloudflareContext, { env, ctx })
-    return requestHandler(request, context)
+    const nonce = newNonce()
+    return withSecurityHeaders(await route(request, env, ctx, nonce), nonce)
   },
 } satisfies ExportedHandler<Env>
+
+async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
+  const url = new URL(request.url)
+  if (request.method === 'GET' && (url.pathname.startsWith('/v1/') || url.pathname.startsWith('/data/bus/')))
+    return proxyApi(request, env)
+  if (url.pathname.startsWith('/__fixtures/')) {
+    if (!fixturesAllowed(env)) return new Response('Not found', { status: 404 })
+    return handleFixtureApi(url, Date.now(), env)
+  }
+  if (url.pathname === '/robots.txt')
+    return new Response(robotsTxt(env.SITE_URL), {
+      headers: { 'content-type': 'text/plain; charset=utf-8' },
+    })
+  if (url.pathname === '/sitemap.xml' || url.pathname.startsWith('/sitemaps/')) {
+    const res = await sitemap(url, env)
+    if (res) return res
+  }
+  const context = new RouterContextProvider()
+  context.set(cloudflareContext, { env, ctx, nonce })
+  return requestHandler(request, context)
+}

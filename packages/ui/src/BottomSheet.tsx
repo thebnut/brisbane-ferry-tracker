@@ -1,8 +1,9 @@
 /**
- * Bottom sheet on phones, centred dialog on desktop. Built on the native <dialog> element (focus trap, Escape and the
- * top layer for free), rendered through a portal into document.body.
+ * Bottom sheet on phones, centred dialog on desktop. Built on the native <dialog> element (inert page behind it,
+ * Escape and the top layer for free), rendered through a portal into document.body. Tab and Shift+Tab wrap inside
+ * the sheet: a native modal dialog otherwise lets focus leave the page for the browser's own UI.
  */
-import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './icons.tsx'
 
@@ -13,6 +14,28 @@ export interface BottomSheetProps {
   children: ReactNode
   /** Extra header content under the title (badges, subtitle). */
   subtitle?: ReactNode
+}
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+/** Keep Tab focus inside the dialog: wrap from the last focusable element to the first and back. */
+export function wrapTabFocus(e: KeyboardEvent<HTMLElement>) {
+  if (e.key !== 'Tab') return
+  const items = [...e.currentTarget.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+    (el) => el.getClientRects().length > 0,
+  )
+  const first = items[0]
+  const last = items[items.length - 1]
+  if (!first || !last) return
+  const active = document.activeElement
+  if (e.shiftKey && (active === first || active === e.currentTarget)) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && active === last) {
+    e.preventDefault()
+    first.focus()
+  }
 }
 
 export function BottomSheet({ open, onClose, title, subtitle, children }: BottomSheetProps) {
@@ -36,11 +59,11 @@ export function BottomSheet({ open, onClose, title, subtitle, children }: Bottom
 
   if (!mounted) return null
   return createPortal(
-    // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click only; Escape is handled natively by <dialog>.
     <dialog
       ref={ref}
       aria-labelledby={titleId}
       onClose={onClose}
+      onKeyDown={wrapTabFocus}
       onCancel={(e) => {
         e.preventDefault()
         onClose()

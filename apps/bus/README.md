@@ -27,7 +27,7 @@ Staging: https://bft-bus.brisbanetransit.workers.dev (workers.dev only; `?fixtur
 | `/map` | B-Map | Every stop on a map; scope Near me / My stops; locate button. |
 | `/nearby` | (B-Home chips) | Geolocation permission UX (explain first, locate straight away only when already granted, denied/unavailable states), geohash-5 tile + 8 neighbours, haversine sort, ≤ 2 km. `?lat=&lon=` for links and tests. |
 | `/alerts` | B-Alerts | Detours first, changed stops, planned, info; scope My stops (saved stops + their routes) / All routes; nav badge count. |
-| `/about` | | Data sources, attribution (CC BY 4.0), what stays on the device. Prerendered. |
+| `/about` | | Data sources, attribution (CC BY 4.0), what stays on the device. Server-rendered (carries the CSP nonce). |
 | `/sitemap.xml` | | Sitemap index → `/sitemaps/pages.xml`, `/sitemaps/routes.xml` (472 routes), `/sitemaps/stops-1..3.xml` (12,364 stops, 5,000 per file), built in the Worker by scanning the raw index text (no `JSON.parse`, inside the Free CPU budget). `/robots.txt` points at it. |
 
 Dark mode: Auto / Light / Dark in Settings; a cookie lets the server render the right class and an inline head script
