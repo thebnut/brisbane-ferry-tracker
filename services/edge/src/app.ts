@@ -173,10 +173,16 @@ export function createApp(deps: AppDeps): Hono<Env> {
     if (stations ? !stations.names.has(key) : !mayHaveStop(index, key)) {
       return c.json({ error: 'unknown stop', detail: key }, 404)
     }
-    if (speculative.error) throw speculative.error
     const fromMs = at != null ? at * 1000 : r.nowMs
     const dates = datesFor(fromMs)
-    const days = dates.join() === early.join() ? speculative.days : await load(dates)
+    // Reuse the speculative load only for the same dates (and only then does its error matter).
+    let days: StaticStopDay[]
+    if (dates.join() === early.join()) {
+      if (speculative.error) throw speculative.error
+      days = speculative.days
+    } else {
+      days = await load(dates)
+    }
 
     // Train: stopping patterns, plus every platform of the station so core can spot live platform changes
     // (`stationPlatforms`, added to MergeOptions by bft-train #42; ignored by older cores).
