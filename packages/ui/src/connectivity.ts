@@ -90,16 +90,15 @@ export async function trackedFetch(input: string, init?: RequestInit): Promise<R
  * into the generated service worker with toString(), so it must not reference anything outside its own body.
  */
 export const markCacheHits = {
-  cachedResponseWillBeUsed: async ({ cachedResponse }: { cachedResponse?: Response }) => {
-    if (!cachedResponse) return cachedResponse
-    const headers = new Headers(cachedResponse.headers)
-    headers.set('x-bft-cache', 'sw')
-    return new Response(cachedResponse.body, {
+  // One expression on purpose: the generated service worker joins lines with spaces, and this codebase's style has no
+  // semicolons, so statements would run together (test/connectivity.test.ts compiles the serialised form).
+  cachedResponseWillBeUsed: async ({ cachedResponse }: { cachedResponse?: Response }) =>
+    cachedResponse &&
+    new Response(cachedResponse.body, {
       status: cachedResponse.status,
       statusText: cachedResponse.statusText,
-      headers,
-    })
-  },
+      headers: new Headers([...cachedResponse.headers, ['x-bft-cache', 'sw']]),
+    }),
 }
 
 export type LiveState = 'offline' | 'stale' | 'reloading' | 'unavailable' | null
