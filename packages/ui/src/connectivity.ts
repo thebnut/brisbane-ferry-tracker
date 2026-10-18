@@ -155,6 +155,66 @@ function subscribe(onChange: () => void) {
   }
 }
 
+/**
+ * Calls `refetch` the moment the connection may be back (R3-X9), instead of leaving "Offline · scheduled" up until the
+ * next 15 s poll: when the browser says it is online again, when a call reaches the network after failures (the
+ * other boards follow at once), and when the page becomes visible again while it was offline. Returns an unsubscribe.
+ */
+export function onReconnect(onBack: () => void): () => void {
+  let wasOnline = isOnline()
+  // The online event and the store change it causes arrive together: refetch once.
+  let last = 0
+  const refetch = () => {
+    if (Date.now() - last < 1_000) return
+    last = Date.now()
+    onBack()
+  }
+  const check = () => {
+    const now = isOnline()
+    if (now && !wasOnline) refetch()
+    wasOnline = now
+  }
+  const onOnline = () => {
+    wasOnline = isOnline()
+    refetch()
+  }
+  const onVisible = () => {
+    if (document.visibilityState !== 'visible') return
+    if (!wasOnline || !isOnline()) refetch()
+    wasOnline = isOnline()
+  }
+  const unsubscribe = subscribe(check)
+  // After subscribe(): its own online listener clears `unreachable` first, so the refetch's calls count as online.
+  window.addEventListener('online', onOnline)
+  document.addEventListener('visibilitychange', onVisible)
+  return () => {
+    unsubscribe()
+    window.removeEventListener('online', onOnline)
+    document.removeEventListener('visibilitychange', onVisible)
+  }
+}
+
+/** The polled (live) queries of a TanStack QueryClient: what a reconnect refetches. Static data stays cached. */
+export interface RefetchableClient {
+  refetchQueries(filters: {
+    type: 'active'
+    predicate: (query: { options: { refetchInterval?: unknown } }) => boolean
+  }): Promise<unknown>
+}
+
+/** onReconnect for an app's QueryClient, refetching every active polled query at once (R3-X9). */
+export function useRefetchOnReconnect(client: RefetchableClient): void {
+  useEffect(
+    () =>
+      onReconnect(() => {
+        void client
+          .refetchQueries({ type: 'active', predicate: (q) => q.options.refetchInterval != null })
+          .catch(() => {})
+      }),
+    [client],
+  )
+}
+
 /** `isOnline()` as React state: true during SSR and hydration, then the live answer. */
 export function useOnline(): boolean {
   return useSyncExternalStore(subscribe, isOnline, () => true)

@@ -1,8 +1,9 @@
 /**
  * Regression tests for Dev's smoke test round 3 (19 Oct 2026).
+ * X9: back online, the offline state clears at once (a refetch), not at the next poll.
  * F1: an offline load must render the styled offline/scheduled board (or a styled offline page), never LIVE.
  */
-import { offlineLoadSuite } from '@bft/ui/e2e/offline-suite.ts'
+import { offlineLoadSuite, reconnectSuite } from '@bft/ui/e2e/offline-suite.ts'
 import { expect, test } from '@playwright/test'
 
 offlineLoadSuite({ path: '/stop/10802', unvisited: '/stop/19051', pagesCache: 'bus-pages' })
@@ -37,3 +38,5 @@ test('R3-B10: the public stop number with its leading zero opens the stop (no 40
   await expect(page.getByTestId('departure').first()).toBeVisible()
   expect(failed).toEqual([])
 })
+
+reconnectSuite({ path: '/stop/10802' })

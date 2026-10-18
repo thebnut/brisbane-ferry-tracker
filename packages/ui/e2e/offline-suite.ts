@@ -19,7 +19,10 @@ export function offlineLoadSuite({
   test.describe('R3-F1: offline loads after the first visit', () => {
     test.slow()
 
-    test(`${path}: a reload and a fresh page are styled, offline and never LIVE`, async ({ page, context }) => {
+    test(`${path}: a reload and a fresh page are styled, offline and never LIVE`, async ({
+      page,
+      context,
+    }) => {
       // The server HTML does claim LIVE (the guard has something to hide).
       expect(await (await page.request.get(path)).text()).toContain('data-live-claim')
       await page.goto(path)
@@ -88,6 +91,42 @@ export function offlineLoadSuite({
       expect(await bodyFont(page)).not.toContain('Inter')
       expect(await page.locator('[data-live-claim]').count()).toBeGreaterThan(0)
       expect(await visibleLiveClaims(page)).toEqual([])
+    })
+  })
+}
+
+/**
+ * R3-X9: after the network returns, the boards refetch at once (onReconnect), so "Offline · scheduled" clears within
+ * about 2 s instead of at the next 15 s poll. `prepare` runs before the first load (saved stops and the like).
+ */
+export function reconnectSuite({
+  path,
+  prepare,
+}: {
+  path: string
+  prepare?: (page: import('@playwright/test').Page) => Promise<void>
+}) {
+  test(`${path}: back online, the offline state clears within 2 s without a refresh (R3-X9)`, async ({
+    page,
+    context,
+  }) => {
+    test.slow()
+    await prepare?.(page)
+    await page.goto(path)
+    await page.waitForLoadState('networkidle')
+    // Visible text only: footers and settings mention offline timetables.
+    const offline = page.getByText(/offline/i).filter({ visible: true })
+    const goOnline = await goOffline(context)
+    await expect(offline.first()).toBeVisible({ timeout: 20_000 })
+    // Let a poll fail while offline, so the boards hold offline data (not just a browser flag).
+    await page.waitForTimeout(16_000)
+    const live = /\/v1\/(ferry|train|bus)\/stops\/[^/]+\/departures/
+    const refetched = page.waitForRequest((r) => live.test(new URL(r.url()).pathname), { timeout: 2_000 })
+    const back = Date.now()
+    await goOnline()
+    await refetched
+    await expect(offline).toHaveCount(0, {
+      timeout: Math.max(500, 2_000 - (Date.now() - back)),
     })
   })
 }

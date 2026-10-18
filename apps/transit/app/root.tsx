@@ -1,6 +1,11 @@
 import { AppHeader } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
-import { LIVE_GUARD_CSS, liveGuardScript, useLiveGuardRelease } from '@bft/ui/connectivity'
+import {
+  LIVE_GUARD_CSS,
+  liveGuardScript,
+  useLiveGuardRelease,
+  useRefetchOnReconnect,
+} from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
@@ -85,6 +90,8 @@ export default function App() {
   const [client] = useState(makeQueryClient)
   // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
   useLiveGuardRelease()
+  // Back online: refetch the live boards at once, not at the next poll (R3-X9).
+  useRefetchOnReconnect(client)
   // Effects run only once hydration has committed: tests wait for this marker (tests/csp.ts).
   useEffect(() => {
     document.documentElement.dataset.hydrated = ''
