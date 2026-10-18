@@ -258,7 +258,7 @@ Web feedback (the legacy modal, the ferry `FeedbackSheet` and the sheet transit 
   - The verify endpoint only reports on a token the caller already holds, and siteverify redeems the token as it answers, so the endpoint can't be used to mint or replay tokens.
   - It is rate limited before any siteverify call, in two steps.
     - **Burst:** `VERIFY_LIMITER`, 20 a minute per `CF-Connecting-IP` (never the body's `remoteip`), ids 8003 (staging) and 8004 (prod). Its counters are per Cloudflare location.
-    - **Aggregate:** 300 a minute in all, counted in one `Budget` Durable Object instance (`turnstile-verify`, `src/ai/verify-window.ts`), so it holds across locations. It doesn't touch the AI ledger instance.
+    - **Aggregate:** 300 a minute in all, counted in one `Budget` Durable Object instance (`turnstile-verify`, `src/ai/verify-window.ts`), so it holds across locations. The window is persisted in that instance's storage, so evicting the idle DO doesn't reset it. It doesn't touch the AI ledger instance.
     - The Workers forward the visitor's IP over the binding; Vercel's calls count against its egress IPs.
     - Over a limit, `bft-api` answers 429, and the relay answers 503 (fail closed). A limiter or DO error is also a 503.
     - Trade-off: a distributed flood can use up the aggregate budget and pause web feedback for up to a minute. That is preferred to unbounded siteverify calls.

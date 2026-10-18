@@ -5,7 +5,14 @@
 import { type BudgetConfig, DEFAULT_BUDGET, emptyBudgetState, reconcile, reserve } from '@bft/core'
 import { describe, expect, it, vi } from 'vitest'
 import { type AiDeps, budgetConfig, ipKey, ipv6Prefix48, registerAi, siteverify } from '../src/ai/routes.ts'
-import { admitInWindow, VERIFY_BUDGET, VERIFY_BUDGET_NAME } from '../src/ai/verify-window.ts'
+import {
+  admitInWindow,
+  admitStored,
+  VERIFY_BUDGET,
+  VERIFY_BUDGET_NAME,
+  type VerifyWindow,
+  type WindowStore,
+} from '../src/ai/verify-window.ts'
 import { createApp } from '../src/app.ts'
 import { silentLogger } from '../src/log.ts'
 import { SnapshotClient } from '../src/snapshot-client.ts'
@@ -751,6 +758,46 @@ describe('POST /v1/turnstile/verify (for the feedback relays)', () => {
       statuses.push((await verifyReq(app, { token: 't' })).status)
     expect(statuses).toEqual([200, 200, 200, 429, 429])
     expect(sv).toHaveBeenCalledTimes(3)
+  })
+
+  it('the persisted window survives an eviction mid-minute (Codex review round 3)', async () => {
+    const data = new Map<string, unknown>()
+    const writes: unknown[] = []
+    const store: WindowStore = {
+      get: async <T>(k: string) => data.get(k) as T | undefined,
+      put: async <T>(k: string, v: T) => {
+        writes.push(v)
+        data.set(k, v)
+      },
+    }
+    let cached: VerifyWindow | null = null
+    const admit = async (t: number) => {
+      const r = await admitStored(store, cached, t, 3, 60_000)
+      cached = r.window
+      return r.ok
+    }
+    expect([await admit(0), await admit(1000), await admit(2000), await admit(3000)]).toEqual([
+      true,
+      true,
+      true,
+      false,
+    ])
+    expect(writes).toHaveLength(3) // rejections write nothing
+    // Evicted after ~10 s idle: memory is gone, storage isn't. Still the same window, still full.
+    cached = null
+    expect(await admit(11_000)).toBe(false)
+    cached = null
+    expect(await admit(60_001)).toBe(true) // the window has passed
+  })
+
+  it('a storage failure throws (the route then answers 503)', async () => {
+    const store: WindowStore = {
+      get: async () => undefined,
+      put: async () => {
+        throw new Error('storage down')
+      },
+    }
+    await expect(admitStored(store, null, 0, 3, 60_000)).rejects.toThrow('storage down')
   })
 
   it('admitInWindow: a fixed window of `limit`, then a fresh one', () => {
