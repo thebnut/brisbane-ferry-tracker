@@ -2,7 +2,14 @@
  * Deterministic answers for parsed intents (no LLM, $0). The answer text is always computed from live data;
  * only the intent is ever cached.
  */
-import type { AlertsResponse, Departure, DeparturesResponse, Intent, Mode } from '@bft/core'
+import {
+  type AlertsResponse,
+  type Departure,
+  type DeparturesResponse,
+  type Intent,
+  type Mode,
+  routeKey,
+} from '@bft/core'
 import { fmtTime, type InternalFetch, slimDeparture } from './tools.ts'
 
 export interface AskAnswer {
@@ -88,7 +95,9 @@ export async function answerIntent(
       if (intent.kind === 'alerts' && intent.line) {
         const line = intent.line.toLowerCase()
         alerts = alerts.filter(
-          (a) => a.header.toLowerCase().includes(line) || a.routes.some((r) => r.toLowerCase() === line),
+          // Alert routes are raw route_ids with version suffixes ("F1-4055"): compare by routeKey (Codex round 4).
+          (a) =>
+            a.header.toLowerCase().includes(line) || a.routes.some((r) => routeKey(r).toLowerCase() === line),
         )
       }
       const fresh = body.rtState === 'live'

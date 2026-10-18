@@ -83,20 +83,22 @@ describe('tools', () => {
     const ev = {
       departures: new Set(['d1', 'd2']),
       alerts: new Set(['a1']),
-      emptyDepartureQuery: false,
-      emptyFreshAlertQuery: false,
+      empty: new Map<string, 'get_alerts' | 'get_departures'>([
+        ['e3', 'get_alerts'],
+        ['e4', 'get_departures'],
+      ]),
     }
     expect(isGroundedAnswer({ kind: 'departures', refs: ['d1'] }, ev)).toBe(true)
     expect(isGroundedAnswer({ kind: 'departures', refs: ['d9'] }, ev)).toBe(false)
     expect(isGroundedAnswer({ kind: 'alerts', refs: ['a1'] }, ev)).toBe(true)
-    // Negative claims need a successful query that came back empty (Codex review round 3).
-    expect(isGroundedAnswer({ kind: 'alerts', refs: [] }, ev)).toBe(false)
-    expect(isGroundedAnswer({ kind: 'alerts', refs: [] }, { ...ev, emptyFreshAlertQuery: true })).toBe(true)
-    expect(isGroundedAnswer({ kind: 'cannot_answer', reason: 'no_service' }, ev)).toBe(false)
-    expect(
-      isGroundedAnswer({ kind: 'cannot_answer', reason: 'no_service' }, { ...ev, emptyDepartureQuery: true }),
-    ).toBe(true)
+    // Negative claims must cite the specific empty query of the right tool (Codex review rounds 3-4).
+    expect(isGroundedAnswer({ kind: 'no_alerts', emptyRef: 'e3' }, ev)).toBe(true)
+    expect(isGroundedAnswer({ kind: 'no_alerts', emptyRef: 'e4' }, ev)).toBe(false)
+    expect(isGroundedAnswer({ kind: 'no_alerts', emptyRef: 'e9' }, ev)).toBe(false)
+    expect(isGroundedAnswer({ kind: 'no_service', emptyRef: 'e4' }, ev)).toBe(true)
+    expect(isGroundedAnswer({ kind: 'no_service', emptyRef: 'e3' }, ev)).toBe(false)
     expect(isGroundedAnswer({ kind: 'cannot_answer', reason: 'trip_planning' }, ev)).toBe(true)
+    expect(FinalAnswerInput.safeParse({ kind: 'alerts', refs: [] }).success).toBe(false)
     expect(FinalAnswerInput.safeParse({ kind: 'departures', refs: [] }).success).toBe(false)
   })
 })

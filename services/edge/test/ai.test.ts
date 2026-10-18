@@ -161,6 +161,35 @@ describe('budget config', () => {
   })
 })
 
+describe('route alerts with suffixed route ids (Codex round 4)', () => {
+  it('"alerts on F1" finds an alert for route F1-4055', async () => {
+    const { answerIntent } = await import('../src/ai/answer.ts')
+    const fetchApi = async () =>
+      new Response(
+        JSON.stringify({
+          schemaVersion: 1,
+          staticGeneration: null,
+          serviceDates: [],
+          rtSourceTimestamp: 1,
+          rtState: 'live',
+          generatedAt: 1,
+          alerts: [
+            {
+              id: 'a',
+              header: 'Services suspended due to weather',
+              activePeriods: [],
+              routes: ['F1-4055'],
+              stops: [],
+              modes: ['ferry'],
+            },
+          ],
+        }),
+      )
+    const a = await answerIntent({ kind: 'alerts', line: 'f1' }, fetchApi, 0)
+    expect(a.answer).toMatch(/^1 alert for f1: Services suspended due to weather/)
+  })
+})
+
 describe('helpers', () => {
   it('hashes IP prefixes, not addresses', async () => {
     expect(await ipKey('1.2.3.4', 's')).toBe(await ipKey('1.2.3.99', 's'))
@@ -214,7 +243,13 @@ const msg = (content: unknown[], stop_reason: string) =>
 
 type Final = (firstRef: string) => unknown[]
 
-function llmSetup(finalContent: Final) {
+function llmSetup(
+  finalContent: Final,
+  firstCall: unknown = {
+    name: 'get_departures',
+    input: { mode: 'ferry', stopKey: '317584', toKey: '317590', limit: 3 },
+  },
+) {
   const budget = memoryBudget()
   const env = {
     AI_ENABLED: 'true',
@@ -232,22 +267,13 @@ function llmSetup(finalContent: Final) {
     const body = JSON.parse(String(init?.body ?? '{}')) as { messages: Array<{ content: unknown }> }
     const last = body.messages.at(-1)?.content
     if (Array.isArray(last) && (last[0] as { type?: string })?.type === 'tool_result') {
-      const rows = JSON.parse((last[0] as { content: string }).content) as {
-        departures: Array<{ ref: string }>
+      const res = JSON.parse((last[0] as { content: string }).content) as {
+        departures?: Array<{ ref: string }>
+        emptyRef?: string
       }
-      return msg(finalContent(rows.departures[0]?.ref ?? 'none'), 'tool_use')
+      return msg(finalContent(res.departures?.[0]?.ref ?? res.emptyRef ?? 'none'), 'tool_use')
     }
-    return msg(
-      [
-        {
-          type: 'tool_use',
-          id: 'tu_1',
-          name: 'get_departures',
-          input: { mode: 'ferry', stopKey: '317584', toKey: '317590', limit: 3 },
-        },
-      ],
-      'tool_use',
-    )
+    return msg([{ type: 'tool_use', id: 'tu_1', ...(firstCall as object) }], 'tool_use')
   })
   const s = setup(env, { verifyTurnstile: async () => true })
   return { ...s, budget, urls, spy }
@@ -323,6 +349,27 @@ describe('LLM fallback (stubbed provider)', () => {
     expect(body.source).toBe('fallback')
     expect(budget.state().spentUsd).toBeGreaterThan(0)
     expect(budget.state().reservedUsd).toBe(0)
+  })
+
+  it('a "no services" answer must cite the specific empty query, and renders its scope (Codex round 4)', async () => {
+    const s = llmSetup((emptyRef) => finalCall({ kind: 'no_service', emptyRef }), {
+      name: 'get_departures',
+      input: { mode: 'ferry', stopKey: 'QUIET', limit: 3 },
+    })
+    const body = (await (await s.ask(Q)).json()) as { source: string; answer: string }
+    s.spy.mockRestore()
+    expect(body.source, JSON.stringify(body)).toBe('llm')
+    expect(body.answer, JSON.stringify(body)).toBe('No upcoming services from QUIET.')
+  })
+
+  it('a "no alerts" answer citing a departures query (wrong tool) is ungrounded', async () => {
+    const s = llmSetup((emptyRef) => finalCall({ kind: 'no_alerts', emptyRef }), {
+      name: 'get_departures',
+      input: { mode: 'ferry', stopKey: 'QUIET', limit: 3 },
+    })
+    const body = (await (await s.ask(Q)).json()) as { ai: { reason: string } }
+    s.spy.mockRestore()
+    expect(body.ai.reason).toBe('ungrounded')
   })
 
   it('fails closed without an AI Gateway', async () => {

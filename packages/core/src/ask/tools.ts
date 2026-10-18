@@ -66,11 +66,20 @@ export const FinalAnswerInput = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('alerts'),
-    refs: z.array(z.string()).max(5).describe('ref values of relevant alerts; empty means none reported'),
+    refs: z.array(z.string()).min(1).max(5).describe('ref values of the relevant alerts'),
+  }),
+  // Negative answers must cite the empty query (its emptyRef) that supports them, so the claim keeps its scope.
+  z.object({
+    kind: z.literal('no_alerts'),
+    emptyRef: z.string().describe('emptyRef of a get_alerts result that returned no alerts'),
+  }),
+  z.object({
+    kind: z.literal('no_service'),
+    emptyRef: z.string().describe('emptyRef of a get_departures result that returned no departures'),
   }),
   z.object({
     kind: z.literal('cannot_answer'),
-    reason: z.enum(['trip_planning', 'unknown_stop', 'no_service', 'out_of_scope']),
+    reason: z.enum(['trip_planning', 'unknown_stop', 'out_of_scope']),
   }),
 ])
 export type FinalAnswer = z.infer<typeof FinalAnswerInput>
@@ -85,21 +94,26 @@ export const FINAL_ANSWER_TOOL = {
 export interface Evidence {
   departures: ReadonlySet<string>
   alerts: ReadonlySet<string>
-  /** A successful get_departures call in this request returned no rows. */
-  emptyDepartureQuery: boolean
-  /** A successful get_alerts call on fresh data in this request returned no alerts. */
-  emptyFreshAlertQuery: boolean
+  /** emptyRef -> which tool came back empty (alerts only when the feed was fresh). Scope is rendered from it. */
+  empty: ReadonlyMap<string, 'get_alerts' | 'get_departures'>
 }
 
 /**
  * A final answer is grounded only if every ref was returned by a successful tool call in this request, and a
  * negative claim ("no services", "no alerts") is backed by a successful query that actually came back empty
- * (Codex review round 3).
+ * (Codex review rounds 3-4: the empty query is cited, so the claim carries its scope).
  */
 export function isGroundedAnswer(final: FinalAnswer, ev: Evidence): boolean {
-  if (final.kind === 'departures') return final.refs.every((r) => ev.departures.has(r))
-  if (final.kind === 'alerts')
-    return final.refs.length > 0 ? final.refs.every((r) => ev.alerts.has(r)) : ev.emptyFreshAlertQuery
-  if (final.reason === 'no_service') return ev.emptyDepartureQuery
-  return true
+  switch (final.kind) {
+    case 'departures':
+      return final.refs.every((r) => ev.departures.has(r))
+    case 'alerts':
+      return final.refs.every((r) => ev.alerts.has(r))
+    case 'no_alerts':
+      return ev.empty.get(final.emptyRef) === 'get_alerts'
+    case 'no_service':
+      return ev.empty.get(final.emptyRef) === 'get_departures'
+    default:
+      return true
+  }
 }

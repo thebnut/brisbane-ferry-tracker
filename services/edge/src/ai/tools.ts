@@ -30,9 +30,9 @@ export class EvidenceLog {
   private n = 0
   readonly departures = new Map<string, DepartureEvidence>()
   readonly alerts = new Map<string, Alert>()
-  emptyDepartureQuery = false
-  emptyFreshAlertQuery = false
-  nextRef(prefix: 'd' | 'a'): string {
+  /** emptyRef -> the empty query it stands for, with a human-readable scope rendered into negative answers. */
+  readonly empty = new Map<string, { tool: 'get_alerts' | 'get_departures'; scope: string }>()
+  nextRef(prefix: 'd' | 'a' | 'e'): string {
     this.n += 1
     return `${prefix}${this.n}`
   }
@@ -101,7 +101,12 @@ export async function runTool(
       )
       if (!res.ok) return { tool: 'get_departures', ok: false, result: { error: `HTTP ${res.status}` } }
       const body = (await res.json()) as DeparturesResponse
-      if (ctx.evidence && body.departures.length === 0) ctx.evidence.emptyDepartureQuery = true
+      let emptyRef: string | undefined
+      if (ctx.evidence && body.departures.length === 0) {
+        emptyRef = ctx.evidence.nextRef('e')
+        const scope = body.to ? `from ${body.stop.name} to ${body.to.name}` : `from ${body.stop.name}`
+        ctx.evidence.empty.set(emptyRef, { tool: 'get_departures', scope })
+      }
       const rows = body.departures.map((d) => {
         const ref = ctx.evidence?.nextRef('d')
         if (ref)
@@ -117,7 +122,13 @@ export async function runTool(
         tool: 'get_departures',
         ok: true,
         input: p.data,
-        result: { stop: body.stop.name, to: body.to?.name ?? null, rtState: body.rtState, departures: rows },
+        result: {
+          stop: body.stop.name,
+          to: body.to?.name ?? null,
+          rtState: body.rtState,
+          departures: rows,
+          emptyRef,
+        },
       }
     }
     case 'get_trip': {
@@ -135,15 +146,27 @@ export async function runTool(
       const res = await ctx.fetch(`/v1/alerts?${q}`)
       if (!res.ok) return { tool: 'get_alerts', ok: false, result: { error: `HTTP ${res.status}` } }
       const body = (await res.json()) as AlertsResponse
-      // An empty list only means "none" when the alert feed is fresh.
-      if (ctx.evidence && body.rtState === 'live' && body.alerts.length === 0)
-        ctx.evidence.emptyFreshAlertQuery = true
+      // An empty list only means "none" when the alert feed is fresh; the emptyRef carries the query's filters.
+      let emptyRef: string | undefined
+      if (ctx.evidence && body.rtState === 'live' && body.alerts.length === 0) {
+        emptyRef = ctx.evidence.nextRef('e')
+        const parts = [
+          p.data.route && `route ${p.data.route}`,
+          p.data.stop && `stop ${p.data.stop}`,
+          p.data.mode && `${p.data.mode}s`,
+        ]
+        ctx.evidence.empty.set(emptyRef, {
+          tool: 'get_alerts',
+          scope: parts.filter(Boolean).join(', ') || 'the network',
+        })
+      }
       return {
         tool: 'get_alerts',
         ok: true,
         input: p.data,
         result: {
           rtState: body.rtState,
+          emptyRef,
           alerts: body.alerts.slice(0, 8).map((a) => {
             const ref = ctx.evidence?.nextRef('a')
             if (ref) ctx.evidence?.alerts.set(ref, a)

@@ -96,7 +96,6 @@ const CANNOT_ANSWER: Record<string, string> = {
   trip_planning:
     'I can\'t plan multi-step journeys yet. Try asking for the next service between two stops, e.g. "next train from Bowen Hills to the airport".',
   unknown_stop: "I couldn't find that stop. Try its full name or the stop number on the sign.",
-  no_service: 'No upcoming services were found for that.',
   out_of_scope: 'I can only answer questions about Brisbane ferry, train and bus departures and alerts.',
 }
 
@@ -104,6 +103,13 @@ const CANNOT_ANSWER: Record<string, string> = {
 export function renderFinal(final: FinalAnswer, ev: EvidenceLog, nowS: number) {
   if (final.kind === 'cannot_answer')
     return { answer: CANNOT_ANSWER[final.reason] ?? CANNOT_ANSWER.out_of_scope }
+  if (final.kind === 'no_alerts' || final.kind === 'no_service') {
+    const scope = ev.empty.get(final.emptyRef)?.scope ?? 'that'
+    return {
+      answer:
+        final.kind === 'no_alerts' ? `No current alerts for ${scope}.` : `No upcoming services ${scope}.`,
+    }
+  }
   if (final.kind === 'alerts') {
     const alerts = final.refs.map((ref) => ev.alerts.get(ref)).filter((a) => a != null)
     return {

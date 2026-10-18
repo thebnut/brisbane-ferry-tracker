@@ -33,7 +33,7 @@ const OVERHEAD_TOKENS = 1500
 
 const SYSTEM = `You help answer questions about Brisbane (South East Queensland) ferry, train and bus departures.
 Use search_stops to find stop keys, get_departures for services (pass toKey for "from X to Y"), get_trip for one service, get_alerts for disruptions.
-You never write the answer yourself. Always finish by calling final_answer: cite the ref values of the departure rows or alerts that answer the question, or give a cannot_answer reason (trip_planning for multi-step journeys, unknown_stop, no_service, out_of_scope).`
+You never write the answer yourself. Always finish by calling final_answer: cite the ref values of the departure rows or alerts that answer the question, for "none" answers cite the emptyRef of the empty result (no_alerts or no_service), or give a cannot_answer reason (trip_planning for multi-step journeys, unknown_stop, out_of_scope).`
 
 /** Upper bound on input tokens: UTF-8 bytes of the request body plus overhead (a token covers >= 1 byte). */
 export const inputTokenBound = (body: unknown) =>
@@ -136,8 +136,7 @@ export async function askLlm(question: string, deps: LlmDeps): Promise<LlmResult
       const ev = {
         departures: new Set(evidence.departures.keys()),
         alerts: new Set(evidence.alerts.keys()),
-        emptyDepartureQuery: evidence.emptyDepartureQuery,
-        emptyFreshAlertQuery: evidence.emptyFreshAlertQuery,
+        empty: new Map([...evidence.empty].map(([k, v]) => [k, v.tool])),
       }
       if (!isGroundedAnswer(parsed.data, ev)) return fail('ungrounded', round + 1)
       return { ok: true, final: parsed.data, evidence, costUsd: cost, rounds: round + 1 }
