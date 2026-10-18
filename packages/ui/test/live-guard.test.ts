@@ -161,10 +161,14 @@ describe('bestOfflineCopy (R2-B6)', () => {
     expect(bestOfflineCopy([older, newer], NOW)).toBe(newer)
     expect(bestOfflineCopy([newer, older], NOW)).toBe(newer)
   })
-  it('falls back to an older copy only when the newer ones have nothing left to come', () => {
-    const gone = copy(NOW - 60_000, [-120])
-    const saved = copy(NOW - 3 * 3600_000, [120, 600])
-    expect(bestOfflineCopy([gone, saved], NOW)).toBe(saved)
+  it('a newer board whose rows ran out keeps its body and Updated time; an older timetable only adds rows (Codex review)', () => {
+    const gone = copy(NOW - 30_000, [-120])
+    const saved = copy(NOW - 3600_000, [-600, 120, 600])
+    const out = bestOfflineCopy([saved, gone], NOW)
+    expect(out?.generatedAt).toBe(gone.generatedAt)
+    expect(out?.departures.map((d) => d.schedDep - nowS)).toEqual([-120, 120, 600])
+    const empty = copy(NOW - 30_000, [])
+    expect(bestOfflineCopy([saved, empty], NOW)?.generatedAt).toBe(empty.generatedAt)
   })
   it('returns an empty copy rather than nothing, and null with no copies', () => {
     const gone = copy(NOW - 60_000, [-60])

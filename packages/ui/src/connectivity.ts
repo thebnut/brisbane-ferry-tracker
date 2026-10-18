@@ -390,11 +390,11 @@ export function tripAsTimetable<
 
 /**
  * Offline, the copy of a board worth showing, from the copies on hand (the data already on screen, the service
- * worker's cached response, a timetable saved on the device). The base is the newest copy that still has departures
- * to come by timetable time, so a board never goes back to an older body (R6-B1) and an hours-old service-worker copy
- * never replaces a fresher board that still has rows (R2-B6); its `generatedAt` is the "Updated" time. An older,
- * longer copy (a saved timetable) only extends it: its rows after the base's last one are appended, so the rows stay
- * as long as the device has timetable for. With no rows to come anywhere, the newest copy; null with no copy at all.
+ * worker's cached response, a timetable saved on the device). The base is always the newest copy, even if its rows
+ * have run out, so a board never goes back to an older body or "Updated" time (R6-B1), and an hours-old
+ * service-worker copy never replaces a fresher board (R2-B6). Older copies only extend it: the departures still to
+ * come after the base's last row, from the copy with the most of them (a saved timetable), are appended, so the rows
+ * last as long as the device has timetable for. Null with no copy at all.
  */
 export function bestOfflineCopy<
   D extends { schedDep: number },
@@ -404,14 +404,12 @@ export function bestOfflineCopy<
   const usable = copies
     .filter((c): c is T => !!c && Array.isArray(c.departures))
     .sort((x, y) => y.generatedAt - x.generatedAt)
-  const toCome = (c: T) => c.departures.filter((d) => d.schedDep >= cutoff)
-  const base = usable.find((c) => toCome(c).length > 0)
-  if (!base) return usable[0] ?? null
-  const horizon = Math.max(...toCome(base).map((d) => d.schedDep))
+  const base = usable[0]
+  if (!base) return null
+  const last = base.departures.reduce((m, d) => Math.max(m, d.schedDep), Number.NEGATIVE_INFINITY)
   let extension: D[] = []
-  for (const c of usable) {
-    if (c === base) continue
-    const later = c.departures.filter((d) => d.schedDep > horizon)
+  for (const c of usable.slice(1)) {
+    const later = c.departures.filter((d) => d.schedDep >= cutoff && d.schedDep > last)
     if (later.length > extension.length) extension = later
   }
   return extension.length ? { ...base, departures: [...base.departures, ...extension] } : base

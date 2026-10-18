@@ -66,15 +66,26 @@ const offline = () => !isOnline()
  * Keep a longer timetable for every stop viewed online (saved stops and recent views, storage.ts caps them), so the
  * board still shows scheduled times offline. Without it an unsaved stop had only the 20 rows on screen (R6-B1).
  */
-export async function refreshOfflineCopy(fetcher: ApiFetcher, stopId: string) {
+export function refreshOfflineCopy(fetcher: ApiFetcher, stopId: string): Promise<void> {
+  // One refresh per stop at a time: an older answer arriving last must not overwrite a newer copy (Codex review).
+  let running = refreshing.get(stopId)
+  if (!running) {
+    running = keepOfflineCopy(fetcher, stopId).finally(() => refreshing.delete(stopId))
+    refreshing.set(stopId, running)
+  }
+  return running
+}
+const refreshing = new Map<string, Promise<void>>()
+
+async function keepOfflineCopy(fetcher: ApiFetcher, stopId: string): Promise<void> {
   if (offline()) return
   const prev = readOffline(stopId)
   if (prev && Date.now() - prev.savedAt < OFFLINE_REFRESH_MS) return
   try {
     const res = await fetchDepartures(fetcher, stopId, { limit: OFFLINE_LIMIT })
-    // Only a network answer, never older than the copy kept: an offline reload can start with navigator.onLine true,
-    // and the service worker's old cached answer must not replace the timetable (Codex review).
-    const kept = prev?.body as { generatedAt?: number } | undefined
+    // Only a network answer, never older than the copy kept now (read again after the fetch): an offline reload can
+    // start with navigator.onLine true, and the service worker's old cached answer must not replace the timetable.
+    const kept = readOffline(stopId)?.body as { generatedAt?: number } | undefined
     if (!isNetworkAnswer(res) || (kept?.generatedAt != null && res.generatedAt < kept.generatedAt)) return
     writeOffline(stopId, res)
   } catch {

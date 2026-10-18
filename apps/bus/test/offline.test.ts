@@ -230,3 +230,25 @@ describe('the kept timetable copy is only replaced by a network answer (Codex re
     expect(readOffline('10802')?.savedAt).toBe(NOW)
   })
 })
+
+describe('overlapping copy refreshes (Codex review round 2)', () => {
+  it('one refresh per stop at a time, so an older answer arriving last cannot overwrite a newer copy', async () => {
+    const { readOffline } = await import('../app/lib/storage.ts')
+    let calls = 0
+    let release: (r: Response) => void = () => {}
+    const fetcher = () => {
+      calls++
+      return new Promise<Response>((resolve) => {
+        release = resolve
+      })
+    }
+    const a = refreshOfflineCopy(fetcher, '20000')
+    const b = refreshOfflineCopy(fetcher, '20000')
+    expect(b).toBe(a)
+    await Promise.resolve()
+    expect(calls).toBe(1)
+    release(new Response(JSON.stringify({ ...res([row(300)]), generatedAt: NOW })))
+    await a
+    expect((readOffline('20000')?.body as { generatedAt: number }).generatedAt).toBe(NOW)
+  })
+})
