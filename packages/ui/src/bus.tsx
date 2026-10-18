@@ -46,13 +46,16 @@ export function BigCountdown({
         // A clock time ("10:45 pm") is twice as wide as a countdown: smaller on phones so the destination keeps room.
         <span
           className={cx(
-            size === 'lg' ? 'text-[26px] sm:text-[34px]' : 'text-[24px] sm:text-[30px]',
-            'leading-none font-extrabold whitespace-nowrap tabular',
+            size === 'lg'
+              ? 'text-[26px] sm:text-[34px]'
+              : 'text-[20px] min-[421px]:text-[24px] sm:text-[30px]',
+            'flex flex-col items-end leading-none font-extrabold whitespace-nowrap tabular',
           )}
         >
           {time}
+          {/* Its own line under the time, so a late-night "(19/10)" doesn't widen the column (B2). */}
           {dayMarker ? (
-            <span className="ml-1 text-sm font-bold text-ferry-orange-deep">{dayMarker}</span>
+            <span className="mt-1 text-sm font-bold text-ferry-orange-deep">{dayMarker}</span>
           ) : null}
         </span>
       ) : (

@@ -244,14 +244,23 @@ export function DepartureCard({
               ) : null}
             </span>
             {arrival ? (
-              <span className={cx('whitespace-nowrap', cancelled && 'line-through decoration-2')}>
-                <span className="mr-1.5 font-normal text-gray-500" aria-hidden="true">
-                  →
+              // The arrival's day marker is its own chunk, so a late-night "→ 12:10 am (19/10)" can wrap beside the
+              // countdown chip on a 360 px phone instead of overflowing.
+              <span
+                className={cx(
+                  'flex flex-wrap items-baseline gap-x-1 whitespace-nowrap',
+                  cancelled && 'line-through decoration-2',
+                )}
+              >
+                <span>
+                  <span className="mr-1.5 font-normal text-gray-500" aria-hidden="true">
+                    →
+                  </span>
+                  <span className="sr-only"> arriving </span>
+                  <span className="font-medium text-gray-700 dark:text-night-text/80">{arrival.time}</span>
                 </span>
-                <span className="sr-only"> arriving </span>
-                <span className="font-medium text-gray-700 dark:text-night-text/80">{arrival.time}</span>
                 {arrival.dayMarker ? (
-                  <span className="ml-1 text-sm font-medium text-ferry-orange-deep">{arrival.dayMarker}</span>
+                  <span className="text-sm font-medium text-ferry-orange-deep">{arrival.dayMarker}</span>
                 ) : null}
                 {journey ? (
                   <span className="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· {journey}</span>

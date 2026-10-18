@@ -12,10 +12,40 @@ test.describe('phone width 360 px (T1, T4)', () => {
 
   test('Central → Ferny Grove: the countdown never overlaps the times; arrivals have am/pm', async ({
     page,
+    context,
   }, testInfo) => {
+    test.slow()
+    // Time-of-day independent: late at night nothing may be due within the hour (no countdown chip to check), so
+    // the polled response gets its first train moved to 10 minutes from now (as apps/ferry/tests/upcoming.ts).
+    await context.route('**/__fixtures/v1/train/stops/central/departures*', async (route) => {
+      const res = await route.fetch()
+      const body: {
+        departures: Array<{
+          status: string
+          schedDep: number
+          estDep: number | null
+          schedArrTo: number | null
+          estArrTo: number | null
+        }>
+      } = await res.json()
+      const d = body.departures.find((x) => x.status !== 'cancelled' && x.status !== 'skipped')
+      if (d) {
+        const shift = Math.floor(Date.now() / 1000) + 600 - (d.estDep ?? d.schedDep)
+        d.schedDep += shift
+        if (d.estDep != null) d.estDep += shift
+        if (d.schedArrTo != null) d.schedArrTo += shift
+        if (d.estArrTo != null) d.estArrTo += shift
+      }
+      await route.fulfill({ response: res, json: body })
+    })
     await page.goto('/station/central?to=ferny-grove')
     const board = page.locator('[data-board=central]')
     await expect(board.getByTestId('departure').first()).toBeVisible()
+    // The board polls every 15 s: wait for the pinned response, then for its chip.
+    await page.waitForResponse((r) => r.url().includes('/v1/train/stops/central/departures'), {
+      timeout: 30_000,
+    })
+    await expect(board.locator('[data-tone]').first()).toBeVisible()
     const { scrollWidth, innerWidth } = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
       innerWidth: window.innerWidth,

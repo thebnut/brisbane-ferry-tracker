@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 /** R2-B6 (offline copy choice) and R2-T7 (a cached render never claims LIVE before freshness is known). */
+import { render } from '@testing-library/react'
+import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   bestOfflineCopy,
@@ -11,6 +13,7 @@ import {
   reportOffline,
   reportOnline,
   trackedFetch,
+  useLiveGuardRelease,
 } from '../src/connectivity.ts'
 
 const NOW = Date.UTC(2026, 9, 18, 12, 40)
@@ -57,7 +60,15 @@ describe('liveGuardScript (R2-T7)', () => {
     await trackedFetch('/data/bus/stops.json')
     expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
     await trackedFetch('/v1/bus/stops/1/departures')
-    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false)
+    // Confirmed, but the app hasn't rendered its own judgement yet (hydration uses the server's clock): still hidden.
+    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
+    function App() {
+      useLiveGuardRelease()
+      return null
+    }
+    render(createElement(App))
+    await vi.waitFor(() => expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false))
+    // From then on a confirmation lifts it at once.
     html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
     confirmLive()
     expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false)

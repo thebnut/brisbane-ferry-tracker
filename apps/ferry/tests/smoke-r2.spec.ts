@@ -69,6 +69,8 @@ for (const path of PAGES) {
     expect(w.__guardAtFirstFrame).toBe(true)
     expect(w.__liveSeen).toEqual([])
     // A live call that reaches the network (a poll) confirms freshness; the app's own state decides from then on.
-    await expect(page.locator('html')).not.toHaveAttribute('data-live-unconfirmed', '', { timeout: 20_000 })
+    // (Polls run every 15 s; under a loaded test run the first can take longer, so wait for it rather than a clock.)
+    await page.waitForResponse((r) => /\/v1\//.test(new URL(r.url()).pathname) && r.ok(), { timeout: 45_000 })
+    await expect(page.locator('html')).not.toHaveAttribute('data-live-unconfirmed', '')
   })
 }

@@ -192,15 +192,26 @@ for (const width of [360, 400]) {
     test('long destinations wrap, never cut with an ellipsis', async ({ page, context }, testInfo) => {
       await context.route(DEPARTURES, async (route) => {
         const res = await route.fetch()
-        const body: { departures: Array<{ headsign: string }> } = await res.json()
+        const body: { departures: Array<{ headsign: string; schedDep: number; estDep: number | null }> } =
+          await res.json()
+        // The widest right-hand column at any hour: every bus over an hour away shows a clock time, not "12 min".
+        const first = body.departures[0]
+        const shift = first ? Math.floor(Date.now() / 1000) + 65 * 60 - first.schedDep : 0
         body.departures.forEach((d, i) => {
           d.headsign = LONG_HEADSIGNS[i % LONG_HEADSIGNS.length] as string
+          d.schedDep += shift
+          if (d.estDep != null) d.estDep += shift
         })
         await route.fulfill({ response: res, json: body })
       })
       await page.goto(`/stop/${STOP}`)
       await refresh(page)
-      await expect(page.getByTestId('destination').first()).toHaveText(LONG_HEADSIGNS[0] as string)
+      await expect(
+        page
+          .getByTestId('destination')
+          .filter({ hasText: LONG_HEADSIGNS[0] as string })
+          .first(),
+      ).toBeVisible()
       await page.screenshot({ path: testInfo.outputPath(`long-destinations-${width}.png`) })
       const checks = await page.getByTestId('destination').evaluateAll((els) =>
         els.map((el) => {

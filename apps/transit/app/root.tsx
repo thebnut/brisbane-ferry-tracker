@@ -1,6 +1,6 @@
 import { AppHeader } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
-import { liveGuardScript } from '@bft/ui/connectivity'
+import { liveGuardScript, useLiveGuardRelease } from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
@@ -81,6 +81,8 @@ export function Layout({ children }: { children: ReactNode }) {
 
 export default function App() {
   const [client] = useState(makeQueryClient)
+  // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
+  useLiveGuardRelease()
   // Effects run only once hydration has committed: tests wait for this marker (tests/csp.ts).
   useEffect(() => {
     document.documentElement.dataset.hydrated = ''

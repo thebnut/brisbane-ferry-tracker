@@ -6,7 +6,7 @@
  * caches mark those responses, see `markCacheHits`), or when it is still unanswered after `SLOW_REQUEST_MS` (lie-fi).
  * The next call that reaches the network clears it, and so does the browser's own "online" event.
  */
-import { useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 
 /** Header the service worker adds to /v1 responses it serves from its cache instead of the network. */
 export const SW_CACHE_HEADER = 'x-bft-cache'
@@ -37,12 +37,44 @@ export const reportOffline = () => setUnreachable(true)
 /** An API call reached the network. */
 export const reportOnline = () => setUnreachable(false)
 
+let liveConfirmed = false
+let clientRendered = false
+
+/** Lift the live guard once both hold: a live call confirmed freshness, and the app rendered its own judgement. */
+function releaseLiveGuard() {
+  if (liveConfirmed && clientRendered && typeof document !== 'undefined')
+    document.documentElement.removeAttribute(LIVE_UNCONFIRMED_ATTR)
+}
+
 /**
  * A live API call got a good answer from the network: the page's data is current, so it may claim LIVE again (see
- * liveGuardScript). An error status (a 503 from a struggling API) reaches the network but confirms nothing.
+ * liveGuardScript) once the app has rendered with the device's clock (useLiveGuardRelease). An error status (a 503
+ * from a struggling API) reaches the network but confirms nothing.
  */
 export function confirmLive() {
-  if (typeof document !== 'undefined') document.documentElement.removeAttribute(LIVE_UNCONFIRMED_ATTR)
+  liveConfirmed = true
+  releaseLiveGuard()
+}
+
+/**
+ * For each root component: marks when the app's own live judgement is on screen. Hydration renders with the server's
+ * clock and "online" (so it matches the HTML), and the first effects switch to the device's clock and connectivity;
+ * the guard waits two frames after mount for those renders (and the boards' reports to the header) to land, so an
+ * early good API answer can't uncover the hydration render's LIVE.
+ */
+export function useLiveGuardRelease() {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    if (!mounted) return
+    let id = requestAnimationFrame(() => {
+      id = requestAnimationFrame(() => {
+        clientRendered = true
+        releaseLiveGuard()
+      })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [mounted])
 }
 
 /**
