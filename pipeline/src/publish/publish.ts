@@ -5,7 +5,7 @@
  *
  * To stay inside R2's free tier, a remote target is never HEADed per object: every content key referenced by the
  * generations the target's own manifest already lists is known to be present (content files are immutable), and the
- * rest are PUT directly. A next-day run on an unchanged feed is then ~13k PUTs and a handful of GETs.
+ * rest are PUT directly. A next-day run on an unchanged feed is then ~1.1k PUTs and a handful of GETs.
  */
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'

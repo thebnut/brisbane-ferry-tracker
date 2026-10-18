@@ -468,69 +468,82 @@ The archive's train files were 14–19 MB, and later hundreds of MB, because the
 
 ### Phase 0 measurements: static pipeline
 
-Measured with `@bft/pipeline` (`pnpm --filter @bft/pipeline measure`) on the 17 Oct 2026 feed (feed version
-`20261017-20261216-3305c5ea`), service date D = Tuesday 20 Oct 2026, window D−1..D+6, final contract schema
-(`StaticStopDay` tuples with downstream arrival offsets, drop-off rules and seq deltas; StopRefs with names and
-platforms; RouteRefs with long names and colours). gz = fflate level 9 (deterministic across machines), br = brotli q11
-(measurement only). Apple-silicon Mac, Node 22.23.
+Measured with `@bft/pipeline` (`pnpm --filter @bft/pipeline measure`).
 
-**Per stop-day file, one service day (D):**
+**Setup.**
+- Feed: 17 Oct 2026 (feed version `20261017-20261216-3305c5ea`).
+- Service date D = Tuesday 20 Oct 2026, window D−1..D+6.
+- Machine: Apple-silicon Mac, Node 22.23.
 
-| Mode | Files | gz total | br total | br vs gz | median gz | p95 gz | max gz | gz, all 8 days |
+**Format measured** (final contract, after the lead's PR #41 decisions):
+- `StaticStopDay` tuples whose `downstreamIdx` points into a per-file `downstreams` table. Identical remaining patterns are stored once, ordered by stop pattern.
+- Downstream quadruples carry the arrival offset, drop-off rule and seq delta.
+- Only boarding stops carry a name.
+- Bus is stored as 512 shards a day only, with no per-stop bus blobs.
+
+**Compression.** gz = Node zlib at level 9 with a normalised header. br = brotli q11, measurement only.
+
+**Stop-day size, one service day (D).** Bus figures are the stop-days inside the shards:
+
+| Mode | Stop-days | gz total | br total | br vs gz | median gz | p95 gz | max gz | gz, all 8 days |
 |---|---|---|---|---|---|---|---|---|
-| Ferry | 32 | 0.06 MB | 0.04 MB | −33% | 1.5 KB | 3.2 KB | 3.3 KB | 0.44 MB |
-| Train (per station) | 154 | 0.59 MB | 0.40 MB | −32% | 3.1 KB | 8.3 KB | 18.0 KB (Central) | 4.11 MB |
-| Tram | 55 | 0.13 MB | 0.07 MB | −43% | 2.3 KB | 2.7 KB | 4.3 KB | 1.05 MB |
-| Bus | 12,235 | 24.34 MB | 16.66 MB | −32% | 1.4 KB | 5.0 KB | 42.1 KB (Cultural Centre platform 2) | 175.86 MB |
+| Ferry | 32 | 0.05 MB | 0.03 MB | −31% | 1.2 KB | 2.8 KB | 2.8 KB | 0.37 MB |
+| Train (per station) | 154 | 0.48 MB | 0.35 MB | −28% | 2.5 KB | 6.8 KB | 14.3 KB (Central) | 3.35 MB |
+| Tram | 55 | 0.10 MB | 0.06 MB | −38% | 1.8 KB | 1.9 KB | 3.3 KB | 0.84 MB |
+| Bus | 12,235 | 17.38 MB | 12.21 MB | −30% | 1.0 KB | 3.4 KB | 28.4 KB (Cultural Centre platform 1) | 124.50 MB |
 
-- The final schema is about 2× the earlier lower bounds (bus 24.3 MB vs 11.5 MB a day; train 0.59 MB vs 0.30 MB),
-  mostly from StopRef names (6.3 KB of the Cultural Centre file) and the drop-off/seq-delta half of each downstream
-  quadruple (about 10 KB there).
-- **Cultural Centre platform 2 misses the 30 KB target: 42.1 KB gz** (zlib −9: 40.9 KB; br: 24.5 KB). 1,435 boardings
-  × 18 downstream stops each. What would get it under 30 KB, measured on that file: dedupe identical downstream
-  vectors within the file (35.0 KB), plus omitting names on downstream-only StopRefs (about 29.5 KB), or the
-  pattern + trip-times layout below (21.6 KB + shared tables). Not changed in this phase: it alters the event tuple
-  the edge reads.
-- Files: 96,176 stop-day blobs + 32 trip indexes over 8 days, about 12,000 stop-days a day.
-- **Dedupe:** within one generation, 0%: every blob carries its `serviceDate`, so no two days share a blob.
-  Without that field (the index key already carries the date) 42,692 distinct blobs, 56% fewer. Dedupe across runs
-  works as designed: the next day's run on an unchanged feed writes only the new day plus changed files.
-- **R2 Class A per run** (measured by publishing into an empty target, then the next day's build into the same
-  store): first run 100,657 PUTs (382 MB); next-day run on the same feed 13,373 PUTs (13,020 new blobs, the rest
-  indexes, client data, manifests). About 400k a month: inside the 1M free tier, with room for a full feed change
-  (~100k) every week. The publisher never HEADs per object: what the bucket's own manifest already references is
-  skipped, so Class B is about 6 GETs a run.
-- **Storage growth:** about 75 MB a day of new blobs on an unchanged feed, about 600 MB for a full new feed. The
-  weekly GC (ADR-0002) is needed within about 3 months to stay under 10 GB; it isn't built yet (it deletes, so it
-  needs Brett's go-ahead).
-- **Generation index:** ferry 21 KB, train 90 KB, tram 35 KB raw; **bus 7.4 MB raw / 4.0 MB gz** (12k stops × 8
-  days × a 64-hex sha that doesn't compress; 0.9 MB per date). JSON.parse takes ~18 ms in Node on this Mac, so the
-  edge can't load the bus index per isolate on the Free plan's 10 ms CPU. Options: per-date index files (0.9 MB),
-  shorter content hashes (16 hex would halve it), or bus reads by shard (the shard array is 512 hashes per date, 33 KB
-  for all 8 days, and the bucket is computed with `shardOf(stopKey, count)` from `@bft/core`).
-- **Client data:** stops.json gz bus 313 KB, train 5.5 KB, ferry 1.1 KB, tram 1.5 KB; lines.json gz bus 66 KB,
-  train 3.8 KB, ferry 0.9 KB; geohash5 tiles bus 248, train 74, tram 7, ferry 10.
-- **Build:** whole network, 8 days, all modes: **68–70 s wall, 640–810 MB peak RSS** (from the zip, including
-  extraction and hashing). The next day's build into an existing store: 59 s. GitHub's runners are slower; expect
-  2–3 minutes, well inside the 7 GB runner.
-- **Validators:** MobilityData gtfs-validator 8.0.1 on this feed reports **no ERROR notices** (WARNING: duplicate
-  route names, colour contrast, missing recommended fields; INFO: 26 platforms without a parent station), in 9 s. CI
-  fails closed on any ERROR.
+**Busiest stop.**
+- Cultural Centre is under 30 KB gz on every day of the window. The worst case is 29.4 KB (platform 2 on a Friday); the Tuesday golden fixture (platform 2) is 28.7 KB.
+- Each format change took it down in turn. With the first contract tuple it was 43 KB (fflate) or 41 KB (zlib). The in-file downstream table and nameless downstream stops brought it to 32 KB. Ordering the table by stop pattern gave 30.6 KB. Switching from fflate to zlib -9 gave 28.7 KB.
+
+**Files per generation:** 6,294.
+- 2,000 per-stop blobs for ferry, train and tram (8 days).
+- 4,096 bus shards.
+- 32 trip indexes, 4 generation indexes, and client data.
+- The first draft's per-stop bus layout was about 100,000.
+
+**Dedupe:**
+- Within one generation: none. Every stop-day carries its `serviceDate`; without that field, 56% would be shared.
+- Across runs: works. The next day's run on an unchanged feed writes only the new day plus the shards whose members changed.
+
+**R2 Class A operations per run:**
+- First run: 6,294 PUTs (136 MB). The real publish from this Mac: 6,343 PUTs, 129 MB, 240 s.
+- Next day's run on the same feed: 1,121 PUTs (768 new blobs and shards, then indexes, client data and manifests). That's about 35k a month, against a 1M free tier.
+- A full feed change costs about 6.3k.
+- The publisher never HEADs objects one by one. Whatever the bucket's own manifest already references is skipped, so Class B is a few GETs per run.
+
+**Storage:** about 135 MB per new feed and about 25 MB a day on an unchanged feed. That is about 1 GB a month before GC, against a 10 GB free tier.
+
+**Generation index (raw):**
+- Ferry 21 KB, train 90 KB, tram 35 KB.
+- Bus 276 KB, 157 KB gz: shard hashes plus stats. The per-stop bus map was 7.4 MB.
+
+**Client data (gz):**
+- stops.json: bus 313 KB, train 5.5 KB, ferry 1.1 KB, tram 1.5 KB.
+- lines.json: bus 66 KB, train 3.8 KB, ferry 0.9 KB.
+- geohash5 tiles: bus 248, train 74, ferry 10, tram 7.
+
+**Build:** the whole network, all modes, 8 days, with every output zod-validated:
+- About 45–55 s wall and 650–700 MB peak RSS, from the zip, including extraction and hashing.
+- The next day's build into an existing store: 53 s.
+- GitHub's runners are slower; expect 2–3 minutes, well inside the 7 GB runner.
+
+**Validators:**
+- MobilityData gtfs-validator 8.0.1 on this feed reports no ERROR notices, in 9 s. It reports WARNINGs (duplicate route names, colour contrast, missing recommended fields) and INFO (26 platforms without a parent station). CI fails closed on any ERROR.
+- Quarantine compares each date with the previous generation. A same-weekday heuristic was rejected: SEQ trackwork closes lines on weekends through separate calendar services, not calendar_dates.
 
 **Layout benchmark (bus, one day):**
 
 | Layout | Files a day | Total gz | Mean bytes read per stop lookup | Largest read | Operating effort |
 |---|---|---|---|---|---|
-| Per-stop blobs (chosen) | 12,235 | 24.3 MB | 1.9 KB | 42.1 KB | One GET per board, immutable, no cross-file dependency; most files and Class A ops |
-| Grouped shards (512 a day) | 512 | 21.7 MB | 43.4 KB | 106.4 KB | Fits the 20k-file assets limit; 23× read amplification; a shard changes when any member does |
-| Pattern + trip-times | 12,235 + 2 shared | 7.1 MB | 0.6 KB + 156 KB shared tables | 21.6 KB + 156 KB | 3.4× smaller in total, but every board needs the day's pattern (56 KB) and time-profile (100 KB) tables: one more cache tier and a cross-file consistency rule |
+| Per-stop blobs | 12,235 | 17.4 MB | 1.4 KB | 28.4 KB | One GET per board, but a 12k-entry hash map per day in the index (7.4 MB for 8 days) and the most writes |
+| Grouped shards, 512 a day (**chosen for bus**) | 512 | 14.2 MB | 28.5 KB | 69.1 KB | Small index (512 hashes a day), bucket computed with `shardOf`; 20× read amplification, a shard changes when any member does |
+| Pattern + trip-times | 12,235 + 2 shared | 6.5 MB | 0.5 KB + 154 KB shared tables | 19.9 KB + 154 KB | Smallest in total, but every board needs the day's pattern (54 KB) and time-profile (100 KB) tables: another cache tier and a cross-file consistency rule |
 
-**Recommendation:** keep per-stop blobs on R2 (ADR-0002) for ferry, train and tram, and for bus reads from R2. Use
-the shards only where the file count binds (the assets fallback). Before Phase 6 (bus), fix the two bus-specific
-costs measured here: split the generation index per date (or read bus by shard), and adopt in-file downstream
-dedupe plus nameless downstream StopRefs to bring the busiest stop under 30 KB. Pattern + trip-times is the
-smallest, but the shared 156 KB tables per day per mode cost more on the edge (parse time against 10 ms CPU) than they
-save in storage, which is free at these sizes.
+**Decision (lead, PR #41).**
+- **Bus:** shards. A Worker decompresses and parses about 28 KB gz, roughly 200 KB of JSON, per bus lookup. That costs a few ms of CPU, which is cheaper than parsing a multi-megabyte index per isolate.
+- **Ferry, train and tram:** per-stop blobs. Their indexes are small and reads stay minimal.
+- **Pattern + trip-times:** not adopted. Its shared tables cost more parse time on the edge than they save in storage, and storage is free at these sizes.
 
 ## 6. Cost model
 

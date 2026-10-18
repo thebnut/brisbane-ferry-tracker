@@ -10,7 +10,7 @@ GTFS zip into content-addressed stop-day files for service days D−1..D+6 and p
 Run these from `pipeline/`. Node 22.18+ runs the TypeScript directly with `--experimental-transform-types`.
 
 ```sh
-pnpm build:data --gtfs /tmp/bft-gtfs/x --out out              # whole network, ~70 s, <1 GB RSS
+pnpm build:data --gtfs /tmp/bft-gtfs/x --out out              # whole network, ~50 s, <1 GB RSS
 pnpm build:data --date 20261020 --now 2026-10-19T17:15:00Z    # pinned date/instant (tests, reproductions)
 pnpm publish:data --from out --target dir --to /tmp/store     # or --target r2 | uploader | assets
 pnpm measure --gtfs /tmp/bft-gtfs/x --date 20261020           # Phase 0 numbers (§5)
@@ -42,7 +42,7 @@ To promote a quarantined build, use `--accept <generation>`, or the workflow inp
 - The publisher never HEADs objects one at a time. It skips every content file that the bucket's own
   `manifest.json` / `manifest.staging.json` already reference, PUTs the rest, then uploads the generation indexes,
   then client data, and `manifest.json` last.
-- A next-day run on an unchanged feed is about 13k Class A operations. A full feed change is about 100k.
+- A next-day run on an unchanged feed is about 1.1k Class A operations. A full feed change is about 6.3k.
 
 ## Layout
 
@@ -83,5 +83,5 @@ Plausible changes are quarantined:
 
 ## Not done yet
 
-- **Weekly GC of unreferenced blobs.** Storage grows about 75 MB a day on an unchanged feed. GC deletes objects, so
+- **Weekly GC of unreferenced blobs.** Storage grows about 25 MB a day on an unchanged feed, plus about 135 MB per feed change. GC deletes objects, so
   it needs Brett's go-ahead.

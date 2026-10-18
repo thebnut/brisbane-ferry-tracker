@@ -4,7 +4,7 @@ name: Transit static timetable
 # GTFS feed, builds stop-day blobs for D-1..D+6, uploads the output as a workflow artifact, and publishes to R2
 # (bucket bft-transit-data) when the CLOUDFLARE_API_TOKEN secret exists. S3 credentials are derived from that token
 # (key id = token id, secret = sha256(token)), so the token needs R2 write permission. Publishing uploads only blobs
-# the bucket's own manifest doesn't already reference (no per-object HEADs), which keeps a daily run around 13k
+# the bucket's own manifest doesn't already reference (no per-object HEADs), which keeps a daily run around 1.1k
 # Class A operations, inside the R2 free tier. It never commits to git and never touches GitHub Pages; the legacy daily
 # job (update-schedule.yml) is separate and unchanged.
 #
