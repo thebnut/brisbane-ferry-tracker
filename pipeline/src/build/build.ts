@@ -11,7 +11,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { GenerationIndex, Manifest, Mode } from '@bft/core'
-import { addDays, brisbaneDate, SCHEMA_VERSION } from '@bft/core'
+import { addDays, brisbaneDate, SCHEMA_VERSION, shardOf } from '@bft/core'
 import { readCsvObjects } from '../feed/csv.ts'
 import { type Feed, loadFeed, type TripRow } from '../feed/load.ts'
 import { feedContentHash } from '../feed/source.ts'
@@ -87,14 +87,6 @@ export async function feedVersionOf(feed: Feed): Promise<string> {
   return `${feed.feedInfo?.startDate ?? 'x'}-${feed.feedInfo?.endDate ?? 'x'}-${h.slice(0, 8)}`
 }
 
-const fnv1a = (s: string): number => {
-  let h = 0x811c9dc5
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 0x01000193)
-  }
-  return h >>> 0
-}
 
 export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   const log = opts.log ?? (() => {})
@@ -126,7 +118,7 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   const built: Array<{ mode: Mode; index: GenerationIndex; tripsByDate: Map<string, number[]>; windowTrips: Set<number> }> = []
   for (const mode of modes) {
     const blobs: GenerationIndex['blobs'] = {}
-    const shards: NonNullable<GenerationIndex['shards']> = {}
+    const shardsByDate: Record<string, Array<string | null>> = {}
     const stats: NonNullable<GenerationIndex['stats']> = {}
     const tripsByDate = new Map<string, number[]>()
     const windowTrips = new Set<number>()
@@ -137,10 +129,10 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
       for (const t of day.trips) windowTrips.add(t)
       stats[date] = { trips: day.trips.length, events: day.events, stops: day.keys.length }
       const dayBlobs: Record<string, string> = {}
-      const dayShards: Record<string, string> = {}
+      const dayShards: Array<string | null> = sharded ? new Array(shardCount).fill(null) : []
       // Sharded modes visit stops grouped by shard bucket, so each shard is assembled and flushed in turn.
       const order = sharded
-        ? [...day.keys].sort((a, b) => fnv1a(a) % shardCount - (fnv1a(b) % shardCount) || (a < b ? -1 : a > b ? 1 : 0))
+        ? [...day.keys].sort((a, b) => shardOf(a, shardCount) - shardOf(b, shardCount) || (a < b ? -1 : a > b ? 1 : 0))
         : day.keys
       let shardParts: string[] = []
       let shardMembers: string[] = []
@@ -148,7 +140,7 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
       const flushShard = async () => {
         if (!shardMembers.length) return
         const info = await writer.put('shard', `{${shardParts.join(',')}}`)
-        for (const k of shardMembers) dayShards[k] = info.sha
+        dayShards[shardBucket] = info.sha
         shardParts = []
         shardMembers = []
       }
@@ -158,7 +150,7 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
         dayBlobs[key] = info.sha
         opts.onStopDay?.({ mode, date, key, json, gzBytes: info.gzBytes, isNew: info.isNew })
         if (sharded) {
-          const b = fnv1a(key) % shardCount
+          const b = shardOf(key, shardCount)
           if (b !== shardBucket) {
             await flushShard()
             shardBucket = b
@@ -169,10 +161,10 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
       }
       await flushShard()
       blobs[date] = sortRecord(dayBlobs)
-      if (sharded) shards[date] = sortRecord(dayShards)
+      if (sharded) shardsByDate[date] = dayShards
     }
     const buildHash = sha256Hex(
-      JSON.stringify({ FORMAT_VERSION, SCHEMA_VERSION, feedVersion, mode, dates, blobs, shards: sharded ? shards : null }),
+      JSON.stringify({ FORMAT_VERSION, SCHEMA_VERSION, feedVersion, mode, dates, blobs, shards: sharded ? shardsByDate : null }),
     ).slice(0, 12)
     const generation = `${feedVersion}-${buildHash}`
     const index: GenerationIndex = {
@@ -186,7 +178,7 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
       tripIndex: {},
       stats,
     }
-    if (sharded) index.shards = shards
+    if (sharded) index.shards = { count: shardCount, hash: 'fnv1a32', byDate: shardsByDate }
     for (const date of dates) {
       const day = { mode, serviceDate: date, trips: tripsByDate.get(date) as number[], buckets: new Map(), keys: [], events: 0 }
       const info = await writer.put('blob', JSON.stringify(tripIndexFile(feed, day, generation)))

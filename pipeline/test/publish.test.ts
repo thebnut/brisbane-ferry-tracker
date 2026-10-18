@@ -51,8 +51,9 @@ describe('assets target', () => {
     for (const date of idx.serviceDates) {
       for (const sha of Object.values(idx.blobs[date] ?? {}))
         expect(existsSync(join(to, blobKey(sha)))).toBe(false)
-      for (const sha of Object.values(idx.shards?.[date] ?? {}))
-        expect(existsSync(join(to, shardKey(sha)))).toBe(true)
+      const shards = (idx.shards?.byDate[date] ?? []).filter((s): s is string => s !== null)
+      expect(shards.length).toBeGreaterThan(0)
+      for (const sha of shards) expect(existsSync(join(to, shardKey(sha)))).toBe(true)
       expect(existsSync(join(to, blobKey(idx.tripIndex?.[date] as string)))).toBe(true)
     }
     const ferry = res.modes.find((m) => m.mode === 'ferry')?.index as GenerationIndex

@@ -1,6 +1,6 @@
 /** Contract additions for the static pipeline: GenerationIndex shards and stats, StaticShard, client data files. */
 import { describe, expect, it } from 'vitest'
-import { GenerationIndex, GeoTileFile, LinesFile, StaticShard, StopIndexFile } from '../src/index.ts'
+import { GenerationIndex, GeoTileFile, LinesFile, StaticShard, StopIndexFile, shardOf } from '../src/index.ts'
 import { stopDay } from './helpers.ts'
 
 const sha = (c: string) => c.repeat(64)
@@ -23,20 +23,41 @@ describe('GenerationIndex', () => {
     const idx = GenerationIndex.parse({
       ...baseIndex,
       tripIndex: { '20261020': sha('c') },
-      shards: { '20261020': { '10802': sha('b') } },
+      shards: { count: 2, hash: 'fnv1a32', byDate: { '20261020': [sha('b'), null] } },
       stats: { '20261020': { trips: 20072, events: 529557, stops: 12235 } },
     })
-    expect(idx.shards?.['20261020']?.['10802']).toBe(sha('b'))
+    expect(idx.shards?.byDate['20261020']?.[shardOf('10802', 2)] ?? null).toBe(
+      shardOf('10802', 2) === 0 ? sha('b') : null,
+    )
   })
   it('rejects a shard hash that is not sha256 hex', () => {
     expect(() =>
-      GenerationIndex.parse({ ...baseIndex, shards: { '20261020': { '10802': 'nope' } } }),
+      GenerationIndex.parse({
+        ...baseIndex,
+        shards: { count: 1, hash: 'fnv1a32', byDate: { '20261020': ['nope'] } },
+      }),
     ).toThrow()
   })
   it('rejects a bad service date key in shards', () => {
     expect(() =>
-      GenerationIndex.parse({ ...baseIndex, shards: { '2026-10-20': { '10802': sha('b') } } }),
+      GenerationIndex.parse({
+        ...baseIndex,
+        shards: { count: 1, hash: 'fnv1a32', byDate: { '2026-10-20': [sha('b')] } },
+      }),
     ).toThrow()
+  })
+})
+
+describe('shardOf', () => {
+  it('is FNV-1a 32 modulo count, stable and in range', () => {
+    // FNV-1a("a") = 0xe40c292c
+    expect(shardOf('a', 2 ** 32 - 1)).toBe(0xe40c292c)
+    for (const k of ['10802', '317584', 'central']) {
+      const b = shardOf(k, 512)
+      expect(b).toBeGreaterThanOrEqual(0)
+      expect(b).toBeLessThan(512)
+      expect(shardOf(k, 512)).toBe(b)
+    }
   })
 })
 

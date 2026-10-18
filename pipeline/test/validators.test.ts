@@ -235,3 +235,21 @@ describe('quarantineReasons', () => {
     ).toEqual(["train 20261026: b has no service and calendar_dates doesn't explain it"])
   })
 })
+
+describe('gtfs-validator report gate', () => {
+  it('fails only on ERROR notices', async () => {
+    const { summarise } = await import('../src/validate/gtfs-validator.ts')
+    const ok = summarise({
+      notices: [
+        { code: 'duplicate_route_name', severity: 'WARNING', totalNotices: 636 },
+        { code: 'big_gap_in_service', severity: 'INFO', totalNotices: 3 },
+      ],
+    })
+    expect(ok.errors).toEqual([])
+    expect(ok.lines[0]).toBe('ERROR: none')
+    const bad = summarise({
+      notices: [{ code: 'foreign_key_violation', severity: 'ERROR', totalNotices: 2 }],
+    })
+    expect(bad.errors).toEqual(['foreign_key_violation (2)'])
+  })
+})

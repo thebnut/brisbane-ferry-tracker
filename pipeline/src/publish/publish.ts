@@ -65,9 +65,10 @@ export async function publish(fromDir: string, target: PublishTarget, log: (m: s
     const keys = new Set<string>()
     const useShards = shardsOnly && index.shards
     for (const date of index.serviceDates) {
-      if (useShards) for (const sha of Object.values(index.shards?.[date] ?? {})) keys.add(shardKey(sha))
-      else for (const sha of Object.values(index.blobs[date] ?? {})) keys.add(blobKey(sha))
-      if (!shardsOnly) for (const sha of Object.values(index.shards?.[date] ?? {})) keys.add(shardKey(sha))
+      const shards = (index.shards?.byDate[date] ?? []).filter((s): s is string => s !== null)
+      // The assets backend carries shards instead of per-stop blobs for sharded modes; R2 and dirs carry both.
+      if (!useShards) for (const sha of Object.values(index.blobs[date] ?? {})) keys.add(blobKey(sha))
+      for (const sha of shards) keys.add(shardKey(sha))
       const ti = index.tripIndex?.[date]
       if (ti) keys.add(blobKey(ti))
     }

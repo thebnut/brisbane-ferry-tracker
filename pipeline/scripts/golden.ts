@@ -57,7 +57,10 @@ export const GOLDEN: Array<{ name: string; mode: Mode; key: string; date: string
   },
 ]
 
-const { values } = parseArgs({ options: { gtfs: { type: 'string', default: '/tmp/bft-gtfs/x' } } })
+const { values } = parseArgs({
+  args: process.argv.slice(2).filter((a) => a !== '--'),
+  options: { gtfs: { type: 'string', default: '/tmp/bft-gtfs/x' } },
+})
 const out = resolve(import.meta.dirname, '../../packages/core/fixtures/golden')
 const work = await mkdtemp(join(tmpdir(), 'bft-golden-'))
 try {

@@ -10,6 +10,7 @@ import type {
   StopIndexFile,
   TripIndexDay,
 } from '@bft/core'
+import { shardOf } from '@bft/core'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { blobKey, shardKey } from '../src/build/blobs.ts'
 import { type BuildResult, runBuild, windowDates } from '../src/build/build.ts'
@@ -181,11 +182,16 @@ describe('trip index, shards and stats', () => {
 
   it('bus shards hold the same stop-day files as the per-stop blobs', async () => {
     const idx = index('bus')
-    for (const [key, sha] of Object.entries(idx.shards?.[D] ?? {})) {
+    const shards = idx.shards as NonNullable<GenerationIndex['shards']>
+    expect(shards).toMatchObject({ count: 512, hash: 'fnv1a32' })
+    expect(shards.byDate[D]).toHaveLength(512)
+    const keys = Object.keys(idx.blobs[D] ?? {})
+    for (const key of keys) {
+      const sha = shards.byDate[D]?.[shardOf(key, shards.count)] as string
       const shard = await readGz(out, shardKey(sha))
       expect(shard[key]).toEqual(await readGz(out, blobKey(idx.blobs[D]?.[key] as string)))
     }
-    expect(Object.keys(idx.shards?.[D] ?? {}).sort()).toEqual(Object.keys(idx.blobs[D] ?? {}).sort())
+    expect(shards.byDate[D]?.filter(Boolean)).toHaveLength(new Set(keys.map((k) => shardOf(k, 512))).size)
     expect(index('ferry').shards).toBeUndefined()
   })
 

@@ -129,7 +129,7 @@ async function publishCmd(args: string[]): Promise<number> {
   return EXIT.ok
 }
 
-main(process.argv.slice(2)).then(
+main(process.argv.slice(2).filter((a) => a !== '--')).then(
   (code) => process.exit(code),
   (e) => {
     console.error(e instanceof Error ? (e.stack ?? e.message) : e)

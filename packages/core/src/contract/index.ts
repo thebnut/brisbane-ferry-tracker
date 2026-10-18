@@ -123,12 +123,18 @@ export const GenerationIndex = z.object({
   /** Per service date TripIndexDay for the RT hub and trip detail, also at static/blobs/{sha}.json.gz. */
   tripIndex: z.record(ServiceDate, Sha256).optional(),
   /**
-   * shards[serviceDate][stopKey] = sha256 of a StaticShard at static/shards/{sha}.json.gz that contains this stop's
-   * StaticStopDay. Written for bus, so the static-assets data Worker stays under the Workers Free limit of 20k files
-   * per version (per-stop bus blobs would be ~100k files for 8 days). Readers may use either; the assets backend
-   * only carries the shards for bus.
+   * Bus stop-days grouped into shards, so the static-assets data Worker stays under the Workers Free limit of 20k
+   * files per version (per-stop bus blobs are ~100k files for 8 days). The shard for a stop is
+   * `byDate[serviceDate][shardOf(stopKey, count)]`, a StaticShard at static/shards/{sha}.json.gz (null = no stops in
+   * that bucket). Readers may use shards or blobs; the assets backend only carries the shards for bus.
    */
-  shards: z.record(ServiceDate, z.record(z.string(), Sha256)).optional(),
+  shards: z
+    .object({
+      count: z.number().int().positive(),
+      hash: z.literal('fnv1a32'),
+      byDate: z.record(ServiceDate, z.array(Sha256.nullable())),
+    })
+    .optional(),
   /** Per service date counts, compared with the previous generation by the quarantine validator. */
   stats: z
     .record(
