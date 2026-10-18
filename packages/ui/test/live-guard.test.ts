@@ -146,14 +146,25 @@ describe('bestOfflineCopy (R2-B6)', () => {
     const sw = copy(NOW - 94 * 60_000, [-5000, -4000, -3000, -2000])
     expect(bestOfflineCopy([shown, sw], NOW)).toBe(shown)
   })
-  it('prefers the copy with more departures to come, then the newest', () => {
+  it('never goes back to an older body; a longer older copy only extends it (R6-B1)', () => {
     const short = copy(NOW - 60_000, [120])
     const saved = copy(NOW - 3 * 3600_000, [120, 600, 1200, 1800])
-    expect(bestOfflineCopy([short, saved], NOW)).toBe(saved)
+    const merged = bestOfflineCopy([short, saved], NOW)
+    expect(merged?.generatedAt).toBe(short.generatedAt)
+    expect(merged?.departures.map((d) => d.schedDep - nowS)).toEqual([120, 600, 1200, 1800])
+    // Codex review: an hour-old answer with more rows must not replace a newer one-row board.
+    const board = copy(NOW - 30_000, [300])
+    const old = copy(NOW - 3600_000, [120, 300])
+    expect(bestOfflineCopy([old, board], NOW)).toBe(board)
     const older = copy(NOW - 120_000, [120, 600])
     const newer = copy(NOW - 60_000, [120, 600])
     expect(bestOfflineCopy([older, newer], NOW)).toBe(newer)
     expect(bestOfflineCopy([newer, older], NOW)).toBe(newer)
+  })
+  it('falls back to an older copy only when the newer ones have nothing left to come', () => {
+    const gone = copy(NOW - 60_000, [-120])
+    const saved = copy(NOW - 3 * 3600_000, [120, 600])
+    expect(bestOfflineCopy([gone, saved], NOW)).toBe(saved)
   })
   it('returns an empty copy rather than nothing, and null with no copies', () => {
     const gone = copy(NOW - 60_000, [-60])

@@ -389,27 +389,32 @@ export function tripAsTimetable<
 }
 
 /**
- * Offline, the copy of a board worth showing. Of the copies on hand (the data already on screen, the service
- * worker's cached response, a timetable saved on the device), the one with the most departures still to come by
- * timetable time; a tie goes to the newest. A service-worker copy can be hours old (its last network answer), so it
- * must never replace a fresher board that still has rows (R2-B6). Null when there is no copy at all.
+ * Offline, the copy of a board worth showing, from the copies on hand (the data already on screen, the service
+ * worker's cached response, a timetable saved on the device). The base is the newest copy that still has departures
+ * to come by timetable time, so a board never goes back to an older body (R6-B1) and an hours-old service-worker copy
+ * never replaces a fresher board that still has rows (R2-B6); its `generatedAt` is the "Updated" time. An older,
+ * longer copy (a saved timetable) only extends it: its rows after the base's last one are appended, so the rows stay
+ * as long as the device has timetable for. With no rows to come anywhere, the newest copy; null with no copy at all.
  */
 export function bestOfflineCopy<
   D extends { schedDep: number },
   T extends { generatedAt: number; departures: D[] },
 >(copies: ReadonlyArray<T | null | undefined>, nowMs: number): T | null {
   const cutoff = nowMs / 1000
-  let best: T | null = null
-  let bestCount = -1
-  for (const c of copies) {
-    if (!c || !Array.isArray(c.departures)) continue
-    const count = c.departures.filter((d) => d.schedDep >= cutoff).length
-    if (count > bestCount || (count === bestCount && best != null && c.generatedAt > best.generatedAt)) {
-      best = c
-      bestCount = count
-    }
+  const usable = copies
+    .filter((c): c is T => !!c && Array.isArray(c.departures))
+    .sort((x, y) => y.generatedAt - x.generatedAt)
+  const toCome = (c: T) => c.departures.filter((d) => d.schedDep >= cutoff)
+  const base = usable.find((c) => toCome(c).length > 0)
+  if (!base) return usable[0] ?? null
+  const horizon = Math.max(...toCome(base).map((d) => d.schedDep))
+  let extension: D[] = []
+  for (const c of usable) {
+    if (c === base) continue
+    const later = c.departures.filter((d) => d.schedDep > horizon)
+    if (later.length > extension.length) extension = later
   }
-  return best
+  return extension.length ? { ...base, departures: [...base.departures, ...extension] } : base
 }
 
 /** Rows that left more than a minute ago are dropped while live. */

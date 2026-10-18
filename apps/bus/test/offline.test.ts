@@ -3,7 +3,7 @@ import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import { reportOffline, reportOnline } from '@bft/ui/connectivity'
 import { QueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { asOfflineTimetable, departuresOptions, liveView } from '../app/lib/queries.ts'
+import { asOfflineTimetable, departuresOptions, liveView, refreshOfflineCopy } from '../app/lib/queries.ts'
 import { writeOffline } from '../app/lib/storage.ts'
 
 const NOW = 1_792_300_000_000
@@ -207,5 +207,26 @@ describe('offline copies for viewed stops (R6-B1)', () => {
     writeOffline('empty', res([]))
     expect(hasTimetableCopy('empty')).toBe(false)
     toggleSaved({ id: 'saved1', name: 'Saved' })
+  })
+})
+
+describe('the kept timetable copy is only replaced by a network answer (Codex review)', () => {
+  afterEach(() => vi.useRealTimers())
+  it('a cached (old, empty) answer during an offline reload leaves the saved copy alone', async () => {
+    const { readOffline } = await import('../app/lib/storage.ts')
+    vi.useFakeTimers({ now: NOW - 4 * 3600_000, toFake: ['Date'] })
+    writeOffline('10802', { ...res([row(4 * 3600 + 300)]), generatedAt: NOW - 4 * 3600_000 })
+    vi.setSystemTime(NOW)
+    const cached = { ...res([]), generatedAt: NOW - 12 * 3600_000 }
+    // navigator.onLine still reads true, but the service worker answered from its cache.
+    await refreshOfflineCopy(
+      async () => new Response(JSON.stringify(cached), { headers: { 'x-bft-cache': 'sw' } }),
+      '10802',
+    )
+    expect(readOffline('10802')?.savedAt).toBe(NOW - 4 * 3600_000)
+    // A real network answer does replace it.
+    const fresh = { ...res([row(300)]), generatedAt: NOW }
+    await refreshOfflineCopy(async () => new Response(JSON.stringify(fresh)), '10802')
+    expect(readOffline('10802')?.savedAt).toBe(NOW)
   })
 })

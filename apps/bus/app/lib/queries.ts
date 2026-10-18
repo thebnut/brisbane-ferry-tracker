@@ -4,6 +4,7 @@ import {
   asOfflineCopy,
   bestOfflineCopy,
   dropDeparted,
+  isNetworkAnswer,
   isOnline,
   type LiveState,
   liveState,
@@ -70,7 +71,12 @@ export async function refreshOfflineCopy(fetcher: ApiFetcher, stopId: string) {
   const prev = readOffline(stopId)
   if (prev && Date.now() - prev.savedAt < OFFLINE_REFRESH_MS) return
   try {
-    writeOffline(stopId, await fetchDepartures(fetcher, stopId, { limit: OFFLINE_LIMIT }))
+    const res = await fetchDepartures(fetcher, stopId, { limit: OFFLINE_LIMIT })
+    // Only a network answer, never older than the copy kept: an offline reload can start with navigator.onLine true,
+    // and the service worker's old cached answer must not replace the timetable (Codex review).
+    const kept = prev?.body as { generatedAt?: number } | undefined
+    if (!isNetworkAnswer(res) || (kept?.generatedAt != null && res.generatedAt < kept.generatedAt)) return
+    writeOffline(stopId, res)
   } catch {
     // Best effort.
   }
