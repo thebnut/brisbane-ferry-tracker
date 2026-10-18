@@ -1,6 +1,8 @@
 /** A stop's departure list (B-Departures): polls /v1 every 15 s, banners, loading/empty/error states. */
 import type { Alert, Departure, DeparturesResponse } from '@bft/core/contract'
 import {
+  brisbaneDateKey,
+  dayMarker,
   ErrorState,
   formatClock,
   MoreButton,
@@ -61,6 +63,17 @@ function allTomorrow(rows: Departure[], nowMs: number): boolean {
   )
 }
 
+/**
+ * Why a board is empty, honestly (R2-B7): the response covers the service days in `serviceDates` (today, plus
+ * tomorrow when it is in the timetable), so say which days have no buses rather than "the next day of timetable".
+ */
+export function noneDue(serviceDates: string[], nowMs: number, filtered: boolean): string {
+  const what = filtered ? 'No buses on this route' : 'No buses'
+  const today = brisbaneDateKey(nowMs).replaceAll('-', '')
+  if (!serviceDates.some((d) => d > today)) return `${what} from this stop for the rest of today.`
+  return `${what} from this stop for the rest of today or tomorrow ${dayMarker(nowMs / 1000 + 86_400, nowMs)}.`
+}
+
 export function DepartureList({
   stopId,
   data,
@@ -114,15 +127,15 @@ export function DepartureList({
         <h2 className="text-xl font-extrabold">
           {routes?.size ? 'No buses on this route soon' : 'No buses due'}
         </h2>
-        <p className="text-sm text-sched-text">
-          There are no departures from this stop in the next day of timetable.
-        </p>
+        <p className="text-sm text-sched-text">{noneDue(data.serviceDates, nowMs, !!routes?.size)}</p>
       </div>
     )
   }
   const tonightDone = allTomorrow(data.departures, nowMs)
   const first = views[0]
-  const shown = initialCount && !expanded ? views.slice(0, initialCount) : views
+  // The "First bus tomorrow" card is the first row, so the list starts after it (R2-B9).
+  const rest = tonightDone && first ? views.slice(1) : views
+  const shown = initialCount && !expanded ? rest.slice(0, initialCount) : rest
   return (
     <>
       {tonightDone && first ? (
@@ -172,7 +185,7 @@ export function DepartureList({
           </li>
         ))}
       </ol>
-      {initialCount && views.length > initialCount ? (
+      {initialCount && rest.length > initialCount ? (
         <MoreButton onClick={() => setExpanded((e) => !e)} aria-expanded={expanded}>
           {expanded ? 'Fewer departures' : 'More departures'}
         </MoreButton>

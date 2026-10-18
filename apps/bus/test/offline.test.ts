@@ -102,7 +102,12 @@ describe('offline poll answered by an old service-worker copy (R2-B6)', () => {
   }
   const poll = (client: QueryClient) => {
     const opts = departuresOptions(swFetcher, mode, '10813', null)
-    return opts.queryFn({ signal: new AbortController().signal, client, queryKey: opts.queryKey, meta: undefined })
+    return opts.queryFn({
+      signal: new AbortController().signal,
+      client,
+      queryKey: opts.queryKey,
+      meta: undefined,
+    })
   }
 
   it('keeps the board on screen (as timetable times, with its own Updated time) for an unsaved stop', async () => {

@@ -48,7 +48,10 @@ const ageCachedCopy = (page: Page) =>
     let aged = 0
     for (const req of await cache.keys()) {
       if (!req.url.includes(`/v1/bus/stops/${stop}/departures`)) continue
-      const body = await (await cache.match(req))?.json()
+      const body:
+        | { generatedAt: number; departures: Array<{ schedDep: number; estDep: number | null }> }
+        | undefined = await (await cache.match(req))?.json()
+      if (!body) continue
       body.generatedAt -= 94 * 60_000
       for (const d of body.departures) {
         d.schedDep -= 3 * 3600
@@ -170,3 +173,55 @@ test('HTML rendered minutes ago shows no LIVE until a live call reaches the netw
   await refresh(page)
   await expect(page.locator('html')).not.toHaveAttribute('data-live-unconfirmed', '')
 })
+
+// Stop 2810 (Oxford St at Bulimba Ferry) has "Fortitude Valley, Wickham St"; these are the longest in the fixture.
+const LONG_HEADSIGNS = [
+  'Fortitude Valley, Wickham St',
+  'Carindale Heights, Cribb Rd E',
+  'Fairfield Rd - Yeerongpilly station',
+  'Coorparoo, Old Cleveland Rd',
+]
+
+for (const width of [360, 400]) {
+  test.describe(`phone width ${width} px (B2)`, () => {
+    test.use({ viewport: { width, height: 800 } })
+
+    test('long destinations wrap, never cut with an ellipsis', async ({ page, context }, testInfo) => {
+      await context.route(DEPARTURES, async (route) => {
+        const res = await route.fetch()
+        const body: { departures: Array<{ headsign: string }> } = await res.json()
+        body.departures.forEach((d, i) => {
+          d.headsign = LONG_HEADSIGNS[i % LONG_HEADSIGNS.length] as string
+        })
+        await route.fulfill({ response: res, json: body })
+      })
+      await page.goto(`/stop/${STOP}`)
+      await refresh(page)
+      await expect(page.getByTestId('destination').first()).toHaveText(LONG_HEADSIGNS[0] as string)
+      await page.screenshot({ path: testInfo.outputPath(`long-destinations-${width}.png`) })
+      const checks = await page.getByTestId('destination').evaluateAll((els) =>
+        els.map((el) => {
+          const style = getComputedStyle(el)
+          const ctx = document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D
+          ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+          const widest = Math.max(...(el.textContent ?? '').split(/\s+/).map((w) => ctx.measureText(w).width))
+          return {
+            text: el.textContent,
+            clipped: el.scrollHeight > el.clientHeight + 1,
+            lines: Math.round(el.clientHeight / Number.parseFloat(style.lineHeight)),
+            wordFits: widest <= el.clientWidth + 1,
+          }
+        }),
+      )
+      expect(checks.length).toBeGreaterThan(0)
+      for (const c of checks) {
+        expect(c.clipped, `${c.text} is cut`).toBe(false)
+        // Two lines; a narrow phone may take a third beside a wide countdown rather than cut the name.
+        expect(c.lines, `${c.text} lines`).toBeLessThanOrEqual(
+          width > 420 || c.text === LONG_HEADSIGNS[0] ? 2 : 3,
+        )
+        expect(c.wordFits, `${c.text}: a word is split`).toBe(true)
+      }
+    })
+  })
+}

@@ -69,7 +69,11 @@ export function rowViews(
   opts: { alerts?: Alert[]; routes?: ReadonlySet<string> | null } = {},
 ): RowView[] {
   const detours = detourRoutes(opts.alerts ?? [], Math.floor(nowMs / 1000))
-  const shown = opts.routes?.size ? rows.filter((d) => opts.routes?.has(d.route.short)) : rows
+  // In the order of the times shown (R2-B8): once live estimates are dropped (offline, stale) the API's order, by
+  // estimate, no longer matches the timetable times. Stable, so equal times keep the API's order.
+  const shown = (opts.routes?.size ? rows.filter((d) => opts.routes?.has(d.route.short)) : rows)
+    .slice()
+    .sort((a, b) => effective(a) - effective(b))
   let highlightedDone = false
   return shown.map((d) => {
     const { note, tone } = noteFor(d, rows, nowMs, detours)
