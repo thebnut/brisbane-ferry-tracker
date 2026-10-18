@@ -99,3 +99,10 @@ test('feedback: a blocked Turnstile script shows a clear error and posts nothing
   await expect(dialog.getByRole('alert')).toContainText("couldn't complete the bot check")
   expect(posted).toEqual([])
 })
+
+test('R7: /feedback opens the feedback sheet on the home page', async ({ page }) => {
+  await stubTurnstile(page)
+  await page.goto('/feedback')
+  await expect(page).toHaveURL(/\/\?feedback=1$/)
+  await expect(page.getByRole('dialog', { name: 'Share your feedback' })).toBeVisible()
+})

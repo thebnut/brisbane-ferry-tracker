@@ -4,6 +4,7 @@
  * keep their own app's header and lockup; only the bottom bar is shared.
  */
 
+import { FeedbackButton } from '@bft/ferry/app/components/Chrome.tsx'
 import { AppHeader, DemoExitLink, formatClock, LivePill, SettingsPill, StatusStrip } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
 import { lazy, type ReactNode, Suspense, useState } from 'react'
@@ -81,6 +82,9 @@ export function TransitFooter() {
           </span>
         </p>
         <p className="mt-2">Live times refresh every 15 seconds • All times in Brisbane time</p>
+        <p className="mt-3">
+          <FeedbackButton />
+        </p>
         <p className="mt-2 text-xs text-gray-600 dark:text-night-text/70">
           BrisbaneTransit is independent and not affiliated with Translink, Queensland Rail or Brisbane City
           Council.

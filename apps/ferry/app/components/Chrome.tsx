@@ -73,6 +73,10 @@ export function FeedbackButton() {
     if (wasOpen.current && !open) button.current?.focus()
     wasOpen.current = open
   }, [open])
+  // /feedback redirects to ?feedback=1, which opens the sheet.
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('feedback') === '1') setOpen(true)
+  }, [])
   return (
     <>
       <button
