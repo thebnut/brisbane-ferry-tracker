@@ -533,3 +533,50 @@ describe('/mcp (read-only)', () => {
     ).toBe(-32602)
   })
 })
+
+describe('/v1/health reports the AI status (was hardcoded off)', () => {
+  it('uses the aiStatus dependency when present', async () => {
+    const clock = new Clock(epoch(D, '07:55:00') * 1000)
+    const tree = buildTree()
+    const store = storeFor(tree, clock.now)
+    const snapshots = new SnapshotClient(
+      { pull: async () => null as never, getRaw: async () => null },
+      clock.now,
+      () => {},
+      null,
+    )
+    const app = createApp({
+      store,
+      snapshots,
+      now: clock.now,
+      log: silentLogger,
+      combinedFeeds: false,
+      polledModes: ['ferry'],
+      aiStatus: async () => ({ enabled: true, budgetUsedUsd: 0.0015 }),
+    })
+    const body = (await (await app.request('/v1/health')).json()) as { ai: unknown }
+    expect(body.ai).toEqual({ enabled: true, budgetUsedUsd: 0.0015 })
+  })
+})
+
+describe('aiHealthStatus (Codex review)', () => {
+  it('keeps enabled truthful when the ledger fails, and reports spend when it works', async () => {
+    const { aiHealthStatus } = await import('../src/ai/routes.ts')
+    const base = { AI_ENABLED: 'true', ANTHROPIC_API_KEY: 'k', AI_MONTHLY_BUDGET_USD: '10' }
+    const ns = (status: () => Promise<{ spentUsd: number }>) =>
+      ({ idFromName: () => 'g', get: () => ({ status }) }) as never
+    expect(await aiHealthStatus({ ...base, BUDGET: ns(async () => ({ spentUsd: 0.5 })) })).toEqual({
+      enabled: true,
+      budgetUsedUsd: 0.5,
+    })
+    expect(
+      await aiHealthStatus({
+        ...base,
+        BUDGET: ns(async () => {
+          throw new Error('do down')
+        }),
+      }),
+    ).toEqual({ enabled: true, budgetUsedUsd: null })
+    expect(await aiHealthStatus({})).toEqual({ enabled: false, budgetUsedUsd: null })
+  })
+})
