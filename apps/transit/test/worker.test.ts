@@ -169,3 +169,31 @@ describe('fixtures', () => {
     }
   })
 })
+
+describe('upstream timeouts (a hung bft-api binding must not hang the page)', () => {
+  it('withTimeout rejects a promise that never settles', async () => {
+    const { withTimeout } = await import('../workers/timeouts.ts')
+    await expect(withTimeout(new Promise(() => {}), 20)).rejects.toThrow(/upstream timeout after 20 ms/)
+    await expect(withTimeout(Promise.resolve(7), 20)).resolves.toBe(7)
+  })
+})
+
+describe('proxy deadline covers the body (Codex review)', () => {
+  it('a binding that sends headers then stalls the body still yields a 502', async () => {
+    const mod = await import('../workers/app.ts')
+    const { API_TIMEOUT_MS } = await import('../workers/timeouts.ts')
+    const stalled = new ReadableStream({ start() {} })
+    const env = {
+      API: { fetch: async () => new Response(stalled, { headers: { 'content-type': 'application/json' } }) },
+      API_BASE: 'https://x',
+    } as unknown as Env
+    const p = mod.proxyApi(new Request('https://t/v1/ferry/stops/1/departures'), env)
+    const res = await Promise.race([
+      p,
+      new Promise<Response>((r) =>
+        setTimeout(() => r(new Response('hung', { status: 599 })), API_TIMEOUT_MS + 2_000),
+      ),
+    ])
+    expect(res.status).toBe(502)
+  }, 20_000)
+})

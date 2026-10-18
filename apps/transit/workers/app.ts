@@ -18,6 +18,7 @@ import { validateProxied } from '../app/lib/contract.server.ts'
 import { fixtureAsk, handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import { apiFetch } from '../app/lib/server.server.ts'
 import { newNonce, withSecurityHeaders } from './security.ts'
+import { API_TIMEOUT_MS, ASK_TIMEOUT_MS, withTimeout } from './timeouts.ts'
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
@@ -29,10 +30,16 @@ const noStore = { 'cache-control': 'no-store' }
 export async function proxyApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
   try {
-    const res = await apiFetch(env, `${url.pathname}${url.search}`, {
-      headers: { accept: 'application/json' },
-    })
-    return await validateProxied(url.pathname, res)
+    // The deadline covers the body read and validation too, not just the response headers (Codex review).
+    return await withTimeout(
+      Promise.resolve(
+        apiFetch(env, `${url.pathname}${url.search}`, {
+          headers: { accept: 'application/json' },
+          signal: AbortSignal.timeout(API_TIMEOUT_MS),
+        }),
+      ).then((res) => validateProxied(url.pathname, res)),
+      API_TIMEOUT_MS,
+    )
   } catch (error) {
     return Response.json(
       { error: 'upstream_unavailable', detail: error instanceof Error ? error.message : String(error) },
@@ -91,8 +98,17 @@ export async function proxyAsk(request: Request, env: Env): Promise<Response> {
   const ip = request.headers.get('cf-connecting-ip')
   if (ip) headers['cf-connecting-ip'] = ip
   try {
-    const res = await apiFetch(env, '/v1/ask', { method: 'POST', headers, body })
-    const checked = await validateProxied('/v1/ask', res)
+    const checked = await withTimeout(
+      Promise.resolve(
+        apiFetch(env, '/v1/ask', {
+          method: 'POST',
+          headers,
+          body,
+          signal: AbortSignal.timeout(ASK_TIMEOUT_MS),
+        }),
+      ).then((res) => validateProxied('/v1/ask', res)),
+      ASK_TIMEOUT_MS,
+    )
     checked.headers.set('cache-control', 'no-store')
     return checked
   } catch (error) {
