@@ -3,17 +3,24 @@
  * neighbours are fetched from data/bus/geo/ and sorted by haversine distance, so stops just across a tile edge
  * still appear. The position never leaves the browser. `?lat=&lon=` sets a position (links, tests).
  */
-import { EmptyState, Icon, PrimaryButton, SkeletonRows, StopResultCard } from '@bft/ui'
-import { useEffect, useMemo, useState } from 'react'
+import { EmptyState, Icon, PrimaryButton, SkeletonRows, StopResultCard, useGeolocation } from '@bft/ui'
+import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { resultMeta } from '../components/SearchPanel.tsx'
 import { BusNav, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { linkRenderer } from '../components/StopBoard.tsx'
-import { formatDistance, geohashEncode, geohashNeighbourhood, nearest } from '../lib/geo.ts'
+import { at } from '../lib/base.ts'
+import {
+  formatDistance,
+  geohashEncode,
+  geohashNeighbourhood,
+  nearest,
+  positionFromParams,
+} from '../lib/geo.ts'
 import { useApi } from '../lib/mode.ts'
 import { useGeoTiles, useStopIndex } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
-import { stopPath } from '../lib/stops.ts'
+import { stopHref } from '../lib/stops.ts'
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/nearby'
 
@@ -24,49 +31,12 @@ export const meta: Route.MetaFunction = () =>
     url: `${SITE_URL}/nearby`,
   })
 
-type Geo =
-  | { state: 'idle' | 'locating' | 'denied' | 'unavailable' }
-  | { state: 'ok'; lat: number; lon: number; accuracy: number | null }
-
 export const NEARBY_LIMIT = 20
 export const NEARBY_MAX_M = 2000
 
-export function useGeolocation(params: URLSearchParams) {
-  const lat = Number(params.get('lat'))
-  const lon = Number(params.get('lon'))
-  const fixed = params.has('lat') && params.has('lon') && Number.isFinite(lat) && Number.isFinite(lon)
-  const [geo, setGeo] = useState<Geo>(fixed ? { state: 'ok', lat, lon, accuracy: null } : { state: 'idle' })
-  const locate = () => {
-    if (!('geolocation' in navigator)) return setGeo({ state: 'unavailable' })
-    setGeo({ state: 'locating' })
-    navigator.geolocation.getCurrentPosition(
-      (p) =>
-        setGeo({ state: 'ok', lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy }),
-      (e) => setGeo({ state: e.code === e.PERMISSION_DENIED ? 'denied' : 'unavailable' }),
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
-    )
-  }
-  // biome-ignore lint/correctness/useExhaustiveDependencies: once on mount.
-  useEffect(() => {
-    if (fixed) return
-    // Locate straight away only if permission was already granted; otherwise explain first.
-    navigator.permissions
-      ?.query({ name: 'geolocation' as PermissionName })
-      .then((p) => {
-        if (p.state === 'granted') locate()
-        else if (p.state === 'denied') setGeo({ state: 'denied' })
-      })
-      .catch(() => {})
-  }, [])
-  useEffect(() => {
-    if (fixed) setGeo({ state: 'ok', lat, lon, accuracy: null })
-  }, [fixed, lat, lon])
-  return { geo, locate }
-}
-
 export default function Nearby() {
   const [params] = useSearchParams()
-  const { geo, locate } = useGeolocation(params)
+  const { geo, locate } = useGeolocation(positionFromParams(params))
   const { mode, fetcher } = useApi()
   const now = useNow(Date.now(), 60_000)
   const cells = useMemo(
@@ -96,7 +66,7 @@ export default function Nearby() {
           <h1 className="text-xl font-extrabold">Stops near you</h1>
           {geo.state === 'ok' ? (
             <Link
-              to={`/map?lat=${geo.lat.toFixed(5)}&lon=${geo.lon.toFixed(5)}`}
+              to={`${at('/map')}?lat=${geo.lat.toFixed(5)}&lon=${geo.lon.toFixed(5)}`}
               className="flex h-9 items-center gap-1.5 rounded-full border border-ferry-orange/20 bg-white px-3 text-sm font-semibold text-aqua-text dark:bg-night-card dark:text-ferry-aqua-light"
             >
               <Icon name="map" size={16} />
@@ -122,7 +92,7 @@ export default function Nearby() {
         {geo.state === 'denied' ? (
           <EmptyState title="Location is turned off for this site">
             Allow location for this site in your browser settings, or{' '}
-            <Link to="/" className="font-semibold underline">
+            <Link to={at('/')} className="font-semibold underline">
               search by stop name or number
             </Link>
             .
@@ -134,7 +104,7 @@ export default function Nearby() {
               Try again
             </button>{' '}
             or{' '}
-            <Link to="/" className="font-semibold underline">
+            <Link to={at('/')} className="font-semibold underline">
               search for a stop
             </Link>
             .
@@ -147,7 +117,7 @@ export default function Nearby() {
             <EmptyState title="Couldn't load nearby stops">Check your connection and try again.</EmptyState>
           ) : stops.length === 0 ? (
             <EmptyState title="No bus stops within 2 km">
-              <Link to="/" className="font-semibold underline">
+              <Link to={at('/')} className="font-semibold underline">
                 Search for a stop
               </Link>{' '}
               instead.
@@ -165,7 +135,7 @@ export default function Nearby() {
                     routes={full?.routes ?? []}
                     distance={formatDistance(s.metres)}
                     best={i === 0}
-                    href={stopPath(s.key)}
+                    href={stopHref(s.key)}
                     renderLink={linkRenderer}
                   />
                 )

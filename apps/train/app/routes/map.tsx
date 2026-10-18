@@ -9,6 +9,7 @@ import type { MapMarker } from '@bft/ui/map'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { Shell } from '../components/Chrome.tsx'
+import { at } from '../lib/base.ts'
 import { lineLabel } from '../lib/lineNames.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { lineFor, STATIONS, type Station, stationByKey, stationKeyOfStop } from '../lib/network.ts'
@@ -79,7 +80,7 @@ function SelectedTrain({ v, mode }: { v: Vehicle; mode: Route.ComponentProps['lo
       </p>
       {v.tripKey ? (
         <Link
-          to={`/trip/${encodeURIComponent(v.tripKey)}`}
+          to={`${at('/trip')}/${encodeURIComponent(v.tripKey)}`}
           className="mt-2 inline-block text-sm font-bold text-ferry-orange-deep underline dark:text-ferry-sunset"
         >
           View stopping pattern

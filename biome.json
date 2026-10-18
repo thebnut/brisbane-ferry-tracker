@@ -10,6 +10,7 @@
       "!pipeline/.tmp",
       "!pipeline/out",
       "!**/build",
+      "!**/__golden__",
       "!**/node_modules",
       "!**/.wrangler",
       "!**/fixtures/**/*.json",

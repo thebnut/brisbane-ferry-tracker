@@ -24,7 +24,7 @@ export function useTripSocket(base: string | null, tripInstance: string, mode: D
   useEffect(() => {
     if (base == null || mode.rt || typeof WebSocket === 'undefined') return
     const origin = base || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`
-    const queryKey = ['trip', mode.fixtures, mode.rt, tripInstance]
+    const queryKey = ['train', 'trip', mode.fixtures, mode.rt, tripInstance]
     let ws: WebSocket | null = null
     let retry: ReturnType<typeof setTimeout> | undefined
     let silence: ReturnType<typeof setTimeout> | undefined

@@ -3,21 +3,17 @@
  * LIVE pills, bottom navigation (Home, Stations, Map, Alerts), footer with the TransLink attribution, and the
  * settings sheet (theme). Fixture mode is labelled so demo data is never mistaken for live times.
  */
-import { AppHeader, BottomNav, BottomSheet, LivePill, type NavItem, SettingsPill } from '@bft/ui'
+import { AppHeader, BottomSheet, LivePill, SettingsPill } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-train.svg?url'
 import { type ReactNode, useEffect, useState } from 'react'
-import { Link, useRouteLoaderData } from 'react-router'
+import { useRouteLoaderData } from 'react-router'
 import { ATTRIBUTION } from '../lib/seo.ts'
 import { FIXTURE_COOKIE, type Theme, writeTheme } from '../lib/storage.ts'
 import { useOnline } from '../lib/useNow.ts'
 import type { loader as rootLoader } from '../root.tsx'
+import { TrainNav } from './nav.tsx'
 
-export const NAV: NavItem[] = [
-  { key: 'home', label: 'Home', icon: 'home', href: '/' },
-  { key: 'stations', label: 'Stations', icon: 'search', href: '/stations' },
-  { key: 'map', label: 'Map', icon: 'map', href: '/map' },
-  { key: 'alerts', label: 'Alerts', icon: 'bell', href: '/alerts' },
-]
+export { NAV } from './nav.tsx'
 
 export const SECTION = {
   section: 'mx-auto max-w-6xl px-4 pt-4 pb-2 text-charcoal dark:text-night-text',
@@ -129,20 +125,7 @@ export function Shell({
       {strip}
       <main className="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">{children}</main>
       <Footer />
-      <BottomNav
-        items={NAV}
-        active={active}
-        renderLink={(item, className, inner) => (
-          <Link
-            to={item.href}
-            prefetch="intent"
-            className={className}
-            aria-current={item.key === active ? 'page' : undefined}
-          >
-            {inner}
-          </Link>
-        )}
-      />
+      <TrainNav active={active} />
       <SettingsSheet open={settings} onClose={() => setSettings(false)} />
     </>
   )

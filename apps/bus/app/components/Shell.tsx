@@ -2,12 +2,10 @@
 import type { RtState } from '@bft/core/contract'
 import {
   AppHeader,
-  BottomNav,
   BottomSheet,
   formatAge,
   formatClock,
   LivePill,
-  type NavItem,
   OfflineBanner,
   PillButton,
   SegmentedControl,
@@ -17,6 +15,7 @@ import {
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import { type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { at } from '../lib/base.ts'
 import { ATTRIBUTION } from '../lib/seo.ts'
 import { readTheme, type ThemePref, writeTheme } from '../lib/storage.ts'
 import { useOnline } from '../lib/useNow.ts'
@@ -67,7 +66,11 @@ function SettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }
           seconds while the page is open.
         </p>
         <p className="text-sm">
-          <Link to="/about" className="font-semibold text-ferry-orange-deep underline" onClick={onClose}>
+          <Link
+            to={at('/about')}
+            className="font-semibold text-ferry-orange-deep underline"
+            onClick={onClose}
+          >
             About BrisbaneBus and data sources
           </Link>
         </p>
@@ -158,59 +161,7 @@ export function DataBanner({
   ) : null
 }
 
-export const NAV: NavItem[] = [
-  { key: 'home', label: 'My stops', icon: 'star', href: '/' },
-  { key: 'nearby', label: 'Nearby', icon: 'nearby', href: '/nearby' },
-  { key: 'map', label: 'Map', icon: 'map', href: '/map' },
-  { key: 'alerts', label: 'Alerts', icon: 'alert', href: '/alerts' },
-]
-
-/** One-handed bottom navigation (phones); desktop uses the header and status strip. */
-export function BusNav({ active, alertCount }: { active: string; alertCount?: number }) {
-  const items = NAV.map((i) =>
-    i.key === 'alerts' && alertCount ? { ...i, label: `Alerts (${alertCount})` } : i,
-  )
-  return (
-    <div className="md:hidden">
-      <BottomNav
-        items={items}
-        active={active}
-        renderLink={(item, className, children) => (
-          <Link
-            to={item.href}
-            className={className}
-            aria-current={item.key === active ? 'page' : undefined}
-            prefetch="intent"
-          >
-            {children}
-          </Link>
-        )}
-      />
-    </div>
-  )
-}
-
-/** Desktop navigation links in the status strip. */
-export function DesktopNav({ active }: { active: string }) {
-  return (
-    <nav aria-label="Sections" className="hidden items-center gap-1.5 md:flex">
-      {NAV.map((i) => (
-        <Link
-          key={i.key}
-          to={i.href}
-          aria-current={i.key === active ? 'page' : undefined}
-          className={
-            i.key === active
-              ? 'flex h-9 items-center rounded-full bg-ferry-orange-aa px-3 text-sm font-bold text-white'
-              : 'flex h-9 items-center rounded-full border border-ferry-orange/20 bg-white px-3 text-sm font-semibold text-aqua-text hover:border-ferry-orange/50 dark:bg-night-card dark:text-ferry-aqua-light'
-          }
-        >
-          {i.label}
-        </Link>
-      ))}
-    </nav>
-  )
-}
+export { BusNav, DesktopNav, NAV } from './nav.tsx'
 
 export function Footer() {
   return (
@@ -227,7 +178,7 @@ export function Footer() {
         </p>
         <p className="mt-2">Live times refresh every 15 seconds • All times in Brisbane time</p>
         <p className="mt-3 text-xs">
-          <Link to="/about" className="underline hover:text-ferry-orange-deep">
+          <Link to={at('/about')} className="underline hover:text-ferry-orange-deep">
             About and data sources
           </Link>
         </p>

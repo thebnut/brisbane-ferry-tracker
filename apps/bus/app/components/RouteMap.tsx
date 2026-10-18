@@ -4,7 +4,7 @@ import MapView, { type MapMarker, type MapStop } from '@bft/ui/map'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import type { RouteFile } from '../lib/data-contract.ts'
-import { stopPath } from '../lib/stops.ts'
+import { stopHref } from '../lib/stops.ts'
 
 export default function RouteMap({
   pattern,
@@ -56,7 +56,7 @@ export default function RouteMap({
     <MapView
       markers={markers}
       stops={stops}
-      onStopClick={(id) => navigate(stopPath(id))}
+      onStopClick={(id) => navigate(stopHref(id))}
       line={line}
       lineColor={dark ? color : variant === 'premium' ? 'C2410C' : '1E7C80'}
       label={`Map of route stops towards ${pattern.headsign} with ${markers.length} live buses`}

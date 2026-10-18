@@ -14,7 +14,8 @@ setWorkerUrl(workerUrl)
 export const BASEMAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/positron'
 
 export type PinShape = 'circle' | 'square' | 'diamond'
-export type MarkerTone = 'express' | 'allstops' | 'stop' | 'selected'
+/** Vehicles (express, allstops), stops, a selection, the three modes (Around you) and your position. */
+export type MarkerTone = 'express' | 'allstops' | 'stop' | 'selected' | 'ferry' | 'train' | 'bus' | 'you'
 
 export interface MapMarker {
   id: string
@@ -75,6 +76,10 @@ const TONE_COLOUR: Record<MarkerTone, string> = {
   allstops: '#00A8CC',
   stop: '#FFFFFF',
   selected: '#FF6B35',
+  ferry: '#00A8CC',
+  train: '#1E7C80',
+  bus: '#E55A2B',
+  you: '#0066CC',
 }
 
 export function markerElement(m: MapMarker): HTMLElement {
@@ -86,17 +91,32 @@ export function markerElement(m: MapMarker): HTMLElement {
   el.setAttribute('aria-label', m.label)
   el.title = m.label
   if (m.onClick) (el as HTMLButtonElement).type = 'button'
+  const face = {
+    background: colour,
+    border: m.tone === 'stop' ? '3px solid #1E7C80' : '2px solid #FFFFFF',
+    borderRadius: shape === 'circle' ? '999px' : '3px',
+    boxShadow: '0 1px 4px rgba(0,0,0,.35)',
+  }
   Object.assign(el.style, {
     width: `${size}px`,
     height: `${size}px`,
     padding: '0',
-    background: colour,
-    border: m.tone === 'stop' ? '3px solid #1E7C80' : '2px solid #FFFFFF',
-    borderRadius: shape === 'circle' ? '999px' : '3px',
-    transform: shape === 'diamond' ? 'rotate(45deg)' : '',
-    boxShadow: '0 1px 4px rgba(0,0,0,.35)',
     cursor: m.onClick ? 'pointer' : 'default',
+    // MapLibre positions markers with the element's own transform, so a diamond rotates an inner face instead.
+    ...(shape === 'diamond' ? { background: 'transparent', border: '0' } : face),
   })
+  if (shape === 'diamond') {
+    const inner = document.createElement('span')
+    Object.assign(inner.style, {
+      position: 'absolute',
+      inset: '1px',
+      boxSizing: 'border-box',
+      transform: 'rotate(45deg)',
+      ...face,
+    })
+    el.style.position = 'relative'
+    el.appendChild(inner)
+  }
   if (m.pulse) {
     const ring = document.createElement('span')
     Object.assign(ring.style, {

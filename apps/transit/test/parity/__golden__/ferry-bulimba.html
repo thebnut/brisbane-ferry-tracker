@@ -1,0 +1,897 @@
+<header class="bg-header sticky top-0 z-40 border-b-2 border-ferry-orange/50 shadow-header pt-[env(safe-area-inset-top)]">
+<div class="mx-auto flex max-w-6xl items-center justify-between gap-2 px-2 py-1 md:px-4">
+<a href="/" class="flex shrink-0 items-center gap-1 rounded-lg" aria-label="BrisbaneFerry Departure Boards, home">
+<img sizes="(min-width: 768px) 276px, 158px" alt="BrisbaneFerry Departure Boards" width="489" height="199" fetchpriority="high" class="h-16 w-auto max-w-[180px] md:h-28 md:max-w-none" srcset="/@fs/packages/ui/assets/ferry-lockup-236.webp 236w, /@fs/packages/ui/assets/ferry-lockup-360.webp 360w, /@fs/packages/ui/assets/ferry-lockup.webp 489w" src="/@fs/packages/ui/assets/ferry-lockup-360.webp">
+</a>
+<div class="flex items-center gap-2">
+<button type="button" aria-label="Settings" class="group flex h-11 items-center gap-2 rounded-full border border-ferry-orange/20 bg-white/90 text-sm font-semibold text-aqua-text shadow-md transition hover:border-ferry-orange/40 hover:shadow-lg dark:bg-night-card dark:text-ferry-aqua-light pr-3 pl-4">
+<span>Settings</span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="transition-transform group-hover:rotate-45">
+<path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z">
+</path>
+</svg>
+</button>
+<span class="rounded-full bg-ferry-orange-aa px-3 py-1.5 text-xs font-bold text-white shadow-live motion-safe:animate-glow">LIVE</span>
+</div>
+</div>
+</header>
+<div class="bg-strip border-b border-ferry-orange/20">
+<div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-3 py-2 md:px-4">
+<p class="flex items-center gap-1.5 text-sm text-charcoal tabular dark:text-night-text" aria-live="polite">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="text-ferry-orange">
+<path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2">
+</path>
+</svg>
+<span>Last updated 8:30 am</span>
+<span class="text-xs text-sched-text dark:text-night-text/70">· updated 12 s ago</span>
+</p>
+<div class="flex flex-wrap items-center gap-1.5">
+<fieldset class="flex gap-1.5">
+<legend class="sr-only">Services</legend>
+<button type="button" aria-pressed="true" class="h-9 shrink-0 rounded-full px-3 text-xs whitespace-nowrap md:text-sm bg-ferry-orange-aa font-bold text-white">All</button>
+<button type="button" aria-pressed="false" class="h-9 shrink-0 rounded-full px-3 text-xs whitespace-nowrap md:text-sm border border-ferry-orange/30 bg-white font-semibold text-ferry-orange-deep dark:bg-night-card dark:text-ferry-sunset">Express</button>
+</fieldset>
+<button type="button" aria-pressed="false" class="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition disabled:opacity-60 md:text-sm border border-ferry-orange/20 bg-white text-aqua-text hover:border-ferry-orange/50 dark:bg-night-card dark:text-ferry-aqua-light">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M9 20l-5.4-2.7A1 1 0 0 1 3 16.4V5.6a1 1 0 0 1 1.4-.9L9 7m0 13l6-3m-6 3V7m6 10l4.6 2.3a1 1 0 0 0 1.4-.9V7.6a1 1 0 0 0-.6-.9L15 4m0 13V4m0 0L9 7">
+</path>
+</svg>Map</button>
+<button type="button" aria-label="Refresh" class="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition disabled:opacity-60 md:text-sm border border-ferry-orange/20 bg-white text-aqua-text hover:border-ferry-orange/50 dark:bg-night-card dark:text-ferry-aqua-light">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M4 4v5h.6m15.4 2A8 8 0 0 0 4.6 9m0 0H9m11 11v-5h-.6m0 0a8 8 0 0 1-15.4-2m15.4 2H15">
+</path>
+</svg>
+<span class="sr-only md:not-sr-only">Refresh</span>
+</button>
+</div>
+</div>
+</div>
+<main class="mx-auto max-w-6xl px-3 py-5 md:px-4 md:py-8">
+<div class="mb-4 flex-col gap-2 md:flex md:min-h-12 md:flex-row md:items-center md:justify-between hidden">
+<span class="hidden md:block">
+</span>
+<div class="hidden md:block">
+<label class="flex items-center gap-2 text-xs font-medium text-aqua-text md:text-sm">
+<span>Depart from:</span>
+<select class="h-9 rounded-button border-2 border-ferry-orange/30 bg-white px-2 font-semibold text-aqua-text hover:border-ferry-orange">
+<option value="">Now</option>
+<option value="1792454400">10AM</option>
+<option value="1792461600">12PM</option>
+<option value="1792468800">2PM</option>
+<option value="1792476000">4PM</option>
+<option value="1792483200">6PM</option>
+<option value="1792490400">8PM</option>
+<option value="1792497600">10PM</option>
+<option disabled="" value="sep">Tomorrow</option>
+<option value="1792522800">5AM</option>
+<option value="1792530000">7AM</option>
+</select>
+</label>
+</div>
+</div>
+<p role="note" data-banner="demo" class="mb-4 rounded-card border border-aqua-text/30 bg-ferry-light-blue px-3.5 py-2.5 text-sm text-charcoal">
+<strong class="font-bold">Demo data.</strong> A recorded weekday timetable with simulated live times, not today's real departures.</p>
+<div class="mb-3 flex items-center gap-2 rounded-card border-2 border-ferry-orange/30 bg-white/90 px-2.5 py-2 shadow-lg md:hidden">
+<label class="relative min-w-0 flex-1">
+<span class="sr-only">From</span>
+<select class="w-full min-w-0 cursor-pointer appearance-none truncate rounded-button border border-gray-300 bg-white py-2 pr-7 pl-2.5 text-sm font-semibold text-aqua-text hover:border-ferry-orange focus:border-ferry-orange disabled:opacity-50 md:text-base dark:border-night-card dark:bg-night-card dark:text-ferry-aqua-light">
+<option value="307147">Apollo Road</option>
+<option value="319743">Bretts Wharf</option>
+<option value="317584">Bulimba</option>
+<option value="317581">Dockside</option>
+<option value="317572">Guyatt Park</option>
+<option value="317583">Hawthorne</option>
+<option value="317580">Holman Street</option>
+<option value="321208">Howard Smith Wharves</option>
+<option value="317578">Maritime Museum</option>
+<option value="319586">Milton</option>
+<option value="317582">Mowbray Park</option>
+<option value="317588">New Farm Park</option>
+<option value="317593">North Quay</option>
+<option value="318002">Northshore Hamilton</option>
+<option value="319637">QUT Gardens Point</option>
+<option value="317571">Regatta</option>
+<option value="317590">Riverside</option>
+<option value="321666">South Bank</option>
+<option value="317589">Sydney Street</option>
+<option value="317587">Teneriffe</option>
+<option value="319665">UQ St Lucia</option>
+<option value="317574">West End</option>
+</select>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-ferry-orange">
+<path d="M6 9l6 6 6-6">
+</path>
+</svg>
+</label>
+<button type="button" aria-label="Swap direction" class="flex size-10 shrink-0 items-center justify-center rounded-full text-ferry-orange-dark hover:bg-ferry-orange-light">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+<path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7" stroke-linecap="round" stroke-linejoin="round">
+</path>
+</svg>
+</button>
+<label class="relative min-w-0 flex-1">
+<span class="sr-only">To</span>
+<select class="w-full min-w-0 cursor-pointer appearance-none truncate rounded-button border border-gray-300 bg-white py-2 pr-7 pl-2.5 text-sm font-semibold text-aqua-text hover:border-ferry-orange focus:border-ferry-orange disabled:opacity-50 md:text-base dark:border-night-card dark:bg-night-card dark:text-ferry-aqua-light">
+<option value="307147">Apollo Road</option>
+<option value="319743">Bretts Wharf</option>
+<option value="317572">Guyatt Park</option>
+<option value="317583">Hawthorne</option>
+<option value="321208">Howard Smith Wharves</option>
+<option value="319586">Milton</option>
+<option value="317582">Mowbray Park</option>
+<option value="317588">New Farm Park</option>
+<option value="317593">North Quay</option>
+<option value="318002">Northshore Hamilton</option>
+<option value="319637">QUT Gardens Point</option>
+<option value="317571">Regatta</option>
+<option value="317590">Riverside</option>
+<option value="321666">South Bank</option>
+<option value="317589">Sydney Street</option>
+<option value="317587">Teneriffe</option>
+<option value="319665">UQ St Lucia</option>
+<option value="317574">West End</option>
+</select>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-ferry-orange">
+<path d="M6 9l6 6 6-6">
+</path>
+</svg>
+</label>
+</div>
+<div class="grid gap-6 md:grid-cols-2 md:gap-8">
+<section aria-label="Bulimba to Riverside" class="flex flex-col gap-3" data-board="outbound">
+<div class="bg-board-header flex min-h-14 items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-3.5 py-2 shadow-sm">
+<div class="flex min-w-0 flex-1 items-center gap-2 text-base font-semibold text-aqua-text dark:text-ferry-aqua-light">
+<span class="truncate md:hidden">Bulimba → Riverside</span>
+<span class="hidden min-w-0 flex-1 items-center gap-2 md:flex">
+<label class="relative min-w-0 flex-1">
+<span class="sr-only">From</span>
+<select class="w-full min-w-0 cursor-pointer appearance-none truncate rounded-button border border-gray-300 bg-white py-2 pr-7 pl-2.5 text-sm font-semibold text-aqua-text hover:border-ferry-orange focus:border-ferry-orange disabled:opacity-50 md:text-base dark:border-night-card dark:bg-night-card dark:text-ferry-aqua-light">
+<option value="307147">Apollo Road</option>
+<option value="319743">Bretts Wharf</option>
+<option value="317584">Bulimba</option>
+<option value="317581">Dockside</option>
+<option value="317572">Guyatt Park</option>
+<option value="317583">Hawthorne</option>
+<option value="317580">Holman Street</option>
+<option value="321208">Howard Smith Wharves</option>
+<option value="317578">Maritime Museum</option>
+<option value="319586">Milton</option>
+<option value="317582">Mowbray Park</option>
+<option value="317588">New Farm Park</option>
+<option value="317593">North Quay</option>
+<option value="318002">Northshore Hamilton</option>
+<option value="319637">QUT Gardens Point</option>
+<option value="317571">Regatta</option>
+<option value="317590">Riverside</option>
+<option value="321666">South Bank</option>
+<option value="317589">Sydney Street</option>
+<option value="317587">Teneriffe</option>
+<option value="319665">UQ St Lucia</option>
+<option value="317574">West End</option>
+</select>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-ferry-orange">
+<path d="M6 9l6 6 6-6">
+</path>
+</svg>
+</label>
+<span aria-hidden="true">→</span>
+<label class="relative min-w-0 flex-1">
+<span class="sr-only">To</span>
+<select class="w-full min-w-0 cursor-pointer appearance-none truncate rounded-button border border-gray-300 bg-white py-2 pr-7 pl-2.5 text-sm font-semibold text-aqua-text hover:border-ferry-orange focus:border-ferry-orange disabled:opacity-50 md:text-base dark:border-night-card dark:bg-night-card dark:text-ferry-aqua-light">
+<option value="307147">Apollo Road</option>
+<option value="319743">Bretts Wharf</option>
+<option value="317572">Guyatt Park</option>
+<option value="317583">Hawthorne</option>
+<option value="321208">Howard Smith Wharves</option>
+<option value="319586">Milton</option>
+<option value="317582">Mowbray Park</option>
+<option value="317588">New Farm Park</option>
+<option value="317593">North Quay</option>
+<option value="318002">Northshore Hamilton</option>
+<option value="319637">QUT Gardens Point</option>
+<option value="317571">Regatta</option>
+<option value="317590">Riverside</option>
+<option value="321666">South Bank</option>
+<option value="317589">Sydney Street</option>
+<option value="317587">Teneriffe</option>
+<option value="319665">UQ St Lucia</option>
+<option value="317574">West End</option>
+</select>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-ferry-orange">
+<path d="M6 9l6 6 6-6">
+</path>
+</svg>
+</label>
+</span>
+</div>
+<div class="md:hidden">
+<label class="flex items-center gap-2 text-xs font-medium text-aqua-text md:text-sm">
+<span>Depart from:</span>
+<select class="h-9 rounded-button border-2 border-ferry-orange/30 bg-white px-2 font-semibold text-aqua-text hover:border-ferry-orange">
+<option value="">Now</option>
+<option value="1792454400">10AM</option>
+<option value="1792461600">12PM</option>
+<option value="1792468800">2PM</option>
+<option value="1792476000">4PM</option>
+<option value="1792483200">6PM</option>
+<option value="1792490400">8PM</option>
+<option value="1792497600">10PM</option>
+<option disabled="" value="sep">Tomorrow</option>
+<option value="1792522800">5AM</option>
+<option value="1792530000">7AM</option>
+</select>
+</label>
+</div>
+</div>
+<ol class="flex flex-col gap-3" aria-label="Departures">
+<li data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z">
+</path>
+</svg>GPS</span>
+<span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">8:32 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:00 am</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 28 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Binkinba · Sched Dept: 8:32 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="soon" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-ferry-orange-aa text-white">in 2 mins</span>
+</span>
+</button>
+</article>
+</li>
+<li data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-hot border-2 border-ferry-orange shadow-hot" data-highlighted="true">
+<button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span class="text-[11px] font-extrabold tracking-wide text-ferry-orange-deep dark:text-ferry-sunset">EXPRESS · F11</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-[22px]">8:41 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:01 am</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 20 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Mudlark · Sched Dept: 8:41 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="near" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-ferry-sunset text-charcoal">in 11 mins</span>
+</span>
+</button>
+</article>
+</li>
+<li data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z">
+</path>
+</svg>GPS</span>
+<span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">8:48 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:16 am</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 28 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Kuluwin · Scheduled: 8:49 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 18 mins</span>
+<span class="text-xs font-medium text-cancel-text dark:text-ferry-sunset">1 min early</span>
+</span>
+</button>
+</article>
+</li>
+<li data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-hot border-2 border-ferry-orange shadow-hot" data-highlighted="true">
+<button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span class="text-[11px] font-extrabold tracking-wide text-ferry-orange-deep dark:text-ferry-sunset">EXPRESS · F11</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-[22px]">8:56 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:16 am</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 20 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Mooroolbin II · Sched Dept: 8:56 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 26 mins</span>
+</span>
+</button>
+</article>
+</li>
+<li data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:04 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:32 am</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 28 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Mooroolbin II · Scheduled: 9:02 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 34 mins</span>
+<span class="text-xs font-medium text-cancel-text dark:text-ferry-sunset">2 min late</span>
+</span>
+</button>
+</article>
+</li>
+</ol>
+<button type="button" class="bg-more min-h-12 w-full rounded-button border-2 border-ferry-orange/30 text-[15px] font-bold text-ferry-orange-deep transition hover:border-ferry-orange dark:text-ferry-sunset" aria-expanded="false">More departures (8 more)</button>
+</section>
+<div class="hidden md:block">
+<section aria-label="Riverside to Bulimba" class="flex flex-col gap-3" data-board="inbound">
+<div class="bg-board-header flex min-h-14 items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-3.5 py-2 shadow-sm">
+<div class="flex min-w-0 flex-1 items-center gap-2 text-base font-semibold text-aqua-text dark:text-ferry-aqua-light">
+<span class="flex min-w-0 flex-1 items-center gap-2">
+<label class="relative min-w-0 flex-1">
+<span class="sr-only">From</span>
+<select class="w-full min-w-0 cursor-pointer appearance-none truncate rounded-button border border-gray-300 bg-white py-2 pr-7 pl-2.5 text-sm font-semibold text-aqua-text hover:border-ferry-orange focus:border-ferry-orange disabled:opacity-50 md:text-base dark:border-night-card dark:bg-night-card dark:text-ferry-aqua-light">
+<option value="307147">Apollo Road</option>
+<option value="319743">Bretts Wharf</option>
+<option value="317584">Bulimba</option>
+<option value="317581">Dockside</option>
+<option value="317572">Guyatt Park</option>
+<option value="317583">Hawthorne</option>
+<option value="317580">Holman Street</option>
+<option value="321208">Howard Smith Wharves</option>
+<option value="317578">Maritime Museum</option>
+<option value="319586">Milton</option>
+<option value="317582">Mowbray Park</option>
+<option value="317588">New Farm Park</option>
+<option value="317593">North Quay</option>
+<option value="318002">Northshore Hamilton</option>
+<option value="319637">QUT Gardens Point</option>
+<option value="317571">Regatta</option>
+<option value="317590">Riverside</option>
+<option value="321666">South Bank</option>
+<option value="317589">Sydney Street</option>
+<option value="317587">Teneriffe</option>
+<option value="319665">UQ St Lucia</option>
+<option value="317574">West End</option>
+</select>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-ferry-orange">
+<path d="M6 9l6 6 6-6">
+</path>
+</svg>
+</label>
+<span aria-hidden="true">→</span>
+<label class="relative min-w-0 flex-1">
+<span class="sr-only">To</span>
+<select class="w-full min-w-0 cursor-pointer appearance-none truncate rounded-button border border-gray-300 bg-white py-2 pr-7 pl-2.5 text-sm font-semibold text-aqua-text hover:border-ferry-orange focus:border-ferry-orange disabled:opacity-50 md:text-base dark:border-night-card dark:bg-night-card dark:text-ferry-aqua-light">
+<option value="307147">Apollo Road</option>
+<option value="319743">Bretts Wharf</option>
+<option value="317584">Bulimba</option>
+<option value="317581">Dockside</option>
+<option value="317572">Guyatt Park</option>
+<option value="317583">Hawthorne</option>
+<option value="317580">Holman Street</option>
+<option value="321208">Howard Smith Wharves</option>
+<option value="317578">Maritime Museum</option>
+<option value="319586">Milton</option>
+<option value="317582">Mowbray Park</option>
+<option value="317588">New Farm Park</option>
+<option value="317593">North Quay</option>
+<option value="318002">Northshore Hamilton</option>
+<option value="319637">QUT Gardens Point</option>
+<option value="317571">Regatta</option>
+<option value="317590">Riverside</option>
+<option value="321666">South Bank</option>
+<option value="317589">Sydney Street</option>
+<option value="317587">Teneriffe</option>
+<option value="319665">UQ St Lucia</option>
+<option value="317574">West End</option>
+</select>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-ferry-orange">
+<path d="M6 9l6 6 6-6">
+</path>
+</svg>
+</label>
+</span>
+</div>
+<button type="button" aria-label="Swap direction" class="flex size-10 shrink-0 items-center justify-center rounded-full border border-ferry-orange/25 bg-white text-ferry-orange-dark transition active:scale-95 dark:bg-night-card">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7">
+</path>
+</svg>
+</button>
+</div>
+<ol class="flex flex-col gap-3" aria-label="Departures">
+<li data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z">
+</path>
+</svg>GPS</span>
+<span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">8:38 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:06 am</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 28 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Neville Bonner · Sched Dept: 8:38 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="near" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-ferry-sunset text-charcoal">in 8 mins</span>
+</span>
+</button>
+</article>
+</li>
+<li data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z">
+</path>
+</svg>GPS</span>
+<span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">8:54 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:23 am</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 29 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Binkinba · Sched Dept: 8:54 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 24 mins</span>
+</span>
+</button>
+</article>
+</li>
+<li data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span data-badge="gps" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-aqua-text text-white font-bold">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z">
+</path>
+</svg>GPS</span>
+<span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:08 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:36 am</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 28 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Beenung-urrung · Sched Dept: 9:08 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 38 mins</span>
+</span>
+</button>
+</article>
+</li>
+<li data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:26 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">9:55 am</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 29 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Mudlark · Scheduled: 9:24 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+<span data-tone="later" class="inline-flex shrink-0 items-center rounded-full px-3 py-1.5 text-base font-extrabold whitespace-nowrap tabular bg-chip-later-bg text-chip-later-text border border-chip-later-border">in 56 mins</span>
+<span class="text-xs font-medium text-cancel-text dark:text-ferry-sunset">2 min late</span>
+</span>
+</button>
+</article>
+</li>
+<li data-testid="departure">
+<article class="w-full rounded-card px-4 py-3.5 text-left transition bg-white/90 shadow-card border-2 border-transparent hover:border-ferry-orange/40 dark:bg-night-card">
+<button type="button" class="flex min-h-[4.25rem] w-full cursor-pointer items-center justify-between gap-2.5 text-left">
+<span class="flex min-w-0 flex-1 items-center gap-3">
+<span class="flex min-w-0 flex-col gap-1.5">
+<span class="flex flex-wrap items-center gap-1.5">
+<span data-badge="live" class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5 bg-ferry-orange-aa text-white font-bold">LIVE</span>
+<span class="text-[11px] font-extrabold tracking-wide text-sched-text dark:text-night-text/70">ALL STOPS · F1</span>
+</span>
+<span class="font-extrabold whitespace-nowrap tabular text-xl">9:38 am<span class="mx-1.5 font-normal text-gray-500" aria-hidden="true">→</span>
+<span class="sr-only"> arriving </span>
+<span class="font-medium text-gray-700 dark:text-night-text/80">10:06 am</span>
+<span class="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· 28 mins</span>
+</span>
+<span class="text-xs text-gray-600 dark:text-night-text/70">Mooroolbin II · Sched Dept: 9:38 am</span>
+</span>
+</span>
+<span class="flex shrink-0 flex-col items-end gap-1">
+</span>
+</button>
+</article>
+</li>
+</ol>
+<button type="button" class="bg-more min-h-12 w-full rounded-button border-2 border-ferry-orange/30 text-[15px] font-bold text-ferry-orange-deep transition hover:border-ferry-orange dark:text-ferry-sunset" aria-expanded="false">More departures (8 more)</button>
+</section>
+</div>
+</div>
+</main>
+<section class="mx-auto max-w-6xl px-4 pt-4 pb-2 text-charcoal" data-terminal-page="bulimba" aria-labelledby="terminal-heading">
+<nav aria-label="Breadcrumb" class="text-xs text-gray-600">
+<a class="underline hover:text-ferry-orange-deep" href="/">Brisbane Ferry</a> › Bulimba ferry terminal</nav>
+<h1 id="terminal-heading" class="text-lg font-bold text-aqua-text md:text-xl">Next ferry from Bulimba</h1>
+<p class="mt-2 max-w-3xl text-sm text-gray-700">Live CityCat and ferry departures from Bulimba ferry terminal on the Brisbane River. It is served by F1 (CityCat (all stops)), F11 (CityCat express), F21 (Cross-river ferry). The board above updates with real-time TransLink data; pick any destination to see services in both directions.</p>
+<h2 class="mt-4 text-sm font-semibold text-gray-700">Routes</h2>
+<ul class="mt-2 max-w-3xl text-sm text-gray-700 list-disc pl-5">
+<li>
+<strong>F1</strong> CityCat (all stops): Apollo Road, Bretts Wharf, Bulimba, Guyatt Park, Hawthorne, Howard Smith Wharves, Milton, Mowbray Park, New Farm Park, North Quay, Northshore Hamilton, QUT Gardens Point, Regatta, Riverside, South Bank, Sydney Street, Teneriffe, UQ St Lucia, West End</li>
+<li>
+<strong>F11</strong> CityCat express: Apollo Road, Bretts Wharf, Bulimba, Hawthorne, Riverside</li>
+<li>
+<strong>F21</strong> Cross-river ferry: Bulimba, Teneriffe</li>
+</ul>
+<h2 class="mt-4 text-sm font-semibold text-gray-700">Next departures from Bulimba</h2>
+<div class="mt-2 max-h-96 max-w-xl overflow-y-auto rounded-card border border-ferry-orange/20 bg-white/80 px-3">
+<table class="mt-2 w-full max-w-xl text-left text-sm">
+<thead>
+<tr>
+<th scope="col" class="border-b border-gray-300 py-1 pr-4 font-semibold text-gray-700">Departs</th>
+<th scope="col" class="border-b border-gray-300 py-1 pr-4 font-semibold text-gray-700">Route</th>
+<th scope="col" class="border-b border-gray-300 py-1 pr-4 font-semibold text-gray-700">Towards</th>
+</tr>
+</thead>
+<tbody>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">8:32 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">8:36 am (cancelled)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">8:41 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F11</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Riverside</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">8:45 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F21</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Teneriffe</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">8:48 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">8:53 am (cancelled)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">8:56 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F11</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Riverside</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:00 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F21</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Teneriffe</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:04 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:06 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:10 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F11</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Riverside</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:15 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F21</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Teneriffe</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:19 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:23 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:30 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F21</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Teneriffe</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:32 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:36 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:45 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F21</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Teneriffe</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:49 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">9:55 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">10:00 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F21</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Teneriffe</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">10:02 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">10:06 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">10:19 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">10:25 am (live)</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">10:32 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">10:36 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">10:49 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">10:53 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">11:00 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F21</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Teneriffe</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">11:02 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">11:06 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">11:15 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F21</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Teneriffe</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">11:19 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">11:23 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">11:30 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F21</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Teneriffe</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">11:32 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">11:36 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Northshore Hamilton</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">11:45 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F21</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">Teneriffe</td>
+</tr>
+<tr data-testid="timetable-row">
+<td class="border-b border-gray-100 py-1 pr-4 tabular">11:49 am</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">F1</td>
+<td class="border-b border-gray-100 py-1 pr-4 tabular">UQ St Lucia</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 class="mt-4 text-sm font-semibold text-gray-700">Nearby terminals</h2>
+<ul class="mt-2 flex flex-wrap gap-2 text-sm">
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/teneriffe">Teneriffe</a> <span class="text-xs text-gray-600">320 m</span>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/hawthorne">Hawthorne</a> <span class="text-xs text-gray-600">1.2 km</span>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/apollo-road">Apollo Road</a> <span class="text-xs text-gray-600">1.4 km</span>
+</li>
+</ul>
+<h2 class="mt-4 text-sm font-semibold text-gray-700">All ferry terminals</h2>
+<ul class="mt-2 flex flex-wrap gap-2 text-sm">
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/apollo-road">Apollo Road</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/bretts-wharf">Bretts Wharf</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/dockside">Dockside</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/guyatt-park">Guyatt Park</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/hawthorne">Hawthorne</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/holman-street">Holman Street</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/howard-smith-wharves">Howard Smith Wharves</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/maritime-museum">Maritime Museum</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/milton">Milton</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/mowbray-park">Mowbray Park</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/new-farm-park">New Farm Park</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/north-quay">North Quay</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/northshore-hamilton">Northshore Hamilton</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/qut-gardens-point">QUT Gardens Point</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/regatta">Regatta</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/riverside">Riverside</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/south-bank">South Bank</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/sydney-street">Sydney Street</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/teneriffe">Teneriffe</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/uq-st-lucia">UQ St Lucia</a>
+</li>
+<li>
+<a class="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep" href="/terminal/west-end">West End</a>
+</li>
+</ul>
+<p class="mt-2 max-w-3xl text-sm text-gray-700">
+<a class="underline hover:text-ferry-orange-deep" href="/">Live departure boards for every Brisbane ferry terminal</a>
+</p>
+</section>
+<footer class="mt-12 border-t border-gray-200 py-8 pb-24 md:pb-8">
+<div class="mx-auto max-w-6xl px-4 text-center text-sm text-gray-700">
+<p>Based on TransLink data provided by the State of Queensland (Department of Transport and Main Roads) <span class="whitespace-nowrap">— licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" class="underline">Creative Commons Attribution 4.0</a>
+</span>
+</p>
+<p class="mt-2">Live times refresh every 15 seconds • All times in Brisbane time</p>
+<p class="mt-3">
+<button type="button" class="min-h-11 font-semibold text-ferry-orange-deep transition-colors hover:text-ferry-orange-dark">
+<span aria-hidden="true">💬 </span>Send Feedback &amp; Ideas</button>
+</p>
+<p class="mt-3 text-xs text-gray-600">
+<a href="/privacy" class="hover:text-ferry-orange-deep">Privacy</a>
+<span class="mx-1.5" aria-hidden="true">·</span>
+<a href="/terms" class="hover:text-ferry-orange-deep">Terms</a>
+</p>
+</div>
+</footer>

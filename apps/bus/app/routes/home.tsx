@@ -10,12 +10,13 @@ import { SearchPanel } from '../components/SearchPanel.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { DepartureList, linkRenderer } from '../components/StopBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
+import { at } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { useApi } from '../lib/mode.ts'
 import { useAlerts, useManyDepartures } from '../lib/queries.ts'
 import { HOME_META, pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
-import { stopMeta, stopPath } from '../lib/stops.ts'
+import { stopHref, stopMeta } from '../lib/stops.ts'
 import { type SavedStop, savedFromCookie, useSavedStops } from '../lib/storage.ts'
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/home'
@@ -106,7 +107,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       </UpdatedStrip>
       <SearchPanel
         quick={
-          <Link to="/nearby" className={chip}>
+          <Link to={at('/nearby')} className={chip}>
             <Icon name="nearby" size={16} />
             Near me
           </Link>
@@ -129,7 +130,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                       key={s.id}
                       name={name}
                       meta={stopMeta(s.id)}
-                      href={stopPath(s.id)}
+                      href={stopHref(s.id)}
                       departures={miniRows(res, now)}
                       highlighted={i === 0}
                       renderLink={linkRenderer}
@@ -157,7 +158,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                     >
                       <div className="bg-board-header flex items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-4 py-3 shadow-sm">
                         <h2 className="text-[17px] font-bold text-aqua-text dark:text-ferry-aqua-light">
-                          <Link to={stopPath(s.id)}>{s.name || res?.stop.name || `Stop ${s.id}`}</Link>
+                          <Link to={stopHref(s.id)}>{s.name || res?.stop.name || `Stop ${s.id}`}</Link>
                         </h2>
                         <span className="text-[13px] text-sched-text">{stopMeta(s.id)}</span>
                       </div>
@@ -201,7 +202,7 @@ function FirstVisit() {
       <ul className="flex flex-wrap gap-2">
         {POPULAR.map((s) => (
           <li key={s.id}>
-            <Link to={stopPath(s.id)} className={chip}>
+            <Link to={stopHref(s.id)} className={chip}>
               {s.name}
             </Link>
           </li>

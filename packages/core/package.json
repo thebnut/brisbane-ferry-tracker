@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/contract/index.ts",
-    "./fixtures/*": "./fixtures/*"
+    "./fixtures/*": "./fixtures/*",
+    "./geo": "./src/geo/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",

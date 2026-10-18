@@ -128,3 +128,9 @@ export function vesselName(vehicleId: string | null | undefined): string | null 
     )
     .join(' ')
 }
+
+/** "120 m", "1.9 km". */
+export function formatDistance(m: number): string {
+  if (m < 1000) return `${Math.max(10, Math.round(m / 10) * 10)} m`
+  return `${(m / 1000).toFixed(1)} km`
+}

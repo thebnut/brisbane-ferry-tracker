@@ -6,6 +6,7 @@
  */
 import type { PatternStop } from '@bft/ui'
 import data from '../data/network.json'
+import { at } from './base.ts'
 import { LINE_COLOURS, lineNameFor } from './lineNames.ts'
 
 export interface Station {
@@ -58,7 +59,10 @@ for (const s of STATIONS) for (const p of s.platforms) byPlatform.set(p.id, { st
 
 export const stationByKey = (key: string | null | undefined): Station | null =>
   key ? (byKey.get(key) ?? null) : null
+/** Canonical (unprefixed) station path for seo.ts and the sitemap; links use stationHref. */
 export const stationPath = (key: string) => `/station/${key}`
+/** In-app link to a station board (prefixed with BASE inside BrisbaneTransit). */
+export const stationHref = (key: string) => at(stationPath(key))
 
 /** Station and platform code for a platform stop id. */
 export const platformOf = (stopId: string) => byPlatform.get(stopId) ?? null

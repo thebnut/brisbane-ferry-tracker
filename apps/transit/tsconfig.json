@@ -1,0 +1,26 @@
+{
+  "extends": "@bft/config/tsconfig.react.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "rootDirs": [
+      ".",
+      "./.react-router/types",
+      "../ferry",
+      "../ferry/.react-router/types",
+      "../train",
+      "../train/.react-router/types",
+      "../bus",
+      "../bus/.react-router/types"
+    ],
+    "types": ["@cloudflare/workers-types", "vite/client", "vitest/globals"]
+  },
+  "include": [
+    ".react-router/types/**/*",
+    "app",
+    "workers",
+    "scripts",
+    "tests",
+    "*.ts",
+    "../../packages/ui/assets.d.ts"
+  ]
+}

@@ -1,4 +1,5 @@
 /** Stop naming helpers for SEQ bus stops. */
+import { at } from './base.ts'
 
 /**
  * The public stop number. In the SEQ feed every numeric stop_id's stop_code is the id zero-padded to six digits
@@ -18,10 +19,16 @@ export function stopMeta(stopId: string, platform?: string | null): string {
   return parts.join(' · ')
 }
 
+/** Canonical (unprefixed) paths, used by seo.ts and the sitemap. Links use the *Href helpers below. */
 export const stopPath = (stopId: string) => `/stop/${encodeURIComponent(stopId)}`
 export const routePath = (route: string) => `/route/${encodeURIComponent(route)}`
 export const tripPath = (tripInstance: string, from?: string | null) =>
   `/trip/${encodeURIComponent(tripInstance)}${from ? `?from=${encodeURIComponent(from)}` : ''}`
+
+/** In-app links (prefixed with BASE inside BrisbaneTransit). */
+export const stopHref = (stopId: string) => at(stopPath(stopId))
+export const routeHref = (route: string) => at(routePath(route))
+export const tripHref = (tripInstance: string, from?: string | null) => at(tripPath(tripInstance, from))
 
 /** Route short name of a GTFS route_id ("M2-4949" → "M2"). */
 export const routeShortOf = (routeId: string) => routeId.split('-')[0] ?? routeId

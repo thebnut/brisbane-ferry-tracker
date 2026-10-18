@@ -10,13 +10,14 @@ import { data } from 'react-router'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { DepartureList, linkRenderer } from '../components/StopBoard.tsx'
 import { ApiError, fetchAlerts, fetchDepartures } from '../lib/api.ts'
+import { at } from '../lib/base.ts'
 import { validateAlerts, validateDepartures } from '../lib/contract.server.ts'
 import { isActive, routesIn } from '../lib/departures.ts'
 import { useApi } from '../lib/mode.ts'
 import { useAlerts, useDepartures } from '../lib/queries.ts'
 import { pageMeta, SITE_URL, stopJsonLd, stopMetaTags } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
-import { routePath, routeShortOf, stopMeta } from '../lib/stops.ts'
+import { routeHref, routeShortOf, stopMeta } from '../lib/stops.ts'
 import { pushRecent, toggleSaved, useSavedStops } from '../lib/storage.ts'
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/stop'
@@ -135,7 +136,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
         </div>
         <DataBanner rtState={res?.rtState} hasData={!!res} generation={res?.staticGeneration} />
         {here.slice(0, 2).map((a) => (
-          <NoticeStrip key={a.id} href="/alerts" renderLink={linkRenderer}>
+          <NoticeStrip key={a.id} href={at('/alerts')} renderLink={linkRenderer}>
             {a.header}
           </NoticeStrip>
         ))}
@@ -162,7 +163,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
               {routes.map((r) => (
                 <li key={r}>
                   <a
-                    href={routePath(r)}
+                    href={routeHref(r)}
                     className="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 font-semibold text-aqua-text hover:border-ferry-orange/50 dark:bg-night-card dark:text-ferry-aqua-light"
                   >
                     Route {r}
