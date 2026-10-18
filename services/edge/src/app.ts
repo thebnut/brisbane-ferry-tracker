@@ -28,7 +28,7 @@ import {
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { corsHeaders } from './cors.ts'
-import type { StaticStore } from './data/static-store.ts'
+import { mayHaveStop, type StaticStore } from './data/static-store.ts'
 import { createLogger, errorMessage, type Logger } from './log.ts'
 import { FEED_MODE_SUFFIX, MODES } from './rt/feeds.ts'
 import type { SnapshotClient } from './snapshot-client.ts'
@@ -127,8 +127,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const r = await rt(mode, generation)
     const fromMs = at != null ? at * 1000 : r.nowMs
     const dates = overlappingServiceDates(fromMs).filter((d) => index.serviceDates.includes(d))
-    const known = index.serviceDates.some((d) => index.blobs[d]?.[key] || index.shards?.[d]?.[key])
-    if (!known) return c.json({ error: 'unknown stop', detail: key }, 404)
+    if (!mayHaveStop(index, key)) return c.json({ error: 'unknown stop', detail: key }, 404)
     const load = async (ds: string[]) =>
       (await Promise.all(ds.map((d) => deps.store.stopDay(index, d, key)))).filter(
         (d): d is StaticStopDay => d != null,

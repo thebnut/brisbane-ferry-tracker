@@ -2,15 +2,16 @@
  * Read side of the pipeline's static tree: manifest → per-generation index → content-addressed blobs.
  * Indexes and blobs are immutable, so they're cached in isolate memory (bounded LRU); only the manifest is refreshed.
  */
-import { GenerationIndex, Manifest, type Mode, SharedFetch, StaticStopDay, TripIndexDay } from '@bft/core'
-import { z } from 'zod'
+import {
+  GenerationIndex,
+  Manifest,
+  type Mode,
+  SharedFetch,
+  StaticStopDay,
+  shardOf,
+  TripIndexDay,
+} from '@bft/core'
 import { type DataSource, readJson } from './source.ts'
-
-/** Pipeline extension (bft-pipeline PR): bus stop-days grouped into shards for the assets backend. */
-const IndexWithShards = GenerationIndex.extend({
-  shards: z.record(z.string(), z.record(z.string(), z.string())).optional(),
-})
-export type IndexWithShards = z.infer<typeof IndexWithShards>
 
 export const MANIFEST_KEY = 'manifest.json'
 export const indexKey = (generation: string, mode: Mode) => `static/${generation}/${mode}/index.json`
@@ -45,9 +46,21 @@ export interface StaticStoreOptions {
   now?: () => number
 }
 
+/** The shard holding a stop's StaticStopDay on a date (bus on the assets backend), or null. */
+export function shardFor(index: GenerationIndex, serviceDate: string, stopKey: string): string | null {
+  const sh = index.shards
+  if (!sh) return null
+  return sh.byDate[serviceDate]?.[shardOf(stopKey, sh.count)] ?? null
+}
+
+/** Could this stop have a stop-day file on any indexed date? (Shards can only be confirmed by loading them.) */
+export function mayHaveStop(index: GenerationIndex, stopKey: string): boolean {
+  return index.serviceDates.some((d) => index.blobs[d]?.[stopKey] || shardFor(index, d, stopKey))
+}
+
 export class StaticStore {
   private readonly manifest: SharedFetch<Manifest | null>
-  private readonly indexes = new Lru<Promise<IndexWithShards | null>>(16)
+  private readonly indexes = new Lru<Promise<GenerationIndex | null>>(16)
   private readonly blobs = new Lru<Promise<unknown | null>>(256)
   /** Trip indexes are large (a whole mode-day), so only a few are kept. */
   private readonly tripIndexes = new Lru<Promise<unknown | null>>(4)
@@ -76,12 +89,12 @@ export class StaticStore {
     return (await this.getManifest())?.modes[mode]?.current ?? null
   }
 
-  getIndex(generation: string, mode: Mode): Promise<IndexWithShards | null> {
+  getIndex(generation: string, mode: Mode): Promise<GenerationIndex | null> {
     const k = `${generation}/${mode}`
     let p = this.indexes.get(k)
     if (!p) {
       p = readJson(this.source, indexKey(generation, mode)).then((raw) =>
-        raw == null ? null : IndexWithShards.parse(raw),
+        raw == null ? null : GenerationIndex.parse(raw),
       )
       p.catch(() => this.indexes.delete(k))
       this.indexes.set(k, p)
@@ -100,12 +113,12 @@ export class StaticStore {
   }
 
   /** The stop-day file for a stop key on a service date, from a per-stop blob or a shard. */
-  async stopDay(index: IndexWithShards, serviceDate: string, stopKey: string): Promise<StaticStopDay | null> {
+  async stopDay(index: GenerationIndex, serviceDate: string, stopKey: string): Promise<StaticStopDay | null> {
     const sha = index.blobs[serviceDate]?.[stopKey]
     let raw: unknown | null = null
     if (sha) raw = await this.blob(blobKey(sha))
     if (raw == null) {
-      const shard = index.shards?.[serviceDate]?.[stopKey]
+      const shard = shardFor(index, serviceDate, stopKey)
       if (!shard) return null
       const all = (await this.blob(shardKey(shard))) as Record<string, unknown> | null
       raw = all?.[stopKey] ?? null
@@ -114,7 +127,7 @@ export class StaticStore {
     return this.validate ? StaticStopDay.parse(raw) : (raw as StaticStopDay)
   }
 
-  async tripIndexDay(index: IndexWithShards, serviceDate: string): Promise<TripIndexDay | null> {
+  async tripIndexDay(index: GenerationIndex, serviceDate: string): Promise<TripIndexDay | null> {
     const sha = index.tripIndex?.[serviceDate]
     if (!sha) return null
     const raw = await this.blob(blobKey(sha), this.tripIndexes)
