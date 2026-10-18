@@ -1,0 +1,46 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // BrisbaneTransit SSR Worker (React Router 8 framework mode): the Mode Tabs shell. Static files in build/client are
+  // served by Workers static assets before the Worker runs.
+  "name": "bft-transit",
+  "main": "./workers/app.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "dde2914802079766f7671528e7cbae75",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "assets": { "directory": "./build/client", "binding": "ASSETS" },
+  "vars": {
+    // HTTP fallback when the API service binding is absent (local dev, previews).
+    "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
+    // "1" lets visitors switch on fixture mode with ?fixtures=1. Never set in production.
+    "ALLOW_FIXTURES": "1",
+    // "1" serves fixture data to everyone (dev and Playwright without the live API).
+    "FIXTURES": "0",
+    "SITE_URL": "https://bft-transit.brisbanetransit.workers.dev",
+    // Canonical URLs of the mounted mode pages point at the standalone apps (one indexable copy of each page).
+    "FERRY_SITE_URL": "https://www.brisbaneferry.com",
+    "TRAIN_SITE_URL": "https://bft-train.brisbanetransit.workers.dev",
+    "BUS_SITE_URL": "https://bft-bus.brisbanetransit.workers.dev",
+    // Invisible Turnstile widget for the Ask box (public sitekey; the secret lives on bft-api).
+    "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
+  },
+  "env": {
+    "staging": {
+      "name": "bft-transit",
+      "workers_dev": true,
+      "vars": {
+        "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
+        "ALLOW_FIXTURES": "1",
+        "FIXTURES": "0",
+        "SITE_URL": "https://bft-transit.brisbanetransit.workers.dev",
+        "FERRY_SITE_URL": "https://www.brisbaneferry.com",
+        "TRAIN_SITE_URL": "https://bft-train.brisbanetransit.workers.dev",
+        "BUS_SITE_URL": "https://bft-bus.brisbanetransit.workers.dev",
+        "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
+      },
+      // SSR loaders, the /v1 + /data proxy and POST /v1/ask call the API Worker in-process through this binding.
+      "services": [{ "binding": "API", "service": "bft-api" }]
+    }
+  }
+}

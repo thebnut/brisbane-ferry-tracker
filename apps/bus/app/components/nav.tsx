@@ -1,6 +1,6 @@
 /**
  * BrisbaneBus section navigation: bottom nav on phones, pills in the status strip on desktop. Kept in its own module
- * because BrisbaneTransit swaps exactly this file at build time for its Mode Tabs (apps/transit/vite.config.ts), so
+ * because BrisbaneTransit swaps exactly this file at build time for its Mode Tabs (apps/transit/modes.config.ts), so
  * the bus pages themselves are reused unchanged.
  */
 import { BottomNav, type NavItem } from '@bft/ui'

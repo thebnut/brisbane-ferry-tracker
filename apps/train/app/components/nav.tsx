@@ -1,6 +1,6 @@
 /**
  * BrisbaneTrain section navigation (Home, Stations, Map, Alerts) as the one-handed bottom nav. Kept in its own module
- * because BrisbaneTransit swaps exactly this file at build time for its Mode Tabs (apps/transit/vite.config.ts), so
+ * because BrisbaneTransit swaps exactly this file at build time for its Mode Tabs (apps/transit/modes.config.ts), so
  * the train pages themselves are reused unchanged.
  */
 import { BottomNav, type NavItem } from '@bft/ui'
