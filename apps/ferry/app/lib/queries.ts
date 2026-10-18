@@ -27,6 +27,8 @@ export function makeQueryClient() {
 export interface DataMode {
   fixtures: boolean
   rt: string | null
+  /** Demo data for everyone (FIXTURES=1) or a fallback answer, not a visitor's demo session. */
+  forced?: boolean
 }
 
 export function useFetcher(mode: DataMode): ApiFetcher {

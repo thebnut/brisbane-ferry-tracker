@@ -120,7 +120,7 @@ export function FerryBoards({
   }, [terminalPage, deepLink, serverPair])
   // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0. Never from the data mode alone: an API
   // failure that fell back to fixtures (FIXTURE_FALLBACK) used to make demo mode stick for the session (R7-B1).
-  useFixtureCookie(FIXTURE_COOKIE, mode.fixtures)
+  useFixtureCookie(FIXTURE_COOKIE, mode.fixtures, mode.forced === true)
 
   const same = (a: StopPair, b: StopPair) => a.outbound.id === b.outbound.id && a.inbound.id === b.inbound.id
   const useInitial = same(pair, serverPair) && departAt == null

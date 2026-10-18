@@ -224,6 +224,10 @@ describe('the home page’s live judgement (R7-T1)', () => {
     ).toEqual({ live: true, unconfirmed: false })
   })
 
+  it('never LIVE before the saved items are read (the server render and hydration)', () => {
+    expect(homeLiveState(null, [], opts)).toEqual({ live: false, unconfirmed: false })
+  })
+
   it('never LIVE offline; with nothing saved, LIVE only on a fresh page', () => {
     expect(homeLiveState(items, [{ data: live, pending: false }], { ...opts, online: false }).live).toBe(
       false,

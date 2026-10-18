@@ -3,8 +3,8 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { DemoExitLink, FIXTURE_COOKIE_MAX_AGE_S, fixtureCookie, useFixtureCookie } from '../src/demo.tsx'
 
-function Probe({ active }: { active: boolean }) {
-  useFixtureCookie('bft_fixtures', active)
+function Probe({ active, forced = false }: { active: boolean; forced?: boolean }) {
+  useFixtureCookie('bft_fixtures', active, forced)
   return null
 }
 const at = (search: string) => window.history.replaceState(null, '', `/stop/10802${search}`)
@@ -22,9 +22,19 @@ describe('demo mode is easy to leave (R7-B1)', () => {
     expect(document.cookie).not.toContain('bft_fixtures=1')
     render(<Probe active />)
     expect(document.cookie).toContain('bft_fixtures=1')
+    expect(localStorage.getItem('bft-demo-session')).not.toBeNull()
     at('?fixtures=0')
     render(<Probe active={false} />)
     expect(document.cookie).not.toContain('bft_fixtures=1')
+    at('')
+    localStorage.clear()
+  })
+
+  it('forced demo mode (FIXTURES=1) starts and ends nothing', () => {
+    at('?fixtures=1')
+    render(<Probe active forced />)
+    expect(document.cookie).not.toContain('bft_fixtures=1')
+    expect(localStorage.getItem('bft-demo-session')).toBeNull()
     at('')
   })
 
@@ -42,7 +52,7 @@ describe('demo data left on the device (Codex review of R7-B1)', () => {
       JSON.stringify({ body: { staticGeneration: 'fixture-20261020' } }),
     )
     localStorage.setItem(
-      'bft-bus-offline:1',
+      'bft-bus-v1:1',
       JSON.stringify({ body: { staticGeneration: '20261017-20261216-x' } }),
     )
     localStorage.setItem('bft-bus-saved', '[]')
@@ -55,14 +65,21 @@ describe('demo data left on the device (Codex review of R7-B1)', () => {
       },
     } as unknown as CacheStorage
     expect(await clearDemoLeftovers({}, localStorage, cacheStorage)).toBe(1)
-    expect(localStorage.getItem('bft-bus-offline:10802')).toBeNull()
-    expect(localStorage.getItem('bft-bus-offline:1')).not.toBeNull()
+    expect(localStorage.getItem('bft-bus-v1:10802')).toBeNull()
+    expect(localStorage.getItem('bft-bus-v1:1')).not.toBeNull()
     expect(deleted).toEqual(['bus-pages', 'bus-data'])
     deleted.length = 0
     expect(await clearDemoLeftovers({}, localStorage, cacheStorage)).toBe(0)
     expect(deleted).toEqual([])
-    await clearDemoLeftovers({ force: true }, localStorage, cacheStorage)
+    // Leaving a demo session: every offline copy (train's carry no generation) and every runtime cache.
+    localStorage.setItem('bft-train-offline:central:', JSON.stringify({ day: '20261020', rows: [] }))
+    localStorage.setItem('bft-demo-session', '1')
+    await clearDemoLeftovers({ all: true }, localStorage, cacheStorage)
     expect(deleted).toEqual(['bus-pages', 'bus-data'])
+    expect(localStorage.getItem('bft-train-offline:central:')).toBeNull()
+    expect(localStorage.getItem('bft-bus-v1:1')).toBeNull()
+    expect(localStorage.getItem('bft-demo-session')).toBeNull()
+    expect(localStorage.getItem('bft-bus-saved')).toBe('[]')
     localStorage.clear()
   })
 })

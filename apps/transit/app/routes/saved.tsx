@@ -135,7 +135,8 @@ type CardData = (DeparturesResponse & OfflineCopy) | undefined
  *  - `live` (the header pill): online, confirmed, and every saved card has an answer that is live and fresh. A card
  *    still waiting for its answer, or whose request failed, is not live: before R7-T1 a pending card counted as live,
  *    so an offline reload kept LIVE up for as long as the requests took to fail (Codex review: a failed one too).
- * With nothing saved there is nothing to judge: LIVE while online on a fresh page.
+ * Before the saved items are read (server render, hydration) it is never LIVE. With nothing saved there is nothing to
+ * judge: LIVE while online on a fresh page.
  */
 export function homeLiveState(
   items: readonly unknown[] | null,
@@ -147,8 +148,9 @@ export function homeLiveState(
       data != null && !data.offline && (unconfirmedBefore == null || data.generatedAt > unconfirmedBefore),
   )
   const unconfirmed = unconfirmedBefore != null && !answered && (items == null || items.length > 0)
-  if (!online || unconfirmed) return { live: false, unconfirmed }
-  if (items == null || items.length === 0) return { live: unconfirmedBefore == null, unconfirmed }
+  // Saved items not read yet (the server render and hydration): nothing confirmed, so no LIVE (Codex review).
+  if (!online || unconfirmed || items == null) return { live: false, unconfirmed }
+  if (items.length === 0) return { live: unconfirmedBefore == null, unconfirmed }
   // Every saved card, each with an answer (one still waiting, or one that failed, has nothing live to show).
   const live =
     cards.length === items.length &&

@@ -44,6 +44,8 @@ export function loader({ request, context }: Route.LoaderArgs) {
     nonce: context.get(cloudflareContext).nonce,
     theme: themeFromCookie(request.headers.get('cookie')),
     fixtures,
+    /** FIXTURES=1: demo data for everyone (development, tests), no demo session to start or end. */
+    fixturesForced: env?.FIXTURES === '1',
     // null = poll; '' = this Worker's TripSocket DO (same origin); otherwise a wss:// base.
     tripWs: env?.TRIP_WS === '1' && sameMode ? (env.API_WS_BASE ?? '') : null,
     /** When this HTML was rendered: the live guard compares it with the device clock (R2-T7). */
@@ -91,7 +93,8 @@ export default function App() {
   // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
   useLiveGuardRelease()
   // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0 (R7-B1).
-  useFixtureCookie(FIXTURE_COOKIE, useRouteLoaderData<typeof loader>('root')?.fixtures === true)
+  const rootData = useRouteLoaderData<typeof loader>('root')
+  useFixtureCookie(FIXTURE_COOKIE, rootData?.fixtures === true, rootData?.fixturesForced === true)
   // Back online: refetch the live boards at once, not at the next poll (R3-X9).
   useRefetchOnReconnect(client)
   return (

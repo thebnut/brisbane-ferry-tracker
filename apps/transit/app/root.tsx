@@ -11,7 +11,7 @@ import {
   useRefetchOnReconnect,
 } from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import {
   isRouteErrorResponse,
   Links,
@@ -53,6 +53,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     nonce: getNonce(context),
     mode: { fixtures, rt },
     fixtures,
+    /** FIXTURES=1: demo data for everyone (development, tests), no demo session to start or end. */
+    fixturesForced: env?.FIXTURES === '1',
     tripWs: null,
     theme: t === 'light' || t === 'dark' ? t : ('system' as const),
     turnstileSitekey: env?.TURNSTILE_SITEKEY ?? null,
@@ -120,10 +122,8 @@ export default function App() {
   // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
   useLiveGuardRelease()
   // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0 (R7-B1).
-  useFixtureCookie(
-    FIXTURE_COOKIE,
-    (useRouteLoaderData('root') as { fixtures?: boolean } | undefined)?.fixtures === true,
-  )
+  const rootData = useRouteLoaderData('root') as { fixtures?: boolean; fixturesForced?: boolean } | undefined
+  useFixtureCookie(FIXTURE_COOKIE, rootData?.fixtures === true, rootData?.fixturesForced === true)
   // Back online: refetch the live boards at once, not at the next poll (R3-X9).
   useRefetchOnReconnect(client)
   useKeepPageCopies()
@@ -180,8 +180,18 @@ function useKeepPageCopies() {
 
 /** A screen opened offline whose data needs the network (R7-T2): retried until it loads, Mode Tabs kept. */
 export function OfflineRouteScreen() {
-  const { revalidate } = useRevalidator()
-  useEffect(() => retryWhenBack(() => void revalidate().catch(() => {})), [revalidate])
+  const { revalidate, state } = useRevalidator()
+  // One revalidation at a time: a new one aborts the one in flight, so retrying every 10 s could keep a slow but
+  // working connection from ever loading the screen (Codex review).
+  const loading = useRef(false)
+  loading.current = state === 'loading'
+  useEffect(
+    () =>
+      retryWhenBack(() => {
+        if (!loading.current) void revalidate().catch(() => {})
+      }),
+    [revalidate],
+  )
   return (
     <>
       <title>Offline | BrisbaneTransit</title>
