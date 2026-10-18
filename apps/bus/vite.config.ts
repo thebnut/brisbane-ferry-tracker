@@ -22,10 +22,14 @@ function noMapOnServer(): Plugin {
   }
 }
 
+// Parallel builds and tests (pnpm mono:build) each opened the Worker inspector on 9229 (EADDRINUSE). Keep it for
+// `react-router dev`, where it's useful for debugging; disable it everywhere else.
+const inspectorPort = process.argv.includes('dev') ? undefined : false
+
 export default defineConfig({
   plugins: [
     noMapOnServer(),
-    cloudflare({ viteEnvironment: { name: 'ssr' } }),
+    cloudflare({ viteEnvironment: { name: 'ssr' }, inspectorPort }),
     tailwindcss(),
     reactRouter(),
     pwa(),
