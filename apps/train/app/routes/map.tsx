@@ -16,9 +16,11 @@ import { useFetcher, useTrip, useVehicles } from '../lib/queries.ts'
 import { pageMeta } from '../lib/seo.ts'
 import { getEnv, isFixtureMode, siteInfo } from '../lib/server.server.ts'
 import { vehicleStatusText } from '../lib/trip.ts'
+import { useMounted } from '../lib/useNow.ts'
 import type { Route } from './+types/map'
 
-const MapView = lazy(() => import('@bft/ui/map'))
+// Client-only: the map never renders on the server, and keeping MapLibre out of the Worker bundle keeps it small.
+const MapView = lazy(() => (import.meta.env.SSR ? new Promise<never>(() => {}) : import('@bft/ui/map')))
 
 export function loader({ request, context }: Route.LoaderArgs) {
   const env = getEnv(context)
@@ -126,26 +128,30 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
     [vehicles, station],
   )
   const sel = vehicles.find((v) => v.id === selected) ?? null
+  const mounted = useMounted()
+  const placeholder = (
+    <div
+      className="h-[70dvh] w-full animate-pulse rounded-card bg-map-ground"
+      role="status"
+      aria-label="Loading map"
+    />
+  )
 
   return (
     <Shell active="map" live={q.data?.rtState === 'live'}>
       <div className="relative mx-auto max-w-6xl">
-        <Suspense
-          fallback={
-            <div
-              className="h-[70dvh] w-full animate-pulse rounded-card bg-map-ground"
-              role="status"
-              aria-label="Loading map"
+        {mounted ? (
+          <Suspense fallback={placeholder}>
+            <MapView
+              markers={markers}
+              fitTo={fitTo}
+              label={`Map of ${vehicles.length} live trains${station ? ` near ${centre.name}` : ''}`}
+              className="h-[70dvh] w-full overflow-hidden rounded-card bg-map-ground"
             />
-          }
-        >
-          <MapView
-            markers={markers}
-            fitTo={fitTo}
-            label={`Map of ${vehicles.length} live trains${station ? ` near ${centre.name}` : ''}`}
-            className="h-[70dvh] w-full overflow-hidden rounded-card bg-map-ground"
-          />
-        </Suspense>
+          </Suspense>
+        ) : (
+          placeholder
+        )}
         <p className="mt-2 flex items-center gap-3 text-xs text-gray-600 dark:text-night-text/70">
           <span className="inline-flex items-center gap-1">
             <span className="size-2.5 rounded-sm bg-ferry-aqua" /> Train

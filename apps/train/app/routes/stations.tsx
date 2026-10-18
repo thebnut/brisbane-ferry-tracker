@@ -24,9 +24,15 @@ import {
 import { searchStations } from '../lib/search.ts'
 import { pageMeta } from '../lib/seo.ts'
 import { getEnv, siteInfo } from '../lib/server.server.ts'
+import { useMounted } from '../lib/useNow.ts'
 import type { Route } from './+types/stations'
 
-const StopSearch = lazy(() => import('@bft/ui/stop-search').then((m) => ({ default: m.StopSearch })))
+// Client-only (Ark UI): the server renders the plain fallback field, then the combobox loads after hydration.
+const StopSearch = lazy(() =>
+  import.meta.env.SSR
+    ? new Promise<never>(() => {})
+    : import('@bft/ui/stop-search').then((m) => ({ default: m.StopSearch })),
+)
 
 export function loader({ request, context }: Route.LoaderArgs) {
   const url = new URL(request.url)
@@ -83,6 +89,7 @@ export default function Stations({ loaderData }: Route.ComponentProps) {
   const toKey = params.get('to') ?? loaderData.to
   const to = from && toKey && isReachable(from.key, toKey) ? stationByKey(toKey) : null
   const index = useStopIndex()
+  const mounted = useMounted()
   const options: StopOption[] = useMemo(
     () =>
       (
@@ -114,16 +121,20 @@ export default function Stations({ loaderData }: Route.ComponentProps) {
         <div className="flex flex-col gap-3 rounded-card bg-white/90 p-3.5 shadow-card dark:bg-night-card">
           <div className="flex items-end gap-2">
             <div className="min-w-0 flex-1">
-              <Suspense fallback={<FieldFallback label="From" value={from?.name ?? ''} />}>
-                <StopSearch
-                  label="From"
-                  placeholder="Station name"
-                  options={options}
-                  value={from?.key ?? null}
-                  filter={fuzzy}
-                  onChange={(k) => set(k, to && isReachable(k, to.key) ? to.key : null)}
-                />
-              </Suspense>
+              {mounted ? (
+                <Suspense fallback={<FieldFallback label="From" value={from?.name ?? ''} />}>
+                  <StopSearch
+                    label="From"
+                    placeholder="Station name"
+                    options={options}
+                    value={from?.key ?? null}
+                    filter={fuzzy}
+                    onChange={(k) => set(k, to && isReachable(k, to.key) ? to.key : null)}
+                  />
+                </Suspense>
+              ) : (
+                <FieldFallback label="From" value={from?.name ?? ''} />
+              )}
             </div>
             <button
               type="button"
@@ -135,7 +146,8 @@ export default function Stations({ loaderData }: Route.ComponentProps) {
               <Icon name="swap" size={20} className="rotate-90" />
             </button>
           </div>
-          {from ? (
+          {from && !mounted ? <FieldFallback label="To" value={to?.name ?? ''} /> : null}
+          {from && mounted ? (
             <Suspense fallback={<FieldFallback label="To" value={to?.name ?? ''} />}>
               <StopSearch
                 label="To"

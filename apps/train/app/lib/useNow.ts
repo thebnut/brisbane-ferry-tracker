@@ -29,3 +29,10 @@ export function useOnline(): boolean {
   }, [])
   return online
 }
+
+/** false during SSR and hydration, true after mount (client-only widgets). */
+export function useMounted(): boolean {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  return mounted
+}
