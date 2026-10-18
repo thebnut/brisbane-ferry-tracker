@@ -1,11 +1,15 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  asOfflineCopy,
   dropDeparted,
+  isNetworkAnswer,
   isOnline,
   LIVE_REFRESH_MAX_AGE_MS,
   liveState,
   markCacheHits,
+  noteCacheCopy,
+  reportOffline,
   reportOnline,
   SLOW_REQUEST_MS,
   SW_CACHE_HEADER,
@@ -149,5 +153,28 @@ describe("dropping live claims keeps what can't be boarded (Codex review)", () =
         { status: 'skipped', estArr: null, estDep: null },
       ],
     })
+  })
+})
+
+describe('a board judges its own response, not the connection flag (R6-B1)', () => {
+  const body = () => ({ rtState: 'live', rtSourceTimestamp: NOW / 1000, generatedAt: NOW })
+  it('a body from the service worker cache is never a network answer, even once the flag says online again', () => {
+    browser()
+    const cached = noteCacheCopy(new Response('{}', { headers: { [SW_CACHE_HEADER]: 'sw' } }), body())
+    reportOffline()
+    // Another request (alerts) reaches the network before the board checks.
+    reportOnline()
+    expect(isOnline()).toBe(true)
+    expect(isNetworkAnswer(cached)).toBe(false)
+    expect(isNetworkAnswer(noteCacheCopy(new Response('{}'), body()))).toBe(true)
+  })
+  it('a network body still is not one while the connection is down', () => {
+    browser(false)
+    expect(isNetworkAnswer(noteCacheCopy(new Response('{}'), body()))).toBe(false)
+  })
+  it('an offline copy stays offline in liveState whatever the flag says, until replaced', () => {
+    const copy = asOfflineCopy(body())
+    expect(liveState(copy, { offline: false, nowMs: NOW })).toBe('offline')
+    expect(liveState(body(), { offline: false, nowMs: NOW })).toBeNull()
   })
 })

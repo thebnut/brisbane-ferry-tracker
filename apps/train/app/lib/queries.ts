@@ -3,7 +3,7 @@
  * full-day timetable of a favourite ("Offline · scheduled").
  */
 import type { DeparturesResponse } from '@bft/core/contract'
-import { bestOfflineCopy, isOnline } from '@bft/ui/connectivity'
+import { asOfflineCopy, bestOfflineCopy, isOnline, replacesBoard } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import {
@@ -87,12 +87,16 @@ export function departuresOptions(
       }
       try {
         const res = await fetchDepartures(fetcher, from, to, { limit, signal })
-        return isOffline() ? (offlineCopy(res) ?? res) : res
+        // Judged on this response, not only on the connection flag another request may have just cleared, and never
+        // older than the board on screen (R6-B1).
+        return replacesBoard(res, client.getQueryData<Board>(queryKey))
+          ? res
+          : asOfflineCopy(offlineCopy(res) ?? res)
       } catch (error) {
         // Offline: the board on screen, or the saved full-day timetable as scheduled times.
         const copy = isOffline() ? offlineCopy() : null
         if (!copy) throw error
-        return copy
+        return asOfflineCopy(copy)
       }
     },
     initialData: initial ?? undefined,

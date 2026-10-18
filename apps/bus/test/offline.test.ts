@@ -127,3 +127,85 @@ describe('offline poll answered by an old service-worker copy (R2-B6)', () => {
     expect(out.generatedAt).toBe(swCopy.generatedAt)
   })
 })
+
+describe('a cached answer while another request reaches the network (R6-B1)', () => {
+  afterEach(() => {
+    reportOnline()
+    vi.useRealTimers()
+  })
+  const mode = { fixtures: false, rt: null }
+  // The service worker's copy, from when the device went offline (10:51 pm in Dev's session).
+  const swCopy = { ...res([row(300), row(900)]), generatedAt: NOW - 20 * 60_000 }
+  // trackedFetch reports offline for the marked response, then the alerts poll (same tick) reaches the network.
+  const racingFetcher = async () => {
+    reportOffline()
+    const marked = new Response(JSON.stringify(swCopy), { headers: { 'x-bft-cache': 'sw' } })
+    reportOnline()
+    return marked
+  }
+  const poll = (client: QueryClient, fetcher = racingFetcher) => {
+    const opts = departuresOptions(fetcher, mode, '10802', null)
+    return opts.queryFn({
+      signal: new AbortController().signal,
+      client,
+      queryKey: opts.queryKey,
+      meta: undefined,
+    })
+  }
+
+  it('the old body is an offline copy, never shown as live or "Live times delayed"', async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
+    const out = await poll(new QueryClient())
+    expect(out.offline).toBe(true)
+    expect(out.rtState).toBe('unavailable')
+    expect(out.departures.every((d) => d.status === 'scheduled' && d.estDep == null)).toBe(true)
+    // Rendered while the connection flag says online: still the offline board, with its rows.
+    const view = liveView('10802', out, NOW, true)
+    expect(view.state).toBe('offline')
+    expect(view.data?.departures).toHaveLength(2)
+  })
+  it('a body older than the board on screen never replaces it, even unmarked', async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
+    const client = new QueryClient()
+    const shown = { ...res([row(300), row(900), row(1500)]), generatedAt: NOW - 30_000 }
+    client.setQueryData(departuresOptions(racingFetcher, mode, '10802', null).queryKey, shown)
+    const out = await poll(client, async () => new Response(JSON.stringify(swCopy)))
+    expect(out.offline).toBe(true)
+    expect(out.generatedAt).toBe(shown.generatedAt)
+  })
+  it('a fresh network answer replaces the offline board', async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
+    const client = new QueryClient()
+    client.setQueryData(
+      departuresOptions(racingFetcher, mode, '10802', null).queryKey,
+      asOfflineTimetable('10802', swCopy, NOW),
+    )
+    const fresh = { ...res([row(300)]), generatedAt: NOW }
+    const out = await poll(client, async () => new Response(JSON.stringify(fresh)))
+    expect(out.offline).toBeUndefined()
+    expect(liveView('10802', out, NOW, true).state).toBeNull()
+  })
+})
+
+describe('offline copies for viewed stops (R6-B1)', () => {
+  it('keeps the newest unsaved copies, and saved stops always', async () => {
+    const { OFFLINE_UNSAVED_MAX, hasTimetableCopy, readOffline, toggleSaved } = await import(
+      '../app/lib/storage.ts'
+    )
+    toggleSaved({ id: 'saved1', name: 'Saved' })
+    writeOffline('saved1', res([row(300)]))
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
+    for (let i = 0; i < OFFLINE_UNSAVED_MAX + 3; i++) {
+      vi.setSystemTime(NOW + i * 1000)
+      writeOffline(`s${i}`, res(i === 0 ? [] : [row(300)]))
+    }
+    vi.useRealTimers()
+    expect(readOffline('saved1')).not.toBeNull()
+    expect(readOffline('s0')).toBeNull()
+    expect(readOffline(`s${OFFLINE_UNSAVED_MAX + 2}`)).not.toBeNull()
+    expect(hasTimetableCopy(`s${OFFLINE_UNSAVED_MAX + 2}`)).toBe(true)
+    writeOffline('empty', res([]))
+    expect(hasTimetableCopy('empty')).toBe(false)
+    toggleSaved({ id: 'saved1', name: 'Saved' })
+  })
+})

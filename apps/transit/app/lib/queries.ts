@@ -1,6 +1,12 @@
 /** TanStack Query hooks for the transit pages: 15 s polling while visible, tiles kept for the session. */
 import type { AlertsResponse, Departure, DeparturesResponse } from '@bft/core/contract'
-import { bestOfflineCopy, isOnline } from '@bft/ui/connectivity'
+import {
+  asOfflineCopy,
+  bestOfflineCopy,
+  isOnline,
+  type OfflineCopy,
+  replacesBoard,
+} from '@bft/ui/connectivity'
 import { type QueryFunctionContext, useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useRouteLoaderData } from 'react-router'
@@ -49,12 +55,14 @@ export function savedOptions(fetcher: ApiFetcher, mode: DataMode, item: SavedIte
     queryFn: async ({
       signal,
       client,
-    }: QueryFunctionContext<typeof queryKey>): Promise<DeparturesResponse> => {
+    }: QueryFunctionContext<typeof queryKey>): Promise<DeparturesResponse & OfflineCopy> => {
       // Offline, the card on screen may be fresher than the service worker's cached answer (R2-B6).
       const shown = client.getQueryData<DeparturesResponse>(queryKey)
       try {
         const res = await fetchDepartures(fetcher, item.mode, item.key, { to: item.to, limit: 20, signal })
-        if (!isOffline()) {
+        // Judged on this response, not only on the connection flag another request may have just cleared, and never
+        // older than the card on screen (R6-B1).
+        if (replacesBoard(res, shown)) {
           if (res.departures.length) writeSavedCopy(item, res)
           return res
         }
@@ -90,7 +98,12 @@ export function asOffline(item: SavedItem, res: DeparturesResponse | null, copy?
     to: null,
     departures: [],
   }
-  return { ...base, rtState: 'unavailable' as const, rtSourceTimestamp: null, departures: rows }
+  return asOfflineCopy({
+    ...base,
+    rtState: 'unavailable' as const,
+    rtSourceTimestamp: null,
+    departures: rows,
+  })
 }
 
 export function useSavedDepartures(fetcher: ApiFetcher, mode: DataMode, items: SavedItem[]) {

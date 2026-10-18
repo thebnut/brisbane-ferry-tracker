@@ -218,7 +218,10 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
           {greeting(now)}
         </h1>
         <AskBox />
-        {!online ? <OfflineBanner kind="offline" detail="Showing saved timetables. No live times." /> : null}
+        {/* A card built from offline copies keeps the banner until its own network answer (R6-B1). */}
+        {!online || qs.some((q) => q.data?.offline) ? (
+          <OfflineBanner kind="offline" detail="Showing saved timetables. No live times." />
+        ) : null}
         {items == null ? null : items.length ? (
           <SavedList items={items} qs={qs} nowMs={now} online={online} />
         ) : (

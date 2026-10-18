@@ -124,7 +124,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       >
         <main className="mx-auto flex max-w-6xl flex-col gap-3 px-4 pt-3.5 pb-64 md:pb-6">
           <h1 className="text-xl font-extrabold md:sr-only">My stops</h1>
-          {first ? <DataBanner rtState={first.rtState} hasData generation={first.staticGeneration} /> : null}
+          {first ? (
+            <DataBanner
+              offline={views.some((v) => v.state === 'offline')}
+              rtState={first.rtState}
+              hasData
+              generation={first.staticGeneration}
+            />
+          ) : null}
           {saved.length === 0 ? (
             <FirstVisit />
           ) : (

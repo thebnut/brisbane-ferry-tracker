@@ -113,17 +113,17 @@ describe('per-board confirmation after a cached page (R2-T7, Codex review rounds
     expect(renderHook(() => useUnconfirmedBefore()).result.current).toBe(RENDERED + RENDER_MARGIN_MS)
   })
 
-  it("a 20-second-old cached board isn't live, whatever other calls answer; its own fresh data is", () => {
+  it('a 20-second-old cached board is an offline copy, whatever other calls answer; its own fresh data is live', () => {
     cachedPage()
     const cutoff = renderHook(() => useUnconfirmedBefore()).result.current
     // Both boards came with the cached HTML (one generated a few seconds after the root's clock read).
     const a = board(RENDERED - 300)
     const b = board(RENDERED + 3_000)
-    expect(liveState(a, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('stale')
-    expect(liveState(b, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('stale')
+    expect(liveState(a, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('offline')
+    expect(liveState(b, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('offline')
     // Board A's own answer arrives (generated now); board B is still the cached copy.
     expect(liveState(board(NOW - 200), { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBeNull()
-    expect(liveState(b, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('stale')
+    expect(liveState(b, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('offline')
     // On a fresh page the same 20-second-old data is live (the usual one-minute rule).
     expect(liveState(a, { offline: false, nowMs: NOW, unconfirmedBefore: null })).toBeNull()
   })

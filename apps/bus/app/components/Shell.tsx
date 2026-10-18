@@ -126,7 +126,10 @@ export function DataBanner({
   rtState,
   hasData,
   generation,
+  offline,
 }: {
+  /** The board shows an offline copy (its own data says so, whatever other requests did; R6-B1). */
+  offline?: boolean
   rtState: RtState | undefined
   hasData: boolean
   /** staticGeneration of the response: "fixture-…" means recorded demo data (fixture mode or staging fallback). */
@@ -144,7 +147,7 @@ export function DataBanner({
     </p>
   ) : null
   let rt: ReactNode = null
-  if (!online)
+  if (!online || offline)
     rt = (
       <OfflineBanner
         kind="offline"

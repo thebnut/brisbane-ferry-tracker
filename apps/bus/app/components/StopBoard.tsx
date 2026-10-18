@@ -47,6 +47,8 @@ export interface DepartureListProps {
   offline?: boolean
   /** A saved stop (its timetable copy ran out rather than never existed). */
   saved?: boolean
+  /** This device has a timetable copy for the stop, now run out (a stop viewed before, saved or not). */
+  copyRanOut?: boolean
 }
 
 /** True when every row is on a later Brisbane day (nothing more tonight). */
@@ -85,6 +87,7 @@ export function DepartureList({
   initialCount,
   offline,
   saved,
+  copyRanOut,
 }: DepartureListProps) {
   const [expanded, setExpanded] = useState(false)
   if (!data) {
@@ -111,7 +114,7 @@ export function DepartureList({
         <h2 className="text-xl font-extrabold">
           {routes?.size
             ? 'Offline: no saved times for this route'
-            : saved
+            : saved || copyRanOut
               ? 'Offline: no more times in the saved timetable'
               : 'Offline: no saved timetable for this stop'}
         </h2>

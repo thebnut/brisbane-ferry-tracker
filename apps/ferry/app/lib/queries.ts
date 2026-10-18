@@ -1,6 +1,6 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
 import type { DeparturesResponse } from '@bft/core/contract'
-import { bestOfflineCopy, isOnline } from '@bft/ui/connectivity'
+import { asOfflineCopy, bestOfflineCopy, isOnline, replacesBoard } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { type ApiFetcher, browserFetcher, fetchDepartures, fetchTrip, fetchVehicles } from './api.ts'
@@ -59,16 +59,18 @@ export function departuresOptions(
         )
       try {
         const res = await fetchDepartures(fetcher, from, to, { at, signal })
-        if (isOnline()) {
+        // Judged on this response, not only on the connection flag another request may have just cleared, and never
+        // older than the board on screen (R6-B1).
+        if (replacesBoard(res, client.getQueryData<DeparturesResponse>(queryKey))) {
           if (!at) writeOffline(from, to, res)
           return res
         }
-        // The service worker answered from its cache (maybe hours old).
-        return offlineCopy(res) ?? res
+        // The service worker answered from its cache (maybe hours old): an offline board until a network answer.
+        return asOfflineCopy(offlineCopy(res) ?? res)
       } catch (error) {
         // Offline with no cached response from the service worker: the board on screen or the last copy we kept.
         const cached = isOnline() ? null : offlineCopy()
-        if (cached) return cached
+        if (cached) return asOfflineCopy(cached)
         throw error
       }
     },
