@@ -89,6 +89,11 @@ test('favourite shows on home and its day is saved for offline', async ({ page, 
   await context.setOffline(true)
   await expect(page.getByText('Offline · scheduled').first()).toBeVisible()
   await expect(page.getByText(/saved timetable/).first()).toBeVisible()
+  // Offline cards claim nothing live: no LIVE/GPS badges, no platform-change tiles.
+  const board = page.locator('[data-board=roma-street]')
+  await expect(board.locator('[data-badge=live], [data-badge=gps], [data-platform-change=true]')).toHaveCount(
+    0,
+  )
 })
 
 test('sitemap lists all 154 stations; robots keeps staging out', async ({ request }) => {

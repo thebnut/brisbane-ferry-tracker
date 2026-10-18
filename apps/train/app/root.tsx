@@ -27,11 +27,14 @@ export const links: Route.LinksFunction = () => [
 
 export function loader({ request, context }: Route.LoaderArgs) {
   const env = getEnv(context)
+  const fixtures = isFixtureMode(request, env)
+  // The trip socket's DO serves the Worker-wide data mode only: no socket for per-visitor fixtures or a forced rtState.
+  const sameMode = fixtures === (env?.FIXTURES === '1') && !new URL(request.url).searchParams.get('rt')
   return {
     theme: themeFromCookie(request.headers.get('cookie')),
-    fixtures: isFixtureMode(request, env),
+    fixtures,
     // null = poll; '' = this Worker's TripSocket DO (same origin); otherwise a wss:// base.
-    tripWs: env?.TRIP_WS === '1' ? (env.API_WS_BASE ?? '') : null,
+    tripWs: env?.TRIP_WS === '1' && sameMode ? (env.API_WS_BASE ?? '') : null,
   }
 }
 

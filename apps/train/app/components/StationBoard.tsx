@@ -18,7 +18,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
-import { boardState, platformChanges, type ServiceFilter, trainCard } from '../lib/departures.ts'
+import { asScheduled, boardState, platformChanges, type ServiceFilter, trainCard } from '../lib/departures.ts'
 import { isReachable, type Station, stationPath } from '../lib/network.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import { useOnline } from '../lib/useNow.ts'
@@ -66,13 +66,17 @@ export function StationBoard({
   )
   const res = q.data ?? (more ? initial : undefined) ?? undefined
   useEffect(() => onData?.(res), [onData, res])
-  const offline = !online || (res as { offline?: boolean } | undefined)?.offline === true
+  // A response this old is a cached copy (e.g. the service worker answered while the API was down): treat as offline.
+  const cachedCopy = !!res && nowMs - res.generatedAt > 120_000
+  const offline = !online || cachedCopy || (res as { offline?: boolean } | undefined)?.offline === true
   const state = boardState(res, offline)
 
   const cards = useMemo(() => {
-    const list = (res?.departures ?? []).map((d) => trainCard(d, nowMs, from.key, to?.key ?? null))
+    // Offline (or a cached copy from the service worker): timetable only, no live estimates or platform changes.
+    const rows = (res?.departures ?? []).map((d) => (offline ? asScheduled(d) : d))
+    const list = rows.map((d) => trainCard(d, nowMs, from.key, to?.key ?? null))
     return filter === 'express' ? list.filter((c) => c.express) : list
-  }, [res, nowMs, from.key, to?.key, filter])
+  }, [res, nowMs, from.key, to?.key, filter, offline])
   const changes = res && !offline ? platformChanges(res.departures) : []
   const firstLive = cards.findIndex((c) => !c.cancelled)
   const canSwap = !!to && isReachable(to.key, from.key)

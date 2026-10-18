@@ -3,8 +3,9 @@
  *
  * One Durable Object per trip instance (idFromName). Browsers connect to /v1/train/trips/{key}/ws; the DO accepts the
  * socket with the Hibernation API (no duration billing while idle), sends the current TripResponse at once, then
- * refreshes the trip every 15 s from an alarm and pushes it only when the content changed (stop predictions, status,
- * vehicle position). With no sockets left the alarm stops and the object goes idle. So upstream work is one fetch per
+ * refreshes the trip every 15 s from an alarm and pushes it only when anything rendered changed (otherwise a small tick,
+ * or `unavailable` when the load failed so clients fall back to polling). A changed trip seen on a new connection is
+ * broadcast to everyone, so newer viewers never leave older ones behind. With no sockets left the alarm stops and the object goes idle. So upstream work is one fetch per
  * trip per cycle however many people watch it, instead of one per viewer per poll.
  *
  * Lives in the bft-train Worker until services/edge is on this branch's base; it should move there (next to the
@@ -15,7 +16,7 @@ import { DurableObject } from 'cloudflare:workers'
 import type { TripResponse } from '@bft/core/contract'
 import { validateTrip } from '../app/lib/contract.server.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
-import { tripFingerprint } from '../app/lib/tripFingerprint.ts'
+import { onConnect, onCycle, type PushState } from '../app/lib/tripFingerprint.ts'
 
 export const CYCLE_MS = 15_000
 /** Run just after each 15 s source cycle (the RT snapshot cadence), so a push carries the newest data. */
@@ -32,19 +33,19 @@ interface Stats {
 
 export class TripSocket extends DurableObject<Env> {
   private stats: Stats = { cycles: 0, upstream: 0, pushes: 0, pushBytes: 0, unchanged: 0, connects: 0 }
-  private last: string | null = null
+  private state: PushState = { last: null }
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     // Counters survive hibernation (one small write per cycle).
     ctx.blockConcurrencyWhile(async () => {
       this.stats = (await ctx.storage.get<Stats>('stats')) ?? this.stats
-      this.last = (await ctx.storage.get<string>('last')) ?? null
+      this.state.last = (await ctx.storage.get<string>('last')) || null
     })
   }
 
   private async save(): Promise<void> {
-    await this.ctx.storage.put({ stats: this.stats, last: this.last ?? '' })
+    await this.ctx.storage.put({ stats: this.stats, last: this.state.last ?? '' })
   }
 
   private async tripKey(): Promise<string | null> {
@@ -80,14 +81,8 @@ export class TripSocket extends DurableObject<Env> {
     const [client, server] = Object.values(pair) as [WebSocket, WebSocket]
     this.ctx.acceptWebSocket(server)
     this.stats.connects++
-    const trip = await this.load(key)
-    if (trip) {
-      const body = JSON.stringify(trip)
-      server.send(body)
-      this.stats.pushes++
-      this.stats.pushBytes += body.length
-      this.last = tripFingerprint(trip)
-    }
+    const action = onConnect(this.state, await this.load(key), key)
+    this.send(action.kind === 'broadcast' ? this.ctx.getWebSockets() : [server], action.body)
     // Keep exactly one alarm in the next cycle: re-arm when none is set, or a stored one is overdue or too far out.
     const alarm = await this.ctx.storage.getAlarm()
     const now = Date.now()
@@ -104,26 +99,23 @@ export class TripSocket extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(nextCycle(Date.now()))
     this.stats.cycles++
     const key = await this.tripKey()
-    const trip = key ? await this.load(key) : null
-    if (!trip) return
-    const fp = tripFingerprint(trip)
-    if (fp === this.last) {
-      this.stats.unchanged++
-      await this.save()
-      return
-    }
-    this.last = fp
-    const body = JSON.stringify(trip)
+    const action = onCycle(this.state, key ? await this.load(key) : null, key ?? '')
+    if (action.kind === 'tick') this.stats.unchanged++
+    this.send(sockets, action.body)
+    await this.save()
+  }
+
+  /** Send one frame to these sockets (outgoing messages are free; a closing socket is cleaned up on close). */
+  private send(sockets: WebSocket[], body: string): void {
     for (const ws of sockets) {
       try {
         ws.send(body)
         this.stats.pushes++
         this.stats.pushBytes += body.length
       } catch {
-        // A socket closing mid-send: the close handler cleans it up.
+        // closing mid-send
       }
     }
-    await this.save()
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
