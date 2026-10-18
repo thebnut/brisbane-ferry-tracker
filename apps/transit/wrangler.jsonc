@@ -73,10 +73,10 @@
       },
       // POST /v1/ask reaches bft-api-prod, where AI_ENABLED=false: deterministic answers or a "Try: …" hint only.
       "services": [{ "binding": "API", "service": "bft-api-prod" }],
-      // Secret (not here): FEEDBACK_DISCORD_WEBHOOK_URL (wrangler secret put --name bft-transit-prod). Both prod envs
-      // are the same Worker, so they share one limiter namespace.
+      // Secret (not here): FEEDBACK_DISCORD_WEBHOOK_URL (wrangler secret put --name bft-transit-prod). Every env has its
+      // own limiter namespace (apps/transit/test/feedback.test.ts), so this one differs from production's.
       "ratelimits": [
-        { "name": "FEEDBACK_LIMITER", "namespace_id": "8106", "simple": { "limit": 3, "period": 60 } }
+        { "name": "FEEDBACK_LIMITER", "namespace_id": "8107", "simple": { "limit": 3, "period": 60 } }
       ]
     },
     // PRODUCTION on brisbanetransit.com + www (www 301s to the apex in the Worker). Both hostnames already have DNS records:
@@ -102,8 +102,8 @@
       },
       // POST /v1/ask reaches bft-api-prod, where AI_ENABLED=false: deterministic answers or a "Try: …" hint only.
       "services": [{ "binding": "API", "service": "bft-api-prod" }],
-      // Secret (not here): FEEDBACK_DISCORD_WEBHOOK_URL (wrangler secret put --name bft-transit-prod). Both prod envs
-      // are the same Worker, so they share one limiter namespace.
+      // Secret (not here): FEEDBACK_DISCORD_WEBHOOK_URL (wrangler secret put --name bft-transit-prod). Every env has its
+      // own limiter namespace (apps/transit/test/feedback.test.ts).
       "ratelimits": [
         { "name": "FEEDBACK_LIMITER", "namespace_id": "8106", "simple": { "limit": 3, "period": 60 } }
       ]

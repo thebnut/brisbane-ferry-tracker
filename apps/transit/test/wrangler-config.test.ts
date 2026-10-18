@@ -47,6 +47,10 @@ describe('wrangler.jsonc production envs', () => {
     expect(preview.services).toEqual(prod.services)
     expect(preview.durable_objects).toEqual(prod.durable_objects)
     expect(preview.migrations).toEqual(prod.migrations)
+    // Same limiter, but each env has its own namespace_id (test/feedback.test.ts).
+    expect(preview.ratelimits.map(({ namespace_id: _, ...r }) => r)).toEqual(
+      prod.ratelimits.map(({ namespace_id: _, ...r }) => r),
+    )
   })
 
   it('mode pages point at the production sites and transit stays noindex', () => {
@@ -57,5 +61,14 @@ describe('wrangler.jsonc production envs', () => {
       INDEXABLE: '0',
       TURNSTILE_SITEKEY: '0x4AAAAAAFZ6yPZTYH3xrIMT',
     })
+  })
+
+  it('production keeps the /api/feedback limiter, in its own namespace', () => {
+    expect(prod.ratelimits).toEqual([
+      { name: 'FEEDBACK_LIMITER', namespace_id: '8106', simple: { limit: 3, period: 60 } },
+    ])
+    expect(preview.ratelimits).toEqual([
+      { name: 'FEEDBACK_LIMITER', namespace_id: '8107', simple: { limit: 3, period: 60 } },
+    ])
   })
 })
