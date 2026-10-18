@@ -7,7 +7,12 @@
  *                                legacy Vercel route (api/feedback.js)
  * CORS matches api/_cors.js byte for byte (same allowlist, headers and preflight).
  */
-import { feedbackApp, RATE_LIMITED_BODY, relayFeedback } from '../../../api/_feedback-discord.js'
+import {
+  feedbackApp,
+  RATE_LIMITED_BODY,
+  relayFeedback,
+  UNAVAILABLE_BODY,
+} from '../../../api/_feedback-discord.js'
 
 const STATIC_ALLOWED = new Set([
   'https://brisbaneferry.com',
@@ -92,7 +97,14 @@ export async function handleLegacy(
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
   if (env.FEEDBACK_LIMITER) {
     const ip = request.headers.get('cf-connecting-ip') ?? 'unknown'
-    const { success } = await env.FEEDBACK_LIMITER.limit({ key: ip })
+    let success: boolean
+    try {
+      ;({ success } = await env.FEEDBACK_LIMITER.limit({ key: ip }))
+    } catch (error) {
+      // A bound limiter that errors fails closed: no unthrottled path to the webhook.
+      console.error(`[feedback] FEEDBACK_LIMITER failed (${error instanceof Error ? error.name : 'error'})`)
+      return json(UNAVAILABLE_BODY, 503)
+    }
     if (!success) {
       console.warn('[feedback] rate limited')
       return json(RATE_LIMITED_BODY, 429, { 'retry-after': '60' })

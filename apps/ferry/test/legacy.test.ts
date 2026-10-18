@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest'
 // @ts-expect-error The legacy Vercel helper is plain JS without types; imported to prove allowlist parity.
 import { isAllowedOrigin as legacyAllowed } from '../../../api/_cors.js'
 import {
@@ -21,6 +21,11 @@ const env = (over: Partial<Env> = {}): Env =>
     ...over,
   }) as Env
 
+/** Every test starts with the network refused, so a regression can never reach a real host (Codex review). */
+let fetchSpy: MockInstance<typeof fetch>
+beforeEach(() => {
+  fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network disabled in tests'))
+})
 afterEach(() => vi.restoreAllMocks())
 
 describe('legacy endpoints on the ferry origin (cutover blocker)', () => {
@@ -74,7 +79,7 @@ describe('legacy endpoints on the ferry origin (cutover blocker)', () => {
     expect(r.status).toBe(500)
     expect(await r.json()).toEqual({ error: 'Failed to fetch data from TransLink API' })
     expect(r.headers.get('access-control-allow-origin')).toBe('capacitor://localhost')
-    const spy = vi.spyOn(globalThis, 'fetch')
+    const spy = fetchSpy
     const e = env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK })
     for (const body of ['null', '"text"', 'not json']) {
       const f = (await handleLegacy(
@@ -142,7 +147,7 @@ describe('/api/feedback → Discord webhook', () => {
   })
 
   it('happy path: posts the embed to the secret URL with ?wait=true and no mentions allowed', async () => {
-    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }))
+    const spy = fetchSpy.mockResolvedValue(new Response('{}', { status: 200 }))
     const lim = limiter(true)
     const res = await post(good, env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, FEEDBACK_LIMITER: lim as never }))
     expect(res.status).toBe(200)
@@ -176,7 +181,7 @@ describe('/api/feedback → Discord webhook', () => {
   })
 
   it('titles: iOS from the Capacitor Origin, transit from the mounting Worker; body url when no Referer', async () => {
-    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
+    const spy = fetchSpy.mockResolvedValue(new Response('{}'))
     const e = env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK })
     await post({ ...good, url: 'https://app/page' }, e, { origin: 'capacitor://localhost', referer: '' })
     await handleLegacy(
@@ -196,7 +201,7 @@ describe('/api/feedback → Discord webhook', () => {
   })
 
   it('neutralises @everyone, @here, user/role/channel mentions and masked links', async () => {
-    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
+    const spy = fetchSpy.mockResolvedValue(new Response('{}'))
     await post(
       {
         feedback: 'hey @everyone and @here <@123> <@&456> <#789> [click](https://evil.example)',
@@ -215,7 +220,7 @@ describe('/api/feedback → Discord webhook', () => {
   })
 
   it('unset secret: 503 with a clear log line and no fetch', async () => {
-    const spy = vi.spyOn(globalThis, 'fetch')
+    const spy = fetchSpy
     const res = await post(good, env())
     expect(res.status).toBe(503)
     expect(await res.json()).toEqual({
@@ -231,7 +236,7 @@ describe('/api/feedback → Discord webhook', () => {
     [500, 502],
     [429, 503],
   ])('Discord %i → %i, logging the status only', async (discord, ours) => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    fetchSpy.mockResolvedValue(
       new Response(JSON.stringify({ message: 'nope', retry_after: 1 }), { status: discord }),
     )
     const res = await post(good, env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK }))
@@ -242,7 +247,7 @@ describe('/api/feedback → Discord webhook', () => {
   })
 
   it('network error → 502 with the error name only in the log', async () => {
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError(`fetch failed for ${HOOK}?wait=true`))
+    fetchSpy.mockRejectedValue(new TypeError(`fetch failed for ${HOOK}?wait=true`))
     const res = await post(good, env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK }))
     expect(res.status).toBe(502)
     expect(await res.json()).toEqual({ error: 'Failed to submit feedback. Please try again later.' })
@@ -250,14 +255,14 @@ describe('/api/feedback → Discord webhook', () => {
   })
 
   it('a malformed secret is a 503, not a throw, and is not logged', async () => {
-    const spy = vi.spyOn(globalThis, 'fetch')
+    const spy = fetchSpy
     const res = await post(good, env({ FEEDBACK_DISCORD_WEBHOOK_URL: 'discord.test test-token-secret' }))
     expect(res.status).toBe(503)
     expect(spy).not.toHaveBeenCalled()
   })
 
   it('validation errors (unchanged messages) make no fetch', async () => {
-    const spy = vi.spyOn(globalThis, 'fetch')
+    const spy = fetchSpy
     const e = env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK })
     const cases: [unknown, string][] = [
       [{ feedback: 'short' }, 'Feedback must be at least 10 characters long'],
@@ -276,7 +281,7 @@ describe('/api/feedback → Discord webhook', () => {
   })
 
   it('rate limited: 429 with CORS, before validation, and no fetch', async () => {
-    const spy = vi.spyOn(globalThis, 'fetch')
+    const spy = fetchSpy
     const res = await post(
       good,
       env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, FEEDBACK_LIMITER: limiter(false) as never }),
@@ -288,8 +293,20 @@ describe('/api/feedback → Discord webhook', () => {
     expect(spy).not.toHaveBeenCalled()
   })
 
+  it('a limiter that errors fails closed with a 503 and no fetch', async () => {
+    const broken = { limit: vi.fn(async () => Promise.reject(new Error('limiter down'))) }
+    const res = await post(
+      good,
+      env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, FEEDBACK_LIMITER: broken as never }),
+    )
+    expect(res.status).toBe(503)
+    expect(res.headers.get('access-control-allow-origin')).toBe('https://www.brisbaneferry.com')
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(logged.join('\n')).toContain('FEEDBACK_LIMITER failed (Error)')
+  })
+
   it('a missing limiter binding (local dev) fails open and says so', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
+    fetchSpy.mockResolvedValue(new Response('{}'))
     const res = await post(good, env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK }))
     expect(res.status).toBe(200)
     expect(logged.join('\n')).toContain('FEEDBACK_LIMITER binding missing')

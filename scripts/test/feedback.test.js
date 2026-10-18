@@ -193,6 +193,17 @@ describe('createMemoryRateLimiter', () => {
     assert.equal(l.check('a'), true);
   });
 
+  it('sweeps expired keys at most a window later, so IPs are not held indefinitely', () => {
+    let t = 0;
+    const l = createMemoryRateLimiter({ limit: 3, windowMs: 1000, now: () => t });
+    l.check('a');
+    l.check('b');
+    assert.equal(l.size(), 2);
+    t = 2001;
+    l.check('c');
+    assert.equal(l.size(), 1);
+  });
+
   it('stays bounded at maxKeys, dropping expired keys first, then the oldest', () => {
     let t = 0;
     const l = createMemoryRateLimiter({ limit: 1, windowMs: 1000, maxKeys: 3, now: () => t });

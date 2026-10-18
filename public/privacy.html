@@ -157,8 +157,10 @@
         Feedback is posted to a private channel on <strong>Discord</strong> (Discord Inc.) through
         a webhook, so the maintainer is notified. What is sent: your message, your name and email
         if you gave them, the page URL you submitted from, your user-agent string and a
-        timestamp. Your IP address is not sent to Discord; our server uses it only to limit how
-        many submissions one address can make in a few minutes, and does not store it. The content you type is not
+        timestamp. Your IP address is not sent to Discord. Our server uses it only to limit how
+        many submissions one address can make in a few minutes: it is held briefly in
+        memory (or in our hosting provider's rate-limit counters) for that purpose and is
+        not written to our logs or kept with your feedback. The content you type is not
         used for any purpose other than responding to your feedback.
       </p>
 

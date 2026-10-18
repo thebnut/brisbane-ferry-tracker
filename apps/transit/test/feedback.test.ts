@@ -1,12 +1,17 @@
 /** The mounted /api/feedback (apps/ferry/workers/legacy.ts): rate limited, titled "BrisbaneTransit", Discord secret. */
 import { readFileSync } from 'node:fs'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest'
 import worker from '../workers/app.ts'
 
 vi.mock('virtual:react-router/server-build', () => ({}))
 
 const HOOK = 'https://discord.test/api/webhooks/0/test'
 
+/** Every test starts with the network refused, so a regression can never reach a real host (Codex review). */
+let fetchSpy: MockInstance<typeof fetch>
+beforeEach(() => {
+  fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network disabled in tests'))
+})
 afterEach(() => vi.restoreAllMocks())
 
 const call = (env: Partial<Env>) =>
@@ -22,7 +27,7 @@ const call = (env: Partial<Env>) =>
 
 describe('transit /api/feedback', () => {
   it('uses the FEEDBACK_LIMITER binding: limited is a 429 and nothing is sent', async () => {
-    const spy = vi.spyOn(globalThis, 'fetch')
+    const spy = fetchSpy
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const limit = vi.fn(async () => ({ success: false }))
     const res = await call({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, FEEDBACK_LIMITER: { limit } })
@@ -32,7 +37,7 @@ describe('transit /api/feedback', () => {
   })
 
   it('relays to the Discord secret with the BrisbaneTransit title', async () => {
-    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
+    const spy = fetchSpy.mockResolvedValue(new Response('{}'))
     const res = await call({
       FEEDBACK_DISCORD_WEBHOOK_URL: HOOK,
       FEEDBACK_LIMITER: { limit: async () => ({ success: true }) },

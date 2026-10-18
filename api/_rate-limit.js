@@ -6,7 +6,9 @@
 //   each warm instance, and a cold start forgets everything. It slows casual
 //   abuse; it is not a guarantee.
 // - Memory is bounded by `maxKeys`: past that, expired keys are dropped first,
-//   then the oldest-seen keys.
+//   then the oldest-seen keys. Expired keys are also swept at most once per
+//   window, so an IP is held for at most about two windows (20 minutes for
+//   feedback) on a warm instance, and never written anywhere else.
 // The robust option is a Vercel Firewall rate-limit rule on /api/feedback.
 
 /**
@@ -16,25 +18,30 @@
 export function createMemoryRateLimiter({ limit, windowMs, maxKeys = 5000, now = Date.now }) {
   /** @type {Map<string, number[]>} key → request times inside the window, oldest first */
   const hits = new Map();
+  let lastSweep = now();
 
-  function evict(t) {
+  function sweep(t) {
+    lastSweep = t;
     for (const [k, times] of hits) {
       if (times[times.length - 1] <= t - windowMs) hits.delete(k);
     }
-    while (hits.size >= maxKeys) hits.delete(hits.keys().next().value);
   }
 
   return {
     /** true when the request is allowed (and counted), false when over the limit */
     check(key) {
       const t = now();
+      if (t - lastSweep >= windowMs) sweep(t);
       const times = (hits.get(key) ?? []).filter((x) => x > t - windowMs);
       if (times.length >= limit) {
         hits.set(key, times);
         return false;
       }
       times.push(t);
-      if (!hits.has(key) && hits.size >= maxKeys) evict(t);
+      if (!hits.has(key) && hits.size >= maxKeys) {
+        sweep(t);
+        while (hits.size >= maxKeys) hits.delete(hits.keys().next().value);
+      }
       hits.delete(key); // re-insert so Map order tracks the most recent use
       hits.set(key, times);
       return true;
