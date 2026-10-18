@@ -101,9 +101,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const activeAlerts = (alertsQ.data?.alerts ?? []).length
   return (
     <>
-      {/* LIVE only while every saved stop's board is live (each confirms itself after a cached page, R2-T7). */}
+      {/* LIVE only while every saved stop's board is live (each confirms itself after a cached page, R2-T7). A board
+          still waiting for its answer is not live (R7-T1). */}
       <SiteHeader
-        live={online && views.every((v) => !v.data || (v.state == null && v.data.rtState === 'live'))}
+        live={online && views.every((v) => v.data && v.state == null && v.data.rtState === 'live')}
       />
       <UpdatedStrip
         updatedAt={first?.generatedAt ?? null}
