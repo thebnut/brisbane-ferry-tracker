@@ -47,7 +47,7 @@
       // The SSR loader and the /v1 proxy call the API Worker in-process through this binding.
       "services": [{ "binding": "API", "service": "bft-api" }]
     },
-    // PRODUCTION, step 1 (docs/architecture/cutover-runbook.md "Train, bus and transit production"): the same
+    // PRODUCTION, step 8.1 (docs/architecture/cutover-runbook.md "Train, bus and transit production"): the same
     // Worker on its workers.dev host only (bft-train-prod.brisbanetransit.workers.dev), no custom domains, so it can
     // be checked before any DNS record changes. Keep it identical to "production" except workers_dev and routes
     // (test/wrangler-config.test.ts checks this). Deployed from main.
@@ -59,7 +59,7 @@
         "ALLOW_FIXTURES": "0",
         "FIXTURES": "0",
         "SITE_URL": "https://brisbanetrain.com",
-        // Soft launch: noindex + robots Disallow until the real domain is verified, then "1" (runbook step T6).
+        // Soft launch: noindex + robots Disallow until the real domain is verified, then "1" (runbook 8.5).
         "INDEXABLE": "0",
         // The WebSocket prototype starts off in production (trips poll every 15 s); the DO stays bound so turning it
         // on later is a var change, not a migration.
@@ -71,7 +71,7 @@
       "services": [{ "binding": "API", "service": "bft-api-prod" }]
     },
     // PRODUCTION on brisbanetrain.com + www (www 301s to the apex in the Worker). Both hostnames already have DNS records:
-    // deploy this only after Brett has exported and approved replacing them (runbook). Deployed from main.
+    // deploy this only after Brett has exported and approved replacing them (runbook 8.3–8.4). Deployed from main.
     "production": {
       "name": "bft-train-prod",
       "workers_dev": false,
@@ -84,7 +84,7 @@
         "ALLOW_FIXTURES": "0",
         "FIXTURES": "0",
         "SITE_URL": "https://brisbanetrain.com",
-        // Soft launch: noindex + robots Disallow until the real domain is verified, then "1" (runbook step T6).
+        // Soft launch: noindex + robots Disallow until the real domain is verified, then "1" (runbook 8.5).
         "INDEXABLE": "0",
         // The WebSocket prototype starts off in production (trips poll every 15 s); the DO stays bound so turning it
         // on later is a var change, not a migration.
