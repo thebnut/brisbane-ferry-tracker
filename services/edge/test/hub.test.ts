@@ -397,12 +397,12 @@ describe('RtHub R2 publish', () => {
       'put:rt/latest.json',
     ])
     const src = new MemoryDataSource(r2.files)
-    const a = await pullFromR2(src, null, 'ferry')
+    const a = await pullFromR2(src, null, 'ferry', h.clock.t)
     expect(a.seq).toBe(seq)
     expect(RtSnapshot.parse(JSON.parse(a.json as string)).header.seq).toBe(seq)
     expect(a.status.stats?.ferry?.matched).toBe(1)
     const reads = src.reads.length
-    const b = await pullFromR2(src, seq, 'ferry')
+    const b = await pullFromR2(src, seq, 'ferry', h.clock.t)
     expect(b.json).toBeNull()
     // Single-read refresh: a mode is one GET, with no pointer read first.
     expect(src.reads.slice(reads)).toEqual([modeLatestKey('ferry')])
@@ -460,7 +460,7 @@ describe('RtHub R2 publish', () => {
       }
       return realGet(k)
     }
-    const r = await pullFromR2(src, null, 'alerts')
+    const r = await pullFromR2(src, null, 'alerts', h.clock.t)
     expect(r.seq).toBe(seq)
     expect(snapshotSeq(r.json as string)).toBe(seq)
     expect(reads.filter((k) => k === 'rt/latest.json')).toHaveLength(2)
@@ -468,7 +468,7 @@ describe('RtHub R2 publish', () => {
       k === key
         ? { body: new Blob([JSON.stringify(stale)]).stream() as ReadableStream<Uint8Array> }
         : realGet(k)
-    await expect(pullFromR2(src, null, 'alerts')).rejects.toThrow(/not found/)
+    await expect(pullFromR2(src, null, 'alerts', h.clock.t)).rejects.toThrow(/not found/)
   })
 
   it('an R2 outage is recorded but does not stop the cycle or the DO copy', async () => {
@@ -692,7 +692,7 @@ describe('Codex review regressions', () => {
     expect(ptr2.seq).toBeGreaterThan(ptr.seq)
     expect(ptr2.files.alerts.seq).toBe(alertsSeq)
     // A scope the hub doesn't publish reads as no snapshot, with the hub status.
-    const bus = await pullFromR2(new MemoryDataSource(r2.files), null, 'bus')
+    const bus = await pullFromR2(new MemoryDataSource(r2.files), null, 'bus', h.clock.t)
     expect(bus).toMatchObject({ seq: null, json: null })
     expect(bus.status.seq).toBe(ptr2.seq)
   })
@@ -721,7 +721,7 @@ describe('Codex review regressions', () => {
     expect(ptr.seq - ptr.files.alerts.seq).toBeGreaterThan(20) // the alerts document is old
     const client = (scope: SnapshotScope) =>
       new SnapshotClient(
-        { pull: (s, sc) => pullFromR2(src, s, sc), getRaw: async () => null },
+        { pull: (s, sc) => pullFromR2(src, s, sc, h.clock.t), getRaw: async () => null },
         h.clock.now,
         () => {},
         null,
@@ -868,5 +868,25 @@ describe('Codex review regressions', () => {
     )
     // Abandoned: the pointer path gives the newer ring snapshot.
     expect((await pullFromR2(src, null, 'ferry', latest.header.fetchedAt + 60_000)).seq).toBe(seq)
+  })
+
+  it('single-read review: the pointer fallback accepts a partially published (newer) mode object', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    const realPut = r2.put.bind(r2)
+    r2.put = async (key: string, value: Uint8Array | string) => {
+      if (key === 'rt/latest.json') throw new Error('r2 down')
+      return realPut(key, value)
+    }
+    h.clock.advance(CYCLE_MS)
+    h.up.set(TU, feed(h.nowS(), []))
+    await h.hub.cycle()
+    const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
+    const doc = JSON.parse(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry'))))
+    expect(doc.header.seq).toBe(ptr.seq + 1)
+    // Past the direct-read freshness window the reader takes the pointer path, and still gets the newer object.
+    const r = await pullFromR2(new MemoryDataSource(r2.files), null, 'ferry', doc.header.fetchedAt + 60_000)
+    expect(r.seq).toBe(ptr.seq + 1)
   })
 })

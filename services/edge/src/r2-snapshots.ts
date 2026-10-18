@@ -64,7 +64,12 @@ export async function pullFromR2(
   // the hub published between our two reads, so re-read the pointer and try once more.
   for (let attempt = 0; attempt < 2; attempt++) {
     const json = await readSnapshot(src, e.key)
-    if (json != null && snapshotSeq(json) === e.seq) return { seq: e.seq, json, status: pointer.status }
+    const got = json != null ? snapshotSeq(json) : null
+    // Ring slots must hold exactly the named seq. An overwritten latest object may be newer than the pointer after
+    // a partial publish; it is still that scope's newest committed content (Codex review of #49).
+    if (json != null && got != null && (e.key.endsWith('/latest.json') ? got >= e.seq : got === e.seq)) {
+      return { seq: got, json, status: got > e.seq ? statusOf(json, got) : pointer.status }
+    }
     if (attempt === 0) {
       const again = await readBytes(src, R2_LATEST_KEY)
       if (!again) break
