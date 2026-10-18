@@ -104,7 +104,7 @@ export function reconnectSuite({
   prepare,
 }: {
   path: string
-  prepare?: (page: import('@playwright/test').Page) => Promise<void>
+  prepare?: (page: import('@playwright/test').Page) => Promise<unknown>
 }) {
   test(`${path}: back online, the offline state clears within 2 s without a refresh (R3-X9)`, async ({
     page,

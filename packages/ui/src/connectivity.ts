@@ -196,20 +196,21 @@ export function onReconnect(onBack: () => void): () => void {
 
 /** The polled (live) queries of a TanStack QueryClient: what a reconnect refetches. Static data stays cached. */
 export interface RefetchableClient {
-  refetchQueries(filters: {
-    type: 'active'
-    predicate: (query: { options: { refetchInterval?: unknown } }) => boolean
-  }): Promise<unknown>
+  refetchQueries(filters: { type: 'active'; predicate(query: PolledQuery): boolean }): Promise<unknown>
 }
+/** The part of a TanStack Query this reads: its observers' options (where `refetchInterval` lives). */
+interface PolledQuery {
+  observers: ReadonlyArray<{ options: object }>
+}
+const isPolled = (q: PolledQuery) =>
+  q.observers.some((o) => (o.options as { refetchInterval?: unknown }).refetchInterval != null)
 
 /** onReconnect for an app's QueryClient, refetching every active polled query at once (R3-X9). */
 export function useRefetchOnReconnect(client: RefetchableClient): void {
   useEffect(
     () =>
       onReconnect(() => {
-        void client
-          .refetchQueries({ type: 'active', predicate: (q) => q.options.refetchInterval != null })
-          .catch(() => {})
+        void client.refetchQueries({ type: 'active', predicate: isPolled }).catch(() => {})
       }),
     [client],
   )

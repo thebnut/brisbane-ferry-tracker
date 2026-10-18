@@ -36,8 +36,8 @@ test.describe('R3-X8: geo tiles never 404', () => {
 
 reconnectSuite({
   path: '/',
-  prepare: (page) =>
-    page.addInitScript(() => {
+  prepare: async (page) => {
+    await page.addInitScript(() => {
       localStorage.setItem('brisbane-ferry-remember-selection', 'true')
       localStorage.setItem(
         'brisbane-ferry-selected-stops',
@@ -50,5 +50,6 @@ reconnectSuite({
         'bft-bus-saved',
         JSON.stringify([{ id: '10802', name: 'Cultural Centre station, platform 1' }]),
       )
-    }),
+    })
+  },
 })
