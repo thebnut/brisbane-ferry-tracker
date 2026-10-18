@@ -256,6 +256,10 @@ Web feedback (the legacy modal, the ferry `FeedbackSheet` and the sheet transit 
   - `bft-api` runs siteverify with its `TURNSTILE_SECRET` and returns only `success`, `hostname` and `action`. The relay then requires `success`, action `feedback`, and a hostname equal to the host the feedback was posted to.
   - Anything else is a **403**. A verify call that fails or times out, or a missing secret on `bft-api`, is a **503**. Nothing reaches Discord in either case.
   - The verify endpoint only reports on a token the caller already holds, and siteverify redeems the token as it answers, so the endpoint can't be used to mint or replay tokens.
+  - It is rate limited before any siteverify call, by `VERIFY_LIMITER` (20 a minute per `CF-Connecting-IP`, never the body's `remoteip`) and `VERIFY_GLOBAL_LIMITER` (300 a minute in all). Their ids are 8003/8005 (staging) and 8004/8006 (prod) in `services/edge/wrangler.jsonc`.
+    - The Workers forward the visitor's IP over the binding; Vercel's calls count against its egress IPs.
+    - Over a limit, `bft-api` answers 429, and the relay answers 503 (fail closed). A limiter error is also a 503.
+    - Trade-off: a distributed flood can use up the global budget and pause web feedback for a minute. That is preferred to unbounded siteverify calls.
 - **The iOS path (token-less):** the Capacitor app can't run the widget on its `capacitor://` page.
   - Requests with `Origin: capacitor://localhost` (or `ionic://localhost`) skip Turnstile and keep the per-IP rate limit and validation.
   - Newer builds also send `X-BFT-Client: ios/1`; it's allowed in CORS. Installed builds don't send it, so it is **not required** (`IOS_REQUIRE_CLIENT_HEADER = false` in `api/_turnstile.js`). Requiring it would break feedback in every installed build until an app update, for no security gain.

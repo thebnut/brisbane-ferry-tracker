@@ -34,6 +34,9 @@ export interface AiEnv {
   IP_HASH_SALT?: string
   BUDGET?: DurableObjectNamespace<import('./budget-do.ts').Budget>
   ASK_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
+  /** /v1/turnstile/verify: per caller IP (CF-Connecting-IP), and one global key. */
+  VERIFY_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
+  VERIFY_GLOBAL_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
 }
 
 export function budgetConfig(env: AiEnv): BudgetConfig {
@@ -349,8 +352,11 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
    * Turnstile verification for the feedback relays (no secret leaves this Worker). Not an oracle that weakens
    * anything: it only says whether a token the caller already holds is valid, for which hostname and action, and
    * siteverify redeems the token as it answers (tokens are single-use), so a checked token can't be replayed against
-   * feedback. The hostname and action checks are the caller's (api/_turnstile.js). No per-IP limiter: the relays
-   * call it from Vercel's shared egress IPs, and each call is one siteverify request, like any public endpoint.
+   * feedback. The hostname and action checks are the caller's (api/_turnstile.js).
+   * Bounded before any siteverify call (Codex review of #66): per caller IP and globally. The caller IP is the
+   * platform's CF-Connecting-IP, never the body's `remoteip` (that only goes to siteverify). The Workers forward the
+   * visitor's IP over the service binding; Vercel's calls arrive from its egress IPs. A limiter that errors fails
+   * closed; a missing binding (local dev, tests) is allowed, as for the feedback limiter.
    */
   app.post('/v1/turnstile/verify', async (c) => {
     const env = getEnv(c)
@@ -358,6 +364,18 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
     const parsed = VerifyBody.safeParse(await c.req.json().catch(() => null))
     if (!parsed.success) return c.json({ error: 'bad_request' }, 400, noStore)
     if (!env.TURNSTILE_SECRET) return c.json({ error: 'turnstile_not_configured' }, 503, noStore)
+    try {
+      const ip = c.req.header('cf-connecting-ip') ?? 'anon'
+      const perIp = env.VERIFY_LIMITER ? (await env.VERIFY_LIMITER.limit({ key: ip })).success : true
+      const all =
+        perIp && env.VERIFY_GLOBAL_LIMITER
+          ? (await env.VERIFY_GLOBAL_LIMITER.limit({ key: 'all' })).success
+          : perIp
+      if (!all) return c.json({ error: 'rate_limited' }, 429, { ...noStore, 'retry-after': '60' })
+    } catch (error) {
+      console.error(`[turnstile] verify limiter failed (${error instanceof Error ? error.name : 'error'})`)
+      return c.json({ error: 'limiter_unavailable' }, 503, noStore)
+    }
     try {
       const verify = deps.siteverify ?? siteverify
       const r = await verify(env.TURNSTILE_SECRET, parsed.data.token, parsed.data.remoteip ?? null)

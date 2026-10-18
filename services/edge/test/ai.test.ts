@@ -695,6 +695,45 @@ describe('POST /v1/turnstile/verify (for the feedback relays)', () => {
     expect(await r.json()).toEqual({ error: 'siteverify_unavailable' })
   })
 
+  it('is rate limited per CF-Connecting-IP (never the body remoteip) and globally, before any siteverify call', async () => {
+    const sv = vi.fn(async () => ({ success: true, hostname: 'h', action: 'feedback' }))
+    const perIp = { limit: vi.fn(async ({ key }: { key: string }) => ({ success: key !== '198.51.100.66' })) }
+    const global = { limit: vi.fn(async () => ({ success: true })) }
+    const s = setup(
+      { TURNSTILE_SECRET: 'sek', VERIFY_LIMITER: perIp, VERIFY_GLOBAL_LIMITER: global },
+      { siteverify: sv },
+    )
+    const req = (ip: string, remoteip?: string) =>
+      s.app.request('/v1/turnstile/verify', {
+        method: 'POST',
+        body: JSON.stringify({ token: 'junk', remoteip }),
+        headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip },
+      })
+    // A spoofed body remoteip doesn't change the key.
+    const limited = await req('198.51.100.66', '203.0.113.1')
+    expect(limited.status).toBe(429)
+    expect(limited.headers.get('retry-after')).toBe('60')
+    expect(sv).not.toHaveBeenCalled()
+    expect(global.limit).not.toHaveBeenCalled()
+    expect((await req('203.0.113.2')).status).toBe(200)
+    expect(perIp.limit.mock.calls.map(([o]) => o.key)).toEqual(['198.51.100.66', '203.0.113.2'])
+    expect(global.limit).toHaveBeenCalledWith({ key: 'all' })
+
+    global.limit.mockResolvedValue({ success: false })
+    expect((await req('203.0.113.3')).status).toBe(429)
+    expect(sv).toHaveBeenCalledTimes(1)
+  })
+
+  it('a limiter that errors fails closed (503, no siteverify)', async () => {
+    const sv = vi.fn()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const broken = { limit: async () => Promise.reject(new Error('down')) }
+    const s = setup({ TURNSTILE_SECRET: 'sek', VERIFY_LIMITER: broken }, { siteverify: sv })
+    const r = await verifyReq(s.app, { token: 't' })
+    expect(r.status).toBe(503)
+    expect(sv).not.toHaveBeenCalled()
+  })
+
   it('siteverify(): posts secret, token and IP as a form; throws on a non-2xx answer', async () => {
     const f = vi.fn(async (_u: string | URL | Request, init?: RequestInit) => {
       const form = init?.body as FormData

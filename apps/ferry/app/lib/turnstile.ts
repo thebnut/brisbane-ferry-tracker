@@ -67,8 +67,15 @@ export function invisibleTurnstile(
   let ready: { token: string; at: number } | null = null
   let inflight: Promise<string | null> | null = null
   let settle: ((t: string | null) => void) | null = null
+  /**
+   * Bumped by dispose(). Work started under an older generation (a script still loading, a widget callback) is
+   * ignored, so a sheet closed mid-load can't render into, or answer for, the next one (Codex review of #66). The
+   * instance stays usable: the next warm()/token() starts a fresh generation's widget.
+   */
+  let gen = 0
 
-  const finish = (t: string | null) => {
+  const finish = (g: number, t: string | null) => {
+    if (g !== gen) return
     if (t) ready = { token: t, at: Date.now() }
     settle?.(t)
     settle = null
@@ -79,8 +86,10 @@ export function invisibleTurnstile(
    * load or error events must not leave the Ask box "Asking…" (Codex review of #50, finding 3).
    */
   async function solve(): Promise<string | null> {
+    const g = gen
     try {
       api ??= await loadScript()
+      if (g !== gen) return null
       const el = container()
       if (!el) return null
       if (id == null)
@@ -89,12 +98,12 @@ export function invisibleTurnstile(
           execution: 'execute',
           appearance: 'interaction-only',
           action,
-          callback: (t: string) => finish(t),
-          'error-callback': () => finish(null),
+          callback: (t: string) => finish(g, t),
+          'error-callback': () => finish(g, null),
           'expired-callback': () => {
-            ready = null
+            if (g === gen) ready = null
           },
-          'timeout-callback': () => finish(null),
+          'timeout-callback': () => finish(g, null),
         })
       else api.reset(id)
       const result = new Promise<string | null>((resolve) => {
@@ -112,9 +121,10 @@ export function invisibleTurnstile(
   return {
     warm() {
       if (fresh() || inflight) return
-      inflight = within(solve(), 15_000).finally(() => {
-        inflight = null
+      const p = within(solve(), 15_000).finally(() => {
+        if (inflight === p) inflight = null
       })
+      inflight = p
     },
     async token(timeoutMs = 8000) {
       let t = fresh()
@@ -125,6 +135,11 @@ export function invisibleTurnstile(
       return t
     },
     dispose() {
+      gen++
+      settle?.(null)
+      settle = null
+      inflight = null
+      ready = null
       if (api && id != null) api.remove(id)
       id = null
     },

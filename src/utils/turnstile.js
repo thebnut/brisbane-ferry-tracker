@@ -6,7 +6,9 @@
 // Public sitekey of the "bft-transit-ask" widget (the secret stays on bft-api).
 // Its hostnames don't include the Vercel preview (brisbane-ferry-tracker.vercel.app),
 // so web feedback can't pass the check there.
-export const TURNSTILE_SITEKEY = import.meta.env.VITE_TURNSTILE_SITEKEY || '0x4AAAAAAFZ6yPZTYH3xrIMT';
+// import.meta.env is absent under node (scripts/test); Vite replaces the member expression statically.
+export const TURNSTILE_SITEKEY =
+  (import.meta.env ? import.meta.env.VITE_TURNSTILE_SITEKEY : undefined) || '0x4AAAAAAFZ6yPZTYH3xrIMT';
 export const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 const TOKEN_TTL_MS = 240_000;
 
@@ -48,16 +50,22 @@ export function invisibleTurnstile(sitekey, container, action) {
   let ready = null;
   let inflight = null;
   let settle = null;
+  // Bumped by dispose(): work started earlier (a script still loading, a widget callback) is ignored, so a modal
+  // closed mid-load can't render into, or answer for, the next one (Codex review of #66).
+  let gen = 0;
 
-  const finish = (t) => {
+  const finish = (g, t) => {
+    if (g !== gen) return;
     if (t) ready = { token: t, at: Date.now() };
     settle?.(t);
     settle = null;
   };
 
   async function solve() {
+    const g = gen;
     try {
       api ??= await loadScript();
+      if (g !== gen) return null;
       const el = container();
       if (!el) return null;
       if (id == null)
@@ -66,12 +74,12 @@ export function invisibleTurnstile(sitekey, container, action) {
           execution: 'execute',
           appearance: 'interaction-only',
           action,
-          callback: (t) => finish(t),
-          'error-callback': () => finish(null),
+          callback: (t) => finish(g, t),
+          'error-callback': () => finish(g, null),
           'expired-callback': () => {
-            ready = null;
+            if (g === gen) ready = null;
           },
-          'timeout-callback': () => finish(null),
+          'timeout-callback': () => finish(g, null),
         });
       else api.reset(id);
       const result = new Promise((resolve) => {
@@ -90,9 +98,10 @@ export function invisibleTurnstile(sitekey, container, action) {
     /** Start loading and solving in the background, so a token is ready by submit. */
     warm() {
       if (fresh() || inflight) return;
-      inflight = within(solve(), 30_000).finally(() => {
-        inflight = null;
+      const p = within(solve(), 30_000).finally(() => {
+        if (inflight === p) inflight = null;
       });
+      inflight = p;
     },
     /** A fresh token, or null when Turnstile can't load or answer in time. Single use. */
     async token(timeoutMs = 30_000) {
@@ -102,6 +111,11 @@ export function invisibleTurnstile(sitekey, container, action) {
       return t;
     },
     dispose() {
+      gen++;
+      settle?.(null);
+      settle = null;
+      inflight = null;
+      ready = null;
       if (api && id != null) api.remove(id);
       id = null;
     },

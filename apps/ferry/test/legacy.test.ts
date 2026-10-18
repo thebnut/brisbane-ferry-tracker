@@ -20,15 +20,17 @@ const OK_VERDICT: Verdict = { success: true, hostname: 'www.brisbaneferry.com', 
 function verifyApi(answer: Verdict | Response | Error = OK_VERDICT) {
   const bodies: unknown[] = []
   const urls: string[] = []
+  const ips: (string | null)[] = []
   const api = {
     fetch: vi.fn(async (r: Request) => {
       urls.push(r.url)
+      ips.push(r.headers.get('cf-connecting-ip'))
       bodies.push(await r.json())
       if (answer instanceof Error) throw answer
       return answer instanceof Response ? answer : Response.json(answer)
     }),
   }
-  return { api: api as unknown as Fetcher, fetch: api.fetch, bodies, urls }
+  return { api: api as unknown as Fetcher, fetch: api.fetch, bodies, urls, ips }
 }
 
 const env = (over: Partial<Env> = {}): Env =>
@@ -368,6 +370,8 @@ describe('/api/feedback Turnstile gate (api/_turnstile.js)', () => {
     expect(res.status).toBe(200)
     expect(v.urls).toEqual(['https://bft-api/v1/turnstile/verify'])
     expect(v.bodies).toEqual([{ token: 'tok-1', remoteip: '203.0.113.9' }])
+    // The visitor's IP keys bft-api's per-IP verify limiter.
+    expect(v.ips).toEqual(['203.0.113.9'])
     expect(fetchSpy).toHaveBeenCalledTimes(1)
     expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(`${HOOK}?wait=true`)
   })

@@ -57,9 +57,14 @@ const withCors = (res: Response, origin: string | null, allowAll: boolean): Resp
   return out
 }
 
-/** bft-api's POST /v1/turnstile/verify: in-process through the API binding, or over HTTPS when it's absent. */
-function postVerify(env: Env, body: string, signal: AbortSignal): Promise<Response> {
-  const init: RequestInit = { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal }
+/**
+ * bft-api's POST /v1/turnstile/verify: in-process through the API binding (with the visitor's IP, which bft-api's
+ * per-IP verify limiter keys on), or over HTTPS when it's absent (Cloudflare then sets the IP itself).
+ */
+function postVerify(env: Env, body: string, signal: AbortSignal, ip: string | null): Promise<Response> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  if (ip && env.API) headers['cf-connecting-ip'] = ip
+  const init: RequestInit = { method: 'POST', headers, body, signal }
   return env.API
     ? env.API.fetch(new Request('https://bft-api/v1/turnstile/verify', init))
     : fetch(`${env.API_BASE}/v1/turnstile/verify`, init)
@@ -137,7 +142,7 @@ export async function handleLegacy(
     host: url.host,
     remoteip: request.headers.get('cf-connecting-ip'),
     verify: (token, remoteip) =>
-      verifyWithApi((body, signal) => postVerify(env, body, signal), token, remoteip),
+      verifyWithApi((body, signal) => postVerify(env, body, signal, remoteip), token, remoteip),
   })
   if (denied) return json(denied.body, denied.status)
   const { status, body } = await relayFeedback({
