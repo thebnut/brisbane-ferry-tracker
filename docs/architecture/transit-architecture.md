@@ -599,7 +599,7 @@ Measured 18 October 2026 (Saturday) on the 17 Oct SEQ feed. Raw output: [`measur
 - **Match rates (live, 18 Oct):** ferry 52/52 to 61/61, train 81/81 to 85/85, tram 23/23, bus 1,066/1,074, all tier 1, with no ambiguous matches.
   - Train only reached 100% after a core fix: TransLink sends an after-midnight trip's `start_date` as the calendar date (00:18) while GTFS files it under the previous service date (24:18). Five REPLACEMENT trips missed until tiers 1 and 2 learned that convention (`packages/core/test/edge-findings.test.ts`).
 
-**Memory and reload cost, two service days of trip indexes** (one cold Node process per mode, like a fresh DO isolate)
+**Memory and reload cost, two service days of trip indexes** (one cold Node process per mode, like a fresh DO isolate). These are the Map-based matcher's numbers; the compact matcher's are in the conclusions and in `measurements/rthub-spike-2026-10-18-compact-matcher.json`.
 
 | Mode | Trips (2 days) | Trip index JSON | Heap held by the hub | Reload step per day (parse + `addDay`) |
 |---|---|---|---|---|
@@ -691,9 +691,14 @@ Ways to reach p95 ≤ 40 s:
   - `RT_MODES=all` (combined feeds: 40 ms p50 rebuild, 80 ms weekday estimate; about 20 ms in workerd with only ferry + train matched)
   - any bus matching (35 ms p50)
   - Paid's 30 s default CPU limit covers all of these by two orders of magnitude.
-- **Bus does not fit in any plan's 128 MB DO** with the current Map-based matcher: 103–120 MB for two days.
-  - `RT_INDEX_MODES` defaults to excluding bus, so bus RT is polled but unmatched, and `/v1/bus` reports `rtState: unavailable`.
-  - A compact typed-array matcher (the follow-up PR) is the fix; the §3.3 "about 2 MB each" estimate assumed that.
+- **Bus memory: fixed by the compact matcher.** The Map-based matcher held 103–120 MB for two bus days, which does not fit a 128 MB DO.
+  - The compact typed-array matcher (same API) holds **18.3 MB** for two bus days. Train is 1.2 MB, ferry and tram 0.5 MB each.
+  - Its equivalence check against the old matcher (15,048 `match()` calls, all tiers and modes, plus 1,200 materialised trips) found 0 differences.
+  - **Staging with bus indexed** (`RT_MODES=ferry,train,bus`, `RT_INDEX_MODES=ferry,train,bus`):
+    - bus 1,043/1,051 matched, 0 ambiguous, no out-of-memory
+    - poll CPU **p50 143 ms, p95 212 ms** (cold loads up to 253 ms)
+    - every invocation `ok` even on Free, but that is 14× the nominal limit
+  - So bus matching waits for Workers Paid. `RT_INDEX_MODES` still defaults to excluding bus, and `/v1/bus` reports `rtState: unavailable` until then.
 
 ## 6. Cost model
 

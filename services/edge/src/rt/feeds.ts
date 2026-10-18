@@ -40,9 +40,9 @@ const parseModeList = (v: string): Mode[] =>
 
 /**
  * `RT_MODES=all` polls the combined feeds; `ferry,train` polls those per-mode feeds.
- * `RT_INDEX_MODES` picks which modes get trip indexes. It defaults to every polled mode except bus: two days of
- * bus trip indexes take ~100-120 MB of heap in the current matcher (Phase 0 measurements), which does not fit a
- * 128 MB Durable Object. Bus RT is published unmatched until a compact (typed-array) matcher lands.
+ * `RT_INDEX_MODES` picks which modes get trip indexes. It defaults to every polled mode except bus. With the
+ * compact matcher, two days of bus take ~18 MB and fit the DO, but a bus poll costs ~140 ms CPU (staging), which
+ * needs Workers Paid: set RT_INDEX_MODES=ferry,train,bus (and poll bus) once Paid is active.
  */
 export function parseRtModes(value: string | undefined, indexModes?: string): RtConfig {
   const v = (value ?? 'ferry,train').trim().toLowerCase()
