@@ -57,10 +57,20 @@ export async function handleLegacy(request: Request, env: Env): Promise<Response
       return withCors(Response.json({ error: 'Method not allowed' }, { status: 405 }), origin, allowAll)
     const target = `/api/gtfs-proxy${url.search}`
     const init: RequestInit = { method: 'GET' }
-    const res = env.API
-      ? await env.API.fetch(new Request(`https://bft-api${target}`, init))
-      : await fetch(`${env.API_BASE}${target}`, init)
-    return withCors(res, origin, allowAll)
+    try {
+      const res = env.API
+        ? await env.API.fetch(new Request(`https://bft-api${target}`, init))
+        : await fetch(`${env.API_BASE}${target}`, init)
+      return withCors(res, origin, allowAll)
+    } catch (error) {
+      // Same body and status as api/gtfs-proxy.js on failure (Codex review).
+      console.error('Proxy error:', error instanceof Error ? error.message : String(error))
+      return withCors(
+        Response.json({ error: 'Failed to fetch data from TransLink API' }, { status: 500 }),
+        origin,
+        allowAll,
+      )
+    }
   }
 
   // /api/feedback
@@ -68,11 +78,17 @@ export async function handleLegacy(request: Request, env: Env): Promise<Response
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
   if (!env.N8N_WEBHOOK_URL || !env.N8N_AUTH_TOKEN)
     return json({ error: 'Server configuration error. Please contact support.' }, 500)
-  let body: { feedback?: unknown; email?: unknown; name?: unknown }
+  let parsed: unknown
   try {
-    body = (await request.json()) as typeof body
+    parsed = await request.json()
   } catch {
-    return json({ error: 'Feedback must be at least 10 characters long' }, 400)
+    parsed = null
+  }
+  // A missing, null or non-object body fails validation like an empty feedback (Codex review: it used to throw).
+  const body = (parsed && typeof parsed === 'object' ? parsed : {}) as {
+    feedback?: unknown
+    email?: unknown
+    name?: unknown
   }
   const { feedback, email, name } = body
   if (!feedback || typeof feedback !== 'string' || feedback.trim().length < 10)

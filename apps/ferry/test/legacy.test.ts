@@ -76,6 +76,36 @@ describe('legacy endpoints on the ferry origin (cutover blocker)', () => {
     })
   })
 
+  it('error paths return the legacy JSON bodies with CORS instead of throwing (Codex review)', async () => {
+    const api = {
+      fetch: async () => {
+        throw new Error('binding down')
+      },
+    } as unknown as Fetcher
+    const r = (await handleLegacy(
+      new Request('https://x/api/gtfs-proxy?endpoint=TripUpdates', {
+        headers: { origin: 'capacitor://localhost' },
+      }),
+      env({ API: api }),
+    )) as Response
+    expect(r.status).toBe(500)
+    expect(await r.json()).toEqual({ error: 'Failed to fetch data from TransLink API' })
+    expect(r.headers.get('access-control-allow-origin')).toBe('capacitor://localhost')
+    const e = env({ N8N_WEBHOOK_URL: 'https://n8n.example/hook', N8N_AUTH_TOKEN: 'tok' })
+    for (const body of ['null', '"text"', 'not json']) {
+      const f = (await handleLegacy(
+        new Request('https://x/api/feedback', {
+          method: 'POST',
+          body,
+          headers: { origin: 'https://www.brisbaneferry.com' },
+        }),
+        e,
+      )) as Response
+      expect(f.status, body).toBe(400)
+      expect(f.headers.get('access-control-allow-origin')).toBe('https://www.brisbaneferry.com')
+    }
+  })
+
   it('/api/feedback without secrets is a 500, preflight is a 200, other paths are not handled', async () => {
     const r = (await handleLegacy(
       new Request('https://x/api/feedback', { method: 'POST', body: '{}' }),

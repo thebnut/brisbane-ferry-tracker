@@ -42,6 +42,7 @@ Every step lists a **check**, a **rollback** and the **report entry** to add (`~
 - **Rollback:** `wrangler rollback --env production`, or detach the custom domain (Brett's OK: that's a delete). Nothing user-facing depends on it yet.
 
 ## 3. Phase 2: the legacy ferry app reads `/v1` (flagged, 10% → 50% → 100%)
+- The legacy app's CSP (`vercel.json` and the iOS `index.html` meta) already allows `https://api.brisbaneferry.com` in `connect-src`. **Check** in a real browser that `/v1` requests succeed with no CSP violations in the console before raising the percentage.
 - Vercel production env: `VITE_TRANSIT_API_BASE=https://api.brisbaneferry.com`, then `VITE_FERRY_V1_PERCENT=10`, and redeploy.
 - Watch for 24–48 h:
   - client errors and `/v1` fallbacks (fallback to the legacy path is automatic on any failure)
@@ -53,6 +54,7 @@ Every step lists a **check**, a **rollback** and the **report entry** to add (`~
 
 ## 4. New ferry app: `bft-ferry-prod` on `next.brisbaneferry.com`
 - From `main`: `pnpm --filter @bft/ferry deploy:production`. Its custom domain is a new hostname.
+- **Security-header gate (mandatory before step 5):** `curl -sI https://next.brisbaneferry.com/` and a static asset must show HSTS, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, and on HTML a CSP with `script-src 'self' 'nonce-…'` (no `'unsafe-inline'`), `frame-ancestors 'none'` and `object-src 'none'` (`apps/ferry/workers/security.ts`, `public/_headers`). The browser console must show no CSP violations on home, a terminal page, the map and an offline reload.
 - **Check:**
   - Lighthouse mobile slow 4G (LCP target ≤ 1.5 s, measure and record)
   - SSR terminal pages: `/terminal/*` URLs, canonicals and `sitemap.xml` identical to the live site (diff the URL lists)
@@ -81,4 +83,4 @@ Every step lists a **check**, a **rollback** and the **report entry** to add (`~
 ## 7. Afterwards
 - Phase 1 freshness target (p95 ≤ 40 s): enable the shared per-PoP snapshot refresh (Cache API works on the custom domain), re-measure under real traffic, consider a 10 s hub cadence.
 - Stop the daily `latest.json` commit job only after old iOS adoption allows it (open question 3: "indefinitely" for now). Publishing `latest.json` from the Actions Pages artifact is Phase 2's last step and needs Brett's OK (it changes GitHub Pages).
-- Train and bus production (brisbanetrain.com, brisbanebus.com): repeat steps 4–5 per app.
+- Train, bus and transit production (brisbanetrain.com, brisbanebus.com, brisbanetransit.com): port the ferry Worker's security headers and nonce CSP (`workers/security.ts`, `entry.server.tsx`, root loader nonce, `public/_headers`) to each app first, then repeat steps 4–5 per app.
