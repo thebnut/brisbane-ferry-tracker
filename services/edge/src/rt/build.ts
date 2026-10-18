@@ -102,6 +102,13 @@ export interface BuildInput {
   /** Pre-built alerts (alerts refresh every 60 s, not every cycle). */
   alerts: Alert[]
   previous?: RtSnapshot | null
+  /**
+   * True while some indexed mode is still loading its trip indexes (after a restart, or mid generation swap). Live
+   * cancellations from `previous` whose trip can't be checked yet are then retained rather than dropped.
+   */
+  indexesLoading?: boolean
+  /** The static generation each mode's records in `previous` were matched against (survives interim snapshots). */
+  recordGenerations?: Partial<Record<Mode, string>>
 }
 
 const emptyStats = (): MatchStats => ({
@@ -341,7 +348,17 @@ export function buildSnapshot(input: BuildInput): BuildResult {
           st.total++
           st.byTier.added = (st.byTier.added ?? 0) + 1
           trips[r.key] = { key: r.key, rel, ts, updates: [], added: r.added, ...vehicleId(tu) }
-          if (desc.tripId) keyByDescriptor.set(`${desc.tripId}|${desc.startDate ?? ''}`, r.key)
+          // Vehicles name the duplicate by its own TripProperties identity, not the original's (Codex re-review #2).
+          const props = tu.tripProperties
+          const vehicleKey =
+            rel === 'DUPLICATED'
+              ? props?.tripId
+                ? `${props.tripId}|${props.startDate || desc.startDate || ''}`
+                : null
+              : desc.tripId
+                ? `${desc.tripId}|${desc.startDate ?? ''}`
+                : null
+          if (vehicleKey) keyByDescriptor.set(vehicleKey, r.key)
           done = true
           break
         }
@@ -406,12 +423,15 @@ export function buildSnapshot(input: BuildInput): BuildResult {
   for (const prev of Object.values(input.previous?.trips ?? {})) {
     if (trips[prev.key]) continue
     if (!isRecordLive(prev, nowS, false)) continue
-    const prevGen = input.previous?.header.staticGeneration ?? {}
+    const prevGen = input.recordGenerations ?? input.previous?.header.staticGeneration ?? {}
     const sameGeneration = modes.some((m) => {
       const idx = input.indexes[m]
       return idx?.matcher.trip(prev.key) != null && prevGen[m] === idx.generation
     })
-    if (!sameGeneration) continue
+    // Not resolvable yet (its mode hasn't loaded after a restart): keep it until it can be checked (Codex re-review #1).
+    const unresolved =
+      input.indexesLoading === true && !modes.some((m) => input.indexes[m]?.matcher.trip(prev.key))
+    if (!sameGeneration && !unresolved) continue
     trips[prev.key] = prev
   }
 

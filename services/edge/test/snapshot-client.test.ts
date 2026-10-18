@@ -73,4 +73,26 @@ describe('SnapshotClient stale-while-revalidate', () => {
     seq = 5
     expect((await client.get())?.seq).toBe(5)
   })
+
+  it('re-review #4 failed refreshes are throttled too', async () => {
+    const clock = new Clock(0)
+    let calls = 0
+    const client = new SnapshotClient(
+      {
+        pull: async () => {
+          calls++
+          throw new Error('r2 down')
+        },
+        getRaw: async () => null,
+      },
+      clock.now,
+      () => {},
+      null,
+    )
+    for (let i = 0; i < 5; i++) expect(await client.get()).toBeNull()
+    expect(calls).toBe(1)
+    clock.advance(10_000)
+    await client.get()
+    expect(calls).toBe(2)
+  })
 })

@@ -519,4 +519,60 @@ describe('Codex review regressions', () => {
     expect(snap.header.staticGeneration.ferry).toBe('g2')
     expect(snap.trips[`T2@${D}`]).toBeUndefined()
   })
+
+  it('re-review #1 a cancellation restored after a restart survives until its mode has loaded', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    h.up.set(
+      TU,
+      feed(h.nowS(), [tripUpdate('c', { tripId: 'T2', startDate: D, scheduleRelationship: 3 }, [])]),
+    )
+    await h.hub.cycle()
+    // Restart; upstream has dropped the cancellation by now.
+    const fresh = h.mk()
+    for (let i = 0; i < 3; i++) {
+      h.clock.advance(CYCLE_MS)
+      h.up.set(TU, feed(h.nowS(), []))
+      await fresh.cycle()
+      const snap = RtSnapshot.parse(JSON.parse((await fresh.pull(null)).json as string))
+      expect(snap.trips[`T2@${D}`]?.rel).toBe('CANCELED')
+    }
+  })
+
+  it('re-review #2 vehicles of a DUPLICATED trip attach to the duplicate, the original keeps its own', async () => {
+    const h = setup()
+    await warm(h)
+    h.up.set(
+      TU,
+      feed(h.nowS(), [
+        tripUpdate('orig', { tripId: 'T1', startDate: D, routeId: 'F1-4055' }, [{ seq: 1, depDelay: 0 }]),
+        {
+          id: 'dup',
+          tripUpdate: {
+            trip: {
+              tripId: 'T1',
+              startDate: D,
+              startTime: '08:00:00',
+              routeId: 'F1-4055',
+              scheduleRelationship: 6,
+            },
+            tripProperties: { tripId: 'T1-0900', startDate: D, startTime: '09:00:00' },
+            stopTimeUpdate: [
+              { stopSequence: 1, stopId: '317584', departure: { delay: 0 } },
+              { stopSequence: 3, stopId: '317590', arrival: { delay: 0 } },
+            ],
+          },
+        },
+      ]),
+    )
+    h.up.set(
+      VP,
+      feed(h.nowS(), [vehicle('VO', 'T1', D, -27.4, 153), vehicle('VD', 'T1-0900', D, -27.5, 153)]),
+    )
+    await h.hub.cycle()
+    const snap = RtSnapshot.parse(JSON.parse((await h.hub.pull(null)).json as string))
+    const byId = Object.fromEntries(snap.vehicles.map((v) => [v.id, v.tripKey]))
+    expect(byId).toEqual({ VO: `T1@${D}`, VD: `rt:T1-0900@${D}` })
+  })
 })

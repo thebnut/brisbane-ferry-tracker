@@ -137,6 +137,8 @@ export class HubCore {
   private running: Promise<void> | null = null
   private rawPersistedAt = 0
   private drillDead = false
+  /** Last generation each mode's RT records were matched against, carried across restarts and interim snapshots. */
+  private readonly recordGenerations: Partial<Record<Mode, string>> = {}
   /** The current snapshot still needs publishing to R2 (a publish failed, or it was just rebuilt). */
   private r2Pending = false
   private readonly startedAt: number
@@ -348,9 +350,12 @@ export class HubCore {
           vehiclePositions: pick('VehiclePositions'),
           alerts: this.alerts,
           previous: this.snapshot,
+          indexesLoading: this.pending != null || this.modes.size === 0,
+          recordGenerations: this.recordGenerations,
         })
         this.snapshot = snapshot
         this.snapshotJson = JSON.stringify(snapshot)
+        Object.assign(this.recordGenerations, snapshot.header.staticGeneration)
         this.meta.seq = snapshot.header.seq
         rebuilt = true
         // With R2 bound the snapshot lives there (restored from R2 after a restart); keeping a second copy in DO
@@ -534,6 +539,7 @@ export class HubCore {
       this.snapshotJson = json
       this.snapshot = JSON.parse(json) as RtSnapshot
       this.alerts = this.snapshot.alerts
+      Object.assign(this.recordGenerations, this.snapshot.header.staticGeneration)
     }
   }
 }
