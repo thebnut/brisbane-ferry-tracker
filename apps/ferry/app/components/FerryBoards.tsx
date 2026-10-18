@@ -19,6 +19,7 @@ import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useSta
 import {
   applyFilter,
   asScheduled,
+  bannerState,
   boardState,
   hasExpress,
   type ServiceFilter,
@@ -156,7 +157,9 @@ export function FerryBoards({
   const backList = view(back, backData)
   const express = hasExpress(outData?.departures, backData?.departures)
   const latest = outData ?? backData
-  const state = stateOf(out.data ? out : back)
+  const outState = stateOf(out)
+  const backState = stateOf(back)
+  const state = bannerState(out.data ? [outState, back.data ? backState : null] : [backState])
   // Every board with data is live (after a cached page each board confirms itself with its own data, R2-T7): the
   // header's LIVE and the map, which shows both directions.
   const boardsLive = [out, back].every((q) => !q.data || stateOf(q) == null)
@@ -347,7 +350,7 @@ export function FerryBoards({
             loading={out.isPending}
             error={out.isError}
             onRetry={() => void out.refetch()}
-            offline={offline}
+            offline={outState === 'offline'}
             onSelect={(d) => setSelected({ d, direction: 'outbound' })}
           />
           <div className="hidden md:block">
@@ -377,7 +380,7 @@ export function FerryBoards({
               loading={back.isPending}
               error={back.isError}
               onRetry={() => void back.refetch()}
-              offline={offline}
+              offline={backState === 'offline'}
               onSelect={(d) => setSelected({ d, direction: 'inbound' })}
             />
           </div>
