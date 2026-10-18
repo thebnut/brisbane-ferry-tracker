@@ -98,6 +98,31 @@ describe('budget ledger', () => {
     expect(Object.keys(later.settled ?? {})).toHaveLength(0)
     expect(later.spentUsd).toBeCloseTo(0.5)
   })
+  it('ledger stays well under the 2 MB DO value limit at same-day volume (Codex review round 9)', () => {
+    const cfg = { ...on, monthlyBudgetUsd: 1000, perIpDailyQuota: 10 }
+    // A busy day: 20,000 distinct IPs already counted and 5,000 recent settlements.
+    let st = emptyBudgetState('20261018')
+    st = {
+      ...st,
+      perIp: Object.fromEntries(
+        Array.from({ length: 20000 }, (_, i) => [`ip-hash-${i}-0123456789abcdef`, 3]),
+      ),
+      settled: Object.fromEntries(
+        Array.from({ length: 5000 }, (_, i) => [crypto.randomUUID(), { usd: 0.00016, at: i }]),
+      ),
+    }
+    st = reserve(st, cfg, 'next', 0.0002, 'ip-hash-1-0123456789abcdef', true, 6000).state
+    st = reconcile(st, 'next', 0.00016, 6000)
+    expect(Object.keys(st.settled ?? {}).length).toBeLessThanOrEqual(2000)
+    expect(st.settled?.next).toBeDefined()
+    expect(JSON.stringify(st).length).toBeLessThan(1_500_000)
+    // New IPs beyond the cap fail closed (existing ones still get their quota).
+    expect(reserve(st, cfg, 'x', 0.0002, 'brand-new-ip', true, 1).result).toEqual({
+      ok: false,
+      reason: 'capacity',
+    })
+    expect(reserve(st, cfg, 'y', 0.0002, 'ip-hash-2-0123456789abcdef', true, 1).result.ok).toBe(true)
+  })
   it('worst case for one round (3k in, 400 out) is about $0.0005', () => {
     expect(worstCaseUsd(3000, 400)).toBeCloseTo(0.0005, 6)
     expect(actualUsd(1000, 100)).toBeLessThan(worstCaseUsd(3000, 400))

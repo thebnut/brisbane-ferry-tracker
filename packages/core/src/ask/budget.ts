@@ -48,7 +48,7 @@ export const emptyBudgetState = (day: string): BudgetState => ({
 
 export type ReserveResult =
   | { ok: true; id: string; alert: boolean }
-  | { ok: false; reason: 'disabled' | 'budget_exhausted' | 'ip_quota' }
+  | { ok: false; reason: 'disabled' | 'budget_exhausted' | 'ip_quota' | 'capacity' }
 
 /** Haiku 5.5 list prices used for worst-case reservations (USD per million tokens); keep in config, not code paths. */
 export const HAIKU_PRICE = { inputPerM: 0.1, outputPerM: 0.5 }
@@ -96,7 +96,7 @@ export function rollBudget(state: BudgetState, day: string, now: number, staleMs
   // reconcile arriving later than that is charged again: over-counting is the safe direction for a hard cap.
   const pruned: Record<string, { usd: number; at: number }> = {}
   for (const [id, v] of Object.entries(settled)) if (now - v.at <= SETTLED_RETENTION_MS) pruned[id] = v
-  return { ...s, reservations, reservedUsd: Math.max(0, reservedUsd), spentUsd, settled: pruned }
+  return { ...s, reservations, reservedUsd: Math.max(0, reservedUsd), spentUsd, settled: capSettled(pruned) }
 }
 
 /**
@@ -120,6 +120,9 @@ export function reserve(
   if (ip && countQuestion && (state.perIp[ip] ?? 0) >= cfg.perIpDailyQuota) {
     return { state, result: { ok: false, reason: 'ip_quota' } }
   }
+  if (ip && countQuestion && state.perIp[ip] == null && Object.keys(state.perIp).length >= MAX_IPS_PER_DAY) {
+    return { state, result: { ok: false, reason: 'capacity' } }
+  }
   const perIp = ip && countQuestion ? { ...state.perIp, [ip]: (state.perIp[ip] ?? 0) + 1 } : state.perIp
   const next: BudgetState = {
     ...state,
@@ -132,6 +135,23 @@ export function reserve(
 }
 
 export const SETTLED_RETENTION_MS = 24 * 3600_000
+/**
+ * Hard bounds that keep the ledger (one Durable Object value, max 2 MB) well under 1 MB (Codex review rounds 8-9):
+ * at most MAX_SETTLED settlement records (newest kept; an evicted id that reconciles again is charged again, which
+ * only over-counts), and at most MAX_IPS_PER_DAY per-IP counters (new IPs beyond that fail closed to deterministic
+ * answers for the rest of the day).
+ */
+export const MAX_SETTLED = 2000
+export const MAX_IPS_PER_DAY = 20000
+
+function capSettled(
+  settled: Record<string, { usd: number; at: number }>,
+): Record<string, { usd: number; at: number }> {
+  const entries = Object.entries(settled)
+  if (entries.length <= MAX_SETTLED) return settled
+  entries.sort((a, b) => b[1].at - a[1].at)
+  return Object.fromEntries(entries.slice(0, MAX_SETTLED))
+}
 
 /** Replace a reservation with the actual cost. Unknown ids (already released) still record the spend. */
 export function reconcile(state: BudgetState, id: string, usd: number, now = Date.now()): BudgetState {
@@ -141,7 +161,7 @@ export function reconcile(state: BudgetState, id: string, usd: number, now = Dat
     if (usd <= charged) return state
     return {
       ...state,
-      settled: { ...state.settled, [id]: { usd, at: now } },
+      settled: capSettled({ ...state.settled, [id]: { usd, at: now } }),
       spentUsd: state.spentUsd + (usd - charged),
     }
   }
@@ -151,7 +171,7 @@ export function reconcile(state: BudgetState, id: string, usd: number, now = Dat
   return {
     ...state,
     reservations,
-    settled: { ...state.settled, [id]: { usd, at: now } },
+    settled: capSettled({ ...state.settled, [id]: { usd, at: now } }),
     reservedUsd: Math.max(0, state.reservedUsd - (r?.usd ?? 0)),
     spentUsd: state.spentUsd + usd,
   }
