@@ -64,10 +64,20 @@ export function AppHeader({
             />
           ) : (
             <>
-              <img src={logoSrc} alt="" width={56} height={56} className="size-14 md:size-24" />
+              <img
+                src={logoSrc}
+                alt=""
+                width={56}
+                height={56}
+                className="size-14 md:size-24 dark:rounded-full dark:bg-night-text dark:p-0.5"
+              />
               <span className="flex flex-col font-wordmark leading-[1.08]" aria-hidden="true">
-                <span className="text-xl font-bold text-logo-teal md:text-3xl">{WORDMARK[mode]}</span>
-                <span className="text-base font-semibold text-logo-orange md:text-2xl">Departure Boards</span>
+                <span className="text-xl font-bold text-logo-teal md:text-3xl dark:text-ferry-aqua-light">
+                  {WORDMARK[mode]}
+                </span>
+                <span className="text-base font-semibold text-logo-orange md:text-2xl dark:text-ferry-sunset">
+                  Departure Boards
+                </span>
               </span>
             </>
           )}

@@ -690,7 +690,7 @@ export function TripTimeline({
               </span>
               <span
                 className={cx(
-                  'text-[15px] font-bold tabular',
+                  'text-[15px] font-bold whitespace-nowrap tabular',
                   past ? 'text-gray-500' : 'text-charcoal dark:text-night-text',
                 )}
               >
