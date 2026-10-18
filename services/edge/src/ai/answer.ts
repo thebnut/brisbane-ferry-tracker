@@ -4,6 +4,7 @@
  */
 import {
   type AlertsResponse,
+  brisbaneDate,
   type Departure,
   type DeparturesResponse,
   type Intent,
@@ -22,11 +23,23 @@ export interface AskAnswer {
 
 const PLURAL: Record<Mode, string> = { ferry: 'ferries', train: 'trains', bus: 'buses', tram: 'trams' }
 
+/**
+ * "4:33 am tomorrow (19/10)" for a time on a later Brisbane calendar day, the same rule as the cards' (19/10) marker
+ * (@bft/ui dayMarker, R2-X6b); "tomorrow" only for the next day, else just the date.
+ */
+export function timeWithDay(epochS: number, nowS: number): string {
+  const day = brisbaneDate(epochS * 1000)
+  const today = brisbaneDate(nowS * 1000)
+  if (day <= today) return fmtTime(epochS)
+  const tomorrow = brisbaneDate(nowS * 1000 + 86_400_000) === day
+  return `${fmtTime(epochS)} ${tomorrow ? 'tomorrow ' : ''}(${day.slice(6, 8)}/${day.slice(4, 6)})`
+}
+
 function describe(d: Departure, nowS: number): string {
   const dep = d.estDep ?? d.schedDep
   const mins = Math.round((dep - nowS) / 60)
-  const when =
-    mins <= 0 ? 'leaving now' : mins < 60 ? `in ${mins} min (${fmtTime(dep)})` : `at ${fmtTime(dep)}`
+  const time = timeWithDay(dep, nowS)
+  const when = mins <= 0 ? 'leaving now' : mins < 60 ? `in ${mins} min (${time})` : `at ${time}`
   const status =
     d.status === 'cancelled'
       ? ' (cancelled)'

@@ -197,6 +197,60 @@ describe('route-restricted answers keep the route in scope (Codex round 5)', () 
   })
 })
 
+describe('next-day answers say so (R2-X6b)', () => {
+  // 10:42 pm Sunday 18 Oct 2026 in Brisbane (UTC+10).
+  const now = Date.UTC(2026, 9, 18, 12, 42) / 1000
+  const row = (dep: number) => ({
+    tripInstance: `t${dep}`,
+    stopSequence: 1,
+    route: { id: 'AIRT', short: 'AIRT', long: 'Airport' },
+    headsign: 'Domestic',
+    directionId: 0,
+    stopId: '600029',
+    platform: '2',
+    schedDep: dep,
+    estDep: null,
+    schedArrTo: null,
+    estArrTo: null,
+    status: 'scheduled',
+    gps: false,
+    vehicleId: null,
+  })
+  it('a departure tomorrow carries "tomorrow" and the date; today and 2 days on read plainly', async () => {
+    const { answerIntent, timeWithDay } = await import('../src/ai/answer.ts')
+    // (Intl may put a narrow no-break space before am/pm.)
+    const t = (s: number) => timeWithDay(s, now).replace(/\s/g, ' ')
+    expect(t(now + 600)).toBe('10:52 pm')
+    expect(t(now + 21_060)).toBe('4:33 am tomorrow (19/10)')
+    expect(t(now + 2 * 86_400)).toBe('10:42 pm (20/10)')
+    const fetchApi = async () =>
+      new Response(
+        JSON.stringify({
+          schemaVersion: 1,
+          staticGeneration: 'g',
+          serviceDates: ['20261018', '20261019'],
+          rtSourceTimestamp: null,
+          rtState: 'live',
+          generatedAt: now * 1000,
+          mode: 'train',
+          stop: { key: 'fortitude-valley', name: 'Fortitude Valley', stopIds: [] },
+          to: { key: 'domestic', name: 'Domestic' },
+          departures: [row(now + 21_060)],
+        }),
+      )
+    const a = await answerIntent(
+      {
+        kind: 'next_departure',
+        from: { mode: 'train', key: 'fortitude-valley', name: 'Fortitude Valley', score: 1 },
+        to: { mode: 'train', key: 'domestic', name: 'Domestic', score: 1 },
+      },
+      fetchApi,
+      now,
+    )
+    expect(a.answer.replace(/\s/g, ' ')).toContain('at 4:33 am tomorrow (19/10)')
+  })
+})
+
 describe('route alerts with suffixed route ids (Codex round 4)', () => {
   it('"alerts on F1" finds an alert for route F1-4055', async () => {
     const { answerIntent } = await import('../src/ai/answer.ts')

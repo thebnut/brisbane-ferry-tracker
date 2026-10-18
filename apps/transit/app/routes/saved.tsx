@@ -5,6 +5,7 @@
  */
 import type { DeparturesResponse } from '@bft/core/contract'
 import {
+  dayMarker,
   EmptyState,
   formatClock,
   Icon,
@@ -68,6 +69,12 @@ export interface CardModel {
   next: number | null
 }
 
+/** "6:05 am (19/10)": a clock time with the shared next-day marker (@bft/ui dayMarker, R2-S1). */
+const clockDay = (epochS: number, nowMs: number) => {
+  const day = dayMarker(epochS, nowMs)
+  return day ? `${formatClock(epochS)} ${day}` : formatClock(epochS)
+}
+
 /** One saved card from a departures response (pure, tested). */
 export function cardModel(item: SavedItem, res: DeparturesResponse | undefined, nowMs: number): CardModel {
   // Only boardable services: a cancelled or skipped (not stopping here) one is never "next".
@@ -105,13 +112,13 @@ export function cardModel(item: SavedItem, res: DeparturesResponse | undefined, 
     label,
     title,
     live,
-    time: dep ? `${formatClock(dep)}${arr ? ` → ${formatClock(arr)}` : ''}` : null,
+    time: dep ? `${clockDay(dep, nowMs)}${arr ? ` → ${clockDay(arr, nowMs)}` : ''}` : null,
     detail,
     minutes: dep ? minutesUntil(dep, nowMs) : null,
     later:
       rows
         .slice(1, 3)
-        .map((d) => `${formatClock(d.estDep ?? d.schedDep)} ${d.route.short}`)
+        .map((d) => `${clockDay(d.estDep ?? d.schedDep, nowMs)} ${d.route.short}`)
         .join('   ') || null,
     next: dep,
   }
