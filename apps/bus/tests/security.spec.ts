@@ -46,3 +46,23 @@ test('no CSP violations while the main pages load and hydrate', async ({ page })
   }
   expect(violations).toEqual([])
 })
+
+test('hashed build assets are cached immutably; HTML and the service worker are not', async ({ request }) => {
+  const html = await request.get('/')
+  expect(html.headers()['cache-control'] ?? '').not.toMatch(/immutable/)
+  const body = await html.text()
+  const assets = [...new Set(body.match(/\/assets\/[^"'\s?#]+\.(?:js|css)/g) ?? [])]
+  expect(assets.some((a) => a.endsWith('.js'))).toBe(true)
+  expect(assets.some((a) => a.endsWith('.css'))).toBe(true)
+  for (const path of assets) {
+    const res = await request.get(path)
+    expect(res.status(), path).toBe(200)
+    expect(res.headers()['cache-control'], path).toBe('public, max-age=31536000, immutable')
+    expect(res.headers()['x-content-type-options'], path).toBe('nosniff')
+  }
+  for (const path of ['/sw.js', '/manifest.webmanifest']) {
+    const res = await request.get(path)
+    expect(res.status(), path).toBe(200)
+    expect(res.headers()['cache-control'] ?? '', path).not.toMatch(/immutable|max-age=[1-9]/)
+  }
+})
