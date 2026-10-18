@@ -252,3 +252,25 @@ describe('overlapping copy refreshes (Codex review round 2)', () => {
     expect((readOffline('20000')?.body as { generatedAt?: number } | undefined)?.generatedAt).toBe(NOW)
   })
 })
+
+describe('the kept copy the board may show counts too (Codex review round 4)', () => {
+  afterEach(() => vi.useRealTimers())
+  it('an answer older than the kept timetable does not replace the board', async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
+    const mode = { fixtures: false, rt: null }
+    const fetcher = async () =>
+      new Response(JSON.stringify({ ...res([row(300)]), generatedAt: NOW - 20_000 }))
+    const opts = departuresOptions(fetcher, mode, '30000', null)
+    const client = new QueryClient()
+    client.setQueryData(opts.queryKey, { ...res([row(300)]), generatedAt: NOW - 60_000 })
+    writeOffline('30000', { ...res([row(300), row(900)]), generatedAt: NOW - 10_000 })
+    const out = await opts.queryFn({
+      signal: new AbortController().signal,
+      client,
+      queryKey: opts.queryKey,
+      meta: undefined,
+    })
+    expect(out.offline).toBe(true)
+    expect(out.generatedAt).toBe(NOW - 10_000)
+  })
+})

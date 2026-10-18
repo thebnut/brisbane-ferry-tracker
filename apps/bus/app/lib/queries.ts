@@ -150,7 +150,10 @@ export function departuresOptions(
         const res = await fetchDepartures(fetcher, stopId, { signal })
         // A network answer, judged on this response (not on the connection flag, which another request may have just
         // cleared) and never older than the board on screen (R6-B1).
-        if (replacesBoard(res, shown)) {
+        // Offline the board may show the kept timetable (liveView), so compare with the newer of the two.
+        const kept = readOffline(stopId)?.body as DeparturesResponse | undefined
+        const newest = kept && (!shown || kept.generatedAt > shown.generatedAt) ? kept : shown
+        if (replacesBoard(res, newest)) {
           void refreshOfflineCopy(fetcher, stopId)
           return res
         }
