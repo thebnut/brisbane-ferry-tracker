@@ -1,7 +1,14 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
 import type { AlertsResponse, DeparturesResponse, TripResponse } from '@bft/core/contract'
-import { dropDeparted, isOnline, type LiveState, liveState, timetableStatus } from '@bft/ui/connectivity'
-import { QueryClient, useQueries, useQuery } from '@tanstack/react-query'
+import {
+  bestOfflineCopy,
+  dropDeparted,
+  isOnline,
+  type LiveState,
+  liveState,
+  timetableStatus,
+} from '@bft/ui/connectivity'
+import { QueryClient, type QueryFunctionContext, useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import {
   type ApiFetcher,
@@ -63,17 +70,19 @@ async function refreshOfflineCopy(fetcher: ApiFetcher, stopId: string) {
 }
 
 /**
- * Offline view of a stop: the longer saved timetable copy when there is one (else the given response), as
- * scheduled-only rows (no live estimates or GPS), without departures that have already gone. Copies were
- * contract-checked by the proxy when first fetched.
+ * Offline view of a stop, as scheduled-only rows (no live estimates or GPS) without departures that have already
+ * gone. Of the copies on hand (the given responses, e.g. the board on screen and the service worker's cached answer,
+ * and the saved stop's longer timetable copy) it uses the one with the most departures still to come (@bft/ui
+ * bestOfflineCopy), so an hours-old cached answer never empties a board that still has rows. Its `generatedAt` stays
+ * the copy's own, for the "Updated" time. Copies were contract-checked by the proxy when first fetched.
  */
 export function asOfflineTimetable(
   stopId: string,
-  res: DeparturesResponse | null,
+  res: DeparturesResponse | ReadonlyArray<DeparturesResponse | null | undefined> | null,
   nowMs: number,
 ): DeparturesResponse | null {
   const copy = readOffline(stopId)?.body as DeparturesResponse | undefined
-  const base = Array.isArray(copy?.departures) ? copy : res
+  const base = bestOfflineCopy([...(Array.isArray(res) ? res : [res]), copy], nowMs)
   if (!base) return null
   return asTimetable(base, nowMs, 'unavailable')
 }
@@ -104,21 +113,28 @@ export function departuresOptions(
   stopId: string,
   initial: DeparturesResponse | null,
 ) {
+  const queryKey = ['bus', 'departures', mode.fixtures, mode.rt, stopId] as const
   return {
-    queryKey: ['bus', 'departures', mode.fixtures, mode.rt, stopId] as const,
-    queryFn: async ({ signal }: { signal: AbortSignal }): Promise<DeparturesResponse> => {
+    queryKey,
+    queryFn: async ({
+      signal,
+      client,
+    }: QueryFunctionContext<typeof queryKey>): Promise<DeparturesResponse> => {
+      // The board on screen: offline, it may be fresher than any cached copy.
+      const shown = client.getQueryData<DeparturesResponse>(queryKey)
       try {
         const res = await fetchDepartures(fetcher, stopId, { signal })
         if (!offline()) {
           if (isSaved(stopId)) void refreshOfflineCopy(fetcher, stopId)
           return res
         }
-        // Offline but the service worker answered from its cache: never show those stale live estimates.
-        return asOfflineTimetable(stopId, res, Date.now()) ?? res
+        // Offline but the service worker answered from its cache (maybe hours old): never show its stale live
+        // estimates, and keep the board on screen if it has more departures to come.
+        return asOfflineTimetable(stopId, [shown, res], Date.now()) ?? res
       } catch (error) {
-        // Offline with no cached response: fall back to the saved timetable copy.
+        // Offline with no cached response: the board on screen or the saved timetable copy.
         if (offline()) {
-          const fallback = asOfflineTimetable(stopId, null, Date.now())
+          const fallback = asOfflineTimetable(stopId, [shown], Date.now())
           if (fallback) return fallback
         }
         throw error

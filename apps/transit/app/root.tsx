@@ -1,5 +1,6 @@
 import { AppHeader } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
+import { liveGuardScript } from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
@@ -42,6 +43,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     tripWs: null,
     theme: t === 'light' || t === 'dark' ? t : ('system' as const),
     turnstileSitekey: env?.TURNSTILE_SITEKEY ?? null,
+    /** When this HTML was rendered: the live guard compares it with the device clock (R2-T7). */
+    renderedAt: Date.now(),
   }
 }
 
@@ -53,6 +56,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const data = useRouteLoaderData('root') as Awaited<ReturnType<typeof loader>> | undefined
   const theme = data?.theme ?? 'system'
   const nonce = data?.nonce
+  const renderedAt = data?.renderedAt ?? 0
   return (
     <html lang="en-AU" className={theme === 'system' ? undefined : theme} suppressHydrationWarning>
       <head>
@@ -61,6 +65,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta name="theme-color" content="#FF6B35" />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant script, sets the dark class before paint. */}
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant script, hides stale LIVE claims before paint. */}
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: liveGuardScript(renderedAt) }} />
         <Meta />
         <Links />
       </head>

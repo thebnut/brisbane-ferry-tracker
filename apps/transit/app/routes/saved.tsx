@@ -151,7 +151,9 @@ function SavedList({
             ? "Live times aren't loading. Open the board for the timetable."
             : m.time
               ? null
-              : 'No more departures today.'
+              : online
+                ? 'No more departures today.'
+                : 'Offline: no saved timetable with times to come.'
         return (
           <SavedTripCard
             key={it.id}

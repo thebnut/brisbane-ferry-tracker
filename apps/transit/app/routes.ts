@@ -37,5 +37,6 @@ export default [
       route('about', app('bus', 'about.tsx'), { id: 'bus/about' }),
     ]),
   ]),
+  route('ask', 'routes/ask.tsx'),
   route('*', 'routes/not-found.tsx'),
 ] satisfies RouteConfig

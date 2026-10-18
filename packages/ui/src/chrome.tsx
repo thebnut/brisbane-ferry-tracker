@@ -122,7 +122,10 @@ export interface LivePillProps {
 
 export function LivePill({ live = true }: LivePillProps) {
   return live ? (
-    <span className="rounded-full bg-ferry-orange-aa px-3 py-1.5 text-xs font-bold text-white shadow-live motion-safe:animate-glow">
+    <span
+      data-live-claim=""
+      className="rounded-full bg-ferry-orange-aa px-3 py-1.5 text-xs font-bold text-white shadow-live motion-safe:animate-glow"
+    >
       LIVE
     </span>
   ) : (

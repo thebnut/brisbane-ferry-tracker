@@ -67,6 +67,7 @@ export function StatusBadge({ kind, children }: StatusBadgeProps) {
   return (
     <span
       data-badge={kind}
+      data-live-claim={kind === 'live' || kind === 'gps' ? '' : undefined}
       className={cx(
         'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] leading-5',
         b.className,

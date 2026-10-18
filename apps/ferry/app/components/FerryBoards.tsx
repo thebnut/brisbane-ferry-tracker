@@ -141,7 +141,8 @@ export function FerryBoards({
   const latest = out.data ?? back.data
   const state = stateOf(out.data ? out : back)
   const live = state == null && latest?.rtState === 'live'
-  const updatedAt = Math.max(out.dataUpdatedAt || 0, back.dataUpdatedAt || 0)
+  // The time of the data shown (a service-worker copy keeps its own time), not when it was fetched.
+  const updatedAt = Math.max(out.data?.generatedAt ?? 0, back.data?.generatedAt ?? 0)
   const fetching = out.isFetching || back.isFetching
 
   const refresh = useCallback(() => {
@@ -325,6 +326,7 @@ export function FerryBoards({
             loading={out.isPending}
             error={out.isError}
             onRetry={() => void out.refetch()}
+            offline={offline}
             onSelect={(d) => setSelected({ d, direction: 'outbound' })}
           />
           <div className="hidden md:block">
@@ -354,6 +356,7 @@ export function FerryBoards({
               loading={back.isPending}
               error={back.isError}
               onRetry={() => void back.refetch()}
+              offline={offline}
               onSelect={(d) => setSelected({ d, direction: 'inbound' })}
             />
           </div>

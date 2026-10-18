@@ -34,8 +34,31 @@ function setUnreachable(value: boolean) {
 
 /** An API call couldn't reach the network. */
 export const reportOffline = () => setUnreachable(true)
-/** An API call reached the network. */
-export const reportOnline = () => setUnreachable(false)
+/** An API call reached the network: live data is current again, so the page may claim LIVE (see liveGuardScript). */
+export const reportOnline = () => {
+  setUnreachable(false)
+  if (typeof document !== 'undefined') document.documentElement.removeAttribute(LIVE_UNCONFIRMED_ATTR)
+}
+
+/**
+ * Set on <html> while the live claims in server-rendered HTML are unconfirmed; theme.css hides every element marked
+ * `data-live-claim` (LIVE pill, LIVE and GPS badges) while it is there.
+ */
+export const LIVE_UNCONFIRMED_ATTR = 'data-live-unconfirmed'
+
+/**
+ * Inline <head> script for the root layout (R2-T7): a cached render must never claim LIVE before freshness is known.
+ * The service worker serves a page's last HTML when the network is down, with the LIVE markup it had when rendered,
+ * and it paints before the app hydrates and judges the data. Before first paint this compares the render time with
+ * the device clock (the same minute as LIVE_REFRESH_MAX_AGE_MS) and checks navigator.onLine; if the HTML is old or the
+ * device is offline it sets LIVE_UNCONFIRMED_ATTR, which hides the live claims until a live API call reaches the
+ * network (reportOnline). By then the app's own state decides what is live. A fresh online page is untouched, and
+ * React never sees a difference (an attribute on <html>, which the layouts render with suppressHydrationWarning).
+ */
+export function liveGuardScript(renderedAt: number): string {
+  const at = Math.floor(renderedAt)
+  return `try{if(navigator.onLine===false||Date.now()-${at}>${LIVE_REFRESH_MAX_AGE_MS})document.documentElement.setAttribute('${LIVE_UNCONFIRMED_ATTR}','')}catch(e){}`
+}
 
 /** Current answer, outside React (false only in a browser that is offline or whose API calls are failing). */
 export function isOnline(): boolean {
@@ -154,6 +177,30 @@ export function tripAsTimetable<
     vehicle: null,
     stops: trip.stops.map((s) => ({ ...s, status: timetableStatus(s.status), estArr: null, estDep: null })),
   }
+}
+
+/**
+ * Offline, the copy of a board worth showing. Of the copies on hand (the data already on screen, the service
+ * worker's cached response, a timetable saved on the device), the one with the most departures still to come by
+ * timetable time; a tie goes to the newest. A service-worker copy can be hours old (its last network answer), so it
+ * must never replace a fresher board that still has rows (R2-B6). Null when there is no copy at all.
+ */
+export function bestOfflineCopy<
+  D extends { schedDep: number },
+  T extends { generatedAt: number; departures: D[] },
+>(copies: ReadonlyArray<T | null | undefined>, nowMs: number): T | null {
+  const cutoff = nowMs / 1000
+  let best: T | null = null
+  let bestCount = -1
+  for (const c of copies) {
+    if (!c || !Array.isArray(c.departures)) continue
+    const count = c.departures.filter((d) => d.schedDep >= cutoff).length
+    if (count > bestCount || (count === bestCount && best != null && c.generatedAt > best.generatedAt)) {
+      best = c
+      bestCount = count
+    }
+  }
+  return best
 }
 
 /** Rows that left more than a minute ago are dropped while live. */

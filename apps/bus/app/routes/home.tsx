@@ -140,9 +140,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                       empty={
                         queries[i]?.isError
                           ? "Couldn't load live times. Retrying…"
-                          : res
-                            ? 'No buses due.'
-                            : 'Getting live buses…'
+                          : !online && !res?.departures.length
+                            ? 'Offline: no more times in the saved timetable.'
+                            : res
+                              ? 'No buses due.'
+                              : 'Getting live buses…'
                       }
                     />
                   )
@@ -173,6 +175,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                         nowMs={now}
                         alerts={alertsQ.data?.alerts ?? []}
                         initialCount={5}
+                        offline={!online}
+                        saved
                       />
                     </section>
                   )

@@ -136,7 +136,11 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
           </div>
           <SaveButton saved={isSaved} name={name} onToggle={() => toggleSaved({ id: stopId, name })} />
         </div>
-        <DataBanner rtState={res?.rtState} hasData={!!res} generation={res?.staticGeneration} />
+        <DataBanner
+          rtState={res?.rtState}
+          hasData={!!res?.departures.length}
+          generation={res?.staticGeneration}
+        />
         {here.slice(0, 2).map((a) => (
           <NoticeStrip key={a.id} href={at('/alerts')} renderLink={linkRenderer}>
             {a.header}
@@ -155,6 +159,8 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
           nowMs={now}
           alerts={alerts}
           routes={route === 'all' ? null : new Set([route])}
+          offline={state === 'offline'}
+          saved={isSaved}
         />
         {routes.length ? (
           <section className="mt-4" aria-labelledby="routes-here">

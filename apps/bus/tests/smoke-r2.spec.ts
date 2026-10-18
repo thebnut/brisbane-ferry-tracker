@@ -1,0 +1,167 @@
+/**
+ * Regression tests for Dev's smoke test round 2 (18 Oct 2026): B6 (offline board emptied by an old service-worker
+ * copy, stale "Updated" time) and T7 (a page rendered from the cache claims LIVE before freshness is known).
+ *
+ * Time-of-day independent: the departures responses are routed so the board has buses due (or none, where that is
+ * the point), whatever the hour. `context.route` also covers the service worker's own requests.
+ */
+import { type BrowserContext, expect, type Page, test } from '@playwright/test'
+
+const STOP = '10802'
+const DEPARTURES = `**/__fixtures/v1/bus/stops/${STOP}/departures*`
+
+interface Body {
+  generatedAt: number
+  departures: Array<{ schedDep: number; estDep: number | null }>
+}
+
+/** Every row moved by the same amount so the first leaves `nextInS` from now; null: no departures at all. */
+const routeDepartures = (context: BrowserContext, nextInS: number | null) =>
+  context.route(DEPARTURES, async (route) => {
+    const res = await route.fetch()
+    const body: Body = await res.json()
+    const first = body.departures[0]
+    if (nextInS == null) body.departures = []
+    else if (first) {
+      const shift = Math.floor(Date.now() / 1000) + nextInS - first.schedDep
+      for (const d of body.departures) {
+        d.schedDep += shift
+        if (d.estDep != null) d.estDep += shift
+      }
+    }
+    await route.fulfill({ response: res, json: body })
+  })
+
+const serviceWorkerReady = (page: Page) =>
+  page.waitForFunction(() => !!navigator.serviceWorker?.controller, null, { timeout: 15_000 })
+
+const refresh = (page: Page) => page.getByRole('button', { name: 'Refresh' }).click()
+const updated = (page: Page) => page.getByText(/^Updated /).first()
+
+/**
+ * Turn the service worker's cached copy of this stop's departures into one from 94 minutes ago (Dev saw "Updated
+ * 9:06 pm" at 10:40 pm), every bus long gone.
+ */
+const ageCachedCopy = (page: Page) =>
+  page.evaluate(async (stop) => {
+    const cache = await caches.open('bus-data')
+    let aged = 0
+    for (const req of await cache.keys()) {
+      if (!req.url.includes(`/v1/bus/stops/${stop}/departures`)) continue
+      const body = await (await cache.match(req))?.json()
+      body.generatedAt -= 94 * 60_000
+      for (const d of body.departures) {
+        d.schedDep -= 3 * 3600
+        if (d.estDep != null) d.estDep -= 3 * 3600
+      }
+      await cache.put(
+        req,
+        new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } }),
+      )
+      aged++
+    }
+    return aged
+  }, STOP)
+
+test('offline: an old service-worker copy never empties the board or its Updated time (R2-B6)', async ({
+  page,
+  context,
+}) => {
+  await page.goto(`/stop/${STOP}`)
+  await serviceWorkerReady(page)
+  await routeDepartures(context, 600)
+  await refresh(page)
+  await expect(page.getByTestId('departure').first()).toBeVisible()
+  const before = await updated(page).innerText()
+  expect(await ageCachedCopy(page)).toBeGreaterThan(0)
+
+  await context.setOffline(true)
+  await refresh(page)
+  await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 5_000 })
+  // Let the refresh settle on the service worker's (old) answer.
+  await expect(page.getByRole('button', { name: 'Refresh' })).toBeEnabled()
+  await page.waitForTimeout(1_000)
+  await expect(page.getByTestId('departure').first()).toBeVisible()
+  await expect(page.getByText('No buses due')).toHaveCount(0)
+  await expect(page.locator('[data-status=live]')).toHaveCount(0)
+  // The time of the data shown (the board's own), not the cached copy's 94-minute-old time.
+  await expect(updated(page)).toHaveText(before)
+  await context.setOffline(false)
+})
+
+test('offline with no usable timetable says so, never "no departures in the next day" (R2-B6)', async ({
+  page,
+  context,
+}) => {
+  await page.goto(`/stop/${STOP}`)
+  await serviceWorkerReady(page)
+  // No departures in any copy on hand (this stop is not saved, so there is no longer copy).
+  await routeDepartures(context, null)
+  await refresh(page)
+  await expect(page.getByText('No buses due')).toBeVisible()
+  await context.setOffline(true)
+  await refresh(page)
+  await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 5_000 })
+  await expect(page.getByText('Offline: no saved timetable for this stop')).toBeVisible()
+  await expect(page.getByText(/no departures from this stop in the next day/)).toHaveCount(0)
+  await context.setOffline(false)
+})
+
+/** Records every frame in which a LIVE or GPS claim is visible, from the first paint on. */
+const recordLiveClaims = (page: Page) =>
+  page.addInitScript(() => {
+    const seen: string[] = []
+    const w = window as unknown as { __liveSeen: string[]; __guardAtFirstFrame?: boolean }
+    w.__liveSeen = seen
+    const tick = () => {
+      w.__guardAtFirstFrame ??= document.documentElement.hasAttribute('data-live-unconfirmed')
+      for (const el of document.querySelectorAll<HTMLElement>('span')) {
+        const claim = el.dataset.badge === 'live' || el.dataset.badge === 'gps' || el.textContent === 'LIVE'
+        if (claim && el.checkVisibility())
+          seen.push(`${Math.round(performance.now())} ms: ${el.outerHTML.slice(0, 80)}`)
+      }
+      if (performance.now() < 10_000) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
+const liveSeen = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __liveSeen: string[] }).__liveSeen)
+
+test('a page reloaded offline never shows LIVE, not even before hydration (R2-T7)', async ({
+  page,
+  context,
+}) => {
+  // The server HTML does claim LIVE (the guard has something to hide).
+  const html = await (await page.request.get(`/stop/${STOP}`)).text()
+  expect(html).toContain('data-live-claim')
+  await recordLiveClaims(page)
+  // An offline reload served from the service worker's cache: the device is offline from the first script on.
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, 'onLine', { get: () => false, configurable: true })
+  })
+  await context.route('**/v1/**', (route) => route.abort('internetdisconnected'))
+  await page.goto(`/stop/${STOP}`)
+  await expect(page.locator('[data-banner=offline]')).toBeVisible()
+  await page.waitForTimeout(1_500)
+  expect(await liveSeen(page)).toEqual([])
+})
+
+test('HTML rendered minutes ago shows no LIVE until a live call reaches the network (R2-T7)', async ({
+  page,
+}) => {
+  await recordLiveClaims(page)
+  // The device clock says the HTML is five minutes old, as for a page the service worker kept.
+  await page.addInitScript(() => {
+    const now = Date.now
+    Date.now = () => now() + 5 * 60_000
+  })
+  await page.goto(`/stop/${STOP}`)
+  await page.waitForTimeout(1_500)
+  expect(
+    await page.evaluate(() => (window as unknown as { __guardAtFirstFrame?: boolean }).__guardAtFirstFrame),
+  ).toBe(true)
+  expect(await liveSeen(page)).toEqual([])
+  // A live call that reaches the network confirms freshness; the app's own state decides from then on.
+  await refresh(page)
+  await expect(page.locator('html')).not.toHaveAttribute('data-live-unconfirmed', '')
+})

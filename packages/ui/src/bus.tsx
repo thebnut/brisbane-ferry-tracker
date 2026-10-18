@@ -466,6 +466,7 @@ export function MyStopCard({
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-[15px] font-semibold">{d.destination}</span>
                 <span
+                  data-live-claim={d.live ? '' : undefined}
                   className={cx(
                     'text-xs font-semibold',
                     d.live ? 'text-ferry-orange-aa dark:text-ferry-sunset' : 'text-sched-text',

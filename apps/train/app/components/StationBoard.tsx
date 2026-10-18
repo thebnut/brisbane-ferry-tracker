@@ -144,7 +144,11 @@ export function StationBoard({
         </ErrorState>
       ) : null}
 
-      {res && cards.length === 0 ? (
+      {res && cards.length === 0 && state === 'offline' && filter !== 'express' ? (
+        <EmptyState title="Offline: no saved timetable for these times">
+          Trains may still be running. Times come back when you reconnect.
+        </EmptyState>
+      ) : res && cards.length === 0 ? (
         <EmptyState title={filter === 'express' ? 'No express trains soon' : 'No more trains today'}>
           {to
             ? `No direct trains from ${from.name} to ${to.name} in the next few hours.`

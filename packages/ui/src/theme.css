@@ -167,3 +167,12 @@
   }
   /* biome-ignore-end lint/complexity/noImportantStyles: reduced motion */
 }
+
+/*
+ * A page rendered from the service worker's cache (or with an old render time) hides its live claims until a live
+ * API call reaches the network (connectivity.ts liveGuardScript, R2-T7).
+ */
+html[data-live-unconfirmed] [data-live-claim] {
+  /* biome-ignore lint/complexity/noImportantStyles: must beat the components' display utilities. */
+  display: none !important;
+}

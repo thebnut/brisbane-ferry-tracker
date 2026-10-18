@@ -41,6 +41,10 @@ export interface DepartureListProps {
   routes?: ReadonlySet<string> | null
   /** Show this many, with "More departures" for the rest (desktop boards). */
   initialCount?: number
+  /** Offline: an empty list means no usable timetable copy, never "no departures" (R2-B6). */
+  offline?: boolean
+  /** A saved stop (its timetable copy ran out rather than never existed). */
+  saved?: boolean
 }
 
 /** True when every row is on a later Brisbane day (nothing more tonight). */
@@ -66,6 +70,8 @@ export function DepartureList({
   alerts,
   routes,
   initialCount,
+  offline,
+  saved,
 }: DepartureListProps) {
   const [expanded, setExpanded] = useState(false)
   if (!data) {
@@ -78,6 +84,26 @@ export function DepartureList({
     return <SkeletonRows />
   }
   const views = rowViews(data.departures, nowMs, { alerts, routes })
+  if (views.length === 0 && offline && !routes?.size) {
+    return (
+      <div
+        data-empty="offline"
+        className="flex flex-col items-center gap-3 rounded-card bg-white/90 px-6 py-8 text-center shadow-card dark:bg-night-card"
+        role="status"
+      >
+        <img src={emblem} alt="" width={96} height={96} className="opacity-90" />
+        <h2 className="text-xl font-extrabold">
+          {saved
+            ? 'Offline: no more times in the saved timetable'
+            : 'Offline: no saved timetable for this stop'}
+        </h2>
+        <p className="text-sm text-sched-text">
+          Buses may still be running. Times come back when you reconnect.
+          {saved ? null : ' Save a stop to My stops to keep its timetable for offline use.'}
+        </p>
+      </div>
+    )
+  }
   if (views.length === 0) {
     return (
       <div

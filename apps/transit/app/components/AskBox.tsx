@@ -5,7 +5,7 @@
  */
 import { Icon, PrimaryButton } from '@bft/ui'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouteLoaderData } from 'react-router'
+import { useLocation, useRouteLoaderData } from 'react-router'
 import { type AskResult, postAsk } from '../lib/ask.ts'
 import { invisibleTurnstile } from '../lib/turnstile.ts'
 
@@ -28,12 +28,18 @@ export function AskBox() {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<AskResult | null>(null)
   const holder = useRef<HTMLDivElement>(null)
+  const input = useRef<HTMLInputElement>(null)
   const abort = useRef<AbortController | null>(null)
   const ts = useMemo(
     () => (sitekey && !fixtures ? invisibleTurnstile(sitekey, () => holder.current) : null),
     [sitekey, fixtures],
   )
   useEffect(() => () => ts?.dispose(), [ts])
+  // /ask redirects to /#ask: focus the box (also when already on this page).
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (hash === '#ask') input.current?.focus()
+  }, [hash])
 
   async function ask(question: string) {
     const text = question.trim()
@@ -71,6 +77,7 @@ export function AskBox() {
         <div className="flex items-center gap-2 rounded-full border-2 border-ferry-orange/40 bg-white py-1 pr-1 pl-3.5 shadow-card focus-within:border-ferry-orange dark:bg-night-card">
           <Icon name="ask" size={20} className="shrink-0 text-ferry-orange-dark" />
           <input
+            ref={input}
             id="ask"
             name="question"
             type="text"
