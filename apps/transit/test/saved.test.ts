@@ -126,6 +126,28 @@ describe('Saved mixes every app’s own saved items', () => {
     expect(cardModel(item, res([]), NOW)).toMatchObject({ time: null, minutes: null })
   })
 
+  it('next-day times carry the tomorrow marker (R2-S1)', () => {
+    const item = {
+      id: 'bus:1832',
+      mode: 'bus' as const,
+      key: '1832',
+      to: null,
+      title: 'CC',
+      href: '/bus/stop/1832',
+    }
+    // 7:30 pm now; first bus 5:05 am tomorrow (20/10).
+    const m = cardModel(
+      item,
+      res([
+        dep({ schedDep: s + 34_500 }),
+        dep({ route: { id: '199-1', short: '199', long: '' }, schedDep: s + 36_000 }),
+      ]),
+      NOW,
+    )
+    expect(m.time).toBe('5:05 am (20/10)')
+    expect(m.later).toBe('5:30 am (20/10) 199')
+  })
+
   it('train titles and links match the train app without its station list', () => {
     expect(trainBoardHref('roma-street', null)).toBe(stationHref('roma-street'))
     expect(trainBoardHref('roma-street', 'indooroopilly')).toBe(

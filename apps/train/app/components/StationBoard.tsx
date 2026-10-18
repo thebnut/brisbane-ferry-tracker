@@ -3,6 +3,7 @@
  * platform-change banner, rtState/offline banners, departure cards, "More departures". Rendered on the server with
  * the loader's rows, then polled every 15 s while visible.
  */
+
 import type { DeparturesResponse } from '@bft/core/contract'
 import {
   BoardHeader,
@@ -15,6 +16,7 @@ import {
   OfflineBanner,
   SecondaryButton,
 } from '@bft/ui'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
@@ -70,7 +72,9 @@ export function StationBoard({
   // useOnline is false while offline, and also when the API calls fail or the service worker answers from its cache.
   const offline = !online || (res as { offline?: boolean } | undefined)?.offline === true
   // Data generated over a minute ago (e.g. a page reloaded from the service worker's cache) is not live either.
-  const state = boardState(res, offline, nowMs)
+  // Data that came with a cached page isn't live until this board's own fresh answer arrives (R2-T7).
+  const unconfirmedBefore = useUnconfirmedBefore()
+  const state = boardState(res, offline, nowMs, unconfirmedBefore)
   useReportLive(`board:${from.key}>${to?.key ?? ''}`, state == null)
 
   const cards = useMemo(() => {
@@ -144,7 +148,12 @@ export function StationBoard({
         </ErrorState>
       ) : null}
 
-      {res && cards.length === 0 ? (
+      {/* Offline, an empty board (express filter or not) only means the copies on hand ran out (Codex review). */}
+      {res && cards.length === 0 && state === 'offline' ? (
+        <EmptyState title="Offline: no saved timetable for these times">
+          Trains may still be running. Times come back when you reconnect.
+        </EmptyState>
+      ) : res && cards.length === 0 ? (
         <EmptyState title={filter === 'express' ? 'No express trains soon' : 'No more trains today'}>
           {to
             ? `No direct trains from ${from.name} to ${to.name} in the next few hours.`

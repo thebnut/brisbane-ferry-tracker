@@ -3,8 +3,10 @@
  * rows are in the HTML; the client then polls every 15 s. Route filter pills, save to My stops, alert strip and a
  * lazy per-stop map with the buses heading here.
  */
+
 import type { Alert } from '@bft/core/contract'
 import { FilterPills, NoticeStrip, PillButton, SaveButton } from '@bft/ui'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { data } from 'react-router'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
@@ -80,7 +82,8 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
   const [showMap, setShowMap] = useState(false)
   // Timetable only unless the data is live and fresh (offline, cached copy, stale).
   const online = useOnline()
-  const { data: res, state } = liveView(stopId, q.data, now, online)
+  const unconfirmedBefore = useUnconfirmedBefore()
+  const { data: res, state } = liveView(stopId, q.data, now, online, unconfirmedBefore)
   const name = res?.stop.name ?? `Stop ${stopId}`
   const routes = useMemo(() => (res ? routesIn(res.departures) : []), [res])
   const platform = res?.departures.find((d) => d.stopId === stopId)?.platform ?? null
@@ -136,7 +139,11 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
           </div>
           <SaveButton saved={isSaved} name={name} onToggle={() => toggleSaved({ id: stopId, name })} />
         </div>
-        <DataBanner rtState={res?.rtState} hasData={!!res} generation={res?.staticGeneration} />
+        <DataBanner
+          rtState={res?.rtState}
+          hasData={!!res?.departures.length}
+          generation={res?.staticGeneration}
+        />
         {here.slice(0, 2).map((a) => (
           <NoticeStrip key={a.id} href={at('/alerts')} renderLink={linkRenderer}>
             {a.header}
@@ -155,6 +162,8 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
           nowMs={now}
           alerts={alerts}
           routes={route === 'all' ? null : new Set([route])}
+          offline={state === 'offline'}
+          saved={isSaved}
         />
         {routes.length ? (
           <section className="mt-4" aria-labelledby="routes-here">

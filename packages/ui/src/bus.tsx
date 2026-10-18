@@ -38,20 +38,24 @@ export function BigCountdown({
 }: BigCountdownProps) {
   const text = cancelled ? '—' : formatBusCountdown(minutes)
   const soon = !cancelled && minutes <= 5
-  const big = size === 'lg' ? 'text-[34px]' : 'text-[30px]'
+  // Narrow phones: a smaller countdown leaves the destination room for two full lines (B2).
+  const big = size === 'lg' ? 'text-[34px]' : 'text-[26px] min-[421px]:text-[30px]'
   return (
     <span className="flex shrink-0 flex-col items-end" data-countdown={cancelled ? 'cancelled' : minutes}>
       {text == null ? (
         // A clock time ("10:45 pm") is twice as wide as a countdown: smaller on phones so the destination keeps room.
         <span
           className={cx(
-            size === 'lg' ? 'text-[26px] sm:text-[34px]' : 'text-[24px] sm:text-[30px]',
-            'leading-none font-extrabold whitespace-nowrap tabular',
+            size === 'lg'
+              ? 'text-[26px] sm:text-[34px]'
+              : 'text-[20px] min-[421px]:text-[24px] sm:text-[30px]',
+            'flex flex-col items-end leading-none font-extrabold whitespace-nowrap tabular',
           )}
         >
           {time}
+          {/* Its own line under the time, so a late-night "(19/10)" doesn't widen the column (B2). */}
           {dayMarker ? (
-            <span className="ml-1 text-sm font-bold text-ferry-orange-deep">{dayMarker}</span>
+            <span className="mt-1 text-sm font-bold text-ferry-orange-deep">{dayMarker}</span>
           ) : null}
         </span>
       ) : (
@@ -148,7 +152,7 @@ export function RouteDepartureCard({
 }: RouteDepartureCardProps) {
   const cancelled = status === 'cancelled'
   const className = cx(
-    'flex min-h-[76px] w-full items-center gap-3 rounded-card px-3.5 py-2.5 text-left no-underline transition md:min-h-24 md:px-5',
+    'flex min-h-[76px] w-full items-center gap-2.5 rounded-card px-3 py-2.5 text-left no-underline transition min-[421px]:gap-3 min-[421px]:px-3.5 md:min-h-24 md:px-5',
     highlighted
       ? 'bg-hot border-2 border-ferry-orange shadow-hot'
       : 'border-2 border-transparent bg-white/90 shadow-card hover:border-ferry-orange/40 dark:bg-night-card',
@@ -156,13 +160,19 @@ export function RouteDepartureCard({
   )
   const children = (
     <>
-      <RouteTile route={route} variant={routeTileVariant(route, routeLong)} size="lg" />
+      <RouteTile
+        route={route}
+        variant={routeTileVariant(route, routeLong)}
+        size="lg"
+        className="max-[420px]:h-11 max-[420px]:min-w-13 max-[420px]:text-xl"
+      />
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        {/* Up to two lines before an ellipsis: a long headsign mustn't be cut to a few letters on a phone (B2). */}
+        {/* Two lines (three on a narrow phone beside a wide countdown) before an ellipsis: a long headsign must never
+            be cut on a phone (B2). */}
         <span
           data-testid="destination"
           className={cx(
-            'line-clamp-2 text-base leading-snug font-bold break-words text-charcoal md:text-lg dark:text-night-text',
+            'line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text',
             cancelled && 'line-through decoration-2',
           )}
         >
@@ -466,6 +476,7 @@ export function MyStopCard({
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-[15px] font-semibold">{d.destination}</span>
                 <span
+                  data-live-claim={d.live ? '' : undefined}
                   className={cx(
                     'text-xs font-semibold',
                     d.live ? 'text-ferry-orange-aa dark:text-ferry-sunset' : 'text-sched-text',

@@ -3,6 +3,7 @@
  * rtState/offline banners, "Depart from" time, dropdown headers with swap, details sheet, live map and the stop
  * selector. Rendered on the server with the loader's rows, then polled every 15 s while visible.
  */
+
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import {
   FilterPills,
@@ -13,6 +14,7 @@ import {
   StatusStrip,
   StopSelect,
 } from '@bft/ui'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   applyFilter,
@@ -132,7 +134,9 @@ export function FerryBoards({
   )
 
   const offline = !online
-  const stateOf = (q: typeof out) => boardState(q.data, offline, now)
+  // Data that came with a cached page isn't live until its board's own fresh answer arrives (R2-T7).
+  const unconfirmedBefore = useUnconfirmedBefore()
+  const stateOf = (q: typeof out) => boardState(q.data, offline, now, unconfirmedBefore)
   const view = (q: typeof out) =>
     q.data ? applyFilter(visibleRows(q.data.departures, stateOf(q), now), filter) : null
   const outList = view(out)
@@ -140,8 +144,12 @@ export function FerryBoards({
   const express = hasExpress(out.data?.departures, back.data?.departures)
   const latest = out.data ?? back.data
   const state = stateOf(out.data ? out : back)
-  const live = state == null && latest?.rtState === 'live'
-  const updatedAt = Math.max(out.dataUpdatedAt || 0, back.dataUpdatedAt || 0)
+  // Every board with data is live (after a cached page each board confirms itself with its own data, R2-T7): the
+  // header's LIVE and the map, which shows both directions.
+  const boardsLive = [out, back].every((q) => !q.data || stateOf(q) == null)
+  const live = latest?.rtState === 'live' && boardsLive
+  // The time of the data shown (a service-worker copy keeps its own time), not when it was fetched.
+  const updatedAt = Math.max(out.data?.generatedAt ?? 0, back.data?.generatedAt ?? 0)
   const fetching = out.isFetching || back.isFetching
 
   const refresh = useCallback(() => {
@@ -196,11 +204,12 @@ export function FerryBoards({
   const destOptions = ALL_STOPS.filter((s) => validDestinations(pair.outbound.id).includes(s.id))
   const fromName = cleanStopName(pair.outbound.name)
   const toName = cleanStopName(pair.inbound.name)
-  // The open details sheet follows the latest data and the same freshness rules as the boards.
-  const degraded = state != null
+  // The open details sheet follows the latest data and the freshness of its own board (Codex review).
+  const selectedQ = selected?.direction === 'outbound' ? out : back
+  const degraded = stateOf(selectedQ) != null
   const selectedNow = (() => {
     if (!selected) return null
-    const list = (selected.direction === 'outbound' ? out : back).data?.departures ?? []
+    const list = selectedQ.data?.departures ?? []
     const fresh =
       list.find(
         (x) => x.tripInstance === selected.d.tripInstance && x.stopSequence === selected.d.stopSequence,
@@ -325,6 +334,7 @@ export function FerryBoards({
             loading={out.isPending}
             error={out.isError}
             onRetry={() => void out.refetch()}
+            offline={offline}
             onSelect={(d) => setSelected({ d, direction: 'outbound' })}
           />
           <div className="hidden md:block">
@@ -354,6 +364,7 @@ export function FerryBoards({
               loading={back.isPending}
               error={back.isError}
               onRetry={() => void back.refetch()}
+              offline={offline}
               onSelect={(d) => setSelected({ d, direction: 'inbound' })}
             />
           </div>
@@ -379,7 +390,7 @@ export function FerryBoards({
         <Suspense fallback={<SheetFallback />}>
           <LiveMapSheet
             pair={pair}
-            live={!degraded}
+            live={boardsLive}
             departures={[...(out.data?.departures ?? []), ...(back.data?.departures ?? [])]}
             fetcher={fetcher}
             mode={mode}

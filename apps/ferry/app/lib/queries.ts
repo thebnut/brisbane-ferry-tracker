@@ -1,7 +1,7 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
 import type { DeparturesResponse } from '@bft/core/contract'
-import { isOnline } from '@bft/ui/connectivity'
-import { QueryClient, useQuery } from '@tanstack/react-query'
+import { bestOfflineCopy, isOnline } from '@bft/ui/connectivity'
+import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { type ApiFetcher, browserFetcher, fetchDepartures, fetchTrip, fetchVehicles } from './api.ts'
 import { readOffline, writeOffline } from './storage.ts'
@@ -41,18 +41,34 @@ export function departuresOptions(
   at: number | null,
   initial: DeparturesResponse | null,
 ) {
+  const queryKey = ['ferry', 'departures', mode.fixtures, mode.rt, from, to, at] as const
   return {
-    queryKey: ['ferry', 'departures', mode.fixtures, mode.rt, from, to, at] as const,
-    queryFn: async ({ signal }: { signal: AbortSignal }) => {
+    queryKey,
+    queryFn: async ({ signal, client }: QueryFunctionContext<typeof queryKey>) => {
+      // Offline, the board on screen may be fresher than the service worker's cached answer or the kept copy: show
+      // whichever has the most departures to come (R2-B6). The board marks it offline and drops live claims.
+      // Copies were contract-checked by the proxy when first fetched.
+      const offlineCopy = (...more: Array<DeparturesResponse | null | undefined>) =>
+        bestOfflineCopy(
+          [
+            client.getQueryData<DeparturesResponse>(queryKey),
+            ...more,
+            readOffline(from, to) as DeparturesResponse | null,
+          ],
+          Date.now(),
+        )
       try {
         const res = await fetchDepartures(fetcher, from, to, { at, signal })
-        if (!at) writeOffline(from, to, res)
-        return res
+        if (isOnline()) {
+          if (!at) writeOffline(from, to, res)
+          return res
+        }
+        // The service worker answered from its cache (maybe hours old).
+        return offlineCopy(res) ?? res
       } catch (error) {
-        // Offline with no cached response from the service worker: fall back to the last copy we kept.
-        // The copy was contract-checked by the proxy when it was first fetched.
-        const cached = readOffline(from, to) as DeparturesResponse | null
-        if (!isOnline() && Array.isArray(cached?.departures)) return cached
+        // Offline with no cached response from the service worker: the board on screen or the last copy we kept.
+        const cached = isOnline() ? null : offlineCopy()
+        if (cached) return cached
         throw error
       }
     },

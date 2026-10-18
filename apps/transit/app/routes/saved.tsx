@@ -3,8 +3,10 @@
  * "Then …"), soonest highlighted. Saved items live in each app's own storage on this device (saved.ts), so the list
  * renders after hydration; offline, cards show scheduled times from the device's copies ("Offline · scheduled").
  */
+
 import type { DeparturesResponse } from '@bft/core/contract'
 import {
+  dayMarker,
   EmptyState,
   formatClock,
   Icon,
@@ -14,6 +16,7 @@ import {
   SavedTripCard,
   vesselName,
 } from '@bft/ui'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { AskBox } from '../components/AskBox.tsx'
@@ -68,6 +71,12 @@ export interface CardModel {
   next: number | null
 }
 
+/** "6:05 am (19/10)": a clock time with the shared next-day marker (@bft/ui dayMarker, R2-S1). */
+const clockDay = (epochS: number, nowMs: number) => {
+  const day = dayMarker(epochS, nowMs)
+  return day ? `${formatClock(epochS)} ${day}` : formatClock(epochS)
+}
+
 /** One saved card from a departures response (pure, tested). */
 export function cardModel(item: SavedItem, res: DeparturesResponse | undefined, nowMs: number): CardModel {
   // Only boardable services: a cancelled or skipped (not stopping here) one is never "next".
@@ -105,13 +114,13 @@ export function cardModel(item: SavedItem, res: DeparturesResponse | undefined, 
     label,
     title,
     live,
-    time: dep ? `${formatClock(dep)}${arr ? ` → ${formatClock(arr)}` : ''}` : null,
+    time: dep ? `${clockDay(dep, nowMs)}${arr ? ` → ${clockDay(arr, nowMs)}` : ''}` : null,
     detail,
     minutes: dep ? minutesUntil(dep, nowMs) : null,
     later:
       rows
         .slice(1, 3)
-        .map((d) => `${formatClock(d.estDep ?? d.schedDep)} ${d.route.short}`)
+        .map((d) => `${clockDay(d.estDep ?? d.schedDep, nowMs)} ${d.route.short}`)
         .join('   ') || null,
     next: dep,
   }
@@ -128,11 +137,12 @@ function SavedList({
   nowMs: number
   online: boolean
 }) {
+  const unconfirmedBefore = useUnconfirmedBefore()
   // Not live (offline, a cached copy, or data generated over a minute ago): never show the last live estimates;
   // timetable rows from the device's copies instead.
   const models = items.map((it, i) => {
     const data = qs[i]?.data
-    const live = liveState(data, { offline: !online, nowMs }) == null
+    const live = liveState(data, { offline: !online, nowMs, unconfirmedBefore }) == null
     return cardModel(it, live ? data : asOffline(it, data ?? null), nowMs)
   })
   const soonest = models.reduce<number | null>(
@@ -151,7 +161,9 @@ function SavedList({
             ? "Live times aren't loading. Open the board for the timetable."
             : m.time
               ? null
-              : 'No more departures today.'
+              : online
+                ? 'No more departures today.'
+                : 'Offline: no saved timetable with times to come.'
         return (
           <SavedTripCard
             key={it.id}
@@ -187,7 +199,10 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   const { mode, fetcher } = useApi()
   const qs = useSavedDepartures(fetcher, mode, items ?? [])
   // LIVE in the header only while every loaded card's data is live and fresh (same rule as the cards).
-  const live = online && qs.every((q) => !q.data || liveState(q.data, { offline: false, nowMs: now }) == null)
+  const unconfirmedBefore = useUnconfirmedBefore()
+  const live =
+    online &&
+    qs.every((q) => !q.data || liveState(q.data, { offline: false, nowMs: now, unconfirmedBefore }) == null)
   return (
     <>
       <TransitHeader live={live} />

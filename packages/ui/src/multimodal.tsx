@@ -205,7 +205,10 @@ export function SavedTripCard({
           </span>
         </span>
         {live ? (
-          <span className="shrink-0 rounded-full bg-ferry-orange-aa px-2.5 py-0.5 text-[11px] font-bold text-white">
+          <span
+            data-live-claim=""
+            className="shrink-0 rounded-full bg-ferry-orange-aa px-2.5 py-0.5 text-[11px] font-bold text-white"
+          >
             LIVE
           </span>
         ) : null}

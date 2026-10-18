@@ -1,7 +1,7 @@
 /** TanStack Query hooks for the transit pages: 15 s polling while visible, tiles kept for the session. */
 import type { AlertsResponse, Departure, DeparturesResponse } from '@bft/core/contract'
-import { isOnline } from '@bft/ui/connectivity'
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { bestOfflineCopy, isOnline } from '@bft/ui/connectivity'
+import { type QueryFunctionContext, useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useRouteLoaderData } from 'react-router'
 import { type ApiFetcher, browserFetcher, fetchAlerts, fetchDepartures } from './api.ts'
@@ -43,18 +43,25 @@ export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsRe
 
 /** Saved cards: live while online (keeping a 20-row copy for offline), scheduled copies when offline. */
 export function savedOptions(fetcher: ApiFetcher, mode: DataMode, item: SavedItem) {
+  const queryKey = ['transit', 'saved', mode.fixtures, mode.rt, item.id] as const
   return {
-    queryKey: ['transit', 'saved', mode.fixtures, mode.rt, item.id],
-    queryFn: async ({ signal }: { signal: AbortSignal }): Promise<DeparturesResponse> => {
+    queryKey,
+    queryFn: async ({
+      signal,
+      client,
+    }: QueryFunctionContext<typeof queryKey>): Promise<DeparturesResponse> => {
+      // Offline, the card on screen may be fresher than the service worker's cached answer (R2-B6).
+      const shown = client.getQueryData<DeparturesResponse>(queryKey)
       try {
         const res = await fetchDepartures(fetcher, item.mode, item.key, { to: item.to, limit: 20, signal })
         if (!isOffline()) {
           if (res.departures.length) writeSavedCopy(item, res)
           return res
         }
-        return asOffline(item, res)
+        return asOffline(item, bestOfflineCopy([shown, res], Date.now()))
       } catch (error) {
         if (isOffline()) {
+          if (shown) return asOffline(item, shown)
           const copy = offlineRows(item, Date.now())
           if (copy) return asOffline(item, null, copy)
         }
@@ -65,9 +72,12 @@ export function savedOptions(fetcher: ApiFetcher, mode: DataMode, item: SavedIte
   }
 }
 
-/** A card's data as "Offline · scheduled": the device's copy (or the last response) as timetable only. */
+/** A card's data as "Offline · scheduled": the device's copy or the last response, as timetable only. */
 export function asOffline(item: SavedItem, res: DeparturesResponse | null, copy?: Departure[]) {
-  const rows = copy ?? offlineRows(item, Date.now()) ?? asScheduled(res?.departures ?? [], Date.now())
+  // The device's copy or the response, whichever has more departures to come (an old cached response can be empty).
+  const own = res ? asScheduled(res.departures, Date.now()) : []
+  const kept = copy ?? offlineRows(item, Date.now())
+  const rows = kept && kept.length >= own.length ? kept : own
   const base: DeparturesResponse = res ?? {
     schemaVersion: 1,
     staticGeneration: 'offline',

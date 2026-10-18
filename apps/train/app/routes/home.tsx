@@ -3,6 +3,7 @@
  * station with its next train per line (on request, from the device location), and popular stations for first
  * visits. Favourites' full-day timetables are saved for offline use in the background.
  */
+
 import type { DeparturesResponse } from '@bft/core/contract'
 import {
   CountdownChip,
@@ -15,6 +16,7 @@ import {
   StatusBadge,
   StoppingPattern,
 } from '@bft/ui'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { SECTION, Shell, useReportLive } from '../components/Chrome.tsx'
@@ -76,10 +78,12 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
 /** A query's rows as the board would show them (timetable only unless live, departed trains dropped). */
 function useLiveRows(key: string, q: ReturnType<typeof useDepartures>, nowMs: number) {
   const online = useOnline()
+  const unconfirmedBefore = useUnconfirmedBefore()
   const state = boardState(
     q.data,
     !online || (q.data as { offline?: boolean } | undefined)?.offline === true,
     nowMs,
+    unconfirmedBefore,
   )
   // The header pill is LIVE only while every board on the page is.
   useReportLive(key, state == null)
@@ -288,6 +292,7 @@ function Nearest({ nowMs, mode }: { nowMs: number; mode: DataMode }) {
 export default function Home({ loaderData }: Route.ComponentProps) {
   const { mode, renderedAt } = loaderData
   const nowMs = useNow(renderedAt, 1000)
+  const unconfirmedBefore = useUnconfirmedBefore()
   const fetcher = useFetcher(mode)
   // Server-rendered favourites first (cookie), then the full list from localStorage after mount.
   const [favourites, setFavourites] = useState<Favourite[]>(loaderData.favourites)
@@ -305,7 +310,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     <Shell
       active="home"
       // From the loader data until the cards report (useReportLive).
-      live={Object.values(loaderData.boards).every((r) => !r || boardState(r, false, nowMs) == null)}
+      live={Object.values(loaderData.boards).every(
+        (r) => !r || boardState(r, false, nowMs, unconfirmedBefore) == null,
+      )}
     >
       <div className="mx-auto flex max-w-2xl flex-col gap-3.5">
         <h1 className="text-xl font-extrabold">Your trips</h1>

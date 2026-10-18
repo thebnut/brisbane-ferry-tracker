@@ -1,5 +1,6 @@
 import { gzipSync } from 'node:zlib'
 import { expect, type Page, test } from '@playwright/test'
+import { pinUpcoming } from './upcoming.ts'
 
 const watchErrors = (page: Page) => {
   const errors: string[] = []
@@ -141,6 +142,8 @@ test('Ask box answers with shared departure cards and explains an AI limit', asy
 })
 
 test('Saved mixes every mode and works offline as "Offline · scheduled"', async ({ page, context }) => {
+  // Saved cards fetch after hydration, so every card's first service is pinned 10 minutes out (any hour).
+  await pinUpcoming(context)
   await page.addInitScript(() => {
     localStorage.setItem(
       'bft-bus-saved',

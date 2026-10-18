@@ -2,14 +2,16 @@ import type { Alert } from '@bft/core/contract'
 import { describe, expect, it } from 'vitest'
 import {
   alertMode,
+  alertModes,
   impactOn,
   inMode,
   savedScope,
   scopeText,
   severityOf,
   sortAlerts,
+  stopModeOf,
 } from '../app/lib/alerts.ts'
-import { platformsOf, trainLinesOf } from '../app/lib/train-lines.ts'
+import { isTrainPlatform, platformsOf, trainLinesOf } from '../app/lib/train-lines.ts'
 
 const NOW = 1_792_400_000
 const a = (o: Partial<Alert>): Alert => ({
@@ -29,6 +31,40 @@ describe('merged alerts', () => {
     expect(inMode(a({}), 'ferry')).toBe(true)
     expect(alertMode(a({}))).toBeNull()
     expect(alertMode(a({ modes: ['tram', 'train'] }))).toBe('train')
+  })
+
+  it("a stop-only alert with no mode belongs to its stops' mode, not to every mode (R2-X7b)", () => {
+    const stopMode = stopModeOf(isTrainPlatform)
+    // Dohles Rock Road, Murrumba Downs - temporary stop closure: one bus stop, no mode from the feed.
+    const dohles = a({
+      stops: ['316056'],
+      header: 'Dohles Rock Road, Murrumba Downs - temporary stop closure',
+    })
+    const modes = alertModes(dohles, stopMode)
+    expect(modes).toEqual(['bus'])
+    expect(inMode(dohles, 'train', modes)).toBe(false)
+    expect(inMode(dohles, 'bus', modes)).toBe(true)
+    expect(scopeText(dohles, trainLinesOf, stopMode)).toBe('BUS · 1 STOP · DOHLES ROCK ROAD, MURRUMBA DOWNS')
+    // Ferry terminals and train platforms are told apart from bus stops.
+    expect(alertModes(a({ stops: ['317584'] }), stopMode)).toEqual(['ferry'])
+    const platform = platformsOf('central')[0] as string
+    expect(alertModes(a({ stops: [platform] }), stopMode)).toEqual(['train'])
+    // A parent id can't be placed: under All only, never under every mode chip.
+    expect(alertModes(a({ stops: ['place_cabstn'] }), stopMode)).toEqual([])
+    expect(inMode(a({ stops: ['place_cabstn'] }), 'train', [])).toBe(false)
+    // Without the train network a numeric stop isn't guessed to be a bus stop.
+    expect(alertModes(dohles, stopModeOf())).toEqual([])
+  })
+
+  it("a route-only alert with no mode belongs to its routes' mode (Codex review)", () => {
+    const springfield = a({ routes: ['BRSP-5203'] })
+    const modes = alertModes(springfield, stopModeOf(isTrainPlatform), trainLinesOf)
+    expect(modes).toEqual(['train'])
+    expect(inMode(springfield, 'train', modes)).toBe(true)
+    expect(scopeText(springfield, trainLinesOf)).toMatch(/^TRAIN · /)
+    expect(alertModes(a({ routes: ['F1-4055'] }))).toEqual(['ferry'])
+    // An unknown route alone can't be placed.
+    expect(alertModes(a({ routes: ['XYZ-1'] }), stopModeOf(isTrainPlatform), trainLinesOf)).toEqual([])
   })
 
   it('severity from the GTFS-RT effect, planned when not yet active', () => {

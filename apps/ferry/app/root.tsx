@@ -1,3 +1,4 @@
+import { liveGuardScript, useLiveGuardRelease } from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, useState } from 'react'
 import {
@@ -24,19 +25,28 @@ export const links: Route.LinksFunction = () => [
   { rel: 'manifest', href: '/manifest.webmanifest' },
 ]
 
-/** The per-request CSP nonce, for the inline scripts below (workers/security.ts). */
 export function loader({ context }: Route.LoaderArgs) {
-  return { nonce: context.get(cloudflareContext).nonce }
+  return {
+    /** The per-request CSP nonce, for the inline scripts below (workers/security.ts). */
+    nonce: context.get(cloudflareContext).nonce,
+    /** When this HTML was rendered: the live guard compares it with the device clock (R2-T7). */
+    renderedAt: Date.now(),
+  }
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  const nonce = useRouteLoaderData<typeof loader>('root')?.nonce
+  const data = useRouteLoaderData<typeof loader>('root')
+  const nonce = data?.nonce
+  const renderedAt = data?.renderedAt ?? 0
   return (
-    <html lang="en-AU">
+    // suppressHydrationWarning: the live guard may mark <html> before hydration.
+    <html lang="en-AU" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#FF6B35" />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant script, hides stale LIVE claims before paint. */}
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: liveGuardScript(renderedAt) }} />
         <Meta />
         <Links />
       </head>
@@ -51,6 +61,8 @@ export function Layout({ children }: { children: ReactNode }) {
 
 export default function App() {
   const [client] = useState(makeQueryClient)
+  // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
+  useLiveGuardRelease()
   return (
     <QueryClientProvider client={client}>
       <Outlet />

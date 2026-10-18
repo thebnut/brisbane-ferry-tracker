@@ -8,7 +8,7 @@
  * never cached (POST).
  * Map tiles are not cached (OpenFreeMap's terms and size).
  */
-import { markCacheHits } from '@bft/ui/connectivity'
+import { markCachedPages, markCacheHits } from '@bft/ui/connectivity'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export function pwa() {
@@ -50,6 +50,8 @@ export function pwa() {
           handler: 'NetworkFirst',
           options: {
             cacheName: 'transit-pages',
+            // Pages served from this cache never claim LIVE before a live call confirms it (R2-T7).
+            plugins: [markCachedPages],
             networkTimeoutSeconds: 4,
             expiration: { maxEntries: 40, maxAgeSeconds: 7 * 24 * 3600 },
           },

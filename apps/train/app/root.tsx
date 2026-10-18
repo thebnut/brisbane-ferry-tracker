@@ -1,3 +1,4 @@
+import { liveGuardScript, useLiveGuardRelease } from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, useState } from 'react'
 import {
@@ -38,6 +39,8 @@ export function loader({ request, context }: Route.LoaderArgs) {
     fixtures,
     // null = poll; '' = this Worker's TripSocket DO (same origin); otherwise a wss:// base.
     tripWs: env?.TRIP_WS === '1' && sameMode ? (env.API_WS_BASE ?? '') : null,
+    /** When this HTML was rendered: the live guard compares it with the device clock (R2-T7). */
+    renderedAt: Date.now(),
   }
 }
 
@@ -49,6 +52,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const data = useRouteLoaderData<typeof loader>('root')
   const theme = data?.theme ?? 'system'
   const nonce = data?.nonce
+  const renderedAt = data?.renderedAt ?? 0
   return (
     <html lang="en-AU" className={theme === 'system' ? undefined : theme} suppressHydrationWarning>
       <head>
@@ -57,6 +61,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta name="theme-color" content="#FF6B35" />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant inline script, no user input. */}
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant script, hides stale LIVE claims before paint. */}
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: liveGuardScript(renderedAt) }} />
         <Meta />
         <Links />
       </head>
@@ -71,6 +77,8 @@ export function Layout({ children }: { children: ReactNode }) {
 
 export default function App() {
   const [client] = useState(makeQueryClient)
+  // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
+  useLiveGuardRelease()
   return (
     <QueryClientProvider client={client}>
       <Outlet />

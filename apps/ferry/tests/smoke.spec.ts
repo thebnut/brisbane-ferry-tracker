@@ -92,7 +92,21 @@ test('terminal page has departure rows, canonical and JSON-LD in the raw HTML', 
   expect(html).toContain('"@type":"BoatTerminal"')
   expect((html.match(/data-testid="departure"/g) ?? []).length).toBeGreaterThanOrEqual(5)
   expect((html.match(/data-testid="timetable-row"/g) ?? []).length).toBeGreaterThan(5)
-  expect(html).toMatch(/in \d+ mins?|Departing/)
+  // A countdown only for a departure due within the hour (the board's rule); late at night the fixture timetable can
+  // have nothing due on Bulimba ⇄ Riverside for over an hour, so require it only then (time-of-day independent).
+  const due = async (from: string, to: string) => {
+    const r = await request.get(`/__fixtures/v1/ferry/stops/${from}/departures?to=${to}&limit=13`)
+    const deps: Array<{ status: string; schedDep: number; estDep?: number | null }> = (await r.json())
+      .departures
+    return deps.some(
+      (d) =>
+        d.status !== 'cancelled' &&
+        d.status !== 'skipped' &&
+        Math.trunc(((d.estDep ?? d.schedDep) * 1000 - Date.now()) / 60000) <= 59,
+    )
+  }
+  if ((await due('317584', '317590')) || (await due('317590', '317584')))
+    expect(html).toMatch(/in \d+ mins?|Departing/)
 })
 
 test('unknown terminal and unknown paths are 404 with noindex', async ({ request }) => {

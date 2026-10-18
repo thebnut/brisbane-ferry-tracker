@@ -150,7 +150,7 @@ export function DataBanner({
     rt = (
       <OfflineBanner
         kind="offline"
-        detail={hasData ? 'Showing your saved timetable. No live times.' : undefined}
+        detail={hasData ? 'Showing timetable times. No live times.' : undefined}
       />
     )
   else if (rtState === 'unavailable' || rtState === 'stale' || rtState === 'reloading')

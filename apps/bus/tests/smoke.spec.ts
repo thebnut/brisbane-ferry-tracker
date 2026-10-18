@@ -130,7 +130,8 @@ test('route page lists stops and live buses', async ({ page }, testInfo) => {
   await page.goto('/route/M2')
   await expect(page.getByRole('heading', { name: 'Route M2', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: /Stops towards/ })).toBeVisible()
-  await expect(page.getByRole('heading', { name: /buses? on route M2/ })).toBeVisible()
+  // "1 bus", "0 buses" or "3 buses" depending on the hour.
+  await expect(page.getByRole('heading', { name: /\d+ bus(es)? on route M2/ })).toBeVisible()
   await expect(page.getByRole('region', { name: /Map of route stops/ })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('route.png') })
   // The map is client-only: no hydration mismatch from the server's MapLibre stub (Codex review).

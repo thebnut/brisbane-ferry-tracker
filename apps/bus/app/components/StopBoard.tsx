@@ -1,6 +1,8 @@
 /** A stop's departure list (B-Departures): polls /v1 every 15 s, banners, loading/empty/error states. */
 import type { Alert, Departure, DeparturesResponse } from '@bft/core/contract'
 import {
+  brisbaneDateKey,
+  dayMarker,
   ErrorState,
   formatClock,
   MoreButton,
@@ -13,7 +15,7 @@ import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { rowLabel, rowViews } from '../lib/departures.ts'
-import { tripHref } from '../lib/stops.ts'
+import { stopHref, tripHref } from '../lib/stops.ts'
 
 export const linkRenderer = ({
   href,
@@ -41,6 +43,10 @@ export interface DepartureListProps {
   routes?: ReadonlySet<string> | null
   /** Show this many, with "More departures" for the rest (desktop boards). */
   initialCount?: number
+  /** Offline: an empty list means no usable timetable copy, never "no departures" (R2-B6). */
+  offline?: boolean
+  /** A saved stop (its timetable copy ran out rather than never existed). */
+  saved?: boolean
 }
 
 /** True when every row is on a later Brisbane day (nothing more tonight). */
@@ -57,6 +63,17 @@ function allTomorrow(rows: Departure[], nowMs: number): boolean {
   )
 }
 
+/**
+ * Why a board is empty, honestly (R2-B7): the response covers the service days in `serviceDates` (today, plus
+ * tomorrow when it is in the timetable), so say which days have no buses rather than "the next day of timetable".
+ */
+export function noneDue(serviceDates: string[], nowMs: number, filtered: boolean): string {
+  const what = filtered ? 'No buses on this route' : 'No buses'
+  const today = brisbaneDateKey(nowMs).replaceAll('-', '')
+  if (!serviceDates.some((d) => d > today)) return `${what} from this stop for the rest of today.`
+  return `${what} from this stop for the rest of today or tomorrow ${dayMarker(nowMs / 1000 + 86_400, nowMs)}.`
+}
+
 export function DepartureList({
   stopId,
   data,
@@ -66,6 +83,8 @@ export function DepartureList({
   alerts,
   routes,
   initialCount,
+  offline,
+  saved,
 }: DepartureListProps) {
   const [expanded, setExpanded] = useState(false)
   if (!data) {
@@ -78,6 +97,66 @@ export function DepartureList({
     return <SkeletonRows />
   }
   const views = rowViews(data.departures, nowMs, { alerts, routes })
+  // A set-down-only stop's own data says so, online or offline.
+  const boardAt = data.stop.boardAt
+  // Offline, an empty board (filtered or not) only means the copies on hand have run out (Codex review).
+  if (views.length === 0 && offline && !boardAt) {
+    return (
+      <div
+        data-empty="offline"
+        className="flex flex-col items-center gap-3 rounded-card bg-white/90 px-6 py-8 text-center shadow-card dark:bg-night-card"
+        role="status"
+      >
+        <img src={emblem} alt="" width={96} height={96} className="opacity-90" />
+        <h2 className="text-xl font-extrabold">
+          {routes?.size
+            ? 'Offline: no saved times for this route'
+            : saved
+              ? 'Offline: no more times in the saved timetable'
+              : 'Offline: no saved timetable for this stop'}
+        </h2>
+        <p className="text-sm text-sched-text">
+          Buses may still be running. Times come back when you reconnect.
+          {saved ? null : ' Save a stop to My stops to keep its timetable for offline use.'}
+        </p>
+      </div>
+    )
+  }
+  if (views.length === 0 && boardAt && !routes?.size) {
+    // A set-down-only stop (ADDENDUM 2: UQ Lakes station 1882): buses only drop off here, so its empty board is
+    // correct; point to the stops under the same station where they pick up.
+    return (
+      <div
+        data-empty="drop-off-only"
+        className="flex flex-col items-center gap-3 rounded-card bg-white/90 px-6 py-8 text-center shadow-card dark:bg-night-card"
+        role="status"
+      >
+        <img src={emblem} alt="" width={96} height={96} className="opacity-90" />
+        <h2 className="text-xl font-extrabold">
+          {boardAt.length ? 'Buses only drop off here' : 'No buses pick up here'}
+        </h2>
+        {boardAt.length ? (
+          <>
+            <p className="text-sm text-sched-text">Board at:</p>
+            <ul className="flex flex-wrap justify-center gap-2" aria-label="Board at">
+              {boardAt.map((s) => (
+                <li key={s.key}>
+                  <Link
+                    to={stopHref(s.key)}
+                    className="inline-block rounded-full border border-ferry-orange/30 bg-white px-3 py-1.5 text-sm font-semibold text-aqua-text hover:border-ferry-orange dark:bg-night-card dark:text-ferry-aqua-light"
+                  >
+                    {s.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="text-sm text-sched-text">Buses only drop off at this stop.</p>
+        )}
+      </div>
+    )
+  }
   if (views.length === 0) {
     return (
       <div
@@ -88,15 +167,15 @@ export function DepartureList({
         <h2 className="text-xl font-extrabold">
           {routes?.size ? 'No buses on this route soon' : 'No buses due'}
         </h2>
-        <p className="text-sm text-sched-text">
-          There are no departures from this stop in the next day of timetable.
-        </p>
+        <p className="text-sm text-sched-text">{noneDue(data.serviceDates, nowMs, !!routes?.size)}</p>
       </div>
     )
   }
   const tonightDone = allTomorrow(data.departures, nowMs)
   const first = views[0]
-  const shown = initialCount && !expanded ? views.slice(0, initialCount) : views
+  // The "First bus tomorrow" card is the first row, so the list starts after it (R2-B9).
+  const rest = tonightDone && first ? views.slice(1) : views
+  const shown = initialCount && !expanded ? rest.slice(0, initialCount) : rest
   return (
     <>
       {tonightDone && first ? (
@@ -146,7 +225,7 @@ export function DepartureList({
           </li>
         ))}
       </ol>
-      {initialCount && views.length > initialCount ? (
+      {initialCount && rest.length > initialCount ? (
         <MoreButton onClick={() => setExpanded((e) => !e)} aria-expanded={expanded}>
           {expanded ? 'Fewer departures' : 'More departures'}
         </MoreButton>

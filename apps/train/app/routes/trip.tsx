@@ -3,6 +3,7 @@
  * station and its platform tile, then the vertical stopping pattern with the train as a moving capsule. Polls every
  * 15 s, or takes pushed updates from the hibernating-WebSocket prototype when TRIP_WS is on (ADR-0003).
  */
+
 import {
   CountdownChip,
   formatClock,
@@ -18,6 +19,7 @@ import {
   StatusBadge,
   tripAsTimetable,
 } from '@bft/ui'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { useMemo } from 'react'
 import { data, Link, useRouteLoaderData } from 'react-router'
 import { Shell } from '../components/Chrome.tsx'
@@ -76,7 +78,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const online = useOnline()
   // Offline, or data too old to call live: the timetable only (no LIVE/GPS badge, estimates or position).
   const raw = q.data ?? loaderData.trip
-  const state = liveState(raw ?? undefined, { offline: !online, nowMs })
+  const unconfirmedBefore = useUnconfirmedBefore()
+  const state = liveState(raw ?? undefined, { offline: !online, nowMs, unconfirmedBefore })
   const trip = raw && state != null ? tripAsTimetable(raw) : raw
   const nowS = Math.floor(nowMs / 1000)
   const view = useMemo(() => (trip ? buildTimeline(trip, nowS, from, to) : null), [trip, nowS, from, to])

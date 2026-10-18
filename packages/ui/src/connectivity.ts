@@ -6,7 +6,7 @@
  * caches mark those responses, see `markCacheHits`), or when it is still unanswered after `SLOW_REQUEST_MS` (lie-fi).
  * The next call that reaches the network clears it, and so does the browser's own "online" event.
  */
-import { useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 
 /** Header the service worker adds to /v1 responses it serves from its cache instead of the network. */
 export const SW_CACHE_HEADER = 'x-bft-cache'
@@ -36,6 +36,95 @@ function setUnreachable(value: boolean) {
 export const reportOffline = () => setUnreachable(true)
 /** An API call reached the network. */
 export const reportOnline = () => setUnreachable(false)
+
+/**
+ * Set on <html> while the live claims in server-rendered HTML are unconfirmed; theme.css hides every element marked
+ * `data-live-claim` (LIVE pill, LIVE and GPS badges) while it is there.
+ */
+export const LIVE_UNCONFIRMED_ATTR = 'data-live-unconfirmed'
+
+/**
+ * Data in a page's HTML may be generated a little after the root's clock read (route loaders run alongside it), so
+ * anything generated up to this long after the render counts as part of that render.
+ */
+export const RENDER_MARGIN_MS = 10_000
+
+/**
+ * Was this page's HTML unconfirmed when it loaded (a service-worker copy, or old or offline by the device's clock;
+ * see liveGuardScript)? Then data generated with that render (`generatedAt` up to this cutoff, server time) can't
+ * claim LIVE: each board waits for its own fresh answer from the network, rendered by the app (R2-T7, Codex review).
+ * Read once, when this module loads before hydration; null when the page was fresh (or during SSR).
+ */
+function readUnconfirmedBefore(): number | null {
+  if (typeof document === 'undefined' || !document.documentElement.hasAttribute(LIVE_UNCONFIRMED_ATTR))
+    return null
+  const at = (window as { __bftRenderedAt?: unknown }).__bftRenderedAt
+  return typeof at === 'number' ? at + RENDER_MARGIN_MS : Number.POSITIVE_INFINITY
+}
+let unconfirmedBefore: number | null | undefined
+const getUnconfirmedBefore = () => {
+  if (unconfirmedBefore === undefined) unconfirmedBefore = readUnconfirmedBefore()
+  return unconfirmedBefore
+}
+if (typeof document !== 'undefined') getUnconfirmedBefore()
+const noSubscribe = () => () => {}
+
+/** `unconfirmedBefore` for liveState, as React state: null during SSR and hydration (matching the HTML), then the cutoff. */
+export function useUnconfirmedBefore(): number | null {
+  return useSyncExternalStore(noSubscribe, getUnconfirmedBefore, () => null)
+}
+
+/** Tests: forget the cutoff read at load. */
+export function resetUnconfirmedBefore(): void {
+  unconfirmedBefore = undefined
+}
+
+export function useLiveGuardRelease() {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    if (!mounted) return
+    let id = requestAnimationFrame(() => {
+      id = requestAnimationFrame(() => document.documentElement.removeAttribute(LIVE_UNCONFIRMED_ATTR))
+    })
+    return () => cancelAnimationFrame(id)
+  }, [mounted])
+}
+
+/**
+ * Workbox runtime-caching plugin for the page (navigation) caches (R2-T7): HTML served from the cache gets
+ * LIVE_UNCONFIRMED_ATTR on its <html> tag, whatever its age, so its live claims stay hidden and its boards wait for
+ * their own fresh data (useUnconfirmedBefore). liveGuardScript adds the clock and offline checks for anything this misses. Serialised
+ * into the service worker like markCacheHits: one self-contained expression. The body is rewritten, so the length
+ * and encoding headers of the stored copy no longer apply.
+ */
+export const markCachedPages = {
+  cachedResponseWillBeUsed: async ({ cachedResponse }: { cachedResponse?: Response }) =>
+    cachedResponse &&
+    new Response((await cachedResponse.text()).replace(/<html(?=[\s>])/i, '<html data-live-unconfirmed=""'), {
+      status: cachedResponse.status,
+      statusText: cachedResponse.statusText,
+      headers: new Headers(
+        [...cachedResponse.headers].filter(([k]) => k !== 'content-length' && k !== 'content-encoding'),
+      ),
+    }),
+}
+
+/**
+ * Inline <head> script for the root layout (R2-T7): a cached render must never claim LIVE before freshness is known.
+ * The service worker serves a page's last HTML when the network is down, with the LIVE markup it had when rendered,
+ * and it paints before the app hydrates and judges the data. Before first paint this compares the render time with
+ * the device clock (the same minute as LIVE_REFRESH_MAX_AGE_MS) and checks navigator.onLine; if the HTML is old or the
+ * device is offline it sets LIVE_UNCONFIRMED_ATTR, which hides the live claims until the app has rendered its own
+ * judgement (useLiveGuardRelease); then data that came with this HTML still can't claim LIVE (useUnconfirmedBefore).
+ * Pages the service worker serves from its cache arrive already marked (markCachedPages). It also records the
+ * render time for that cutoff. A fresh online page is untouched, and
+ * React never sees a difference (an attribute on <html>, which the layouts render with suppressHydrationWarning).
+ */
+export function liveGuardScript(renderedAt: number): string {
+  const at = Math.floor(renderedAt)
+  return `try{window.__bftRenderedAt=${at};if(navigator.onLine===false||Date.now()-${at}>${LIVE_REFRESH_MAX_AGE_MS})document.documentElement.setAttribute('${LIVE_UNCONFIRMED_ATTR}','')}catch(e){}`
+}
 
 /** Current answer, outside React (false only in a browser that is offline or whose API calls are failing). */
 export function isOnline(): boolean {
@@ -115,7 +204,16 @@ export type LiveState = 'offline' | 'stale' | 'reloading' | 'unavailable' | null
  */
 export function liveState(
   res: { rtState: string; rtSourceTimestamp: number | null; generatedAt: number } | undefined,
-  { offline, nowMs }: { offline: boolean; nowMs: number },
+  {
+    offline,
+    nowMs,
+    unconfirmedBefore = null,
+  }: {
+    offline: boolean
+    nowMs: number
+    /** useUnconfirmedBefore(): data generated up to then came with an unconfirmed (cached) page. */
+    unconfirmedBefore?: number | null
+  },
 ): LiveState {
   if (offline) return 'offline'
   if (!res) return null
@@ -124,6 +222,8 @@ export function liveState(
       ? res.rtState
       : 'unavailable'
   }
+  // Came with a cached page: not live until this board's own fresh answer arrives (R2-T7).
+  if (unconfirmedBefore != null && res.generatedAt <= unconfirmedBefore) return 'stale'
   const sourceAge = res.rtSourceTimestamp == null ? Infinity : nowMs / 1000 - res.rtSourceTimestamp
   if (sourceAge > LIVE_SOURCE_MAX_AGE_S || nowMs - res.generatedAt > LIVE_REFRESH_MAX_AGE_MS) return 'stale'
   return null
@@ -154,6 +254,30 @@ export function tripAsTimetable<
     vehicle: null,
     stops: trip.stops.map((s) => ({ ...s, status: timetableStatus(s.status), estArr: null, estDep: null })),
   }
+}
+
+/**
+ * Offline, the copy of a board worth showing. Of the copies on hand (the data already on screen, the service
+ * worker's cached response, a timetable saved on the device), the one with the most departures still to come by
+ * timetable time; a tie goes to the newest. A service-worker copy can be hours old (its last network answer), so it
+ * must never replace a fresher board that still has rows (R2-B6). Null when there is no copy at all.
+ */
+export function bestOfflineCopy<
+  D extends { schedDep: number },
+  T extends { generatedAt: number; departures: D[] },
+>(copies: ReadonlyArray<T | null | undefined>, nowMs: number): T | null {
+  const cutoff = nowMs / 1000
+  let best: T | null = null
+  let bestCount = -1
+  for (const c of copies) {
+    if (!c || !Array.isArray(c.departures)) continue
+    const count = c.departures.filter((d) => d.schedDep >= cutoff).length
+    if (count > bestCount || (count === bestCount && best != null && c.generatedAt > best.generatedAt)) {
+      best = c
+      bestCount = count
+    }
+  }
+  return best
 }
 
 /** Rows that left more than a minute ago are dropped while live. */

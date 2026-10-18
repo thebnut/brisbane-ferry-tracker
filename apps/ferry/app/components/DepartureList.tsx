@@ -17,6 +17,8 @@ export interface DepartureListProps {
   error: boolean
   onRetry: () => void
   onSelect: (d: Departure) => void
+  /** Offline: an empty board means no usable timetable copy, never "finished for today" (R2-B6). */
+  offline?: boolean
 }
 
 export function DepartureList({
@@ -31,6 +33,7 @@ export function DepartureList({
   error,
   onRetry,
   onSelect,
+  offline,
 }: DepartureListProps) {
   const [more, setMore] = useState(false)
   const list = departures ?? []
@@ -50,6 +53,10 @@ export function DepartureList({
         </div>
       ) : departures == null && error ? (
         <ErrorState onRetry={onRetry}>Check your connection. We'll keep trying every 15 seconds.</ErrorState>
+      ) : list.length === 0 && offline ? (
+        <EmptyState title="Offline: no saved timetable for this trip">
+          Ferries may still be running. Times come back when you reconnect.
+        </EmptyState>
       ) : list.length === 0 ? (
         <EmptyState title="No upcoming departures found">Services may have finished for today</EmptyState>
       ) : (

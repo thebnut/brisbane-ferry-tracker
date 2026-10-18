@@ -3,8 +3,10 @@
  * Saved stops travel in a cookie (first 3) so their rows are in the server HTML. Desktop shows full boards side by
  * side.
  */
+
 import type { DeparturesResponse } from '@bft/core/contract'
 import { formatClock, Icon, type MiniDeparture, MyStopCard, minutesUntil } from '@bft/ui'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { Link } from 'react-router'
 import { SearchPanel } from '../components/SearchPanel.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
@@ -90,7 +92,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const now = useNow(loaderData.renderedAt)
   const online = useOnline()
   // Timetable only unless the data is live and fresh (offline, cached copy, stale).
-  const views = queries.map((q, i) => liveView(ids[i] as string, q.data, now, online))
+  const unconfirmedBefore = useUnconfirmedBefore()
+  const views = queries.map((q, i) => liveView(ids[i] as string, q.data, now, online, unconfirmedBefore))
   const first = views.find((v) => v.data)?.data
   const refetchAll = () => {
     for (const q of queries) q.refetch()
@@ -98,7 +101,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const activeAlerts = (alertsQ.data?.alerts ?? []).length
   return (
     <>
-      <SiteHeader live={first ? first.rtState === 'live' && online : online} />
+      {/* LIVE only while every saved stop's board is live (each confirms itself after a cached page, R2-T7). */}
+      <SiteHeader
+        live={online && views.every((v) => !v.data || (v.state == null && v.data.rtState === 'live'))}
+      />
       <UpdatedStrip
         updatedAt={first?.generatedAt ?? null}
         sourceS={first?.rtSourceTimestamp ?? null}
@@ -140,9 +146,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                       empty={
                         queries[i]?.isError
                           ? "Couldn't load live times. Retrying…"
-                          : res
-                            ? 'No buses due.'
-                            : 'Getting live buses…'
+                          : !online && !res?.departures.length
+                            ? 'Offline: no more times in the saved timetable.'
+                            : res
+                              ? 'No buses due.'
+                              : 'Getting live buses…'
                       }
                     />
                   )
@@ -173,6 +181,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                         nowMs={now}
                         alerts={alertsQ.data?.alerts ?? []}
                         initialCount={5}
+                        offline={!online}
+                        saved
                       />
                     </section>
                   )

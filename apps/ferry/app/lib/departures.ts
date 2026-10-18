@@ -93,8 +93,13 @@ export const applyFilter = (list: Departure[], filter: ServiceFilter) =>
 export type BoardState = LiveState
 
 /** What a board can honestly claim (shared rule, @bft/ui liveState): null = live, otherwise the banner to show. */
-export function boardState(res: DeparturesResponse | undefined, offline: boolean, nowMs: number): BoardState {
-  return liveState(res, { offline, nowMs })
+export function boardState(
+  res: DeparturesResponse | undefined,
+  offline: boolean,
+  nowMs: number,
+  unconfirmedBefore: number | null = null,
+): BoardState {
+  return liveState(res, { offline, nowMs, unconfirmedBefore })
 }
 
 /** Board rows for display: departed rows removed, live claims removed unless the state is live. */

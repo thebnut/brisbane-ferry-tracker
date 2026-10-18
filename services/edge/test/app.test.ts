@@ -239,6 +239,11 @@ describe('GET /v1/{mode}/stops/{key}/departures', () => {
     const body = DeparturesResponse.parse(await quiet.json())
     expect(body.departures).toEqual([])
     expect(body.stop.name).toBe('QUIET ferry terminal')
+    expect(body.stop.boardAt).toBeUndefined()
+    // A set-down-only stop: no rows, and where to board instead from the stop index.
+    const dropOff = DeparturesResponse.parse(await (await s.get('/v1/ferry/stops/DROPOFF/departures')).json())
+    expect(dropOff.departures).toEqual([])
+    expect(dropOff.stop.boardAt).toEqual([{ key: 'QUIET', name: 'QUIET ferry terminal' }])
   })
 
   it('404s an unknown stop, 400s an unknown mode, clamps limit', async () => {

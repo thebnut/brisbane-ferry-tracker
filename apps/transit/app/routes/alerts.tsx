@@ -3,13 +3,13 @@
  * Ferry n, Train n, Bus n). The server renders the list (one /v1/alerts call for all modes); the client polls every
  * minute and works out which alerts touch saved stops, which only this device knows.
  */
-import type { AlertsResponse } from '@bft/core/contract'
+import type { Alert, AlertsResponse } from '@bft/core/contract'
 import { ChipFilter, type ChipOption, EmptyState, ErrorState, ModeAlertCard, type TransitMode } from '@bft/ui'
 import { useEffect, useMemo, useState } from 'react'
 import { TransitFooter, TransitHeader, TransitStrip } from '../components/Chrome.tsx'
 import {
   ALERT_MODES,
-  alertMode,
+  alertModes,
   impactOn,
   inMode,
   type SavedScope,
@@ -17,6 +17,7 @@ import {
   scopeText,
   severityOf,
   sortAlerts,
+  stopModeOf,
   whenText,
 } from '../lib/alerts.ts'
 import { fetchAlerts } from '../lib/api.ts'
@@ -33,9 +34,13 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     fetchAlerts(fetcher, { signal, validate: validateAlerts }),
   )
   // Name the train lines of the alerts in the HTML here, so the browser needn't load the train network to show them.
-  const { trainLinesOf } = await import('../lib/train-lines.ts')
-  const scopes = Object.fromEntries((alerts?.alerts ?? []).map((a) => [a.id, scopeText(a, trainLinesOf)]))
-  return { alerts, scopes, renderedAt: Date.now() }
+  const { trainLinesOf, isTrainPlatform } = await import('../lib/train-lines.ts')
+  const stopMode = stopModeOf(isTrainPlatform)
+  const list = alerts?.alerts ?? []
+  const scopes = Object.fromEntries(list.map((a) => [a.id, scopeText(a, trainLinesOf, stopMode)]))
+  // Modes of alerts the feed left without one, from their stops (R2-X7b), with the train network on hand here.
+  const modes = Object.fromEntries(list.map((a) => [a.id, alertModes(a, stopMode, trainLinesOf)]))
+  return { alerts, scopes, modes, renderedAt: Date.now() }
 }
 
 export const meta: Route.MetaFunction = () => [
@@ -63,7 +68,7 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
     setScope(savedScope(items))
     // The train network loads only if needed: saved train stations to match, or alerts the server didn't name.
     const unnamed = (q.data?.alerts ?? []).some(
-      (a) => alertMode(a) === 'train' && !(a.id in loaderData.scopes),
+      (a) => !(a.id in loaderData.scopes) && (a.modes.includes('train') || a.modes.length === 0),
     )
     if (items.some((i) => i.mode === 'train') || unnamed)
       void import('../lib/train-lines.ts').then((m) => {
@@ -71,14 +76,22 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
         setScope(savedScope(items, m.platformsOf))
       })
   }, [q.data, loaderData.scopes])
+  const stopMode = useMemo(() => stopModeOf(train?.isTrainPlatform), [train])
+  const modesOf = (a: Alert) =>
+    (a.id in loaderData.modes ? loaderData.modes[a.id] : alertModes(a, stopMode, train?.trainLinesOf)) ?? null
   const [filter, setFilter] = useState<Filter>('all')
   const all = useMemo(() => sortAlerts(q.data?.alerts ?? [], nowS), [q.data, nowS])
   const mine = scope ? all.filter((a) => impactOn(a, scope)) : []
-  const shown = filter === 'all' ? all : filter === 'mine' ? mine : all.filter((a) => inMode(a, filter))
+  const shown =
+    filter === 'all' ? all : filter === 'mine' ? mine : all.filter((a) => inMode(a, filter, modesOf(a)))
   const options: ChipOption<Filter>[] = [
     ...(mine.length ? [{ value: 'mine' as const, label: 'Affects my trips', count: mine.length }] : []),
     { value: 'all', label: 'All' },
-    ...ALERT_MODES.map((m) => ({ value: m, label: LABEL[m], count: all.filter((a) => inMode(a, m)).length })),
+    ...ALERT_MODES.map((m) => ({
+      value: m,
+      label: LABEL[m],
+      count: all.filter((a) => inMode(a, m, modesOf(a))).length,
+    })),
   ]
   return (
     <>
@@ -103,8 +116,8 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
             {shown.map((a) => (
               <li key={a.id}>
                 <ModeAlertCard
-                  mode={alertMode(a)}
-                  scope={loaderData.scopes[a.id] ?? scopeText(a, train?.trainLinesOf)}
+                  mode={modesOf(a)?.[0] ?? null}
+                  scope={loaderData.scopes[a.id] ?? scopeText(a, train?.trainLinesOf, stopMode)}
                   severity={severityOf(a, nowS)}
                   title={a.header}
                   body={[a.summary ?? a.description, whenText(a, nowS)].filter(Boolean).join(' · ')}

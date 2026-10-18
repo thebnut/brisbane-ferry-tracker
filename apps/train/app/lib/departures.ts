@@ -127,14 +127,24 @@ export function trainCard(d: Departure, nowMs: number, from: string, to: string 
  * The data state a board shows (shared rule, @bft/ui liveState): null = live; otherwise the banner, and the rows are
  * shown as timetable times. Offline, the API's rtState, or data that is too old to call live.
  */
-export function boardState(res: DeparturesResponse | undefined, offline: boolean, nowMs: number): LiveState {
-  return liveState(res, { offline, nowMs })
+export function boardState(
+  res: DeparturesResponse | undefined,
+  offline: boolean,
+  nowMs: number,
+  unconfirmedBefore: number | null = null,
+): LiveState {
+  return liveState(res, { offline, nowMs, unconfirmedBefore })
 }
 
-/** Rows to show: live claims removed unless live, and trains that have left dropped (@bft/ui dropDeparted). */
+/**
+ * Rows to show: live claims removed unless live, trains that have left dropped (@bft/ui dropDeparted), in the order
+ * of the times shown (once estimates are dropped the API's order by estimate can be out of order, R2-B8).
+ */
 export function visibleRows(list: Departure[], state: LiveState, nowMs: number): Departure[] {
   const rows = state == null ? list : list.map(asScheduled)
-  return dropDeparted(rows, effectiveDep, nowMs, state == null)
+  return dropDeparted(rows, effectiveDep, nowMs, state == null).sort(
+    (a, b) => effectiveDep(a) - effectiveDep(b),
+  )
 }
 
 /** Live platform changes in a list (for the "Platform change" banner). */

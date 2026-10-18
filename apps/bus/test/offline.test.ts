@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
-import { beforeEach, describe, expect, it } from 'vitest'
-import { asOfflineTimetable, liveView } from '../app/lib/queries.ts'
+import { reportOffline, reportOnline } from '@bft/ui/connectivity'
+import { QueryClient } from '@tanstack/react-query'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { asOfflineTimetable, departuresOptions, liveView } from '../app/lib/queries.ts'
 import { writeOffline } from '../app/lib/storage.ts'
 
 const NOW = 1_792_300_000_000
@@ -83,5 +85,45 @@ describe('liveView (B3/B4)', () => {
     const view = liveView('10802', { ...res([row(300)]), generatedAt: NOW }, NOW, false)
     expect(view.state).toBe('offline')
     expect(view.data?.departures[0]?.status).toBe('scheduled')
+  })
+})
+
+describe('offline poll answered by an old service-worker copy (R2-B6)', () => {
+  afterEach(() => {
+    reportOnline()
+    vi.useRealTimers()
+  })
+  const mode = { fixtures: false, rt: null }
+  // The service worker's copy is from 9:06 pm (94 min ago): every row has gone.
+  const swCopy = { ...res([row(-5000), row(-4000), row(-3000)]), generatedAt: NOW - 94 * 60_000 }
+  const swFetcher = async () => {
+    reportOffline() // trackedFetch does this for a response marked x-bft-cache
+    return new Response(JSON.stringify(swCopy))
+  }
+  const poll = (client: QueryClient) => {
+    const opts = departuresOptions(swFetcher, mode, '10813', null)
+    return opts.queryFn({
+      signal: new AbortController().signal,
+      client,
+      queryKey: opts.queryKey,
+      meta: undefined,
+    })
+  }
+
+  it('keeps the board on screen (as timetable times, with its own Updated time) for an unsaved stop', async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
+    const client = new QueryClient()
+    const shown = { ...res([row(300), row(900)]), generatedAt: NOW - 60_000 }
+    client.setQueryData(departuresOptions(swFetcher, mode, '10813', null).queryKey, shown)
+    const out = await poll(client)
+    expect(out.generatedAt).toBe(shown.generatedAt)
+    expect(out.rtState).toBe('unavailable')
+    expect(out.departures.map((d) => d.status)).toEqual(['scheduled', 'scheduled'])
+  })
+  it('with nothing else on hand the old copy is shown empty, and the board says so honestly', async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
+    const out = await poll(new QueryClient())
+    expect(out.departures).toHaveLength(0)
+    expect(out.generatedAt).toBe(swCopy.generatedAt)
   })
 })

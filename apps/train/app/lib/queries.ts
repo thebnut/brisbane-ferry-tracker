@@ -3,8 +3,8 @@
  * full-day timetable of a favourite ("Offline · scheduled").
  */
 import type { DeparturesResponse } from '@bft/core/contract'
-import { isOnline } from '@bft/ui/connectivity'
-import { QueryClient, useQuery } from '@tanstack/react-query'
+import { bestOfflineCopy, isOnline } from '@bft/ui/connectivity'
+import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import {
   type ApiFetcher,
@@ -56,33 +56,43 @@ export function departuresOptions(
   limit: number,
   initial: DeparturesResponse | null,
 ) {
+  const queryKey = ['train', 'departures', mode.fixtures, mode.rt, from, to, limit] as const
+  type Board = DeparturesResponse & { offline?: boolean }
+  /** The saved full-day timetable as a board of scheduled times. */
+  const savedDay = (nowMs: number): Board | null => {
+    const day = readOfflineDay(from, to)
+    if (!day) return null
+    return {
+      schemaVersion: 1,
+      staticGeneration: null,
+      serviceDates: [day.serviceDate],
+      rtSourceTimestamp: null,
+      rtState: 'unavailable',
+      generatedAt: day.savedAt,
+      mode: 'train',
+      stop: { key: from, name: from, stopIds: [] },
+      to: to ? { key: to, name: to } : null,
+      departures: offlineRows(day.departures, Math.floor(nowMs / 1000), limit),
+      offline: true,
+    }
+  }
   return {
-    queryKey: ['train', 'departures', mode.fixtures, mode.rt, from, to, limit] as const,
-    queryFn: async ({
-      signal,
-    }: {
-      signal: AbortSignal
-    }): Promise<DeparturesResponse & { offline?: boolean }> => {
-      try {
-        return await fetchDepartures(fetcher, from, to, { limit, signal })
-      } catch (error) {
-        // Offline: rebuild the board from the saved full-day timetable, as scheduled times.
-        const day = isOffline() ? readOfflineDay(from, to) : null
-        if (!day) throw error
+    queryKey,
+    queryFn: async ({ signal, client }: QueryFunctionContext<typeof queryKey>): Promise<Board> => {
+      // Offline, the board on screen may be fresher than the service worker's cached answer (maybe hours old) or the
+      // saved day: show whichever has the most trains to come (R2-B6). The board drops live claims offline.
+      const offlineCopy = (...more: Array<Board | null | undefined>) => {
         const nowMs = Date.now()
-        return {
-          schemaVersion: 1,
-          staticGeneration: null,
-          serviceDates: [day.serviceDate],
-          rtSourceTimestamp: null,
-          rtState: 'unavailable',
-          generatedAt: nowMs,
-          mode: 'train',
-          stop: { key: from, name: from, stopIds: [] },
-          to: to ? { key: to, name: to } : null,
-          departures: offlineRows(day.departures, Math.floor(nowMs / 1000), limit),
-          offline: true,
-        }
+        return bestOfflineCopy([client.getQueryData<Board>(queryKey), ...more, savedDay(nowMs)], nowMs)
+      }
+      try {
+        const res = await fetchDepartures(fetcher, from, to, { limit, signal })
+        return isOffline() ? (offlineCopy(res) ?? res) : res
+      } catch (error) {
+        // Offline: the board on screen, or the saved full-day timetable as scheduled times.
+        const copy = isOffline() ? offlineCopy() : null
+        if (!copy) throw error
+        return copy
       }
     },
     initialData: initial ?? undefined,

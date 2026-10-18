@@ -1,4 +1,5 @@
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
+import { liveGuardScript, useLiveGuardRelease } from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, useMemo, useState } from 'react'
 import {
@@ -35,12 +36,15 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     nonce: context.get(cloudflareContext).nonce,
     mode: { fixtures, rt: fixtures ? new URL(request.url).searchParams.get('rt') : null },
     theme: themeFromCookie(request.headers.get('cookie')),
+    /** When this HTML was rendered: the live guard compares it with the device clock (R2-T7). */
+    renderedAt: Date.now(),
   }
 }
 
 export function Layout({ children }: { children: ReactNode }) {
   const data = useRouteLoaderData('root') as Awaited<ReturnType<typeof loader>> | undefined
   const nonce = data?.nonce
+  const renderedAt = data?.renderedAt ?? 0
   return (
     <html lang="en-AU" className={data?.theme === 'dark' ? 'dark' : undefined} suppressHydrationWarning>
       <head>
@@ -49,6 +53,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta name="theme-color" content="#FF6B35" />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant script, sets the dark class before paint. */}
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant script, hides stale LIVE claims before paint. */}
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: liveGuardScript(renderedAt) }} />
         <Meta />
         <Links />
       </head>
@@ -63,6 +69,8 @@ export function Layout({ children }: { children: ReactNode }) {
 
 export default function App() {
   const [client] = useState(makeQueryClient)
+  // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
+  useLiveGuardRelease()
   return (
     <QueryClientProvider client={client}>
       <Outlet />

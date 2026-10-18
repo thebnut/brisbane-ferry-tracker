@@ -79,11 +79,15 @@ test('favourite shows on home and its day is saved for offline', async ({ page, 
   await page.getByRole('button', { name: 'Save as favourite' }).click()
   await page.goto('/')
   await expect(page.getByTestId('favourite')).toContainText('Roma Street → Indooroopilly')
+  // The rest of today's timetable is saved; how much is left depends on the hour (little near midnight).
   await expect
     .poll(() =>
-      page.evaluate(() => localStorage.getItem('bft-train-offline:roma-street:indooroopilly')?.length ?? 0),
+      page.evaluate(() => {
+        const v = JSON.parse(localStorage.getItem('bft-train-offline:roma-street:indooroopilly') ?? 'null')
+        return Array.isArray(v?.departures) && typeof v.savedAt === 'number'
+      }),
     )
-    .toBeGreaterThan(1000)
+    .toBe(true)
   await page.goto('/station/roma-street?to=indooroopilly')
   await expect(page.getByTestId('departure').first()).toBeVisible()
   await context.setOffline(true)
