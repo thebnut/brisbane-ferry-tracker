@@ -291,7 +291,6 @@ export function FerryBoards({
             }
             trailing={<div className="md:hidden">{departSelect}</div>}
             departures={outList}
-            destinationName={pair.inbound.name}
             nowMs={now}
             loading={out.isPending}
             error={out.isError}
@@ -321,7 +320,6 @@ export function FerryBoards({
               }
               onSwap={() => changePair(swapPair(pair))}
               departures={backList}
-              destinationName={pair.outbound.name}
               nowMs={now}
               loading={back.isPending}
               error={back.isError}

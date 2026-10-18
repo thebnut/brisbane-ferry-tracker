@@ -10,7 +10,7 @@ import { Icon } from './icons.tsx'
 
 const TONE_CLASSES: Record<CountdownTone, string> = {
   departing: 'bg-departing text-white motion-safe:animate-pulse',
-  soon: 'bg-ferry-orange-dark text-white',
+  soon: 'bg-ferry-orange-aa text-white',
   near: 'bg-ferry-sunset text-charcoal',
   later: 'bg-chip-later-bg text-chip-later-text border border-chip-later-border',
 }
@@ -47,7 +47,7 @@ export function CountdownChip({ minutes, className }: CountdownChipProps) {
 export type BadgeKind = 'live' | 'scheduled' | 'gps' | 'express' | 'cancelled' | 'skipped' | 'unknown'
 
 const BADGE: Record<BadgeKind, { label: string; className: string }> = {
-  live: { label: 'LIVE', className: 'bg-ferry-orange text-white font-bold motion-safe:animate-pulse' },
+  live: { label: 'LIVE', className: 'bg-ferry-orange-aa text-white font-bold' },
   scheduled: { label: 'SCHEDULED', className: 'bg-sched-bg text-sched-text font-semibold' },
   gps: { label: 'GPS', className: 'bg-aqua-text text-white font-bold' },
   express: { label: 'EXPRESS', className: 'text-ferry-orange-deep font-extrabold tracking-wide px-0' },
@@ -228,7 +228,7 @@ export function DepartureCard({
           >
             {time}
             {dayMarker ? (
-              <span className="ml-1 text-sm font-medium text-ferry-orange-dark">{dayMarker}</span>
+              <span className="ml-1 text-sm font-medium text-ferry-orange-deep">{dayMarker}</span>
             ) : null}
             {arrival ? (
               <>
@@ -238,7 +238,7 @@ export function DepartureCard({
                 <span className="sr-only"> arriving </span>
                 <span className="font-medium text-gray-700 dark:text-night-text/80">{arrival.time}</span>
                 {arrival.dayMarker ? (
-                  <span className="ml-1 text-sm font-medium text-ferry-orange-dark">{arrival.dayMarker}</span>
+                  <span className="ml-1 text-sm font-medium text-ferry-orange-deep">{arrival.dayMarker}</span>
                 ) : null}
                 {journey ? (
                   <span className="ml-2 hidden text-sm font-normal text-gray-500 sm:inline">· {journey}</span>
@@ -298,7 +298,7 @@ export function PrimaryButton({ className, type = 'button', ...rest }: ButtonPro
     <button
       type={type}
       className={cx(
-        'min-h-12 rounded-button bg-ferry-orange-dark px-5 text-base font-bold text-white shadow-md transition hover:bg-ferry-orange-deep active:scale-95 disabled:opacity-60',
+        'min-h-12 rounded-button bg-ferry-orange-aa px-5 text-base font-bold text-white shadow-md transition hover:bg-ferry-orange-deep active:scale-95 disabled:opacity-60',
         className,
       )}
       {...rest}
@@ -311,7 +311,7 @@ export function SecondaryButton({ className, type = 'button', ...rest }: ButtonP
     <button
       type={type}
       className={cx(
-        'min-h-12 rounded-button border-2 border-ferry-orange bg-white px-5 text-base font-semibold text-ferry-orange-dark transition hover:bg-ferry-orange-light active:scale-95 disabled:opacity-60 dark:bg-night-card dark:text-ferry-sunset',
+        'min-h-12 rounded-button border-2 border-ferry-orange bg-white px-5 text-base font-semibold text-ferry-orange-deep transition hover:bg-ferry-orange-light active:scale-95 disabled:opacity-60 dark:bg-night-card dark:text-ferry-sunset',
         className,
       )}
       {...rest}
@@ -324,7 +324,7 @@ export function MoreButton({ className, type = 'button', ...rest }: ButtonProps)
     <button
       type={type}
       className={cx(
-        'bg-more min-h-12 w-full rounded-button border-2 border-ferry-orange/30 text-[15px] font-bold text-ferry-orange-dark transition hover:border-ferry-orange dark:text-ferry-sunset',
+        'bg-more min-h-12 w-full rounded-button border-2 border-ferry-orange/30 text-[15px] font-bold text-ferry-orange-deep transition hover:border-ferry-orange dark:text-ferry-sunset',
         className,
       )}
       {...rest}

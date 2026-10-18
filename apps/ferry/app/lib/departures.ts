@@ -11,7 +11,6 @@ import {
   statusNote,
   vesselName,
 } from '@bft/ui'
-import { cleanStopName } from './names.ts'
 
 export const isExpress = (d: Departure) => d.route.short === 'F11'
 
@@ -31,11 +30,7 @@ export function asScheduled(d: Departure): Departure {
   return { ...d, status: 'scheduled', estDep: null, estArrTo: null, gps: false }
 }
 
-export function cardModel(
-  d: Departure,
-  nowMs: number,
-  destinationName: string,
-): DepartureCardProps & { key: string } {
+export function cardModel(d: Departure, nowMs: number): DepartureCardProps & { key: string } {
   const express = isExpress(d)
   const live = d.status === 'live'
   const dep = effectiveDep(d)
@@ -74,9 +69,6 @@ export function cardModel(
     note: parts.join(' · ') || null,
     delay: live ? delayText(d.schedDep, d.estDep) : null,
     minutes: d.status === 'cancelled' || d.status === 'skipped' ? null : minutesUntil(dep, nowMs),
-    label: `${express ? 'Express' : 'Ferry'} departing ${time} to ${cleanStopName(destinationName)}${
-      arr != null ? `, arriving ${formatClock(arr)}` : ''
-    }. ${d.status === 'live' ? 'Live' : d.status}. Show details`,
   }
 }
 

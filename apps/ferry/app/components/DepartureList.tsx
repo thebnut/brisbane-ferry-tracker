@@ -12,7 +12,6 @@ export interface DepartureListProps {
   onSwap?: () => void
   trailing?: ReactNode
   departures: Departure[] | null
-  destinationName: string
   nowMs: number
   loading: boolean
   error: boolean
@@ -27,7 +26,6 @@ export function DepartureList({
   onSwap,
   trailing,
   departures,
-  destinationName,
   nowMs,
   loading,
   error,
@@ -58,7 +56,7 @@ export function DepartureList({
         <>
           <ol className="flex flex-col gap-3" aria-label="Departures">
             {shown.map((d) => {
-              const { key, ...card } = cardModel(d, nowMs, destinationName)
+              const { key, ...card } = cardModel(d, nowMs)
               return (
                 <li key={key} data-testid="departure">
                   <DepartureCard {...card} onSelect={() => onSelect(d)} />

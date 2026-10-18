@@ -125,7 +125,7 @@ export function DetailsSheet({
           <p className="text-2xl font-extrabold tabular">
             {formatClock(dep)}
             {dayMarker(dep, nowMs) ? (
-              <span className="ml-2 text-lg font-medium text-ferry-orange-dark">{dayMarker(dep, nowMs)}</span>
+              <span className="ml-2 text-lg font-medium text-ferry-orange-deep">{dayMarker(dep, nowMs)}</span>
             ) : null}
           </p>
           {d.status === 'live' && d.estDep != null ? (
@@ -140,7 +140,7 @@ export function DetailsSheet({
               <p className="text-2xl font-extrabold tabular">
                 {formatClock(arr)}
                 {dayMarker(arr, nowMs) ? (
-                  <span className="ml-2 text-lg font-medium text-ferry-orange-dark">
+                  <span className="ml-2 text-lg font-medium text-ferry-orange-deep">
                     {dayMarker(arr, nowMs)}
                   </span>
                 ) : null}

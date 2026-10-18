@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "fixtures": "tsx scripts/build-fixtures.ts",
-    "deploy:staging": "pnpm build && wrangler deploy --env staging"
+    "deploy:staging": "CLOUDFLARE_ENV=staging pnpm build && wrangler deploy"
   },
   "dependencies": {
     "@bft/core": "workspace:*",

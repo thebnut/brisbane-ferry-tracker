@@ -16,6 +16,8 @@ export interface AppHeaderProps {
   mode: BrandMode
   /** Ferry: the real lockup image (489×199). Other modes: the square emblem SVG. */
   logoSrc: string
+  /** Responsive sources for the ferry lockup (e.g. WebP at 1x/2x); it is the page's LCP element on phones. */
+  logoSrcSet?: string
   /** Link target for the lockup. */
   homeHref?: string
   children?: ReactNode
@@ -26,7 +28,14 @@ export interface AppHeaderProps {
  * Header bar in the ferry look. Ferry shows its real lockup image; train, bus and transit build the lockup from the
  * emblem plus a two-line Poppins wordmark ("Brisbane___" teal over "Departure Boards" orange).
  */
-export function AppHeader({ mode, logoSrc, homeHref = '/', children, className }: AppHeaderProps) {
+export function AppHeader({
+  mode,
+  logoSrc,
+  logoSrcSet,
+  homeHref = '/',
+  children,
+  className,
+}: AppHeaderProps) {
   const label = `${WORDMARK[mode]} Departure Boards`
   return (
     <header
@@ -45,6 +54,8 @@ export function AppHeader({ mode, logoSrc, homeHref = '/', children, className }
           {mode === 'ferry' ? (
             <img
               src={logoSrc}
+              srcSet={logoSrcSet}
+              sizes={logoSrcSet ? '(min-width: 768px) 276px, 158px' : undefined}
               alt={label}
               width={489}
               height={199}
@@ -98,7 +109,7 @@ export interface LivePillProps {
 
 export function LivePill({ live = true }: LivePillProps) {
   return live ? (
-    <span className="rounded-full bg-ferry-orange px-3 py-1.5 text-xs font-bold text-white shadow-live motion-safe:animate-glow">
+    <span className="rounded-full bg-ferry-orange-aa px-3 py-1.5 text-xs font-bold text-white shadow-live motion-safe:animate-glow">
       LIVE
     </span>
   ) : (
@@ -155,7 +166,7 @@ export function PillButton({ children, onClick, pressed, icon, label, disabled }
       className={cx(
         'flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition disabled:opacity-60 md:text-sm',
         pressed
-          ? 'bg-ferry-orange-dark text-white'
+          ? 'bg-ferry-orange-aa text-white'
           : 'border border-ferry-orange/20 bg-white text-aqua-text hover:border-ferry-orange/50 dark:bg-night-card dark:text-ferry-aqua-light',
       )}
     >
@@ -193,7 +204,7 @@ export function FilterPills<T extends string>({ options, value, onChange, label 
             className={cx(
               'h-9 rounded-full px-3 text-xs md:text-sm',
               active
-                ? 'bg-ferry-orange-dark font-bold text-white'
+                ? 'bg-ferry-orange-aa font-bold text-white'
                 : 'border border-ferry-orange/30 bg-white font-semibold text-ferry-orange-deep dark:bg-night-card dark:text-ferry-sunset',
             )}
           >

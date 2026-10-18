@@ -25,7 +25,7 @@ const dep = (o: Partial<Departure>): Departure => ({
 
 describe('cardModel', () => {
   it('express live row: highlighted, badges, vessel and Sched Dept note, countdown', () => {
-    const c = cardModel(dep({}), NOW, 'Riverside ferry terminal')
+    const c = cardModel(dep({}), NOW)
     expect(c).toMatchObject({
       time: '7:42 pm',
       arrival: { time: '7:54 pm' },
@@ -48,13 +48,13 @@ describe('cardModel', () => {
     expect(c.highlighted).toBe(false)
   })
   it('cancelled row has no countdown', () => {
-    const c = cardModel(dep({ status: 'cancelled', estDep: null, gps: false }), NOW, 'x')
+    const c = cardModel(dep({ status: 'cancelled', estDep: null, gps: false }), NOW)
     expect(c.minutes).toBeNull()
     expect(c.cancelled).toBe(true)
     expect(c.badges).toEqual(['cancelled'])
   })
   it('next-day departures get the (DD/MM) marker', () => {
-    const c = cardModel(dep({ schedDep: s(29, 10), estDep: null, status: 'scheduled', gps: false }), NOW, 'x')
+    const c = cardModel(dep({ schedDep: s(29, 10), estDep: null, status: 'scheduled', gps: false }), NOW)
     expect(c.dayMarker).toBe('(19/10)')
   })
 })

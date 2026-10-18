@@ -23,6 +23,8 @@
   --color-ferry-orange: #ff6b35;
   --color-ferry-orange-dark: #e55a2b;
   --color-ferry-orange-deep: #b8400f;
+  /* Orange fill for small white text (LIVE pill/badge, active pills, buttons, ≤5 min chip): 5.18:1 with white. */
+  --color-ferry-orange-aa: #c2410c;
   --color-ferry-sunset: #ff8c42;
   --color-ferry-orange-light: #ffe5d9;
   --color-ferry-aqua: #00a8cc;
@@ -128,7 +130,8 @@
   }
 }
 @utility bg-departing {
-  background-image: linear-gradient(90deg, #ef4444, #ff6b35);
+  /* Spec gradient #EF4444 → #FF6B35, darkened so white 16px text passes AA (≥4.5:1 across the gradient). */
+  background-image: linear-gradient(90deg, #dc2626, #c2410c);
 }
 @utility tabular {
   font-variant-numeric: tabular-nums;

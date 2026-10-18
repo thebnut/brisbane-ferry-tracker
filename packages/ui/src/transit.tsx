@@ -23,7 +23,7 @@ export function PlatformTile({ platform, scheduledPlatform }: PlatformTileProps)
       <span
         role="img"
         data-platform-change="true"
-        className="flex size-14 shrink-0 flex-col items-center justify-center rounded-card bg-ferry-orange-dark text-white shadow-card"
+        className="flex size-14 shrink-0 flex-col items-center justify-center rounded-card bg-ferry-orange-aa text-white shadow-card"
         aria-label={`Platform changed to ${platform}, was ${scheduledPlatform}`}
       >
         <span className="text-[10px] leading-none font-extrabold tracking-wide">NOW</span>
@@ -67,7 +67,7 @@ export function RouteTile({ route, variant = 'standard' }: RouteTileProps) {
       data-variant={variant}
       className={cx(
         'flex h-12 min-w-14 shrink-0 items-center justify-center rounded-button px-2 text-xl font-extrabold text-white tabular shadow-card',
-        variant === 'premium' ? 'bg-ferry-orange-dark' : 'bg-teal-text',
+        variant === 'premium' ? 'bg-ferry-orange-aa' : 'bg-teal-text',
       )}
     >
       <span className="sr-only">Route </span>
