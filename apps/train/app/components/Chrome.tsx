@@ -136,7 +136,10 @@ export function Shell({
 }: {
   active: string
   strip?: ReactNode
-  /** Is the page's own live data fresh (shared liveState)? Boards inside report theirs with useReportLive. */
+  /**
+   * Is the page's live data fresh (shared liveState), from its loader data? It decides the server render and the
+   * first client render; once the boards report (useReportLive, after hydration) their reports decide.
+   */
   live?: boolean
   children: ReactNode
 }) {
@@ -156,7 +159,8 @@ export function Shell({
   )
   // Never LIVE while offline, nor over data too old to call live on any board of the page (smoke test T5).
   const online = useOnline()
-  const live = online && dataLive !== false && Object.values(reports).every(Boolean)
+  const reported = Object.values(reports)
+  const live = online && (reported.length ? reported.every(Boolean) : dataLive !== false)
   return (
     <LiveReport.Provider value={report}>
       <SiteHeader live={live} active={active} onSettings={() => setSettings(true)} />

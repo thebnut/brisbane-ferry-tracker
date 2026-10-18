@@ -302,7 +302,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   }, [fetcher])
 
   return (
-    <Shell active="home">
+    <Shell
+      active="home"
+      // From the loader data until the cards report (useReportLive).
+      live={Object.values(loaderData.boards).every((r) => !r || boardState(r, false, nowMs) == null)}
+    >
       <div className="mx-auto flex max-w-2xl flex-col gap-3.5">
         <h1 className="text-xl font-extrabold">Your trips</h1>
         {favourites.length ? (
