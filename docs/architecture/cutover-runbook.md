@@ -30,11 +30,17 @@ Every step lists a **check**, a **rollback** and the **report entry** to add (`~
 - **Rollback:** revert the release merge on main; Vercel redeploys. That restores the legacy app's code only. The merge also starts two scheduled jobs on `main` that act on R2 (`bft-transit-data`, shared by staging and prod), and reverting doesn't undo what they have already done:
   - **Stop them first.** Run `gh workflow disable transit-static.yml`, then cancel any active run: `gh run list --workflow transit-static.yml --status in_progress`, then `gh run cancel <id>`. A run cancelled mid-publish leaves the previous `manifest.json` live, because the manifest is written last. The mutable `data/` and `legacy/` files may already be the new ones, so republish the previous output if that matters (below).
   - **Daily publish (03:15 AEST):** it adds a new immutable generation and switches `manifest.json` (and the mutable `data/` and `legacy/` files) to it. The previous generation stays in R2 and is still named as `previous` in the manifest. To go back:
-    1. take the earlier build output: the workflow artifact `transit-static-<run id>`, kept 5 days, or a local `pnpm build:data` of the earlier feed;
-    2. publish it with `pnpm publish:data --from <dir> --target r2` (or `--target uploader` through `scripts/with-r2-uploader.sh`). That rewrites the manifest and the mutable files to the earlier generation, and its immutable content is still present.
+    1. take the earlier build output: the workflow artifact `transit-static-<run id>`, kept 5 days and downloaded to an absolute path, or a local `pnpm build:data` of the earlier feed;
+    2. from the `pipeline/` directory, run `pnpm publish:data --from /abs/path/to/out --target r2`. From the Mac without R2 keys, run `scripts/with-r2-uploader.sh pnpm publish:data --from /abs/path/to/out --target uploader` instead, also from `pipeline/`. That rewrites the manifest and the mutable files to the earlier generation, and its immutable content is still present.
 
-    A quarantined build never replaces the live manifest; nothing needs undoing.
-  - **Weekly GC (Sunday run, or `gc=true`) deletes, and can't be undone:** R2 has no versioning here. It only removes `static/` objects that no manifest names (current, previous, quarantined or staging), that are older than 14 days and outside the 48 h grace, and it aborts above its max-fraction rail. So the current and previous generations are always recoverable, and anything older is gone once collected. Rebuilding it needs that day's GTFS feed. To prevent further deletes, disabling the workflow (above) is enough.
+    Quarantine is **per mode**. A quarantined mode keeps its previous live generation, and its candidate is only in `manifest.staging.json`. The other modes in the same run are published normally, along with `manifest.json` and their mutable files. So check the run's manifest and roll back every mode that went live, not just the quarantined ones.
+  - **Weekly GC (Sunday run, or `gc=true`) deletes, and can't be undone:** R2 has no versioning here. Only `static/` blobs, shards and generation indexes are candidates; manifests, `data/`, `legacy/` and `rt/` are never touched. It keeps:
+    - every generation the manifests name (current, previous, quarantined, staging);
+    - any generation with an upload in the last 14 days;
+    - every blob or shard those generations reference;
+    - anything uploaded in the last 48 h.
+
+    An **unreferenced** blob or shard can be deleted once it's older than 48 h: the 14 days apply to generations, not to orphaned objects. GC aborts above its max-fraction rail. So the current and previous generations, and any generation from the last 14 days, are always recoverable. An older generation is gone once collected. Rebuilding it needs that day's GTFS feed. To prevent further deletes, disabling the workflow (above) is enough.
 
 ## 2. Production API: `bft-api-prod` on `api.brisbaneferry.com`
 - From `main`: `pnpm --filter @bft/edge deploy:production`. Wrangler creates the Worker custom domain `api.brisbaneferry.com` (a new hostname; no existing record changes). The prod hub writes canonical `rt/…` keys, and staging uses `rt-staging/…` (`RT_R2_PREFIX`).
