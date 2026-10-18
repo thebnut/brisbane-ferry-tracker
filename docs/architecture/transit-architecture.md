@@ -712,10 +712,25 @@ Ways to reach p95 ≤ 40 s:
 | Freshness, one 15 s client, 10 min | source age p50 42 s, **p95 52 s** (target ≤ 40 s) |
 | Latency, Brisbane → BNE | p50 32 ms, but **p75 355 ms, p95 3.1 s**. Cold or refreshing isolates load and parse the 2.9 MB snapshot |
 
-**Next step: split the snapshot per mode.** Above about 300 KB, §3.3 already says to split it.
-- The hub would write `rt/{mode}/snapshot-{slot}.json` per mode, plus one pointer carrying every mode's seq and key. That is 5 Class A writes per poll, about 860k a month, under the free 1M.
-- `/v1/{mode}` would then read only its own mode: ferry is about 100 KB and train about 320 KB, against bus at 2.5 MB.
-- That brings ferry and train latency and edge CPU back to the per-mode numbers, and shortens the refresh path for freshness.
+**Per-mode snapshot split (#48, staging 18 October 17:09–17:20 AEST, Paid, `RT_MODES=all`, bus indexed).** The hub publishes `rt/{mode}/snapshot-{slot}.json` per mode, plus an alerts document (only when the alerts change) and one pointer. That is about 864k Class A writes a month.
+
+| | Combined | Split |
+|---|---|---|
+| Document an isolate serving `/v1/ferry` reads | 2.9 MB | **43 KB**. Train 303 KB, tram 58 KB, bus 2.2 MB, alerts 60 KB |
+| `/v1/ferry` request CPU | p50 40 ms | **p50 3 ms**, p95 23 ms |
+| Poll alarm CPU | p50 170 ms | p50 113 ms, p95 140 ms |
+| Latency (one 15 s client) | p75 355 ms, p95 3.1 s | p75 365 ms, p95 1.4 s |
+| Freshness p95 | 52 s | 56 s (target ≤ 40 s: not met) |
+
+The remaining latency tail and staleness come from per-isolate caching on workers.dev, not from snapshot size:
+- About 20% of requests block on a two-read R2 refresh, which takes about 360 ms.
+- A cold isolate takes 1.4–3.3 s.
+- Isolates serve their own older copies.
+
+Next:
+1. A single-read refresh: a pointer per mode, or the document inline in the pointer for small modes.
+2. At the hosting move, one shared refresh per PoP through the Cache API (already coded; a no-op on workers.dev) or Workers Cache.
+3. Re-measure under real traffic.
 
 ## 6. Cost model
 
