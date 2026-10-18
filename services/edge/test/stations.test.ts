@@ -83,7 +83,12 @@ describe('/v1/train', () => {
       ],
     }
     const tree = buildTree('g1', trips, 'train')
-    tree.source.files.set('data/train/stops.json', new TextEncoder().encode(JSON.stringify(STOPS)))
+    // The fixture tree keys stop-day files by stop id, so the index lists that key too.
+    const index = {
+      ...STOPS,
+      stops: [...STOPS.stops, { key: 'C1', name: 'Central platform 1', lat: 0, lon: 0, routes: [] }],
+    }
+    tree.source.files.set('data/train/stops.json', new TextEncoder().encode(JSON.stringify(index)))
     const up = new FakeUpstream()
     up.set(
       'TripUpdates/Rail',

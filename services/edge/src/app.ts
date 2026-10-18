@@ -129,7 +129,12 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const r = await rt(c, mode, generation)
     const fromMs = at != null ? at * 1000 : r.nowMs
     const dates = overlappingServiceDates(fromMs).filter((d) => index.serviceDates.includes(d))
-    if (!mayHaveStop(index, key)) return c.json({ error: 'unknown stop', detail: key }, 404)
+    // Unknown stop: not in the mode's stop index (data/{mode}/stops.json). Without an index, fall back to the static
+    // files (a bus shard bucket can't rule a key out). A known stop with no service that day is 200 with no rows.
+    const stations = await stationsFor(deps.store, mode, generation).catch(() => null)
+    if (stations ? !stations.names.has(key) : !mayHaveStop(index, key)) {
+      return c.json({ error: 'unknown stop', detail: key }, 404)
+    }
     const load = async (ds: string[]) =>
       (await Promise.all(ds.map((d) => deps.store.stopDay(index, d, key)))).filter(
         (d): d is StaticStopDay => d != null,
@@ -138,7 +143,6 @@ export function createApp(deps: AppDeps): Hono<Env> {
 
     // Train: stopping patterns, plus every platform of the station so core can spot live platform changes
     // (`stationPlatforms`, added to MergeOptions by bft-train #42; ignored by older cores).
-    const stations = await stationsFor(deps.store, mode, generation).catch(() => null)
     const merge = (ds: StaticStopDay[]) => {
       const stop = describeStop(ds, key, stations)
       let to: DeparturesResponse['to'] = null

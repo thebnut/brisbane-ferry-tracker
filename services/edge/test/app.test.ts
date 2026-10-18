@@ -106,7 +106,7 @@ describe('GET /v1/{mode}/stops/{key}/departures', () => {
     const body = DeparturesResponse.parse(await res.json())
     expect(body.rtState).toBe('live')
     expect(body.staticGeneration).toBe('g1')
-    expect(body.to).toEqual({ key: '317590', name: '317590' })
+    expect(body.to).toEqual({ key: '317590', name: '317590 ferry terminal' })
     const [t1, t2] = body.departures
     expect(t1).toMatchObject({ tripInstance: `T1@${D}`, status: 'live', gps: true, vehicleId: 'V1' })
     expect((t1?.estDep as number) - (t1?.schedDep as number)).toBe(180)
@@ -187,6 +187,18 @@ describe('GET /v1/{mode}/stops/{key}/departures', () => {
       `T2@${D}`,
       `T3@${D}`,
     ])
+  })
+
+  it('404 with ErrorResponse for a key not in the stop index; 200 empty for a known stop with no service', async () => {
+    const s = await setup()
+    const r = await s.get('/v1/ferry/stops/nope/departures')
+    expect(r.status).toBe(404)
+    expect(ErrorResponse.parse(await r.json())).toEqual({ error: 'unknown stop', detail: 'nope' })
+    const quiet = await s.get('/v1/ferry/stops/QUIET/departures')
+    expect(quiet.status).toBe(200)
+    const body = DeparturesResponse.parse(await quiet.json())
+    expect(body.departures).toEqual([])
+    expect(body.stop.name).toBe('QUIET ferry terminal')
   })
 
   it('404s an unknown stop, 400s an unknown mode, clamps limit', async () => {
