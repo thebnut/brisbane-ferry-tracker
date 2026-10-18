@@ -21,4 +21,8 @@ interface Env {
   TRIP_WS?: string
   API_WS_BASE?: string
   TRIP_SOCKET?: DurableObjectNamespace
+  /** Feedback relay and legacy endpoints (apps/ferry/workers/legacy.ts): Worker secrets in production. */
+  N8N_WEBHOOK_URL?: string
+  N8N_AUTH_TOKEN?: string
+  CORS_ALLOW_ALL?: string
 }

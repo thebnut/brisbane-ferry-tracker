@@ -9,6 +9,7 @@
  */
 import { cloudflareContext as busContext } from '@bft/bus/app/lib/context.ts'
 import { cloudflareContext as ferryContext } from '@bft/ferry/app/lib/context.ts'
+import { handleLegacy } from '@bft/ferry/workers/legacy.ts'
 import { cloudflareContext as trainContext } from '@bft/train/app/lib/context.ts'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
@@ -105,6 +106,9 @@ const fixturesAllowed = (env: Env) => env.ALLOW_FIXTURES === '1' || env.FIXTURES
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url)
+    // The mounted Ferry screens include the feedback sheet, which posts to /api/feedback on this origin.
+    const legacy = await handleLegacy(request, env)
+    if (legacy) return legacy
     if (url.pathname === '/v1/ask' && request.method === 'POST') return proxyAsk(request, env)
     if (request.method === 'GET' && (url.pathname.startsWith('/v1/') || url.pathname.startsWith('/data/')))
       return proxyApi(request, env)
@@ -120,11 +124,14 @@ export default {
       return new Response('User-agent: *\nDisallow: /\n', {
         headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' },
       })
+    // The mounted ferry/train/bus screens read a per-request nonce for their inline scripts (#53); the CSP that
+    // enforces it on this host comes with the transit hardening PR (#54).
+    const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))))
     const context = new RouterContextProvider()
     context.set(cloudflareContext, { env, ctx })
-    context.set(ferryContext, { env: { ...env, SITE_URL: env.FERRY_SITE_URL ?? env.SITE_URL }, ctx })
-    context.set(trainContext, { env: { ...env, SITE_URL: env.TRAIN_SITE_URL ?? env.SITE_URL }, ctx })
-    context.set(busContext, { env: { ...env, SITE_URL: env.BUS_SITE_URL ?? env.SITE_URL }, ctx })
+    context.set(ferryContext, { env: { ...env, SITE_URL: env.FERRY_SITE_URL ?? env.SITE_URL }, ctx, nonce })
+    context.set(trainContext, { env: { ...env, SITE_URL: env.TRAIN_SITE_URL ?? env.SITE_URL }, ctx, nonce })
+    context.set(busContext, { env: { ...env, SITE_URL: env.BUS_SITE_URL ?? env.SITE_URL }, ctx, nonce })
     return requestHandler(request, context)
   },
 } satisfies ExportedHandler<Env>
