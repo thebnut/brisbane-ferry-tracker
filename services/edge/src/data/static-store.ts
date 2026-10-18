@@ -2,15 +2,7 @@
  * Read side of the pipeline's static tree: manifest → per-generation index → content-addressed blobs.
  * Indexes and blobs are immutable, so they're cached in isolate memory (bounded LRU); only the manifest is refreshed.
  */
-import {
-  GenerationIndex,
-  Manifest,
-  type Mode,
-  SharedFetch,
-  StaticStopDay,
-  shardOf,
-  TripIndexDay,
-} from '@bft/core'
+import { GenerationIndex, Manifest, type Mode, StaticStopDay, shardOf, TripIndexDay } from '@bft/core'
 import { type DataSource, decodeJson, readBytes, readJson } from './source.ts'
 
 /** Trip-index blobs above this (gzipped) are not cached: bus. */
@@ -62,7 +54,11 @@ export function mayHaveStop(index: GenerationIndex, stopKey: string): boolean {
 }
 
 export class StaticStore {
-  private readonly manifest: SharedFetch<Manifest | null>
+  private manifestValue: Manifest | null = null
+  private manifestAt = Number.NEGATIVE_INFINITY
+  private manifestLoad: Promise<Manifest | null> | null = null
+  private readonly manifestMaxAgeMs: number
+  private readonly now: () => number
   private readonly indexes = new Lru<Promise<GenerationIndex | null>>(16)
   private readonly blobs = new Lru<Promise<unknown | null>>(256)
   /** Trip indexes are large (a whole mode-day), so only a few are kept. */
@@ -75,25 +71,46 @@ export class StaticStore {
     opts: StaticStoreOptions = {},
   ) {
     this.validate = opts.validate ?? false
-    this.manifest = new SharedFetch(
-      async () => {
-        const raw = await readJson(source, MANIFEST_KEY)
-        // Throw rather than cache null, so a manifest that appears later is picked up on the next read.
-        if (raw == null) throw new Error('manifest.json not found')
-        return Manifest.parse(raw)
-      },
-      opts.manifestMaxAgeMs ?? 60_000,
-      opts.now,
-    )
+    this.manifestMaxAgeMs = opts.manifestMaxAgeMs ?? 60_000
+    this.now = opts.now ?? Date.now
   }
 
-  /** The manifest, or null when there is none yet. Read errors after a good read fall back to the last good one. */
-  getManifest(): Promise<Manifest | null> {
-    return this.manifest.get().catch(() => null)
+  private loadManifest(): Promise<Manifest | null> {
+    if (!this.manifestLoad) {
+      this.manifestLoad = readJson(this.source, MANIFEST_KEY)
+        .then((raw) => {
+          // A missing manifest isn't cached as null, so one that appears later is picked up on the next read.
+          if (raw == null) return this.manifestValue
+          this.manifestValue = Manifest.parse(raw)
+          this.manifestAt = this.now()
+          return this.manifestValue
+        })
+        .catch(() => this.manifestValue)
+        .finally(() => {
+          this.manifestLoad = null
+        })
+    }
+    return this.manifestLoad
   }
 
-  async currentGeneration(mode: Mode): Promise<string | null> {
-    return (await this.getManifest())?.modes[mode]?.current ?? null
+  /**
+   * The manifest, or null when there is none yet (read errors fall back to the last good one). With `waitUntil`
+   * (a Worker request), a stale manifest is returned at once and refreshed in the background: on staging the
+   * blocking 60 s refresh put an R2 round trip (~380 ms) on every fourth or fifth request. Without it (the hub,
+   * tests), a stale manifest is refreshed before returning.
+   */
+  getManifest(waitUntil?: (p: Promise<unknown>) => void): Promise<Manifest | null> {
+    const fresh = this.now() - this.manifestAt < this.manifestMaxAgeMs
+    if (this.manifestValue && fresh) return Promise.resolve(this.manifestValue)
+    if (this.manifestValue && waitUntil) {
+      waitUntil(this.loadManifest())
+      return Promise.resolve(this.manifestValue)
+    }
+    return this.loadManifest()
+  }
+
+  async currentGeneration(mode: Mode, waitUntil?: (p: Promise<unknown>) => void): Promise<string | null> {
+    return (await this.getManifest(waitUntil))?.modes[mode]?.current ?? null
   }
 
   getIndex(generation: string, mode: Mode): Promise<GenerationIndex | null> {

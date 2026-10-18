@@ -105,3 +105,39 @@ describe('StaticStore trip-index caching', () => {
     expect(src.reads.filter((k) => k.includes(large))).toHaveLength(2)
   })
 })
+
+describe('StaticStore manifest refresh', () => {
+  const manifest = (gen: string) =>
+    new TextEncoder().encode(
+      JSON.stringify({
+        schemaVersion: 1,
+        updatedAt: 'x',
+        modes: { ferry: { current: gen, serviceDates: [D] } },
+        quarantined: [],
+      }),
+    )
+
+  it('with waitUntil a stale manifest is served at once and refreshed in the background', async () => {
+    let t = 0
+    const src = new MemoryDataSource(new Map([['manifest.json', manifest('g1')]]))
+    const store = new StaticStore(src, { manifestMaxAgeMs: 60_000, now: () => t })
+    expect(await store.currentGeneration('ferry')).toBe('g1')
+    src.files.set('manifest.json', manifest('g2'))
+    t = 61_000
+    const bg: Promise<unknown>[] = []
+    expect(await store.currentGeneration('ferry', (p) => bg.push(p))).toBe('g1') // no wait on R2
+    expect(bg).toHaveLength(1)
+    await bg[0]
+    expect(await store.currentGeneration('ferry', (p) => bg.push(p))).toBe('g2')
+  })
+
+  it('without waitUntil (hub, tests) a stale manifest is refreshed before returning', async () => {
+    let t = 0
+    const src = new MemoryDataSource(new Map([['manifest.json', manifest('g1')]]))
+    const store = new StaticStore(src, { manifestMaxAgeMs: 60_000, now: () => t })
+    await store.getManifest()
+    src.files.set('manifest.json', manifest('g2'))
+    t = 61_000
+    expect(await store.currentGeneration('ferry')).toBe('g2')
+  })
+})

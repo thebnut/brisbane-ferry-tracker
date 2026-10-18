@@ -146,25 +146,28 @@ export function createApp(deps: AppDeps): Hono<Env> {
     if (at != null && (!Number.isInteger(at) || at < 0))
       return c.json({ error: 'bad at', detail: 'epoch seconds' }, 400)
 
-    const generation = await deps.store.currentGeneration(mode)
+    const generation = await deps.store.currentGeneration(mode, waitUntilOf(c))
     if (!generation) return c.json({ error: 'no static data for mode', detail: mode }, 503)
     const index = await deps.store.getIndex(generation, mode)
     if (!index) return c.json({ error: 'static index missing', detail: generation }, 503)
 
-    const r = await rt(c, mode, generation)
-    const fromMs = at != null ? at * 1000 : r.nowMs
+    const fromMs = at != null ? at * 1000 : now()
     const dates = overlappingServiceDates(fromMs).filter((d) => index.serviceDates.includes(d))
-    // Unknown stop: not in the mode's stop index (data/{mode}/stops.json). Without an index, fall back to the static
-    // files (a bus shard bucket can't rule a key out). A known stop with no service that day is 200 with no rows.
-    const stations = await stationsFor(deps.store, mode, generation).catch(() => null)
-    if (stations ? !stations.names.has(key) : !mayHaveStop(index, key)) {
-      return c.json({ error: 'unknown stop', detail: key }, 404)
-    }
     const load = async (ds: string[]) =>
       (await Promise.all(ds.map((d) => deps.store.stopDay(index, d, key)))).filter(
         (d): d is StaticStopDay => d != null,
       )
-    const days = await load(dates)
+    // Snapshot, stop index and stop-day files load in parallel: on a cold isolate they were sequential R2 reads.
+    const [r, stations, days] = await Promise.all([
+      rt(c, mode, generation),
+      stationsFor(deps.store, mode, generation).catch(() => null),
+      load(dates),
+    ])
+    // Unknown stop: not in the mode's stop index (data/{mode}/stops.json). Without an index, fall back to the static
+    // files (a bus shard bucket can't rule a key out). A known stop with no service that day is 200 with no rows.
+    if (stations ? !stations.names.has(key) : !mayHaveStop(index, key)) {
+      return c.json({ error: 'unknown stop', detail: key }, 404)
+    }
 
     // Train: stopping patterns, plus every platform of the station so core can spot live platform changes
     // (`stationPlatforms`, added to MergeOptions by bft-train #42; ignored by older cores).
@@ -237,7 +240,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     if (!mode) return c.json({ error: 'unknown mode' }, 400)
     const tripInstance = c.req.param('tripInstance')
     if (!/^.+@\d{8}$/.test(tripInstance)) return c.json({ error: 'bad trip instance' }, 400)
-    const generation = await deps.store.currentGeneration(mode)
+    const generation = await deps.store.currentGeneration(mode, waitUntilOf(c))
     if (!generation) return c.json({ error: 'no static data for mode', detail: mode }, 503)
     const r = await rt(c, mode, generation)
     const rtTrip = r.snap?.trips[tripInstance]
@@ -344,7 +347,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
       }
       bbox = snapped
     }
-    const generation = await deps.store.currentGeneration(mode)
+    const generation = await deps.store.currentGeneration(mode, waitUntilOf(c))
     const r = await rt(c, mode, generation)
     const all = r.rtState === 'live' ? (r.snap?.vehicles ?? []) : []
     const vehicles = all.filter((v) => {
@@ -392,7 +395,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const nowMs = now()
     const client = deps.snapshotsFor?.('alerts') ?? deps.snapshots
     const [manifest, cur] = await Promise.all([
-      deps.store.getManifest().catch(() => null),
+      deps.store.getManifest(waitUntilOf(c)).catch(() => null),
       client.get(waitUntilOf(c)),
     ])
     const status = client.status
