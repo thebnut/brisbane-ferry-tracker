@@ -26,12 +26,29 @@ const requestHandler = createRequestHandler(
 
 const noStore = { 'cache-control': 'no-store' }
 
+/** Upstream time limits: a hung binding (seen for 60 s during a bft-api redeploy) must not hang the page. */
+export const API_TIMEOUT_MS = 10_000
+/** Just above the LLM path's own worst case (3 rounds x 15 s provider timeout). */
+export const ASK_TIMEOUT_MS = 50_000
+
+export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const t = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`upstream timeout after ${ms} ms`)), ms)
+  })
+  return Promise.race([p, t]).finally(() => clearTimeout(timer))
+}
+
 export async function proxyApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
   try {
-    const res = await apiFetch(env, `${url.pathname}${url.search}`, {
-      headers: { accept: 'application/json' },
-    })
+    const res = await withTimeout(
+      apiFetch(env, `${url.pathname}${url.search}`, {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(API_TIMEOUT_MS),
+      }),
+      API_TIMEOUT_MS,
+    )
     return await validateProxied(url.pathname, res)
   } catch (error) {
     return Response.json(
@@ -91,7 +108,15 @@ export async function proxyAsk(request: Request, env: Env): Promise<Response> {
   const ip = request.headers.get('cf-connecting-ip')
   if (ip) headers['cf-connecting-ip'] = ip
   try {
-    const res = await apiFetch(env, '/v1/ask', { method: 'POST', headers, body })
+    const res = await withTimeout(
+      apiFetch(env, '/v1/ask', {
+        method: 'POST',
+        headers,
+        body,
+        signal: AbortSignal.timeout(ASK_TIMEOUT_MS),
+      }),
+      ASK_TIMEOUT_MS,
+    )
     const checked = await validateProxied('/v1/ask', res)
     checked.headers.set('cache-control', 'no-store')
     return checked

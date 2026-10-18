@@ -169,3 +169,11 @@ describe('fixtures', () => {
     }
   })
 })
+
+describe('upstream timeouts (a hung bft-api binding must not hang the page)', () => {
+  it('withTimeout rejects a promise that never settles', async () => {
+    const { withTimeout } = await import('../workers/app.ts')
+    await expect(withTimeout(new Promise(() => {}), 20)).rejects.toThrow(/upstream timeout after 20 ms/)
+    await expect(withTimeout(Promise.resolve(7), 20)).resolves.toBe(7)
+  })
+})
