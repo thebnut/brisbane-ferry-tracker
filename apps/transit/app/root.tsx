@@ -1,7 +1,7 @@
 import { AppHeader } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   isRouteErrorResponse,
   Links,
@@ -75,6 +75,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
 export default function App() {
   const [client] = useState(makeQueryClient)
+  // Effects run only once hydration has committed: tests wait for this marker (tests/csp.ts).
+  useEffect(() => {
+    document.documentElement.dataset.hydrated = ''
+  }, [])
   return (
     <QueryClientProvider client={client}>
       <Outlet />

@@ -51,14 +51,9 @@ export async function watchCsp(page: Page): Promise<string[]> {
 }
 
 export async function hydrated(page: Page) {
-  // Not 'networkidle': live boards poll. React has hydrated once it has committed fibers onto the server-rendered DOM
-  // (`__reactFiber$…` on <body>); the router's globals alone appear before the client entry has even loaded (Codex
-  // review of #54).
-  await page.waitForFunction(
-    () =>
-      document.readyState === 'complete' &&
-      Object.keys(document.body).some((k) => k.startsWith('__reactFiber$')),
-  )
+  // Not 'networkidle': live boards poll. The root's effect sets data-hydrated once hydration has committed (fibers or
+  // the router's globals can appear before that: Codex review of #54).
+  await page.locator('html[data-hydrated]').waitFor({ state: 'attached' })
   if (/\/map$/.test(new URL(page.url()).pathname))
     await page.locator('canvas.maplibregl-canvas').waitFor({ timeout: 20_000 })
   await page.waitForTimeout(500)
