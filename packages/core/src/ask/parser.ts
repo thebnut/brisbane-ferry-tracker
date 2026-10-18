@@ -165,7 +165,13 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
     }
   }
 
-  const routeInQuery = /\b(?:the|route|my) ([pmfwgx]?\d{1,4}[a-z]?)\b/.exec(s)?.[1]?.toUpperCase()
+  // Route restrictions: "the/route/my 199", "next bus 199", or any letter+digit code (F11, P137, M2). A route the
+  // question names must never be silently dropped (Codex review round 5).
+  const routeInQuery = (
+    /\b(?:the|route|my) ([pmfwgx]?\d{1,4}[a-z]?)\b/.exec(s)?.[1] ??
+    /\bnext (?:bus |ferry |citycat |train )?(\d{1,4}[a-z]?)\b/.exec(s)?.[1] ??
+    /\b([pmfwgx]\d{1,4}[a-z]?)\b/.exec(s)?.[1]
+  )?.toUpperCase()
 
   // Next departure between two stops.
   if (

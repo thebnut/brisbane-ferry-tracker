@@ -49,9 +49,37 @@ const AskBody = z.object({ question: z.string().min(1).max(300), turnstileToken:
 
 /** Intents learned per isolate (deterministic parses and LLM tool plans). Answers are never cached. */
 const intentCache = new Map<string, Intent>()
-const remember = (k: string, i: Intent) => {
+/** Intent cache (ADR-0008): isolate memory, backed by the Cache API for 30 days (a no-op on *.workers.dev). */
+const INTENT_TTL_S = 30 * 24 * 3600
+const cacheUrl = (k: string, gen: string) =>
+  `https://intent-cache.bft.internal/${encodeURIComponent(gen)}/${encodeURIComponent(k)}`
+async function recall(k: string, gen: string): Promise<Intent | null> {
+  const hit = intentCache.get(k)
+  if (hit) return hit
+  try {
+    const res = await caches.default.match(cacheUrl(k, gen))
+    if (!res) return null
+    const intent = (await res.json()) as Intent
+    intentCache.set(k, intent)
+    return intent
+  } catch {
+    return null
+  }
+}
+const remember = (k: string, i: Intent, gen: string, waitUntil?: (p: Promise<unknown>) => void) => {
   if (intentCache.size > 2000) intentCache.clear()
   intentCache.set(k, i)
+  try {
+    const put = caches.default.put(
+      cacheUrl(k, gen),
+      new Response(JSON.stringify(i), {
+        headers: { 'cache-control': `max-age=${INTENT_TTL_S}`, 'content-type': 'application/json' },
+      }),
+    )
+    waitUntil?.(put.catch(() => {}))
+  } catch {
+    // Cache API unavailable (tests, workers.dev): isolate memory only.
+  }
 }
 
 /** The first 48 bits of an IPv6 address as 3 hextets, expanding "::" (Codex PR review). */
@@ -170,11 +198,20 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
     const indexes = await loadIndexes(deps.store, await deps.generationKey())
     const base = { schemaVersion: SCHEMA_VERSION, question, normalized }
 
-    const cachedIntent = intentCache.get(normalized)
+    // Intents are keyed by stop-index generation too: stop keys can change between timetable versions.
+    const gen = await deps.generationKey()
+    const cachedIntent = await recall(normalized, gen)
     const parse = cachedIntent ? null : parseQuestion(question, resolverFor(indexes))
     const intent = cachedIntent ?? (parse?.ok ? parse.intent : null)
     if (intent) {
-      if (!cachedIntent) remember(normalized, intent)
+      if (!cachedIntent)
+        remember(normalized, intent, gen, (p) => {
+          try {
+            c.executionCtx.waitUntil(p)
+          } catch {
+            // No ExecutionContext (tests).
+          }
+        })
       const a = await answerIntent(intent, fetchApi, nowS)
       return c.json({
         ...base,

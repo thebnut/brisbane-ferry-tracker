@@ -75,7 +75,7 @@ describe('POST /v1/ask', () => {
       departures: Array<{ route: string }>
     }
     expect(body.source).toBe('deterministic')
-    expect(body.answer).toMatch(/^Next ferrys? from Bulimba ferry terminal to Riverside ferry terminal: /)
+    expect(body.answer).toMatch(/^Next ferries from Bulimba ferry terminal to Riverside ferry terminal: /)
     expect(body.departures.length).toBeGreaterThan(0)
     expect(fetchSpy).not.toHaveBeenCalled()
     fetchSpy.mockRestore()
@@ -158,6 +158,38 @@ describe('budget config', () => {
     }
     expect(ok * 0.0035).toBeLessThanOrEqual(10)
     expect(ok).toBe(2857)
+  })
+})
+
+describe('route-restricted answers keep the route in scope (Codex round 5)', () => {
+  it('a negative answer for route 199 says so', async () => {
+    const { answerIntent } = await import('../src/ai/answer.ts')
+    const fetchApi = async () =>
+      new Response(
+        JSON.stringify({
+          schemaVersion: 1,
+          staticGeneration: 'g',
+          serviceDates: [],
+          rtSourceTimestamp: null,
+          rtState: 'unavailable',
+          generatedAt: 1,
+          mode: 'bus',
+          stop: { key: '10795', name: 'Cultural Centre', stopIds: ['10795'] },
+          to: null,
+          departures: [],
+        }),
+      )
+    const a = await answerIntent(
+      {
+        kind: 'departures_at',
+        mode: 'bus',
+        at: { mode: 'bus', key: '10795', name: 'Cultural Centre', score: 1 },
+        route: '199',
+      },
+      fetchApi,
+      0,
+    )
+    expect(a.answer).toBe('No upcoming route 199 buses from Cultural Centre found.')
   })
 })
 

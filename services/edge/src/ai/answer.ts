@@ -20,7 +20,7 @@ export interface AskAnswer {
   to?: { key: string; name: string } | null
 }
 
-const MODE_WORD: Record<Mode, string> = { ferry: 'ferry', train: 'train', bus: 'bus', tram: 'tram' }
+const PLURAL: Record<Mode, string> = { ferry: 'ferries', train: 'trains', bus: 'buses', tram: 'trams' }
 
 function describe(d: Departure, nowS: number): string {
   const dep = d.estDep ?? d.schedDep
@@ -63,9 +63,11 @@ export async function answerIntent(
       if (!res.ok) return { answer: `Sorry, I couldn't load departures for ${from.name} right now.` }
       const body = (await res.json()) as DeparturesResponse
       const rows = body.departures.filter((d) => d.status !== 'skipped')
+      // The route restriction is part of the claim, positive or negative (Codex review round 5).
+      const what = intent.route ? `route ${intent.route} ${PLURAL[mode]}` : `${PLURAL[mode]}`
       const head = to
-        ? `${MODE_WORD[mode]}s from ${body.stop.name} to ${body.to?.name ?? to.name}`
-        : `${MODE_WORD[mode]}s from ${body.stop.name}`
+        ? `${what} from ${body.stop.name} to ${body.to?.name ?? to.name}`
+        : `${what} from ${body.stop.name}`
       if (rows.length === 0)
         return {
           answer: `No upcoming ${head} found.`,

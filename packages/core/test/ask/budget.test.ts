@@ -48,7 +48,9 @@ describe('budget ledger', () => {
     expect(r1.result).toMatchObject({ ok: true, alert: true })
     s = r1.state
     expect(reserve(s, on, 'b', 0.001, null, false, 0).result).toMatchObject({ ok: true, alert: false })
-    expect(rollBudget(s, '20261101', 0).spentUsd + rollBudget(s, '20261101', 0).reservedUsd).toBe(0)
+    // Spend resets monthly; unreconciled reservations carry over (see the rollover test below).
+    expect(rollBudget(s, '20261101', 0).spentUsd).toBe(0)
+    expect(rollBudget(s, '20261101', 0).reservedUsd).toBeCloseTo(s.reservedUsd)
   })
   it('charges stale reservations from crashed callers in full (never refunds an uncertain call)', () => {
     const s = reserve(emptyBudgetState('20261018'), on, 'a', 0.002, null, false, 0).state
@@ -63,6 +65,26 @@ describe('budget ledger', () => {
     expect(twice.spentUsd).toBeCloseTo(0.002)
     const normal = reserve(emptyBudgetState('20261018'), on, 'b', 0.002, null, false, 0).state
     expect(reconcile(reconcile(normal, 'b', 0.001), 'b', 0.001).spentUsd).toBeCloseTo(0.001)
+  })
+  it('carries in-flight reservations across the month rollover (Codex review round 5)', () => {
+    const cfg = { ...on, monthlyBudgetUsd: 10 }
+    const oct = reserve(
+      emptyBudgetState('20261031'),
+      cfg,
+      'late',
+      0.5,
+      null,
+      false,
+      Date.parse('2026-10-31T13:59:00Z'),
+    ).state
+    const nov = rollBudget(oct, '20261101', Date.parse('2026-10-31T14:00:00Z'))
+    expect(nov.spentUsd).toBe(0)
+    expect(nov.reservedUsd).toBeCloseTo(0.5)
+    // The new month can only reserve what's left after the carried reservation.
+    expect(reserve(nov, cfg, 'big', 9.6, null, false, Date.parse('2026-10-31T14:00:00Z')).result.ok).toBe(
+      false,
+    )
+    expect(reconcile(nov, 'late', 0.4).spentUsd).toBeCloseTo(0.4)
   })
   it('worst case for one round (3k in, 400 out) is about $0.0005', () => {
     expect(worstCaseUsd(3000, 400)).toBeCloseTo(0.0005, 6)

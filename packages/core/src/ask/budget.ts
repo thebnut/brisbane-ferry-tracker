@@ -68,7 +68,16 @@ export function actualUsd(inputTokens: number, outputTokens: number, price = HAI
  */
 export function rollBudget(state: BudgetState, day: string, now: number, staleMs = 5 * 60_000): BudgetState {
   let s = state
-  if (s.month !== day.slice(0, 6)) s = emptyBudgetState(day)
+  if (s.month !== day.slice(0, 6)) {
+    // New month: spend resets, but in-flight reservations and settlement records carry over and count against the
+    // new month, so a late previous-month call can't push the new month past its cap (Codex review round 5).
+    s = {
+      ...emptyBudgetState(day),
+      reservations: s.reservations,
+      reservedUsd: s.reservedUsd,
+      settled: s.settled,
+    }
+  }
   if (s.day !== day) s = { ...s, day, perIp: {} }
   const reservations = { ...s.reservations }
   let reservedUsd = s.reservedUsd

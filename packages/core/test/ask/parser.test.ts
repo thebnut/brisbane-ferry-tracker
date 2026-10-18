@@ -73,4 +73,10 @@ describe('parser details', () => {
       expect(r.ok, q).toBe(false)
     }
   })
+  it('keeps bare route numbers as a restriction (Codex review round 5)', () => {
+    const a = parseQuestion('next bus 199 from cultural centre', testResolver)
+    expect(a.ok && a.intent.kind === 'departures_at' && a.intent.route).toBe('199')
+    const b = parseQuestion('next F11 from bulimba to riverside', testResolver)
+    expect(b.ok && b.intent.kind === 'next_departure' && b.intent.route).toBe('F11')
+  })
 })
