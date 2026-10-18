@@ -1,4 +1,7 @@
-/** The mounted /api/feedback (apps/ferry/workers/legacy.ts): rate limited, titled "BrisbaneTransit", Discord secret. */
+/**
+ * The mounted /api/feedback (apps/ferry/workers/legacy.ts): rate limited, Turnstile-gated through the API binding,
+ * titled "BrisbaneTransit", Discord secret.
+ */
 import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest'
 import worker from '../workers/app.ts'
@@ -14,12 +17,24 @@ beforeEach(() => {
 })
 afterEach(() => vi.restoreAllMocks())
 
-const call = (env: Partial<Env>) =>
+/** bft-api's /v1/turnstile/verify behind the API binding (siteverify mocked: no network). */
+const verifyApi = (hostname = 'bft-transit.example') => {
+  const seen: { url: string; body: unknown }[] = []
+  const api = {
+    fetch: async (r: Request) => {
+      seen.push({ url: r.url, body: await r.json() })
+      return Response.json({ success: true, hostname, action: 'feedback' })
+    },
+  } as unknown as Fetcher
+  return { api, seen }
+}
+
+const call = (env: Partial<Env>, body: Record<string, unknown> = { turnstileToken: 'tok' }) =>
   worker.fetch(
     new Request('https://bft-transit.example/api/feedback', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'cf-connecting-ip': '198.51.100.4' },
-      body: JSON.stringify({ feedback: 'Feedback from the Ferry tab' }),
+      body: JSON.stringify({ feedback: 'Feedback from the Ferry tab', ...body }),
     }),
     { API_BASE: 'http://x', ...env } as Env,
     {} as ExecutionContext,
@@ -36,16 +51,35 @@ describe('transit /api/feedback', () => {
     expect(spy).not.toHaveBeenCalled()
   })
 
-  it('relays to the Discord secret with the BrisbaneTransit title', async () => {
+  it('verifies the token through the API binding, then relays with the BrisbaneTransit title', async () => {
     const spy = fetchSpy.mockResolvedValue(new Response('{}'))
+    const v = verifyApi()
     const res = await call({
       FEEDBACK_DISCORD_WEBHOOK_URL: HOOK,
       FEEDBACK_LIMITER: { limit: async () => ({ success: true }) },
+      API: v.api,
     })
     expect(res.status).toBe(200)
+    expect(v.seen).toEqual([
+      { url: 'https://bft-api/v1/turnstile/verify', body: { token: 'tok', remoteip: '198.51.100.4' } },
+    ])
     const [url, init] = spy.mock.calls[0] as [string, RequestInit]
     expect(url).toBe(`${HOOK}?wait=true`)
     expect(JSON.parse(String(init.body)).embeds[0].title).toBe('Feedback: BrisbaneTransit')
+  })
+})
+
+describe('transit /api/feedback Turnstile gate', () => {
+  const limiter = { limit: async () => ({ success: true }) }
+  beforeEach(() => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  it('no token → 403, a token solved on another host → 403; nothing reaches Discord', async () => {
+    const env = { FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, FEEDBACK_LIMITER: limiter }
+    expect((await call({ ...env, API: verifyApi().api }, {})).status).toBe(403)
+    expect((await call({ ...env, API: verifyApi('www.brisbaneferry.com').api })).status).toBe(403)
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
 

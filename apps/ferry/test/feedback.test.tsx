@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import FeedbackSheet from '../app/components/FeedbackSheet.tsx'
 import {
@@ -56,6 +56,16 @@ describe('submitFeedback', () => {
       name: '',
     })
   })
+  it('adds the Turnstile token when given', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => Response.json({ success: true }))
+    await submitFeedback(form({ feedback: 'Hello there world' }), fetchImpl, 'tok-9')
+    expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toEqual({
+      feedback: 'Hello there world',
+      email: '',
+      name: '',
+      turnstileToken: 'tok-9',
+    })
+  })
   it("surfaces the server's error message, or a generic one", async () => {
     await expect(
       submitFeedback(form({}), async () => Response.json({ error: 'Invalid email format' }, { status: 400 })),
@@ -73,8 +83,87 @@ describe('submitFeedback', () => {
 
 describe('FeedbackSheet', () => {
   afterEach(() => {
+    // No vitest globals here, so Testing Library doesn't unmount between tests by itself.
+    cleanup()
     vi.unstubAllGlobals()
     vi.useRealTimers()
+    delete (window as { turnstile?: unknown }).turnstile
+  })
+
+  /** A window.turnstile stub (the real script is never loaded in tests): answers `token`, or errors when null. */
+  function stubTurnstile(token: string | null) {
+    const rendered: Record<string, unknown>[] = []
+    let opts: Record<string, unknown> = {}
+    const api = {
+      render: vi.fn((_el: HTMLElement, o: Record<string, unknown>) => {
+        opts = o
+        rendered.push(o)
+        return 'w1'
+      }),
+      execute: vi.fn(() =>
+        setTimeout(() =>
+          token ? (opts.callback as (t: string) => void)(token) : (opts['error-callback'] as () => void)(),
+        ),
+      ),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    }
+    window.turnstile = api
+    return { api, rendered }
+  }
+
+  it('with a sitekey: renders the invisible widget on open (action "feedback") and posts its token', async () => {
+    const { api, rendered } = stubTurnstile('tok-abc')
+    const fetchMock = vi.fn(async (_u: string, _i: RequestInit) => Response.json({ success: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<FeedbackSheet onClose={() => {}} sitekey="1x00000000000000000000AA" />)
+    fireEvent.change(await screen.findByLabelText(/Your feedback/), {
+      target: { value: 'Please add Apollo Road' },
+    })
+    expect(screen.getByText(/Cloudflare Turnstile/)).toBeInTheDocument()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Submit feedback' }))
+    })
+    await screen.findByRole('status')
+    expect(rendered).toHaveLength(1)
+    expect(rendered[0]).toMatchObject({
+      sitekey: '1x00000000000000000000AA',
+      action: 'feedback',
+      appearance: 'interaction-only',
+    })
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1].body))).toMatchObject({ turnstileToken: 'tok-abc' })
+    expect(api.execute).toHaveBeenCalled()
+  })
+
+  it('a widget error shows a clear alert, posts nothing, and keeps the form', async () => {
+    stubTurnstile(null)
+    const fetchMock = vi.fn(async () => Response.json({ success: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<FeedbackSheet onClose={() => {}} sitekey="1x00000000000000000000AA" />)
+    fireEvent.change(await screen.findByLabelText(/Your feedback/), {
+      target: { value: 'Please add Apollo Road' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Submit feedback' }))
+    })
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn't complete the bot check/)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(screen.getByLabelText(/Your feedback/)).toHaveValue('Please add Apollo Road')
+    expect(screen.getByRole('button', { name: 'Submit feedback' })).toBeEnabled()
+  })
+
+  it('without a sitekey: no widget, no Turnstile note, and the post carries no token', async () => {
+    const fetchMock = vi.fn(async (_u: string, _i: RequestInit) => Response.json({ success: true }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<FeedbackSheet onClose={() => {}} />)
+    fireEvent.change(await screen.findByLabelText(/Your feedback/), {
+      target: { value: 'Please add Apollo Road' },
+    })
+    expect(screen.queryByText(/Cloudflare Turnstile/)).toBeNull()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Submit feedback' }))
+    })
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1].body))).not.toHaveProperty('turnstileToken')
   })
 
   it('shows the count, keeps submit disabled until 10 characters, then thanks and closes after 2 s', async () => {

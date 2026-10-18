@@ -32,9 +32,12 @@ export const links: Route.LinksFunction = () => [
 ]
 
 export function loader({ context }: Route.LoaderArgs) {
+  const cf = context.get(cloudflareContext)
   return {
     /** The per-request CSP nonce, for the inline scripts below (workers/security.ts). */
-    nonce: context.get(cloudflareContext).nonce,
+    nonce: cf.nonce,
+    /** Public Turnstile sitekey for the feedback sheet (wrangler.jsonc); null in local dev. */
+    turnstileSitekey: cf.env.TURNSTILE_SITEKEY ?? null,
     /** When this HTML was rendered: the live guard compares it with the device clock (R2-T7). */
     renderedAt: Date.now(),
   }

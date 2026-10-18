@@ -1,5 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { getApiBase } from '../utils/environment';
+import React, { useState, useEffect, useRef } from 'react';
+import { getApiBase, isCapacitor } from '../utils/environment';
+import { TURNSTILE_SITEKEY, invisibleTurnstile } from '../utils/turnstile';
+
+// Web posts carry an invisible Turnstile token (action "feedback"). The iOS app
+// can't run the widget on its capacitor:// page, so it posts token-less with an
+// app header instead; the relay accepts that only from the Capacitor Origin,
+// protected by the rate limit alone (trade-off documented in api/_turnstile.js).
+const IOS_CLIENT = 'ios/1';
+const TURNSTILE_ERROR =
+  "We couldn't complete the bot check. Check your connection and try again. If it keeps failing, a content blocker may be blocking challenges.cloudflare.com.";
 
 const FeedbackModal = ({ isOpen, onClose }) => {
   const [formData, setFormData] = useState({
@@ -10,6 +19,21 @@ const FeedbackModal = ({ isOpen, onClose }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null); // null, 'success', 'error'
   const [errorMessage, setErrorMessage] = useState('');
+  const holder = useRef(null);
+  const native = isCapacitor();
+  const ts = useRef(null);
+
+  // Load and start solving only while the modal is open (web only).
+  useEffect(() => {
+    if (!isOpen || native) return undefined;
+    const t = invisibleTurnstile(TURNSTILE_SITEKEY, () => holder.current, 'feedback');
+    ts.current = t;
+    t.warm();
+    return () => {
+      t.dispose();
+      ts.current = null;
+    };
+  }, [isOpen, native]);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -70,13 +94,23 @@ const FeedbackModal = ({ isOpen, onClose }) => {
     setIsSubmitting(true);
     setErrorMessage('');
 
+    let turnstileToken = null;
+    if (!native) {
+      turnstileToken = ts.current ? await ts.current.token() : null;
+      if (!turnstileToken) {
+        setIsSubmitting(false);
+        setErrorMessage(TURNSTILE_ERROR);
+        return;
+      }
+    }
+
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (native) headers['X-BFT-Client'] = IOS_CLIENT;
       const response = await fetch(`${getApiBase()}/api/feedback`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+        headers,
+        body: JSON.stringify(turnstileToken ? { ...formData, turnstileToken } : formData),
       });
 
       const result = await response.json();
@@ -206,9 +240,15 @@ const FeedbackModal = ({ isOpen, onClose }) => {
                 />
               </div>
 
+              {!native && (
+                <p className="text-xs text-gray-500">
+                  This form uses Cloudflare Turnstile to block spam. <a href="/privacy" className="underline">Privacy</a>
+                </p>
+              )}
+
               {/* Error message */}
               {errorMessage && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                <div role="alert" className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
                   {errorMessage}
                 </div>
               )}
@@ -243,6 +283,8 @@ const FeedbackModal = ({ isOpen, onClose }) => {
               </div>
             </form>
           )}
+          {/* Turnstile renders here only if it needs an interaction (invisible otherwise). */}
+          <div ref={holder} data-turnstile className="mt-3 flex justify-center empty:hidden" />
         </div>
       </div>
     </div>

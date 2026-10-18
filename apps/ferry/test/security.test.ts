@@ -20,6 +20,13 @@ describe('security headers (cutover gate: at least as strict as vercel.json)', (
       expect(csp).toContain(d)
     for (const [k, v] of Object.entries(BASE_SECURITY_HEADERS)) expect(res.headers.get(k)).toBe(v)
   })
+  it("the only external origin added for scripts and frames is Turnstile, exactly per Cloudflare's CSP reference", () => {
+    const d = contentSecurityPolicy('n').split('; ')
+    expect(d).toContain("script-src 'self' 'nonce-n' https://challenges.cloudflare.com")
+    expect(d).toContain('frame-src https://challenges.cloudflare.com')
+    expect(d).toContain("connect-src 'self' https://tiles.openfreemap.org")
+    expect(d.filter((x) => x.includes('challenges.cloudflare.com'))).toHaveLength(2)
+  })
   it('non-HTML responses get the base headers without a CSP', () => {
     const res = withSecurityHeaders(Response.json({}), 'n')
     expect(res.headers.get('x-content-type-options')).toBe('nosniff')

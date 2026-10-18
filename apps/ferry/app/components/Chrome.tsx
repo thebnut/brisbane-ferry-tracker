@@ -4,6 +4,7 @@ import lockup489 from '@bft/ui/assets/ferry-lockup.webp?url'
 import lockup236 from '@bft/ui/assets/ferry-lockup-236.webp?url'
 import lockup360 from '@bft/ui/assets/ferry-lockup-360.webp?url'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { useRouteLoaderData } from 'react-router'
 import { at } from '../lib/base.ts'
 import { ATTRIBUTION, INTRO_HEADING, INTRO_TEXT } from '../lib/seo.ts'
 import { TERMINALS, terminalHref } from '../lib/terminals.ts'
@@ -61,6 +62,8 @@ const FeedbackSheet = lazy(() => import('./FeedbackSheet.tsx'))
 
 /** The legacy footer's feedback entry point; the form loads on first open. */
 export function FeedbackButton() {
+  // Ferry's and transit's root loaders both expose the Turnstile sitekey (absent in local dev).
+  const root = useRouteLoaderData('root') as { turnstileSitekey?: string | null } | undefined
   const [open, setOpen] = useState(false)
   const button = useRef<HTMLButtonElement>(null)
   const wasOpen = useRef(false)
@@ -82,7 +85,7 @@ export function FeedbackButton() {
       </button>
       {open ? (
         <Suspense fallback={null}>
-          <FeedbackSheet onClose={() => setOpen(false)} />
+          <FeedbackSheet onClose={() => setOpen(false)} sitekey={root?.turnstileSitekey ?? null} />
         </Suspense>
       ) : null}
     </>

@@ -2,9 +2,13 @@
  * Feedback form (legacy FeedbackModal) in the round-2 sheet: feedback with a live character count, optional email
  * and name, then a thank-you that closes itself after 2 s. The native <dialog> in BottomSheet gives the focus trap and
  * Escape. Loaded lazily from the footer's "Send Feedback & Ideas" button.
+ * With a sitekey, an invisible Turnstile widget (action "feedback") starts solving when the sheet opens, and its
+ * single-use token goes with the submission; the relay rejects web feedback without one. The Turnstile script loads
+ * only here, never on the first-load path. If Turnstile needs an interaction, it renders in the sheet.
  */
 import { BottomSheet, Icon, PrimaryButton, SecondaryButton } from '@bft/ui'
-import { type ChangeEvent, type FormEvent, useEffect, useId, useState } from 'react'
+import { type ChangeEvent, type FormEvent, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { at } from '../lib/base.ts'
 import {
   canSubmitFeedback,
   EMPTY_FEEDBACK,
@@ -12,18 +16,40 @@ import {
   FEEDBACK_MIN,
   type FeedbackForm,
   submitFeedback,
+  TURNSTILE_ERROR,
   validateFeedback,
 } from '../lib/feedback.ts'
+import { invisibleTurnstile } from '../lib/turnstile.ts'
+
+/** Long enough for a managed challenge the visitor has to click. */
+const TOKEN_TIMEOUT_MS = 30_000
 
 const FIELD =
   'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-charcoal focus:border-ferry-orange focus:ring-2 focus:ring-ferry-orange focus:outline-none disabled:opacity-60'
 const LABEL = 'mb-1.5 block text-sm font-semibold text-gray-700'
 
-export default function FeedbackSheet({ onClose }: { onClose: () => void }) {
+export default function FeedbackSheet({
+  onClose,
+  sitekey = null,
+}: {
+  onClose: () => void
+  /** Turnstile sitekey (root loader's turnstileSitekey); null: no widget, and the relay will refuse web posts. */
+  sitekey?: string | null
+}) {
   const [form, setForm] = useState<FeedbackForm>(EMPTY_FEEDBACK)
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success'>('idle')
   const [error, setError] = useState('')
   const id = useId()
+  const holder = useRef<HTMLDivElement>(null)
+  const ts = useMemo(
+    () => (sitekey ? invisibleTurnstile(sitekey, () => holder.current, 'feedback') : null),
+    [sitekey],
+  )
+  // Start solving as soon as the sheet is open, so a token is usually ready by submit.
+  useEffect(() => {
+    ts?.warm()
+    return () => ts?.dispose()
+  }, [ts])
 
   // Close after 2 s on success, like the legacy modal.
   useEffect(() => {
@@ -44,8 +70,17 @@ export default function FeedbackSheet({ onClose }: { onClose: () => void }) {
     }
     setStatus('submitting')
     setError('')
+    let token: string | null = null
+    if (ts) {
+      token = await ts.token(TOKEN_TIMEOUT_MS)
+      if (!token) {
+        setStatus('idle')
+        setError(TURNSTILE_ERROR)
+        return
+      }
+    }
     try {
-      await submitFeedback(form)
+      await submitFeedback(form, undefined, token)
       setStatus('success')
     } catch (err) {
       setStatus('idle')
@@ -140,6 +175,14 @@ export default function FeedbackSheet({ onClose }: { onClose: () => void }) {
               {error}
             </p>
           ) : null}
+          {sitekey ? (
+            <p className="text-xs text-gray-600">
+              This form uses Cloudflare Turnstile to block spam.{' '}
+              <a href={at('/privacy')} className="underline">
+                Privacy
+              </a>
+            </p>
+          ) : null}
           <div className="flex gap-3 pt-2">
             <SecondaryButton className="flex-1" onClick={onClose} disabled={busy}>
               Cancel
@@ -150,6 +193,8 @@ export default function FeedbackSheet({ onClose }: { onClose: () => void }) {
           </div>
         </form>
       )}
+      {/* Turnstile renders here only if it needs an interaction (invisible otherwise). Kept mounted across states. */}
+      <div ref={holder} data-turnstile className="mt-3 flex justify-center empty:hidden" />
     </BottomSheet>
   )
 }

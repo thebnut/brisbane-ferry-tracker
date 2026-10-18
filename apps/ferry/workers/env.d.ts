@@ -13,6 +13,8 @@ interface Env {
   FEEDBACK_DISCORD_WEBHOOK_URL?: string
   /** /api/feedback per-IP limiter (ratelimits binding); absent only in local dev and tests. */
   FEEDBACK_LIMITER?: RateLimit
+  /** Public Turnstile sitekey for the feedback sheet (the secret stays on bft-api). */
+  TURNSTILE_SITEKEY?: string
   /** "true": wildcard CORS on the legacy endpoints (rollback mode, as in api/_cors.js). */
   CORS_ALLOW_ALL?: string
 }
