@@ -95,4 +95,27 @@ describe('SnapshotClient stale-while-revalidate', () => {
     await client.get()
     expect(calls).toBe(2)
   })
+
+  it('concurrent cold requests join the in-flight refresh', async () => {
+    const clock = new Clock(0)
+    let release: () => void = () => {}
+    const client = new SnapshotClient(
+      {
+        pull: async (): Promise<PullResult> => {
+          await new Promise<void>((r) => (release = r))
+          return { seq: 1, json: snap(1), status }
+        },
+        getRaw: async () => null,
+      },
+      clock.now,
+      () => {},
+      null,
+    )
+    const a = client.get()
+    const b = client.get()
+    await new Promise((r) => setTimeout(r, 0)) // let the pull start
+    release()
+    expect((await a)?.seq).toBe(1)
+    expect((await b)?.seq).toBe(1)
+  })
 })

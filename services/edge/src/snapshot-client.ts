@@ -44,6 +44,7 @@ export class SnapshotClient {
   private lastStatus: HubStatus | null = null
   private loadedAt = Number.NEGATIVE_INFINITY
   private attemptedAt = Number.NEGATIVE_INFINITY
+  private inflight: Promise<CurrentSnapshot | null> | null = null
   private readonly shared: SharedFetch<CurrentSnapshot | null>
   private readonly raws = new Map<string, SharedFetch<RawFeed | null>>()
   /** For tests and /v1/health: how many times the hub was actually called. */
@@ -76,11 +77,13 @@ export class SnapshotClient {
     // (Codex re-review #4); `loadedAt` still reflects only successful loads.
     const mayAttempt = now - this.attemptedAt >= SNAPSHOT_REFRESH_MS
     if (this.current && age < SNAPSHOT_MAX_STALE_MS) {
-      if (age >= SNAPSHOT_REFRESH_MS && mayAttempt)
-        (waitUntil ?? this.waitUntil)(this.attempt().catch(() => null))
+      if (age >= SNAPSHOT_REFRESH_MS && mayAttempt && !this.inflight) {
+        ;(waitUntil ?? this.waitUntil)(this.attempt().catch(() => null))
+      }
       return this.current
     }
-    if (!mayAttempt) return this.current
+    // Cold or expired: wait for the refresh, joining one already in flight; only starting a new one is throttled.
+    if (!this.inflight && !mayAttempt) return this.current
     try {
       return await this.attempt()
     } catch {
@@ -89,8 +92,13 @@ export class SnapshotClient {
   }
 
   private attempt(): Promise<CurrentSnapshot | null> {
-    this.attemptedAt = this.now()
-    return this.shared.get()
+    if (!this.inflight) {
+      this.attemptedAt = this.now()
+      this.inflight = this.shared.get().finally(() => {
+        this.inflight = null
+      })
+    }
+    return this.inflight
   }
 
   private async refresh(): Promise<CurrentSnapshot | null> {

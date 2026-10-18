@@ -575,4 +575,25 @@ describe('Codex review regressions', () => {
     const byId = Object.fromEntries(snap.vehicles.map((v) => [v.id, v.tripKey]))
     expect(byId).toEqual({ VO: `T1@${D}`, VD: `rt:T1-0900@${D}` })
   })
+
+  it('re-verify: cancellations survive staggered per-mode loading and a second restart', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2, modes: 'ferry,train' })
+    await warm(h)
+    h.up.set(
+      TU,
+      feed(h.nowS(), [tripUpdate('c', { tripId: 'T2', startDate: D, scheduleRelationship: 3 }, [])]),
+    )
+    await h.hub.cycle()
+    for (let restart = 0; restart < 2; restart++) {
+      const fresh = h.mk()
+      for (let i = 0; i < 4; i++) {
+        h.clock.advance(CYCLE_MS)
+        h.up.set(TU, feed(h.nowS(), []))
+        await fresh.cycle()
+        const snap = RtSnapshot.parse(JSON.parse((await fresh.pull(null)).json as string))
+        expect(snap.trips[`T2@${D}`]).toMatchObject({ rel: 'CANCELED', gen: 'g1' })
+      }
+    }
+  })
 })

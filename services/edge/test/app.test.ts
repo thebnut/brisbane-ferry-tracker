@@ -173,8 +173,12 @@ describe('GET /v1/{mode}/stops/{key}/departures', () => {
     expect(res.headers.get('cache-control')).toMatch(/^public, max-age=([0-9]|10)$/)
     const body = DeparturesResponse.parse(await res.json())
     expect(body.departures.map((d) => d.tripInstance)).toEqual([`T2@${D}`, `T3@${D}`])
-    const later = await s.get(`/v1/ferry/stops/317584/departures?at=${epoch(D, '08:25:00')}`)
-    expect(later.headers.get('cache-control')).toBe('public, max-age=60')
+    // A scheduled-status row with a GPS vehicle (T3 has V9) is still RT: capped.
+    const gps = await s.get(`/v1/ferry/stops/317584/departures?at=${epoch(D, '08:25:00')}`)
+    expect(gps.headers.get('cache-control')).toMatch(/^public, max-age=([0-9]|10)$/)
+    // Far in the future with no RT at all: a minute.
+    const far = await s.get(`/v1/ferry/stops/317584/departures?at=${epoch(D, '20:00:00')}`)
+    expect(far.headers.get('cache-control')).toBe('public, max-age=60')
     // A query at yesterday's late evening reads yesterday's service day too.
     const late = DeparturesResponse.parse(
       await (await s.get(`/v1/ferry/stops/317584/departures?at=${epoch('20261019', '24:30:00')}`)).json(),

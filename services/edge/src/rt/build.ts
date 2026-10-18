@@ -103,12 +103,10 @@ export interface BuildInput {
   alerts: Alert[]
   previous?: RtSnapshot | null
   /**
-   * True while some indexed mode is still loading its trip indexes (after a restart, or mid generation swap). Live
-   * cancellations from `previous` whose trip can't be checked yet are then retained rather than dropped.
+   * Indexed modes whose trip indexes haven't loaded yet (after a restart). Live cancellations from `previous` that
+   * no loaded index can check are retained while any mode is still unloaded.
    */
-  indexesLoading?: boolean
-  /** The static generation each mode's records in `previous` were matched against (survives interim snapshots). */
-  recordGenerations?: Partial<Record<Mode, string>>
+  unloadedModes?: Mode[]
 }
 
 const emptyStats = (): MatchStats => ({
@@ -402,7 +400,10 @@ export function buildSnapshot(input: BuildInput): BuildResult {
           updates: rel === 'CANCELED' || rel === 'DELETED' ? [] : normaliseUpdates(tu.stopTimeUpdate, it),
           ...vehicleId(tu),
         }
-        if (rel === 'CANCELED' || rel === 'DELETED') rec.until = it.endEpoch
+        if (rel === 'CANCELED' || rel === 'DELETED') {
+          rec.until = it.endEpoch
+          rec.gen = idx.generation
+        }
         trips[res.key] = rec
         if (desc.tripId) keyByDescriptor.set(`${desc.tripId}|${desc.startDate ?? ''}`, res.key)
         break
@@ -418,20 +419,19 @@ export function buildSnapshot(input: BuildInput): BuildResult {
   }
 
   // Cancellations persist until their scheduled end, even when the feed drops them.
-  // Carry a cancellation forward only while its trip instance still exists in the current static generation: after a
-  // feed swap, a reused trip_id must not inherit the old generation's cancellation (Codex review #4).
+  // Carry a cancellation forward (Codex reviews #4, re-review #1): if a loaded index has the trip, only when the
+  // record was matched against that same generation (a reused trip_id in a new feed must not inherit it). If no
+  // loaded index has it but some indexed mode is still loading, keep it until that mode can check it.
   for (const prev of Object.values(input.previous?.trips ?? {})) {
     if (trips[prev.key]) continue
     if (!isRecordLive(prev, nowS, false)) continue
-    const prevGen = input.recordGenerations ?? input.previous?.header.staticGeneration ?? {}
-    const sameGeneration = modes.some((m) => {
-      const idx = input.indexes[m]
-      return idx?.matcher.trip(prev.key) != null && prevGen[m] === idx.generation
-    })
-    // Not resolvable yet (its mode hasn't loaded after a restart): keep it until it can be checked (Codex re-review #1).
-    const unresolved =
-      input.indexesLoading === true && !modes.some((m) => input.indexes[m]?.matcher.trip(prev.key))
-    if (!sameGeneration && !unresolved) continue
+    const owner = modes.find((m) => input.indexes[m]?.matcher.trip(prev.key) != null)
+    if (owner) {
+      const gen = prev.gen ?? input.previous?.header.staticGeneration[owner]
+      if (gen !== input.indexes[owner]?.generation) continue
+    } else if (!(input.unloadedModes?.length ?? 0)) {
+      continue
+    }
     trips[prev.key] = prev
   }
 

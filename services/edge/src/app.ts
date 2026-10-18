@@ -203,9 +203,12 @@ export function createApp(deps: AppDeps): Hono<Env> {
     // `at` queries are mostly about later departures, so they can be cached longer.
     // `at` far from now (the Depart-from picker) can be cached for a minute; near now, or with any live, cancelled or
     // skipped row, it keeps the snapshot-capped max-age (Codex review #6).
-    // Only when every row is scheduled-only: any RT contribution keeps the snapshot-age cap (Codex re-review #3).
+    // Only when no row carries any RT (status, estimates, GPS, vehicle): otherwise the snapshot-age cap applies.
     const farAt = at != null && Math.abs(at * 1000 - r.nowMs) > AT_LIVE_WINDOW_MS
-    const scheduledOnly = departures.every((d) => d.status === 'scheduled')
+    const scheduledOnly = departures.every(
+      (d) =>
+        d.status === 'scheduled' && d.estDep == null && d.estArrTo == null && !d.gps && d.vehicleId == null,
+    )
     return c.json(body, 200, {
       'cache-control': farAt && scheduledOnly ? 'public, max-age=60' : r.cacheControl,
     })

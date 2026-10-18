@@ -315,6 +315,8 @@ export const RtTrip = z.object({
   /** When a CANCELED record expires (scheduled end of the trip, epoch s). */
   until: z.number().int().optional(),
   vehicleId: z.string().optional(),
+  /** Static generation this record was matched against (the hub's provenance for carried-over cancellations). */
+  gen: z.string().optional(),
   updates: z.array(RtStopUpdate),
   /**
    * For ADDED / DUPLICATED trips whose stop list resolves against static stops: the RT-only stopping pattern

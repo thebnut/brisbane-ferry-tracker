@@ -4,6 +4,7 @@
  * 1. TransLink's after-midnight convention (found in the Phase 0 RtHub spike, Saturday 18 Oct 2026 Rail feed):
  * a trip filed in GTFS under service date D-1 at 24:18 arrives in GTFS-RT as start_date D, start_time 00:18.
  * 2. Vehicle.mode, so /v1/{mode}/vehicles can filter a combined snapshot.
+ * 4. RtTrip.gen: the generation a record was matched against.
  * 3. TripMatcher.addDay and a memoised serviceDayStartEpoch, so the hub can rebuild matchers within Free-plan CPU.
  */
 import { describe, expect, it } from 'vitest'
@@ -70,5 +71,14 @@ describe('incremental matcher build', () => {
   it('serviceDayStartEpoch is memoised but still exact', () => {
     expect(serviceDayStartEpoch(D)).toBe(Date.parse('2026-10-17T14:00:00Z') / 1000)
     expect(serviceDayStartEpoch(D)).toBe(serviceDayStartEpoch(D))
+  })
+})
+
+describe('RtTrip.gen', () => {
+  it('is optional provenance', async () => {
+    const { RtTrip } = await import('../src/index.ts')
+    const base = { key: 'T@20261020', rel: 'CANCELED', ts: 1, updates: [] }
+    expect(RtTrip.parse(base).gen).toBeUndefined()
+    expect(RtTrip.parse({ ...base, gen: 'g1' }).gen).toBe('g1')
   })
 })
