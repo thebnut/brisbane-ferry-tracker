@@ -8,6 +8,7 @@ import type { WorkerEnv } from './env.ts'
 import { createLogger, errorMessage } from './log.ts'
 import { pullFromR2 } from './r2-snapshots.ts'
 import { parseRtModes } from './rt/feeds.ts'
+import type { SnapshotScope } from './rt/split.ts'
 import { SnapshotClient } from './snapshot-client.ts'
 
 export { RtHub } from './rt/hub.ts'
@@ -26,20 +27,30 @@ function getIsolate(env: WorkerEnv) {
   if (!isolate) {
     const cfg = parseRtModes(env.RT_MODES, env.RT_INDEX_MODES)
     // A DO stub is bound to the request that created it, so make one per call (env bindings are reusable).
-    // Snapshots come from R2 when it is bound, otherwise from the hub over RPC. Raw feeds (legacy proxy) always
-    // come from the hub; they are shared per isolate for 10 s.
+    // Snapshots come from R2 when it is bound, otherwise from the hub over RPC: one client per scope (a mode, or
+    // alerts), so an isolate serving /v1/ferry only fetches and parses the ferry document. Raw feeds (legacy proxy)
+    // always come from the hub; they are shared per isolate for 10 s.
     const store = new StaticStore(dataSourceFor(env))
-    const snapshots = new SnapshotClient(
-      {
-        pull: (since) => (env.DATA_BUCKET ? pullFromR2(store.source, since) : hubStub(env).pull(since)),
-        getRaw: (key) => hubStub(env).getRaw(key),
-      },
-      Date.now,
-      (p) => pendingWaitUntil?.(p),
-    )
+    const hubClient = {
+      pull: (since: number | null, scope?: SnapshotScope) =>
+        env.DATA_BUCKET ? pullFromR2(store.source, since, scope) : hubStub(env).pull(since, scope),
+      getRaw: (key: string) => hubStub(env).getRaw(key),
+    }
+    const waitUntil = (p: Promise<unknown>) => pendingWaitUntil?.(p)
+    const snapshots = new SnapshotClient(hubClient, Date.now, waitUntil)
+    const scoped = new Map<SnapshotScope, SnapshotClient>()
+    const snapshotsFor = (scope: SnapshotScope) => {
+      let cl = scoped.get(scope)
+      if (!cl) {
+        cl = new SnapshotClient(hubClient, Date.now, waitUntil, undefined, scope)
+        scoped.set(scope, cl)
+      }
+      return cl
+    }
     const app = createApp({
       store,
       snapshots,
+      snapshotsFor,
       corsAllowAll: env.CORS_ALLOW_ALL === 'true',
       combinedFeeds: cfg.combined,
       polledModes: cfg.modes,

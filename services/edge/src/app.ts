@@ -32,12 +32,18 @@ import { corsHeaders } from './cors.ts'
 import { mayHaveStop, type StaticStore } from './data/static-store.ts'
 import { createLogger, errorMessage, type Logger } from './log.ts'
 import { FEED_MODE_SUFFIX, MODES } from './rt/feeds.ts'
+import type { SnapshotScope } from './rt/split.ts'
 import type { SnapshotClient } from './snapshot-client.ts'
 import { type Stations, stationsFor, tripStopPlatform } from './stations.ts'
 
 export interface AppDeps {
   store: StaticStore
   snapshots: SnapshotClient
+  /**
+   * Per-scope snapshot clients (per-mode split, §3.3): /v1/{mode} reads only its mode's document, /v1/alerts and
+   * /v1/health the alerts one. Without it every route uses `snapshots` (the whole snapshot).
+   */
+  snapshotsFor?: (scope: SnapshotScope) => SnapshotClient
   corsAllowAll?: boolean
   now?: () => number
   log?: Logger
@@ -90,7 +96,8 @@ export function createApp(deps: AppDeps): Hono<Env> {
 
   /** Snapshot plus the rtState for one mode's static generation. */
   async function rt(c: Context<Env>, mode: Mode | null, generation: string | null) {
-    const cur = await deps.snapshots.get(waitUntilOf(c))
+    const client = deps.snapshotsFor?.(mode ?? 'alerts') ?? deps.snapshots
+    const cur = await client.get(waitUntilOf(c))
     const nowMs = now()
     const snap = cur?.snapshot ?? null
     const hubGen = mode == null ? undefined : snap?.header.staticGeneration[mode]
@@ -374,12 +381,23 @@ export function createApp(deps: AppDeps): Hono<Env> {
 
   app.get('/v1/health', async (c) => {
     const nowMs = now()
+    const client = deps.snapshotsFor?.('alerts') ?? deps.snapshots
     const [manifest, cur] = await Promise.all([
       deps.store.getManifest().catch(() => null),
-      deps.snapshots.get(waitUntilOf(c)),
+      client.get(waitUntilOf(c)),
     ])
-    const status = deps.snapshots.status
-    const h = cur?.snapshot.header
+    const status = client.status
+    // The hub status (from the pointer) is the freshest view; the alerts document's header can lag up to 60 s.
+    const hdr = cur?.snapshot.header
+    const h =
+      status?.seq != null && status.sourceTimestamp != null && status.fetchedAt != null
+        ? {
+            seq: status.seq,
+            sourceTimestamp: status.sourceTimestamp,
+            fetchedAt: status.fetchedAt,
+            stats: status.stats ?? hdr?.stats,
+          }
+        : hdr
     const generations: Record<string, string> = {}
     for (const [m, v] of Object.entries(manifest?.modes ?? {})) if (v) generations[m] = v.current
     // Judge the source, not the build: a hub that keeps rebuilding from retained data while TripUpdates fail must

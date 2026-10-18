@@ -6,6 +6,7 @@ import type { WorkerEnv } from '../env.ts'
 import { createLogger } from '../log.ts'
 import { parseRtModes } from './feeds.ts'
 import { HubCore, type PullResult, type RawFeed } from './hub-core.ts'
+import type { SnapshotScope } from './split.ts'
 
 export class RtHub extends DurableObject<WorkerEnv> {
   private readonly core: HubCore
@@ -46,8 +47,8 @@ export class RtHub extends DurableObject<WorkerEnv> {
     return r
   }
 
-  pull(sinceSeq: number | null): Promise<PullResult> {
-    return this.core.pull(sinceSeq)
+  pull(sinceSeq: number | null, scope?: SnapshotScope): Promise<PullResult> {
+    return this.core.pull(sinceSeq, scope)
   }
 
   getRaw(key: string): Promise<RawFeed | null> {

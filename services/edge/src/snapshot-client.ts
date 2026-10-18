@@ -11,6 +11,7 @@
  */
 import { type RtSnapshot, SharedFetch, type Vehicle, vehiclesByTrip } from '@bft/core'
 import type { HubStatus, PullResult, RawFeed } from './rt/hub-core.ts'
+import type { SnapshotScope } from './rt/split.ts'
 
 export const SNAPSHOT_REFRESH_MS = 10_000
 /** Older than this, a request waits for the refresh instead of being served the isolate's copy. */
@@ -23,11 +24,11 @@ export interface CurrentSnapshot {
 }
 
 export interface HubClient {
-  pull(sinceSeq: number | null): Promise<PullResult>
+  pull(sinceSeq: number | null, scope?: SnapshotScope): Promise<PullResult>
   getRaw(key: string): Promise<RawFeed | null>
 }
 
-const CACHE_URL = 'https://bft-cache.internal/rt/snapshot'
+const CACHE_BASE = 'https://bft-cache.internal/rt/snapshot'
 
 interface CacheLike {
   match(url: string): Promise<Response | undefined>
@@ -55,8 +56,14 @@ export class SnapshotClient {
     private readonly now: () => number = Date.now,
     private readonly waitUntil: (p: Promise<unknown>) => void = () => {},
     private readonly cache: CacheLike | null = sharedCache(),
+    /** Which snapshot document this client follows: one mode, alerts, or (undefined) the whole snapshot. */
+    readonly scope?: SnapshotScope,
   ) {
     this.shared = new SharedFetch(() => this.refresh(), SNAPSHOT_REFRESH_MS, now)
+  }
+
+  private get cacheUrl(): string {
+    return `${CACHE_BASE}/${this.scope ?? 'all'}`
   }
 
   get status(): HubStatus | null {
@@ -105,7 +112,7 @@ export class SnapshotClient {
     const cached = await this.fromCache()
     if (cached) return cached
     this.hubCalls++
-    const r = await this.hub.pull(this.current?.seq ?? null)
+    const r = await this.hub.pull(this.current?.seq ?? null, this.scope)
     this.loadedAt = this.now()
     this.lastStatus = r.status
     if (r.json != null && r.seq != null) {
@@ -118,7 +125,7 @@ export class SnapshotClient {
             'x-status': JSON.stringify(r.status),
           },
         })
-        this.waitUntil(this.cache.put(CACHE_URL, res).catch(() => {}))
+        this.waitUntil(this.cache.put(this.cacheUrl, res).catch(() => {}))
       }
     }
     return this.current
@@ -127,7 +134,7 @@ export class SnapshotClient {
   private async fromCache(): Promise<CurrentSnapshot | null> {
     if (!this.cache) return null
     try {
-      const res = await this.cache.match(CACHE_URL)
+      const res = await this.cache.match(this.cacheUrl)
       if (!res) return null
       const seq = Number(res.headers.get('x-seq'))
       const status = res.headers.get('x-status')

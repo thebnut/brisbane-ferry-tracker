@@ -307,6 +307,8 @@ export interface BuildResult {
   snapshot: RtSnapshot
   /** tripId|startDate → matched key, reused for vehicle positions. */
   keyByDescriptor: Map<string, string>
+  /** Trip key → the mode it was matched in. Records carried while their mode is unloaded have no entry. */
+  tripModes: Map<string, Mode>
 }
 
 export function buildSnapshot(input: BuildInput): BuildResult {
@@ -319,6 +321,7 @@ export function buildSnapshot(input: BuildInput): BuildResult {
   for (const m of modes) stats[m] = emptyStats()
   const trips: Record<string, RtTrip> = {}
   const keyByDescriptor = new Map<string, string>()
+  const tripModes = new Map<string, Mode>()
   let sourceTimestamp = Number.POSITIVE_INFINITY
 
   for (const { mode: feedMode, feed } of input.tripUpdates) {
@@ -343,6 +346,7 @@ export function buildSnapshot(input: BuildInput): BuildResult {
           st.total++
           st.byTier.added = (st.byTier.added ?? 0) + 1
           trips[r.key] = { key: r.key, rel, ts, updates: [], added: r.added, ...vehicleId(tu) }
+          tripModes.set(r.key, m)
           // Vehicles name the duplicate by its own TripProperties identity, not the original's (Codex re-review #2).
           const props = tu.tripProperties
           const vehicleKey =
@@ -402,6 +406,7 @@ export function buildSnapshot(input: BuildInput): BuildResult {
           rec.gen = idx.generation
         }
         trips[res.key] = rec
+        tripModes.set(res.key, m)
         if (desc.tripId) keyByDescriptor.set(`${desc.tripId}|${desc.startDate ?? ''}`, res.key)
         break
       }
@@ -426,6 +431,7 @@ export function buildSnapshot(input: BuildInput): BuildResult {
     if (owner) {
       const gen = prev.gen ?? input.previous?.header.staticGeneration[owner]
       if (gen !== input.indexes[owner]?.generation) continue
+      tripModes.set(prev.key, owner)
     } else if (!(input.unloadedModes?.length ?? 0)) {
       continue
     } else if (!prev.gen) {
@@ -502,6 +508,7 @@ export function buildSnapshot(input: BuildInput): BuildResult {
 
   return {
     keyByDescriptor,
+    tripModes,
     snapshot: {
       header: {
         schemaVersion: SCHEMA_VERSION,

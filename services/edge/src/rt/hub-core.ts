@@ -16,6 +16,7 @@ import { type FeedMessage, FeedMessageSchema } from '../gen/gtfs-realtime_pb.js'
 import { errorMessage, type Logger, silentLogger } from '../log.ts'
 import { buildAlerts, buildSnapshot, ModeIndex } from './build.ts'
 import { type FeedSpec, feedsFor, type RtConfig } from './feeds.ts'
+import { alertsDocument, mergeDocuments, type SnapshotScope, splitSnapshot } from './split.ts'
 
 export const CYCLE_MS = 15_000
 /** Alarm cadence that keeps the object resident (it is evicted after ~10 s idle); polls still run every CYCLE_MS. */
@@ -59,10 +60,17 @@ export function snapshotSeq(json: string): number | null {
 /** rt/latest.json: which snapshot is current, plus the hub status for /v1/health. */
 export interface R2Pointer {
   seq: number
-  key: string
+  /** Combined snapshot key (older hubs only; per-scope documents are in `files`). */
+  key?: string
+  /** Per-scope documents: each mode's snapshot, and the alerts document (rewritten only when alerts change). */
+  files?: Partial<Record<SnapshotScope, { key: string; seq: number }>>
   fetchedAt: number
   status: HubStatus
 }
+
+/** Ring key of a per-scope snapshot document. */
+export const scopeKey = (scope: SnapshotScope, seq: number) =>
+  `rt/${scope}/snapshot-${seq % R2_KEEP_SNAPSHOTS}.json`
 
 export interface R2Like {
   get?(key: string): Promise<{ text(): Promise<string> } | null>
@@ -149,6 +157,9 @@ export class HubCore {
   private alerts: Alert[] = []
   private running: Promise<void> | null = null
   private rawPersistedAt = 0
+  /** Trip key → mode of the current snapshot, for the per-mode split. */
+  private tripModes = new Map<string, Mode>()
+  private alertsPublished: { alerts: RtSnapshot['alerts']; key: string; seq: number } | null = null
   private drillDead = false
   /** The current snapshot still needs publishing to R2 (a publish failed, or it was just rebuilt). */
   private r2Pending = false
@@ -209,11 +220,23 @@ export class HubCore {
 
   // ---------------------------------------------------------------- read API (RPC)
 
-  async pull(sinceSeq?: number | null): Promise<PullResult> {
+  /** The snapshot as JSON: the whole of it, or one scope's document (the same split R2 readers get). */
+  async pull(sinceSeq?: number | null, scope?: SnapshotScope): Promise<PullResult> {
     await this.restore()
     const seq = this.snapshot?.header.seq ?? (this.snapshotJson ? this.meta.seq : null)
-    const json = seq != null && seq === sinceSeq ? null : this.snapshotJson
-    return { seq, json, status: this.status() }
+    if (seq != null && seq === sinceSeq) return { seq, json: null, status: this.status() }
+    if (!scope || !this.snapshot) return { seq, json: this.fullJson(), status: this.status() }
+    const doc =
+      scope === 'alerts'
+        ? alertsDocument(this.snapshot)
+        : (splitSnapshot(this.snapshot, this.tripModes, [scope])[scope] as RtSnapshot)
+    return { seq, json: JSON.stringify(doc), status: this.status() }
+  }
+
+  /** The full snapshot JSON, serialised lazily (with R2 bound only the per-scope documents are written). */
+  private fullJson(): string | null {
+    if (this.snapshotJson == null && this.snapshot) this.snapshotJson = JSON.stringify(this.snapshot)
+    return this.snapshotJson
   }
 
   /** Last raw protobuf for a feed key (memory, then DO storage). Never fetches upstream. */
@@ -353,7 +376,7 @@ export class HubCore {
           .map((f) => ({ mode: f.mode, feed: this.decoded.get(f.key) as FeedMessage }))
       const tripUpdates = pick('TripUpdates')
       if (tripUpdates.length > 0) {
-        const { snapshot } = buildSnapshot({
+        const { snapshot, tripModes } = buildSnapshot({
           seq: this.meta.seq + 1,
           nowMs: now,
           indexes,
@@ -364,12 +387,13 @@ export class HubCore {
           unloadedModes: this.d.config.indexModes.filter((m) => !this.modes.has(m)),
         })
         this.snapshot = snapshot
-        this.snapshotJson = JSON.stringify(snapshot)
+        this.tripModes = tripModes
+        this.snapshotJson = null
         this.meta.seq = snapshot.header.seq
         rebuilt = true
-        // With R2 bound the snapshot lives there (restored from R2 after a restart); keeping a second copy in DO
-        // storage every cycle costs CPU the Free plan doesn't have.
-        if (!this.d.r2) Object.assign(writes, this.snapshotWrites(this.snapshotJson))
+        // With R2 bound the snapshot lives there as per-scope documents (merged back after a restart); keeping a
+        // second copy in DO storage every cycle costs CPU.
+        if (!this.d.r2) Object.assign(writes, this.snapshotWrites(this.fullJson() as string))
       }
     }
     // Raw protobufs only matter after a restart (the legacy proxy serves memory first, and the hub refetches within
@@ -388,9 +412,9 @@ export class HubCore {
     await this.d.storage.put(writes)
 
     // Publish (or retry a failed publish) even when nothing changed this cycle (Codex review #3).
-    if (this.d.r2 && this.snapshotJson && this.r2Pending) {
+    if (this.d.r2 && this.snapshot && this.r2Pending) {
       try {
-        await this.publishR2(this.snapshotJson, now)
+        await this.publishR2(now)
         this.r2Pending = false
       } catch (e) {
         errors.push(`r2: ${errorMessage(e)}`)
@@ -407,12 +431,27 @@ export class HubCore {
    * CPU budget and R2 egress is free. Two Class A writes per cycle (~345k a month); the ring of
    * R2_KEEP_SNAPSHOTS keys keeps the bucket bounded without deletes.
    */
-  private async publishR2(json: string, now: number): Promise<void> {
+  private async publishR2(now: number): Promise<void> {
     const r2 = this.d.r2 as R2Like
+    const snap = this.snapshot as RtSnapshot
     const seq = this.meta.seq
-    const key = snapshotKey(seq)
-    await r2.put(key, json, { httpMetadata: { contentType: 'application/json' } })
-    const pointer: R2Pointer = { seq, key, fetchedAt: now, status: this.status() }
+    const json = { httpMetadata: { contentType: 'application/json' } }
+    // Per-mode documents (§3.3 split): an edge isolate reads only the mode it serves.
+    const files: NonNullable<R2Pointer['files']> = {}
+    const docs = splitSnapshot(snap, this.tripModes, this.d.config.modes)
+    for (const m of this.d.config.modes) {
+      const key = scopeKey(m, seq)
+      await r2.put(key, JSON.stringify(docs[m]), json)
+      files[m] = { key, seq }
+    }
+    // The alerts document only when the alerts changed (alerts refresh every 60 s): keeps writes under 1M a month.
+    if (this.alertsPublished?.alerts !== snap.alerts) {
+      const key = scopeKey('alerts', seq)
+      await r2.put(key, JSON.stringify(alertsDocument(snap)), json)
+      this.alertsPublished = { alerts: snap.alerts, key, seq }
+    }
+    files.alerts = { key: this.alertsPublished.key, seq: this.alertsPublished.seq }
+    const pointer: R2Pointer = { seq, files, fetchedAt: now, status: this.status() }
     await r2.put(R2_LATEST_KEY, JSON.stringify(pointer), {
       httpMetadata: { contentType: 'application/json', cacheControl: 'no-store' },
     })
@@ -516,6 +555,27 @@ export class HubCore {
     return w
   }
 
+  /** Merge the per-scope documents the pointer names (each slot must hold the named seq). */
+  private async restoreFromDocuments(files: NonNullable<R2Pointer['files']>): Promise<string | null> {
+    const r2 = this.d.r2 as R2Like
+    const read = async (e: { key: string; seq: number } | undefined): Promise<RtSnapshot | null> => {
+      if (!e || !r2.get) return null
+      const obj = await r2.get(e.key)
+      const text = obj ? await obj.text() : null
+      return text != null && snapshotSeq(text) === e.seq ? (JSON.parse(text) as RtSnapshot) : null
+    }
+    const docs: RtSnapshot[] = []
+    for (const [scope, e] of Object.entries(files)) {
+      if (scope === 'alerts') continue
+      const d = await read(e)
+      if (!d) return null
+      docs.push(d)
+      for (const k of Object.keys(d.trips)) this.tripModes.set(k, scope as Mode)
+    }
+    const merged = mergeDocuments(docs, await read(files.alerts))
+    return merged ? JSON.stringify(merged) : null
+  }
+
   /** After an eviction or restart: restore the sequence, the last snapshot and the watchdog clock. */
   private async restore(): Promise<void> {
     if (this.restored) return
@@ -538,7 +598,9 @@ export class HubCore {
       // Never reuse a published seq (Codex review #1): continue after whatever R2 already holds, even when this
       // object's own storage is empty or behind.
       if (pointer && pointer.seq > this.meta.seq) this.meta.seq = pointer.seq
-      if (!json && pointer?.key) {
+      if (!json && pointer?.files) {
+        json = await this.restoreFromDocuments(pointer.files)
+      } else if (!json && pointer?.key) {
         const obj = await this.d.r2.get(pointer.key)
         const text = obj ? await obj.text() : null
         // A ring slot may already hold a newer snapshot than the pointer names: only adopt the matching one.

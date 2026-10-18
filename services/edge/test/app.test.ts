@@ -16,6 +16,7 @@ import { FeedMessageSchema } from '../src/gen/gtfs-realtime_pb.js'
 import { silentLogger } from '../src/log.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
 import { HubCore } from '../src/rt/hub-core.ts'
+import type { SnapshotScope } from '../src/rt/split.ts'
 import { SnapshotClient } from '../src/snapshot-client.ts'
 import {
   alert,
@@ -31,7 +32,7 @@ import {
   vehicle,
 } from './fixtures.ts'
 
-async function setup(opts: { modes?: string; warm?: boolean } = {}) {
+async function setup(opts: { modes?: string; warm?: boolean; scoped?: boolean } = {}) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   const tree = buildTree()
   const up = new FakeUpstream()
@@ -86,9 +87,31 @@ async function setup(opts: { modes?: string; warm?: boolean } = {}) {
     () => {},
     null,
   )
+  const scoped = new Map<string, SnapshotClient>()
+  const snapshotsFor = (scope: SnapshotScope) => {
+    let cl = scoped.get(scope)
+    if (!cl) {
+      cl = new SnapshotClient(
+        {
+          pull: (since, sc) => {
+            pulls.n++
+            return hub.pull(since, sc)
+          },
+          getRaw: (k) => hub.getRaw(k),
+        },
+        clock.now,
+        () => {},
+        null,
+        scope,
+      )
+      scoped.set(scope, cl)
+    }
+    return cl
+  }
   const app = createApp({
     store: storeFor(tree, clock.now),
     snapshots,
+    ...(opts.scoped ? { snapshotsFor } : {}),
     now: clock.now,
     log: silentLogger,
     combinedFeeds: cfg.combined,
@@ -448,5 +471,27 @@ describe('CORS parity with api/_cors.js', () => {
     const blocked = await s.get('/v1/health', { origin: 'https://evil.example' })
     expect(blocked.headers.get('access-control-allow-origin')).toBeNull()
     expect(blocked.headers.get('access-control-allow-credentials')).toBe('true')
+  })
+})
+
+describe('per-scope snapshot clients (split)', () => {
+  it('departures, vehicles, alerts and health behave the same with per-mode documents', async () => {
+    const s = await setup({ scoped: true })
+    const dep = DeparturesResponse.parse(
+      await (await s.get('/v1/ferry/stops/317584/departures?to=317590')).json(),
+    )
+    expect(dep.rtState).toBe('live')
+    expect(dep.departures[0]).toMatchObject({ tripInstance: `T1@${D}`, status: 'live', gps: true })
+    expect(dep.departures[1]).toMatchObject({ status: 'cancelled' })
+    const veh = VehiclesResponse.parse(await (await s.get('/v1/ferry/vehicles')).json())
+    expect(veh.vehicles.map((v) => v.id).sort()).toEqual(['V1', 'V9'])
+    const al = AlertsResponse.parse(await (await s.get('/v1/alerts')).json())
+    expect(al.alerts.map((a) => a.id)).toEqual(['a1', 'a2', 'a3'])
+    const health = HealthResponse.parse(await (await s.get('/v1/health')).json())
+    expect(health.ok).toBe(true)
+    expect(health.rt.stats?.ferry?.matched).toBe(2)
+    // An unpolled mode has no document: unavailable, scheduled rows.
+    const bus = VehiclesResponse.parse(await (await s.get('/v1/train/vehicles')).json())
+    expect(bus.vehicles).toEqual([])
   })
 })

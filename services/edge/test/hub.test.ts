@@ -11,7 +11,7 @@ import {
   HubCore,
   KEEPALIVE_MS,
   R2_KEEP_SNAPSHOTS,
-  snapshotKey,
+  scopeKey,
   snapshotSeq,
   WATCHDOG_STALE_MS,
 } from '../src/rt/hub-core.ts'
@@ -385,14 +385,19 @@ describe('RtHub R2 publish', () => {
     const h = setup({ r2 })
     await warm(h)
     const seq = (await h.hub.pull(null)).seq as number
-    expect(r2.ops.slice(-2)).toEqual([`put:${snapshotKey(seq)}`, 'put:rt/latest.json'])
+    // Per-mode document, the alerts document (alerts changed), then the pointer.
+    expect(r2.ops.slice(-3)).toEqual([
+      `put:${scopeKey('ferry', seq)}`,
+      `put:${scopeKey('alerts', seq)}`,
+      'put:rt/latest.json',
+    ])
     const src = new MemoryDataSource(r2.files)
-    const a = await pullFromR2(src, null)
+    const a = await pullFromR2(src, null, 'ferry')
     expect(a.seq).toBe(seq)
     expect(RtSnapshot.parse(JSON.parse(a.json as string)).header.seq).toBe(seq)
     expect(a.status.stats?.ferry?.matched).toBe(1)
     const reads = src.reads.length
-    const b = await pullFromR2(src, seq)
+    const b = await pullFromR2(src, seq, 'ferry')
     expect(b.json).toBeNull()
     expect(src.reads.length - reads).toBe(1) // only the pointer
   })
@@ -416,14 +421,14 @@ describe('RtHub R2 publish', () => {
       await h.hub.alarm()
       h.clock.advance(CYCLE_MS)
     }
-    const snaps = [...r2.files.keys()].filter((k) => k.startsWith('rt/snapshot-'))
+    const snaps = [...r2.files.keys()].filter((k) => k.startsWith('rt/ferry/snapshot-'))
     expect(snaps.length).toBe(R2_KEEP_SNAPSHOTS)
     expect(r2.ops.some((o) => o.startsWith('delete'))).toBe(false)
     const seq = (await h.hub.pull(null)).seq as number
     expect(seq).toBeGreaterThan(R2_KEEP_SNAPSHOTS)
-    expect(snapshotKey(seq)).toBe(`rt/snapshot-${seq % R2_KEEP_SNAPSHOTS}.json`)
+    expect(scopeKey('ferry', seq)).toBe(`rt/ferry/snapshot-${seq % R2_KEEP_SNAPSHOTS}.json`)
     // The slot holds the pointer's seq.
-    const slot = JSON.parse(new TextDecoder().decode(r2.files.get(snapshotKey(seq))))
+    const slot = JSON.parse(new TextDecoder().decode(r2.files.get(scopeKey('ferry', seq))))
     expect(slot.header.seq).toBe(seq)
   })
 
@@ -432,7 +437,7 @@ describe('RtHub R2 publish', () => {
     const h = setup({ r2 })
     await warm(h)
     const seq = (await h.hub.pull(null)).seq as number
-    const good = r2.files.get(snapshotKey(seq)) as Uint8Array
+    const good = r2.files.get(scopeKey('ferry', seq)) as Uint8Array
     // The slot was overwritten by a later lap; the pointer is still the old one.
     const stale = JSON.parse(new TextDecoder().decode(good))
     stale.header.seq = seq + R2_KEEP_SNAPSHOTS
@@ -442,22 +447,22 @@ describe('RtHub R2 publish', () => {
     let first = true
     src.get = async (key: string) => {
       reads.push(key)
-      if (key === snapshotKey(seq) && first) {
+      if (key === scopeKey('ferry', seq) && first) {
         first = false
         return { body: new Blob([JSON.stringify(stale)]).stream() as ReadableStream<Uint8Array> }
       }
       return realGet(key)
     }
-    const r = await pullFromR2(src, null)
+    const r = await pullFromR2(src, null, 'ferry')
     expect(r.seq).toBe(seq)
     expect(snapshotSeq(r.json as string)).toBe(seq)
     expect(reads.filter((k) => k === 'rt/latest.json')).toHaveLength(2)
     // A slot that keeps disagreeing is an error (the client keeps its current copy).
     src.get = async (key: string) =>
-      key === snapshotKey(seq)
+      key === scopeKey('ferry', seq)
         ? { body: new Blob([JSON.stringify(stale)]).stream() as ReadableStream<Uint8Array> }
         : realGet(key)
-    await expect(pullFromR2(src, null)).rejects.toThrow(/not found/)
+    await expect(pullFromR2(src, null, 'ferry')).rejects.toThrow(/not found/)
   })
 
   it('an R2 outage is recorded but does not stop the cycle or the DO copy', async () => {
@@ -485,7 +490,7 @@ describe('Codex review regressions', () => {
     h.up.set(TU, feed(h.nowS(), []))
     await fresh.cycle()
     expect((await fresh.pull(null)).seq).toBe(published + 1)
-    expect(r2.files.has(snapshotKey(published + 1))).toBe(true)
+    expect(r2.files.has(scopeKey('ferry', published + 1))).toBe(true)
   })
 
   it('#3 a failed R2 publish is retried on the next cycle even when feeds are unchanged', async () => {
@@ -645,9 +650,9 @@ describe('Codex review regressions', () => {
     await h.hub.cycle()
     // Rewrite the published snapshot as an older build would have: no gen on the record.
     const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
-    const old = JSON.parse(new TextDecoder().decode(r2.files.get(ptr.key)))
+    const old = JSON.parse(new TextDecoder().decode(r2.files.get(ptr.files.ferry.key)))
     delete old.trips[`T2@${D}`].gen
-    r2.files.set(ptr.key, new TextEncoder().encode(JSON.stringify(old)))
+    r2.files.set(ptr.files.ferry.key, new TextEncoder().encode(JSON.stringify(old)))
     for (let restart = 0; restart < 2; restart++) {
       const fresh = h.mk()
       for (let i = 0; i < 3; i++) {
@@ -658,5 +663,41 @@ describe('Codex review regressions', () => {
         expect(snap.trips[`T2@${D}`]?.rel).toBe('CANCELED')
       }
     }
+  })
+
+  it('split: each mode document holds only its trips and vehicles; alerts written only when they change', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2, modes: 'ferry,train' })
+    await warm(h)
+    const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
+    expect(Object.keys(ptr.files).sort()).toEqual(['alerts', 'ferry', 'train'])
+    const ferry = RtSnapshot.parse(JSON.parse(new TextDecoder().decode(r2.files.get(ptr.files.ferry.key))))
+    const train = RtSnapshot.parse(JSON.parse(new TextDecoder().decode(r2.files.get(ptr.files.train.key))))
+    expect(Object.keys(ferry.trips)).toEqual([`T1@${D}`])
+    expect(ferry.vehicles.map((v) => v.id)).toEqual(['V1'])
+    expect(train.trips).toEqual({})
+    expect(train.header.staticGeneration).toEqual(ferry.header.staticGeneration)
+    // A rebuild with unchanged alerts does not rewrite the alerts document.
+    const alertsSeq = ptr.files.alerts.seq
+    h.clock.advance(CYCLE_MS)
+    h.up.set(TU, feed(h.nowS(), []))
+    await h.hub.cycle()
+    const ptr2 = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
+    expect(ptr2.seq).toBeGreaterThan(ptr.seq)
+    expect(ptr2.files.alerts.seq).toBe(alertsSeq)
+    // A scope the hub doesn't publish reads as no snapshot, with the hub status.
+    const bus = await pullFromR2(new MemoryDataSource(r2.files), null, 'bus')
+    expect(bus).toMatchObject({ seq: null, json: null })
+    expect(bus.status.seq).toBe(ptr2.seq)
+  })
+
+  it('split: pull(scope) over RPC returns the same per-scope documents', async () => {
+    const h = setup()
+    await warm(h)
+    const ferry = RtSnapshot.parse(JSON.parse((await h.hub.pull(null, 'ferry')).json as string))
+    const alerts = RtSnapshot.parse(JSON.parse((await h.hub.pull(null, 'alerts')).json as string))
+    expect(Object.keys(ferry.trips)).toEqual([`T1@${D}`])
+    expect(alerts.trips).toEqual({})
+    expect(alerts.alerts.map((a) => a.id)).toEqual(['a1'])
   })
 })
