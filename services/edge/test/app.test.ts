@@ -495,3 +495,30 @@ describe('per-scope snapshot clients (split)', () => {
     expect(bus.vehicles).toEqual([])
   })
 })
+
+describe('departures parallel loading (Codex review of bcd94a7)', () => {
+  it('an unknown stop is 404 even when its speculative stop-day read fails', async () => {
+    const s = await setup()
+    const real = s.tree.source.get.bind(s.tree.source)
+    s.tree.source.get = async (key: string) => {
+      if (key.startsWith('static/blobs/')) throw new Error('r2 down')
+      return real(key)
+    }
+    const res = await s.get('/v1/ferry/stops/nope/departures')
+    expect(res.status).toBe(404)
+  })
+
+  it('the merge cutoff uses the clock after the snapshot loaded', async () => {
+    const s = await setup()
+    // T3 leaves 317590 at 08:30 with no RT. The request starts at 08:30:29 and the (cold) snapshot pull takes 2 s,
+    // so at merge time T3 is 31 s past: outside the 30 s grace, it must not be listed.
+    s.clock.t = epoch(D, '08:30:29') * 1000
+    const real = s.hub.pull.bind(s.hub)
+    s.hub.pull = async (...args: Parameters<typeof real>) => {
+      s.clock.advance(2000)
+      return real(...args)
+    }
+    const body = DeparturesResponse.parse(await (await s.get('/v1/ferry/stops/317590/departures')).json())
+    expect(body.departures.map((d) => d.tripInstance)).not.toContain(`T3@${D}`)
+  })
+})

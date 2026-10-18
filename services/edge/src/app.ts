@@ -151,23 +151,32 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const index = await deps.store.getIndex(generation, mode)
     if (!index) return c.json({ error: 'static index missing', detail: generation }, 503)
 
-    const fromMs = at != null ? at * 1000 : now()
-    const dates = overlappingServiceDates(fromMs).filter((d) => index.serviceDates.includes(d))
+    const datesFor = (ms: number) => overlappingServiceDates(ms).filter((d) => index.serviceDates.includes(d))
     const load = async (ds: string[]) =>
       (await Promise.all(ds.map((d) => deps.store.stopDay(index, d, key)))).filter(
         (d): d is StaticStopDay => d != null,
       )
-    // Snapshot, stop index and stop-day files load in parallel: on a cold isolate they were sequential R2 reads.
-    const [r, stations, days] = await Promise.all([
+    // Snapshot, stop index and stop-day files load in parallel (on a cold isolate they were sequential R2 reads).
+    // The stop-day load is speculative: its failure only matters for a known stop, and its dates are re-checked
+    // against the request's own clock below (Codex review of bcd94a7).
+    const early = datesFor(at != null ? at * 1000 : now())
+    const [r, stations, speculative] = await Promise.all([
       rt(c, mode, generation),
       stationsFor(deps.store, mode, generation).catch(() => null),
-      load(dates),
+      load(early).then(
+        (days) => ({ days, error: null as unknown }),
+        (error: unknown) => ({ days: [] as StaticStopDay[], error }),
+      ),
     ])
     // Unknown stop: not in the mode's stop index (data/{mode}/stops.json). Without an index, fall back to the static
     // files (a bus shard bucket can't rule a key out). A known stop with no service that day is 200 with no rows.
     if (stations ? !stations.names.has(key) : !mayHaveStop(index, key)) {
       return c.json({ error: 'unknown stop', detail: key }, 404)
     }
+    if (speculative.error) throw speculative.error
+    const fromMs = at != null ? at * 1000 : r.nowMs
+    const dates = datesFor(fromMs)
+    const days = dates.join() === early.join() ? speculative.days : await load(dates)
 
     // Train: stopping patterns, plus every platform of the station so core can spot live platform changes
     // (`stationPlatforms`, added to MergeOptions by bft-train #42; ignored by older cores).
