@@ -1,10 +1,11 @@
 /**
- * bft-transit Worker entry. Static files never reach this code: Workers static assets answer them first.
+ * bft-transit Worker entry. Static files never reach this code: Workers static assets answer them first (their headers
+ * come from public/_headers). Every response here gets the security headers, and HTML the nonce CSP.
  *  - GET /v1/*, /data/*   same-origin proxy to the API Worker (service binding in staging, HTTP in dev), contract-checked
  *  - POST /v1/ask         Ask box → bft-api /v1/ask with the visitor's IP (per-IP quota) and Turnstile token
  *  - /__fixtures/*        recorded responses for fixture mode (only when ALLOW_FIXTURES or FIXTURES is "1")
  *  - /robots.txt          disallow: the mode pages' canonical copies are the standalone apps
- *  - everything else      React Router SSR. The mounted mode pages are the standalone apps' route modules, so their
+ *  - everything else      React Router SSR, with a per-request CSP nonce (workers/security.ts). The mounted mode pages are the standalone apps' route modules, so their
  *                         loaders read their own app's context: each gets this Env with its own canonical SITE_URL.
  */
 import { cloudflareContext as busContext } from '@bft/bus/app/lib/context.ts'
@@ -16,6 +17,7 @@ import { cloudflareContext } from '../app/lib/context.ts'
 import { validateProxied } from '../app/lib/contract.server.ts'
 import { fixtureAsk, handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import { apiFetch } from '../app/lib/server.server.ts'
+import { newNonce, withSecurityHeaders } from './security.ts'
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
@@ -105,33 +107,36 @@ const fixturesAllowed = (env: Env) => env.ALLOW_FIXTURES === '1' || env.FIXTURES
 
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url)
-    // The mounted Ferry screens include the feedback sheet, which posts to /api/feedback on this origin.
-    const legacy = await handleLegacy(request, env)
-    if (legacy) return legacy
-    if (url.pathname === '/v1/ask' && request.method === 'POST') return proxyAsk(request, env)
-    if (request.method === 'GET' && (url.pathname.startsWith('/v1/') || url.pathname.startsWith('/data/')))
-      return proxyApi(request, env)
-    if (url.pathname.startsWith('/__fixtures/')) {
-      if (!fixturesAllowed(env)) return new Response('Not found', { status: 404 })
-      if (url.pathname === '/__fixtures/v1/ask' && request.method === 'POST') {
-        const b = (await request.json().catch(() => null)) as { question?: unknown } | null
-        return fixtureAsk(typeof b?.question === 'string' ? b.question : '')
-      }
-      return handleFixtureApi(url, Date.now(), env)
-    }
-    if (url.pathname === '/robots.txt')
-      return new Response('User-agent: *\nDisallow: /\n', {
-        headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' },
-      })
-    // The mounted ferry/train/bus screens read a per-request nonce for their inline scripts (#53); the CSP that
-    // enforces it on this host comes with the transit hardening PR (#54).
-    const nonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))))
-    const context = new RouterContextProvider()
-    context.set(cloudflareContext, { env, ctx })
-    context.set(ferryContext, { env: { ...env, SITE_URL: env.FERRY_SITE_URL ?? env.SITE_URL }, ctx, nonce })
-    context.set(trainContext, { env: { ...env, SITE_URL: env.TRAIN_SITE_URL ?? env.SITE_URL }, ctx, nonce })
-    context.set(busContext, { env: { ...env, SITE_URL: env.BUS_SITE_URL ?? env.SITE_URL }, ctx, nonce })
-    return requestHandler(request, context)
+    // One nonce per request: the CSP header and every context (transit's root and the mounted apps) share it.
+    const nonce = newNonce()
+    return withSecurityHeaders(await route(request, env, ctx, nonce), nonce)
   },
 } satisfies ExportedHandler<Env>
+
+async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
+  const url = new URL(request.url)
+  // The mounted Ferry screens include the feedback sheet, which posts to /api/feedback on this origin.
+  const legacy = await handleLegacy(request, env)
+  if (legacy) return legacy
+  if (url.pathname === '/v1/ask' && request.method === 'POST') return proxyAsk(request, env)
+  if (request.method === 'GET' && (url.pathname.startsWith('/v1/') || url.pathname.startsWith('/data/')))
+    return proxyApi(request, env)
+  if (url.pathname.startsWith('/__fixtures/')) {
+    if (!fixturesAllowed(env)) return new Response('Not found', { status: 404 })
+    if (url.pathname === '/__fixtures/v1/ask' && request.method === 'POST') {
+      const b = (await request.json().catch(() => null)) as { question?: unknown } | null
+      return fixtureAsk(typeof b?.question === 'string' ? b.question : '')
+    }
+    return handleFixtureApi(url, Date.now(), env)
+  }
+  if (url.pathname === '/robots.txt')
+    return new Response('User-agent: *\nDisallow: /\n', {
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' },
+    })
+  const context = new RouterContextProvider()
+  context.set(cloudflareContext, { env, ctx, nonce })
+  context.set(ferryContext, { env: { ...env, SITE_URL: env.FERRY_SITE_URL ?? env.SITE_URL }, ctx, nonce })
+  context.set(trainContext, { env: { ...env, SITE_URL: env.TRAIN_SITE_URL ?? env.SITE_URL }, ctx, nonce })
+  context.set(busContext, { env: { ...env, SITE_URL: env.BUS_SITE_URL ?? env.SITE_URL }, ctx, nonce })
+  return requestHandler(request, context)
+}

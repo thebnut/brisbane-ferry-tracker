@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:llm": "playwright test --config playwright.llm.config.ts",
+    "test:staging": "playwright test --config playwright.staging.config.ts",
     "payload": "tsx scripts/measure-payload.ts",
     "deploy:staging": "CLOUDFLARE_ENV=staging pnpm build && wrangler deploy"
   },
