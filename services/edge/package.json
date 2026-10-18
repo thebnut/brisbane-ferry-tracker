@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Edge API Worker (Hono) and the RtHub realtime Durable Object (transit-architecture.md §3.3, §3.8).",
+  "description": "Edge API Worker (Hono) and the RtHub realtime Durable Object (transit-architecture.md \u00a73.3, \u00a73.8).",
   "scripts": {
     "dev": "wrangler dev",
     "typecheck": "tsc -p tsconfig.json",
@@ -14,7 +14,8 @@
     "shadow-diff": "node --experimental-transform-types --no-warnings scripts/shadow-diff.ts",
     "freshness": "node --experimental-transform-types --no-warnings scripts/freshness.ts",
     "deploy:staging": "wrangler deploy --env staging",
-    "deploy:data-staging": "pnpm --filter @bft/data deploy:staging"
+    "deploy:data-staging": "pnpm --filter @bft/data deploy:staging",
+    "deploy:production": "wrangler deploy --env production"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",

@@ -1,5 +1,7 @@
 /** The RtHub Durable Object: a thin shell over HubCore (SQLite-backed storage, Free plan compatible). */
+
 import { DurableObject } from 'cloudflare:workers'
+import { withRtNamespace } from '../data/rt-prefix.ts'
 import { dataSourceFor } from '../data/source.ts'
 import { StaticStore } from '../data/static-store.ts'
 import type { WorkerEnv } from '../env.ts'
@@ -13,6 +15,8 @@ export class RtHub extends DurableObject<WorkerEnv> {
 
   constructor(ctx: DurableObjectState, env: WorkerEnv) {
     super(ctx, env)
+    // Each environment's hub writes its realtime objects under its own R2 namespace (RT_R2_PREFIX).
+    env = withRtNamespace(env)
     this.core = new HubCore({
       storage: ctx.storage,
       fetch: (input, init) => fetch(input, init),

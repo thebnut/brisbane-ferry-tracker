@@ -60,6 +60,8 @@
       "vars": {
         "RT_MODES": "all",
         "RT_INDEX_MODES": "ferry,train,tram,bus",
+        // Staging's realtime objects live under rt-staging/ so they never collide with production's rt/.
+        "RT_R2_PREFIX": "rt-staging/",
         "RT_UPSTREAM": "https://gtfsrt.api.translink.com.au/api/realtime/SEQ",
         "CORS_ALLOW_ALL": "false",
         // Kill switch, read per request. ON in staging since 18 Oct (Brett approved; ANTHROPIC_API_KEY, TURNSTILE_SECRET and
@@ -68,6 +70,40 @@
         "AI_ENABLED": "true",
         // Brett's hard cap (18 Oct): US$10 a month, enforced by the Budget DO ledger.
         "AI_MONTHLY_BUDGET_USD": "10",
+        "AI_PER_IP_DAILY": "10",
+        "AI_GATEWAY": "bft",
+        "CF_ACCOUNT_ID": "dde2914802079766f7671528e7cbae75"
+      }
+    },
+    // PRODUCTION: api.brisbaneferry.com (Worker custom domain on the Cloudflare zone). Deployed from main only, after
+    // the release PR (docs/architecture/cutover-runbook.md). Shares the static data in bft-transit-data with staging;
+    // realtime objects use the canonical rt/ keys. AI starts OFF: Budget ledgers are per Worker, so turning prod AI on
+    // means turning staging AI off, to keep one US$10 a month cap across environments.
+    "production": {
+      "name": "bft-api-prod",
+      "workers_dev": false,
+      "routes": [{ "pattern": "api.brisbaneferry.com", "custom_domain": true }],
+      "version_metadata": { "binding": "CF_VERSION" },
+      "triggers": { "crons": ["* * * * *"] },
+      "durable_objects": {
+        "bindings": [
+          { "name": "RT_HUB", "class_name": "RtHub" },
+          { "name": "BUDGET", "class_name": "Budget" }
+        ]
+      },
+      "ratelimits": [
+        { "name": "ASK_LIMITER", "namespace_id": "8002", "simple": { "limit": 3, "period": 60 } }
+      ],
+      "r2_buckets": [{ "binding": "DATA_BUCKET", "bucket_name": "bft-transit-data" }],
+      "services": [],
+      "limits": { "cpu_ms": 2000 },
+      "vars": {
+        "RT_MODES": "all",
+        "RT_INDEX_MODES": "ferry,train,tram,bus",
+        "RT_UPSTREAM": "https://gtfsrt.api.translink.com.au/api/realtime/SEQ",
+        "CORS_ALLOW_ALL": "false",
+        "AI_ENABLED": "false",
+        "AI_MONTHLY_BUDGET_USD": "0",
         "AI_PER_IP_DAILY": "10",
         "AI_GATEWAY": "bft",
         "CF_ACCOUNT_ID": "dde2914802079766f7671528e7cbae75"

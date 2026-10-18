@@ -7,6 +7,8 @@ export interface WorkerEnv extends AiEnv {
   DATA?: Fetcher
   /** R2 bucket; when bound it takes precedence over DATA. */
   DATA_BUCKET?: R2Bucket
+  /** Per-environment namespace for `rt/…` objects in the shared bucket, e.g. `rt-staging/` (unset: `rt/`, production). */
+  RT_R2_PREFIX?: string
   /** `ferry,train` (per-mode feeds) or `all` (combined feeds). */
   RT_MODES?: string
   /** Modes whose trip indexes the hub loads (default: polled modes except bus, see parseRtModes). */
