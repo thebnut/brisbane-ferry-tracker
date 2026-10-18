@@ -62,14 +62,22 @@ test.describe('phone width 360 px, longest stop names (F1)', () => {
           t.x < c.x + c.width && c.x < t.x + t.width && t.y < c.y + c.height && c.y < t.y + t.height
         expect(overlaps).toBe(false)
       }
-      // Chips only show for departures within the hour, and the fixture timetable has hour-long gaps for this pair
-      // late at night: require a chip only when the first departure is due within the hour.
+      // Chips follow the board's rule (apps/ferry/app/lib/departures.ts): none for cancelled or skipped departures,
+      // none more than 60 whole minutes away. The fixture timetable has hour-long gaps for this pair late at night,
+      // so require a chip only when a rendered departure is due within 59 minutes (1 min of render/fetch skew).
       const res = await page.request.get(
-        `/__fixtures/v1/ferry/stops/${from.id}/departures?to=${to.id}&limit=1`,
+        `/__fixtures/v1/ferry/stops/${from.id}/departures?to=${to.id}&limit=${n}`,
       )
-      const first = (await res.json()).departures[0]
-      const firstS = first.estDep ?? first.schedDep
-      if (firstS - Date.now() / 1000 < 55 * 60) expect(chips).toBeGreaterThan(0)
+      const deps: Array<{ status: string; schedDep: number; estDep?: number | null }> = (await res.json())
+        .departures
+      const nowMs = Date.now()
+      const due = deps.some(
+        (d) =>
+          d.status !== 'cancelled' &&
+          d.status !== 'skipped' &&
+          Math.trunc(((d.estDep ?? d.schedDep) * 1000 - nowMs) / 60000) <= 59,
+      )
+      if (due) expect(chips).toBeGreaterThan(0)
       else
         testInfo.annotations.push({
           type: 'note',
