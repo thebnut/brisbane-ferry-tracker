@@ -62,8 +62,10 @@
         "RT_INDEX_MODES": "ferry,train,tram,bus",
         "RT_UPSTREAM": "https://gtfsrt.api.translink.com.au/api/realtime/SEQ",
         "CORS_ALLOW_ALL": "false",
-        // Kill switch: flip to "true" once ANTHROPIC_API_KEY is set (wrangler secret put ANTHROPIC_API_KEY --env staging).
-        "AI_ENABLED": "false",
+        // Kill switch, read per request. ON in staging since 18 Oct (Brett approved; ANTHROPIC_API_KEY, TURNSTILE_SECRET and
+        // IP_HASH_SALT are Worker secrets). To turn AI off instantly: set "false" and redeploy, or
+        // `wrangler secret delete ANTHROPIC_API_KEY --env staging` (budgetConfig fails closed without a key).
+        "AI_ENABLED": "true",
         // Brett's hard cap (18 Oct): US$10 a month, enforced by the Budget DO ledger.
         "AI_MONTHLY_BUDGET_USD": "10",
         "AI_PER_IP_DAILY": "10",
