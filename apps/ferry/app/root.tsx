@@ -1,6 +1,7 @@
 import {
   LIVE_GUARD_CSS,
   liveGuardScript,
+  NO_SCRIPT_LIVE_CSS,
   useLiveGuardRelease,
   useRefetchOnReconnect,
 } from '@bft/ui/connectivity'
@@ -54,6 +55,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: liveGuardScript(renderedAt) }} />
         {/* The guard's rule without the stylesheet: an unstyled page still hides live claims (R3-F1). */}
         <style>{LIVE_GUARD_CSS}</style>
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant style; no JavaScript, no LIVE claims. */}
+        <noscript dangerouslySetInnerHTML={{ __html: NO_SCRIPT_LIVE_CSS }} />
         <Meta />
         <Links />
       </head>

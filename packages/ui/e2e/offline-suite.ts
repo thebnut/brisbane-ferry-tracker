@@ -79,6 +79,39 @@ export function offlineLoadSuite({
       expect(await visibleLiveClaims(page)).toEqual([])
     })
 
+    test('a precache missing the stylesheet (evicted, half written) gets the styled offline page', async ({
+      page,
+      context,
+    }) => {
+      await page.goto(path)
+      await waitForServiceWorker(page, pagesCache)
+      await page.evaluate(async () => {
+        for (const name of await caches.keys()) {
+          if (!name.startsWith('workbox-precache')) continue
+          const cache = await caches.open(name)
+          for (const req of await cache.keys())
+            if (/\/assets\/root-[^/]*\.css/.test(req.url)) await cache.delete(req)
+        }
+      })
+      await goOffline(context)
+      await page.reload()
+      await expect(page.locator('[data-offline-page]')).toBeVisible()
+      expect(await bodyFont(page)).toContain('Inter')
+      expect(await visibleLiveClaims(page)).toEqual([])
+    })
+
+    test('with JavaScript off, live claims are never shown (Codex review)', async ({ browser }) => {
+      const noJs = await browser.newContext({ javaScriptEnabled: false })
+      const page = await noJs.newPage()
+      await page.goto(path)
+      expect(await page.locator('[data-live-claim]').count()).toBeGreaterThan(0)
+      const shown = await page
+        .locator('[data-live-claim]')
+        .evaluateAll((els) => els.filter((e) => getComputedStyle(e).display !== 'none').length)
+      expect(shown).toBe(0)
+      await noJs.close()
+    })
+
     test('if the stylesheet and scripts fail to load, an offline page still hides its LIVE claims', async ({
       page,
       context,

@@ -70,8 +70,10 @@ test('train board inside the Train tab opens a service and comes back', async ({
   expect(errors).toEqual([])
 })
 
-test('Around you: all three modes grouped with pin shapes, sorted in < 100 ms', async ({ page }) => {
+test('Around you: all three modes grouped with pin shapes, sorted in < 100 ms', async ({ page, context }) => {
   const errors = watchErrors(page)
+  // A departure due within the hour at any time of day (the rows are fetched in the browser).
+  await pinUpcoming(context)
   await page.goto(CBD)
   const timing = page.locator('[data-nearby-ms]')
   await expect(timing).toBeVisible()

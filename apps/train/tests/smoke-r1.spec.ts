@@ -1,5 +1,6 @@
 /** Regression tests for Dev's smoke test round 1 (18 Oct 2026): T1 overlap, T4 am/pm, T5 offline, T6 desktop nav. */
 import { expect, type Locator, test } from '@playwright/test'
+import { pinUpcoming } from './upcoming.ts'
 
 const box = async (l: Locator) => {
   const b = await l.boundingBox()
@@ -97,9 +98,11 @@ test('phone: bottom nav, no header links (T6)', async ({ page }) => {
 
 test('offline: the banner at once, no LIVE badge, and it stays that way (T5)', async ({ page, context }) => {
   test.slow()
+  // A LIVE row at any hour: pinned in the polled responses, so wait for the first poll (every 15 s).
+  await pinUpcoming(context)
   await page.goto('/station/central')
   const board = page.locator('[data-board=central]')
-  await expect(board.locator('[data-badge=live]').first()).toBeVisible()
+  await expect(board.locator('[data-badge=live]').first()).toBeVisible({ timeout: 20_000 })
   await context.setOffline(true)
   await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 2_000 })
   await expect(board.locator('[data-badge=live]')).toHaveCount(0)
@@ -114,9 +117,11 @@ test('API unreachable while the browser says online: offline banner at the next 
   page,
   context,
 }) => {
+  test.slow()
+  await pinUpcoming(context)
   await page.goto('/station/central')
   const board = page.locator('[data-board=central]')
-  await expect(board.locator('[data-badge=live]').first()).toBeVisible()
+  await expect(board.locator('[data-badge=live]').first()).toBeVisible({ timeout: 20_000 })
   // context.route also covers the service worker's own network requests.
   await context.route('**/v1/**', (route) => route.abort('internetdisconnected'))
   // Polls run every 15 s.

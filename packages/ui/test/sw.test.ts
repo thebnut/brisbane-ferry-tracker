@@ -22,6 +22,9 @@ describe('service worker page copies (R3-F1)', () => {
     const old = usablePageCopy((u) => u !== '/assets/root-abc.css')
     expect(await old.cachedResponseWillBeUsed({ cachedResponse: new Response(html) })).toBeNull()
     expect(await all.cachedResponseWillBeUsed({})).toBeNull()
+    // The check may be asynchronous (Cache Storage lookups).
+    const evicted = usablePageCopy(async (u) => u !== '/assets/root-y.js')
+    expect(await evicted.cachedResponseWillBeUsed({ cachedResponse: new Response(html) })).toBeNull()
   })
 
   it('the offline page is styled, script-free, escapes the path and claims nothing live', () => {

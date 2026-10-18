@@ -13,7 +13,7 @@
  */
 import { clientsClaim } from 'workbox-core'
 import { ExpirationPlugin } from 'workbox-expiration'
-import { cleanupOutdatedCaches, getCacheKeyForURL, precacheAndRoute } from 'workbox-precaching'
+import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
 import { markCachedPages, markCacheHits } from './connectivity.ts'
@@ -61,12 +61,13 @@ export function referencedAssets(html: string): string[] {
  * would render unstyled and without its app), so it counts as a miss and the offline page is shown instead.
  * `isPrecached` is injectable for tests.
  */
-export function usablePageCopy(isPrecached: (url: string) => boolean) {
+export function usablePageCopy(isPrecached: (url: string) => boolean | Promise<boolean>) {
   return {
     cachedResponseWillBeUsed: async ({ cachedResponse }: { cachedResponse?: Response }) => {
       if (!cachedResponse) return null
       const html = await cachedResponse.clone().text()
-      return referencedAssets(html).every(isPrecached) ? cachedResponse : null
+      const present = await Promise.all(referencedAssets(html).map(async (u) => isPrecached(u)))
+      return present.every(Boolean) ? cachedResponse : null
     },
   }
 }
@@ -130,7 +131,8 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
   precacheAndRoute(config.manifest)
   cleanupOutdatedCaches()
 
-  const isPrecached = (url: string) => getCacheKeyForURL(url) !== undefined
+  // In Cache Storage, not just in the manifest: an evicted or half-written precache must not pass (Codex review).
+  const isPrecached = async (url: string) => (await matchPrecache(url).catch(() => undefined)) != null
   const expire = (c: CacheSpec) =>
     new ExpirationPlugin({ maxEntries: c.maxEntries, maxAgeSeconds: c.maxAgeSeconds })
 

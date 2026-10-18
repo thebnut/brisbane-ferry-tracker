@@ -85,6 +85,12 @@ export function resetUnconfirmedBefore(): void {
  */
 export const LIVE_GUARD_CSS = `html[${LIVE_UNCONFIRMED_ATTR}] [data-live-claim]{display:none!important}`
 
+/**
+ * For a <noscript> in each layout's <head> (Codex review of R3-F1): without JavaScript nothing can confirm (or keep
+ * up) live data, so live claims are never shown.
+ */
+export const NO_SCRIPT_LIVE_CSS = '<style>[data-live-claim]{display:none!important}</style>'
+
 export function useLiveGuardRelease() {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
@@ -196,7 +202,10 @@ export function onReconnect(onBack: () => void): () => void {
 
 /** The polled (live) queries of a TanStack QueryClient: what a reconnect refetches. Static data stays cached. */
 export interface RefetchableClient {
-  refetchQueries(filters: { type: 'active'; predicate(query: PolledQuery): boolean }): Promise<unknown>
+  refetchQueries(
+    filters: { type: 'active'; predicate(query: PolledQuery): boolean },
+    options: { cancelRefetch: boolean },
+  ): Promise<unknown>
 }
 /** The part of a TanStack Query this reads: its observers' options (where `refetchInterval` lives). */
 interface PolledQuery {
@@ -210,7 +219,13 @@ export function useRefetchOnReconnect(client: RefetchableClient): void {
   useEffect(
     () =>
       onReconnect(() => {
-        void client.refetchQueries({ type: 'active', predicate: isPolled }).catch(() => {})
+        void client
+          .refetchQueries(
+            { type: 'active', predicate: isPolled },
+            // A board already fetching keeps its request (one reaching the network is what told us we're back).
+            { cancelRefetch: false },
+          )
+          .catch(() => {})
       }),
     [client],
   )
