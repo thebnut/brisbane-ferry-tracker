@@ -1,0 +1,56 @@
+import { describe, expect, it } from 'vitest'
+import { normalizeQuestion, parseQuestion } from '../../src/ask/parser.ts'
+import questions from './questions.json' with { type: 'json' }
+import { testResolver } from './resolver.ts'
+
+interface Q {
+  q: string
+  kind: string
+  from?: string
+  to?: string
+}
+
+describe('deterministic parser on the 200-question set', () => {
+  const results = (questions as Q[]).map((x) => ({ x, r: parseQuestion(x.q, testResolver) }))
+  const handled = results.filter(({ r }) => r.ok)
+  const wrong = results.filter(({ x, r }) => {
+    if (!r.ok) return false
+    if (x.kind === 'llm') return true // parsed something we said needs the LLM
+    if (r.intent.kind !== x.kind) return true
+    if (r.intent.kind === 'next_departure') {
+      if (x.from && r.intent.from.key !== x.from) return true
+      if (x.to && r.intent.to.key !== x.to) return true
+    }
+    if (r.intent.kind === 'departures_at' && x.from && r.intent.at.key !== x.from) return true
+    return false
+  })
+
+  it('handles at least 70% of questions without an LLM', () => {
+    const coverage = handled.length / results.length
+    expect(coverage, `parser coverage ${handled.length}/${results.length}`).toBeGreaterThanOrEqual(0.7)
+  })
+
+  it('never returns a wrong intent or stop for a question it handles (precision first)', () => {
+    expect(wrong.map(({ x, r }) => ({ q: x.q, expected: x.kind, got: r.ok ? r.intent : r }))).toEqual([])
+  })
+})
+
+describe('parser details', () => {
+  it('normalises for the intent cache', () => {
+    expect(normalizeQuestion("  When's the NEXT train from Bowen Hills stn?? ")).toBe(
+      'when is the next train from bowen hills station',
+    )
+  })
+  it('a fuzzy typo still resolves', () => {
+    const r = parseQuestion('next train from bowen hils to the airport', testResolver)
+    expect(r.ok && r.intent.kind === 'next_departure' && r.intent.to?.key).toBe('domestic-airport')
+  })
+  it('an ambiguous stop across modes is not guessed', () => {
+    const r = parseQuestion('departures at toowong', testResolver)
+    expect(r.ok ? r.intent : r.reason).toBe('ambiguous_stop')
+  })
+  it('trip planning is flagged unsupported, not invented', () => {
+    const r = parseQuestion('how do I get from Bulimba to the airport', testResolver)
+    expect(r.ok && r.intent.kind).toBe('trip_plan_unsupported')
+  })
+})

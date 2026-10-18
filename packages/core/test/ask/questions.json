@@ -1,0 +1,1063 @@
+[
+  {
+    "q": "When's the next train from Bowen Hills to the airport",
+    "kind": "next_departure",
+    "from": "bowen-hills",
+    "to": "domestic-airport"
+  },
+  {
+    "q": "when is the next train from Bowen Hills to the airport?",
+    "kind": "next_departure",
+    "from": "bowen-hills",
+    "to": "domestic-airport"
+  },
+  {
+    "q": "Bowen Hills to the airport next train",
+    "kind": "next_departure",
+    "from": "bowen-hills",
+    "to": "domestic-airport"
+  },
+  {
+    "q": "trains from Central to Ferny Grove",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "ferny-grove"
+  },
+  {
+    "q": "next train from Central to Ferny Grove",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "ferny-grove"
+  },
+  {
+    "q": "is there a train from Central to Ferny Grove soon",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "ferny-grove"
+  },
+  {
+    "q": "is there a train from Roma Street to Springfield soon",
+    "kind": "next_departure",
+    "from": "roma-street",
+    "to": "springfield-central"
+  },
+  {
+    "q": "what time is the next train from Roma Street to Springfield",
+    "kind": "next_departure",
+    "from": "roma-street",
+    "to": "springfield-central"
+  },
+  {
+    "q": "next train from Roma Street to Springfield",
+    "kind": "next_departure",
+    "from": "roma-street",
+    "to": "springfield-central"
+  },
+  {
+    "q": "When's the next train from Indooroopilly to Central",
+    "kind": "next_departure",
+    "from": "indooroopilly",
+    "to": "central"
+  },
+  {
+    "q": "what time is the next train from Indooroopilly to Central",
+    "kind": "next_departure",
+    "from": "indooroopilly",
+    "to": "central"
+  },
+  {
+    "q": "next train from Indooroopilly to Central",
+    "kind": "next_departure",
+    "from": "indooroopilly",
+    "to": "central"
+  },
+  {
+    "q": "what time is the next train from Fortitude Valley to Nambour",
+    "kind": "next_departure",
+    "from": "fortitude-valley",
+    "to": "nambour"
+  },
+  {
+    "q": "when is the next train from Fortitude Valley to Nambour?",
+    "kind": "next_departure",
+    "from": "fortitude-valley",
+    "to": "nambour"
+  },
+  {
+    "q": "next train from Fortitude Valley to Nambour",
+    "kind": "next_departure",
+    "from": "fortitude-valley",
+    "to": "nambour"
+  },
+  {
+    "q": "next train from South Brisbane to Cleveland",
+    "kind": "next_departure",
+    "from": "south-brisbane",
+    "to": "cleveland"
+  },
+  {
+    "q": "South Brisbane to Cleveland next train",
+    "kind": "next_departure",
+    "from": "south-brisbane",
+    "to": "cleveland"
+  },
+  {
+    "q": "trains from South Brisbane to Cleveland",
+    "kind": "next_departure",
+    "from": "south-brisbane",
+    "to": "cleveland"
+  },
+  {
+    "q": "next train from Toowong to Ipswich",
+    "kind": "next_departure",
+    "from": "toowong",
+    "to": "ipswich"
+  },
+  {
+    "q": "when is the next train from Toowong to Ipswich?",
+    "kind": "next_departure",
+    "from": "toowong",
+    "to": "ipswich"
+  },
+  {
+    "q": "is there a train from Toowong to Ipswich soon",
+    "kind": "next_departure",
+    "from": "toowong",
+    "to": "ipswich"
+  },
+  {
+    "q": "what time is the next train from Caboolture to Roma St",
+    "kind": "next_departure",
+    "from": "caboolture",
+    "to": "roma-street"
+  },
+  {
+    "q": "Caboolture to Roma St next train",
+    "kind": "next_departure",
+    "from": "caboolture",
+    "to": "roma-street"
+  },
+  {
+    "q": "next train from Caboolture to Roma St",
+    "kind": "next_departure",
+    "from": "caboolture",
+    "to": "roma-street"
+  },
+  {
+    "q": "is there a train from Beenleigh to Central soon",
+    "kind": "next_departure",
+    "from": "beenleigh",
+    "to": "central"
+  },
+  {
+    "q": "what time is the next train from Beenleigh to Central",
+    "kind": "next_departure",
+    "from": "beenleigh",
+    "to": "central"
+  },
+  {
+    "q": "next train from Beenleigh to Central",
+    "kind": "next_departure",
+    "from": "beenleigh",
+    "to": "central"
+  },
+  {
+    "q": "when is the next train from Shorncliffe to Bowen Hills?",
+    "kind": "next_departure",
+    "from": "shorncliffe",
+    "to": "bowen-hills"
+  },
+  {
+    "q": "trains from Shorncliffe to Bowen Hills",
+    "kind": "next_departure",
+    "from": "shorncliffe",
+    "to": "bowen-hills"
+  },
+  {
+    "q": "what time is the next train from Shorncliffe to Bowen Hills",
+    "kind": "next_departure",
+    "from": "shorncliffe",
+    "to": "bowen-hills"
+  },
+  {
+    "q": "next train from Central to Varsity Lakes",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "gold-coast-airport"
+  },
+  {
+    "q": "what time is the next train from Central to Varsity Lakes",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "gold-coast-airport"
+  },
+  {
+    "q": "trains from Central to Varsity Lakes",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "gold-coast-airport"
+  },
+  {
+    "q": "Kippa-Ring to Central next train",
+    "kind": "next_departure",
+    "from": "kippa-ring",
+    "to": "central"
+  },
+  {
+    "q": "next train from Kippa-Ring to Central",
+    "kind": "next_departure",
+    "from": "kippa-ring",
+    "to": "central"
+  },
+  {
+    "q": "when is the next train from Kippa-Ring to Central?",
+    "kind": "next_departure",
+    "from": "kippa-ring",
+    "to": "central"
+  },
+  {
+    "q": "next ferry from Bulimba to Riverside",
+    "kind": "next_departure",
+    "from": "317584",
+    "to": "317590"
+  },
+  {
+    "q": "when's the next citycat from Bulimba to Riverside",
+    "kind": "next_departure",
+    "from": "317584",
+    "to": "317590"
+  },
+  {
+    "q": "next boat Bulimba to Riverside",
+    "kind": "next_departure",
+    "from": "317584",
+    "to": "317590"
+  },
+  {
+    "q": "next boat New Farm Park to South Bank",
+    "kind": "next_departure",
+    "from": "317541",
+    "to": "317586"
+  },
+  {
+    "q": "when's the next citycat from New Farm Park to South Bank",
+    "kind": "next_departure",
+    "from": "317541",
+    "to": "317586"
+  },
+  {
+    "q": "New Farm Park to South Bank ferry",
+    "kind": "next_departure",
+    "from": "317541",
+    "to": "317586"
+  },
+  {
+    "q": "next ferry from Northshore Hamilton to Riverside",
+    "kind": "next_departure",
+    "from": "317582",
+    "to": "317590"
+  },
+  {
+    "q": "Northshore Hamilton to Riverside ferry",
+    "kind": "next_departure",
+    "from": "317582",
+    "to": "317590"
+  },
+  {
+    "q": "next boat Northshore Hamilton to Riverside",
+    "kind": "next_departure",
+    "from": "317582",
+    "to": "317590"
+  },
+  {
+    "q": "when's the next citycat from Hawthorne to North Quay",
+    "kind": "next_departure",
+    "from": "317583",
+    "to": "317566"
+  },
+  {
+    "q": "next ferry from Hawthorne to North Quay",
+    "kind": "next_departure",
+    "from": "317583",
+    "to": "317566"
+  },
+  {
+    "q": "Hawthorne to North Quay ferry",
+    "kind": "next_departure",
+    "from": "317583",
+    "to": "317566"
+  },
+  {
+    "q": "what time is the next ferry from Teneriffe to UQ St Lucia?",
+    "kind": "next_departure",
+    "from": "317592",
+    "to": "317555"
+  },
+  {
+    "q": "when's the next citycat from Teneriffe to UQ St Lucia",
+    "kind": "next_departure",
+    "from": "317592",
+    "to": "317555"
+  },
+  {
+    "q": "next boat Teneriffe to UQ St Lucia",
+    "kind": "next_departure",
+    "from": "317592",
+    "to": "317555"
+  },
+  {
+    "q": "next ferry from QUT Gardens Point to Bulimba",
+    "kind": "next_departure",
+    "from": "317578",
+    "to": "317584"
+  },
+  {
+    "q": "what time is the next ferry from QUT Gardens Point to Bulimba?",
+    "kind": "next_departure",
+    "from": "317578",
+    "to": "317584"
+  },
+  {
+    "q": "QUT Gardens Point to Bulimba ferry",
+    "kind": "next_departure",
+    "from": "317578",
+    "to": "317584"
+  },
+  {
+    "q": "next ferry from Howard Smith Wharves to New Farm Park",
+    "kind": "next_departure",
+    "from": "317600",
+    "to": "317541"
+  },
+  {
+    "q": "when's the next citycat from Howard Smith Wharves to New Farm Park",
+    "kind": "next_departure",
+    "from": "317600",
+    "to": "317541"
+  },
+  {
+    "q": "next boat Howard Smith Wharves to New Farm Park",
+    "kind": "next_departure",
+    "from": "317600",
+    "to": "317541"
+  },
+  {
+    "q": "what time is the next ferry from Apollo Road to Riverside?",
+    "kind": "next_departure",
+    "from": "317610",
+    "to": "317590"
+  },
+  {
+    "q": "next boat Apollo Road to Riverside",
+    "kind": "next_departure",
+    "from": "317610",
+    "to": "317590"
+  },
+  {
+    "q": "when's the next citycat from Apollo Road to Riverside",
+    "kind": "next_departure",
+    "from": "317610",
+    "to": "317590"
+  },
+  {
+    "q": "next bus from Cultural Centre to UQ Lakes",
+    "kind": "next_departure",
+    "from": "10795",
+    "to": "1853"
+  },
+  {
+    "q": "bus from Cultural Centre to UQ Lakes",
+    "kind": "next_departure",
+    "from": "10795",
+    "to": "1853"
+  },
+  {
+    "q": "when is the next bus from Cultural Centre to UQ Lakes",
+    "kind": "next_departure",
+    "from": "10795",
+    "to": "1853"
+  },
+  {
+    "q": "next bus from King George Square to Chermside",
+    "kind": "next_departure",
+    "from": "10802",
+    "to": "2001"
+  },
+  {
+    "q": "bus from King George Square to Chermside",
+    "kind": "next_departure",
+    "from": "10802",
+    "to": "2001"
+  },
+  {
+    "q": "when is the next bus from King George Square to Chermside",
+    "kind": "next_departure",
+    "from": "10802",
+    "to": "2001"
+  },
+  {
+    "q": "next bus from Queen Street to Carindale",
+    "kind": "next_departure",
+    "from": "1882",
+    "to": "3003"
+  },
+  {
+    "q": "bus from Queen Street to Carindale",
+    "kind": "next_departure",
+    "from": "1882",
+    "to": "3003"
+  },
+  {
+    "q": "when is the next bus from Queen Street to Carindale",
+    "kind": "next_departure",
+    "from": "1882",
+    "to": "3003"
+  },
+  {
+    "q": "next bus from Garden City to Cultural Centre",
+    "kind": "next_departure",
+    "from": "4975",
+    "to": "10795"
+  },
+  {
+    "q": "bus from Garden City to Cultural Centre",
+    "kind": "next_departure",
+    "from": "4975",
+    "to": "10795"
+  },
+  {
+    "q": "when is the next bus from Garden City to Cultural Centre",
+    "kind": "next_departure",
+    "from": "4975",
+    "to": "10795"
+  },
+  {
+    "q": "next train from bowen hils to the airport",
+    "kind": "next_departure",
+    "from": "bowen-hills",
+    "to": "domestic-airport"
+  },
+  {
+    "q": "next train from indro to central",
+    "kind": "next_departure",
+    "from": "indooroopilly",
+    "to": "central"
+  },
+  {
+    "q": "next ferry from bulimba",
+    "kind": "departures_at",
+    "from": "317584"
+  },
+  {
+    "q": "trains leaving central",
+    "kind": "departures_at",
+    "from": "central"
+  },
+  {
+    "q": "next bus from cultural centre",
+    "kind": "departures_at",
+    "from": "10795"
+  },
+  {
+    "q": "when does the next ferry leave from riverside",
+    "kind": "departures_at",
+    "from": "317590"
+  },
+  {
+    "q": "next citycat leaving new farm park",
+    "kind": "departures_at",
+    "from": "317541"
+  },
+  {
+    "q": "departures at Bowen Hills",
+    "kind": "departures_at",
+    "from": "bowen-hills"
+  },
+  {
+    "q": "what's leaving Central",
+    "kind": "departures_at",
+    "from": "central"
+  },
+  {
+    "q": "Roma Street departures",
+    "kind": "departures_at",
+    "from": "roma-street"
+  },
+  {
+    "q": "departures at bulimba",
+    "kind": "departures_at",
+    "from": "317584"
+  },
+  {
+    "q": "show me departures at cultural centre",
+    "kind": "departures_at",
+    "from": "10795"
+  },
+  {
+    "q": "timetable for south bank ferry",
+    "kind": "departures_at",
+    "from": "317586"
+  },
+  {
+    "q": "King George Square departures",
+    "kind": "departures_at",
+    "from": "10802"
+  },
+  {
+    "q": "next departures at UQ Lakes",
+    "kind": "departures_at",
+    "from": "1853"
+  },
+  {
+    "q": "what is leaving fortitude valley now",
+    "kind": "departures_at",
+    "from": "fortitude-valley"
+  },
+  {
+    "q": "departures at stop 001234",
+    "kind": "departures_at",
+    "from": "600001"
+  },
+  {
+    "q": "is my 199 late",
+    "kind": "route_status"
+  },
+  {
+    "q": "is the 60 running late?",
+    "kind": "route_status"
+  },
+  {
+    "q": "where is my 199",
+    "kind": "route_status"
+  },
+  {
+    "q": "is the F1 on time",
+    "kind": "route_status"
+  },
+  {
+    "q": "is the 66 running",
+    "kind": "route_status"
+  },
+  {
+    "q": "how late is the 412",
+    "kind": "route_status"
+  },
+  {
+    "q": "is route 333 delayed",
+    "kind": "route_status"
+  },
+  {
+    "q": "is my P137 running on time",
+    "kind": "route_status"
+  },
+  {
+    "q": "where's the 150",
+    "kind": "route_status"
+  },
+  {
+    "q": "is the cityglider running",
+    "kind": "route_status"
+  },
+  {
+    "q": "is the M1 late",
+    "kind": "route_status"
+  },
+  {
+    "q": "is my 61 coming",
+    "kind": "route_status"
+  },
+  {
+    "q": "is the 29 cancelled",
+    "kind": "route_status"
+  },
+  {
+    "q": "is the F11 running today",
+    "kind": "route_status"
+  },
+  {
+    "q": "is the 555 on time",
+    "kind": "route_status"
+  },
+  {
+    "q": "any alerts on the Ferny Grove line",
+    "kind": "alerts"
+  },
+  {
+    "q": "are there disruptions on trains",
+    "kind": "alerts"
+  },
+  {
+    "q": "alerts for ferries",
+    "kind": "alerts"
+  },
+  {
+    "q": "any delays on the airport line",
+    "kind": "alerts"
+  },
+  {
+    "q": "trackwork this weekend",
+    "kind": "alerts"
+  },
+  {
+    "q": "is there trackwork on the Beenleigh line",
+    "kind": "alerts"
+  },
+  {
+    "q": "service alerts",
+    "kind": "alerts"
+  },
+  {
+    "q": "bus disruptions",
+    "kind": "alerts"
+  },
+  {
+    "q": "any closures on the busway",
+    "kind": "alerts"
+  },
+  {
+    "q": "problems on the Cleveland line",
+    "kind": "alerts"
+  },
+  {
+    "q": "are ferries closed today",
+    "kind": "alerts"
+  },
+  {
+    "q": "any issues with the citycat",
+    "kind": "alerts"
+  },
+  {
+    "q": "how do I get from Bulimba to the airport",
+    "kind": "trip_plan_unsupported"
+  },
+  {
+    "q": "best way to get to Suncorp Stadium",
+    "kind": "trip_plan_unsupported"
+  },
+  {
+    "q": "how can i get from UQ to the Gabba",
+    "kind": "trip_plan_unsupported"
+  },
+  {
+    "q": "directions to Southbank from Chermside",
+    "kind": "trip_plan_unsupported"
+  },
+  {
+    "q": "plan a trip from Toowong to Carindale",
+    "kind": "trip_plan_unsupported"
+  },
+  {
+    "q": "which platform does the airport train leave from at central",
+    "kind": "llm"
+  },
+  {
+    "q": "can I take my bike on the ferry",
+    "kind": "llm"
+  },
+  {
+    "q": "is the ferry free on weekends",
+    "kind": "llm"
+  },
+  {
+    "q": "how much is a ticket to the airport",
+    "kind": "llm"
+  },
+  {
+    "q": "why is my train always late",
+    "kind": "llm"
+  },
+  {
+    "q": "what's the last train to Ipswich tonight",
+    "kind": "llm"
+  },
+  {
+    "q": "when does the first ferry start on sunday",
+    "kind": "llm"
+  },
+  {
+    "q": "is there wheelchair access at bowen hills",
+    "kind": "llm"
+  },
+  {
+    "q": "does the 199 stop near the gabba",
+    "kind": "llm"
+  },
+  {
+    "q": "what's the quickest way home",
+    "kind": "llm"
+  },
+  {
+    "q": "tell me a joke",
+    "kind": "llm"
+  },
+  {
+    "q": "which ferry goes to hawthorne on weekends",
+    "kind": "llm"
+  },
+  {
+    "q": "are there toilets at roma street",
+    "kind": "llm"
+  },
+  {
+    "q": "when do trains start running again after the closure",
+    "kind": "llm"
+  },
+  {
+    "q": "does the citycat stop at mowbray park",
+    "kind": "llm"
+  },
+  {
+    "q": "how often do trains run to springfield",
+    "kind": "llm"
+  },
+  {
+    "q": "is the airport train expensive",
+    "kind": "llm"
+  },
+  {
+    "q": "can you text me when my bus is close",
+    "kind": "llm"
+  },
+  {
+    "q": "what ferry should I get to watch the riverfire",
+    "kind": "llm"
+  },
+  {
+    "q": "I'm at the valley, how long till the next train into town",
+    "kind": "llm"
+  },
+  {
+    "q": "what time does the cityglider stop running",
+    "kind": "llm"
+  },
+  {
+    "q": "whats the frequency of the 66",
+    "kind": "llm"
+  },
+  {
+    "q": "do I need a go card",
+    "kind": "llm"
+  },
+  {
+    "q": "where do I buy a ticket",
+    "kind": "llm"
+  },
+  {
+    "q": "what's the weather like",
+    "kind": "llm"
+  },
+  {
+    "q": "nxt train from Central to Nambour",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "nambour"
+  },
+  {
+    "q": "Bowen Hills -> Roma Street",
+    "kind": "next_departure",
+    "from": "bowen-hills",
+    "to": "roma-street"
+  },
+  {
+    "q": "from riverside to bulimba",
+    "kind": "next_departure",
+    "from": "317590",
+    "to": "317584"
+  },
+  {
+    "q": "when's the next ferry from south bank into the city",
+    "kind": "llm"
+  },
+  {
+    "q": "next train to the airport from bowen hills",
+    "kind": "next_departure",
+    "from": "bowen-hills",
+    "to": "domestic-airport"
+  },
+  {
+    "q": "trains to Caboolture from Central",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "caboolture"
+  },
+  {
+    "q": "ferry times bulimba",
+    "kind": "departures_at",
+    "from": "317584"
+  },
+  {
+    "q": "bulimba ferry times",
+    "kind": "departures_at",
+    "from": "317584"
+  },
+  {
+    "q": "next 199 from queen st",
+    "kind": "departures_at",
+    "from": "1882"
+  },
+  {
+    "q": "next F11 from bulimba to riverside",
+    "kind": "next_departure",
+    "from": "317584",
+    "to": "317590"
+  },
+  {
+    "q": "next express ferry from bulimba to riverside",
+    "kind": "next_departure",
+    "from": "317584",
+    "to": "317590"
+  },
+  {
+    "q": "is the train from Central to Ferny Grove running late",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "ferny-grove"
+  },
+  {
+    "q": "cleveland line alerts",
+    "kind": "alerts"
+  },
+  {
+    "q": "any problems on the Shorncliffe line today",
+    "kind": "alerts"
+  },
+  {
+    "q": "departures from Toowong station",
+    "kind": "departures_at",
+    "from": "toowong"
+  },
+  {
+    "q": "hey when is the next ferry from teneriffe to hawthorne thanks",
+    "kind": "next_departure",
+    "from": "317592",
+    "to": "317583"
+  },
+  {
+    "q": "next ferry from northshore hamilton to riverside",
+    "kind": "next_departure",
+    "from": "317582",
+    "to": "317590"
+  },
+  {
+    "q": "next ferry from howard smith wharves to new farm park",
+    "kind": "next_departure",
+    "from": "317600",
+    "to": "317541"
+  },
+  {
+    "q": "next ferry from northshore hamilton to riverside",
+    "kind": "next_departure",
+    "from": "317582",
+    "to": "317590"
+  },
+  {
+    "q": "next train from kippa-ring to central",
+    "kind": "next_departure",
+    "from": "kippa-ring",
+    "to": "central"
+  },
+  {
+    "q": "next train from shorncliffe to bowen hills",
+    "kind": "next_departure",
+    "from": "shorncliffe",
+    "to": "bowen-hills"
+  },
+  {
+    "q": "next train from caboolture to roma st",
+    "kind": "next_departure",
+    "from": "caboolture",
+    "to": "roma-street"
+  },
+  {
+    "q": "next train from south brisbane to cleveland",
+    "kind": "next_departure",
+    "from": "south-brisbane",
+    "to": "cleveland"
+  },
+  {
+    "q": "next train from caboolture to roma st",
+    "kind": "next_departure",
+    "from": "caboolture",
+    "to": "roma-street"
+  },
+  {
+    "q": "next train from roma street to springfield",
+    "kind": "next_departure",
+    "from": "roma-street",
+    "to": "springfield-central"
+  },
+  {
+    "q": "next ferry from howard smith wharves to new farm park",
+    "kind": "next_departure",
+    "from": "317600",
+    "to": "317541"
+  },
+  {
+    "q": "next train from shorncliffe to bowen hills",
+    "kind": "next_departure",
+    "from": "shorncliffe",
+    "to": "bowen-hills"
+  },
+  {
+    "q": "next ferry from teneriffe to uq st lucia",
+    "kind": "next_departure",
+    "from": "317592",
+    "to": "317555"
+  },
+  {
+    "q": "next ferry from hawthorne to north quay",
+    "kind": "next_departure",
+    "from": "317583",
+    "to": "317566"
+  },
+  {
+    "q": "next train from central to varsity lakes",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "gold-coast-airport"
+  },
+  {
+    "q": "next ferry from northshore hamilton to riverside",
+    "kind": "next_departure",
+    "from": "317582",
+    "to": "317590"
+  },
+  {
+    "q": "next train from shorncliffe to bowen hills",
+    "kind": "next_departure",
+    "from": "shorncliffe",
+    "to": "bowen-hills"
+  },
+  {
+    "q": "next ferry from apollo road to riverside",
+    "kind": "next_departure",
+    "from": "317610",
+    "to": "317590"
+  },
+  {
+    "q": "next train from roma street to springfield",
+    "kind": "next_departure",
+    "from": "roma-street",
+    "to": "springfield-central"
+  },
+  {
+    "q": "next train from indooroopilly to central",
+    "kind": "next_departure",
+    "from": "indooroopilly",
+    "to": "central"
+  },
+  {
+    "q": "next ferry from teneriffe to uq st lucia",
+    "kind": "next_departure",
+    "from": "317592",
+    "to": "317555"
+  },
+  {
+    "q": "next ferry from new farm park to south bank",
+    "kind": "next_departure",
+    "from": "317541",
+    "to": "317586"
+  },
+  {
+    "q": "next train from south brisbane to cleveland",
+    "kind": "next_departure",
+    "from": "south-brisbane",
+    "to": "cleveland"
+  },
+  {
+    "q": "next train from central to varsity lakes",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "gold-coast-airport"
+  },
+  {
+    "q": "next train from fortitude valley to nambour",
+    "kind": "next_departure",
+    "from": "fortitude-valley",
+    "to": "nambour"
+  },
+  {
+    "q": "next ferry from hawthorne to north quay",
+    "kind": "next_departure",
+    "from": "317583",
+    "to": "317566"
+  },
+  {
+    "q": "next ferry from new farm park to south bank",
+    "kind": "next_departure",
+    "from": "317541",
+    "to": "317586"
+  },
+  {
+    "q": "next train from central to ferny grove",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "ferny-grove"
+  },
+  {
+    "q": "next train from roma street to springfield",
+    "kind": "next_departure",
+    "from": "roma-street",
+    "to": "springfield-central"
+  },
+  {
+    "q": "next ferry from qut gardens point to bulimba",
+    "kind": "next_departure",
+    "from": "317578",
+    "to": "317584"
+  },
+  {
+    "q": "next ferry from howard smith wharves to new farm park",
+    "kind": "next_departure",
+    "from": "317600",
+    "to": "317541"
+  },
+  {
+    "q": "next train from central to varsity lakes",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "gold-coast-airport"
+  },
+  {
+    "q": "next train from central to varsity lakes",
+    "kind": "next_departure",
+    "from": "central",
+    "to": "gold-coast-airport"
+  },
+  {
+    "q": "next train from kippa-ring to central",
+    "kind": "next_departure",
+    "from": "kippa-ring",
+    "to": "central"
+  },
+  {
+    "q": "next ferry from apollo road to riverside",
+    "kind": "next_departure",
+    "from": "317610",
+    "to": "317590"
+  },
+  {
+    "q": "next ferry from hawthorne to north quay",
+    "kind": "next_departure",
+    "from": "317583",
+    "to": "317566"
+  },
+  {
+    "q": "next ferry from howard smith wharves to new farm park",
+    "kind": "next_departure",
+    "from": "317600",
+    "to": "317541"
+  },
+  {
+    "q": "next ferry from northshore hamilton to riverside",
+    "kind": "next_departure",
+    "from": "317582",
+    "to": "317590"
+  },
+  {
+    "q": "next train from roma street to springfield",
+    "kind": "next_departure",
+    "from": "roma-street",
+    "to": "springfield-central"
+  }
+]
