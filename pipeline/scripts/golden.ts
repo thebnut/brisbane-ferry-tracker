@@ -7,8 +7,10 @@ import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
+import { gunzipSync } from 'node:zlib'
 import type { Mode } from '@bft/core'
-import { blobKey } from '../src/build/blobs.ts'
+import { shardOf } from '@bft/core'
+import { blobKey, gzipJson, sha256Hex, shardKey } from '../src/build/blobs.ts'
 import { runBuild } from '../src/build/build.ts'
 import { resolveFeed } from '../src/feed/source.ts'
 
@@ -78,9 +80,19 @@ try {
   const index: Record<string, unknown> = {}
   for (const g of GOLDEN) {
     const idx = res.modes.find((m) => m.mode === g.mode)?.index
-    const sha = idx?.blobs[g.date]?.[g.key]
-    if (!sha) throw new Error(`no blob for ${g.mode} ${g.key} on ${g.date}`)
-    await copyFile(join(work, 'out', blobKey(sha)), join(out, `${g.name}.json.gz`))
+    let sha = idx?.blobs[g.date]?.[g.key]
+    if (sha) await copyFile(join(work, 'out', blobKey(sha)), join(out, `${g.name}.json.gz`))
+    else if (idx?.shards) {
+      // Bus is shards only: re-encode the stop's StaticStopDay exactly as a per-stop blob would be.
+      const shardSha = idx.shards.byDate[g.date]?.[shardOf(g.key, idx.shards.count)]
+      const shard = shardSha
+        ? JSON.parse(gunzipSync(await readFile(join(work, 'out', shardKey(shardSha)))).toString('utf8'))
+        : {}
+      if (!shard[g.key]) throw new Error(`no stop-day for ${g.mode} ${g.key} on ${g.date}`)
+      const gz = gzipJson(JSON.stringify(shard[g.key]))
+      sha = sha256Hex(gz)
+      await writeFile(join(out, `${g.name}.json.gz`), gz)
+    } else throw new Error(`no blob for ${g.mode} ${g.key} on ${g.date}`)
     index[g.name] = { mode: g.mode, stopKey: g.key, serviceDate: g.date, sha256: sha, note: g.note }
   }
   const feedInfo = (await readFile(join(feed.dir, 'feed_info.txt'), 'utf8')).split(/\r?\n/)[1]

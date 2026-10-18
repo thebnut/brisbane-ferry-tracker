@@ -39,6 +39,9 @@ describe('csv', () => {
     expect(parseTime('')).toBe(-1)
     expect(parseTime('7:61:00')).toBe(-2)
     expect(parseTime('noon')).toBe(-2)
+    expect(parseTime('06:00:00garbage')).toBe(-2)
+    expect(parseTime('6:0:00')).toBe(-2)
+    expect(parseTime('06:00')).toBe(-2)
   })
 })
 

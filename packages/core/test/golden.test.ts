@@ -6,7 +6,7 @@ import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { gunzipSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
-import { brisbaneDate, gtfsToEpoch, mergeDepartures, StaticStopDay } from '../src/index.ts'
+import { brisbaneDate, downstreamOf, gtfsToEpoch, mergeDepartures, StaticStopDay } from '../src/index.ts'
 
 const dir = join(import.meta.dirname, '../fixtures/golden')
 const load = (name: string): StaticStopDay =>
@@ -15,8 +15,8 @@ const gzSize = (name: string) => statSync(join(dir, `${name}.json.gz`)).size
 const hhmm = (s: number) => `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}`
 
 /** Downstream [stopIdx, arrOffset, dropOff, seqDelta] quadruples of one event. */
-function downstream(ev: StaticStopDay['events'][number]) {
-  const ds = ev[9]
+function downstream(ev: StaticStopDay['events'][number], day: StaticStopDay) {
+  const ds = downstreamOf(day, ev)
   const out: Array<{ stop: number; arrOffset: number; dropOff: number; seqDelta: number }> = []
   for (let i = 0; i < ds.length; i += 4)
     out.push({
@@ -40,7 +40,7 @@ function checkInvariants(day: StaticStopDay) {
     expect(arrS).toBeLessThanOrEqual(depS)
     expect(depS).toBeGreaterThanOrEqual(prev)
     prev = depS
-    for (const d of downstream(ev)) {
+    for (const d of downstream(ev, day)) {
       expect(day.stops[d.stop]).toBeDefined()
       expect(d.dropOff).not.toBe(1)
       expect(d.seqDelta).toBeGreaterThan(0)
@@ -65,7 +65,7 @@ describe('golden: Bulimba ferry (express vs all-stops)', () => {
     const offsetTo = (short: string) =>
       day.events
         .filter((e) => day.routes[e[4]]?.short === short)
-        .flatMap((e) => downstream(e).filter((d) => d.stop === riverside))
+        .flatMap((e) => downstream(e, day).filter((d) => d.stop === riverside))
         .map((d) => d.arrOffset)
     const express = offsetTo('F11')
     const allStops = offsetTo('F1')
@@ -74,13 +74,13 @@ describe('golden: Bulimba ferry (express vs all-stops)', () => {
     expect(Math.max(...express)).toBeLessThan(Math.min(...allStops))
     // Every express towards Riverside skips the intermediate terminals the all-stops service calls at.
     const exp = day.events.find(
-      (e) => day.routes[e[4]]?.short === 'F11' && downstream(e).some((d) => d.stop === riverside),
+      (e) => day.routes[e[4]]?.short === 'F11' && downstream(e, day).some((d) => d.stop === riverside),
     )
     const all = day.events.find(
-      (e) => day.routes[e[4]]?.short === 'F1' && downstream(e).some((d) => d.stop === riverside),
+      (e) => day.routes[e[4]]?.short === 'F1' && downstream(e, day).some((d) => d.stop === riverside),
     )
     const stopsBefore = (e: typeof exp) =>
-      downstream(e as NonNullable<typeof e>).findIndex((d) => d.stop === riverside)
+      downstream(e as NonNullable<typeof e>, day).findIndex((d) => d.stop === riverside)
     expect(stopsBefore(exp)).toBeLessThan(stopsBefore(all))
   })
   it('merges into departures to Riverside with arrival times', () => {
@@ -119,7 +119,7 @@ describe('golden: Bowen Hills (branching)', () => {
   it('serves several branches from one station', () => {
     checkInvariants(day)
     expect(day.events).toHaveLength(651)
-    const nextStations = new Set(day.events.map((e) => day.stops[downstream(e)[0]?.stop as number]?.key))
+    const nextStations = new Set(day.events.map((e) => day.stops[downstream(e, day)[0]?.stop as number]?.key))
     expect(nextStations.size).toBeGreaterThanOrEqual(5)
     expect(new Set(day.events.map((e) => day.stops[e[6]]?.platform)).size).toBe(4)
   })
@@ -136,7 +136,7 @@ describe('golden: Domestic Airport (end of the line, last trains)', () => {
     expect(day.events.every((e) => e[3] < 86400)).toBe(true)
     // The last arrival downstream of the last departure is still on the same calendar day.
     const last = day.events.at(-1) as StaticStopDay['events'][number]
-    const lastArr = last[3] + Math.max(...downstream(last).map((d) => d.arrOffset))
+    const lastArr = last[3] + Math.max(...downstream(last, day).map((d) => d.arrOffset))
     expect(brisbaneDate(gtfsToEpoch(day.serviceDate, lastArr) * 1000)).toBe('20261023')
   })
 })
@@ -150,10 +150,14 @@ describe('golden: Cultural Centre busway platform 2 (the largest stop)', () => {
     expect(day.routes).toHaveLength(22)
     expect(day.stops[day.events[0]?.[6] as number]).toMatchObject({ id: '11168', platform: '2' })
   })
-  it('stays within the measured size budget', () => {
-    // The brief's target was < 30 KB gz. The contract tuple measures 43.1 KB (fflate level 9) on a Tuesday;
-    // see "Phase 0 measurements" in transit-architecture.md §5 for the options that reach < 30 KB.
-    expect(gzSize('bus-cultural-centre-p2')).toBeLessThan(45 * 1024)
+  it('is under 30 KB gz', () => {
+    // Downstream vectors are deduped per file and downstream-only StopRefs carry no name (transit-architecture.md §5).
+    expect(gzSize('bus-cultural-centre-p2')).toBeLessThan(30 * 1024)
+  })
+  it('names boarding stops only', () => {
+    const boarding = new Set(day.events.map((e) => e[6]))
+    for (const [i, s] of day.stops.entries()) expect(s.name !== undefined).toBe(boarding.has(i))
+    expect(day.downstreams.length).toBeLessThan(day.events.length / 5)
   })
 })
 

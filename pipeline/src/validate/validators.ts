@@ -41,15 +41,15 @@ export const SEQ_GOLDEN_FACTS: GoldenFact[] = [
   { mode: 'bus', key: '10802', label: 'Cultural Centre busway platform 1', minDays: 5 },
 ]
 
+/** `served(mode, date, key)`: whether the build has a stop-day for that stop on that date. */
 export function checkGoldenFacts(
-  indexes: Partial<Record<Mode, GenerationIndex>>,
+  served: (mode: Mode, date: string, key: string) => boolean,
+  dates: string[],
   facts = SEQ_GOLDEN_FACTS,
 ): string[] {
   const out: string[] = []
   for (const f of facts) {
-    const idx = indexes[f.mode]
-    if (!idx) continue
-    const days = Object.values(idx.blobs).filter((m) => f.key in m).length
+    const days = dates.filter((d) => served(f.mode, d, f.key)).length
     if (days < f.minDays)
       out.push(`golden: ${f.label} (${f.mode} ${f.key}) has service on ${days} days, expected ≥ ${f.minDays}`)
   }

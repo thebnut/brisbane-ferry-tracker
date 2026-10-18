@@ -59,6 +59,8 @@ export interface StopTimes {
   dropOff: Uint8Array
   /** Index of each row within its trip's rows in file order (the legacy output keeps file order). */
   fileRank: Int32Array
+  /** 1 where departure_time was blank in the file (before interpolation); the legacy output skips those rows. */
+  depBlank: Uint8Array
 }
 
 export interface Feed {
@@ -93,24 +95,22 @@ const REQUIRED = ['agency.txt', 'stops.txt', 'routes.txt', 'trips.txt', 'stop_ti
 
 /** Parse "HH:MM:SS" (HH may exceed 23) without allocating. -1 for empty, -2 for malformed. */
 export function parseTime(s: string): number {
-  let i = 0
-  const n = s.length
-  while (i < n && s.charCodeAt(i) === 32) i++
-  if (i === n) return -1
-  let h = 0
-  let digits = 0
-  let c = s.charCodeAt(i)
-  while (c >= 48 && c <= 57) {
-    h = h * 10 + c - 48
-    digits++
-    c = s.charCodeAt(++i)
-  }
-  if (digits === 0 || c !== 58) return -2
-  const m = (s.charCodeAt(i + 1) - 48) * 10 + s.charCodeAt(i + 2) - 48
-  if (s.charCodeAt(i + 3) !== 58) return -2
-  const sec = (s.charCodeAt(i + 4) - 48) * 10 + s.charCodeAt(i + 5) - 48
-  if (!(m >= 0 && m < 60 && sec >= 0 && sec < 60)) return -2
-  return h * 3600 + m * 60 + sec
+  const m = TIME_RE.exec(s)
+  if (!m) return s.trim() === '' ? -1 : -2
+  const min = Number(m[2])
+  const sec = Number(m[3])
+  if (min > 59 || sec > 59) return -2
+  return Number(m[1]) * 3600 + min * 60 + sec
+}
+
+/** H:MM:SS with H of 1-3 digits, nothing else but surrounding spaces (Codex PR41 #4: no trailing garbage). */
+const TIME_RE = /^ *(\d{1,3}):(\d{2}):(\d{2}) *$/
+
+/** pickup_type / drop_off_type: empty means 0; anything outside 0-3 is structural corruption. */
+export function parseBoardingRule(s: string | undefined): number {
+  const v = (s ?? '').trim()
+  if (v === '') return 0
+  return v === '0' || v === '1' || v === '2' || v === '3' ? Number(v) : -1
 }
 
 export interface LoadOptions {
@@ -346,8 +346,14 @@ export async function loadFeed(dir: string, opts: LoadOptions = {}): Promise<Fee
           const seq = Number(f[c.seq])
           const arr = parseTime(f[c.arr] as string)
           const dep = parseTime(f[c.dep] as string)
+          const pickup = c.pickup >= 0 ? parseBoardingRule(f[c.pickup]) : 0
+          const dropOff = c.drop >= 0 ? parseBoardingRule(f[c.drop]) : 0
           if (!Number.isInteger(seq) || arr === -2 || dep === -2) {
             problems.push(`stop_times.txt:${line}: unparseable row`)
+            return
+          }
+          if (pickup < 0 || dropOff < 0) {
+            problems.push(`stop_times.txt:${line}: pickup_type/drop_off_type outside 0-3`)
             return
           }
           g.ensure()
@@ -357,8 +363,8 @@ export async function loadFeed(dir: string, opts: LoadOptions = {}): Promise<Fee
           g.seq[n] = seq
           g.arr[n] = arr
           g.dep[n] = dep
-          g.pickup[n] = c.pickup >= 0 ? Number(f[c.pickup] || 0) : 0
-          g.dropOff[n] = c.drop >= 0 ? Number(f[c.drop] || 0) : 0
+          g.pickup[n] = pickup
+          g.dropOff[n] = dropOff
           tripsWithTimes.add(ti)
         },
       )
@@ -414,6 +420,7 @@ function groupByTrip(g: Grow, trips: TripRow[], problems: string[]): StopTimes {
     pickup: new Uint8Array(n),
     dropOff: new Uint8Array(n),
     fileRank: new Int32Array(n),
+    depBlank: new Uint8Array(n),
   }
   for (const trip of trips) {
     const rows = Array.from(order.subarray(trip.start, trip.start + trip.count))
@@ -429,6 +436,7 @@ function groupByTrip(g: Grow, trips: TripRow[], problems: string[]): StopTimes {
       out.pickup[o] = g.pickup[r] as number
       out.dropOff[o] = g.dropOff[r] as number
       out.fileRank[o] = rank.get(r) as number
+      out.depBlank[o] = (g.dep[r] as number) < 0 ? 1 : 0
       if (k > 0 && out.seq[o] === out.seq[o - 1])
         problems.push(`stop_times.txt: trip ${trip.id} repeats stop_sequence ${out.seq[o]}`)
     }

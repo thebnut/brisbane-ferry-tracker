@@ -69,6 +69,7 @@ export function stopDay(serviceDate: string, stopId: string, trips: SynthTrip[])
     routes: [],
     headsigns: [],
     stops: [],
+    downstreams: [],
     events: [],
   }
   const idx = <T>(arr: T[], v: T, eq: (a: T) => boolean) => {
@@ -89,7 +90,7 @@ export function stopDay(serviceDate: string, stopId: string, trips: SynthTrip[])
         const d = t.stops[j] as [string, string]
         const darr = gtfsTimeToSeconds(d[1]) as number
         ds.push(
-          idx(day.stops, { id: d[0], name: d[0] }, (x) => x.id === d[0]),
+          idx(day.stops, { id: d[0] }, (x) => x.id === d[0]),
           darr - dep,
           0,
           (t.seqs?.[j] ?? j + 1) - seq,
@@ -105,7 +106,7 @@ export function stopDay(serviceDate: string, stopId: string, trips: SynthTrip[])
         idx(day.stops, { id: stopId, name: stopId }, (x) => x.id === stopId),
         0,
         t.dir ?? 0,
-        ds,
+        idx(day.downstreams, ds, (x) => x.join() === ds.join()),
       ]
       day.events.push(ev)
     })

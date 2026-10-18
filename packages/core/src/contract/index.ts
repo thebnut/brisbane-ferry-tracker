@@ -54,7 +54,11 @@ export type RouteRef = z.infer<typeof RouteRef>
 
 export const StopRef = z.object({
   id: z.string(),
-  name: z.string(),
+  /**
+   * Present on boarding stops (the platforms events depart from). Omitted on downstream-only stops to keep the
+   * busiest files small; apps take those names from data/{mode}/stops.json.
+   */
+  name: z.string().optional(),
   /** Platform code for rail and busway platforms, if the feed has one. */
   platform: z.string().optional(),
   /** Parent station key (train) or the stop's own key. */
@@ -65,13 +69,15 @@ export type StopRef = z.infer<typeof StopRef>
 /**
  * One stop event, encoded as a positional tuple to keep files small (§3.2):
  *
- *  [tripIdx, stopSequence, arrS, depS, routeIdx, headsignIdx, platformStopIdx, pickupType, directionId, downstream]
+ *  [tripIdx, stopSequence, arrS, depS, routeIdx, headsignIdx, platformStopIdx, pickupType, directionId, downstreamIdx]
  *
  * - `arrS` / `depS`: seconds after the service day's noon-minus-12h reference (GTFS time, can exceed 86400).
  * - `platformStopIdx`: index into `stops`, the boarding stop (the platform, for train stations).
- * - `downstream`: flat list of quadruples `[stopIdx, arrOffsetS, dropOffType, seqDelta]` for every later stop
- *   where alighting is allowed. `arrOffsetS` is downstream arrival minus this event's departure.
- *   `seqDelta` is downstream stop_sequence minus this event's stop_sequence (resolves loops that repeat a stop).
+ * - `downstreamIdx`: index into the file's `downstreams` table. Each entry is a flat list of quadruples
+ *   `[stopIdx, arrOffsetS, dropOffType, seqDelta]` for every later stop where alighting is allowed. `arrOffsetS` is
+ *   downstream arrival minus this event's departure; `seqDelta` is downstream stop_sequence minus this event's
+ *   stop_sequence (resolves loops that repeat a stop). Trips with the same remaining pattern and running times share
+ *   one entry, which is what keeps the busiest stops small. Use `downstreamOf(day, event)` to read it.
  *
  * Events with pickup_type = 1 (no boarding) are excluded by the builder.
  */
@@ -85,7 +91,7 @@ export const StopEventTuple = z.tuple([
   z.number().int().nonnegative(), // platformStopIdx
   BoardingRule, // pickupType
   z.union([z.literal(0), z.literal(1), z.literal(-1)]), // directionId (-1 unknown)
-  z.array(z.number().int()), // downstream quadruples, flattened
+  z.number().int().nonnegative(), // downstreamIdx into StaticStopDay.downstreams
 ])
 export type StopEventTuple = z.infer<typeof StopEventTuple>
 
@@ -99,10 +105,16 @@ export const StaticStopDay = z.object({
   routes: z.array(RouteRef),
   headsigns: z.array(z.string()),
   stops: z.array(StopRef),
+  /** Distinct downstream quadruple lists, referenced by each event's downstreamIdx. */
+  downstreams: z.array(z.array(z.number().int())),
   /** Sorted by depS, then tripIdx. */
   events: z.array(StopEventTuple),
 })
 export type StaticStopDay = z.infer<typeof StaticStopDay>
+
+/** The flattened downstream quadruples of an event (empty if the index is out of range). */
+export const downstreamOf = (day: Pick<StaticStopDay, 'downstreams'>, ev: StopEventTuple): number[] =>
+  day.downstreams[ev[9]] ?? []
 
 const Sha256 = z.string().regex(/^[0-9a-f]{64}$/)
 
@@ -118,15 +130,19 @@ export const GenerationIndex = z.object({
   feedVersion: z.string(),
   builtAt: z.string(),
   serviceDates: z.array(ServiceDate),
-  /** blobs[serviceDate][stopKey] = sha256 hex of the gzip blob bytes, stored at static/blobs/{sha}.json.gz. */
+  /**
+   * blobs[serviceDate][stopKey] = sha256 hex of the gzip blob bytes, stored at static/blobs/{sha}.json.gz.
+   * Empty for sharded modes (bus): those stop-days exist only inside shards, see `shards`.
+   */
   blobs: z.record(ServiceDate, z.record(z.string(), Sha256)),
   /** Per service date TripIndexDay for the RT hub and trip detail, also at static/blobs/{sha}.json.gz. */
   tripIndex: z.record(ServiceDate, Sha256).optional(),
   /**
-   * Bus stop-days grouped into shards, so the static-assets data Worker stays under the Workers Free limit of 20k
-   * files per version (per-stop bus blobs are ~100k files for 8 days). The shard for a stop is
+   * Bus stop-days grouped into shards: per-stop bus blobs would be ~96k files for 8 days, a 7.4 MB index, and the
+   * bulk of R2 Class A writes. The shard for a stop is
    * `byDate[serviceDate][shardOf(stopKey, count)]`, a StaticShard at static/shards/{sha}.json.gz (null = no stops in
-   * that bucket). Readers may use shards or blobs; the assets backend only carries the shards for bus.
+   * that bucket). When `shards` is present it is the only copy: `blobs` has no entries for this mode, so the
+   * index stays small (~33 KB for 8 days of bus instead of 7.4 MB of per-stop hashes).
    */
   shards: z
     .object({

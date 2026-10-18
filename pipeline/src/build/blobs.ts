@@ -1,20 +1,28 @@
 /**
  * Content-addressed gzip blobs: `static/blobs/{sha256}.json.gz` and `static/shards/{sha256}.json.gz`, where the hash
- * is over the gz bytes. Compression is fflate (pure JS) with a fixed level and mtime 0, so the bytes, and therefore
- * the hashes, are identical on every machine and CPU (Node's bundled zlib varies the gzip OS byte by platform).
+ * is over the gz bytes.
+ *
+ * Compression is Node's zlib at level 9 / memLevel 9: about 7% smaller than fflate on the largest stop-days, which is
+ * what keeps Cultural Centre under 30 KB. The header is normalised (mtime 0, OS byte 0xff "unknown"), so output is
+ * byte-identical for the same input on the same platform. zlib doesn't promise an identical deflate stream across
+ * CPU architectures; CI (ubuntu x86-64) is the canonical builder, and a different machine at worst re-uploads blobs.
  */
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { gzipSync } from 'fflate'
+import { constants, gzipSync } from 'node:zlib'
 
 export const GZIP_LEVEL = 9
 
-const enc = new TextEncoder()
-
 export function gzipJson(json: string): Uint8Array {
-  return gzipSync(enc.encode(json), { level: GZIP_LEVEL, mtime: 0 })
+  const gz = gzipSync(json, { level: GZIP_LEVEL, memLevel: 9, strategy: constants.Z_DEFAULT_STRATEGY })
+  gz[4] = 0
+  gz[5] = 0
+  gz[6] = 0
+  gz[7] = 0
+  gz[9] = 0xff
+  return new Uint8Array(gz.buffer, gz.byteOffset, gz.length)
 }
 
 export function sha256Hex(bytes: Uint8Array | string): string {

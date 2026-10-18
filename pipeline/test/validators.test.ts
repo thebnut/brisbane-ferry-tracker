@@ -93,6 +93,18 @@ describe('structural corruption fails closed', () => {
     expect((await structural(f)).join()).toMatch(/unparseable row/)
   })
 
+  it('trailing garbage in a time', async () => {
+    const f = baseFeed()
+    setCell(f, 'stop_times.txt', 2, 2, '06:05:00garbage')
+    expect((await structural(f)).join()).toMatch(/unparseable row/)
+  })
+
+  it('boarding rules outside 0-3', async () => {
+    const f = baseFeed()
+    setCell(f, 'stop_times.txt', 2, 5, '4')
+    expect((await structural(f)).join()).toMatch(/pickup_type\/drop_off_type outside 0-3/)
+  })
+
   it('feed_end_date earlier than today + 7', async () => {
     const f = baseFeed()
     setCell(f, 'feed_info.txt', 1, 4, '20261026')
@@ -101,15 +113,11 @@ describe('structural corruption fails closed', () => {
   })
 
   it('golden facts: a real-feed landmark disappearing', () => {
-    const idx = (blobs: GenerationIndex['blobs']) => ({ blobs }) as GenerationIndex
-    const full = Object.fromEntries(
-      ['1', '2', '3', '4', '5'].map((d) => [`2026102${d}`, { '317584': 'x', '317590': 'x' }]),
-    )
-    expect(checkGoldenFacts({ ferry: idx(full) }).join()).toBe('')
-    const lost = Object.fromEntries(
-      Object.entries(full).map(([d, m]) => [d, d === '20261021' ? { '317590': 'x' } : m]),
-    )
-    expect(checkGoldenFacts({ ferry: idx(lost) }).join()).toMatch(
+    const dates = ['20261021', '20261022', '20261023', '20261024', '20261025']
+    const all = () => true
+    expect(checkGoldenFacts(all, dates)).toEqual([])
+    const lost = (_m: string, d: string, k: string) => !(k === '317584' && d === '20261021')
+    expect(checkGoldenFacts(lost, dates).join()).toMatch(
       /Bulimba ferry terminal \(ferry 317584\) has service on 4 days/,
     )
   })
@@ -158,6 +166,25 @@ describe('plausible service changes are quarantined', () => {
     const promoted = await readJsonFile<Manifest>(out, 'manifest.json')
     expect(promoted.modes.ferry).toMatchObject({ current: ferry?.generation, previous: oldFerry })
     expect(promoted.quarantined).toEqual([])
+  })
+
+  it('accepts a staged generation on a later day when the feed is unchanged, and rejects unknown ids', async () => {
+    const out = await tmp()
+    const dir = await writeFeed(baseFeed())
+    await runBuild({ feedDir: dir, outDir: out, nowMs: NOW })
+    const swung = await writeFeed(fewerFerries())
+    const q = await runBuild({ feedDir: swung, outDir: out, nowMs: NOW })
+    const staged = q.modes.find((m) => m.mode === 'ferry')?.generation as string
+    // Next day: the same feed rebuilds with a new window, so a new generation id, but the accept still applies.
+    const nextDay = NOW + 86_400_000
+    await expect(runBuild({ feedDir: swung, outDir: out, nowMs: nextDay, accept: ['nope'] })).rejects.toThrow(
+      /unknown generation/,
+    )
+    const r = await runBuild({ feedDir: swung, outDir: out, nowMs: nextDay, accept: [staged] })
+    const ferry = r.modes.find((m) => m.mode === 'ferry')
+    expect(ferry?.generation).not.toBe(staged)
+    expect(ferry?.accepted).toBe(true)
+    expect((await readJsonFile<Manifest>(out, 'manifest.json')).modes.ferry?.current).toBe(ferry?.generation)
   })
 
   it('a station losing all service without a calendar_dates explanation', async () => {

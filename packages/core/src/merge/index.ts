@@ -4,6 +4,7 @@
  */
 import {
   type Departure,
+  downstreamOf,
   type RtSnapshot,
   type RtState,
   type StaticStopDay,
@@ -49,7 +50,8 @@ export function mergeDepartures(
 
   for (const day of days) {
     for (const ev of day.events) {
-      const [tripIdx, seq, arrS, depS, routeIdx, headsignIdx, platformIdx, , dir, ds] = ev
+      const [tripIdx, seq, arrS, depS, routeIdx, headsignIdx, platformIdx, , dir] = ev
+      const ds = downstreamOf(day, ev)
       const route = day.routes[routeIdx]
       if (!route) continue
       if (opts.routes && !opts.routes.has(route.short)) continue

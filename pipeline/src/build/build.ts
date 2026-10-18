@@ -10,8 +10,20 @@
 import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { GenerationIndex, Manifest, Mode } from '@bft/core'
-import { addDays, brisbaneDate, SCHEMA_VERSION, shardOf } from '@bft/core'
+import type { Mode } from '@bft/core'
+import {
+  addDays,
+  brisbaneDate,
+  GenerationIndex,
+  GeoTileFile,
+  LinesFile,
+  Manifest,
+  SCHEMA_VERSION,
+  StaticStopDay,
+  StopIndexFile,
+  shardOf,
+  TripIndexDay,
+} from '@bft/core'
 import { readCsvObjects } from '../feed/csv.ts'
 import { type Feed, loadFeed, type TripRow } from '../feed/load.ts'
 import { feedContentHash } from '../feed/source.ts'
@@ -22,7 +34,7 @@ import {
   quarantineReasons,
   StructuralFailure,
 } from '../validate/validators.ts'
-import { BlobWriter, sha256Hex } from './blobs.ts'
+import { BlobWriter, gzipJson, sha256Hex } from './blobs.ts'
 import { buildClientData } from './client-data.ts'
 import { buildStopKeys, type StopKeys } from './keys.ts'
 import { buildLegacyLatest } from './legacy.ts'
@@ -115,12 +127,19 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   const writer = new BlobWriter(opts.outDir)
   const active = new Map(dates.map((date) => [date, feed.calendar.activeServices(date)]))
 
-  const built: Array<{ mode: Mode; index: GenerationIndex; tripsByDate: Map<string, number[]>; windowTrips: Set<number> }> = []
+  const built: Array<{
+    mode: Mode
+    index: GenerationIndex
+    tripsByDate: Map<string, number[]>
+    windowTrips: Set<number>
+    servedKeys: Set<string>
+  }> = []
   for (const mode of modes) {
     const blobs: GenerationIndex['blobs'] = {}
     const shardsByDate: Record<string, Array<string | null>> = {}
     const stats: NonNullable<GenerationIndex['stats']> = {}
     const tripsByDate = new Map<string, number[]>()
+    const servedKeys = new Set<string>()
     const windowTrips = new Set<number>()
     const sharded = SHARDED_MODES.includes(mode)
     for (const date of dates) {
@@ -145,10 +164,16 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
         shardMembers = []
       }
       for (const key of order) {
-        const json = JSON.stringify(stopDayFile(feed, keys, day, key))
-        const info = await writer.put('blob', json)
-        dayBlobs[key] = info.sha
-        opts.onStopDay?.({ mode, date, key, json, gzBytes: info.gzBytes, isNew: info.isNew })
+        const json = JSON.stringify(checked(StaticStopDay, stopDayFile(feed, keys, day, key), `${mode} ${date} ${key}`))
+        // Sharded modes (bus) exist only inside shards: no per-stop blob, no per-stop index entry.
+        if (!sharded) {
+          const info = await writer.put('blob', json)
+          dayBlobs[key] = info.sha
+          opts.onStopDay?.({ mode, date, key, json, gzBytes: info.gzBytes, isNew: info.isNew })
+        } else if (opts.onStopDay) {
+          opts.onStopDay({ mode, date, key, json, gzBytes: gzipJson(json).length, isNew: false })
+        }
+        servedKeys.add(`${date}|${key}`)
         if (sharded) {
           const b = shardOf(key, shardCount)
           if (b !== shardBucket) {
@@ -160,7 +185,7 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
         }
       }
       await flushShard()
-      blobs[date] = sortRecord(dayBlobs)
+      if (!sharded) blobs[date] = sortRecord(dayBlobs)
       if (sharded) shardsByDate[date] = dayShards
     }
     const buildHash = sha256Hex(
@@ -181,23 +206,28 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     if (sharded) index.shards = { count: shardCount, hash: 'fnv1a32', byDate: shardsByDate }
     for (const date of dates) {
       const day = { mode, serviceDate: date, trips: tripsByDate.get(date) as number[], buckets: new Map(), keys: [], events: 0 }
-      const info = await writer.put('blob', JSON.stringify(tripIndexFile(feed, day, generation)))
+      const info = await writer.put(
+        'blob',
+        JSON.stringify(checked(TripIndexDay, tripIndexFile(feed, day, generation), `${mode} ${date} trip index`)),
+      )
       ;(index.tripIndex as Record<string, string>)[date] = info.sha
     }
-    built.push({ mode, index, tripsByDate, windowTrips })
+    built.push({ mode, index, tripsByDate, windowTrips, servedKeys })
     log(`${mode}: generation ${generation}, ${Object.values(stats).reduce((a, s) => a + s.events, 0)} events over 8 days`)
   }
 
   // Structural: golden facts on the real feed.
   const isSeq = opts.golden ?? /translink/i.test(await agencyName(feed))
   if (isSeq) {
-    const problems = checkGoldenFacts(Object.fromEntries(built.map((b) => [b.mode, b.index])))
+    const problems = checkGoldenFacts((mode, date, key) =>
+      Boolean(built.find((b) => b.mode === mode)?.servedKeys.has(`${date}|${key}`)), dates)
     if (problems.length) throw new StructuralFailure(problems)
   }
 
   // Quarantine checks against the previous generation of each mode.
   const previousReader = opts.previous ?? new DirTarget(opts.outDir)
   const prevManifest = await readJson<Manifest>(previousReader, 'manifest.json')
+  const prevStaging = await readJson<Manifest>(previousReader, 'manifest.staging.json')
   const accept = new Set(opts.accept ?? [])
   const results: ModeResult[] = []
   for (const b of built) {
@@ -224,29 +254,47 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
       generation: b.index.generation,
       index: b.index,
       quarantined: reasons,
-      accepted: reasons.length > 0 && accept.has(b.index.generation),
+      accepted: reasons.length > 0 && acceptsGeneration(accept, b.mode, b.index, prevStaging),
     })
   }
 
   // Indexes, then client data (live or staging), then legacy, then manifests.
+  // An accept id must name this build's generation or a staged one from the same feed; anything else is a mistake.
+  for (const id of accept) {
+    const known =
+      results.some((r) => r.generation === id) ||
+      results.some((r) => acceptsGeneration(new Set([id]), r.mode, r.index, prevStaging))
+    if (!known) {
+      const staged = prevStaging?.quarantined.find((q) => q.generation === id)
+      throw new Error(
+        staged
+          ? `--accept ${id}: that ${staged.mode} generation was built from feed ${feedVersionOfGeneration(id)}, ` +
+              `but this build's feed is ${feedVersion}; review this build's quarantine instead`
+          : `--accept ${id}: unknown generation (not this build's and not in manifest.staging.json)`,
+      )
+    }
+  }
+
   // Indexes are immutable once written: a rebuild of the same generation keeps the first builtAt.
   for (const b of built) {
     const key = `static/${b.index.generation}/${b.mode}/index.json`
-    if (!existsSync(join(opts.outDir, key))) await writeOut(key, JSON.stringify(b.index))
+    if (!existsSync(join(opts.outDir, key))) await writeOut(key, JSON.stringify(checked(GenerationIndex, b.index, key)))
   }
   for (const r of results) {
     const b = built.find((x) => x.mode === r.mode) as (typeof built)[number]
     const live = r.quarantined.length === 0 || r.accepted
     const prefix = live ? '' : 'staging/'
     const cd = buildClientData(feed, keys, r.mode, [...b.windowTrips].sort((x, y) => x - y), r.generation)
-    await writeOut(`${prefix}data/${r.mode}/stops.json`, JSON.stringify(cd.stops))
-    await writeOut(`${prefix}data/${r.mode}/lines.json`, JSON.stringify(cd.lines))
-    for (const tile of cd.geo) await writeOut(`${prefix}data/${r.mode}/geo/${tile.geohash}.json`, JSON.stringify(tile))
+    await writeOut(`${prefix}data/${r.mode}/stops.json`, JSON.stringify(checked(StopIndexFile, cd.stops, `${r.mode} stops.json`)))
+    await writeOut(`${prefix}data/${r.mode}/lines.json`, JSON.stringify(checked(LinesFile, cd.lines, `${r.mode} lines.json`)))
+    for (const tile of cd.geo) await writeOut(`${prefix}data/${r.mode}/geo/${tile.geohash}.json`, JSON.stringify(checked(GeoTileFile, tile, `${r.mode} geo ${tile.geohash}`)))
     if (r.mode === 'ferry' && opts.legacy !== false)
       await writeOut(`${prefix}legacy/latest.json`, buildLegacyLatest(feed, opts.nowMs))
   }
 
   const { manifest, staging } = nextManifests(prevManifest, results, builtAt)
+  checked(Manifest, manifest, 'manifest.json')
+  if (staging) checked(Manifest, staging, 'manifest.staging.json')
   if (staging) await writeOut('manifest.staging.json', JSON.stringify(staging, null, 2))
   await writeOut('manifest.json', JSON.stringify(manifest, null, 2))
 
@@ -334,3 +382,33 @@ function closureExplainer(feed: Feed, keys: StopKeys, mode: Mode): (key: string,
   }
 }
 
+
+/** "{start}-{end}-{sha8}-{build12}" → "{start}-{end}-{sha8}". */
+export function feedVersionOfGeneration(generation: string): string {
+  return generation.replace(/-[0-9a-f]{12}$/, '')
+}
+
+/**
+ * Accept promotes a quarantined mode when the id is this build's generation, or a generation quarantined in the
+ * previous staging manifest for the same mode and the same feed content (the next day's run rebuilds the same feed
+ * with a new date window, hence a new generation id; Codex PR41 #2).
+ */
+export function acceptsGeneration(
+  accept: Set<string>,
+  mode: Mode,
+  index: GenerationIndex,
+  prevStaging: Manifest | null,
+): boolean {
+  if (accept.has(index.generation)) return true
+  for (const q of prevStaging?.quarantined ?? [])
+    if (q.mode === mode && accept.has(q.generation) && feedVersionOfGeneration(q.generation) === index.feedVersion)
+      return true
+  return false
+}
+
+/** Contract check of every output before it is written (Codex PR41 #1): a violation is structural, exit 2. */
+function checked<T>(schema: { safeParse(v: unknown): { success: boolean; error?: { message: string } } }, value: T, what: string): T {
+  const r = schema.safeParse(value)
+  if (!r.success) throw new StructuralFailure([`output ${what} violates the contract: ${r.error?.message.slice(0, 500)}`])
+  return value
+}

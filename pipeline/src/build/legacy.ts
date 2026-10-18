@@ -159,6 +159,8 @@ export function buildLegacyLatest(feed: Feed, nowMs: number): string {
     const rows: number[] = []
     for (let r = trip.start; r < trip.start + trip.count; r++) rows[st.fileRank[r] as number] = r
     for (const r of rows) {
+      // The script parses departure_time as written: a blank one yields an Invalid Date that no filter keeps.
+      if (st.depBlank[r]) continue
       for (const [date, services] of active) {
         if (!services.includes(trip.serviceId)) continue
         const dep = st.dep[r] as number

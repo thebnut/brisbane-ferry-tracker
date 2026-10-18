@@ -10,7 +10,7 @@ import type {
   StopIndexFile,
   TripIndexDay,
 } from '@bft/core'
-import { shardOf } from '@bft/core'
+import { downstreamOf, StaticStopDay as StaticStopDaySchema, shardOf } from '@bft/core'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { blobKey, shardKey } from '../src/build/blobs.ts'
 import { type BuildResult, runBuild, windowDates } from '../src/build/build.ts'
@@ -25,8 +25,15 @@ let feedDir: string
 let out: string
 let res: BuildResult
 const index = (mode: string) => res.modes.find((m) => m.mode === mode)?.index as GenerationIndex
-const day = async (mode: string, key: string, date = D): Promise<StaticStopDay> =>
-  readGz(out, blobKey(index(mode).blobs[date]?.[key] as string))
+/** A stop-day from its per-stop blob, or for sharded modes (bus) from its shard. */
+const day = async (mode: string, key: string, date = D): Promise<StaticStopDay> => {
+  const idx = index(mode)
+  if (idx.shards) {
+    const sha = idx.shards.byDate[date]?.[shardOf(key, idx.shards.count)] as string
+    return (await readGz(out, shardKey(sha)))[key]
+  }
+  return readGz(out, blobKey(idx.blobs[date]?.[key] as string))
+}
 
 beforeAll(async () => {
   feedDir = await writeFeed(baseFeed())
@@ -81,7 +88,8 @@ describe('stop-day files', () => {
     const hawthorne = f.stops.findIndex((s) => s.id === '317586')
     expect(hawthorne).toBe(-1) // drop_off_type=1 there, so no downstream entry and no stop ref
     for (const ev of f.events) {
-      const [, seq, , dep, routeIdx, , platformIdx, pickup, dir, ds] = ev
+      const [, seq, , dep, routeIdx, , platformIdx, pickup, dir] = ev
+      const ds = downstreamOf(f, ev)
       expect(f.stops[platformIdx]?.id).toBe('317584')
       expect(pickup).toBe(0)
       expect(dir).toBe(1)
@@ -124,7 +132,9 @@ describe('stop-day files', () => {
         platform: '2',
         key: 'central',
       })
-    const downstreamKeys = c.events[0]?.[9].filter((_, i) => i % 4 === 0).map((i) => c.stops[i]?.key)
+    const downstreamKeys = downstreamOf(c, c.events[0] as StaticStopDay['events'][number])
+      .filter((_, i) => i % 4 === 0)
+      .map((i) => c.stops[i]?.key)
     expect(downstreamKeys).toEqual(['bowen-hills', 'domestic-airport'])
   })
 
@@ -139,7 +149,7 @@ describe('stop-day files', () => {
     const f = await day('bus', '1001')
     const loop = f.events.find((e) => f.trips[e[0]] === 'B400-loop') as StaticStopDay['events'][number]
     expect(loop).toBeDefined()
-    const ds = loop[9]
+    const ds = downstreamOf(f, loop)
     const quads = Array.from({ length: ds.length / 4 }, (_, i) => ds.slice(i * 4, i * 4 + 4))
     expect(quads.map((q) => [f.stops[q[0] as number]?.id, q[1], q[3]])).toEqual([
       ['1002', 300, 10],
@@ -180,19 +190,29 @@ describe('trip index, shards and stats', () => {
     ])
   })
 
-  it('bus shards hold the same stop-day files as the per-stop blobs', async () => {
+  it('bus is shards only: no per-stop blobs, every served stop in its bucket', async () => {
     const idx = index('bus')
     const shards = idx.shards as NonNullable<GenerationIndex['shards']>
     expect(shards).toMatchObject({ count: 512, hash: 'fnv1a32' })
     expect(shards.byDate[D]).toHaveLength(512)
-    const keys = Object.keys(idx.blobs[D] ?? {})
+    expect(idx.blobs).toEqual({})
+    const keys = ['10802', '1001', '1002']
     for (const key of keys) {
       const sha = shards.byDate[D]?.[shardOf(key, shards.count)] as string
       const shard = await readGz(out, shardKey(sha))
-      expect(shard[key]).toEqual(await readGz(out, blobKey(idx.blobs[D]?.[key] as string)))
+      expect(StaticStopDaySchema.parse(shard[key]).stopKey).toBe(key)
     }
-    expect(shards.byDate[D]?.filter(Boolean)).toHaveLength(new Set(keys.map((k) => shardOf(k, 512))).size)
+    expect(shards.byDate[D]?.filter(Boolean).length).toBeLessThanOrEqual(keys.length)
     expect(index('ferry').shards).toBeUndefined()
+    expect(Object.keys(index('ferry').blobs[D] ?? {}).length).toBeGreaterThan(0)
+  })
+
+  it('dedupes downstream vectors and names only boarding stops', async () => {
+    const f = await day('ferry', '317584')
+    // 8 departures, two distinct remaining patterns (F1 and F11 to Riverside).
+    expect(f.downstreams).toHaveLength(2)
+    expect(f.stops.find((s) => s.id === '317584')?.name).toBe('Bulimba ferry terminal')
+    expect(f.stops.find((s) => s.id === '317590')).toEqual({ id: '317590' })
   })
 
   it('records per-date stats', () => {

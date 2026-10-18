@@ -48,6 +48,15 @@ describe('legacy latest.json', () => {
     expect(withoutGenerated(ours)).toBe(withoutGenerated(theirs))
   }, 60_000)
 
+  it('matches when an intermediate departure time is blank (the script drops that row)', async () => {
+    const f = baseFeed()
+    const row = (f['stop_times.txt'] as string[][]).find((r) => r[0] === 'F1-0' && r[4] === '20') as string[]
+    row[1] = ''
+    row[2] = ''
+    const { ours, theirs } = await compare(await synthZip(f), NOW)
+    expect(withoutGenerated(ours)).toBe(withoutGenerated(theirs))
+  }, 60_000)
+
   it('matches at a late-evening build instant too', async () => {
     const { ours, theirs } = await compare(await synthZip(baseFeed()), Date.parse('2026-10-20T13:59:59.123Z'))
     expect(withoutGenerated(ours)).toBe(withoutGenerated(theirs))

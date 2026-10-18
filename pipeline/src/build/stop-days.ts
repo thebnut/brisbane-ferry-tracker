@@ -106,10 +106,14 @@ export function stopDayFile(feed: Feed, keys: StopKeys, day: ModeDay, stopKey: s
   const routes = new Interner<RouteRef>()
   const headsigns = new Interner<string>()
   const stops = new Interner<StopRef>()
+  const downstreams = new Interner<number[]>()
+  // Only boarding stops carry a name; downstream-only stops are named by data/{mode}/stops.json.
+  const boarding = new Set(evs.map(([, r]) => st.stop[r] as number))
   const stopRef = (si: number): number => {
     const s = feed.stops[si] as StopRow
     return stops.get(s.id, () => {
-      const ref: StopRef = { id: s.id, name: s.name }
+      const ref: StopRef = { id: s.id }
+      if (boarding.has(si)) ref.name = s.name
       if (s.platformCode) ref.platform = s.platformCode
       const k = keys.keyOf(day.mode, si)
       if (k !== s.id) ref.key = k
@@ -144,10 +148,11 @@ export function stopDayFile(feed: Feed, keys: StopKeys, day: ModeDay, stopKey: s
       platformIdx,
       st.pickup[r] as 0 | 2 | 3,
       t.directionId,
-      downstream,
+      downstreams.get(downstream.join(','), () => downstream),
     ])
   }
 
+  const table = orderDownstreams(downstreams.items, events)
   return {
     schemaVersion: SCHEMA_VERSION,
     mode: day.mode,
@@ -157,6 +162,7 @@ export function stopDayFile(feed: Feed, keys: StopKeys, day: ModeDay, stopKey: s
     routes: routes.items,
     headsigns: headsigns.items,
     stops: stops.items,
+    downstreams: table,
     events,
   }
 }
@@ -198,4 +204,28 @@ export function tripIndexFile(feed: Feed, day: ModeDay, generation: string): Tri
     stops: stops.items,
     trips,
   }
+}
+
+/**
+ * Order the downstream table by stop pattern, then by content, and remap the events' indexes. Similar vectors end up
+ * adjacent, which gzip compresses better (Cultural Centre platform 2: 32.3 KB → 29.9 KB). Deterministic.
+ */
+function orderDownstreams(table: number[][], events: StopEventTuple[]): number[][] {
+  const pattern = (d: number[]) => d.filter((_, i) => i % 4 === 0)
+  const lex = (x: number[], y: number[]) => {
+    for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return (x[i] as number) - (y[i] as number)
+    return x.length - y.length
+  }
+  const order = table.map((_, i) => i)
+  order.sort((a, b) => {
+    const x = table[a] as number[]
+    const y = table[b] as number[]
+    return lex(pattern(x), pattern(y)) || lex(x, y)
+  })
+  const newIdx = new Array<number>(table.length)
+  order.forEach((old, i) => {
+    newIdx[old] = i
+  })
+  for (const ev of events) ev[9] = newIdx[ev[9]] as number
+  return order.map((i) => table[i] as number[])
 }
