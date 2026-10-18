@@ -177,7 +177,10 @@ describe('RtHub snapshot', () => {
   it('keeps a cancellation until the trip’s scheduled end after the feed drops it', async () => {
     const h = setup()
     await warm(h)
-    h.up.set(TU, feed(h.nowS(), [tripUpdate('c', { tripId: 'T2', startDate: D, scheduleRelationship: 3 }, [])]))
+    h.up.set(
+      TU,
+      feed(h.nowS(), [tripUpdate('c', { tripId: 'T2', startDate: D, scheduleRelationship: 3 }, [])]),
+    )
     await h.hub.alarm()
     // Feed drops the cancellation.
     h.clock.advance(CYCLE_MS)
@@ -285,7 +288,9 @@ describe('RtHub snapshot', () => {
 
   it('chunks large raw feeds and snapshots across storage values', async () => {
     const h = setup()
-    const big = feed(h.nowS(), [{ ...vehicle('V1', 'T1', D, -27.45, 153.05), id: 'x'.repeat(2.5 * (1 << 20)) }])
+    const big = feed(h.nowS(), [
+      { ...vehicle('V1', 'T1', D, -27.45, 153.05), id: 'x'.repeat(2.5 * (1 << 20)) },
+    ])
     h.up.set(VP, big)
     await h.hub.alarm()
     expect(h.storage.data.has(`raw:${VP}:2`)).toBe(true)

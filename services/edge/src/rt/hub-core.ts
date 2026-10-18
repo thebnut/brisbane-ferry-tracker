@@ -248,7 +248,10 @@ export class HubCore {
         errors.push(`${f.key}: decode failed: ${errorMessage(e)}`)
       }
     })
-    if (due.some((f) => f.kind === 'alerts') && !fetched.some((r, i) => due[i]?.kind === 'alerts' && r.error)) {
+    if (
+      due.some((f) => f.kind === 'alerts') &&
+      !fetched.some((r, i) => due[i]?.kind === 'alerts' && r.error)
+    ) {
       this.meta.alertsAt = now
     }
 

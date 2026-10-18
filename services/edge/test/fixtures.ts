@@ -149,8 +149,22 @@ export function feed(timestamp: number, entities: EntityInit[]): Uint8Array {
 
 export const tripUpdate = (
   id: string,
-  trip: { tripId?: string; startDate?: string; startTime?: string; routeId?: string; scheduleRelationship?: number },
-  stus: Array<{ seq?: number; stopId?: string; arrTime?: number; depTime?: number; arrDelay?: number; depDelay?: number; rel?: number }>,
+  trip: {
+    tripId?: string
+    startDate?: string
+    startTime?: string
+    routeId?: string
+    scheduleRelationship?: number
+  },
+  stus: Array<{
+    seq?: number
+    stopId?: string
+    arrTime?: number
+    depTime?: number
+    arrDelay?: number
+    depDelay?: number
+    rel?: number
+  }>,
   vehicleId?: string,
 ): EntityInit => ({
   id,
@@ -181,9 +195,19 @@ export const tripUpdate = (
   },
 })
 
-export const vehicle = (id: string, tripId: string, startDate: string, lat: number, lon: number): EntityInit => ({
+export const vehicle = (
+  id: string,
+  tripId: string,
+  startDate: string,
+  lat: number,
+  lon: number,
+): EntityInit => ({
   id,
-  vehicle: { trip: { tripId, startDate }, vehicle: { id, label: id }, position: { latitude: lat, longitude: lon } },
+  vehicle: {
+    trip: { tripId, startDate },
+    vehicle: { id, label: id },
+    position: { latitude: lat, longitude: lon },
+  },
 })
 
 export const alert = (id: string, header: string, routeId?: string): EntityInit => ({
@@ -213,7 +237,9 @@ export class FakeUpstream {
     this.calls.push({ path, ifNoneMatch: inm })
     if (this.hang.has(path)) {
       return new Promise((_, reject) => {
-        init?.signal?.addEventListener('abort', () => reject(new Error('The operation was aborted due to timeout')))
+        init?.signal?.addEventListener('abort', () =>
+          reject(new Error('The operation was aborted due to timeout')),
+        )
       })
     }
     if (this.fail.has(path)) return new Response('boom', { status: 502 })

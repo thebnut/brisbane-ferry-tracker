@@ -26,33 +26,33 @@
 // @generated from file gtfs-realtime.proto (package transit_realtime, syntax proto2)
 /* eslint-disable */
 
-import { enumDesc, fileDesc, messageDesc, tsEnum } from '@bufbuild/protobuf/codegenv2'
+import { enumDesc, fileDesc, messageDesc, tsEnum } from "@bufbuild/protobuf/codegenv2";
 
 /**
  * Describes the file gtfs-realtime.proto.
  */
-export const file_gtfs_realtime =
-  /*@__PURE__*/
-  fileDesc(
-    'ChNndGZzLXJlYWx0aW1lLnByb3RvEhB0cmFuc2l0X3JlYWx0aW1lInkKC0ZlZWRNZXNzYWdlEiwKBmhlYWRlchgBIAIoCzIcLnRyYW5zaXRfcmVhbHRpbWUuRmVlZEhlYWRlchIsCgZlbnRpdHkYAiADKAsyHC50cmFuc2l0X3JlYWx0aW1lLkZlZWRFbnRpdHkqBgjoBxDQDyoGCKhGEJBOIu0BCgpGZWVkSGVhZGVyEh0KFWd0ZnNfcmVhbHRpbWVfdmVyc2lvbhgBIAIoCRJRCg5pbmNyZW1lbnRhbGl0eRgCIAEoDjIrLnRyYW5zaXRfcmVhbHRpbWUuRmVlZEhlYWRlci5JbmNyZW1lbnRhbGl0eToMRlVMTF9EQVRBU0VUEhEKCXRpbWVzdGFtcBgDIAEoBBIUCgxmZWVkX3ZlcnNpb24YBCABKAkiNAoOSW5jcmVtZW50YWxpdHkSEAoMRlVMTF9EQVRBU0VUEAASEAoMRElGRkVSRU5USUFMEAEqBgjoBxDQDyoGCKhGEJBOIuECCgpGZWVkRW50aXR5EgoKAmlkGAEgAigJEhkKCmlzX2RlbGV0ZWQYAiABKAg6BWZhbHNlEjEKC3RyaXBfdXBkYXRlGAMgASgLMhwudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlEjIKB3ZlaGljbGUYBCABKAsyIS50cmFuc2l0X3JlYWx0aW1lLlZlaGljbGVQb3NpdGlvbhImCgVhbGVydBgFIAEoCzIXLnRyYW5zaXRfcmVhbHRpbWUuQWxlcnQSJgoFc2hhcGUYBiABKAsyFy50cmFuc2l0X3JlYWx0aW1lLlNoYXBlEiQKBHN0b3AYByABKAsyFi50cmFuc2l0X3JlYWx0aW1lLlN0b3ASPwoSdHJpcF9tb2RpZmljYXRpb25zGAggASgLMiMudHJhbnNpdF9yZWFsdGltZS5UcmlwTW9kaWZpY2F0aW9ucyoGCOgHENAPKgYIqEYQkE4i9gsKClRyaXBVcGRhdGUSLgoEdHJpcBgBIAIoCzIgLnRyYW5zaXRfcmVhbHRpbWUuVHJpcERlc2NyaXB0b3ISNAoHdmVoaWNsZRgDIAEoCzIjLnRyYW5zaXRfcmVhbHRpbWUuVmVoaWNsZURlc2NyaXB0b3ISRQoQc3RvcF90aW1lX3VwZGF0ZRgCIAMoCzIrLnRyYW5zaXRfcmVhbHRpbWUuVHJpcFVwZGF0ZS5TdG9wVGltZVVwZGF0ZRIRCgl0aW1lc3RhbXAYBCABKAQSDQoFZGVsYXkYBSABKAUSRAoPdHJpcF9wcm9wZXJ0aWVzGAYgASgLMisudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlLlRyaXBQcm9wZXJ0aWVzGmkKDVN0b3BUaW1lRXZlbnQSDQoFZGVsYXkYASABKAUSDAoEdGltZRgCIAEoAxITCgt1bmNlcnRhaW50eRgDIAEoBRIWCg5zY2hlZHVsZWRfdGltZRgEIAEoAyoGCOgHENAPKgYIqEYQkE4auQcKDlN0b3BUaW1lVXBkYXRlEhUKDXN0b3Bfc2VxdWVuY2UYASABKA0SDwoHc3RvcF9pZBgEIAEoCRI7CgdhcnJpdmFsGAIgASgLMioudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlLlN0b3BUaW1lRXZlbnQSPQoJZGVwYXJ0dXJlGAMgASgLMioudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlLlN0b3BUaW1lRXZlbnQSVQoaZGVwYXJ0dXJlX29jY3VwYW5jeV9zdGF0dXMYByABKA4yMS50cmFuc2l0X3JlYWx0aW1lLlZlaGljbGVQb3NpdGlvbi5PY2N1cGFuY3lTdGF0dXMSagoVc2NoZWR1bGVfcmVsYXRpb25zaGlwGAUgASgOMkAudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlLlN0b3BUaW1lVXBkYXRlLlNjaGVkdWxlUmVsYXRpb25zaGlwOglTQ0hFRFVMRUQSXAoUc3RvcF90aW1lX3Byb3BlcnRpZXMYBiABKAsyPi50cmFuc2l0X3JlYWx0aW1lLlRyaXBVcGRhdGUuU3RvcFRpbWVVcGRhdGUuU3RvcFRpbWVQcm9wZXJ0aWVzGv8CChJTdG9wVGltZVByb3BlcnRpZXMSGAoQYXNzaWduZWRfc3RvcF9pZBgBIAEoCRIVCg1zdG9wX2hlYWRzaWduGAIgASgJEmUKC3BpY2t1cF90eXBlGAMgASgOMlAudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlLlN0b3BUaW1lVXBkYXRlLlN0b3BUaW1lUHJvcGVydGllcy5Ecm9wT2ZmUGlja3VwVHlwZRJnCg1kcm9wX29mZl90eXBlGAQgASgOMlAudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlLlN0b3BUaW1lVXBkYXRlLlN0b3BUaW1lUHJvcGVydGllcy5Ecm9wT2ZmUGlja3VwVHlwZSJYChFEcm9wT2ZmUGlja3VwVHlwZRILCgdSRUdVTEFSEAASCAoETk9ORRABEhAKDFBIT05FX0FHRU5DWRACEhoKFkNPT1JESU5BVEVfV0lUSF9EUklWRVIQAyoGCOgHENAPKgYIqEYQkE4iUAoUU2NoZWR1bGVSZWxhdGlvbnNoaXASDQoJU0NIRURVTEVEEAASCwoHU0tJUFBFRBABEgsKB05PX0RBVEEQAhIPCgtVTlNDSEVEVUxFRBADKgYI6AcQ0A8qBgioRhCQThqbAQoOVHJpcFByb3BlcnRpZXMSDwoHdHJpcF9pZBgBIAEoCRISCgpzdGFydF9kYXRlGAIgASgJEhIKCnN0YXJ0X3RpbWUYAyABKAkSEAoIc2hhcGVfaWQYBCABKAkSFQoNdHJpcF9oZWFkc2lnbhgFIAEoCRIXCg90cmlwX3Nob3J0X25hbWUYBiABKAkqBgjoBxDQDyoGCKhGEJBOKgYI6AcQ0A8qBgioRhCQTiLfCQoPVmVoaWNsZVBvc2l0aW9uEi4KBHRyaXAYASABKAsyIC50cmFuc2l0X3JlYWx0aW1lLlRyaXBEZXNjcmlwdG9yEjQKB3ZlaGljbGUYCCABKAsyIy50cmFuc2l0X3JlYWx0aW1lLlZlaGljbGVEZXNjcmlwdG9yEiwKCHBvc2l0aW9uGAIgASgLMhoudHJhbnNpdF9yZWFsdGltZS5Qb3NpdGlvbhIdChVjdXJyZW50X3N0b3Bfc2VxdWVuY2UYAyABKA0SDwoHc3RvcF9pZBgHIAEoCRJaCg5jdXJyZW50X3N0YXR1cxgEIAEoDjIzLnRyYW5zaXRfcmVhbHRpbWUuVmVoaWNsZVBvc2l0aW9uLlZlaGljbGVTdG9wU3RhdHVzOg1JTl9UUkFOU0lUX1RPEhEKCXRpbWVzdGFtcBgFIAEoBBJLChBjb25nZXN0aW9uX2xldmVsGAYgASgOMjEudHJhbnNpdF9yZWFsdGltZS5WZWhpY2xlUG9zaXRpb24uQ29uZ2VzdGlvbkxldmVsEksKEG9jY3VwYW5jeV9zdGF0dXMYCSABKA4yMS50cmFuc2l0X3JlYWx0aW1lLlZlaGljbGVQb3NpdGlvbi5PY2N1cGFuY3lTdGF0dXMSHAoUb2NjdXBhbmN5X3BlcmNlbnRhZ2UYCiABKA0SUQoWbXVsdGlfY2FycmlhZ2VfZGV0YWlscxgLIAMoCzIxLnRyYW5zaXRfcmVhbHRpbWUuVmVoaWNsZVBvc2l0aW9uLkNhcnJpYWdlRGV0YWlscxrZAQoPQ2FycmlhZ2VEZXRhaWxzEgoKAmlkGAEgASgJEg0KBWxhYmVsGAIgASgJEl4KEG9jY3VwYW5jeV9zdGF0dXMYAyABKA4yMS50cmFuc2l0X3JlYWx0aW1lLlZlaGljbGVQb3NpdGlvbi5PY2N1cGFuY3lTdGF0dXM6EU5PX0RBVEFfQVZBSUxBQkxFEiAKFG9jY3VwYW5jeV9wZXJjZW50YWdlGAQgASgFOgItMRIZChFjYXJyaWFnZV9zZXF1ZW5jZRgFIAEoDSoGCOgHENAPKgYIqEYQkE4iRwoRVmVoaWNsZVN0b3BTdGF0dXMSDwoLSU5DT01JTkdfQVQQABIOCgpTVE9QUEVEX0FUEAESEQoNSU5fVFJBTlNJVF9UTxACIn0KD0Nvbmdlc3Rpb25MZXZlbBIcChhVTktOT1dOX0NPTkdFU1RJT05fTEVWRUwQABIUChBSVU5OSU5HX1NNT09USExZEAESDwoLU1RPUF9BTkRfR08QAhIOCgpDT05HRVNUSU9OEAMSFQoRU0VWRVJFX0NPTkdFU1RJT04QBCLZAQoPT2NjdXBhbmN5U3RhdHVzEgkKBUVNUFRZEAASGAoUTUFOWV9TRUFUU19BVkFJTEFCTEUQARIXChNGRVdfU0VBVFNfQVZBSUxBQkxFEAISFgoSU1RBTkRJTkdfUk9PTV9PTkxZEAMSHgoaQ1JVU0hFRF9TVEFORElOR19ST09NX09OTFkQBBIICgRGVUxMEAUSHAoYTk9UX0FDQ0VQVElOR19QQVNTRU5HRVJTEAYSFQoRTk9fREFUQV9BVkFJTEFCTEUQBxIRCg1OT1RfQk9BUkRBQkxFEAgqBgjoBxDQDyoGCKhGEJBOIvELCgVBbGVydBI2Cg1hY3RpdmVfcGVyaW9kGAEgAygLMhsudHJhbnNpdF9yZWFsdGltZS5UaW1lUmFuZ2VCAhgBEjkKFGNvbW11bmljYXRpb25fcGVyaW9kGAIgAygLMhsudHJhbnNpdF9yZWFsdGltZS5UaW1lUmFuZ2USMgoNaW1wYWN0X3BlcmlvZBgDIAMoCzIbLnRyYW5zaXRfcmVhbHRpbWUuVGltZVJhbmdlEjkKD2luZm9ybWVkX2VudGl0eRgFIAMoCzIgLnRyYW5zaXRfcmVhbHRpbWUuRW50aXR5U2VsZWN0b3ISOwoFY2F1c2UYBiABKA4yHS50cmFuc2l0X3JlYWx0aW1lLkFsZXJ0LkNhdXNlOg1VTktOT1dOX0NBVVNFEj4KBmVmZmVjdBgHIAEoDjIeLnRyYW5zaXRfcmVhbHRpbWUuQWxlcnQuRWZmZWN0Og5VTktOT1dOX0VGRkVDVBIvCgN1cmwYCCABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSNwoLaGVhZGVyX3RleHQYCiABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSPAoQZGVzY3JpcHRpb25fdGV4dBgLIAEoCzIiLnRyYW5zaXRfcmVhbHRpbWUuVHJhbnNsYXRlZFN0cmluZxI7Cg90dHNfaGVhZGVyX3RleHQYDCABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSQAoUdHRzX2Rlc2NyaXB0aW9uX3RleHQYDSABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSTwoOc2V2ZXJpdHlfbGV2ZWwYDiABKA4yJS50cmFuc2l0X3JlYWx0aW1lLkFsZXJ0LlNldmVyaXR5TGV2ZWw6EFVOS05PV05fU0VWRVJJVFkSMAoFaW1hZ2UYDyABKAsyIS50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRJbWFnZRJCChZpbWFnZV9hbHRlcm5hdGl2ZV90ZXh0GBAgASgLMiIudHJhbnNpdF9yZWFsdGltZS5UcmFuc2xhdGVkU3RyaW5nEjgKDGNhdXNlX2RldGFpbBgRIAEoCzIiLnRyYW5zaXRfcmVhbHRpbWUuVHJhbnNsYXRlZFN0cmluZxI5Cg1lZmZlY3RfZGV0YWlsGBIgASgLMiIudHJhbnNpdF9yZWFsdGltZS5UcmFuc2xhdGVkU3RyaW5nIusBCgVDYXVzZRIRCg1VTktOT1dOX0NBVVNFEAESDwoLT1RIRVJfQ0FVU0UQAhIVChFURUNITklDQUxfUFJPQkxFTRADEgoKBlNUUklLRRAEEhEKDURFTU9OU1RSQVRJT04QBRIMCghBQ0NJREVOVBAGEgsKB0hPTElEQVkQBxILCgdXRUFUSEVSEAgSDwoLTUFJTlRFTkFOQ0UQCRIQCgxDT05TVFJVQ1RJT04QChITCg9QT0xJQ0VfQUNUSVZJVFkQCxIVChFNRURJQ0FMX0VNRVJHRU5DWRAMEhEKDVNQRUNJQUxfRVZFTlQQDSLdAQoGRWZmZWN0Eg4KCk5PX1NFUlZJQ0UQARITCg9SRURVQ0VEX1NFUlZJQ0UQAhIWChJTSUdOSUZJQ0FOVF9ERUxBWVMQAxIKCgZERVRPVVIQBBIWChJBRERJVElPTkFMX1NFUlZJQ0UQBRIUChBNT0RJRklFRF9TRVJWSUNFEAYSEAoMT1RIRVJfRUZGRUNUEAcSEgoOVU5LTk9XTl9FRkZFQ1QQCBIOCgpTVE9QX01PVkVEEAkSDQoJTk9fRUZGRUNUEAoSFwoTQUNDRVNTSUJJTElUWV9JU1NVRRALIkgKDVNldmVyaXR5TGV2ZWwSFAoQVU5LTk9XTl9TRVZFUklUWRABEggKBElORk8QAhILCgdXQVJOSU5HEAMSCgoGU0VWRVJFEAQqBgjoBxDQDyoGCKhGEJBOIjcKCVRpbWVSYW5nZRINCgVzdGFydBgBIAEoBBILCgNlbmQYAiABKAQqBgjoBxDQDyoGCKhGEJBOInEKCFBvc2l0aW9uEhAKCGxhdGl0dWRlGAEgAigCEhEKCWxvbmdpdHVkZRgCIAIoAhIPCgdiZWFyaW5nGAMgASgCEhAKCG9kb21ldGVyGAQgASgBEg0KBXNwZWVkGAUgASgCKgYI6AcQ0A8qBgioRhCQTiK3BAoOVHJpcERlc2NyaXB0b3ISDwoHdHJpcF9pZBgBIAEoCRIQCghyb3V0ZV9pZBgFIAEoCRIUCgxkaXJlY3Rpb25faWQYBiABKA0SEgoKc3RhcnRfdGltZRgCIAEoCRISCgpzdGFydF9kYXRlGAMgASgJElQKFXNjaGVkdWxlX3JlbGF0aW9uc2hpcBgEIAEoDjI1LnRyYW5zaXRfcmVhbHRpbWUuVHJpcERlc2NyaXB0b3IuU2NoZWR1bGVSZWxhdGlvbnNoaXASTAoNbW9kaWZpZWRfdHJpcBgHIAEoCzI1LnRyYW5zaXRfcmVhbHRpbWUuVHJpcERlc2NyaXB0b3IuTW9kaWZpZWRUcmlwU2VsZWN0b3IaggEKFE1vZGlmaWVkVHJpcFNlbGVjdG9yEhgKEG1vZGlmaWNhdGlvbnNfaWQYASABKAkSGAoQYWZmZWN0ZWRfdHJpcF9pZBgCIAEoCRISCgpzdGFydF90aW1lGAMgASgJEhIKCnN0YXJ0X2RhdGUYBCABKAkqBgjoBxDQDyoGCKhGEJBOIooBChRTY2hlZHVsZVJlbGF0aW9uc2hpcBINCglTQ0hFRFVMRUQQABINCgVBRERFRBABGgIIARIPCgtVTlNDSEVEVUxFRBACEgwKCENBTkNFTEVEEAMSDwoLUkVQTEFDRU1FTlQQBRIOCgpEVVBMSUNBVEVEEAYSCwoHREVMRVRFRBAHEgcKA05FVxAIKgYI6AcQ0A8qBgioRhCQTiKjAgoRVmVoaWNsZURlc2NyaXB0b3ISCgoCaWQYASABKAkSDQoFbGFiZWwYAiABKAkSFQoNbGljZW5zZV9wbGF0ZRgDIAEoCRJhChV3aGVlbGNoYWlyX2FjY2Vzc2libGUYBCABKA4yOC50cmFuc2l0X3JlYWx0aW1lLlZlaGljbGVEZXNjcmlwdG9yLldoZWVsY2hhaXJBY2Nlc3NpYmxlOghOT19WQUxVRSJpChRXaGVlbGNoYWlyQWNjZXNzaWJsZRIMCghOT19WQUxVRRAAEgsKB1VOS05PV04QARIZChVXSEVFTENIQUlSX0FDQ0VTU0lCTEUQAhIbChdXSEVFTENIQUlSX0lOQUNDRVNTSUJMRRADKgYI6AcQ0A8qBgioRhCQTiKwAQoORW50aXR5U2VsZWN0b3ISEQoJYWdlbmN5X2lkGAEgASgJEhAKCHJvdXRlX2lkGAIgASgJEhIKCnJvdXRlX3R5cGUYAyABKAUSLgoEdHJpcBgEIAEoCzIgLnRyYW5zaXRfcmVhbHRpbWUuVHJpcERlc2NyaXB0b3ISDwoHc3RvcF9pZBgFIAEoCRIUCgxkaXJlY3Rpb25faWQYBiABKA0qBgjoBxDQDyoGCKhGEJBOIqYBChBUcmFuc2xhdGVkU3RyaW5nEkMKC3RyYW5zbGF0aW9uGAEgAygLMi4udHJhbnNpdF9yZWFsdGltZS5UcmFuc2xhdGVkU3RyaW5nLlRyYW5zbGF0aW9uGj0KC1RyYW5zbGF0aW9uEgwKBHRleHQYASACKAkSEAoIbGFuZ3VhZ2UYAiABKAkqBgjoBxDQDyoGCKhGEJBOKgYI6AcQ0A8qBgioRhCQTiLBAQoPVHJhbnNsYXRlZEltYWdlEkkKD2xvY2FsaXplZF9pbWFnZRgBIAMoCzIwLnRyYW5zaXRfcmVhbHRpbWUuVHJhbnNsYXRlZEltYWdlLkxvY2FsaXplZEltYWdlGlMKDkxvY2FsaXplZEltYWdlEgsKA3VybBgBIAIoCRISCgptZWRpYV90eXBlGAIgAigJEhAKCGxhbmd1YWdlGAMgASgJKgYI6AcQ0A8qBgioRhCQTioGCOgHENAPKgYIqEYQkE4iQwoFU2hhcGUSEAoIc2hhcGVfaWQYASABKAkSGAoQZW5jb2RlZF9wb2x5bGluZRgCIAEoCSoGCOgHENAPKgYIqEYQkE4ihAUKBFN0b3ASDwoHc3RvcF9pZBgBIAEoCRI1CglzdG9wX2NvZGUYAiABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSNQoJc3RvcF9uYW1lGAMgASgLMiIudHJhbnNpdF9yZWFsdGltZS5UcmFuc2xhdGVkU3RyaW5nEjkKDXR0c19zdG9wX25hbWUYBCABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSNQoJc3RvcF9kZXNjGAUgASgLMiIudHJhbnNpdF9yZWFsdGltZS5UcmFuc2xhdGVkU3RyaW5nEhAKCHN0b3BfbGF0GAYgASgCEhAKCHN0b3BfbG9uGAcgASgCEg8KB3pvbmVfaWQYCCABKAkSNAoIc3RvcF91cmwYCSABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSFgoOcGFyZW50X3N0YXRpb24YCyABKAkSFQoNc3RvcF90aW1lem9uZRgMIAEoCRJPChN3aGVlbGNoYWlyX2JvYXJkaW5nGA0gASgOMikudHJhbnNpdF9yZWFsdGltZS5TdG9wLldoZWVsY2hhaXJCb2FyZGluZzoHVU5LTk9XThIQCghsZXZlbF9pZBgOIAEoCRI5Cg1wbGF0Zm9ybV9jb2RlGA8gASgLMiIudHJhbnNpdF9yZWFsdGltZS5UcmFuc2xhdGVkU3RyaW5nIkMKEldoZWVsY2hhaXJCb2FyZGluZxILCgdVTktOT1dOEAASDQoJQVZBSUxBQkxFEAESEQoNTk9UX0FWQUlMQUJMRRACKgYI6AcQ0A8qBgioRhCQTiLfBAoRVHJpcE1vZGlmaWNhdGlvbnMSSQoOc2VsZWN0ZWRfdHJpcHMYASADKAsyMS50cmFuc2l0X3JlYWx0aW1lLlRyaXBNb2RpZmljYXRpb25zLlNlbGVjdGVkVHJpcHMSEwoLc3RhcnRfdGltZXMYAiADKAkSFQoNc2VydmljZV9kYXRlcxgDIAMoCRJHCg1tb2RpZmljYXRpb25zGAQgAygLMjAudHJhbnNpdF9yZWFsdGltZS5UcmlwTW9kaWZpY2F0aW9ucy5Nb2RpZmljYXRpb24atAIKDE1vZGlmaWNhdGlvbhI7ChNzdGFydF9zdG9wX3NlbGVjdG9yGAEgASgLMh4udHJhbnNpdF9yZWFsdGltZS5TdG9wU2VsZWN0b3ISOQoRZW5kX3N0b3Bfc2VsZWN0b3IYAiABKAsyHi50cmFuc2l0X3JlYWx0aW1lLlN0b3BTZWxlY3RvchIoCh1wcm9wYWdhdGVkX21vZGlmaWNhdGlvbl9kZWxheRgDIAEoBToBMBI8ChFyZXBsYWNlbWVudF9zdG9wcxgEIAMoCzIhLnRyYW5zaXRfcmVhbHRpbWUuUmVwbGFjZW1lbnRTdG9wEhgKEHNlcnZpY2VfYWxlcnRfaWQYBSABKAkSGgoSbGFzdF9tb2RpZmllZF90aW1lGAYgASgEKgYI6AcQ0A8qBgioRhCQThpDCg1TZWxlY3RlZFRyaXBzEhAKCHRyaXBfaWRzGAEgAygJEhAKCHNoYXBlX2lkGAIgASgJKgYI6AcQ0A8qBgioRhCQTioGCOgHENAPKgYIqEYQkE4iRgoMU3RvcFNlbGVjdG9yEhUKDXN0b3Bfc2VxdWVuY2UYASABKA0SDwoHc3RvcF9pZBgCIAEoCSoGCOgHENAPKgYIqEYQkE4iTwoPUmVwbGFjZW1lbnRTdG9wEhsKE3RyYXZlbF90aW1lX3RvX3N0b3AYASABKAUSDwoHc3RvcF9pZBgCIAEoCSoGCOgHENAPKgYIqEYQkE5CHQobY29tLmdvb2dsZS50cmFuc2l0LnJlYWx0aW1l',
-  )
+export const file_gtfs_realtime = /*@__PURE__*/
+  fileDesc("ChNndGZzLXJlYWx0aW1lLnByb3RvEhB0cmFuc2l0X3JlYWx0aW1lInkKC0ZlZWRNZXNzYWdlEiwKBmhlYWRlchgBIAIoCzIcLnRyYW5zaXRfcmVhbHRpbWUuRmVlZEhlYWRlchIsCgZlbnRpdHkYAiADKAsyHC50cmFuc2l0X3JlYWx0aW1lLkZlZWRFbnRpdHkqBgjoBxDQDyoGCKhGEJBOIu0BCgpGZWVkSGVhZGVyEh0KFWd0ZnNfcmVhbHRpbWVfdmVyc2lvbhgBIAIoCRJRCg5pbmNyZW1lbnRhbGl0eRgCIAEoDjIrLnRyYW5zaXRfcmVhbHRpbWUuRmVlZEhlYWRlci5JbmNyZW1lbnRhbGl0eToMRlVMTF9EQVRBU0VUEhEKCXRpbWVzdGFtcBgDIAEoBBIUCgxmZWVkX3ZlcnNpb24YBCABKAkiNAoOSW5jcmVtZW50YWxpdHkSEAoMRlVMTF9EQVRBU0VUEAASEAoMRElGRkVSRU5USUFMEAEqBgjoBxDQDyoGCKhGEJBOIuECCgpGZWVkRW50aXR5EgoKAmlkGAEgAigJEhkKCmlzX2RlbGV0ZWQYAiABKAg6BWZhbHNlEjEKC3RyaXBfdXBkYXRlGAMgASgLMhwudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlEjIKB3ZlaGljbGUYBCABKAsyIS50cmFuc2l0X3JlYWx0aW1lLlZlaGljbGVQb3NpdGlvbhImCgVhbGVydBgFIAEoCzIXLnRyYW5zaXRfcmVhbHRpbWUuQWxlcnQSJgoFc2hhcGUYBiABKAsyFy50cmFuc2l0X3JlYWx0aW1lLlNoYXBlEiQKBHN0b3AYByABKAsyFi50cmFuc2l0X3JlYWx0aW1lLlN0b3ASPwoSdHJpcF9tb2RpZmljYXRpb25zGAggASgLMiMudHJhbnNpdF9yZWFsdGltZS5UcmlwTW9kaWZpY2F0aW9ucyoGCOgHENAPKgYIqEYQkE4i9gsKClRyaXBVcGRhdGUSLgoEdHJpcBgBIAIoCzIgLnRyYW5zaXRfcmVhbHRpbWUuVHJpcERlc2NyaXB0b3ISNAoHdmVoaWNsZRgDIAEoCzIjLnRyYW5zaXRfcmVhbHRpbWUuVmVoaWNsZURlc2NyaXB0b3ISRQoQc3RvcF90aW1lX3VwZGF0ZRgCIAMoCzIrLnRyYW5zaXRfcmVhbHRpbWUuVHJpcFVwZGF0ZS5TdG9wVGltZVVwZGF0ZRIRCgl0aW1lc3RhbXAYBCABKAQSDQoFZGVsYXkYBSABKAUSRAoPdHJpcF9wcm9wZXJ0aWVzGAYgASgLMisudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlLlRyaXBQcm9wZXJ0aWVzGmkKDVN0b3BUaW1lRXZlbnQSDQoFZGVsYXkYASABKAUSDAoEdGltZRgCIAEoAxITCgt1bmNlcnRhaW50eRgDIAEoBRIWCg5zY2hlZHVsZWRfdGltZRgEIAEoAyoGCOgHENAPKgYIqEYQkE4auQcKDlN0b3BUaW1lVXBkYXRlEhUKDXN0b3Bfc2VxdWVuY2UYASABKA0SDwoHc3RvcF9pZBgEIAEoCRI7CgdhcnJpdmFsGAIgASgLMioudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlLlN0b3BUaW1lRXZlbnQSPQoJZGVwYXJ0dXJlGAMgASgLMioudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlLlN0b3BUaW1lRXZlbnQSVQoaZGVwYXJ0dXJlX29jY3VwYW5jeV9zdGF0dXMYByABKA4yMS50cmFuc2l0X3JlYWx0aW1lLlZlaGljbGVQb3NpdGlvbi5PY2N1cGFuY3lTdGF0dXMSagoVc2NoZWR1bGVfcmVsYXRpb25zaGlwGAUgASgOMkAudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlLlN0b3BUaW1lVXBkYXRlLlNjaGVkdWxlUmVsYXRpb25zaGlwOglTQ0hFRFVMRUQSXAoUc3RvcF90aW1lX3Byb3BlcnRpZXMYBiABKAsyPi50cmFuc2l0X3JlYWx0aW1lLlRyaXBVcGRhdGUuU3RvcFRpbWVVcGRhdGUuU3RvcFRpbWVQcm9wZXJ0aWVzGv8CChJTdG9wVGltZVByb3BlcnRpZXMSGAoQYXNzaWduZWRfc3RvcF9pZBgBIAEoCRIVCg1zdG9wX2hlYWRzaWduGAIgASgJEmUKC3BpY2t1cF90eXBlGAMgASgOMlAudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlLlN0b3BUaW1lVXBkYXRlLlN0b3BUaW1lUHJvcGVydGllcy5Ecm9wT2ZmUGlja3VwVHlwZRJnCg1kcm9wX29mZl90eXBlGAQgASgOMlAudHJhbnNpdF9yZWFsdGltZS5UcmlwVXBkYXRlLlN0b3BUaW1lVXBkYXRlLlN0b3BUaW1lUHJvcGVydGllcy5Ecm9wT2ZmUGlja3VwVHlwZSJYChFEcm9wT2ZmUGlja3VwVHlwZRILCgdSRUdVTEFSEAASCAoETk9ORRABEhAKDFBIT05FX0FHRU5DWRACEhoKFkNPT1JESU5BVEVfV0lUSF9EUklWRVIQAyoGCOgHENAPKgYIqEYQkE4iUAoUU2NoZWR1bGVSZWxhdGlvbnNoaXASDQoJU0NIRURVTEVEEAASCwoHU0tJUFBFRBABEgsKB05PX0RBVEEQAhIPCgtVTlNDSEVEVUxFRBADKgYI6AcQ0A8qBgioRhCQThqbAQoOVHJpcFByb3BlcnRpZXMSDwoHdHJpcF9pZBgBIAEoCRISCgpzdGFydF9kYXRlGAIgASgJEhIKCnN0YXJ0X3RpbWUYAyABKAkSEAoIc2hhcGVfaWQYBCABKAkSFQoNdHJpcF9oZWFkc2lnbhgFIAEoCRIXCg90cmlwX3Nob3J0X25hbWUYBiABKAkqBgjoBxDQDyoGCKhGEJBOKgYI6AcQ0A8qBgioRhCQTiLfCQoPVmVoaWNsZVBvc2l0aW9uEi4KBHRyaXAYASABKAsyIC50cmFuc2l0X3JlYWx0aW1lLlRyaXBEZXNjcmlwdG9yEjQKB3ZlaGljbGUYCCABKAsyIy50cmFuc2l0X3JlYWx0aW1lLlZlaGljbGVEZXNjcmlwdG9yEiwKCHBvc2l0aW9uGAIgASgLMhoudHJhbnNpdF9yZWFsdGltZS5Qb3NpdGlvbhIdChVjdXJyZW50X3N0b3Bfc2VxdWVuY2UYAyABKA0SDwoHc3RvcF9pZBgHIAEoCRJaCg5jdXJyZW50X3N0YXR1cxgEIAEoDjIzLnRyYW5zaXRfcmVhbHRpbWUuVmVoaWNsZVBvc2l0aW9uLlZlaGljbGVTdG9wU3RhdHVzOg1JTl9UUkFOU0lUX1RPEhEKCXRpbWVzdGFtcBgFIAEoBBJLChBjb25nZXN0aW9uX2xldmVsGAYgASgOMjEudHJhbnNpdF9yZWFsdGltZS5WZWhpY2xlUG9zaXRpb24uQ29uZ2VzdGlvbkxldmVsEksKEG9jY3VwYW5jeV9zdGF0dXMYCSABKA4yMS50cmFuc2l0X3JlYWx0aW1lLlZlaGljbGVQb3NpdGlvbi5PY2N1cGFuY3lTdGF0dXMSHAoUb2NjdXBhbmN5X3BlcmNlbnRhZ2UYCiABKA0SUQoWbXVsdGlfY2FycmlhZ2VfZGV0YWlscxgLIAMoCzIxLnRyYW5zaXRfcmVhbHRpbWUuVmVoaWNsZVBvc2l0aW9uLkNhcnJpYWdlRGV0YWlscxrZAQoPQ2FycmlhZ2VEZXRhaWxzEgoKAmlkGAEgASgJEg0KBWxhYmVsGAIgASgJEl4KEG9jY3VwYW5jeV9zdGF0dXMYAyABKA4yMS50cmFuc2l0X3JlYWx0aW1lLlZlaGljbGVQb3NpdGlvbi5PY2N1cGFuY3lTdGF0dXM6EU5PX0RBVEFfQVZBSUxBQkxFEiAKFG9jY3VwYW5jeV9wZXJjZW50YWdlGAQgASgFOgItMRIZChFjYXJyaWFnZV9zZXF1ZW5jZRgFIAEoDSoGCOgHENAPKgYIqEYQkE4iRwoRVmVoaWNsZVN0b3BTdGF0dXMSDwoLSU5DT01JTkdfQVQQABIOCgpTVE9QUEVEX0FUEAESEQoNSU5fVFJBTlNJVF9UTxACIn0KD0Nvbmdlc3Rpb25MZXZlbBIcChhVTktOT1dOX0NPTkdFU1RJT05fTEVWRUwQABIUChBSVU5OSU5HX1NNT09USExZEAESDwoLU1RPUF9BTkRfR08QAhIOCgpDT05HRVNUSU9OEAMSFQoRU0VWRVJFX0NPTkdFU1RJT04QBCLZAQoPT2NjdXBhbmN5U3RhdHVzEgkKBUVNUFRZEAASGAoUTUFOWV9TRUFUU19BVkFJTEFCTEUQARIXChNGRVdfU0VBVFNfQVZBSUxBQkxFEAISFgoSU1RBTkRJTkdfUk9PTV9PTkxZEAMSHgoaQ1JVU0hFRF9TVEFORElOR19ST09NX09OTFkQBBIICgRGVUxMEAUSHAoYTk9UX0FDQ0VQVElOR19QQVNTRU5HRVJTEAYSFQoRTk9fREFUQV9BVkFJTEFCTEUQBxIRCg1OT1RfQk9BUkRBQkxFEAgqBgjoBxDQDyoGCKhGEJBOIvELCgVBbGVydBI2Cg1hY3RpdmVfcGVyaW9kGAEgAygLMhsudHJhbnNpdF9yZWFsdGltZS5UaW1lUmFuZ2VCAhgBEjkKFGNvbW11bmljYXRpb25fcGVyaW9kGAIgAygLMhsudHJhbnNpdF9yZWFsdGltZS5UaW1lUmFuZ2USMgoNaW1wYWN0X3BlcmlvZBgDIAMoCzIbLnRyYW5zaXRfcmVhbHRpbWUuVGltZVJhbmdlEjkKD2luZm9ybWVkX2VudGl0eRgFIAMoCzIgLnRyYW5zaXRfcmVhbHRpbWUuRW50aXR5U2VsZWN0b3ISOwoFY2F1c2UYBiABKA4yHS50cmFuc2l0X3JlYWx0aW1lLkFsZXJ0LkNhdXNlOg1VTktOT1dOX0NBVVNFEj4KBmVmZmVjdBgHIAEoDjIeLnRyYW5zaXRfcmVhbHRpbWUuQWxlcnQuRWZmZWN0Og5VTktOT1dOX0VGRkVDVBIvCgN1cmwYCCABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSNwoLaGVhZGVyX3RleHQYCiABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSPAoQZGVzY3JpcHRpb25fdGV4dBgLIAEoCzIiLnRyYW5zaXRfcmVhbHRpbWUuVHJhbnNsYXRlZFN0cmluZxI7Cg90dHNfaGVhZGVyX3RleHQYDCABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSQAoUdHRzX2Rlc2NyaXB0aW9uX3RleHQYDSABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSTwoOc2V2ZXJpdHlfbGV2ZWwYDiABKA4yJS50cmFuc2l0X3JlYWx0aW1lLkFsZXJ0LlNldmVyaXR5TGV2ZWw6EFVOS05PV05fU0VWRVJJVFkSMAoFaW1hZ2UYDyABKAsyIS50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRJbWFnZRJCChZpbWFnZV9hbHRlcm5hdGl2ZV90ZXh0GBAgASgLMiIudHJhbnNpdF9yZWFsdGltZS5UcmFuc2xhdGVkU3RyaW5nEjgKDGNhdXNlX2RldGFpbBgRIAEoCzIiLnRyYW5zaXRfcmVhbHRpbWUuVHJhbnNsYXRlZFN0cmluZxI5Cg1lZmZlY3RfZGV0YWlsGBIgASgLMiIudHJhbnNpdF9yZWFsdGltZS5UcmFuc2xhdGVkU3RyaW5nIusBCgVDYXVzZRIRCg1VTktOT1dOX0NBVVNFEAESDwoLT1RIRVJfQ0FVU0UQAhIVChFURUNITklDQUxfUFJPQkxFTRADEgoKBlNUUklLRRAEEhEKDURFTU9OU1RSQVRJT04QBRIMCghBQ0NJREVOVBAGEgsKB0hPTElEQVkQBxILCgdXRUFUSEVSEAgSDwoLTUFJTlRFTkFOQ0UQCRIQCgxDT05TVFJVQ1RJT04QChITCg9QT0xJQ0VfQUNUSVZJVFkQCxIVChFNRURJQ0FMX0VNRVJHRU5DWRAMEhEKDVNQRUNJQUxfRVZFTlQQDSLdAQoGRWZmZWN0Eg4KCk5PX1NFUlZJQ0UQARITCg9SRURVQ0VEX1NFUlZJQ0UQAhIWChJTSUdOSUZJQ0FOVF9ERUxBWVMQAxIKCgZERVRPVVIQBBIWChJBRERJVElPTkFMX1NFUlZJQ0UQBRIUChBNT0RJRklFRF9TRVJWSUNFEAYSEAoMT1RIRVJfRUZGRUNUEAcSEgoOVU5LTk9XTl9FRkZFQ1QQCBIOCgpTVE9QX01PVkVEEAkSDQoJTk9fRUZGRUNUEAoSFwoTQUNDRVNTSUJJTElUWV9JU1NVRRALIkgKDVNldmVyaXR5TGV2ZWwSFAoQVU5LTk9XTl9TRVZFUklUWRABEggKBElORk8QAhILCgdXQVJOSU5HEAMSCgoGU0VWRVJFEAQqBgjoBxDQDyoGCKhGEJBOIjcKCVRpbWVSYW5nZRINCgVzdGFydBgBIAEoBBILCgNlbmQYAiABKAQqBgjoBxDQDyoGCKhGEJBOInEKCFBvc2l0aW9uEhAKCGxhdGl0dWRlGAEgAigCEhEKCWxvbmdpdHVkZRgCIAIoAhIPCgdiZWFyaW5nGAMgASgCEhAKCG9kb21ldGVyGAQgASgBEg0KBXNwZWVkGAUgASgCKgYI6AcQ0A8qBgioRhCQTiK3BAoOVHJpcERlc2NyaXB0b3ISDwoHdHJpcF9pZBgBIAEoCRIQCghyb3V0ZV9pZBgFIAEoCRIUCgxkaXJlY3Rpb25faWQYBiABKA0SEgoKc3RhcnRfdGltZRgCIAEoCRISCgpzdGFydF9kYXRlGAMgASgJElQKFXNjaGVkdWxlX3JlbGF0aW9uc2hpcBgEIAEoDjI1LnRyYW5zaXRfcmVhbHRpbWUuVHJpcERlc2NyaXB0b3IuU2NoZWR1bGVSZWxhdGlvbnNoaXASTAoNbW9kaWZpZWRfdHJpcBgHIAEoCzI1LnRyYW5zaXRfcmVhbHRpbWUuVHJpcERlc2NyaXB0b3IuTW9kaWZpZWRUcmlwU2VsZWN0b3IaggEKFE1vZGlmaWVkVHJpcFNlbGVjdG9yEhgKEG1vZGlmaWNhdGlvbnNfaWQYASABKAkSGAoQYWZmZWN0ZWRfdHJpcF9pZBgCIAEoCRISCgpzdGFydF90aW1lGAMgASgJEhIKCnN0YXJ0X2RhdGUYBCABKAkqBgjoBxDQDyoGCKhGEJBOIooBChRTY2hlZHVsZVJlbGF0aW9uc2hpcBINCglTQ0hFRFVMRUQQABINCgVBRERFRBABGgIIARIPCgtVTlNDSEVEVUxFRBACEgwKCENBTkNFTEVEEAMSDwoLUkVQTEFDRU1FTlQQBRIOCgpEVVBMSUNBVEVEEAYSCwoHREVMRVRFRBAHEgcKA05FVxAIKgYI6AcQ0A8qBgioRhCQTiKjAgoRVmVoaWNsZURlc2NyaXB0b3ISCgoCaWQYASABKAkSDQoFbGFiZWwYAiABKAkSFQoNbGljZW5zZV9wbGF0ZRgDIAEoCRJhChV3aGVlbGNoYWlyX2FjY2Vzc2libGUYBCABKA4yOC50cmFuc2l0X3JlYWx0aW1lLlZlaGljbGVEZXNjcmlwdG9yLldoZWVsY2hhaXJBY2Nlc3NpYmxlOghOT19WQUxVRSJpChRXaGVlbGNoYWlyQWNjZXNzaWJsZRIMCghOT19WQUxVRRAAEgsKB1VOS05PV04QARIZChVXSEVFTENIQUlSX0FDQ0VTU0lCTEUQAhIbChdXSEVFTENIQUlSX0lOQUNDRVNTSUJMRRADKgYI6AcQ0A8qBgioRhCQTiKwAQoORW50aXR5U2VsZWN0b3ISEQoJYWdlbmN5X2lkGAEgASgJEhAKCHJvdXRlX2lkGAIgASgJEhIKCnJvdXRlX3R5cGUYAyABKAUSLgoEdHJpcBgEIAEoCzIgLnRyYW5zaXRfcmVhbHRpbWUuVHJpcERlc2NyaXB0b3ISDwoHc3RvcF9pZBgFIAEoCRIUCgxkaXJlY3Rpb25faWQYBiABKA0qBgjoBxDQDyoGCKhGEJBOIqYBChBUcmFuc2xhdGVkU3RyaW5nEkMKC3RyYW5zbGF0aW9uGAEgAygLMi4udHJhbnNpdF9yZWFsdGltZS5UcmFuc2xhdGVkU3RyaW5nLlRyYW5zbGF0aW9uGj0KC1RyYW5zbGF0aW9uEgwKBHRleHQYASACKAkSEAoIbGFuZ3VhZ2UYAiABKAkqBgjoBxDQDyoGCKhGEJBOKgYI6AcQ0A8qBgioRhCQTiLBAQoPVHJhbnNsYXRlZEltYWdlEkkKD2xvY2FsaXplZF9pbWFnZRgBIAMoCzIwLnRyYW5zaXRfcmVhbHRpbWUuVHJhbnNsYXRlZEltYWdlLkxvY2FsaXplZEltYWdlGlMKDkxvY2FsaXplZEltYWdlEgsKA3VybBgBIAIoCRISCgptZWRpYV90eXBlGAIgAigJEhAKCGxhbmd1YWdlGAMgASgJKgYI6AcQ0A8qBgioRhCQTioGCOgHENAPKgYIqEYQkE4iQwoFU2hhcGUSEAoIc2hhcGVfaWQYASABKAkSGAoQZW5jb2RlZF9wb2x5bGluZRgCIAEoCSoGCOgHENAPKgYIqEYQkE4ihAUKBFN0b3ASDwoHc3RvcF9pZBgBIAEoCRI1CglzdG9wX2NvZGUYAiABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSNQoJc3RvcF9uYW1lGAMgASgLMiIudHJhbnNpdF9yZWFsdGltZS5UcmFuc2xhdGVkU3RyaW5nEjkKDXR0c19zdG9wX25hbWUYBCABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSNQoJc3RvcF9kZXNjGAUgASgLMiIudHJhbnNpdF9yZWFsdGltZS5UcmFuc2xhdGVkU3RyaW5nEhAKCHN0b3BfbGF0GAYgASgCEhAKCHN0b3BfbG9uGAcgASgCEg8KB3pvbmVfaWQYCCABKAkSNAoIc3RvcF91cmwYCSABKAsyIi50cmFuc2l0X3JlYWx0aW1lLlRyYW5zbGF0ZWRTdHJpbmcSFgoOcGFyZW50X3N0YXRpb24YCyABKAkSFQoNc3RvcF90aW1lem9uZRgMIAEoCRJPChN3aGVlbGNoYWlyX2JvYXJkaW5nGA0gASgOMikudHJhbnNpdF9yZWFsdGltZS5TdG9wLldoZWVsY2hhaXJCb2FyZGluZzoHVU5LTk9XThIQCghsZXZlbF9pZBgOIAEoCRI5Cg1wbGF0Zm9ybV9jb2RlGA8gASgLMiIudHJhbnNpdF9yZWFsdGltZS5UcmFuc2xhdGVkU3RyaW5nIkMKEldoZWVsY2hhaXJCb2FyZGluZxILCgdVTktOT1dOEAASDQoJQVZBSUxBQkxFEAESEQoNTk9UX0FWQUlMQUJMRRACKgYI6AcQ0A8qBgioRhCQTiLfBAoRVHJpcE1vZGlmaWNhdGlvbnMSSQoOc2VsZWN0ZWRfdHJpcHMYASADKAsyMS50cmFuc2l0X3JlYWx0aW1lLlRyaXBNb2RpZmljYXRpb25zLlNlbGVjdGVkVHJpcHMSEwoLc3RhcnRfdGltZXMYAiADKAkSFQoNc2VydmljZV9kYXRlcxgDIAMoCRJHCg1tb2RpZmljYXRpb25zGAQgAygLMjAudHJhbnNpdF9yZWFsdGltZS5UcmlwTW9kaWZpY2F0aW9ucy5Nb2RpZmljYXRpb24atAIKDE1vZGlmaWNhdGlvbhI7ChNzdGFydF9zdG9wX3NlbGVjdG9yGAEgASgLMh4udHJhbnNpdF9yZWFsdGltZS5TdG9wU2VsZWN0b3ISOQoRZW5kX3N0b3Bfc2VsZWN0b3IYAiABKAsyHi50cmFuc2l0X3JlYWx0aW1lLlN0b3BTZWxlY3RvchIoCh1wcm9wYWdhdGVkX21vZGlmaWNhdGlvbl9kZWxheRgDIAEoBToBMBI8ChFyZXBsYWNlbWVudF9zdG9wcxgEIAMoCzIhLnRyYW5zaXRfcmVhbHRpbWUuUmVwbGFjZW1lbnRTdG9wEhgKEHNlcnZpY2VfYWxlcnRfaWQYBSABKAkSGgoSbGFzdF9tb2RpZmllZF90aW1lGAYgASgEKgYI6AcQ0A8qBgioRhCQThpDCg1TZWxlY3RlZFRyaXBzEhAKCHRyaXBfaWRzGAEgAygJEhAKCHNoYXBlX2lkGAIgASgJKgYI6AcQ0A8qBgioRhCQTioGCOgHENAPKgYIqEYQkE4iRgoMU3RvcFNlbGVjdG9yEhUKDXN0b3Bfc2VxdWVuY2UYASABKA0SDwoHc3RvcF9pZBgCIAEoCSoGCOgHENAPKgYIqEYQkE4iTwoPUmVwbGFjZW1lbnRTdG9wEhsKE3RyYXZlbF90aW1lX3RvX3N0b3AYASABKAUSDwoHc3RvcF9pZBgCIAEoCSoGCOgHENAPKgYIqEYQkE5CHQobY29tLmdvb2dsZS50cmFuc2l0LnJlYWx0aW1l");
 
 /**
  * Describes the message transit_realtime.FeedMessage.
  * Use `create(FeedMessageSchema)` to create a new message.
  */
-export const FeedMessageSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 0)
+export const FeedMessageSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 0);
 
 /**
  * Describes the message transit_realtime.FeedHeader.
  * Use `create(FeedHeaderSchema)` to create a new message.
  */
-export const FeedHeaderSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 1)
+export const FeedHeaderSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 1);
 
 /**
  * Describes the enum transit_realtime.FeedHeader.Incrementality.
  */
-export const FeedHeader_IncrementalitySchema = /*@__PURE__*/ enumDesc(file_gtfs_realtime, 1, 0)
+export const FeedHeader_IncrementalitySchema = /*@__PURE__*/
+  enumDesc(file_gtfs_realtime, 1, 0);
 
 /**
  * Determines whether the current fetch is incremental.  Currently,
@@ -63,120 +63,128 @@ export const FeedHeader_IncrementalitySchema = /*@__PURE__*/ enumDesc(file_gtfs_
  *
  * @generated from enum transit_realtime.FeedHeader.Incrementality
  */
-export const FeedHeader_Incrementality = /*@__PURE__*/ tsEnum(FeedHeader_IncrementalitySchema)
+export const FeedHeader_Incrementality = /*@__PURE__*/
+  tsEnum(FeedHeader_IncrementalitySchema);
 
 /**
  * Describes the message transit_realtime.FeedEntity.
  * Use `create(FeedEntitySchema)` to create a new message.
  */
-export const FeedEntitySchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 2)
+export const FeedEntitySchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 2);
 
 /**
  * Describes the message transit_realtime.TripUpdate.
  * Use `create(TripUpdateSchema)` to create a new message.
  */
-export const TripUpdateSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 3)
+export const TripUpdateSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 3);
 
 /**
  * Describes the message transit_realtime.TripUpdate.StopTimeEvent.
  * Use `create(TripUpdate_StopTimeEventSchema)` to create a new message.
  */
-export const TripUpdate_StopTimeEventSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 3, 0)
+export const TripUpdate_StopTimeEventSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 3, 0);
 
 /**
  * Describes the message transit_realtime.TripUpdate.StopTimeUpdate.
  * Use `create(TripUpdate_StopTimeUpdateSchema)` to create a new message.
  */
-export const TripUpdate_StopTimeUpdateSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 3, 1)
+export const TripUpdate_StopTimeUpdateSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 3, 1);
 
 /**
  * Describes the message transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties.
  * Use `create(TripUpdate_StopTimeUpdate_StopTimePropertiesSchema)` to create a new message.
  */
-export const TripUpdate_StopTimeUpdate_StopTimePropertiesSchema =
-  /*@__PURE__*/
-  messageDesc(file_gtfs_realtime, 3, 1, 0)
+export const TripUpdate_StopTimeUpdate_StopTimePropertiesSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 3, 1, 0);
 
 /**
  * Describes the enum transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties.DropOffPickupType.
  */
-export const TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupTypeSchema =
-  /*@__PURE__*/
-  enumDesc(file_gtfs_realtime, 3, 1, 0, 0)
+export const TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupTypeSchema = /*@__PURE__*/
+  enumDesc(file_gtfs_realtime, 3, 1, 0, 0);
 
 /**
  * @generated from enum transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties.DropOffPickupType
  */
-export const TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupType =
-  /*@__PURE__*/
-  tsEnum(TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupTypeSchema)
+export const TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupType = /*@__PURE__*/
+  tsEnum(TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupTypeSchema);
 
 /**
  * Describes the enum transit_realtime.TripUpdate.StopTimeUpdate.ScheduleRelationship.
  */
-export const TripUpdate_StopTimeUpdate_ScheduleRelationshipSchema =
-  /*@__PURE__*/
-  enumDesc(file_gtfs_realtime, 3, 1, 0)
+export const TripUpdate_StopTimeUpdate_ScheduleRelationshipSchema = /*@__PURE__*/
+  enumDesc(file_gtfs_realtime, 3, 1, 0);
 
 /**
  * The relation between the StopTimeEvents and the static schedule.
  *
  * @generated from enum transit_realtime.TripUpdate.StopTimeUpdate.ScheduleRelationship
  */
-export const TripUpdate_StopTimeUpdate_ScheduleRelationship =
-  /*@__PURE__*/
-  tsEnum(TripUpdate_StopTimeUpdate_ScheduleRelationshipSchema)
+export const TripUpdate_StopTimeUpdate_ScheduleRelationship = /*@__PURE__*/
+  tsEnum(TripUpdate_StopTimeUpdate_ScheduleRelationshipSchema);
 
 /**
  * Describes the message transit_realtime.TripUpdate.TripProperties.
  * Use `create(TripUpdate_TripPropertiesSchema)` to create a new message.
  */
-export const TripUpdate_TripPropertiesSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 3, 2)
+export const TripUpdate_TripPropertiesSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 3, 2);
 
 /**
  * Describes the message transit_realtime.VehiclePosition.
  * Use `create(VehiclePositionSchema)` to create a new message.
  */
-export const VehiclePositionSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 4)
+export const VehiclePositionSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 4);
 
 /**
  * Describes the message transit_realtime.VehiclePosition.CarriageDetails.
  * Use `create(VehiclePosition_CarriageDetailsSchema)` to create a new message.
  */
-export const VehiclePosition_CarriageDetailsSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 4, 0)
+export const VehiclePosition_CarriageDetailsSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 4, 0);
 
 /**
  * Describes the enum transit_realtime.VehiclePosition.VehicleStopStatus.
  */
-export const VehiclePosition_VehicleStopStatusSchema = /*@__PURE__*/ enumDesc(file_gtfs_realtime, 4, 0)
+export const VehiclePosition_VehicleStopStatusSchema = /*@__PURE__*/
+  enumDesc(file_gtfs_realtime, 4, 0);
 
 /**
  * @generated from enum transit_realtime.VehiclePosition.VehicleStopStatus
  */
-export const VehiclePosition_VehicleStopStatus = /*@__PURE__*/ tsEnum(VehiclePosition_VehicleStopStatusSchema)
+export const VehiclePosition_VehicleStopStatus = /*@__PURE__*/
+  tsEnum(VehiclePosition_VehicleStopStatusSchema);
 
 /**
  * Describes the enum transit_realtime.VehiclePosition.CongestionLevel.
  */
-export const VehiclePosition_CongestionLevelSchema = /*@__PURE__*/ enumDesc(file_gtfs_realtime, 4, 1)
+export const VehiclePosition_CongestionLevelSchema = /*@__PURE__*/
+  enumDesc(file_gtfs_realtime, 4, 1);
 
 /**
  * Congestion level that is affecting this vehicle.
  *
  * @generated from enum transit_realtime.VehiclePosition.CongestionLevel
  */
-export const VehiclePosition_CongestionLevel = /*@__PURE__*/ tsEnum(VehiclePosition_CongestionLevelSchema)
+export const VehiclePosition_CongestionLevel = /*@__PURE__*/
+  tsEnum(VehiclePosition_CongestionLevelSchema);
 
 /**
  * Describes the enum transit_realtime.VehiclePosition.OccupancyStatus.
  */
-export const VehiclePosition_OccupancyStatusSchema = /*@__PURE__*/ enumDesc(file_gtfs_realtime, 4, 2)
+export const VehiclePosition_OccupancyStatusSchema = /*@__PURE__*/
+  enumDesc(file_gtfs_realtime, 4, 2);
 
 /**
  * The state of passenger occupancy for the vehicle or carriage.
  * Individual producers may not publish all OccupancyStatus values. Therefore, consumers
  * must not assume that the OccupancyStatus values follow a linear scale.
- * Consumers should represent OccupancyStatus values as the state indicated
+ * Consumers should represent OccupancyStatus values as the state indicated 
  * and intended by the producer. Likewise, producers must use OccupancyStatus values that
  * correspond to actual vehicle occupancy states.
  * For describing passenger occupancy levels on a linear scale, see `occupancy_percentage`.
@@ -184,78 +192,91 @@ export const VehiclePosition_OccupancyStatusSchema = /*@__PURE__*/ enumDesc(file
  *
  * @generated from enum transit_realtime.VehiclePosition.OccupancyStatus
  */
-export const VehiclePosition_OccupancyStatus = /*@__PURE__*/ tsEnum(VehiclePosition_OccupancyStatusSchema)
+export const VehiclePosition_OccupancyStatus = /*@__PURE__*/
+  tsEnum(VehiclePosition_OccupancyStatusSchema);
 
 /**
  * Describes the message transit_realtime.Alert.
  * Use `create(AlertSchema)` to create a new message.
  */
-export const AlertSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 5)
+export const AlertSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 5);
 
 /**
  * Describes the enum transit_realtime.Alert.Cause.
  */
-export const Alert_CauseSchema = /*@__PURE__*/ enumDesc(file_gtfs_realtime, 5, 0)
+export const Alert_CauseSchema = /*@__PURE__*/
+  enumDesc(file_gtfs_realtime, 5, 0);
 
 /**
  * Cause of this alert. If cause_detail is included, then Cause must also be included.
  *
  * @generated from enum transit_realtime.Alert.Cause
  */
-export const Alert_Cause = /*@__PURE__*/ tsEnum(Alert_CauseSchema)
+export const Alert_Cause = /*@__PURE__*/
+  tsEnum(Alert_CauseSchema);
 
 /**
  * Describes the enum transit_realtime.Alert.Effect.
  */
-export const Alert_EffectSchema = /*@__PURE__*/ enumDesc(file_gtfs_realtime, 5, 1)
+export const Alert_EffectSchema = /*@__PURE__*/
+  enumDesc(file_gtfs_realtime, 5, 1);
 
 /**
  * What is the effect of this problem on the affected entity. If effect_detail is included, then Effect must also be included.
  *
  * @generated from enum transit_realtime.Alert.Effect
  */
-export const Alert_Effect = /*@__PURE__*/ tsEnum(Alert_EffectSchema)
+export const Alert_Effect = /*@__PURE__*/
+  tsEnum(Alert_EffectSchema);
 
 /**
  * Describes the enum transit_realtime.Alert.SeverityLevel.
  */
-export const Alert_SeverityLevelSchema = /*@__PURE__*/ enumDesc(file_gtfs_realtime, 5, 2)
+export const Alert_SeverityLevelSchema = /*@__PURE__*/
+  enumDesc(file_gtfs_realtime, 5, 2);
 
 /**
  * Severity of this alert.
  *
  * @generated from enum transit_realtime.Alert.SeverityLevel
  */
-export const Alert_SeverityLevel = /*@__PURE__*/ tsEnum(Alert_SeverityLevelSchema)
+export const Alert_SeverityLevel = /*@__PURE__*/
+  tsEnum(Alert_SeverityLevelSchema);
 
 /**
  * Describes the message transit_realtime.TimeRange.
  * Use `create(TimeRangeSchema)` to create a new message.
  */
-export const TimeRangeSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 6)
+export const TimeRangeSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 6);
 
 /**
  * Describes the message transit_realtime.Position.
  * Use `create(PositionSchema)` to create a new message.
  */
-export const PositionSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 7)
+export const PositionSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 7);
 
 /**
  * Describes the message transit_realtime.TripDescriptor.
  * Use `create(TripDescriptorSchema)` to create a new message.
  */
-export const TripDescriptorSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 8)
+export const TripDescriptorSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 8);
 
 /**
  * Describes the message transit_realtime.TripDescriptor.ModifiedTripSelector.
  * Use `create(TripDescriptor_ModifiedTripSelectorSchema)` to create a new message.
  */
-export const TripDescriptor_ModifiedTripSelectorSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 8, 0)
+export const TripDescriptor_ModifiedTripSelectorSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 8, 0);
 
 /**
  * Describes the enum transit_realtime.TripDescriptor.ScheduleRelationship.
  */
-export const TripDescriptor_ScheduleRelationshipSchema = /*@__PURE__*/ enumDesc(file_gtfs_realtime, 8, 0)
+export const TripDescriptor_ScheduleRelationshipSchema = /*@__PURE__*/
+  enumDesc(file_gtfs_realtime, 8, 0);
 
 /**
  * The relation between this trip and the static schedule. If a trip is done
@@ -264,106 +285,121 @@ export const TripDescriptor_ScheduleRelationshipSchema = /*@__PURE__*/ enumDesc(
  *
  * @generated from enum transit_realtime.TripDescriptor.ScheduleRelationship
  */
-export const TripDescriptor_ScheduleRelationship =
-  /*@__PURE__*/
-  tsEnum(TripDescriptor_ScheduleRelationshipSchema)
+export const TripDescriptor_ScheduleRelationship = /*@__PURE__*/
+  tsEnum(TripDescriptor_ScheduleRelationshipSchema);
 
 /**
  * Describes the message transit_realtime.VehicleDescriptor.
  * Use `create(VehicleDescriptorSchema)` to create a new message.
  */
-export const VehicleDescriptorSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 9)
+export const VehicleDescriptorSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 9);
 
 /**
  * Describes the enum transit_realtime.VehicleDescriptor.WheelchairAccessible.
  */
-export const VehicleDescriptor_WheelchairAccessibleSchema = /*@__PURE__*/ enumDesc(file_gtfs_realtime, 9, 0)
+export const VehicleDescriptor_WheelchairAccessibleSchema = /*@__PURE__*/
+  enumDesc(file_gtfs_realtime, 9, 0);
 
 /**
  * @generated from enum transit_realtime.VehicleDescriptor.WheelchairAccessible
  */
-export const VehicleDescriptor_WheelchairAccessible =
-  /*@__PURE__*/
-  tsEnum(VehicleDescriptor_WheelchairAccessibleSchema)
+export const VehicleDescriptor_WheelchairAccessible = /*@__PURE__*/
+  tsEnum(VehicleDescriptor_WheelchairAccessibleSchema);
 
 /**
  * Describes the message transit_realtime.EntitySelector.
  * Use `create(EntitySelectorSchema)` to create a new message.
  */
-export const EntitySelectorSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 10)
+export const EntitySelectorSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 10);
 
 /**
  * Describes the message transit_realtime.TranslatedString.
  * Use `create(TranslatedStringSchema)` to create a new message.
  */
-export const TranslatedStringSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 11)
+export const TranslatedStringSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 11);
 
 /**
  * Describes the message transit_realtime.TranslatedString.Translation.
  * Use `create(TranslatedString_TranslationSchema)` to create a new message.
  */
-export const TranslatedString_TranslationSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 11, 0)
+export const TranslatedString_TranslationSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 11, 0);
 
 /**
  * Describes the message transit_realtime.TranslatedImage.
  * Use `create(TranslatedImageSchema)` to create a new message.
  */
-export const TranslatedImageSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 12)
+export const TranslatedImageSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 12);
 
 /**
  * Describes the message transit_realtime.TranslatedImage.LocalizedImage.
  * Use `create(TranslatedImage_LocalizedImageSchema)` to create a new message.
  */
-export const TranslatedImage_LocalizedImageSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 12, 0)
+export const TranslatedImage_LocalizedImageSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 12, 0);
 
 /**
  * Describes the message transit_realtime.Shape.
  * Use `create(ShapeSchema)` to create a new message.
  */
-export const ShapeSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 13)
+export const ShapeSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 13);
 
 /**
  * Describes the message transit_realtime.Stop.
  * Use `create(StopSchema)` to create a new message.
  */
-export const StopSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 14)
+export const StopSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 14);
 
 /**
  * Describes the enum transit_realtime.Stop.WheelchairBoarding.
  */
-export const Stop_WheelchairBoardingSchema = /*@__PURE__*/ enumDesc(file_gtfs_realtime, 14, 0)
+export const Stop_WheelchairBoardingSchema = /*@__PURE__*/
+  enumDesc(file_gtfs_realtime, 14, 0);
 
 /**
  * @generated from enum transit_realtime.Stop.WheelchairBoarding
  */
-export const Stop_WheelchairBoarding = /*@__PURE__*/ tsEnum(Stop_WheelchairBoardingSchema)
+export const Stop_WheelchairBoarding = /*@__PURE__*/
+  tsEnum(Stop_WheelchairBoardingSchema);
 
 /**
  * Describes the message transit_realtime.TripModifications.
  * Use `create(TripModificationsSchema)` to create a new message.
  */
-export const TripModificationsSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 15)
+export const TripModificationsSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 15);
 
 /**
  * Describes the message transit_realtime.TripModifications.Modification.
  * Use `create(TripModifications_ModificationSchema)` to create a new message.
  */
-export const TripModifications_ModificationSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 15, 0)
+export const TripModifications_ModificationSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 15, 0);
 
 /**
  * Describes the message transit_realtime.TripModifications.SelectedTrips.
  * Use `create(TripModifications_SelectedTripsSchema)` to create a new message.
  */
-export const TripModifications_SelectedTripsSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 15, 1)
+export const TripModifications_SelectedTripsSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 15, 1);
 
 /**
  * Describes the message transit_realtime.StopSelector.
  * Use `create(StopSelectorSchema)` to create a new message.
  */
-export const StopSelectorSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 16)
+export const StopSelectorSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 16);
 
 /**
  * Describes the message transit_realtime.ReplacementStop.
  * Use `create(ReplacementStopSchema)` to create a new message.
  */
-export const ReplacementStopSchema = /*@__PURE__*/ messageDesc(file_gtfs_realtime, 17)
+export const ReplacementStopSchema = /*@__PURE__*/
+  messageDesc(file_gtfs_realtime, 17);
+

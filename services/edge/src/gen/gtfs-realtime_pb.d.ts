@@ -26,13 +26,13 @@
 // @generated from file gtfs-realtime.proto (package transit_realtime, syntax proto2)
 /* eslint-disable */
 
-import type { Message } from '@bufbuild/protobuf'
-import type { GenEnum, GenFile, GenMessage } from '@bufbuild/protobuf/codegenv2'
+import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file gtfs-realtime.proto.
  */
-export declare const file_gtfs_realtime: GenFile
+export declare const file_gtfs_realtime: GenFile;
 
 /**
  * The contents of a feed message.
@@ -47,46 +47,46 @@ export declare const file_gtfs_realtime: GenFile
  *
  * @generated from message transit_realtime.FeedMessage
  */
-export declare type FeedMessage = Message<'transit_realtime.FeedMessage'> & {
+export declare type FeedMessage = Message<"transit_realtime.FeedMessage"> & {
   /**
    * Metadata about this feed and feed message.
    *
    * @generated from field: required transit_realtime.FeedHeader header = 1;
    */
-  header?: FeedHeader | undefined
+  header?: FeedHeader | undefined;
 
   /**
    * Contents of the feed.
    *
    * @generated from field: repeated transit_realtime.FeedEntity entity = 2;
    */
-  entity: FeedEntity[]
-}
+  entity: FeedEntity[];
+};
 
 /**
  * Describes the message transit_realtime.FeedMessage.
  * Use `create(FeedMessageSchema)` to create a new message.
  */
-export declare const FeedMessageSchema: GenMessage<FeedMessage>
+export declare const FeedMessageSchema: GenMessage<FeedMessage>;
 
 /**
  * Metadata about a feed, included in feed messages.
  *
  * @generated from message transit_realtime.FeedHeader
  */
-export declare type FeedHeader = Message<'transit_realtime.FeedHeader'> & {
+export declare type FeedHeader = Message<"transit_realtime.FeedHeader"> & {
   /**
    * Version of the feed specification.
    * The current version is 2.0.  Valid versions are "2.0", "1.0".
    *
    * @generated from field: required string gtfs_realtime_version = 1;
    */
-  gtfsRealtimeVersion: string
+  gtfsRealtimeVersion: string;
 
   /**
    * @generated from field: optional transit_realtime.FeedHeader.Incrementality incrementality = 2 [default = FULL_DATASET];
    */
-  incrementality: FeedHeader_Incrementality
+  incrementality: FeedHeader_Incrementality;
 
   /**
    * This timestamp identifies the moment when the content of this feed has been
@@ -95,7 +95,7 @@ export declare type FeedHeader = Message<'transit_realtime.FeedHeader'> & {
    *
    * @generated from field: optional uint64 timestamp = 3;
    */
-  timestamp: bigint
+  timestamp: bigint;
 
   /**
    * String that matches the feed_info.feed_version from the GTFS feed that the real
@@ -104,14 +104,14 @@ export declare type FeedHeader = Message<'transit_realtime.FeedHeader'> & {
    *
    * @generated from field: optional string feed_version = 4;
    */
-  feedVersion: string
-}
+  feedVersion: string;
+};
 
 /**
  * Describes the message transit_realtime.FeedHeader.
  * Use `create(FeedHeaderSchema)` to create a new message.
  */
-export declare const FeedHeaderSchema: GenMessage<FeedHeader>
+export declare const FeedHeaderSchema: GenMessage<FeedHeader>;
 
 /**
  * Determines whether the current fetch is incremental.  Currently,
@@ -137,14 +137,14 @@ export enum FeedHeader_Incrementality {
 /**
  * Describes the enum transit_realtime.FeedHeader.Incrementality.
  */
-export declare const FeedHeader_IncrementalitySchema: GenEnum<FeedHeader_Incrementality>
+export declare const FeedHeader_IncrementalitySchema: GenEnum<FeedHeader_Incrementality>;
 
 /**
  * A definition (or update) of an entity in the transit feed.
  *
  * @generated from message transit_realtime.FeedEntity
  */
-export declare type FeedEntity = Message<'transit_realtime.FeedEntity'> & {
+export declare type FeedEntity = Message<"transit_realtime.FeedEntity"> & {
   /**
    * The ids are used only to provide incrementality support. The id should be
    * unique within a FeedMessage. Consequent FeedMessages may contain
@@ -157,7 +157,7 @@ export declare type FeedEntity = Message<'transit_realtime.FeedEntity'> & {
    *
    * @generated from field: required string id = 1;
    */
-  id: string
+  id: string;
 
   /**
    * Whether this entity is to be deleted. Relevant only for incremental
@@ -165,7 +165,7 @@ export declare type FeedEntity = Message<'transit_realtime.FeedEntity'> & {
    *
    * @generated from field: optional bool is_deleted = 2 [default = false];
    */
-  isDeleted: boolean
+  isDeleted: boolean;
 
   /**
    * Data about the entity itself. Exactly one of the following fields must be
@@ -173,41 +173,41 @@ export declare type FeedEntity = Message<'transit_realtime.FeedEntity'> & {
    *
    * @generated from field: optional transit_realtime.TripUpdate trip_update = 3;
    */
-  tripUpdate?: TripUpdate | undefined
+  tripUpdate?: TripUpdate | undefined;
 
   /**
    * @generated from field: optional transit_realtime.VehiclePosition vehicle = 4;
    */
-  vehicle?: VehiclePosition | undefined
+  vehicle?: VehiclePosition | undefined;
 
   /**
    * @generated from field: optional transit_realtime.Alert alert = 5;
    */
-  alert?: Alert | undefined
+  alert?: Alert | undefined;
 
   /**
    * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
    *
    * @generated from field: optional transit_realtime.Shape shape = 6;
    */
-  shape?: Shape | undefined
+  shape?: Shape | undefined;
 
   /**
    * @generated from field: optional transit_realtime.Stop stop = 7;
    */
-  stop?: Stop | undefined
+  stop?: Stop | undefined;
 
   /**
    * @generated from field: optional transit_realtime.TripModifications trip_modifications = 8;
    */
-  tripModifications?: TripModifications | undefined
-}
+  tripModifications?: TripModifications | undefined;
+};
 
 /**
  * Describes the message transit_realtime.FeedEntity.
  * Use `create(FeedEntitySchema)` to create a new message.
  */
-export declare const FeedEntitySchema: GenMessage<FeedEntity>
+export declare const FeedEntitySchema: GenMessage<FeedEntity>;
 
 /**
  * Realtime update of the progress of a vehicle along a trip.
@@ -239,7 +239,7 @@ export declare const FeedEntitySchema: GenMessage<FeedEntity>
  *
  * @generated from message transit_realtime.TripUpdate
  */
-export declare type TripUpdate = Message<'transit_realtime.TripUpdate'> & {
+export declare type TripUpdate = Message<"transit_realtime.TripUpdate"> & {
   /**
    * The Trip that this message applies to. There can be at most one
    * TripUpdate entity for each actual trip instance.
@@ -248,14 +248,14 @@ export declare type TripUpdate = Message<'transit_realtime.TripUpdate'> & {
    *
    * @generated from field: required transit_realtime.TripDescriptor trip = 1;
    */
-  trip?: TripDescriptor | undefined
+  trip?: TripDescriptor | undefined;
 
   /**
    * Additional information on the vehicle that is serving this trip.
    *
    * @generated from field: optional transit_realtime.VehicleDescriptor vehicle = 3;
    */
-  vehicle?: VehicleDescriptor | undefined
+  vehicle?: VehicleDescriptor | undefined;
 
   /**
    * Updates to StopTimes for the trip (both future, i.e., predictions, and in
@@ -280,7 +280,7 @@ export declare type TripUpdate = Message<'transit_realtime.TripUpdate'> & {
    *
    * @generated from field: repeated transit_realtime.TripUpdate.StopTimeUpdate stop_time_update = 2;
    */
-  stopTimeUpdate: TripUpdate_StopTimeUpdate[]
+  stopTimeUpdate: TripUpdate_StopTimeUpdate[];
 
   /**
    * The most recent moment at which the vehicle's real-time progress was measured
@@ -290,7 +290,7 @@ export declare type TripUpdate = Message<'transit_realtime.TripUpdate'> & {
    *
    * @generated from field: optional uint64 timestamp = 4;
    */
-  timestamp: bigint
+  timestamp: bigint;
 
   /**
    * The current schedule deviation for the trip.  Delay should only be
@@ -314,19 +314,19 @@ export declare type TripUpdate = Message<'transit_realtime.TripUpdate'> & {
    *
    * @generated from field: optional int32 delay = 5;
    */
-  delay: number
+  delay: number;
 
   /**
    * @generated from field: optional transit_realtime.TripUpdate.TripProperties trip_properties = 6;
    */
-  tripProperties?: TripUpdate_TripProperties | undefined
-}
+  tripProperties?: TripUpdate_TripProperties | undefined;
+};
 
 /**
  * Describes the message transit_realtime.TripUpdate.
  * Use `create(TripUpdateSchema)` to create a new message.
  */
-export declare const TripUpdateSchema: GenMessage<TripUpdate>
+export declare const TripUpdateSchema: GenMessage<TripUpdate>;
 
 /**
  * Timing information for a single predicted event (either arrival or
@@ -347,7 +347,7 @@ export declare const TripUpdateSchema: GenMessage<TripUpdate>
  *
  * @generated from message transit_realtime.TripUpdate.StopTimeEvent
  */
-export declare type TripUpdate_StopTimeEvent = Message<'transit_realtime.TripUpdate.StopTimeEvent'> & {
+export declare type TripUpdate_StopTimeEvent = Message<"transit_realtime.TripUpdate.StopTimeEvent"> & {
   /**
    * Delay (in seconds) can be positive (meaning that the vehicle is late) or
    * negative (meaning that the vehicle is ahead of schedule). Delay of 0
@@ -355,7 +355,7 @@ export declare type TripUpdate_StopTimeEvent = Message<'transit_realtime.TripUpd
    *
    * @generated from field: optional int32 delay = 1;
    */
-  delay: number
+  delay: number;
 
   /**
    * Event as absolute time.
@@ -364,7 +364,7 @@ export declare type TripUpdate_StopTimeEvent = Message<'transit_realtime.TripUpd
    *
    * @generated from field: optional int64 time = 2;
    */
-  time: bigint
+  time: bigint;
 
   /**
    * If uncertainty is omitted, it is interpreted as unknown.
@@ -374,7 +374,7 @@ export declare type TripUpdate_StopTimeEvent = Message<'transit_realtime.TripUpd
    *
    * @generated from field: optional int32 uncertainty = 3;
    */
-  uncertainty: number
+  uncertainty: number;
 
   /**
    * Scheduled time for a NEW, REPLACEMENT, or DUPLICATED trip.
@@ -385,14 +385,14 @@ export declare type TripUpdate_StopTimeEvent = Message<'transit_realtime.TripUpd
    *
    * @generated from field: optional int64 scheduled_time = 4;
    */
-  scheduledTime: bigint
-}
+  scheduledTime: bigint;
+};
 
 /**
  * Describes the message transit_realtime.TripUpdate.StopTimeEvent.
  * Use `create(TripUpdate_StopTimeEventSchema)` to create a new message.
  */
-export declare const TripUpdate_StopTimeEventSchema: GenMessage<TripUpdate_StopTimeEvent>
+export declare const TripUpdate_StopTimeEventSchema: GenMessage<TripUpdate_StopTimeEvent>;
 
 /**
  * Realtime update for arrival and/or departure events for a given stop on a
@@ -405,45 +405,45 @@ export declare const TripUpdate_StopTimeEventSchema: GenMessage<TripUpdate_StopT
  *
  * @generated from message transit_realtime.TripUpdate.StopTimeUpdate
  */
-export declare type TripUpdate_StopTimeUpdate = Message<'transit_realtime.TripUpdate.StopTimeUpdate'> & {
+export declare type TripUpdate_StopTimeUpdate = Message<"transit_realtime.TripUpdate.StopTimeUpdate"> & {
   /**
    * Must be the same as in stop_times.txt in the corresponding GTFS feed.
    *
    * @generated from field: optional uint32 stop_sequence = 1;
    */
-  stopSequence: number
+  stopSequence: number;
 
   /**
    * Must be the same as in stops.txt in the corresponding GTFS feed.
    *
    * @generated from field: optional string stop_id = 4;
    */
-  stopId: string
+  stopId: string;
 
   /**
    * @generated from field: optional transit_realtime.TripUpdate.StopTimeEvent arrival = 2;
    */
-  arrival?: TripUpdate_StopTimeEvent | undefined
+  arrival?: TripUpdate_StopTimeEvent | undefined;
 
   /**
    * @generated from field: optional transit_realtime.TripUpdate.StopTimeEvent departure = 3;
    */
-  departure?: TripUpdate_StopTimeEvent | undefined
+  departure?: TripUpdate_StopTimeEvent | undefined;
 
   /**
    * Expected occupancy after departure from the given stop.
    * Should be provided only for future stops.
    * In order to provide departure_occupancy_status without either arrival or
-   * departure StopTimeEvents, ScheduleRelationship should be set to NO_DATA.
+   * departure StopTimeEvents, ScheduleRelationship should be set to NO_DATA. 
    *
    * @generated from field: optional transit_realtime.VehiclePosition.OccupancyStatus departure_occupancy_status = 7;
    */
-  departureOccupancyStatus: VehiclePosition_OccupancyStatus
+  departureOccupancyStatus: VehiclePosition_OccupancyStatus;
 
   /**
    * @generated from field: optional transit_realtime.TripUpdate.StopTimeUpdate.ScheduleRelationship schedule_relationship = 5 [default = SCHEDULED];
    */
-  scheduleRelationship: TripUpdate_StopTimeUpdate_ScheduleRelationship
+  scheduleRelationship: TripUpdate_StopTimeUpdate_ScheduleRelationship;
 
   /**
    * Realtime updates for certain properties defined within GTFS stop_times.txt
@@ -451,14 +451,14 @@ export declare type TripUpdate_StopTimeUpdate = Message<'transit_realtime.TripUp
    *
    * @generated from field: optional transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties stop_time_properties = 6;
    */
-  stopTimeProperties?: TripUpdate_StopTimeUpdate_StopTimeProperties | undefined
-}
+  stopTimeProperties?: TripUpdate_StopTimeUpdate_StopTimeProperties | undefined;
+};
 
 /**
  * Describes the message transit_realtime.TripUpdate.StopTimeUpdate.
  * Use `create(TripUpdate_StopTimeUpdateSchema)` to create a new message.
  */
-export declare const TripUpdate_StopTimeUpdateSchema: GenMessage<TripUpdate_StopTimeUpdate>
+export declare const TripUpdate_StopTimeUpdateSchema: GenMessage<TripUpdate_StopTimeUpdate>;
 
 /**
  * Provides the updated values for the stop time.
@@ -466,57 +466,56 @@ export declare const TripUpdate_StopTimeUpdateSchema: GenMessage<TripUpdate_Stop
  *
  * @generated from message transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties
  */
-export declare type TripUpdate_StopTimeUpdate_StopTimeProperties =
-  Message<'transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties'> & {
-    /**
-     * Supports real-time stop assignments. Refers to a stop_id defined in the GTFS stops.txt.
-     * The new assigned_stop_id should not result in a significantly different trip experience for the end user than
-     * the stop_id defined in GTFS stop_times.txt. In other words, the end user should not view this new stop_id as an
-     * "unusual change" if the new stop was presented within an app without any additional context.
-     * For example, this field is intended to be used for platform assignments by using a stop_id that belongs to the
-     * same station as the stop originally defined in GTFS stop_times.txt.
-     * To assign a stop without providing any real-time arrival or departure predictions, populate this field and set
-     * StopTimeUpdate.schedule_relationship = NO_DATA.
-     * If this field is populated, it is preferred to omit `StopTimeUpdate.stop_id` and use only `StopTimeUpdate.stop_sequence`. If
-     * `StopTimeProperties.assigned_stop_id` and `StopTimeUpdate.stop_id` are populated, `StopTimeUpdate.stop_id` must match `assigned_stop_id`.
-     * Platform assignments should be reflected in other GTFS-realtime fields as well
-     * (e.g., `VehiclePosition.stop_id`).
-     * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
-     *
-     * @generated from field: optional string assigned_stop_id = 1;
-     */
-    assignedStopId: string
+export declare type TripUpdate_StopTimeUpdate_StopTimeProperties = Message<"transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties"> & {
+  /**
+   * Supports real-time stop assignments. Refers to a stop_id defined in the GTFS stops.txt.
+   * The new assigned_stop_id should not result in a significantly different trip experience for the end user than
+   * the stop_id defined in GTFS stop_times.txt. In other words, the end user should not view this new stop_id as an
+   * "unusual change" if the new stop was presented within an app without any additional context.
+   * For example, this field is intended to be used for platform assignments by using a stop_id that belongs to the
+   * same station as the stop originally defined in GTFS stop_times.txt.
+   * To assign a stop without providing any real-time arrival or departure predictions, populate this field and set
+   * StopTimeUpdate.schedule_relationship = NO_DATA.
+   * If this field is populated, it is preferred to omit `StopTimeUpdate.stop_id` and use only `StopTimeUpdate.stop_sequence`. If
+   * `StopTimeProperties.assigned_stop_id` and `StopTimeUpdate.stop_id` are populated, `StopTimeUpdate.stop_id` must match `assigned_stop_id`.
+   * Platform assignments should be reflected in other GTFS-realtime fields as well
+   * (e.g., `VehiclePosition.stop_id`).
+   * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
+   *
+   * @generated from field: optional string assigned_stop_id = 1;
+   */
+  assignedStopId: string;
 
-    /**
-     * The updated headsign of the vehicle at the stop.
-     * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
-     *
-     * @generated from field: optional string stop_headsign = 2;
-     */
-    stopHeadsign: string
+  /**
+   * The updated headsign of the vehicle at the stop.
+   * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
+   *
+   * @generated from field: optional string stop_headsign = 2;
+   */
+  stopHeadsign: string;
 
-    /**
-     * The updated pickup of the vehicle at the stop.
-     * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
-     *
-     * @generated from field: optional transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties.DropOffPickupType pickup_type = 3;
-     */
-    pickupType: TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupType
+  /**
+   * The updated pickup of the vehicle at the stop.
+   * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
+   *
+   * @generated from field: optional transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties.DropOffPickupType pickup_type = 3;
+   */
+  pickupType: TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupType;
 
-    /**
-     * The updated drop off of the vehicle at the stop.
-     * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
-     *
-     * @generated from field: optional transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties.DropOffPickupType drop_off_type = 4;
-     */
-    dropOffType: TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupType
-  }
+  /**
+   * The updated drop off of the vehicle at the stop.
+   * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
+   *
+   * @generated from field: optional transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties.DropOffPickupType drop_off_type = 4;
+   */
+  dropOffType: TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupType;
+};
 
 /**
  * Describes the message transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties.
  * Use `create(TripUpdate_StopTimeUpdate_StopTimePropertiesSchema)` to create a new message.
  */
-export declare const TripUpdate_StopTimeUpdate_StopTimePropertiesSchema: GenMessage<TripUpdate_StopTimeUpdate_StopTimeProperties>
+export declare const TripUpdate_StopTimeUpdate_StopTimePropertiesSchema: GenMessage<TripUpdate_StopTimeUpdate_StopTimeProperties>;
 
 /**
  * @generated from enum transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties.DropOffPickupType
@@ -554,7 +553,7 @@ export enum TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupType {
 /**
  * Describes the enum transit_realtime.TripUpdate.StopTimeUpdate.StopTimeProperties.DropOffPickupType.
  */
-export declare const TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupTypeSchema: GenEnum<TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupType>
+export declare const TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupTypeSchema: GenEnum<TripUpdate_StopTimeUpdate_StopTimeProperties_DropOffPickupType>;
 
 /**
  * The relation between the StopTimeEvents and the static schedule.
@@ -610,16 +609,16 @@ export enum TripUpdate_StopTimeUpdate_ScheduleRelationship {
 /**
  * Describes the enum transit_realtime.TripUpdate.StopTimeUpdate.ScheduleRelationship.
  */
-export declare const TripUpdate_StopTimeUpdate_ScheduleRelationshipSchema: GenEnum<TripUpdate_StopTimeUpdate_ScheduleRelationship>
+export declare const TripUpdate_StopTimeUpdate_ScheduleRelationshipSchema: GenEnum<TripUpdate_StopTimeUpdate_ScheduleRelationship>;
 
 /**
  * Defines updated properties of the trip, such as a new shape_id when there is a detour. Or defines the
- * trip_id, start_date, and start_time of a DUPLICATED trip.
+ * trip_id, start_date, and start_time of a DUPLICATED trip. 
  * NOTE: This message is still experimental, and subject to change. It may be formally adopted in the future.
  *
  * @generated from message transit_realtime.TripUpdate.TripProperties
  */
-export declare type TripUpdate_TripProperties = Message<'transit_realtime.TripUpdate.TripProperties'> & {
+export declare type TripUpdate_TripProperties = Message<"transit_realtime.TripUpdate.TripProperties"> & {
   /**
    * Defines the identifier of a new trip that is a duplicate of an existing trip defined in (CSV) GTFS trips.txt
    * but will start at a different service date and/or time (defined using the TripProperties.start_date and
@@ -630,7 +629,7 @@ export declare type TripUpdate_TripProperties = Message<'transit_realtime.TripUp
    *
    * @generated from field: optional string trip_id = 1;
    */
-  tripId: string
+  tripId: string;
 
   /**
    * Service date on which the DUPLICATED trip will be run, in YYYYMMDD format. Required if
@@ -639,7 +638,7 @@ export declare type TripUpdate_TripProperties = Message<'transit_realtime.TripUp
    *
    * @generated from field: optional string start_date = 2;
    */
-  startDate: string
+  startDate: string;
 
   /**
    * Defines the departure start time of the trip when it’s duplicated. See definition of stop_times.departure_time
@@ -657,20 +656,20 @@ export declare type TripUpdate_TripProperties = Message<'transit_realtime.TripUp
    *
    * @generated from field: optional string start_time = 3;
    */
-  startTime: string
+  startTime: string;
 
   /**
    * Specifies the identifier of the shape of the vehicle travel path when the trip shape differs from the shape specified in (CSV) GTFS
    * or to specify it in real-time when it's not provided by (CSV) GTFS, such as a vehicle that takes differing paths based on rider demand. See definition of trips.shape_id in (CSV) GTFS.
-   * If a shape is neither defined in (CSV) GTFS nor in real-time, the shape is considered unknown. This field can refer to a shape defined in the (CSV) GTFS in shapes.txt or a `Shape` in the same (protobuf) real-time feed.
-   * The order of stops (stop sequences) for this trip must remain the same as (CSV) GTFS.
+   * If a shape is neither defined in (CSV) GTFS nor in real-time, the shape is considered unknown. This field can refer to a shape defined in the (CSV) GTFS in shapes.txt or a `Shape` in the same (protobuf) real-time feed. 
+   * The order of stops (stop sequences) for this trip must remain the same as (CSV) GTFS. 
    * If it refers to a `Shape` entity in the same real-time feed, the value of this field should be the one of the `shape_id` inside the entity, and _not_ the `id` of `FeedEntity`.
    * Stops that are a part of the original trip but will no longer be made, such as when a detour occurs, should be marked as schedule_relationship=SKIPPED or more details can be provided via a `TripModifications` message.
-   * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
+   * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future. 
    *
    * @generated from field: optional string shape_id = 4;
    */
-  shapeId: string
+  shapeId: string;
 
   /**
    * Specifies the headsign for this trip when it differs from the original.
@@ -678,7 +677,7 @@ export declare type TripUpdate_TripProperties = Message<'transit_realtime.TripUp
    *
    * @generated from field: optional string trip_headsign = 5;
    */
-  tripHeadsign: string
+  tripHeadsign: string;
 
   /**
    * Specifies the name for this trip when it differs from the original.
@@ -686,21 +685,21 @@ export declare type TripUpdate_TripProperties = Message<'transit_realtime.TripUp
    *
    * @generated from field: optional string trip_short_name = 6;
    */
-  tripShortName: string
-}
+  tripShortName: string;
+};
 
 /**
  * Describes the message transit_realtime.TripUpdate.TripProperties.
  * Use `create(TripUpdate_TripPropertiesSchema)` to create a new message.
  */
-export declare const TripUpdate_TripPropertiesSchema: GenMessage<TripUpdate_TripProperties>
+export declare const TripUpdate_TripPropertiesSchema: GenMessage<TripUpdate_TripProperties>;
 
 /**
  * Realtime positioning information for a given vehicle.
  *
  * @generated from message transit_realtime.VehiclePosition
  */
-export declare type VehiclePosition = Message<'transit_realtime.VehiclePosition'> & {
+export declare type VehiclePosition = Message<"transit_realtime.VehiclePosition"> & {
   /**
    * The Trip that this vehicle is serving.
    * Can be empty or partial if the vehicle can not be identified with a given
@@ -708,21 +707,21 @@ export declare type VehiclePosition = Message<'transit_realtime.VehiclePosition'
    *
    * @generated from field: optional transit_realtime.TripDescriptor trip = 1;
    */
-  trip?: TripDescriptor | undefined
+  trip?: TripDescriptor | undefined;
 
   /**
    * Additional information on the vehicle that is serving this trip.
    *
    * @generated from field: optional transit_realtime.VehicleDescriptor vehicle = 8;
    */
-  vehicle?: VehicleDescriptor | undefined
+  vehicle?: VehicleDescriptor | undefined;
 
   /**
    * Current position of this vehicle.
    *
    * @generated from field: optional transit_realtime.Position position = 2;
    */
-  position?: Position | undefined
+  position?: Position | undefined;
 
   /**
    * The stop sequence index of the current stop. The meaning of
@@ -732,7 +731,7 @@ export declare type VehiclePosition = Message<'transit_realtime.VehiclePosition'
    *
    * @generated from field: optional uint32 current_stop_sequence = 3;
    */
-  currentStopSequence: number
+  currentStopSequence: number;
 
   /**
    * Identifies the current stop. The value must be the same as in stops.txt in
@@ -740,7 +739,7 @@ export declare type VehiclePosition = Message<'transit_realtime.VehiclePosition'
    *
    * @generated from field: optional string stop_id = 7;
    */
-  stopId: string
+  stopId: string;
 
   /**
    * The exact status of the vehicle with respect to the current stop.
@@ -748,7 +747,7 @@ export declare type VehiclePosition = Message<'transit_realtime.VehiclePosition'
    *
    * @generated from field: optional transit_realtime.VehiclePosition.VehicleStopStatus current_status = 4 [default = IN_TRANSIT_TO];
    */
-  currentStatus: VehiclePosition_VehicleStopStatus
+  currentStatus: VehiclePosition_VehicleStopStatus;
 
   /**
    * Moment at which the vehicle's position was measured. In POSIX time
@@ -756,12 +755,12 @@ export declare type VehiclePosition = Message<'transit_realtime.VehiclePosition'
    *
    * @generated from field: optional uint64 timestamp = 5;
    */
-  timestamp: bigint
+  timestamp: bigint;
 
   /**
    * @generated from field: optional transit_realtime.VehiclePosition.CongestionLevel congestion_level = 6;
    */
-  congestionLevel: VehiclePosition_CongestionLevel
+  congestionLevel: VehiclePosition_CongestionLevel;
 
   /**
    * If multi_carriage_status is populated with per-carriage OccupancyStatus,
@@ -769,7 +768,7 @@ export declare type VehiclePosition = Message<'transit_realtime.VehiclePosition'
    *
    * @generated from field: optional transit_realtime.VehiclePosition.OccupancyStatus occupancy_status = 9;
    */
-  occupancyStatus: VehiclePosition_OccupancyStatus
+  occupancyStatus: VehiclePosition_OccupancyStatus;
 
   /**
    * A percentage value indicating the degree of passenger occupancy in the vehicle.
@@ -778,35 +777,35 @@ export declare type VehiclePosition = Message<'transit_realtime.VehiclePosition'
    * including both seated and standing capacity, and current operating regulations allow.
    * The value may exceed 100 if there are more passengers than the maximum designed capacity.
    * The precision of occupancy_percentage should be low enough that individual passengers cannot be tracked boarding or alighting the vehicle.
-   * If multi_carriage_status is populated with per-carriage occupancy_percentage,
+   * If multi_carriage_status is populated with per-carriage occupancy_percentage, 
    * then this field should describe the entire vehicle with all carriages accepting passengers considered.
    * This field is still experimental, and subject to change. It may be formally adopted in the future.
    *
    * @generated from field: optional uint32 occupancy_percentage = 10;
    */
-  occupancyPercentage: number
+  occupancyPercentage: number;
 
   /**
    * Details of the multiple carriages of this given vehicle.
-   * The first occurrence represents the first carriage of the vehicle,
-   * given the current direction of travel.
-   * The number of occurrences of the multi_carriage_details
+   * The first occurrence represents the first carriage of the vehicle, 
+   * given the current direction of travel. 
+   * The number of occurrences of the multi_carriage_details 
    * field represents the number of carriages of the vehicle.
-   * It also includes non boardable carriages,
-   * like engines, maintenance carriages, etc… as they provide valuable
+   * It also includes non boardable carriages, 
+   * like engines, maintenance carriages, etc… as they provide valuable 
    * information to passengers about where to stand on a platform.
    * This message/field is still experimental, and subject to change. It may be formally adopted in the future.
    *
    * @generated from field: repeated transit_realtime.VehiclePosition.CarriageDetails multi_carriage_details = 11;
    */
-  multiCarriageDetails: VehiclePosition_CarriageDetails[]
-}
+  multiCarriageDetails: VehiclePosition_CarriageDetails[];
+};
 
 /**
  * Describes the message transit_realtime.VehiclePosition.
  * Use `create(VehiclePositionSchema)` to create a new message.
  */
-export declare const VehiclePositionSchema: GenMessage<VehiclePosition>
+export declare const VehiclePositionSchema: GenMessage<VehiclePosition>;
 
 /**
  * Carriage specific details, used for vehicles composed of several carriages
@@ -814,65 +813,64 @@ export declare const VehiclePositionSchema: GenMessage<VehiclePosition>
  *
  * @generated from message transit_realtime.VehiclePosition.CarriageDetails
  */
-export declare type VehiclePosition_CarriageDetails =
-  Message<'transit_realtime.VehiclePosition.CarriageDetails'> & {
-    /**
-     * Identification of the carriage. Should be unique per vehicle.
-     *
-     * @generated from field: optional string id = 1;
-     */
-    id: string
+export declare type VehiclePosition_CarriageDetails = Message<"transit_realtime.VehiclePosition.CarriageDetails"> & {
+  /**
+   * Identification of the carriage. Should be unique per vehicle.
+   *
+   * @generated from field: optional string id = 1;
+   */
+  id: string;
 
-    /**
-     * User visible label that may be shown to the passenger to help identify
-     * the carriage. Example: "7712", "Car ABC-32", etc...
-     * This message/field is still experimental, and subject to change. It may be formally adopted in the future.
-     *
-     * @generated from field: optional string label = 2;
-     */
-    label: string
+  /**
+   * User visible label that may be shown to the passenger to help identify
+   * the carriage. Example: "7712", "Car ABC-32", etc...
+   * This message/field is still experimental, and subject to change. It may be formally adopted in the future.
+   *
+   * @generated from field: optional string label = 2;
+   */
+  label: string;
 
-    /**
-     * Occupancy status for this given carriage, in this vehicle
-     * This message/field is still experimental, and subject to change. It may be formally adopted in the future.
-     *
-     * @generated from field: optional transit_realtime.VehiclePosition.OccupancyStatus occupancy_status = 3 [default = NO_DATA_AVAILABLE];
-     */
-    occupancyStatus: VehiclePosition_OccupancyStatus
+  /**
+   * Occupancy status for this given carriage, in this vehicle
+   * This message/field is still experimental, and subject to change. It may be formally adopted in the future.
+   *
+   * @generated from field: optional transit_realtime.VehiclePosition.OccupancyStatus occupancy_status = 3 [default = NO_DATA_AVAILABLE];
+   */
+  occupancyStatus: VehiclePosition_OccupancyStatus;
 
-    /**
-     * Occupancy percentage for this given carriage, in this vehicle.
-     * Follows the same rules as "VehiclePosition.occupancy_percentage"
-     * -1 in case data is not available for this given carriage (as protobuf defaults to 0 otherwise)
-     * This message/field is still experimental, and subject to change. It may be formally adopted in the future.
-     *
-     * @generated from field: optional int32 occupancy_percentage = 4 [default = -1];
-     */
-    occupancyPercentage: number
+  /**
+   * Occupancy percentage for this given carriage, in this vehicle.
+   * Follows the same rules as "VehiclePosition.occupancy_percentage"
+   * -1 in case data is not available for this given carriage (as protobuf defaults to 0 otherwise)
+   * This message/field is still experimental, and subject to change. It may be formally adopted in the future.
+   *
+   * @generated from field: optional int32 occupancy_percentage = 4 [default = -1];
+   */
+  occupancyPercentage: number;
 
-    /**
-     * Identifies the order of this carriage with respect to the other
-     * carriages in the vehicle's list of CarriageDetails.
-     * The first carriage in the direction of travel must have a value of 1.
-     * The second value corresponds to the second carriage in the direction
-     * of travel and must have a value of 2, and so forth.
-     * For example, the first carriage in the direction of travel has a value of 1.
-     * If the second carriage in the direction of travel has a value of 3,
-     * consumers will discard data for all carriages (i.e., the multi_carriage_details field).
-     * Carriages without data must be represented with a valid carriage_sequence number and the fields
-     * without data should be omitted (alternately, those fields could also be included and set to the "no data" values).
-     * This message/field is still experimental, and subject to change. It may be formally adopted in the future.
-     *
-     * @generated from field: optional uint32 carriage_sequence = 5;
-     */
-    carriageSequence: number
-  }
+  /**
+   * Identifies the order of this carriage with respect to the other
+   * carriages in the vehicle's list of CarriageDetails.
+   * The first carriage in the direction of travel must have a value of 1.
+   * The second value corresponds to the second carriage in the direction
+   * of travel and must have a value of 2, and so forth.
+   * For example, the first carriage in the direction of travel has a value of 1.
+   * If the second carriage in the direction of travel has a value of 3,
+   * consumers will discard data for all carriages (i.e., the multi_carriage_details field).
+   * Carriages without data must be represented with a valid carriage_sequence number and the fields 
+   * without data should be omitted (alternately, those fields could also be included and set to the "no data" values).
+   * This message/field is still experimental, and subject to change. It may be formally adopted in the future.
+   *
+   * @generated from field: optional uint32 carriage_sequence = 5;
+   */
+  carriageSequence: number;
+};
 
 /**
  * Describes the message transit_realtime.VehiclePosition.CarriageDetails.
  * Use `create(VehiclePosition_CarriageDetailsSchema)` to create a new message.
  */
-export declare const VehiclePosition_CarriageDetailsSchema: GenMessage<VehiclePosition_CarriageDetails>
+export declare const VehiclePosition_CarriageDetailsSchema: GenMessage<VehiclePosition_CarriageDetails>;
 
 /**
  * @generated from enum transit_realtime.VehiclePosition.VehicleStopStatus
@@ -904,7 +902,7 @@ export enum VehiclePosition_VehicleStopStatus {
 /**
  * Describes the enum transit_realtime.VehiclePosition.VehicleStopStatus.
  */
-export declare const VehiclePosition_VehicleStopStatusSchema: GenEnum<VehiclePosition_VehicleStopStatus>
+export declare const VehiclePosition_VehicleStopStatusSchema: GenEnum<VehiclePosition_VehicleStopStatus>;
 
 /**
  * Congestion level that is affecting this vehicle.
@@ -943,13 +941,13 @@ export enum VehiclePosition_CongestionLevel {
 /**
  * Describes the enum transit_realtime.VehiclePosition.CongestionLevel.
  */
-export declare const VehiclePosition_CongestionLevelSchema: GenEnum<VehiclePosition_CongestionLevel>
+export declare const VehiclePosition_CongestionLevelSchema: GenEnum<VehiclePosition_CongestionLevel>;
 
 /**
  * The state of passenger occupancy for the vehicle or carriage.
  * Individual producers may not publish all OccupancyStatus values. Therefore, consumers
  * must not assume that the OccupancyStatus values follow a linear scale.
- * Consumers should represent OccupancyStatus values as the state indicated
+ * Consumers should represent OccupancyStatus values as the state indicated 
  * and intended by the producer. Likewise, producers must use OccupancyStatus values that
  * correspond to actual vehicle occupancy states.
  * For describing passenger occupancy levels on a linear scale, see `occupancy_percentage`.
@@ -1035,14 +1033,14 @@ export enum VehiclePosition_OccupancyStatus {
 /**
  * Describes the enum transit_realtime.VehiclePosition.OccupancyStatus.
  */
-export declare const VehiclePosition_OccupancyStatusSchema: GenEnum<VehiclePosition_OccupancyStatus>
+export declare const VehiclePosition_OccupancyStatusSchema: GenEnum<VehiclePosition_OccupancyStatus>;
 
 /**
  * An alert, indicating some sort of incident in the public transit network.
  *
  * @generated from message transit_realtime.Alert
  */
-export declare type Alert = Message<'transit_realtime.Alert'> & {
+export declare type Alert = Message<"transit_realtime.Alert"> & {
   /**
    * Time when the alert should be shown to the user. If missing, the
    * alert will be shown as long as it appears in the feed.
@@ -1052,7 +1050,7 @@ export declare type Alert = Message<'transit_realtime.Alert'> & {
    * @generated from field: repeated transit_realtime.TimeRange active_period = 1 [deprecated = true];
    * @deprecated
    */
-  activePeriod: TimeRange[]
+  activePeriod: TimeRange[];
 
   /**
    * Time when the alert should be shown to the user strictly for informative reasons.
@@ -1061,7 +1059,7 @@ export declare type Alert = Message<'transit_realtime.Alert'> & {
    *
    * @generated from field: repeated transit_realtime.TimeRange communication_period = 2;
    */
-  communicationPeriod: TimeRange[]
+  communicationPeriod: TimeRange[];
 
   /**
    * Time when the services are affected by the alert. If communication_period is specified,
@@ -1070,38 +1068,38 @@ export declare type Alert = Message<'transit_realtime.Alert'> & {
    *
    * @generated from field: repeated transit_realtime.TimeRange impact_period = 3;
    */
-  impactPeriod: TimeRange[]
+  impactPeriod: TimeRange[];
 
   /**
    * Entities whose users we should notify of this alert.
    *
    * @generated from field: repeated transit_realtime.EntitySelector informed_entity = 5;
    */
-  informedEntity: EntitySelector[]
+  informedEntity: EntitySelector[];
 
   /**
    * @generated from field: optional transit_realtime.Alert.Cause cause = 6 [default = UNKNOWN_CAUSE];
    */
-  cause: Alert_Cause
+  cause: Alert_Cause;
 
   /**
    * @generated from field: optional transit_realtime.Alert.Effect effect = 7 [default = UNKNOWN_EFFECT];
    */
-  effect: Alert_Effect
+  effect: Alert_Effect;
 
   /**
    * The URL which provides additional information about the alert.
    *
    * @generated from field: optional transit_realtime.TranslatedString url = 8;
    */
-  url?: TranslatedString | undefined
+  url?: TranslatedString | undefined;
 
   /**
    * Alert header. Contains a short summary of the alert text as plain-text.
    *
    * @generated from field: optional transit_realtime.TranslatedString header_text = 10;
    */
-  headerText?: TranslatedString | undefined
+  headerText?: TranslatedString | undefined;
 
   /**
    * Full description for the alert as plain-text. The information in the
@@ -1109,34 +1107,34 @@ export declare type Alert = Message<'transit_realtime.Alert'> & {
    *
    * @generated from field: optional transit_realtime.TranslatedString description_text = 11;
    */
-  descriptionText?: TranslatedString | undefined
+  descriptionText?: TranslatedString | undefined;
 
   /**
    * Text for alert header to be used in text-to-speech implementations. This field is the text-to-speech version of header_text.
    *
    * @generated from field: optional transit_realtime.TranslatedString tts_header_text = 12;
    */
-  ttsHeaderText?: TranslatedString | undefined
+  ttsHeaderText?: TranslatedString | undefined;
 
   /**
    * Text for full description for the alert to be used in text-to-speech implementations. This field is the text-to-speech version of description_text.
    *
    * @generated from field: optional transit_realtime.TranslatedString tts_description_text = 13;
    */
-  ttsDescriptionText?: TranslatedString | undefined
+  ttsDescriptionText?: TranslatedString | undefined;
 
   /**
    * @generated from field: optional transit_realtime.Alert.SeverityLevel severity_level = 14 [default = UNKNOWN_SEVERITY];
    */
-  severityLevel: Alert_SeverityLevel
+  severityLevel: Alert_SeverityLevel;
 
   /**
    * TranslatedImage to be displayed along the alert text. Used to explain visually the alert effect of a detour, station closure, etc. The image must enhance the understanding of the alert. Any essential information communicated within the image must also be contained in the alert text.
-   * The following types of images are discouraged : image containing mainly text, marketing or branded images that add no additional information.
+   * The following types of images are discouraged : image containing mainly text, marketing or branded images that add no additional information. 
    *
    * @generated from field: optional transit_realtime.TranslatedImage image = 15;
    */
-  image?: TranslatedImage | undefined
+  image?: TranslatedImage | undefined;
 
   /**
    * Text describing the appearance of the linked image in the `image` field (e.g., in case the image can't be displayed
@@ -1144,7 +1142,7 @@ export declare type Alert = Message<'transit_realtime.Alert'> & {
    *
    * @generated from field: optional transit_realtime.TranslatedString image_alternative_text = 16;
    */
-  imageAlternativeText?: TranslatedString | undefined
+  imageAlternativeText?: TranslatedString | undefined;
 
   /**
    * Description of the cause of the alert that allows for agency-specific language; more specific than the Cause. If cause_detail is included, then Cause must also be included.
@@ -1152,7 +1150,7 @@ export declare type Alert = Message<'transit_realtime.Alert'> & {
    *
    * @generated from field: optional transit_realtime.TranslatedString cause_detail = 17;
    */
-  causeDetail?: TranslatedString | undefined
+  causeDetail?: TranslatedString | undefined;
 
   /**
    * Description of the effect of the alert that allows for agency-specific language; more specific than the Effect. If effect_detail is included, then Effect must also be included.
@@ -1160,14 +1158,14 @@ export declare type Alert = Message<'transit_realtime.Alert'> & {
    *
    * @generated from field: optional transit_realtime.TranslatedString effect_detail = 18;
    */
-  effectDetail?: TranslatedString | undefined
-}
+  effectDetail?: TranslatedString | undefined;
+};
 
 /**
  * Describes the message transit_realtime.Alert.
  * Use `create(AlertSchema)` to create a new message.
  */
-export declare const AlertSchema: GenMessage<Alert>
+export declare const AlertSchema: GenMessage<Alert>;
 
 /**
  * Cause of this alert. If cause_detail is included, then Cause must also be included.
@@ -1252,7 +1250,7 @@ export enum Alert_Cause {
 /**
  * Describes the enum transit_realtime.Alert.Cause.
  */
-export declare const Alert_CauseSchema: GenEnum<Alert_Cause>
+export declare const Alert_CauseSchema: GenEnum<Alert_Cause>;
 
 /**
  * What is the effect of this problem on the affected entity. If effect_detail is included, then Effect must also be included.
@@ -1323,7 +1321,7 @@ export enum Alert_Effect {
 /**
  * Describes the enum transit_realtime.Alert.Effect.
  */
-export declare const Alert_EffectSchema: GenEnum<Alert_Effect>
+export declare const Alert_EffectSchema: GenEnum<Alert_Effect>;
 
 /**
  * Severity of this alert.
@@ -1355,7 +1353,7 @@ export enum Alert_SeverityLevel {
 /**
  * Describes the enum transit_realtime.Alert.SeverityLevel.
  */
-export declare const Alert_SeverityLevelSchema: GenEnum<Alert_SeverityLevel>
+export declare const Alert_SeverityLevelSchema: GenEnum<Alert_SeverityLevel>;
 
 /**
  * A time interval. The interval is considered active at time 't' if 't' is
@@ -1363,7 +1361,7 @@ export declare const Alert_SeverityLevelSchema: GenEnum<Alert_SeverityLevel>
  *
  * @generated from message transit_realtime.TimeRange
  */
-export declare type TimeRange = Message<'transit_realtime.TimeRange'> & {
+export declare type TimeRange = Message<"transit_realtime.TimeRange"> & {
   /**
    * Start time, in POSIX time (i.e., number of seconds since January 1st 1970
    * 00:00:00 UTC).
@@ -1371,7 +1369,7 @@ export declare type TimeRange = Message<'transit_realtime.TimeRange'> & {
    *
    * @generated from field: optional uint64 start = 1;
    */
-  start: bigint
+  start: bigint;
 
   /**
    * End time, in POSIX time (i.e., number of seconds since January 1st 1970
@@ -1380,34 +1378,34 @@ export declare type TimeRange = Message<'transit_realtime.TimeRange'> & {
    *
    * @generated from field: optional uint64 end = 2;
    */
-  end: bigint
-}
+  end: bigint;
+};
 
 /**
  * Describes the message transit_realtime.TimeRange.
  * Use `create(TimeRangeSchema)` to create a new message.
  */
-export declare const TimeRangeSchema: GenMessage<TimeRange>
+export declare const TimeRangeSchema: GenMessage<TimeRange>;
 
 /**
  * A position.
  *
  * @generated from message transit_realtime.Position
  */
-export declare type Position = Message<'transit_realtime.Position'> & {
+export declare type Position = Message<"transit_realtime.Position"> & {
   /**
    * Degrees North, in the WGS-84 coordinate system.
    *
    * @generated from field: required float latitude = 1;
    */
-  latitude: number
+  latitude: number;
 
   /**
    * Degrees East, in the WGS-84 coordinate system.
    *
    * @generated from field: required float longitude = 2;
    */
-  longitude: number
+  longitude: number;
 
   /**
    * Bearing, in degrees, clockwise from North, i.e., 0 is North and 90 is East.
@@ -1418,28 +1416,28 @@ export declare type Position = Message<'transit_realtime.Position'> & {
    *
    * @generated from field: optional float bearing = 3;
    */
-  bearing: number
+  bearing: number;
 
   /**
    * Odometer value, in meters.
    *
    * @generated from field: optional double odometer = 4;
    */
-  odometer: number
+  odometer: number;
 
   /**
    * Momentary speed measured by the vehicle, in meters per second.
    *
    * @generated from field: optional float speed = 5;
    */
-  speed: number
-}
+  speed: number;
+};
 
 /**
  * Describes the message transit_realtime.Position.
  * Use `create(PositionSchema)` to create a new message.
  */
-export declare const PositionSchema: GenMessage<Position>
+export declare const PositionSchema: GenMessage<Position>;
 
 /**
  * A descriptor that identifies an instance of a GTFS trip, or all instances of
@@ -1454,7 +1452,7 @@ export declare const PositionSchema: GenMessage<Position>
  *
  * @generated from message transit_realtime.TripDescriptor
  */
-export declare type TripDescriptor = Message<'transit_realtime.TripDescriptor'> & {
+export declare type TripDescriptor = Message<"transit_realtime.TripDescriptor"> & {
   /**
    * The trip_id from the GTFS feed that this selector refers to.
    * For non frequency-based trips, this field is enough to uniquely identify
@@ -1465,14 +1463,14 @@ export declare type TripDescriptor = Message<'transit_realtime.TripDescriptor'> 
    *
    * @generated from field: optional string trip_id = 1;
    */
-  tripId: string
+  tripId: string;
 
   /**
    * The route_id from the GTFS that this selector refers to.
    *
    * @generated from field: optional string route_id = 5;
    */
-  routeId: string
+  routeId: string;
 
   /**
    * The direction_id from the GTFS feed trips.txt file, indicating the
@@ -1480,7 +1478,7 @@ export declare type TripDescriptor = Message<'transit_realtime.TripDescriptor'> 
    *
    * @generated from field: optional uint32 direction_id = 6;
    */
-  directionId: number
+  directionId: number;
 
   /**
    * The initially scheduled start time of this trip instance.
@@ -1501,7 +1499,7 @@ export declare type TripDescriptor = Message<'transit_realtime.TripDescriptor'> 
    *
    * @generated from field: optional string start_time = 2;
    */
-  startTime: string
+  startTime: string;
 
   /**
    * The scheduled start date of this trip instance.
@@ -1517,12 +1515,12 @@ export declare type TripDescriptor = Message<'transit_realtime.TripDescriptor'> 
    *
    * @generated from field: optional string start_date = 3;
    */
-  startDate: string
+  startDate: string;
 
   /**
    * @generated from field: optional transit_realtime.TripDescriptor.ScheduleRelationship schedule_relationship = 4;
    */
-  scheduleRelationship: TripDescriptor_ScheduleRelationship
+  scheduleRelationship: TripDescriptor_ScheduleRelationship;
 
   /**
    * Linkage to any modifications done to this trip (shape changes, removal or addition of stops).
@@ -1530,54 +1528,53 @@ export declare type TripDescriptor = Message<'transit_realtime.TripDescriptor'> 
    *
    * @generated from field: optional transit_realtime.TripDescriptor.ModifiedTripSelector modified_trip = 7;
    */
-  modifiedTrip?: TripDescriptor_ModifiedTripSelector | undefined
-}
+  modifiedTrip?: TripDescriptor_ModifiedTripSelector | undefined;
+};
 
 /**
  * Describes the message transit_realtime.TripDescriptor.
  * Use `create(TripDescriptorSchema)` to create a new message.
  */
-export declare const TripDescriptorSchema: GenMessage<TripDescriptor>
+export declare const TripDescriptorSchema: GenMessage<TripDescriptor>;
 
 /**
  * @generated from message transit_realtime.TripDescriptor.ModifiedTripSelector
  */
-export declare type TripDescriptor_ModifiedTripSelector =
-  Message<'transit_realtime.TripDescriptor.ModifiedTripSelector'> & {
-    /**
-     * The 'id' from the FeedEntity in which the contained TripModifications object affects this trip.
-     *
-     * @generated from field: optional string modifications_id = 1;
-     */
-    modificationsId: string
+export declare type TripDescriptor_ModifiedTripSelector = Message<"transit_realtime.TripDescriptor.ModifiedTripSelector"> & {
+  /**
+   * The 'id' from the FeedEntity in which the contained TripModifications object affects this trip.
+   *
+   * @generated from field: optional string modifications_id = 1;
+   */
+  modificationsId: string;
 
-    /**
-     * The trip_id from the GTFS feed that is modified by the modifications_id
-     *
-     * @generated from field: optional string affected_trip_id = 2;
-     */
-    affectedTripId: string
+  /**
+   * The trip_id from the GTFS feed that is modified by the modifications_id
+   *
+   * @generated from field: optional string affected_trip_id = 2;
+   */
+  affectedTripId: string;
 
-    /**
-     * The initially scheduled start time of this trip instance, applied to the frequency based modified trip. Same definition as start_time in TripDescriptor.
-     *
-     * @generated from field: optional string start_time = 3;
-     */
-    startTime: string
+  /**
+   * The initially scheduled start time of this trip instance, applied to the frequency based modified trip. Same definition as start_time in TripDescriptor.
+   *
+   * @generated from field: optional string start_time = 3;
+   */
+  startTime: string;
 
-    /**
-     * The start date of this trip instance in YYYYMMDD format, applied to the modified trip. Same definition as start_date in TripDescriptor.
-     *
-     * @generated from field: optional string start_date = 4;
-     */
-    startDate: string
-  }
+  /**
+   * The start date of this trip instance in YYYYMMDD format, applied to the modified trip. Same definition as start_date in TripDescriptor.
+   *
+   * @generated from field: optional string start_date = 4;
+   */
+  startDate: string;
+};
 
 /**
  * Describes the message transit_realtime.TripDescriptor.ModifiedTripSelector.
  * Use `create(TripDescriptor_ModifiedTripSelectorSchema)` to create a new message.
  */
-export declare const TripDescriptor_ModifiedTripSelectorSchema: GenMessage<TripDescriptor_ModifiedTripSelector>
+export declare const TripDescriptor_ModifiedTripSelectorSchema: GenMessage<TripDescriptor_ModifiedTripSelector>;
 
 /**
  * The relation between this trip and the static schedule. If a trip is done
@@ -1596,8 +1593,8 @@ export enum TripDescriptor_ScheduleRelationship {
   SCHEDULED = 0,
 
   /**
-   * This value has been deprecated as the behavior was unspecified.
-   * Use DUPLICATED for an extra trip that is the same as a scheduled trip except the start date or time,
+   * This value has been deprecated as the behavior was unspecified. 
+   * Use DUPLICATED for an extra trip that is the same as a scheduled trip except the start date or time, 
    * or NEW for an extra trip that is unrelated to an existing trip.
    *
    * @generated from enum value: ADDED = 1 [deprecated = true];
@@ -1636,7 +1633,7 @@ export enum TripDescriptor_ScheduleRelationship {
    * (in calendar.txt or calendar_dates.txt) is operating within the next 30 days. The trip to be duplicated is
    * identified via TripUpdate.TripDescriptor.trip_id. This enumeration does not modify the existing trip referenced by
    * TripUpdate.TripDescriptor.trip_id - if a producer wants to cancel the original trip, it must publish a separate
-   * TripUpdate with the value of CANCELED or DELETED. If a producer wants to replace the original trip, a value of
+   * TripUpdate with the value of CANCELED or DELETED. If a producer wants to replace the original trip, a value of 
    * `REPLACEMENT` should be used instead.
    *
    * Trips defined in GTFS frequencies.txt with exact_times that is
@@ -1678,14 +1675,14 @@ export enum TripDescriptor_ScheduleRelationship {
 /**
  * Describes the enum transit_realtime.TripDescriptor.ScheduleRelationship.
  */
-export declare const TripDescriptor_ScheduleRelationshipSchema: GenEnum<TripDescriptor_ScheduleRelationship>
+export declare const TripDescriptor_ScheduleRelationshipSchema: GenEnum<TripDescriptor_ScheduleRelationship>;
 
 /**
  * Identification information for the vehicle performing the trip.
  *
  * @generated from message transit_realtime.VehicleDescriptor
  */
-export declare type VehicleDescriptor = Message<'transit_realtime.VehicleDescriptor'> & {
+export declare type VehicleDescriptor = Message<"transit_realtime.VehicleDescriptor"> & {
   /**
    * Internal system identification of the vehicle. Should be unique per
    * vehicle, and can be used for tracking the vehicle as it proceeds through
@@ -1693,7 +1690,7 @@ export declare type VehicleDescriptor = Message<'transit_realtime.VehicleDescrip
    *
    * @generated from field: optional string id = 1;
    */
-  id: string
+  id: string;
 
   /**
    * User visible label, i.e., something that must be shown to the passenger to
@@ -1701,26 +1698,26 @@ export declare type VehicleDescriptor = Message<'transit_realtime.VehicleDescrip
    *
    * @generated from field: optional string label = 2;
    */
-  label: string
+  label: string;
 
   /**
    * The license plate of the vehicle.
    *
    * @generated from field: optional string license_plate = 3;
    */
-  licensePlate: string
+  licensePlate: string;
 
   /**
    * @generated from field: optional transit_realtime.VehicleDescriptor.WheelchairAccessible wheelchair_accessible = 4 [default = NO_VALUE];
    */
-  wheelchairAccessible: VehicleDescriptor_WheelchairAccessible
-}
+  wheelchairAccessible: VehicleDescriptor_WheelchairAccessible;
+};
 
 /**
  * Describes the message transit_realtime.VehicleDescriptor.
  * Use `create(VehicleDescriptorSchema)` to create a new message.
  */
-export declare const VehicleDescriptorSchema: GenMessage<VehicleDescriptor>
+export declare const VehicleDescriptorSchema: GenMessage<VehicleDescriptor>;
 
 /**
  * @generated from enum transit_realtime.VehicleDescriptor.WheelchairAccessible
@@ -1763,14 +1760,14 @@ export enum VehicleDescriptor_WheelchairAccessible {
 /**
  * Describes the enum transit_realtime.VehicleDescriptor.WheelchairAccessible.
  */
-export declare const VehicleDescriptor_WheelchairAccessibleSchema: GenEnum<VehicleDescriptor_WheelchairAccessible>
+export declare const VehicleDescriptor_WheelchairAccessibleSchema: GenEnum<VehicleDescriptor_WheelchairAccessible>;
 
 /**
  * A selector for an entity in a GTFS feed.
  *
  * @generated from message transit_realtime.EntitySelector
  */
-export declare type EntitySelector = Message<'transit_realtime.EntitySelector'> & {
+export declare type EntitySelector = Message<"transit_realtime.EntitySelector"> & {
   /**
    * The values of the fields should correspond to the appropriate fields in the
    * GTFS feed.
@@ -1779,29 +1776,29 @@ export declare type EntitySelector = Message<'transit_realtime.EntitySelector'> 
    *
    * @generated from field: optional string agency_id = 1;
    */
-  agencyId: string
+  agencyId: string;
 
   /**
    * @generated from field: optional string route_id = 2;
    */
-  routeId: string
+  routeId: string;
 
   /**
    * corresponds to route_type in GTFS.
    *
    * @generated from field: optional int32 route_type = 3;
    */
-  routeType: number
+  routeType: number;
 
   /**
    * @generated from field: optional transit_realtime.TripDescriptor trip = 4;
    */
-  trip?: TripDescriptor | undefined
+  trip?: TripDescriptor | undefined;
 
   /**
    * @generated from field: optional string stop_id = 5;
    */
-  stopId: string
+  stopId: string;
 
   /**
    * Corresponds to trip direction_id in GTFS trips.txt. If provided the
@@ -1809,14 +1806,14 @@ export declare type EntitySelector = Message<'transit_realtime.EntitySelector'> 
    *
    * @generated from field: optional uint32 direction_id = 6;
    */
-  directionId: number
-}
+  directionId: number;
+};
 
 /**
  * Describes the message transit_realtime.EntitySelector.
  * Use `create(EntitySelectorSchema)` to create a new message.
  */
-export declare const EntitySelectorSchema: GenMessage<EntitySelector>
+export declare const EntitySelectorSchema: GenMessage<EntitySelector>;
 
 /**
  * An internationalized message containing per-language versions of a snippet of
@@ -1832,48 +1829,47 @@ export declare const EntitySelectorSchema: GenMessage<EntitySelector>
  *
  * @generated from message transit_realtime.TranslatedString
  */
-export declare type TranslatedString = Message<'transit_realtime.TranslatedString'> & {
+export declare type TranslatedString = Message<"transit_realtime.TranslatedString"> & {
   /**
    * At least one translation must be provided.
    *
    * @generated from field: repeated transit_realtime.TranslatedString.Translation translation = 1;
    */
-  translation: TranslatedString_Translation[]
-}
+  translation: TranslatedString_Translation[];
+};
 
 /**
  * Describes the message transit_realtime.TranslatedString.
  * Use `create(TranslatedStringSchema)` to create a new message.
  */
-export declare const TranslatedStringSchema: GenMessage<TranslatedString>
+export declare const TranslatedStringSchema: GenMessage<TranslatedString>;
 
 /**
  * @generated from message transit_realtime.TranslatedString.Translation
  */
-export declare type TranslatedString_Translation =
-  Message<'transit_realtime.TranslatedString.Translation'> & {
-    /**
-     * A UTF-8 string containing the message.
-     *
-     * @generated from field: required string text = 1;
-     */
-    text: string
+export declare type TranslatedString_Translation = Message<"transit_realtime.TranslatedString.Translation"> & {
+  /**
+   * A UTF-8 string containing the message.
+   *
+   * @generated from field: required string text = 1;
+   */
+  text: string;
 
-    /**
-     * BCP-47 language code. Can be omitted if the language is unknown or if
-     * no i18n is done at all for the feed. At most one translation is
-     * allowed to have an unspecified language tag.
-     *
-     * @generated from field: optional string language = 2;
-     */
-    language: string
-  }
+  /**
+   * BCP-47 language code. Can be omitted if the language is unknown or if
+   * no i18n is done at all for the feed. At most one translation is
+   * allowed to have an unspecified language tag.
+   *
+   * @generated from field: optional string language = 2;
+   */
+  language: string;
+};
 
 /**
  * Describes the message transit_realtime.TranslatedString.Translation.
  * Use `create(TranslatedString_TranslationSchema)` to create a new message.
  */
-export declare const TranslatedString_TranslationSchema: GenMessage<TranslatedString_Translation>
+export declare const TranslatedString_TranslationSchema: GenMessage<TranslatedString_Translation>;
 
 /**
  * An internationalized image containing per-language versions of a URL linking to an image
@@ -1889,59 +1885,58 @@ export declare const TranslatedString_TranslationSchema: GenMessage<TranslatedSt
  *
  * @generated from message transit_realtime.TranslatedImage
  */
-export declare type TranslatedImage = Message<'transit_realtime.TranslatedImage'> & {
+export declare type TranslatedImage = Message<"transit_realtime.TranslatedImage"> & {
   /**
    * At least one localized image must be provided.
    *
    * @generated from field: repeated transit_realtime.TranslatedImage.LocalizedImage localized_image = 1;
    */
-  localizedImage: TranslatedImage_LocalizedImage[]
-}
+  localizedImage: TranslatedImage_LocalizedImage[];
+};
 
 /**
  * Describes the message transit_realtime.TranslatedImage.
  * Use `create(TranslatedImageSchema)` to create a new message.
  */
-export declare const TranslatedImageSchema: GenMessage<TranslatedImage>
+export declare const TranslatedImageSchema: GenMessage<TranslatedImage>;
 
 /**
  * @generated from message transit_realtime.TranslatedImage.LocalizedImage
  */
-export declare type TranslatedImage_LocalizedImage =
-  Message<'transit_realtime.TranslatedImage.LocalizedImage'> & {
-    /**
-     * String containing an URL linking to an image
-     * The image linked must be less than 2MB.
-     * If an image changes in a significant enough way that an update is required on the consumer side, the producer must update the URL to a new one.
-     * The URL should be a fully qualified URL that includes http:// or https://, and any special characters in the URL must be correctly escaped. See the following http://www.w3.org/Addressing/URL/4_URI_Recommentations.html for a description of how to create fully qualified URL values.
-     *
-     * @generated from field: required string url = 1;
-     */
-    url: string
+export declare type TranslatedImage_LocalizedImage = Message<"transit_realtime.TranslatedImage.LocalizedImage"> & {
+  /**
+   * String containing an URL linking to an image
+   * The image linked must be less than 2MB. 
+   * If an image changes in a significant enough way that an update is required on the consumer side, the producer must update the URL to a new one.
+   * The URL should be a fully qualified URL that includes http:// or https://, and any special characters in the URL must be correctly escaped. See the following http://www.w3.org/Addressing/URL/4_URI_Recommentations.html for a description of how to create fully qualified URL values.
+   *
+   * @generated from field: required string url = 1;
+   */
+  url: string;
 
-    /**
-     * IANA media type as to specify the type of image to be displayed.
-     * The type must start with "image/"
-     *
-     * @generated from field: required string media_type = 2;
-     */
-    mediaType: string
+  /**
+   * IANA media type as to specify the type of image to be displayed. 
+   * The type must start with "image/"
+   *
+   * @generated from field: required string media_type = 2;
+   */
+  mediaType: string;
 
-    /**
-     * BCP-47 language code. Can be omitted if the language is unknown or if
-     * no i18n is done at all for the feed. At most one translation is
-     * allowed to have an unspecified language tag.
-     *
-     * @generated from field: optional string language = 3;
-     */
-    language: string
-  }
+  /**
+   * BCP-47 language code. Can be omitted if the language is unknown or if
+   * no i18n is done at all for the feed. At most one translation is
+   * allowed to have an unspecified language tag.
+   *
+   * @generated from field: optional string language = 3;
+   */
+  language: string;
+};
 
 /**
  * Describes the message transit_realtime.TranslatedImage.LocalizedImage.
  * Use `create(TranslatedImage_LocalizedImageSchema)` to create a new message.
  */
-export declare const TranslatedImage_LocalizedImageSchema: GenMessage<TranslatedImage_LocalizedImage>
+export declare const TranslatedImage_LocalizedImageSchema: GenMessage<TranslatedImage_LocalizedImage>;
 
 /**
  * Describes the physical path that a vehicle takes when it's not part of the (CSV) GTFS,
@@ -1953,7 +1948,7 @@ export declare const TranslatedImage_LocalizedImageSchema: GenMessage<Translated
  *
  * @generated from message transit_realtime.Shape
  */
-export declare type Shape = Message<'transit_realtime.Shape'> & {
+export declare type Shape = Message<"transit_realtime.Shape"> & {
   /**
    * Identifier of the shape. Must be different than any shape_id defined in the (CSV) GTFS.
    * This field is required as per reference.md, but needs to be specified here optional because "Required is Forever"
@@ -1962,10 +1957,10 @@ export declare type Shape = Message<'transit_realtime.Shape'> & {
    *
    * @generated from field: optional string shape_id = 1;
    */
-  shapeId: string
+  shapeId: string;
 
   /**
-   * Encoded polyline representation of the shape. This polyline must contain at least two points and represent the full shape of the trip where it's used.
+   * Encoded polyline representation of the shape. This polyline must contain at least two points and represent the full shape of the trip where it's used. 
    * For more information about encoded polylines, see https://developers.google.com/maps/documentation/utilities/polylinealgorithm
    * This field is required as per reference.md, but needs to be specified here optional because "Required is Forever"
    * See https://developers.google.com/protocol-buffers/docs/proto#specifying_field_rules
@@ -1973,14 +1968,14 @@ export declare type Shape = Message<'transit_realtime.Shape'> & {
    *
    * @generated from field: optional string encoded_polyline = 2;
    */
-  encodedPolyline: string
-}
+  encodedPolyline: string;
+};
 
 /**
  * Describes the message transit_realtime.Shape.
  * Use `create(ShapeSchema)` to create a new message.
  */
-export declare const ShapeSchema: GenMessage<Shape>
+export declare const ShapeSchema: GenMessage<Shape>;
 
 /**
  * Describes a stop which is served by trips. All fields are as described in the GTFS-Static specification.
@@ -1988,83 +1983,83 @@ export declare const ShapeSchema: GenMessage<Shape>
  *
  * @generated from message transit_realtime.Stop
  */
-export declare type Stop = Message<'transit_realtime.Stop'> & {
+export declare type Stop = Message<"transit_realtime.Stop"> & {
   /**
    * @generated from field: optional string stop_id = 1;
    */
-  stopId: string
+  stopId: string;
 
   /**
    * @generated from field: optional transit_realtime.TranslatedString stop_code = 2;
    */
-  stopCode?: TranslatedString | undefined
+  stopCode?: TranslatedString | undefined;
 
   /**
    * @generated from field: optional transit_realtime.TranslatedString stop_name = 3;
    */
-  stopName?: TranslatedString | undefined
+  stopName?: TranslatedString | undefined;
 
   /**
    * @generated from field: optional transit_realtime.TranslatedString tts_stop_name = 4;
    */
-  ttsStopName?: TranslatedString | undefined
+  ttsStopName?: TranslatedString | undefined;
 
   /**
    * @generated from field: optional transit_realtime.TranslatedString stop_desc = 5;
    */
-  stopDesc?: TranslatedString | undefined
+  stopDesc?: TranslatedString | undefined;
 
   /**
    * @generated from field: optional float stop_lat = 6;
    */
-  stopLat: number
+  stopLat: number;
 
   /**
    * @generated from field: optional float stop_lon = 7;
    */
-  stopLon: number
+  stopLon: number;
 
   /**
    * @generated from field: optional string zone_id = 8;
    */
-  zoneId: string
+  zoneId: string;
 
   /**
    * @generated from field: optional transit_realtime.TranslatedString stop_url = 9;
    */
-  stopUrl?: TranslatedString | undefined
+  stopUrl?: TranslatedString | undefined;
 
   /**
    * @generated from field: optional string parent_station = 11;
    */
-  parentStation: string
+  parentStation: string;
 
   /**
    * @generated from field: optional string stop_timezone = 12;
    */
-  stopTimezone: string
+  stopTimezone: string;
 
   /**
    * @generated from field: optional transit_realtime.Stop.WheelchairBoarding wheelchair_boarding = 13 [default = UNKNOWN];
    */
-  wheelchairBoarding: Stop_WheelchairBoarding
+  wheelchairBoarding: Stop_WheelchairBoarding;
 
   /**
    * @generated from field: optional string level_id = 14;
    */
-  levelId: string
+  levelId: string;
 
   /**
    * @generated from field: optional transit_realtime.TranslatedString platform_code = 15;
    */
-  platformCode?: TranslatedString | undefined
-}
+  platformCode?: TranslatedString | undefined;
+};
 
 /**
  * Describes the message transit_realtime.Stop.
  * Use `create(StopSchema)` to create a new message.
  */
-export declare const StopSchema: GenMessage<Stop>
+export declare const StopSchema: GenMessage<Stop>;
 
 /**
  * @generated from enum transit_realtime.Stop.WheelchairBoarding
@@ -2089,28 +2084,28 @@ export enum Stop_WheelchairBoarding {
 /**
  * Describes the enum transit_realtime.Stop.WheelchairBoarding.
  */
-export declare const Stop_WheelchairBoardingSchema: GenEnum<Stop_WheelchairBoarding>
+export declare const Stop_WheelchairBoardingSchema: GenEnum<Stop_WheelchairBoarding>;
 
 /**
  * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
  *
  * @generated from message transit_realtime.TripModifications
  */
-export declare type TripModifications = Message<'transit_realtime.TripModifications'> & {
+export declare type TripModifications = Message<"transit_realtime.TripModifications"> & {
   /**
    * A list of selected trips affected by this TripModifications.
    *
    * @generated from field: repeated transit_realtime.TripModifications.SelectedTrips selected_trips = 1;
    */
-  selectedTrips: TripModifications_SelectedTrips[]
+  selectedTrips: TripModifications_SelectedTrips[];
 
   /**
-   * A list of start times in the real-time trip descriptor for the trip_id defined in trip_ids.
+   * A list of start times in the real-time trip descriptor for the trip_id defined in trip_ids. 
    * Useful to target multiple departures of a trip_id in a frequency-based trip.
    *
    * @generated from field: repeated string start_times = 2;
    */
-  startTimes: string[]
+  startTimes: string[];
 
   /**
    * Dates on which the modifications occurs, in the YYYYMMDD format. Producers SHOULD only transmit detours occurring within the next week.
@@ -2118,112 +2113,110 @@ export declare type TripModifications = Message<'transit_realtime.TripModificati
    *
    * @generated from field: repeated string service_dates = 3;
    */
-  serviceDates: string[]
+  serviceDates: string[];
 
   /**
-   * A list of modifications to apply to the affected trips.
+   * A list of modifications to apply to the affected trips. 
    *
    * @generated from field: repeated transit_realtime.TripModifications.Modification modifications = 4;
    */
-  modifications: TripModifications_Modification[]
-}
+  modifications: TripModifications_Modification[];
+};
 
 /**
  * Describes the message transit_realtime.TripModifications.
  * Use `create(TripModificationsSchema)` to create a new message.
  */
-export declare const TripModificationsSchema: GenMessage<TripModifications>
+export declare const TripModificationsSchema: GenMessage<TripModifications>;
 
 /**
  * A `Modification` message replaces a span of n stop times from each affected trip starting at `start_stop_selector`.
  *
  * @generated from message transit_realtime.TripModifications.Modification
  */
-export declare type TripModifications_Modification =
-  Message<'transit_realtime.TripModifications.Modification'> & {
-    /**
-     * The stop selector of the first stop_time of the original trip that is to be affected by this modification.
-     * Used in conjunction with `end_stop_selector`.
-     * `start_stop_selector` is required and is used to define the reference stop used with `travel_time_to_stop`.
-     *
-     * @generated from field: optional transit_realtime.StopSelector start_stop_selector = 1;
-     */
-    startStopSelector?: StopSelector | undefined
+export declare type TripModifications_Modification = Message<"transit_realtime.TripModifications.Modification"> & {
+  /**
+   * The stop selector of the first stop_time of the original trip that is to be affected by this modification.
+   * Used in conjunction with `end_stop_selector`. 
+   * `start_stop_selector` is required and is used to define the reference stop used with `travel_time_to_stop`.
+   *
+   * @generated from field: optional transit_realtime.StopSelector start_stop_selector = 1;
+   */
+  startStopSelector?: StopSelector | undefined;
 
-    /**
-     * The stop selector of the last stop of the original trip that is to be affected by this modification.
-     * The selection is inclusive, so if only one stop_time is replaced by that modification, `start_stop_selector` and `end_stop_selector` must be equivalent.
-     * If no stop_time is replaced, `end_stop_selector` must not be provided. It's otherwise required.
-     *
-     * @generated from field: optional transit_realtime.StopSelector end_stop_selector = 2;
-     */
-    endStopSelector?: StopSelector | undefined
+  /**
+   * The stop selector of the last stop of the original trip that is to be affected by this modification. 
+   * The selection is inclusive, so if only one stop_time is replaced by that modification, `start_stop_selector` and `end_stop_selector` must be equivalent.
+   * If no stop_time is replaced, `end_stop_selector` must not be provided. It's otherwise required.
+   *
+   * @generated from field: optional transit_realtime.StopSelector end_stop_selector = 2;
+   */
+  endStopSelector?: StopSelector | undefined;
 
-    /**
-     * The number of seconds of delay to add to all departure and arrival times following the end of this modification.
-     * If multiple modifications apply to the same trip, the delays accumulate as the trip advances.
-     *
-     * @generated from field: optional int32 propagated_modification_delay = 3 [default = 0];
-     */
-    propagatedModificationDelay: number
+  /**
+   * The number of seconds of delay to add to all departure and arrival times following the end of this modification. 
+   * If multiple modifications apply to the same trip, the delays accumulate as the trip advances. 
+   *
+   * @generated from field: optional int32 propagated_modification_delay = 3 [default = 0];
+   */
+  propagatedModificationDelay: number;
 
-    /**
-     * A list of replacement stops, replacing those of the original trip.
-     * The length of the new stop times may be less, the same, or greater than the number of replaced stop times.
-     *
-     * @generated from field: repeated transit_realtime.ReplacementStop replacement_stops = 4;
-     */
-    replacementStops: ReplacementStop[]
+  /**
+   * A list of replacement stops, replacing those of the original trip. 
+   * The length of the new stop times may be less, the same, or greater than the number of replaced stop times. 
+   *
+   * @generated from field: repeated transit_realtime.ReplacementStop replacement_stops = 4;
+   */
+  replacementStops: ReplacementStop[];
 
-    /**
-     * An `id` value from the `FeedEntity` message that contains the `Alert` describing this Modification for user-facing communication.
-     *
-     * @generated from field: optional string service_alert_id = 5;
-     */
-    serviceAlertId: string
+  /**
+   * An `id` value from the `FeedEntity` message that contains the `Alert` describing this Modification for user-facing communication.
+   *
+   * @generated from field: optional string service_alert_id = 5;
+   */
+  serviceAlertId: string;
 
-    /**
-     * This timestamp identifies the moment when the modification has last been changed.
-     * In POSIX time (i.e., number of seconds since January 1st 1970 00:00:00 UTC).
-     *
-     * @generated from field: optional uint64 last_modified_time = 6;
-     */
-    lastModifiedTime: bigint
-  }
+  /**
+   * This timestamp identifies the moment when the modification has last been changed.
+   * In POSIX time (i.e., number of seconds since January 1st 1970 00:00:00 UTC).
+   *
+   * @generated from field: optional uint64 last_modified_time = 6;
+   */
+  lastModifiedTime: bigint;
+};
 
 /**
  * Describes the message transit_realtime.TripModifications.Modification.
  * Use `create(TripModifications_ModificationSchema)` to create a new message.
  */
-export declare const TripModifications_ModificationSchema: GenMessage<TripModifications_Modification>
+export declare const TripModifications_ModificationSchema: GenMessage<TripModifications_Modification>;
 
 /**
  * @generated from message transit_realtime.TripModifications.SelectedTrips
  */
-export declare type TripModifications_SelectedTrips =
-  Message<'transit_realtime.TripModifications.SelectedTrips'> & {
-    /**
-     * A list of trips affected with this replacement that all have the same new `shape_id`. A `TripUpdate` with `schedule_relationship=REPLACEMENT` must not already exist for the trip.
-     *
-     * @generated from field: repeated string trip_ids = 1;
-     */
-    tripIds: string[]
+export declare type TripModifications_SelectedTrips = Message<"transit_realtime.TripModifications.SelectedTrips"> & {
+  /**
+   * A list of trips affected with this replacement that all have the same new `shape_id`. A `TripUpdate` with `schedule_relationship=REPLACEMENT` must not already exist for the trip.
+   *
+   * @generated from field: repeated string trip_ids = 1;
+   */
+  tripIds: string[];
 
-    /**
-     * The ID of the new shape for the modified trips in this SelectedTrips.
-     * May refer to a new shape added using a `Shape` message in the same GTFS-RT feed, or to an existing shape defined in the GTFS-Static feed’s shapes.txt.
-     * If it refers to a `Shape` entity in the real-time feed, the value of this field should be the one of the `shape_id` inside the entity, and _not_ the `id` of `FeedEntity`.
-     *
-     * @generated from field: optional string shape_id = 2;
-     */
-    shapeId: string
-  }
+  /**
+   * The ID of the new shape for the modified trips in this SelectedTrips. 
+   * May refer to a new shape added using a `Shape` message in the same GTFS-RT feed, or to an existing shape defined in the GTFS-Static feed’s shapes.txt. 
+   * If it refers to a `Shape` entity in the real-time feed, the value of this field should be the one of the `shape_id` inside the entity, and _not_ the `id` of `FeedEntity`.
+   *
+   * @generated from field: optional string shape_id = 2;
+   */
+  shapeId: string;
+};
 
 /**
  * Describes the message transit_realtime.TripModifications.SelectedTrips.
  * Use `create(TripModifications_SelectedTripsSchema)` to create a new message.
  */
-export declare const TripModifications_SelectedTripsSchema: GenMessage<TripModifications_SelectedTrips>
+export declare const TripModifications_SelectedTripsSchema: GenMessage<TripModifications_SelectedTrips>;
 
 /**
  * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
@@ -2231,41 +2224,41 @@ export declare const TripModifications_SelectedTripsSchema: GenMessage<TripModif
  *
  * @generated from message transit_realtime.StopSelector
  */
-export declare type StopSelector = Message<'transit_realtime.StopSelector'> & {
+export declare type StopSelector = Message<"transit_realtime.StopSelector"> & {
   /**
    * Must be the same as in stop_times.txt in the corresponding GTFS feed.
    *
    * @generated from field: optional uint32 stop_sequence = 1;
    */
-  stopSequence: number
+  stopSequence: number;
 
   /**
    * Must be the same as in stops.txt in the corresponding GTFS feed.
    *
    * @generated from field: optional string stop_id = 2;
    */
-  stopId: string
-}
+  stopId: string;
+};
 
 /**
  * Describes the message transit_realtime.StopSelector.
  * Use `create(StopSelectorSchema)` to create a new message.
  */
-export declare const StopSelectorSchema: GenMessage<StopSelector>
+export declare const StopSelectorSchema: GenMessage<StopSelector>;
 
 /**
  * NOTE: This field is still experimental, and subject to change. It may be formally adopted in the future.
  *
  * @generated from message transit_realtime.ReplacementStop
  */
-export declare type ReplacementStop = Message<'transit_realtime.ReplacementStop'> & {
+export declare type ReplacementStop = Message<"transit_realtime.ReplacementStop"> & {
   /**
    * The difference in seconds between the arrival time at this stop and the arrival time at the reference stop. The reference stop is the stop prior to start_stop_selector. If the modification begins at the first stop of the trip, then the first stop of the trip is the reference stop.
    * This value MUST be monotonically increasing and may only be a negative number if the first stop of the original trip is the reference stop.
    *
    * @generated from field: optional int32 travel_time_to_stop = 1;
    */
-  travelTimeToStop: number
+  travelTimeToStop: number;
 
   /**
    * The replacement stop ID which will now be visited by the trip. May refer to a new stop added using a GTFS-RT `Stop` message in the same GTFS-RT feed, or to an existing stop defined in the (CSV) GTFS feed’s `stops.txt`.
@@ -2273,11 +2266,12 @@ export declare type ReplacementStop = Message<'transit_realtime.ReplacementStop'
    *
    * @generated from field: optional string stop_id = 2;
    */
-  stopId: string
-}
+  stopId: string;
+};
 
 /**
  * Describes the message transit_realtime.ReplacementStop.
  * Use `create(ReplacementStopSchema)` to create a new message.
  */
-export declare const ReplacementStopSchema: GenMessage<ReplacementStop>
+export declare const ReplacementStopSchema: GenMessage<ReplacementStop>;
+
