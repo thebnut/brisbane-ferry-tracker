@@ -80,7 +80,13 @@ export default {
             restarted: r.restarted,
           }),
         )
-        .catch((e) => log.error('watchdog failed', { error: errorMessage(e) })),
+        .catch((e) => {
+          // The hub aborting itself to pick up a new deploy rejects this call; that's the restart working.
+          const msg = errorMessage(e)
+          if (msg.startsWith('new version'))
+            log.info('watchdog: hub restarted for a new version', { error: msg })
+          else log.error('watchdog failed', { error: msg })
+        }),
     )
   },
 } satisfies ExportedHandler<WorkerEnv>

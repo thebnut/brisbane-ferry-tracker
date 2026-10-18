@@ -431,6 +431,16 @@ export function buildSnapshot(input: BuildInput): BuildResult {
       if (gen !== input.indexes[owner]?.generation) continue
     } else if (!(input.unloadedModes?.length ?? 0)) {
       continue
+    } else if (!prev.gen) {
+      // A record from before RtTrip.gen existed: stamp its provenance while the previous header still says it,
+      // when that is unambiguous (one candidate mode), so it survives interim snapshots (Codex verification).
+      const gens = (input.unloadedModes ?? [])
+        .map((m) => input.previous?.header.staticGeneration[m])
+        .filter((g): g is string => g != null)
+      if (gens.length === 1) {
+        trips[prev.key] = { ...prev, gen: gens[0] as string }
+        continue
+      }
     }
     trips[prev.key] = prev
   }

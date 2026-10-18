@@ -596,4 +596,30 @@ describe('Codex review regressions', () => {
       }
     }
   })
+
+  it('a pre-provenance cancellation (no gen) is stamped from the header and survives restarts', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    h.up.set(
+      TU,
+      feed(h.nowS(), [tripUpdate('c', { tripId: 'T2', startDate: D, scheduleRelationship: 3 }, [])]),
+    )
+    await h.hub.cycle()
+    // Rewrite the published snapshot as an older build would have: no gen on the record.
+    const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
+    const old = JSON.parse(new TextDecoder().decode(r2.files.get(ptr.key)))
+    delete old.trips[`T2@${D}`].gen
+    r2.files.set(ptr.key, new TextEncoder().encode(JSON.stringify(old)))
+    for (let restart = 0; restart < 2; restart++) {
+      const fresh = h.mk()
+      for (let i = 0; i < 3; i++) {
+        h.clock.advance(CYCLE_MS)
+        h.up.set(TU, feed(h.nowS(), []))
+        await fresh.cycle()
+        const snap = RtSnapshot.parse(JSON.parse((await fresh.pull(null)).json as string))
+        expect(snap.trips[`T2@${D}`]?.rel).toBe('CANCELED')
+      }
+    }
+  })
 })
