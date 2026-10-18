@@ -73,9 +73,12 @@ test('offline: an old service-worker copy never empties the board or its Updated
   await refresh(page)
   await expect(page.getByTestId('departure').first()).toBeVisible()
   const before = await updated(page).innerText()
-  expect(await ageCachedCopy(page)).toBeGreaterThan(0)
-
+  // Offline first, so no later network answer replaces the copy aged below. (A route handler would still answer the
+  // service worker while offline: Playwright fetches routed requests itself.)
+  await page.waitForTimeout(1_000)
+  await context.unroute(DEPARTURES)
   await context.setOffline(true)
+  expect(await ageCachedCopy(page)).toBeGreaterThan(0)
   await refresh(page)
   await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 5_000 })
   // Let the refresh settle on the service worker's (old) answer.
@@ -99,6 +102,8 @@ test('offline with no usable timetable says so, never "no departures in the next
   await routeDepartures(context, null)
   await refresh(page)
   await expect(page.getByText('No buses due')).toBeVisible()
+  await page.waitForTimeout(1_000)
+  await context.unroute(DEPARTURES)
   await context.setOffline(true)
   await refresh(page)
   await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 5_000 })
