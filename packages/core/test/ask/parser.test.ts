@@ -82,4 +82,8 @@ describe('parser details', () => {
     const b = parseQuestion('next F11 from bulimba to riverside', testResolver)
     expect(b.ok && b.intent.kind === 'next_departure' && b.intent.route).toBe('F11')
   })
+  it('alerts questions keep a named route as the line (first live run)', () => {
+    const r = parseQuestion('are there any disruptions affecting the F1 citycat right now', testResolver)
+    expect(r.ok && r.intent.kind === 'alerts' && r.intent.line).toBe('f1')
+  })
 })

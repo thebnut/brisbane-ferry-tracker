@@ -109,7 +109,7 @@ export async function answerIntent(
           : intent.line
             ? intent.line
             : intent.mode
-              ? `${intent.mode}s`
+              ? PLURAL[intent.mode]
               : 'the network'
       if (alerts.length === 0)
         return {

@@ -156,7 +156,9 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
     ) &&
     !/\b(is|am) (my|the)\b/.test(s)
   ) {
-    const line = /\b(?:on|for|at) (?:the )?(.+?)(?: line| route)?$/.exec(s)?.[1]
+    // A named route ("disruptions affecting the F1 citycat") is the line; otherwise "on/for/at the X line".
+    const routeCode = /\b([pmfwgx]\d{1,4}[a-z]?|\d{2,4}[a-z]?)\b/.exec(s)?.[1]
+    const line = routeCode ?? /\b(?:on|for|at|affecting) (?:the )?(.+?)(?: line| route)?$/.exec(s)?.[1]
     const lineText = line ? stripModeWords(line) : undefined
     return {
       ok: true,
