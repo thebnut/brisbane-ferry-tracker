@@ -14,7 +14,14 @@ import {
   StopSelect,
 } from '@bft/ui'
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { applyFilter, boardState, hasExpress, type ServiceFilter, visibleRows } from '../lib/departures.ts'
+import {
+  applyFilter,
+  asScheduled,
+  boardState,
+  hasExpress,
+  type ServiceFilter,
+  visibleRows,
+} from '../lib/departures.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import {
@@ -185,6 +192,17 @@ export function FerryBoards({
   const destOptions = ALL_STOPS.filter((s) => validDestinations(pair.outbound.id).includes(s.id))
   const fromName = cleanStopName(pair.outbound.name)
   const toName = cleanStopName(pair.inbound.name)
+  // The open details sheet follows the latest data and the same freshness rules as the boards.
+  const degraded = state != null
+  const selectedNow = (() => {
+    if (!selected) return null
+    const list = (selected.direction === 'outbound' ? out : back).data?.departures ?? []
+    const fresh =
+      list.find(
+        (x) => x.tripInstance === selected.d.tripInstance && x.stopSequence === selected.d.stopSequence,
+      ) ?? selected.d
+    return degraded ? asScheduled(fresh) : fresh
+  })()
   const selectedTo = selected?.direction === 'outbound' ? pair.inbound : pair.outbound
   const selectedFrom = selected?.direction === 'outbound' ? pair.outbound : pair.inbound
 
@@ -221,6 +239,17 @@ export function FerryBoards({
           {state ? <OfflineBanner kind={state} /> : <span className="hidden md:block" />}
           <div className="hidden md:block">{departSelect}</div>
         </div>
+
+        {mode.fixtures ? (
+          <p
+            role="note"
+            data-banner="demo"
+            className="mb-4 rounded-card border border-aqua-text/30 bg-ferry-light-blue px-3.5 py-2.5 text-sm text-charcoal"
+          >
+            <strong className="font-bold">Demo data.</strong> A recorded weekday timetable with simulated live
+            times, not today's real departures.
+          </p>
+        ) : null}
 
         {/* Phone: origin and destination dropdowns with swap; one board (outbound). */}
         <div className="mb-3 flex items-center gap-2 rounded-card border-2 border-ferry-orange/30 bg-white/90 px-2.5 py-2 shadow-lg md:hidden">
@@ -329,9 +358,10 @@ export function FerryBoards({
 
       {children}
 
-      {selected ? (
+      {selectedNow ? (
         <DetailsSheet
-          departure={selected.d}
+          departure={selectedNow}
+          live={!degraded}
           fromName={selectedFrom.name}
           toName={selectedTo.name}
           toId={selectedTo.id}
@@ -345,6 +375,7 @@ export function FerryBoards({
         <Suspense fallback={<SheetFallback />}>
           <LiveMapSheet
             pair={pair}
+            live={!degraded}
             departures={[...(out.data?.departures ?? []), ...(back.data?.departures ?? [])]}
             fetcher={fetcher}
             mode={mode}

@@ -26,7 +26,7 @@ import type { Route } from './+types/terminal'
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const terminal = terminalBySlug(params.slug)
   if (!terminal) throw data(null, { status: 404 })
-  const { fixtures, rt, fetcher, env } = loaderEnv(request, context)
+  const { fixtures, rt, fetcher, env, fallback } = loaderEnv(request, context)
   const pair = pairForTerminal(terminal, pairFromCookie(request.headers.get('cookie')))
   const [outbound, inbound, all] = await Promise.all([
     settle((signal) =>
@@ -46,7 +46,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     inbound,
     upcoming: all?.departures ?? [],
     renderedAt: Date.now(),
-    mode: { fixtures, rt },
+    // After an API failure with FIXTURE_FALLBACK the browser polls the fixture API too (and shows the demo notice).
+    mode: { fixtures: fixtures || fallback.used, rt },
     siteUrl: env?.SITE_URL ?? SITE_URL,
   }
 }

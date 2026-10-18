@@ -96,6 +96,15 @@ describe('board helpers', () => {
     expect(boardState({ ...res, rtSourceTimestamp: NOW / 1000 - 400 }, false, NOW, NOW)).toBe('stale')
     expect(boardState({ ...res, rtState: 'unavailable' }, false, NOW, NOW)).toBe('unavailable')
   })
+  it('re-sorts by timetable time when live estimates are dropped', () => {
+    const late = dep({ tripInstance: 'a@20261018', schedDep: s(19, 45), estDep: s(19, 50) })
+    const next = dep({ tripInstance: 'b@20261018', schedDep: s(19, 48), estDep: s(19, 48) })
+    // Live order: b (7:48) before a (7:50); timetable order: a (7:45) before b.
+    expect(visibleRows([next, late], 'stale', NOW).map((d) => d.tripInstance)).toEqual([
+      'a@20261018',
+      'b@20261018',
+    ])
+  })
   it('drops departed rows and live claims when not live', () => {
     const rows = [dep({ schedDep: s(19, 30), estDep: s(19, 30) }), dep({})]
     expect(visibleRows(rows, null, NOW)).toHaveLength(1)

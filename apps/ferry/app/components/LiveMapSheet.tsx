@@ -13,6 +13,8 @@ import { type StopPair, terminalById } from '../lib/terminals.ts'
 
 export interface LiveMapSheetProps {
   pair: StopPair
+  /** false when the boards are offline/stale: positions are not shown. */
+  live: boolean
   departures: Departure[]
   fetcher: ApiFetcher
   mode: DataMode
@@ -22,6 +24,7 @@ export interface LiveMapSheetProps {
 
 export default function LiveMapSheet({
   pair,
+  live,
   departures,
   fetcher,
   mode,
@@ -30,8 +33,9 @@ export default function LiveMapSheet({
 }: LiveMapSheetProps) {
   const vehicles = useVehicles(fetcher, mode, true)
   const byTrip = useMemo(() => new Map(departures.map((d) => [d.tripInstance, d])), [departures])
-  const relevant = (vehicles.data?.vehicles ?? []).filter((v) => v.tripKey && byTrip.has(v.tripKey))
-  const shown = relevant.length > 0 ? relevant : (vehicles.data?.vehicles ?? [])
+  const positions = live && vehicles.data?.rtState === 'live' ? vehicles.data.vehicles : []
+  const relevant = positions.filter((v) => v.tripKey && byTrip.has(v.tripKey))
+  const shown = relevant.length > 0 ? relevant : positions
 
   const markers: MapMarker[] = useMemo(() => {
     const terminals = [terminalById(pair.outbound.id), terminalById(pair.inbound.id)]
@@ -60,11 +64,13 @@ export default function LiveMapSheet({
       title="Live ferry map"
       subtitle={
         <p className="text-sm text-gray-700">
-          {relevant.length > 0
-            ? `${relevant.length} ferr${relevant.length === 1 ? 'y' : 'ies'} between ${cleanStopName(pair.outbound.name)} and ${cleanStopName(pair.inbound.name)}`
-            : vehicles.isPending
-              ? 'Loading ferry positions…'
-              : 'No ferries on this route right now. Showing all ferries with GPS.'}
+          {!live || (vehicles.data && vehicles.data.rtState !== 'live')
+            ? 'Live positions are unavailable right now.'
+            : relevant.length > 0
+              ? `${relevant.length} ferr${relevant.length === 1 ? 'y' : 'ies'} between ${cleanStopName(pair.outbound.name)} and ${cleanStopName(pair.inbound.name)}`
+              : vehicles.isPending
+                ? 'Loading ferry positions…'
+                : 'No ferries on this route right now. Showing all ferries with GPS.'}
         </p>
       }
     >

@@ -24,9 +24,11 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
     const res = env.API
       ? await env.API.fetch(new Request(`https://bft-api${target}`, init))
       : await fetch(`${env.API_BASE}${target}`, init)
+    if (res.status >= 500 && env.FIXTURE_FALLBACK === '1') return handleFixtureApi(url, Date.now())
     // Contract check at the edge, so the browser can trust the shape without shipping zod.
     return await validateProxied(url.pathname, res)
   } catch (error) {
+    if (env.FIXTURE_FALLBACK === '1') return handleFixtureApi(url, Date.now())
     return Response.json(
       { error: 'upstream_unavailable', detail: error instanceof Error ? error.message : String(error) },
       { status: 502, headers: { 'cache-control': 'no-store' } },

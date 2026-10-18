@@ -11,6 +11,8 @@ export interface LoaderEnv {
   /** Forced rtState for fixture mode (?rt=unavailable etc.). */
   rt: string | null
   fetcher: ApiFetcher
+  /** Set when FIXTURE_FALLBACK answered for an unavailable API: the page must then say it shows demo data. */
+  fallback: { used: boolean }
 }
 
 /** Bindings, or null when rendering outside the Worker (prerender at build time). */
@@ -36,21 +38,33 @@ export function loaderEnv(request: Request, context: Readonly<RouterContextProvi
   const env = getEnv(context)
   const fixtures = isFixtureMode(request, env)
   const rt = fixtures ? new URL(request.url).searchParams.get('rt') : null
+  const fixtureFetcher: ApiFetcher = (path) => {
+    const url = new URL(`http://fixtures/__fixtures${path}`)
+    if (rt) url.searchParams.set('rt', rt)
+    return handleFixtureApi(url, Date.now())
+  }
+  const fallback = { used: false }
   let fetcher: ApiFetcher
   if (fixtures) {
-    fetcher = (path) => {
-      const url = new URL(`http://fixtures/__fixtures${path}`)
-      if (rt) url.searchParams.set('rt', rt)
-      return handleFixtureApi(url, Date.now())
-    }
-  } else if (env?.API) {
-    const api = env.API
-    fetcher = (path, init) => api.fetch(new Request(`https://bft-api${path}`, { signal: init?.signal }))
+    fetcher = fixtureFetcher
   } else {
+    const api = env?.API
     const base = env?.API_BASE ?? 'https://bft-api.brisbanetransit.workers.dev'
-    fetcher = (path, init) => fetch(`${base}${path}`, { signal: init?.signal })
+    const live: ApiFetcher = (path, init) =>
+      api
+        ? api.fetch(new Request(`https://bft-api${path}`, { signal: init?.signal }))
+        : fetch(`${base}${path}`, { signal: init?.signal })
+    fetcher =
+      env?.FIXTURE_FALLBACK === '1'
+        ? async (path, init) => {
+            const res = await live(path, init).catch(() => null)
+            if (res && res.status < 500) return res
+            fallback.used = true
+            return fixtureFetcher(path, init)
+          }
+        : live
   }
-  return { env, fixtures, rt, fetcher }
+  return { env, fixtures, rt, fetcher, fallback }
 }
 
 /** Settle a fetch with a 2.5 s budget so a slow API never blocks the HTML (the client polls anyway). */

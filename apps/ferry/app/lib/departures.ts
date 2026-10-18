@@ -111,5 +111,7 @@ export function boardState(
 /** Board rows for display: departed rows removed, live claims removed unless the state is live. */
 export function visibleRows(list: Departure[], state: BoardState, nowMs: number): Departure[] {
   const rows = state == null ? list : list.map(asScheduled)
-  return rows.filter((d) => effectiveDep(d) >= nowMs / 1000 - DEPARTED_GRACE_S)
+  return rows
+    .filter((d) => effectiveDep(d) >= nowMs / 1000 - DEPARTED_GRACE_S)
+    .sort((a, b) => effectiveDep(a) - effectiveDep(b) || a.schedDep - b.schedDep)
 }

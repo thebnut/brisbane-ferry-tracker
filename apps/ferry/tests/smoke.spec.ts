@@ -34,6 +34,8 @@ test('home renders both boards with countdown chips', async ({ page, isMobile },
   }
   await expect(page.getByText('LIVE', { exact: true }).first()).toBeVisible()
   await expect(page.getByText(/updated \d+ s ago/)).toBeVisible()
+  // Fixture data is always labelled as such.
+  await expect(page.locator('[data-banner=demo]')).toContainText('Demo data')
   await page.screenshot({ path: testInfo.outputPath('home.png') })
   // Hydration must match the server HTML (no recoverable-error re-render).
   expect(errors).toEqual([])

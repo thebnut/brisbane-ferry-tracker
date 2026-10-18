@@ -28,6 +28,8 @@
         "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
         "ALLOW_FIXTURES": "1",
         "FIXTURES": "0",
+        // Until bft-api has ferry data: answer with fixture data (and say so on the page) when the API errors.
+        "FIXTURE_FALLBACK": "1",
         "SITE_URL": "https://www.brisbaneferry.com"
       },
       // The SSR loader and the /v1 proxy call the API Worker in-process through this binding.

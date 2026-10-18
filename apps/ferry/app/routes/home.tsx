@@ -9,7 +9,7 @@ import { DEFAULT_STOPS } from '../lib/terminals.ts'
 import type { Route } from './+types/home'
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  const { fixtures, rt, fetcher, env } = loaderEnv(request, context)
+  const { fixtures, rt, fetcher, env, fallback } = loaderEnv(request, context)
   // The saved pair travels in a cookie so its rows are in the HTML; first visits get the default pair.
   const pair = pairFromCookie(request.headers.get('cookie')) ?? DEFAULT_STOPS
   const [outbound, inbound] = await Promise.all([
@@ -25,7 +25,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     outbound,
     inbound,
     renderedAt: Date.now(),
-    mode: { fixtures, rt },
+    // After an API failure with FIXTURE_FALLBACK the browser polls the fixture API too (and shows the demo notice).
+    mode: { fixtures: fixtures || fallback.used, rt },
     siteUrl: env?.SITE_URL ?? SITE_URL,
   }
 }

@@ -30,6 +30,8 @@ const VEHICLE_STATUS: Record<string, string> = {
 
 export interface DetailsSheetProps {
   departure: Departure | null
+  /** false when the boards are offline/stale: no live claims or positions. */
+  live: boolean
   fromName: string
   toName: string
   toId: string
@@ -41,6 +43,7 @@ export interface DetailsSheetProps {
 
 export function DetailsSheet({
   departure,
+  live,
   fromName,
   toName,
   toId,
@@ -54,7 +57,7 @@ export function DetailsSheet({
   const d = departure
   const dep = effectiveDep(d)
   const arr = d.estArrTo ?? d.schedArrTo
-  const vehicle = trip.data?.vehicle ?? null
+  const vehicle = live && trip.data?.rtState === 'live' ? (trip.data.vehicle ?? null) : null
   const vessel = vesselName(vehicle?.id ?? d.vehicleId)
   const status = vehicle?.status ? VEHICLE_STATUS[vehicle.status] : null
   const late = delayText(d.schedDep, d.estDep)
