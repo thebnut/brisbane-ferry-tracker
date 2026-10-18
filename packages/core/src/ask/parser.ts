@@ -157,7 +157,14 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
     !/\b(is|am) (my|the)\b/.test(s)
   ) {
     // A named route ("disruptions affecting the F1 citycat") is the line; otherwise "on/for/at the X line".
-    const routeCode = /\b([pmfwgx]\d{1,4}[a-z]?|\d{2,4}[a-z]?)\b/.exec(s)?.[1]
+    // Compound or stop-number scopes ("F1 and F11", "at stop 1853 for route 66") can't be represented by one alerts
+    // line: refuse rather than narrow or misassign the scope (Codex review, post-approval).
+    if (/\b(stop|platform|number|no)\s*\d/.test(s)) return fail('no_match', 'stop-scoped alerts')
+    const codes = [
+      ...new Set([...s.matchAll(/\b([pmfwgx]\d{1,4}[a-z]?|\d{2,4}[a-z]?)\b/g)].map((m) => m[1] as string)),
+    ]
+    if (codes.length > 1 || /\b(and|or|plus)\b/.test(s)) return fail('no_match', 'compound alerts scope')
+    const routeCode = codes[0]
     const line = routeCode ?? /\b(?:on|for|at|affecting) (?:the )?(.+?)(?: line| route)?$/.exec(s)?.[1]
     const lineText = line ? stripModeWords(line) : undefined
     return {

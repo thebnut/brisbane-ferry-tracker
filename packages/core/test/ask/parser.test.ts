@@ -85,5 +85,8 @@ describe('parser details', () => {
   it('alerts questions keep a named route as the line (first live run)', () => {
     const r = parseQuestion('are there any disruptions affecting the F1 citycat right now', testResolver)
     expect(r.ok && r.intent.kind === 'alerts' && r.intent.line).toBe('f1')
+    // Compound or stop-number scopes are refused, never narrowed (Codex review, post-approval).
+    expect(parseQuestion('alerts on F1 and F11', testResolver).ok).toBe(false)
+    expect(parseQuestion('alerts at stop 1853 for route 66', testResolver).ok).toBe(false)
   })
 })
