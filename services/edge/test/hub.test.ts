@@ -784,4 +784,31 @@ describe('Codex review regressions', () => {
     const next = RtSnapshot.parse(JSON.parse((await fresh.pull(null, 'alerts')).json as string))
     expect(next.alerts.map((a) => a.id)).toEqual(['a1'])
   })
+
+  it('split review: a pointer re-read during restore advances seq (never reuse a published seq)', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
+    // The ferry slot fails its seq check on the first read; meanwhile another publish moved the pointer on.
+    const bad = JSON.parse(new TextDecoder().decode(r2.files.get(ptr.files.ferry.key)))
+    bad.header.seq = 999_999
+    const goodBytes = r2.files.get(ptr.files.ferry.key) as Uint8Array
+    r2.files.set(ptr.files.ferry.key, new TextEncoder().encode(JSON.stringify(bad)))
+    let pointerReads = 0
+    const realGet = r2.get.bind(r2)
+    r2.get = async (key: string) => {
+      if (key === 'rt/latest.json' && ++pointerReads === 2) {
+        r2.files.set(ptr.files.ferry.key, goodBytes)
+        return { text: async () => JSON.stringify({ ...ptr, seq: ptr.seq + 5 }) }
+      }
+      return realGet(key)
+    }
+    const fresh = h.mk()
+    await fresh.pull(null)
+    h.clock.advance(CYCLE_MS)
+    h.up.set(TU, feed(h.nowS(), []))
+    await fresh.cycle()
+    expect((await fresh.pull(null)).seq).toBe(ptr.seq + 6)
+  })
 })

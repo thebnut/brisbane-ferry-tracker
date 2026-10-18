@@ -581,6 +581,8 @@ export class HubCore {
     if (!got && r2.get) {
       const ptr = await r2.get(R2_LATEST_KEY)
       const again = ptr ? (JSON.parse(await ptr.text()) as R2Pointer) : null
+      // Never reuse a published seq: the re-read pointer may be newer than the one restore() started from.
+      if (again && again.seq > this.meta.seq) this.meta.seq = again.seq
       if (again?.files) got = await load(again.files)
       if (!got && again?.files) {
         // Still inconsistent: restore the mode documents without alerts and refetch alerts on the next cycle (they
