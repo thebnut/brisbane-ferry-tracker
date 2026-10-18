@@ -222,6 +222,33 @@ describe('route alerts with suffixed route ids (Codex round 4)', () => {
   })
 })
 
+describe('LLM alert answers keep freshness (Codex round 7)', () => {
+  it('a stale alert is rendered with a caveat', async () => {
+    const { renderFinal } = await import('../src/ai/routes.ts')
+    const { EvidenceLog } = await import('../src/ai/tools.ts')
+    const ev = new EvidenceLog()
+    ev.alerts.set('a1', {
+      alert: {
+        id: 'x',
+        header: 'Ferry services suspended',
+        activePeriods: [],
+        routes: [],
+        stops: [],
+        modes: ['ferry'],
+      },
+      rtState: 'stale',
+    })
+    expect(renderFinal({ kind: 'alerts', refs: ['a1'] }, ev, 0).answer).toBe(
+      'Ferry services suspended (the alert feed is out of date, so this may have changed)',
+    )
+    ev.alerts.set('a2', {
+      alert: { id: 'y', header: 'Works', activePeriods: [], routes: [], stops: [], modes: [] },
+      rtState: 'live',
+    })
+    expect(renderFinal({ kind: 'alerts', refs: ['a2'] }, ev, 0).answer).toBe('Works')
+  })
+})
+
 describe('intent cache (Codex round 6)', () => {
   it('is keyed by stop-index generation in memory too', async () => {
     const { __intentCacheForTests: c } = await import('../src/ai/routes.ts')

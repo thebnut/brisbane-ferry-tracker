@@ -29,7 +29,8 @@ export interface DepartureEvidence {
 export class EvidenceLog {
   private n = 0
   readonly departures = new Map<string, DepartureEvidence>()
-  readonly alerts = new Map<string, Alert>()
+  /** ref -> alert plus the freshness of the feed it came from (stale text must carry a caveat; Codex round 7). */
+  readonly alerts = new Map<string, { alert: Alert; rtState: string }>()
   /** emptyRef -> the empty query it stands for, with a human-readable scope rendered into negative answers. */
   readonly empty = new Map<string, { tool: 'get_alerts' | 'get_departures'; scope: string }>()
   nextRef(prefix: 'd' | 'a' | 'e'): string {
@@ -169,7 +170,7 @@ export async function runTool(
           emptyRef,
           alerts: body.alerts.slice(0, 8).map((a) => {
             const ref = ctx.evidence?.nextRef('a')
-            if (ref) ctx.evidence?.alerts.set(ref, a)
+            if (ref) ctx.evidence?.alerts.set(ref, { alert: a, rtState: body.rtState })
             return {
               ref,
               header: a.header,

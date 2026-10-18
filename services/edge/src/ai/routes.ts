@@ -141,9 +141,10 @@ export function renderFinal(final: FinalAnswer, ev: EvidenceLog, nowS: number) {
   }
   if (final.kind === 'alerts') {
     const alerts = final.refs.map((ref) => ev.alerts.get(ref)).filter((a) => a != null)
+    const stale = alerts.some((a) => a.rtState !== 'live')
     return {
       answer: alerts.length
-        ? alerts.map((a) => a.summary ?? a.header).join(' | ')
+        ? `${alerts.map(({ alert: a }) => a.summary ?? a.header).join(' | ')}${stale ? ' (the alert feed is out of date, so this may have changed)' : ''}`
         : 'No current alerts are reported for that.',
     }
   }
