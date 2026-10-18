@@ -68,6 +68,22 @@ test.describe('phone width 360 px, longest stop names (F1)', () => {
   }
 })
 
+test.describe('phone width 360 px while offline', () => {
+  test.use({ viewport: { width: 360, height: 740 } })
+  test('the header still fits with the OFFLINE pill', async ({ page, context }) => {
+    await remember(page, UQ, NORTHSHORE)
+    await page.goto('/')
+    await expect(page.locator('[data-board=outbound]').getByTestId('departure').first()).toBeVisible()
+    await context.setOffline(true)
+    await expect(page.getByText('OFFLINE', { exact: true })).toBeVisible()
+    const header = await box(page.locator('header'))
+    const pill = await box(page.getByText('OFFLINE', { exact: true }))
+    expect(pill.x + pill.width).toBeLessThanOrEqual(header.width)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360)
+    await context.setOffline(false)
+  })
+})
+
 test.describe('offline (F3)', () => {
   test('requests failing while the browser still says online: the banner shows at once, no LIVE', async ({
     page,

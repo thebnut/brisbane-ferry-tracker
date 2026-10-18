@@ -103,10 +103,11 @@ export function SettingsPill({ onClick, compact = false }: SettingsPillProps) {
       className={cx(
         'group flex h-11 items-center gap-2 rounded-full border border-ferry-orange/20 bg-white/90 text-sm font-semibold text-aqua-text shadow-md',
         'transition hover:border-ferry-orange/40 hover:shadow-lg dark:bg-night-card dark:text-ferry-aqua-light',
-        compact ? 'w-11 justify-center' : 'pr-3 pl-4',
+        // Under 380 px the word goes (gear only), so the header fits a 360 px phone even with the wider OFFLINE pill.
+        compact ? 'w-11 justify-center' : 'w-11 justify-center min-[380px]:w-auto min-[380px]:pr-3 min-[380px]:pl-4',
       )}
     >
-      {compact ? null : <span>Settings</span>}
+      {compact ? null : <span className="hidden min-[380px]:inline">Settings</span>}
       <Icon name="gear" size={20} className="transition-transform group-hover:rotate-45" />
     </button>
   )
