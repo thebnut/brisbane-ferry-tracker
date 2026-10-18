@@ -201,7 +201,7 @@ test('live row -> LIVE with delay, scheduledTime and estimated arrival', () => {
   assert.deepEqual(row.destinationArrivalTime, new Date((nowS + 1680) * 1000));
   assert.deepEqual(row.scheduledArrivalTime, new Date((nowS + 1500) * 1000));
   assert.equal(row.vehicleId, 'V_MOOROOLBIN II');
-  assert.equal(row.occupancy, 'MANY_SEATS_AVAILABLE');
+  assert.equal(row.occupancy, 1);
 });
 
 test('live with an early estimate gives a negative delay (no "late" label)', () => {
@@ -321,7 +321,7 @@ test('vehicles map onto GTFS-RT entity shape used by FerryMap and the modal', ()
       trip: { tripId: 'T9', routeId: 'F1-4055' },
       vehicle: { id: 'V1', label: 'Kuluwin' },
       position: { latitude: -27.47, longitude: 153.03, bearing: 90, speed: 5 },
-      currentStatus: 'IN_TRANSIT_TO',
+      currentStatus: 2,
       occupancyStatus: undefined,
       stopId: RIVERSIDE,
       timestamp: nowS,
@@ -342,6 +342,45 @@ test('STOPPED_AT puts the vehicle stop in currentStop (string or numeric enum)',
   );
   assert.deepEqual(a.v1Stops, { currentStop: BULIMBA, nextStop: null });
   assert.deepEqual(b.v1Stops, { currentStop: BULIMBA, nextStop: null });
+});
+
+test('two service dates of one trip id both keep their instance keys', () => {
+  const vehicleEntities = mapVehicles(
+    envelope({
+      vehicles: [
+        { id: 'OLD', tripKey: 'T1@20261017', routeId: 'F1', lat: 0, lon: 0, ts: nowS },
+        { id: 'NEW', tripKey: 'T1@20261018', routeId: 'F1', lat: 0, lon: 0, ts: nowS },
+      ],
+    }),
+  );
+  assert.deepEqual(
+    vehicleEntities.map((e) => e.vehicle.trip.tripId),
+    ['T1@20261017', 'T1@20261018'],
+  );
+  const [row] = mapDepartures(envelope({ departures: [dep({ tripInstance: 'T1@20261018' })] }), {
+    originId: BULIMBA,
+    direction: 'outbound',
+    vehicles: indexVehicles(vehicleEntities),
+    now: NOW,
+  });
+  assert.equal(row.tripId, 'T1@20261018');
+  // The modal's join (vehiclePositions.find by trip.tripId) now finds the right vessel.
+  assert.equal(vehicleEntities.find((e) => e.vehicle.trip.tripId === row.tripId).id, 'NEW');
+});
+
+test('enum names normalise to the numbers gtfsService decodes', () => {
+  const [a, b] = mapVehicles(
+    envelope({
+      vehicles: [
+        { id: 'A', lat: 0, lon: 0, status: 'INCOMING_AT', occupancy: 'FULL', ts: nowS },
+        { id: 'B', lat: 0, lon: 0, status: 'SOMETHING_NEW', occupancy: '3', ts: nowS },
+      ],
+    }),
+  );
+  assert.equal(a.vehicle.currentStatus, 0);
+  assert.equal(a.vehicle.occupancyStatus, 5);
+  assert.equal(b.vehicle.currentStatus, 'SOMETHING_NEW');
+  assert.equal(b.vehicle.occupancyStatus, 3);
 });
 
 test('stale vehicle positions are not shown as live GPS', () => {

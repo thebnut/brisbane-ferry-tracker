@@ -54,10 +54,13 @@ export function mapDepartures(response, { originId, direction, vehicles = indexV
     const instance = instanceOf(dep.tripInstance);
     const vehicle = vehicles.byInstance.get(instance)?.vehicle;
     const bareTripId = tripIdFromKey(dep.tripInstance);
-    // The UI joins vehicles to departures on the bare trip id. If a vehicle runs
-    // the same trip id on another service date (today's run vs tomorrow's), keep
-    // the full instance key so this row can't pick up that vessel's GPS.
-    const tripId = !vehicle && vehicles.bareTripIds.has(bareTripId) ? instance : bareTripId;
+    // The UI joins vehicles to departures on trip.tripId. Use the matched
+    // vehicle's join id; with no match, keep the full instance key if a vehicle
+    // runs the same trip id on another service date, so this row can't pick up
+    // that vessel's GPS.
+    const tripId = vehicle
+      ? vehicle.trip.tripId
+      : vehicles.bareTripIds.has(bareTripId) ? instance : bareTripId;
     const arrivalS = isLive ? (dep.estArrTo ?? dep.schedArrTo) : dep.schedArrTo;
 
     const row = {
@@ -82,26 +85,59 @@ export function mapDepartures(response, { originId, direction, vehicles = indexV
   return out;
 }
 
-// GTFS-RT VehicleStopStatus: stop_id is the stop the vehicle is AT when
-// STOPPED_AT, otherwise the stop it is heading to.
-const isStoppedAt = (status) => status === 'STOPPED_AT' || status === 1 || status === '1';
+// gtfsService decodes GTFS-RT enums as numbers and the components compare
+// against those (FerryMap: `currentStatus === 1`), so /v1's enum names are
+// normalised to the same numbers. Unknown values pass through unchanged.
+const VEHICLE_STOP_STATUS = { INCOMING_AT: 0, STOPPED_AT: 1, IN_TRANSIT_TO: 2 };
+const OCCUPANCY_STATUS = {
+  EMPTY: 0,
+  MANY_SEATS_AVAILABLE: 1,
+  FEW_SEATS_AVAILABLE: 2,
+  STANDING_ROOM_ONLY: 3,
+  CRUSHED_STANDING_ROOM_ONLY: 4,
+  FULL: 5,
+  NOT_ACCEPTING_PASSENGERS: 6,
+};
+const toEnum = (table, value) => {
+  if (value == null) return value;
+  if (Object.hasOwn(table, value)) return table[value];
+  const n = Number(value);
+  return Number.isInteger(n) && String(value).trim() !== '' ? n : value;
+};
 
 /**
  * VehiclesResponse -> GTFS-RT FeedEntity-like objects for FerryMap / FerryDetailsModal.
  * A stale response yields no vehicles: stale positions must not show as live GPS
  * (the core merger also sets `gps: false` when RT is stale).
  *
+ * `trip.tripId` is the bare GTFS trip id (what the UI joins and shows), except
+ * when vehicles run the same trip id on two service dates: then both use their
+ * full instance key so the UI can't attach the wrong vessel.
+ *
  * `v1Stops` carries the stop context FerryMap normally derives from TripUpdates,
  * which /v1 doesn't send. Only these entities have it, so the legacy path is unaffected.
+ * GTFS-RT stop_id is the stop the vehicle is AT when STOPPED_AT, otherwise the next stop.
  */
 export function mapVehicles(response) {
   if (response.rtState !== 'live') return [];
-  return response.vehicles.map((v) => {
+
+  const instancesByTripId = new Map();
+  for (const v of response.vehicles) {
     const tripId = tripIdFromKey(v.tripKey);
-    const stoppedAt = isStoppedAt(v.status);
+    if (!tripId) continue;
+    if (!instancesByTripId.has(tripId)) instancesByTripId.set(tripId, new Set());
+    instancesByTripId.get(tripId).add(instanceOf(v.tripKey));
+  }
+
+  return response.vehicles.map((v) => {
+    const bareTripId = tripIdFromKey(v.tripKey);
+    const instance = instanceOf(v.tripKey);
+    const tripId = bareTripId && instancesByTripId.get(bareTripId).size > 1 ? instance : bareTripId;
+    const status = toEnum(VEHICLE_STOP_STATUS, v.status);
+    const stoppedAt = status === VEHICLE_STOP_STATUS.STOPPED_AT;
     return {
       id: v.id,
-      v1TripInstance: instanceOf(v.tripKey),
+      v1TripInstance: instance,
       v1Stops: {
         currentStop: v.stopId && stoppedAt ? v.stopId : null,
         nextStop: v.stopId && !stoppedAt ? v.stopId : null,
@@ -110,8 +146,8 @@ export function mapVehicles(response) {
         trip: tripId ? { tripId, routeId: v.routeId } : undefined,
         vehicle: { id: v.id, label: v.label },
         position: { latitude: v.lat, longitude: v.lon, bearing: v.bearing, speed: v.speed },
-        currentStatus: v.status,
-        occupancyStatus: v.occupancy,
+        currentStatus: status,
+        occupancyStatus: toEnum(OCCUPANCY_STATUS, v.occupancy),
         stopId: v.stopId,
         timestamp: v.ts,
       },
@@ -124,7 +160,7 @@ export function indexVehicles(entities) {
   const bareTripIds = new Set();
   for (const e of entities) {
     if (e.v1TripInstance && !byInstance.has(e.v1TripInstance)) byInstance.set(e.v1TripInstance, e);
-    const tripId = e.vehicle?.trip?.tripId;
+    const tripId = tripIdFromKey(e.v1TripInstance);
     if (tripId) bareTripIds.add(tripId);
   }
   return { byInstance, bareTripIds };
