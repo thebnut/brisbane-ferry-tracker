@@ -117,7 +117,7 @@ describe('AskBox', () => {
       return fixtureAsk(body.question)
     })
     vi.stubGlobal('fetch', fetchMock)
-    renderAsk({ turnstileSitekey: '0x4AAAAAAFZ6yPZTYH3xrIMT', fixtures: false })
+    renderAsk({ turnstileSitekey: '1x00000000000000000000AA', fixtures: false })
     const input = await screen.findByRole('textbox', { name: 'Ask' })
     fireEvent.change(input, { target: { value: 'next train from Bowen Hills to the airport' } })
     fireEvent.submit(input.closest('form') as HTMLFormElement)

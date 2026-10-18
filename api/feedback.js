@@ -8,10 +8,12 @@ import { IOS_CLIENT_HEADER, checkTurnstile, verifyWithApi } from './_turnstile.j
 // apps/ferry/workers/legacy.ts; both share _feedback-discord.js.
 //
 // Web submissions need a Turnstile token, checked by bft-api-prod (which holds
-// TURNSTILE_SECRET; this route has none) and then by _turnstile.js (action and
-// hostname). The iOS app posts token-less; see _turnstile.js for that trade-off.
-// The Vercel preview host (brisbane-ferry-tracker.vercel.app) isn't one of the
-// widget's hostnames, so web feedback fails there by design.
+// the PROD widget's TURNSTILE_SECRET; this route has none) and then by
+// _turnstile.js (action and hostname). So every Vercel build must ship the PROD
+// sitekey (src/utils/turnstile.js). The iOS app posts token-less; see
+// _turnstile.js for that trade-off. The Vercel preview host
+// (brisbane-ferry-tracker.vercel.app) isn't one of the PROD widget's hostnames,
+// so web feedback fails there by design.
 export const TURNSTILE_VERIFY_URL = 'https://api.brisbaneferry.com/v1/turnstile/verify';
 
 // 3 submissions per IP per 10 minutes, per warm instance (best effort: see

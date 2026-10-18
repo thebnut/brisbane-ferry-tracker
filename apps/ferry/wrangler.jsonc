@@ -38,8 +38,9 @@
         // Until bft-api has ferry data: answer with fixture data (and say so on the page) when the API errors.
         "FIXTURE_FALLBACK": "1",
         "SITE_URL": "https://www.brisbaneferry.com",
-        // Invisible Turnstile widget for the feedback sheet (public sitekey; the secret lives on bft-api, which
-        // verifies through the API binding). No top-level value: localhost isn't one of the widget's hostnames.
+        // Invisible Turnstile widget for the feedback sheet: the STAGING widget "bft-transit-ask" (public sitekey; its
+        // secret lives on bft-api, which verifies through the API binding). No top-level value: localhost isn't one of
+        // the widget's hostnames. Production uses the PROD widget (test/wrangler-config.test.ts).
         "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
       },
       // The SSR loader and the /v1 proxy call the API Worker in-process through this binding.
@@ -59,7 +60,8 @@
         "ALLOW_FIXTURES": "0",
         "FIXTURES": "0",
         "SITE_URL": "https://www.brisbaneferry.com",
-        "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
+        // The PROD widget "bft-transit-prod": bft-api-prod holds its secret, so a staging sitekey here fails closed.
+        "TURNSTILE_SITEKEY": "0x4AAAAAAFan8LE5_4cvR40S"
       },
       "services": [{ "binding": "API", "service": "bft-api-prod" }],
       // Secret (not here): FEEDBACK_DISCORD_WEBHOOK_URL, set by Dev/Brett with wrangler secret put --env production.

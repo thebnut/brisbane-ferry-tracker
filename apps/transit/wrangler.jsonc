@@ -29,7 +29,8 @@
     "FERRY_SITE_URL": "https://www.brisbaneferry.com",
     "TRAIN_SITE_URL": "https://bft-train.brisbanetransit.workers.dev",
     "BUS_SITE_URL": "https://bft-bus.brisbanetransit.workers.dev",
-    // Invisible Turnstile widget for the Ask box (public sitekey; the secret lives on bft-api).
+    // Invisible Turnstile widget for the Ask box and the feedback sheet: the STAGING widget "bft-transit-ask" (public
+    // sitekey; its secret lives on bft-api). Both production envs use the PROD widget (test/wrangler-config.test.ts).
     "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
   },
   "env": {
@@ -69,7 +70,9 @@
         "BUS_SITE_URL": "https://brisbanebus.com",
         // Stays "0": the mounted mode pages are noindex (canonical copies are the standalone apps).
         "INDEXABLE": "0",
-        "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
+        // The PROD widget "bft-transit-prod" (bft-api-prod holds its secret). Its hostnames don't include the
+        // production-preview host, so Turnstile-gated features fail closed there by design (runbook section 9).
+        "TURNSTILE_SITEKEY": "0x4AAAAAAFan8LE5_4cvR40S"
       },
       // POST /v1/ask reaches bft-api-prod, where AI_ENABLED=false: deterministic answers or a "Try: …" hint only.
       "services": [{ "binding": "API", "service": "bft-api-prod" }],
@@ -98,7 +101,9 @@
         "BUS_SITE_URL": "https://brisbanebus.com",
         // Stays "0": the mounted mode pages are noindex (canonical copies are the standalone apps).
         "INDEXABLE": "0",
-        "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
+        // The PROD widget "bft-transit-prod" (bft-api-prod holds its secret). Its hostnames don't include the
+        // production-preview host, so Turnstile-gated features fail closed there by design (runbook section 9).
+        "TURNSTILE_SITEKEY": "0x4AAAAAAFan8LE5_4cvR40S"
       },
       // POST /v1/ask reaches bft-api-prod, where AI_ENABLED=false: deterministic answers or a "Try: …" hint only.
       "services": [{ "binding": "API", "service": "bft-api-prod" }],
