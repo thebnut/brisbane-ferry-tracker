@@ -4,10 +4,10 @@
 // back to the legacy path for that refresh.
 import ferryDataService from './ferryData';
 import { getTransitApiBase } from '../utils/dataSource';
-import { isUsableResponse, mapDepartures, mapVehicles, indexVehiclesByTripId } from './v1Mapper';
+import { isUsableResponse, mapDepartures, mapVehicles, indexVehicles } from './v1Mapper';
 
 // groupByDirection keeps 13 per direction; ask for a few more to cover rows
-// the mapper drops (cancelled, skipped, already departed).
+// the mapper drops (cancelled, skipped, unknown, already departed).
 const DEPARTURE_LIMIT = 20;
 const TIMEOUT_MS = 8000;
 
@@ -39,11 +39,11 @@ export async function getV1FerryData(selectedStops, departureTimeFilter) {
   ]);
 
   const vehiclePositions = mapVehicles(vehiclesRes);
-  const vehiclesByTripId = indexVehiclesByTripId(vehiclePositions);
+  const vehicles = indexVehicles(vehiclePositions);
   const now = new Date();
   const all = [
-    ...mapDepartures(outboundRes, { originId, direction: 'outbound', vehiclesByTripId, now }),
-    ...mapDepartures(inboundRes, { originId: destId, direction: 'inbound', vehiclesByTripId, now }),
+    ...mapDepartures(outboundRes, { originId, direction: 'outbound', vehicles, now }),
+    ...mapDepartures(inboundRes, { originId: destId, direction: 'inbound', vehicles, now }),
   ];
 
   // An empty board is more likely a /v1 gap than a genuinely empty river:

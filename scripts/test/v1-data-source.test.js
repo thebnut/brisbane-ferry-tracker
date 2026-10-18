@@ -11,7 +11,7 @@ import {
   resolveTransitApiBase,
 } from '../../src/utils/dataSource.js';
 import {
-  indexVehiclesByTripId,
+  indexVehicles,
   isUsableResponse,
   mapDepartures,
   mapVehicles,
@@ -191,7 +191,7 @@ test('live row -> LIVE with delay, scheduledTime and estimated arrival', () => {
     envelope({
       departures: [dep({ status: 'live', estDep: nowS + 780, estArrTo: nowS + 1680, gps: true, vehicleId: 'V_MOOROOLBIN II' })],
     }),
-    { originId: BULIMBA, direction: 'outbound', vehiclesByTripId: indexVehiclesByTripId(vehicles), now: NOW },
+    { originId: BULIMBA, direction: 'outbound', vehicles: indexVehicles(vehicles), now: NOW },
   );
   assert.equal(row.isRealtime, true);
   assert.equal(row.isScheduled, false);
@@ -222,21 +222,60 @@ test('live row whose destination has no estimate falls back to the scheduled arr
   assert.deepEqual(row.destinationArrivalTime, new Date((nowS + 1500) * 1000));
 });
 
-test('cancelled and skipped rows are hidden; unknown shows as scheduled', () => {
+test('cancelled, skipped and unknown rows are hidden', () => {
   const rows = mapDepartures(
     envelope({
       departures: [
         dep({ tripInstance: 'C@20261018', status: 'cancelled' }),
         dep({ tripInstance: 'S@20261018', status: 'skipped' }),
         dep({ tripInstance: 'U@20261018', status: 'unknown' }),
+        dep({ tripInstance: 'OK@20261018', status: 'scheduled' }),
       ],
     }),
     { originId: BULIMBA, direction: 'outbound', now: NOW },
   );
   assert.deepEqual(
-    rows.map((r) => [r.tripId, r.isScheduled]),
-    [['U', true]],
+    rows.map((r) => r.tripId),
+    ['OK'],
   );
+});
+
+test("a vehicle on today's run doesn't attach to tomorrow's run of the same trip id", () => {
+  const vehicles = indexVehicles(
+    mapVehicles(envelope({ vehicles: [{ id: 'V1', tripKey: 'T1@20261018', routeId: 'F1', lat: 0, lon: 0, ts: nowS }] })),
+  );
+  const rows = mapDepartures(
+    envelope({
+      departures: [
+        dep({ tripInstance: 'T1@20261018', schedDep: nowS + 60 }),
+        dep({ tripInstance: 'T1@20261019', schedDep: nowS + 20 * 3600 }),
+        dep({ tripInstance: 'T2@20261018', schedDep: nowS + 120 }),
+      ],
+    }),
+    { originId: BULIMBA, direction: 'outbound', vehicles, now: NOW },
+  );
+  assert.deepEqual(
+    rows.map((r) => [r.tripId, r.vehicleId]),
+    [
+      ['T1', 'V1'],
+      ['T1@20261019', undefined],
+      ['T2', undefined],
+    ],
+  );
+});
+
+test('ADDED trips join their vehicle through the rt: prefix', () => {
+  const vehicles = indexVehicles(
+    mapVehicles(envelope({ vehicles: [{ id: 'V9', tripKey: 'rt:X1@20261018', routeId: 'F1', lat: 0, lon: 0, ts: nowS }] })),
+  );
+  const [row] = mapDepartures(envelope({ departures: [dep({ tripInstance: 'rt:X1@20261018' })] }), {
+    originId: BULIMBA,
+    direction: 'outbound',
+    vehicles,
+    now: NOW,
+  });
+  assert.equal(row.tripId, 'X1');
+  assert.equal(row.vehicleId, 'V9');
 });
 
 test('departed and beyond-24h rows are dropped, like the legacy realtime path', () => {
@@ -276,6 +315,8 @@ test('vehicles map onto GTFS-RT entity shape used by FerryMap and the modal', ()
   );
   assert.deepEqual(withTrip, {
     id: 'V1',
+    v1TripInstance: 'T9@20261018',
+    v1Stops: { currentStop: null, nextStop: RIVERSIDE },
     vehicle: {
       trip: { tripId: 'T9', routeId: 'F1-4055' },
       vehicle: { id: 'V1', label: 'Kuluwin' },
@@ -287,7 +328,25 @@ test('vehicles map onto GTFS-RT entity shape used by FerryMap and the modal', ()
     },
   });
   assert.equal(noTrip.vehicle.trip, undefined);
-  assert.equal(indexVehiclesByTripId([withTrip, noTrip]).size, 1);
+  assert.equal(indexVehicles([withTrip, noTrip]).byInstance.size, 1);
+});
+
+test('STOPPED_AT puts the vehicle stop in currentStop (string or numeric enum)', () => {
+  const [a, b] = mapVehicles(
+    envelope({
+      vehicles: [
+        { id: 'A', tripKey: 'T@20261018', lat: 0, lon: 0, status: 'STOPPED_AT', stopId: BULIMBA, ts: nowS },
+        { id: 'B', tripKey: 'U@20261018', lat: 0, lon: 0, status: 1, stopId: BULIMBA, ts: nowS },
+      ],
+    }),
+  );
+  assert.deepEqual(a.v1Stops, { currentStop: BULIMBA, nextStop: null });
+  assert.deepEqual(b.v1Stops, { currentStop: BULIMBA, nextStop: null });
+});
+
+test('stale vehicle positions are not shown as live GPS', () => {
+  const stale = envelope({ rtState: 'stale', vehicles: [{ id: 'V1', tripKey: 'T1@20261018', lat: 0, lon: 0, ts: nowS }] });
+  assert.deepEqual(mapVehicles(stale), []);
 });
 
 test('only live and stale responses are usable', () => {
