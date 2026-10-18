@@ -14,6 +14,7 @@ import {
   minutesBetween,
   minutesUntil,
   statusNote,
+  timetableStatus,
   vesselName,
 } from '@bft/ui'
 
@@ -32,7 +33,7 @@ export const effectiveDep = (d: Departure) => d.estDep ?? d.schedDep
 /** Offline or no live data: show the timetable only (no stale live claims). */
 export function asScheduled(d: Departure): Departure {
   if (d.status === 'cancelled') return d
-  return { ...d, status: 'scheduled', estDep: null, estArrTo: null, gps: false }
+  return { ...d, status: timetableStatus(d.status), estDep: null, estArrTo: null, gps: false }
 }
 
 export function cardModel(d: Departure, nowMs: number): DepartureCardProps & { key: string } {

@@ -15,6 +15,7 @@ import { cleanStopName } from '@bft/ferry/app/lib/names.ts'
 import { readOffline as readFerryOffline, readSavedPair } from '@bft/ferry/app/lib/storage.ts'
 import { terminalById } from '@bft/ferry/app/lib/terminals.ts'
 import { readFavourites, readOfflineDay } from '@bft/train/app/lib/storage.ts'
+import { timetableStatus } from '@bft/ui/connectivity'
 import { stationName, trainBoardHref } from './hrefs.ts'
 import { MODE_BASES } from './modes.ts'
 import { safe } from './storage.ts'
@@ -101,8 +102,8 @@ export function asScheduled(rows: Departure[], nowMs: number): Departure[] {
     .sort((a, b) => a.schedDep - b.schedDep)
     .map((d) => ({
       ...d,
-      // Cancelled and skipped stay as they are (never boardable); everything else is timetable only.
-      status: d.status === 'cancelled' || d.status === 'skipped' ? d.status : 'scheduled',
+      // Cancelled, skipped and unknown stay as they are (never boardable); live becomes timetable only.
+      status: timetableStatus(d.status),
       estDep: null,
       estArrTo: null,
       gps: false,

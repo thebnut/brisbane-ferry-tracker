@@ -117,9 +117,17 @@ export function cardModel(item: SavedItem, res: DeparturesResponse | undefined, 
   }
 }
 
-function SavedList({ items, nowMs, online }: { items: SavedItem[]; nowMs: number; online: boolean }) {
-  const { mode, fetcher } = useApi()
-  const qs = useSavedDepartures(fetcher, mode, items)
+function SavedList({
+  items,
+  qs,
+  nowMs,
+  online,
+}: {
+  items: SavedItem[]
+  qs: ReturnType<typeof useSavedDepartures>
+  nowMs: number
+  online: boolean
+}) {
   // Not live (offline, a cached copy, or data generated over a minute ago): never show the last live estimates;
   // timetable rows from the device's copies instead.
   const models = items.map((it, i) => {
@@ -176,9 +184,13 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   // localStorage is client-only: read after hydration (the server renders the Ask box and an empty list).
   const [items, setItems] = useState<SavedItem[] | null>(null)
   useEffect(() => setItems(readSavedItems()), [])
+  const { mode, fetcher } = useApi()
+  const qs = useSavedDepartures(fetcher, mode, items ?? [])
+  // LIVE in the header only while every loaded card's data is live and fresh (same rule as the cards).
+  const live = online && qs.every((q) => !q.data || liveState(q.data, { offline: false, nowMs: now }) == null)
   return (
     <>
-      <TransitHeader live={online} />
+      <TransitHeader live={live} />
       <TransitStrip updatedAt={items ? now : null}>
         {items ? (
           <span className="text-sm font-semibold text-aqua-text dark:text-ferry-aqua-light">
@@ -193,7 +205,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
         <AskBox />
         {!online ? <OfflineBanner kind="offline" detail="Showing saved timetables. No live times." /> : null}
         {items == null ? null : items.length ? (
-          <SavedList items={items} nowMs={now} online={online} />
+          <SavedList items={items} qs={qs} nowMs={now} online={online} />
         ) : (
           <EmptyState title="Nothing saved yet">
             Save a ferry trip, a train station or a bus stop in its tab and it shows up here, with the next

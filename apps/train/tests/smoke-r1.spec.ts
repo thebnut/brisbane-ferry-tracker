@@ -93,3 +93,15 @@ test('API unreachable while the browser says online: offline banner at the next 
   await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 20_000 })
   await expect(board.locator('[data-badge=live]')).toHaveCount(0)
 })
+
+test('service page: no LIVE or GPS while offline (Codex review)', async ({ page, context }) => {
+  await page.goto('/station/central')
+  await page.locator('[data-board=central] [data-testid=departure] a').first().click()
+  await expect(page.getByRole('list', { name: 'Stopping pattern' })).toBeVisible()
+  await context.setOffline(true)
+  await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 2_000 })
+  await expect(page.locator('main [data-badge=live]')).toHaveCount(0)
+  await expect(page.locator('main [data-badge=gps]')).toHaveCount(0)
+  await expect(page.getByText('LIVE', { exact: true })).toHaveCount(0)
+  await context.setOffline(false)
+})

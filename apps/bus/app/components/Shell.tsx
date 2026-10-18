@@ -22,6 +22,7 @@ import { useOnline } from '../lib/useNow.ts'
 
 export function SiteHeader({ live = true, children }: { live?: boolean; children?: ReactNode }) {
   const [settings, setSettings] = useState(false)
+  const online = useOnline()
   return (
     <>
       <AppHeader mode="bus" logoSrc={emblem}>
@@ -32,7 +33,8 @@ export function SiteHeader({ live = true, children }: { live?: boolean; children
         <span className="hidden md:inline">
           <SettingsPill onClick={() => setSettings(true)} />
         </span>
-        <LivePill live={live} />
+        {/* Never LIVE while offline, whatever the page's data says. */}
+        <LivePill live={live && online} />
       </AppHeader>
       <SettingsSheet open={settings} onClose={() => setSettings(false)} />
     </>

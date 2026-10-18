@@ -14,6 +14,7 @@ import {
   minutesUntil,
   type PatternStop,
   statusNote,
+  timetableStatus,
 } from '@bft/ui'
 import { cleanStopName } from './names.ts'
 import { type DisplayLine, lineFor, stationKeyOfStop, stripFor } from './network.ts'
@@ -28,7 +29,7 @@ export function asScheduled(d: Departure): Departure {
   return {
     ...rest,
     platform: scheduledPlatform ?? d.platform,
-    status: 'scheduled',
+    status: timetableStatus(d.status),
     estDep: null,
     estArrTo: null,
     gps: false,

@@ -119,15 +119,19 @@ function FixtureNotice() {
 export function Shell({
   active,
   strip,
+  live: dataLive,
   children,
 }: {
   active: string
   strip?: ReactNode
+  /** Is the page's live data fresh (shared liveState)? Pages with live boards pass it; others show the connection. */
+  live?: boolean
   children: ReactNode
 }) {
   const [settings, setSettings] = useState(false)
-  // The header pill is about the connection; the data state (stale, reloading, scheduled) has its own banner.
-  const live = useOnline()
+  // Never LIVE while offline, nor over data too old to call live (smoke test T5).
+  const online = useOnline()
+  const live = online && dataLive !== false
   return (
     <>
       <SiteHeader live={live} active={active} onSettings={() => setSettings(true)} />

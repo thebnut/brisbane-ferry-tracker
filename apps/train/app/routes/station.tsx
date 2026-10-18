@@ -12,7 +12,7 @@ import { StationBoard } from '../components/StationBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
 import { at } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
-import type { ServiceFilter } from '../lib/departures.ts'
+import { boardState, type ServiceFilter } from '../lib/departures.ts'
 import { lineLabel } from '../lib/lineNames.ts'
 import {
   isReachable,
@@ -25,7 +25,7 @@ import {
 import { pageMeta, stationJsonLd, stationMeta } from '../lib/seo.ts'
 import { loaderEnv, settle, siteInfo } from '../lib/server.server.ts'
 import { type Favourite, readFavourites, sameFavourite, toggleFavourite } from '../lib/storage.ts'
-import { useNow } from '../lib/useNow.ts'
+import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/station'
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
@@ -140,6 +140,7 @@ function StationAbout({ station }: { station: Station }) {
 export default function StationPage({ loaderData }: Route.ComponentProps) {
   const { station, to, outbound, inbound, mode, renderedAt } = loaderData
   const nowMs = useNow(renderedAt, 1000)
+  const online = useOnline()
   const [filter, setFilter] = useState<ServiceFilter>('all')
   const [latest, setLatest] = useState<DeparturesResponse | undefined>(outbound ?? undefined)
   const onData = useCallback((r: DeparturesResponse | undefined) => r && setLatest(r), [])
@@ -188,8 +189,11 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
     </StatusStrip>
   )
 
+  // The header pill follows the same rule as the board (offline, or data too old, is not LIVE).
+  const offlineDay = (latest as { offline?: boolean } | undefined)?.offline === true
+  const live = boardState(latest, !online || offlineDay, nowMs) == null
   return (
-    <Shell active="stations" strip={strip}>
+    <Shell active="stations" strip={strip} live={live}>
       <div className={to && inbound ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : 'mx-auto max-w-2xl'}>
         <StationBoard
           key={`${station.key}:${to?.key ?? ''}`}

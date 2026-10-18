@@ -86,3 +86,15 @@ test('opening a busy stop from the home chips does not save it (B5)', async ({ p
   await page.goto('/')
   expect(await page.evaluate(() => localStorage.getItem('bft-bus-saved'))).toBeNull()
 })
+
+test('trip page: no LIVE or GPS while offline (Codex review)', async ({ page, context }) => {
+  await page.goto('/stop/10802')
+  await page.locator('[data-status=live] a').first().click()
+  await expect(page.getByRole('list', { name: 'Stops on this trip' })).toBeVisible()
+  await context.setOffline(true)
+  await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 2_000 })
+  await expect(page.locator('main [data-badge=live]')).toHaveCount(0)
+  await expect(page.locator('main [data-badge=gps]')).toHaveCount(0)
+  await expect(page.getByText('LIVE', { exact: true })).toHaveCount(0)
+  await context.setOffline(false)
+})

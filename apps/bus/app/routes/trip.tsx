@@ -11,6 +11,7 @@ import {
   ErrorState,
   formatClock,
   formatDuration,
+  liveState,
   minutesBetween,
   minutesUntil,
   OccupancyMeter,
@@ -21,6 +22,7 @@ import {
   SkeletonRows,
   StatusBadge,
   TripTimeline,
+  tripAsTimetable,
 } from '@bft/ui'
 import { data, Link, useNavigate } from 'react-router'
 import { BusNav, DataBanner, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
@@ -33,7 +35,7 @@ import { loaderEnv, settle } from '../lib/server.server.ts'
 import { routeHref, stopHref } from '../lib/stops.ts'
 import { toggleSaved, useSavedStops } from '../lib/storage.ts'
 import { at, schedAt, stopNamesFor, timeline } from '../lib/trip.ts'
-import { useNow } from '../lib/useNow.ts'
+import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/trip'
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
@@ -90,10 +92,13 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const now = useNow(loaderData.renderedAt)
   const navigate = useNavigate()
   const saved = useSavedStops()
-  const trip = q.data
+  const online = useOnline()
+  // Offline, or data too old to call live: the timetable only (no LIVE/GPS badge, estimates or position).
+  const state = liveState(q.data, { offline: !online, nowMs: now })
+  const trip = q.data && state != null ? tripAsTimetable(q.data) : q.data
   return (
     <>
-      <SiteHeader live={trip?.rtState === 'live'} />
+      <SiteHeader live={state == null} />
       <UpdatedStrip
         updatedAt={trip?.generatedAt ?? null}
         sourceS={trip?.rtSourceTimestamp ?? null}
@@ -110,7 +115,11 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
             ‹ Back to the stop
           </Link>
         ) : null}
-        <DataBanner rtState={trip?.rtState} hasData={!!trip} generation={trip?.staticGeneration} />
+        <DataBanner
+          rtState={state != null && state !== 'offline' ? state : trip?.rtState}
+          hasData={!!trip}
+          generation={trip?.staticGeneration}
+        />
         {!trip ? (
           q.isError ? (
             <ErrorState title="Couldn't load this bus" onRetry={() => q.refetch()}>

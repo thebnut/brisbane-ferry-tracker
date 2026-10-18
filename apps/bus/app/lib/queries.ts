@@ -1,6 +1,6 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
 import type { AlertsResponse, DeparturesResponse, TripResponse } from '@bft/core/contract'
-import { dropDeparted, isOnline, type LiveState, liveState } from '@bft/ui/connectivity'
+import { dropDeparted, isOnline, type LiveState, liveState, timetableStatus } from '@bft/ui/connectivity'
 import { QueryClient, useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import {
@@ -90,7 +90,7 @@ export function asTimetable(
     rtSourceTimestamp: null,
     departures: dropDeparted(res.departures, (d) => d.schedDep, nowMs, false).map((d) => ({
       ...d,
-      status: d.status === 'cancelled' ? d.status : 'scheduled',
+      status: timetableStatus(d.status),
       estDep: null,
       estArrTo: null,
       gps: false,

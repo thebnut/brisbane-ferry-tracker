@@ -129,6 +129,33 @@ export function liveState(
   return null
 }
 
+/**
+ * A row's status once live estimates are removed: only "live" becomes "scheduled". Cancelled and skipped stay (never
+ * boardable), and so does "unknown" (core's stale cancellation: it must not read as an ordinary scheduled service).
+ */
+export function timetableStatus<S extends string>(status: S): S | 'scheduled' {
+  return status === 'live' ? 'scheduled' : status
+}
+
+/**
+ * A trip detail with its live claims removed (offline, or data too old): no vehicle (so no GPS badge or position), no
+ * live estimates, statuses per `timetableStatus`.
+ */
+export function tripAsTimetable<
+  T extends {
+    status: string
+    vehicle: unknown
+    stops: Array<{ status: string; estArr: number | null; estDep: number | null }>
+  },
+>(trip: T): T {
+  return {
+    ...trip,
+    status: timetableStatus(trip.status),
+    vehicle: null,
+    stops: trip.stops.map((s) => ({ ...s, status: timetableStatus(s.status), estArr: null, estDep: null })),
+  }
+}
+
 /** Rows that left more than a minute ago are dropped while live. */
 export const DEPARTED_GRACE_S = 60
 

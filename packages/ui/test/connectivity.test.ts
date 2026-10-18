@@ -9,7 +9,9 @@ import {
   reportOnline,
   SLOW_REQUEST_MS,
   SW_CACHE_HEADER,
+  timetableStatus,
   trackedFetch,
+  tripAsTimetable,
 } from '../src/connectivity.ts'
 
 const NOW = Date.UTC(2026, 9, 18, 11, 0)
@@ -117,5 +119,35 @@ describe('markCacheHits (service worker plugin)', () => {
     expect(marked?.headers.get('a')).toBe('1')
     expect(await marked?.text()).toBe('x')
     expect(await fn({})).toBeUndefined()
+  })
+})
+
+describe("dropping live claims keeps what can't be boarded (Codex review)", () => {
+  it('only live becomes scheduled', () => {
+    expect(['live', 'scheduled', 'cancelled', 'skipped', 'unknown'].map(timetableStatus)).toEqual([
+      'scheduled',
+      'scheduled',
+      'cancelled',
+      'skipped',
+      'unknown',
+    ])
+  })
+  it('a trip loses its vehicle and estimates', () => {
+    const trip = {
+      status: 'live',
+      vehicle: { id: 'v' },
+      stops: [
+        { status: 'live', estArr: 1, estDep: 2 },
+        { status: 'skipped', estArr: null, estDep: null },
+      ],
+    }
+    expect(tripAsTimetable(trip)).toEqual({
+      status: 'scheduled',
+      vehicle: null,
+      stops: [
+        { status: 'scheduled', estArr: null, estDep: null },
+        { status: 'skipped', estArr: null, estDep: null },
+      ],
+    })
   })
 })
