@@ -4,6 +4,8 @@ import ferryDataService from '../services/ferryData';
 import { buildSnapshot } from '../services/widgetSnapshot';
 import { writeWidgetSnapshot } from '../plugins/widgetBridge';
 import { API_CONFIG, DEFAULT_STOPS } from '../utils/constants';
+import { getFerryDataSource, DATA_SOURCES } from '../utils/dataSource';
+import { getV1FerryData } from '../services/v1FerryData';
 
 const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null) => {
   const [departures, setDepartures] = useState({
@@ -23,6 +25,25 @@ const useFerryData = (selectedStops = DEFAULT_STOPS, departureTimeFilter = null)
       // Set selected stops and departure time filter in the service
       ferryDataService.setSelectedStops(selectedStops);
       ferryDataService.setDepartureTimeFilter(departureTimeFilter);
+
+      // Phase 2 prep: /v1 behind a flag that defaults off (utils/dataSource.js).
+      // /v1 returns the next departures from now, so a chosen departure time
+      // stays on the legacy path. Any failure falls through to the legacy path
+      // for this refresh, so the flag can never blank the board.
+      if (getFerryDataSource() === DATA_SOURCES.v1 && !departureTimeFilter) {
+        try {
+          const v1 = await getV1FerryData(selectedStops, departureTimeFilter);
+          setRawGtfsData({ tripUpdates: [], vehiclePositions: v1.vehiclePositions });
+          setDepartures(v1.departures);
+          setLastUpdated(new Date());
+          setLoading(false);
+          setScheduleLoading(false);
+          writeWidgetSnapshot(buildSnapshot(v1.departures, selectedStops, new Date()));
+          return;
+        } catch (err) {
+          console.warn('[dataSource] /v1 failed, using the legacy path for this refresh:', err);
+        }
+      }
 
       // First, fetch real-time GTFS data (fast)
       const { tripUpdates, vehiclePositions } = await gtfsService.getAllData();
