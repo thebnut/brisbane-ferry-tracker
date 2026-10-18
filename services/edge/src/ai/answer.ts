@@ -2,7 +2,7 @@
  * Deterministic answers for parsed intents (no LLM, $0). The answer text is always computed from live data;
  * only the intent is ever cached.
  */
-import type { Departure, DeparturesResponse, Intent, Mode } from '@bft/core'
+import type { AlertsResponse, Departure, DeparturesResponse, Intent, Mode } from '@bft/core'
 import { fmtTime, type InternalFetch, slimDeparture } from './tools.ts'
 
 export interface AskAnswer {
@@ -48,7 +48,8 @@ export async function answerIntent(
       const from = intent.kind === 'next_departure' ? intent.from : intent.at
       const to = intent.kind === 'next_departure' ? intent.to : undefined
       const mode = from.mode
-      const q = new URLSearchParams({ limit: '5' })
+      // Filter by route before limiting: fetch a wider window when a route is requested (Codex review round 2).
+      const q = new URLSearchParams({ limit: intent.route ? '60' : '5' })
       if (to) q.set('to', to.key)
       const res = await fetchApi(`/v1/${mode}/stops/${encodeURIComponent(from.key)}/departures?${q}`)
       if (!res.ok) return { answer: `Sorry, I couldn't load departures for ${from.name} right now.` }
@@ -74,42 +75,43 @@ export async function answerIntent(
         to: body.to,
       }
     }
-    case 'route_status': {
-      const q = new URLSearchParams({ route: intent.route })
-      if (intent.mode) q.set('mode', intent.mode)
-      const res = await fetchApi(`/v1/alerts?${q}`)
-      const alerts = res.ok
-        ? ((await res.json()) as { alerts: Array<{ header: string; summary?: string }> }).alerts
-        : []
-      return {
-        answer:
-          alerts.length > 0
-            ? `Route ${intent.route}: ${alerts.map((a) => a.summary ?? a.header).join(' ')}`
-            : `No disruptions are reported for route ${intent.route}. For a specific service's live time, ask for the next ${intent.mode ?? 'service'} from your stop.`,
-      }
-    }
+    case 'route_status':
     case 'alerts': {
+      // Unavailable or stale alert data is never reported as an all-clear (Codex review round 2).
       const q = new URLSearchParams()
+      if (intent.kind === 'route_status') q.set('route', intent.route)
       if (intent.mode) q.set('mode', intent.mode)
       const res = await fetchApi(`/v1/alerts?${q}`)
-      let alerts = res.ok
-        ? ((await res.json()) as { alerts: Array<{ header: string; summary?: string; routes: string[] }> })
-            .alerts
-        : []
-      if (intent.line) {
+      if (!res.ok) return { answer: "Service alerts aren't available right now. Please try again shortly." }
+      const body = (await res.json()) as AlertsResponse
+      let alerts = body.alerts
+      if (intent.kind === 'alerts' && intent.line) {
         const line = intent.line.toLowerCase()
         alerts = alerts.filter(
           (a) => a.header.toLowerCase().includes(line) || a.routes.some((r) => r.toLowerCase() === line),
         )
       }
+      const fresh = body.rtState === 'live'
+      const subject =
+        intent.kind === 'route_status'
+          ? `route ${intent.route}`
+          : intent.line
+            ? intent.line
+            : intent.mode
+              ? `${intent.mode}s`
+              : 'the network'
+      if (alerts.length === 0)
+        return {
+          answer: fresh
+            ? `No current alerts for ${subject}.${intent.kind === 'route_status' ? ` For a service's live time, ask for the next ${intent.mode ?? 'service'} from your stop.` : ''}`
+            : `I can't confirm alerts for ${subject} right now: the alert feed is out of date.`,
+        }
+      const list = alerts
+        .slice(0, 3)
+        .map((a) => a.summary ?? a.header)
+        .join(' | ')
       return {
-        answer:
-          alerts.length === 0
-            ? `No current alerts${intent.line ? ` for ${intent.line}` : intent.mode ? ` for ${intent.mode}s` : ''}.`
-            : `${alerts.length} alert${alerts.length > 1 ? 's' : ''}: ${alerts
-                .slice(0, 3)
-                .map((a) => a.summary ?? a.header)
-                .join(' | ')}`,
+        answer: `${alerts.length} alert${alerts.length > 1 ? 's' : ''} for ${subject}: ${list}${fresh ? '' : ' (may be out of date)'}`,
       }
     }
   }

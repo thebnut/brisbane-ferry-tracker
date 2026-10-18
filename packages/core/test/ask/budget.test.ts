@@ -8,7 +8,7 @@ import {
   rollBudget,
   worstCaseUsd,
 } from '../../src/ask/budget.ts'
-import { anthropicTools, isGrounded } from '../../src/ask/tools.ts'
+import { anthropicTools, FinalAnswerInput, isGroundedAnswer } from '../../src/ask/tools.ts'
 
 const on = { ...DEFAULT_BUDGET, enabled: true, monthlyBudgetUsd: 0.01 }
 
@@ -55,6 +55,9 @@ describe('budget ledger', () => {
     const rolled = rollBudget(s, '20261018', 10 * 60_000)
     expect(rolled.reservedUsd).toBe(0)
     expect(rolled.spentUsd).toBeCloseTo(0.002)
+    // A late reconcile doesn't double-charge (Codex review round 2): smaller actual adds nothing, larger adds the excess.
+    expect(reconcile(rolled, 'a', 0.0005).spentUsd).toBeCloseTo(0.002)
+    expect(reconcile(rolled, 'a', 0.003).spentUsd).toBeCloseTo(0.003)
   })
   it('worst case for one round (3k in, 400 out) is about $0.0005', () => {
     expect(worstCaseUsd(3000, 400)).toBeCloseTo(0.0005, 6)
@@ -71,20 +74,13 @@ describe('tools', () => {
       'get_alerts',
     ])
   })
-  it('rejects ungrounded answers', () => {
-    expect(isGrounded([], [])).toBe(false)
-    expect(isGrounded([{ tripInstance: 'X@20261018' }], [{ tool: 'get_departures', departures: [] }])).toBe(
-      false,
-    )
-    expect(
-      isGrounded(
-        [{ tripInstance: 'X@20261018' }],
-        [{ tool: 'get_departures', departures: [{ tripInstance: 'X@20261018' }] }],
-      ),
-    ).toBe(true)
-    // A failed tool is not grounding, and model prose with clock times is rejected (Codex PR review).
-    expect(isGrounded([], [{ tool: 'get_departures', ok: false }], 'Sure')).toBe(false)
-    expect(isGrounded([], [{ tool: 'get_alerts', ok: true }], 'Your ferry leaves at 9:99 PM.')).toBe(false)
-    expect(isGrounded([], [{ tool: 'get_alerts', ok: true }], 'No disruptions on the F1.')).toBe(true)
+  it('accepts only final answers whose refs came from successful tool calls', () => {
+    const ev = { departures: new Set(['d1', 'd2']), alerts: new Set(['a1']), alertsChecked: true }
+    expect(isGroundedAnswer({ kind: 'departures', refs: ['d1'] }, ev)).toBe(true)
+    expect(isGroundedAnswer({ kind: 'departures', refs: ['d9'] }, ev)).toBe(false)
+    expect(isGroundedAnswer({ kind: 'alerts', refs: [] }, ev)).toBe(true)
+    expect(isGroundedAnswer({ kind: 'alerts', refs: [] }, { ...ev, alertsChecked: false })).toBe(false)
+    expect(isGroundedAnswer({ kind: 'cannot_answer', reason: 'trip_planning' }, ev)).toBe(true)
+    expect(FinalAnswerInput.safeParse({ kind: 'departures', refs: [] }).success).toBe(false)
   })
 })

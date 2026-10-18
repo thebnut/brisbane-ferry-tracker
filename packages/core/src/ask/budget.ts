@@ -32,6 +32,8 @@ export interface BudgetState {
   reservations: Record<string, { usd: number; ip: string | null; at: number }>
   perIp: Record<string, number>
   alerted: boolean
+  /** Reservations already charged in full as stale: a late reconcile only adds any excess (idempotent). */
+  settled?: Record<string, number>
 }
 
 export const emptyBudgetState = (day: string): BudgetState => ({
@@ -71,14 +73,16 @@ export function rollBudget(state: BudgetState, day: string, now: number, staleMs
   const reservations = { ...s.reservations }
   let reservedUsd = s.reservedUsd
   let spentUsd = s.spentUsd
+  let settled = s.settled ?? {}
   for (const [id, r] of Object.entries(reservations)) {
     if (now - r.at > staleMs) {
       reservedUsd -= r.usd
       spentUsd += r.usd
+      settled = { ...settled, [id]: r.usd }
       delete reservations[id]
     }
   }
-  return { ...s, reservations, reservedUsd: Math.max(0, reservedUsd), spentUsd }
+  return { ...s, reservations, reservedUsd: Math.max(0, reservedUsd), spentUsd, settled }
 }
 
 /**
@@ -115,6 +119,13 @@ export function reserve(
 
 /** Replace a reservation with the actual cost. Unknown ids (already released) still record the spend. */
 export function reconcile(state: BudgetState, id: string, usd: number): BudgetState {
+  const charged = state.settled?.[id]
+  if (charged != null) {
+    // Already charged in full when it went stale: add only an excess over that charge, once.
+    const settled = { ...state.settled }
+    delete settled[id]
+    return { ...state, settled, spentUsd: state.spentUsd + Math.max(0, usd - charged) }
+  }
   const r = state.reservations[id]
   const reservations = { ...state.reservations }
   delete reservations[id]

@@ -58,8 +58,10 @@ describe('parser details', () => {
       { mode: 'bus' as const, key: 'A', name: 'Queen Street stop 41', score: 0.9 },
       { mode: 'bus' as const, key: 'B', name: 'Queen Street stop 42', score: 0.9 },
     ]
-    const r = parseQuestion('departures at queen street bus', twoQueenSt)
-    expect(r.ok ? r.intent : r.reason).toBe('ambiguous_stop')
+    for (const q of ['departures at queen street bus', 'show me departures queen street bus']) {
+      const r = parseQuestion(q, twoQueenSt)
+      expect(r.ok ? r.intent : r.reason, q).toBe('ambiguous_stop')
+    }
   })
   it('first/last/clock-time questions are not answered as "next departures" (Codex PR review)', () => {
     for (const q of [

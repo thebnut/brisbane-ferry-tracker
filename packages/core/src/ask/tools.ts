@@ -51,19 +51,47 @@ export function anthropicTools(): Array<{ name: ToolName; description: string; i
 }
 
 /**
- * Grounding check (Codex PR review): an answer is grounded only if at least one tool call succeeded, every cited
- * departure appears in a successful get_departures result, and the model's own prose carries no clock times
- * (departure facts are rendered by the server from the cited rows, never taken from model text).
+ * The LLM never writes answer text (Codex review rounds 1-2: prose can't be verified). It must finish by calling
+ * `final_answer` with references to rows returned by tools in this request, or a predefined reason. The server
+ * renders every word the user sees from those rows.
  */
-export function isGrounded(
-  cited: Array<{ tripInstance: string }>,
-  toolResults: Array<{ tool: ToolName; ok?: boolean; departures?: Array<{ tripInstance: string }> }>,
-  prose = '',
-): boolean {
-  const okResults = toolResults.filter((r) => r.ok !== false)
-  if (okResults.length === 0) return false
-  if (/\b\d{1,2}[:.]\d{2}\b|\b\d{1,2}\s*(am|pm)\b|\bin \d+ ?min/i.test(prose)) return false
-  const seen = new Set<string>()
-  for (const r of okResults) for (const d of r.departures ?? []) seen.add(d.tripInstance)
-  return cited.every((c) => seen.has(c.tripInstance))
+export const FinalAnswerInput = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('departures'),
+    refs: z
+      .array(z.string())
+      .min(1)
+      .max(5)
+      .describe('ref values of the departure rows that answer the question'),
+  }),
+  z.object({
+    kind: z.literal('alerts'),
+    refs: z.array(z.string()).max(5).describe('ref values of relevant alerts; empty means none reported'),
+  }),
+  z.object({
+    kind: z.literal('cannot_answer'),
+    reason: z.enum(['trip_planning', 'unknown_stop', 'no_service', 'out_of_scope']),
+  }),
+])
+export type FinalAnswer = z.infer<typeof FinalAnswerInput>
+
+export const FINAL_ANSWER_TOOL = {
+  name: 'final_answer' as const,
+  description:
+    'Finish by referencing the rows that answer the question (departures or alerts, by their ref), or give a reason you cannot answer. Do not write the answer yourself.',
+  input_schema: z.toJSONSchema(FinalAnswerInput),
+}
+
+export interface Evidence {
+  departures: ReadonlySet<string>
+  alerts: ReadonlySet<string>
+  /** At least one get_alerts call succeeded with fresh data in this request. */
+  alertsChecked: boolean
+}
+
+/** A final answer is grounded only if every ref was returned by a successful tool call in this request. */
+export function isGroundedAnswer(final: FinalAnswer, ev: Evidence): boolean {
+  if (final.kind === 'departures') return final.refs.every((r) => ev.departures.has(r))
+  if (final.kind === 'alerts') return ev.alertsChecked && final.refs.every((r) => ev.alerts.has(r))
+  return true
 }

@@ -7,6 +7,7 @@
 import {
   type BudgetConfig,
   DEFAULT_BUDGET,
+  type FinalAnswer,
   type Intent,
   normalizeQuestion,
   parseQuestion,
@@ -19,7 +20,7 @@ import type { StaticStore } from '../data/static-store.ts'
 import { answerIntent } from './answer.ts'
 import { askLlm } from './llm.ts'
 import { loadIndexes, resolverFor } from './resolver.ts'
-import { type InternalFetch, runTool, slimDeparture } from './tools.ts'
+import { type EvidenceLog, type InternalFetch, runTool, slimDeparture } from './tools.ts'
 
 export interface AiEnv {
   AI_ENABLED?: string
@@ -89,6 +90,46 @@ async function verifyTurnstile(
     body: form,
   })
   return r.ok && ((await r.json()) as { success?: boolean }).success === true
+}
+
+const CANNOT_ANSWER: Record<string, string> = {
+  trip_planning:
+    'I can\'t plan multi-step journeys yet. Try asking for the next service between two stops, e.g. "next train from Bowen Hills to the airport".',
+  unknown_stop: "I couldn't find that stop. Try its full name or the stop number on the sign.",
+  no_service: 'No upcoming services were found for that.',
+  out_of_scope: 'I can only answer questions about Brisbane ferry, train and bus departures and alerts.',
+}
+
+/** Render every word of an LLM answer from tool rows (the model only chose which rows). */
+export function renderFinal(final: FinalAnswer, ev: EvidenceLog, nowS: number) {
+  if (final.kind === 'cannot_answer')
+    return { answer: CANNOT_ANSWER[final.reason] ?? CANNOT_ANSWER.out_of_scope }
+  if (final.kind === 'alerts') {
+    const alerts = final.refs.map((ref) => ev.alerts.get(ref)).filter((a) => a != null)
+    return {
+      answer: alerts.length
+        ? alerts.map((a) => a.summary ?? a.header).join(' | ')
+        : 'No current alerts are reported for that.',
+    }
+  }
+  const rows = final.refs.map((ref) => ev.departures.get(ref)).filter((d) => d != null)
+  const groups = new Map<string, typeof rows>()
+  for (const d of rows) {
+    const k = `${d.stop}|${d.to ?? ''}`
+    groups.set(k, [...(groups.get(k) ?? []), d])
+  }
+  const parts = [...groups.values()].map((g) => {
+    const first = g[0] as (typeof rows)[number]
+    const head = first.to ? `From ${first.stop} to ${first.to}` : `From ${first.stop}`
+    const lines = g.map(({ row }) => {
+      const s = slimDeparture(row, nowS)
+      const flag = row.status === 'cancelled' ? ' (cancelled)' : row.status === 'live' ? ' (live)' : ''
+      return `${s.route} to ${s.headsign} at ${s.departs}${s.platform ? `, platform ${s.platform}` : ''}${flag}`
+    })
+    const caveat = first.rtState === 'live' ? '' : ' (timetabled; live times unavailable)'
+    return `${head}: ${lines.join('; ')}${caveat}.`
+  })
+  return { answer: parts.join(' '), departures: rows.map(({ row }) => slimDeparture(row, nowS)) }
 }
 
 export interface AiDeps {
@@ -169,9 +210,18 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
       baseURL: gateway,
       reserve: async (id, usd, countQuestion) => {
         const res = (await budget?.reserve(cfg, id, usd, ipHash, countQuestion)) ?? {
-          ok: false,
-          reason: 'disabled',
+          ok: false as const,
+          reason: 'disabled' as const,
         }
+        if (res.ok && res.alert)
+          // Monitoring hook (ADR-0009): Workers Observability alert rule matches this event.
+          console.warn(
+            JSON.stringify({
+              event: 'ai_budget_alert',
+              threshold: cfg.alertAt,
+              monthlyBudgetUsd: cfg.monthlyBudgetUsd,
+            }),
+          )
         return res.ok ? { ok: true } : { ok: false, reason: res.reason }
       },
       reconcile: async (id, usd) => {
@@ -180,17 +230,12 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
       tools: { fetch: fetchApi, indexes },
       nowS,
     })
-    if (!r.ok) return c.json({ ...hint, ai: { enabled: true, reason: r.reason } })
-    // LLM tool plans are not cached as intents: they can carry semantics an Intent can't express (Codex PR review).
-    const departures = (r.rows ?? []).map((d) => slimDeparture(d, nowS))
-    const facts = departures.map(
-      (d) => `${d.route} to ${d.headsign} at ${d.departs}${d.status === 'live' ? ' (live)' : ''}`,
-    )
+    if (!r.ok || !r.final) return c.json({ ...hint, ai: { enabled: true, reason: r.reason } })
+    // LLM tool plans are not cached as intents: they can carry semantics an Intent can't express.
     return c.json({
       ...base,
       source: 'llm',
-      answer: facts.length ? `${r.answer}\n${facts.join('; ')}.` : r.answer,
-      departures,
+      ...renderFinal(r.final, r.evidence, nowS),
       rounds: r.rounds,
       costUsd: Number(r.costUsd.toFixed(6)),
     })

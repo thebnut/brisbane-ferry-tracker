@@ -243,6 +243,7 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
       s.replace(/\b(departures|what is leaving|leaving|timetable|show|me|from|at)\b/g, ' '),
       mode,
     )
+    if (at === 'ambiguous') return fail('ambiguous_stop')
     if (typeof at === 'object')
       return { ok: true, normalized: s, intent: { kind: 'departures_at', mode: mode ?? at.mode, at } }
   }

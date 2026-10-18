@@ -107,6 +107,14 @@ describe('POST /v1/ask', () => {
     expect(body.ai.reason).toBe('turnstile_not_configured')
   })
 
+  it('never reports an all-clear when the alert feed is unavailable (Codex review round 2)', async () => {
+    const s = setup()
+    const body = (await (await s.ask('any alerts for ferries')).json()) as { source: string; answer: string }
+    expect(body.source).toBe('deterministic')
+    expect(body.answer).not.toMatch(/^No current alerts/)
+    expect(body.answer).toMatch(/can't confirm|aren't available/)
+  })
+
   it('validates input', async () => {
     const s = setup()
     const res = await s.app.request('/v1/ask', {
@@ -204,7 +212,9 @@ const msg = (content: unknown[], stop_reason: string) =>
     { status: 200, headers: { 'content-type': 'application/json' } },
   )
 
-function llmSetup(finalText: (trip: string) => string) {
+type Final = (firstRef: string) => unknown[]
+
+function llmSetup(finalContent: Final) {
   const budget = memoryBudget()
   const env = {
     AI_ENABLED: 'true',
@@ -223,9 +233,9 @@ function llmSetup(finalText: (trip: string) => string) {
     const last = body.messages.at(-1)?.content
     if (Array.isArray(last) && (last[0] as { type?: string })?.type === 'tool_result') {
       const rows = JSON.parse((last[0] as { content: string }).content) as {
-        departures: Array<{ tripInstance: string }>
+        departures: Array<{ ref: string }>
       }
-      return msg([{ type: 'text', text: finalText(rows.departures[0]?.tripInstance ?? 'none') }], 'end_turn')
+      return msg(finalContent(rows.departures[0]?.ref ?? 'none'), 'tool_use')
     }
     return msg(
       [
@@ -243,20 +253,19 @@ function llmSetup(finalText: (trip: string) => string) {
   return { ...s, budget, urls, spy }
 }
 
+const Q = 'is there anything sailing between bulimba and riverside soon'
+const finalCall = (input: unknown) => [{ type: 'tool_use', id: 'tu_f', name: 'final_answer', input }]
+
 describe('LLM fallback (stubbed provider)', () => {
-  it('renders departure facts from the cited rows, through AI Gateway, and records spend', async () => {
-    const s = llmSetup((trip) => `Here is the next ferry for you.\nCITED: ${trip}`)
-    const body = (await (
-      await s.ask('is there anything sailing between bulimba and riverside soon')
-    ).json()) as {
-      source: string
-      answer: string
-      departures: unknown[]
-    }
+  it('renders the answer server-side from cited rows, through AI Gateway, and records spend', async () => {
+    const s = llmSetup((ref) => finalCall({ kind: 'departures', refs: [ref] }))
+    const body = (await (await s.ask(Q)).json()) as { source: string; answer: string; departures: unknown[] }
     s.spy.mockRestore()
     expect(body.source).toBe('llm')
     expect(body.departures).toHaveLength(1)
-    expect(body.answer).toMatch(/F\d+ to .+ at \d{1,2}:\d{2}/)
+    expect(body.answer).toMatch(
+      /^From Bulimba ferry terminal to Riverside ferry terminal: F\d+ to .+ at \d{1,2}:\d{2}/,
+    )
     expect(s.urls.every((u) => u.startsWith('https://gateway.ai.cloudflare.com/v1/acct/bft/anthropic'))).toBe(
       true,
     )
@@ -264,17 +273,34 @@ describe('LLM fallback (stubbed provider)', () => {
     expect(s.budget.state().reservedUsd).toBe(0)
   })
 
-  it('rejects model prose that states times itself (ungrounded)', async () => {
-    const s = llmSetup(() => 'Your ferry leaves at 9:30 PM.\nCITED: none')
-    const body = (await (
-      await s.ask('is there anything sailing between bulimba and riverside soon')
-    ).json()) as {
-      source: string
-      ai: { reason: string }
-    }
+  it('rejects a final answer citing rows no tool returned (ungrounded)', async () => {
+    const s = llmSetup(() => finalCall({ kind: 'departures', refs: ['d99'] }))
+    const body = (await (await s.ask(Q)).json()) as { source: string; ai: { reason: string } }
     s.spy.mockRestore()
     expect(body.source).toBe('fallback')
     expect(body.ai.reason).toBe('ungrounded')
+  })
+
+  it('rejects free text: the model may not write the answer (Codex review round 2)', async () => {
+    const s = llmSetup(() => [{ type: 'text', text: 'The ferry leaves at half past nine.' }])
+    const body = (await (await s.ask(Q)).json()) as { source: string; ai: { reason: string } }
+    s.spy.mockRestore()
+    expect(body.ai.reason).toBe('no_final_answer')
+  })
+
+  it('reservations bound the actual usage reported by the provider', async () => {
+    const s = llmSetup((ref) => finalCall({ kind: 'departures', refs: [ref] }))
+    const reserved: number[] = []
+    const orig = s.budget.ns.get().reserve
+    s.budget.ns.get().reserve = async (cfg, id, usd, ip, count) => {
+      reserved.push(usd)
+      return orig(cfg, id, usd, ip, count)
+    }
+    await s.ask(Q)
+    s.spy.mockRestore()
+    // Each stubbed round reports 1,200 input + 80 output tokens ($0.00016); every reservation is above that.
+    expect(reserved.length).toBe(2)
+    for (const r of reserved) expect(r).toBeGreaterThan(0.00016)
   })
 
   it('a network failure keeps the full reservation as spend (never refunds an uncertain call)', async () => {
@@ -292,7 +318,7 @@ describe('LLM fallback (stubbed provider)', () => {
       },
       { verifyTurnstile: async () => true },
     )
-    const body = (await (await s.ask('could you tell me about ferries please')).json()) as { source: string }
+    const body = (await (await s.ask(Q)).json()) as { source: string }
     spy.mockRestore()
     expect(body.source).toBe('fallback')
     expect(budget.state().spentUsd).toBeGreaterThan(0)
@@ -312,9 +338,7 @@ describe('LLM fallback (stubbed provider)', () => {
       },
       { verifyTurnstile: async () => true },
     )
-    const body = (await (await s.ask('could you tell me about ferries please')).json()) as {
-      ai: { reason: string }
-    }
+    const body = (await (await s.ask(Q)).json()) as { ai: { reason: string } }
     expect(body.ai.reason).toBe('gateway_not_configured')
     expect(spy).not.toHaveBeenCalled()
     spy.mockRestore()
