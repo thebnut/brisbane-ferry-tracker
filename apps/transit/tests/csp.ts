@@ -28,10 +28,12 @@ const TURNSTILE_FRAME = 'https://challenges.cloudflare.com/cdn-cgi/'
 
 /**
  * Collect this page's CSP violations: console messages (except those from Turnstile's own iframe) and the top
- * document's `securitypolicyviolation` events.
+ * document's `securitypolicyviolation` events. Uncaught page errors are collected too: a blocked script often shows
+ * up only as a failed hydration.
  */
 export async function watchCsp(page: Page): Promise<string[]> {
   const violations: string[] = []
+  page.on('pageerror', (e) => violations.push(`pageerror: ${e.message}`))
   page.on('console', (m) => {
     if (m.location().url.startsWith(TURNSTILE_FRAME)) return
     if (/Content Security Policy|Refused to/i.test(m.text())) violations.push(m.text())
@@ -49,9 +51,13 @@ export async function watchCsp(page: Page): Promise<string[]> {
 }
 
 export async function hydrated(page: Page) {
-  // Not 'networkidle': live boards poll. Hydration has run once the router's client state exists.
+  // Not 'networkidle': live boards poll. React has hydrated once it has committed fibers onto the server-rendered DOM
+  // (`__reactFiber$…` on <body>); the router's globals alone appear before the client entry has even loaded (Codex
+  // review of #54).
   await page.waitForFunction(
-    () => '__reactRouterRouteModules' in window && document.readyState === 'complete',
+    () =>
+      document.readyState === 'complete' &&
+      Object.keys(document.body).some((k) => k.startsWith('__reactFiber$')),
   )
   if (/\/map$/.test(new URL(page.url()).pathname))
     await page.locator('canvas.maplibregl-canvas').waitFor({ timeout: 20_000 })
