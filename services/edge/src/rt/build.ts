@@ -24,7 +24,6 @@ import {
   type TripIndexDay,
   TripMatcher,
   type TripRel,
-  tripInstanceKey,
   type Vehicle,
 } from '@bft/core'
 import {
@@ -57,8 +56,6 @@ export class ModeIndex {
   readonly routes = new Map<string, RouteRef>()
   readonly routesByKey = new Map<string, RouteRef>()
   readonly stopIds = new Set<string>()
-  /** headsign and route per trip instance (DUPLICATED trips copy them from the original). */
-  readonly tripMeta = new Map<string, { h: string; r: RouteRef | undefined }>()
   generation: string
   readonly serviceDates: string[] = []
 
@@ -81,8 +78,6 @@ export class ModeIndex {
       this.routesByKey.set(routeKey(r.id), r)
     }
     for (const s of day.stops) this.stopIds.add(s)
-    for (const t of day.trips)
-      this.tripMeta.set(tripInstanceKey(t.id, day.serviceDate), { h: t.h, r: day.routes[t.r] })
   }
 
   route(routeId: string | undefined): RouteRef | undefined {
@@ -275,7 +270,9 @@ function resolveAdded(
     })
   }
   if (stops.length < 2) return null
-  const meta = originalKey ? idx.tripMeta.get(originalKey) : undefined
+  // DUPLICATED trips copy route and headsign from the original (read from the compact matcher, no per-trip map).
+  const info = originalKey ? idx.matcher.info(originalKey) : undefined
+  const meta = info ? { h: info.headsign, r: idx.route(info.routeId) } : undefined
   const route = idx.route(desc.routeId) ?? meta?.r
   if (!route) return null
   const date = (dup ? dup.startDate : desc.startDate) ?? originalKey?.slice(-8)
@@ -425,7 +422,7 @@ export function buildSnapshot(input: BuildInput): BuildResult {
   for (const prev of Object.values(input.previous?.trips ?? {})) {
     if (trips[prev.key]) continue
     if (!isRecordLive(prev, nowS, false)) continue
-    const owner = modes.find((m) => input.indexes[m]?.matcher.trip(prev.key) != null)
+    const owner = modes.find((m) => input.indexes[m]?.matcher.has(prev.key) === true)
     if (owner) {
       const gen = prev.gen ?? input.previous?.header.staticGeneration[owner]
       if (gen !== input.indexes[owner]?.generation) continue
