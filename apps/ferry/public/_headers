@@ -1,0 +1,8 @@
+# Static assets served by Workers static assets (no Worker code runs): same base security headers as the Worker
+# (workers/security.ts) and the Vercel deployment. HTML is server-rendered by the Worker, which adds the nonce CSP.
+# No CSP here: a service worker inherits the CSP of its own script response, and a restrictive one blocks its fetches.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), payment=(), usb=(), geolocation=(self)

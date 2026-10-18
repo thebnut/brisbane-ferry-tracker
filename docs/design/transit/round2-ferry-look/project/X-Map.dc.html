@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Transit · Nearby map</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Poppins:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#E55A2B}a:hover{color:#B8400F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F4F7F8; font-family: Inter, system-ui, sans-serif; color: #2D3436; overflow: hidden">
+
+<header style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px 6px 8px; background: linear-gradient(90deg, #FFFFFF, #FFE5D9, #E6F2FF); border-bottom: 2px solid rgba(255,107,53,0.5); box-shadow: 0 10px 15px -5px rgba(0,0,0,0.1); position: relative; z-index: 2">
+<div style="display: flex; align-items: center; gap: 4px">
+<img src="/_blob/6cb3ef13ed0162256b2e66a39e2db32e" alt="" style="width: 56px; height: 56px">
+<div style="display: flex; flex-direction: column; line-height: 1.08">
+<span style="font-family: Poppins, sans-serif; font-weight: 700; font-size: 20px; color: #2A9A9E">BrisbaneTransit</span>
+<span style="font-family: Poppins, sans-serif; font-weight: 600; font-size: 16px; color: #FE8E22">Departure Boards</span>
+</div>
+</div>
+<span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF6B35; border-radius: 999px; padding: 6px 12px; box-shadow: 0 0 15px rgba(255,107,53,0.5)">LIVE</span>
+</header>
+
+<div style="position: relative; flex: 1 1 auto; overflow: hidden">
+<svg width="390" height="440" viewBox="0 0 390 440" aria-hidden="true" style="position: absolute; left: 0; top: 0">
+<rect width="390" height="440" fill="#F4F7F8"></rect>
+<path d="M-10 120 C70 90 120 170 190 160 C260 150 280 70 400 90" fill="none" stroke="#CDE9F0" stroke-width="44" stroke-linecap="round"></path>
+<path d="M0 300 L390 250 M60 0 L120 440 M250 0 L300 440 M0 210 L390 200 M170 160 L210 440" stroke="#FFFFFF" stroke-width="10" fill="none"></path>
+<path d="M0 360 C120 330 260 340 390 300" stroke="#C9CED1" stroke-width="4" stroke-dasharray="10 6" fill="none"></path>
+<circle cx="195" cy="250" r="90" fill="rgba(0,168,204,0.06)" stroke="rgba(0,124,153,0.35)" stroke-width="2" stroke-dasharray="6 6"></circle>
+</svg>
+
+<div style="position: absolute; left: 12px; right: 12px; top: 12px; display: flex; gap: 8px; z-index: 1">
+<button type="button" style="font: inherit; font-size: 13px; font-weight: 700; color: #FFFFFF; background: #E55A2B; border: 0; border-radius: 999px; padding: 0 14px; height: 40px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.15)">All</button>
+<button type="button" style="font: inherit; font-size: 13px; font-weight: 600; color: #007C99; background: #FFFFFF; border: 1px solid rgba(255,107,53,0.2); border-radius: 999px; padding: 0 12px; height: 40px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1)"><span style="width: 12px; height: 12px; border-radius: 999px; background: #00A8CC; border: 2px solid #FFFFFF; box-shadow: 0 0 0 1px #007C99"></span>Ferry</button>
+<button type="button" style="font: inherit; font-size: 13px; font-weight: 600; color: #1E7C80; background: #FFFFFF; border: 1px solid rgba(255,107,53,0.2); border-radius: 999px; padding: 0 12px; height: 40px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1)"><span style="width: 12px; height: 12px; border-radius: 2px; background: #1E7C80"></span>Train</button>
+<button type="button" style="font: inherit; font-size: 13px; font-weight: 600; color: #B8400F; background: #FFFFFF; border: 1px solid rgba(255,107,53,0.2); border-radius: 999px; padding: 0 12px; height: 40px; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1)"><span style="width: 10px; height: 10px; background: #E55A2B; transform: rotate(45deg)"></span>Bus</button>
+</div>
+
+<div style="position: absolute; left: 92px; top: 112px; display: flex; flex-direction: column; align-items: center; gap: 3px"><span style="width: 26px; height: 26px; border-radius: 999px; background: #00A8CC; border: 3px solid #FFFFFF; box-shadow: 0 2px 6px rgba(0,0,0,0.3); box-sizing: border-box"></span><span style="font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.92); padding: 2px 6px; border-radius: 6px">South Bank ferry</span></div>
+<div style="position: absolute; left: 232px; top: 176px; display: flex; flex-direction: column; align-items: center; gap: 3px"><span style="width: 26px; height: 26px; border-radius: 5px; background: #1E7C80; border: 3px solid #FFFFFF; box-shadow: 0 2px 6px rgba(0,0,0,0.3); box-sizing: border-box"></span><span style="font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.92); padding: 2px 6px; border-radius: 6px">South Brisbane stn</span></div>
+<div style="position: absolute; left: 130px; top: 268px; display: flex; flex-direction: column; align-items: center; gap: 6px"><span style="width: 20px; height: 20px; background: #E55A2B; border: 3px solid #FFFFFF; transform: rotate(45deg); box-shadow: 0 2px 6px rgba(0,0,0,0.3); box-sizing: border-box"></span><span style="font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.92); padding: 2px 6px; border-radius: 6px">Cultural Centre P1</span></div>
+<div style="position: absolute; left: 268px; top: 300px; display: flex; flex-direction: column; align-items: center; gap: 6px"><span style="width: 20px; height: 20px; background: #E55A2B; border: 3px solid #FFFFFF; transform: rotate(45deg); box-shadow: 0 2px 6px rgba(0,0,0,0.3); box-sizing: border-box"></span><span style="font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.92); padding: 2px 6px; border-radius: 6px">Melbourne St</span></div>
+<div style="position: absolute; left: 30px; top: 330px; display: flex; flex-direction: column; align-items: center; gap: 6px"><span style="width: 20px; height: 20px; background: #E55A2B; border: 3px solid #FFFFFF; transform: rotate(45deg); box-shadow: 0 2px 6px rgba(0,0,0,0.3); box-sizing: border-box"></span><span style="font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.92); padding: 2px 6px; border-radius: 6px">Grey St</span></div>
+<div style="position: absolute; left: 184px; top: 238px; width: 22px; height: 22px; border-radius: 999px; background: #0066CC; border: 4px solid #FFFFFF; box-shadow: 0 0 0 8px rgba(0,102,204,0.18); box-sizing: border-box" aria-label="You are here"></div>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 0; background: #FFFFFF; border-radius: 20px 20px 0 0; box-shadow: 0 -8px 20px rgba(0,0,0,0.1); padding: 8px 14px 10px; display: flex; flex-direction: column; gap: 8px">
+<span style="align-self: center; width: 40px; height: 5px; border-radius: 999px; background: #D1D5DB"></span>
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<h1 style="margin: 0; font-size: 18px; font-weight: 800">Leaving soon near you</h1>
+<span style="font-size: 12px; font-weight: 600; color: #007C99">within 400 m</span>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 54px; border-top: 1px solid #F1F1F1">
+<span style="{{r.shape}}"></span>
+<span style="{{r.tile}}">{{r.route}}</span>
+<span style="display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0">
+<span style="font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.to}}</span>
+<span style="font-size: 12px; color: #4B5563">{{r.stop}} · {{r.walk}}</span>
+</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px">
+<span style="{{r.chip}}">{{r.count}}</span>
+<span style="font-size: 11px; font-weight: 700; color: {{r.cueColor}}">{{r.cue}}</span>
+</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<nav aria-label="Modes" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 6px 18px; background: rgba(255,255,255,0.95); border-top: 1px solid rgba(255,107,53,0.2)">
+<sc-for list="{{tabs}}" as="b" hint-placeholder-count="5">
+<a href="{{b.href}}" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{b.color}}; font-size: 11px; font-weight: {{b.weight}}; min-height: 52px; justify-content: center">
+<span style="display: flex; align-items: center; justify-content: center; width: 48px; height: 30px; border-radius: 999px; background: {{b.pill}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{b.icon}}"></path></svg></span>
+{{b.label}}
+</a>
+</sc-for>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const I = {
+ferry: 'M3 18c2 1.5 4 1.5 6 0s4-1.5 6 0 4 1.5 6 0M5 15l-1-5h16l-2 5M8 10V6h8v4M12 3v3',
+train: 'M7 3h10a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zM4 10h16M8 21l2-4M16 21l-2-4M8.5 13.5h.01M15.5 13.5h.01',
+bus: 'M6 3h12a2 2 0 0 1 2 2v12H4V5a2 2 0 0 1 2-2zM4 11h16M7 20v-3M17 20v-3M7.5 14h.01M16.5 14h.01',
+near: 'M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+saved: 'M6 3h12v18l-6-4-6 4z'
+};
+const shapes = {
+ferry: 'width: 14px; height: 14px; border-radius: 999px; background: #00A8CC; box-shadow: 0 0 0 2px #007C99; flex: 0 0 auto',
+train: 'width: 14px; height: 14px; border-radius: 3px; background: #1E7C80; flex: 0 0 auto',
+bus: 'width: 11px; height: 11px; margin: 0 2px; background: #E55A2B; transform: rotate(45deg); flex: 0 0 auto'
+};
+const tileBase = 'min-width: 40px; height: 32px; padding: 0 6px; box-sizing: border-box; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex: 0 0 auto; ';
+const tiles = { ferry: tileBase + 'background: #E0F6FB; color: #005F75', train: tileBase + 'background: #DDEFEF; color: #165E61', bus: tileBase + 'background: #1E7C80; color: #FFFFFF' };
+const cb = 'padding: 4px 10px; border-radius: 999px; font-size: 15px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; ';
+const chip = (m) => m <= 5 ? cb + 'background: #E55A2B; color: #FFFFFF' : m <= 15 ? cb + 'background: #FF8C42; color: #2D3436' : cb + 'background: #DCFCE7; color: #166534; border: 1px solid #86EFAC';
+const r = (mode, route, to, stop, walk, m, cue, cueColor) => ({ shape: shapes[mode], tile: tiles[mode], route, to, stop, walk, count: m + ' min', chip: chip(m), cue, cueColor });
+const tabs = [['Ferry', I.ferry, 'X-Departures.dc.html'], ['Train', I.train, 'X-Detail.dc.html'], ['Bus', I.bus, 'X-Search.dc.html'], ['Nearby', I.near, 'X-Map.dc.html'], ['Saved', I.saved, 'X-Home.dc.html']];
+const active = 'Nearby';
+return {
+rows: [
+r('bus', '66', 'UQ Lakes', 'Cultural Centre P1', '3 min walk', 2, 'Too late', '#991B1B'),
+r('bus', '199', 'Teneriffe', 'Melbourne St', '4 min walk', 6, 'Hurry', '#B8400F'),
+r('train', 'SPR', 'Springfield Central', 'South Brisbane P2', '5 min walk', 9, 'On your way', '#166534'),
+r('ferry', 'F1', 'Northshore Hamilton', 'South Bank 1 & 2', '6 min walk', 14, 'Plenty of time', '#166534')
+],
+tabs: tabs.map(([label, icon, href]) => ({ label, icon, href, color: label === active ? '#B8400F' : '#4B5563', weight: label === active ? '700' : '500', pill: label === active ? '#FFE5D9' : 'transparent' }))
+};
+}
+}
+</script>
+</body>
+</html>

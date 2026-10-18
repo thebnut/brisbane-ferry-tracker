@@ -1,0 +1,40 @@
+/** Stop naming helpers for SEQ bus stops. */
+import { at } from './base.ts'
+
+/**
+ * The public stop number. In the SEQ feed every numeric stop_id's stop_code is the id zero-padded to six digits
+ * ("10802" → "010802"; checked for all 12,863 numeric stops on the 17 Oct 2026 feed), so pages can show it without
+ * loading the stop index.
+ */
+export function stopCode(stopId: string): string | null {
+  return /^\d{1,6}$/.test(stopId) ? stopId.padStart(6, '0') : null
+}
+
+/**
+ * The stop_id for a stop number typed or shared with its leading zeros ("010813" → "10813"), the reverse of stopCode;
+ * anything else is returned unchanged.
+ */
+export const canonicalStopId = (s: string) => (/^0\d{1,5}$/.test(s) ? normaliseCode(s) : s)
+
+/** Digits of a stop number without leading zeros ("010802" → "10802"), for exact matching. */
+export const normaliseCode = (s: string) => s.replace(/^0+(?=\d)/, '')
+
+export function stopMeta(stopId: string, platform?: string | null): string {
+  const code = stopCode(stopId)
+  const parts = [code ? `Stop ${code}` : null, platform ? `platform ${platform}` : null].filter(Boolean)
+  return parts.join(' · ')
+}
+
+/** Canonical (unprefixed) paths, used by seo.ts and the sitemap. Links use the *Href helpers below. */
+export const stopPath = (stopId: string) => `/stop/${encodeURIComponent(stopId)}`
+export const routePath = (route: string) => `/route/${encodeURIComponent(route)}`
+export const tripPath = (tripInstance: string, from?: string | null) =>
+  `/trip/${encodeURIComponent(tripInstance)}${from ? `?from=${encodeURIComponent(from)}` : ''}`
+
+/** In-app links (prefixed with BASE inside BrisbaneTransit). */
+export const stopHref = (stopId: string) => at(stopPath(stopId))
+export const routeHref = (route: string) => at(routePath(route))
+export const tripHref = (tripInstance: string, from?: string | null) => at(tripPath(tripInstance, from))
+
+/** Route short name of a GTFS route_id ("M2-4949" → "M2"). */
+export const routeShortOf = (routeId: string) => routeId.split('-')[0] ?? routeId

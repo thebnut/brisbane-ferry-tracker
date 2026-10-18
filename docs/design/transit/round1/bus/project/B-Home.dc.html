@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus Kerbside · Home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&amp;family=Barlow:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1E2224}a:hover{color:#000}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F2F0EA; font-family: 'Barlow', system-ui, sans-serif; color: #1E2224; display: flex; flex-direction: column; overflow: hidden; font-variant-numeric: tabular-nums">
+  <header style="padding: 18px 20px 10px; display: flex; justify-content: space-between; align-items: center">
+    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 26px; letter-spacing: 0.2px">BRISBANE<b style="font-weight: 800; color: #1E2224; background: #F2B705; padding: 0 5px; margin-left: 2px">BUS</b></div>
+    <span style="font-size: 13px; font-weight: 600; color: #565D60">8:14 am · Live</span>
+  </header>
+  <h1 style="margin: 4px 20px 8px; font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1.4px; color: #565D60">MY STOPS · NEXT BUS</h1>
+  <div style="padding: 0 12px; display: flex; flex-direction: column; gap: 8px">
+    <sc-for list="{{mine}}" as="m" hint-placeholder-count="3">
+      <a href="B-Departures.dc.html" style="text-decoration: none; color: #1E2224; background: #fff; border-radius: 6px; display: flex; align-items: stretch; min-height: 84px; overflow: hidden; box-shadow: 0 1px 0 #D8D4CA">
+        <span style="width: 84px; background: #1E2224; color: #F2B705; font-family: 'Barlow Condensed', sans-serif; font-size: 40px; font-weight: 800; display: flex; align-items: center; justify-content: center; letter-spacing: -0.5px; flex-shrink: 0">{{m.route}}</span>
+        <span style="flex: 1; min-width: 0; padding: 10px 12px; display: flex; flex-direction: column; justify-content: center">
+          <span style="font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{m.stop}}</span>
+          <span style="font-size: 13px; color: #565D60; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">to {{m.dest}}</span>
+          <span style="font-size: 12px; font-weight: 700; color: {{m.sc}}; margin-top: 2px">{{m.status}}</span>
+        </span>
+        <span style="padding: 0 14px 0 4px; display: flex; flex-direction: column; justify-content: center; align-items: flex-end">
+          <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 44px; font-weight: 800; line-height: 1">{{m.num}}</span>
+          <span style="font-size: 12px; font-weight: 700; color: #565D60">{{m.unit}}</span>
+        </span>
+      </a>
+    </sc-for>
+  </div>
+  <section aria-label="Find a stop" style="margin-top: auto; background: #1E2224; color: #fff; border-radius: 20px 20px 0 0; padding: 18px 16px 10px">
+    <h2 style="margin: 0 4px 10px; font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1.4px; color: #C3C8CA">NEAR YOU</h2>
+    <sc-for list="{{near}}" as="n" hint-placeholder-count="3">
+      <a href="B-Departures.dc.html" style="text-decoration: none; color: #fff; display: flex; align-items: center; gap: 12px; min-height: 56px; border-bottom: 1px solid #343A3D; padding: 0 4px">
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; min-width: 50px; color: #F2B705">{{n.dist}}</span>
+        <span style="flex: 1; min-width: 0"><span style="display: block; font-size: 15px; font-weight: 600">{{n.name}}</span><span style="display: block; font-size: 12px; color: #C3C8CA">Stop {{n.num}} · {{n.routes}}</span></span>
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 800">{{n.next}}</span>
+      </a>
+    </sc-for>
+    <a href="B-Search.dc.html" style="margin-top: 14px; text-decoration: none; display: flex; align-items: center; gap: 12px; height: 60px; border-radius: 12px; background: #F2B705; color: #1E2224; padding: 0 16px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+      <span style="flex: 1; font-size: 18px; font-weight: 700">Stop name or number</span>
+      <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700; border: 2px solid #1E2224; border-radius: 6px; padding: 1px 6px">123</span>
+    </a>
+    <nav aria-label="Main" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 8px; padding-bottom: 12px">
+      <a href="B-Home.dc.html" aria-current="page" style="text-decoration: none; color: #F2B705; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7z"></path></svg>Stops</a>
+      <a href="B-Map.dc.html" style="text-decoration: none; color: #C3C8CA; font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"></path></svg>Map</a>
+      <a href="B-Alerts.dc.html" style="text-decoration: none; color: #C3C8CA; font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l10 18H2z"></path><path d="M12 10v4M12 17v.5"></path></svg>Alerts · 2</a>
+    </nav>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      mine: [
+        { route: 'M2', stop: 'Cultural Centre · P1', dest: 'UQ Lakes', status: '● LIVE · Many seats', sc: '#0D6A44', num: 'Now', unit: '8:14' },
+        { route: '60', stop: 'Adelaide St · 37', dest: 'Teneriffe (CityGlider)', status: '● LIVE · Few seats', sc: '#0D6A44', num: '2', unit: 'MIN' },
+        { route: '66', stop: 'UQ Lakes · C', dest: 'RBWH', status: '+2 min late', sc: '#A3271F', num: '6', unit: 'MIN' }
+      ],
+      near: [
+        { dist: '140 m', name: 'Logan Rd at Stones Corner', num: '2104', routes: '200 · 204 · 209', next: '3 min' },
+        { dist: '260 m', name: 'Buranda busway · Plat 2', num: '1710', routes: '111 · 130 · M1', next: '1 min' },
+        { dist: '410 m', name: 'Old Cleveland Rd, stop 12', num: '3221', routes: '222 · 230', next: '9 min' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

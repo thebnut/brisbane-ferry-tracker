@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus · Departures at Cultural Centre</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#8A6400}a:hover{color:#5c4300}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FFFBF2; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #2D3436; display: flex; flex-direction: column; overflow: hidden; font-variant-numeric: tabular-nums">
+  <header style="padding: 16px 12px 12px; display: flex; align-items: center; gap: 8px">
+    <a href="Main.dc.html" aria-label="Back to my stops" style="width: 44px; height: 44px; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: #2D3436"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+    <div style="flex: 1; min-width: 0">
+      <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.3px">Cultural Centre</h1>
+      <div style="font-size: 13px; color: #5F6B6D">Platform 1 · Stop 1832 · to UQ, Toowong</div>
+    </div>
+    <button aria-label="Saved to my stops" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: #F2B705; color: #2D3436; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7z"></path></svg></button>
+  </header>
+  <div style="display: flex; gap: 8px; padding: 0 16px 12px; overflow: hidden">
+    <button style="height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: #2D3436; color: #fff; font: inherit; font-size: 14px; font-weight: 700; flex-shrink: 0">All routes</button>
+    <button style="height: 40px; min-width: 48px; padding: 0 12px; border-radius: 999px; border: 1px solid #E3D3AE; background: #fff; font: inherit; font-size: 14px; font-weight: 800; color: #2D3436; flex-shrink: 0">M2</button>
+    <button style="height: 40px; min-width: 48px; padding: 0 12px; border-radius: 999px; border: 1px solid #E3D3AE; background: #fff; font: inherit; font-size: 14px; font-weight: 800; color: #2D3436; flex-shrink: 0">66</button>
+    <button style="height: 40px; min-width: 48px; padding: 0 12px; border-radius: 999px; border: 1px solid #E3D3AE; background: #fff; font: inherit; font-size: 14px; font-weight: 800; color: #2D3436; flex-shrink: 0">199</button>
+    <button style="height: 40px; min-width: 48px; padding: 0 12px; border-radius: 999px; border: 1px solid #E3D3AE; background: #fff; font: inherit; font-size: 14px; font-weight: 800; color: #2D3436; flex-shrink: 0">412</button>
+  </div>
+  <a href="A-Alerts.dc.html" style="margin: 0 16px 10px; text-decoration: none; color: #2D3436; background: #FDF3D0; border-radius: 14px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; min-height: 48px; box-sizing: border-box">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A6400" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l10 18H2z"></path><path d="M12 10v5M12 18v.5"></path></svg>
+    <span style="flex: 1; font-size: 13px"><b>Route 199 detour</b> · Grey St closed tonight, use stop 5</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+  </a>
+  <div style="flex: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 8px">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+      <a href="A-Detail.dc.html" style="text-decoration: none; color: #2D3436; background: {{r.cardBg}}; border: {{r.border}}; border-radius: 18px; padding: 12px 12px 12px 12px; display: flex; align-items: center; gap: 12px; min-height: 68px; box-sizing: border-box; box-shadow: 0 1px 5px rgba(45,52,54,0.07)">
+        <span style="min-width: 56px; height: 44px; padding: 0 8px; box-sizing: border-box; border-radius: 12px; background: {{r.routeBg}}; color: #2D3436; font-weight: 800; font-size: 20px; display: flex; align-items: center; justify-content: center">{{r.route}}</span>
+        <span style="flex: 1; min-width: 0">
+          <span style="display: block; font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: {{r.strike}}">{{r.dest}}</span>
+          <span style="display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 12px; font-weight: 700; color: {{r.statusColor}}">
+            <sc-if value="{{r.live}}" hint-placeholder-val="{{true}}"><span style="width: 7px; height: 7px; border-radius: 4px; background: #13865A"></span></sc-if>
+            {{r.status}}<span style="color: #5F6B6D; font-weight: 500">{{r.extra}}</span>
+          </span>
+        </span>
+        <span style="text-align: right">
+          <span style="display: inline-block; min-width: 64px; text-align: center; padding: 8px 10px; border-radius: 999px; font-weight: 800; font-size: 16px; background: {{r.chipBg}}; color: {{r.chipFg}}; text-decoration: {{r.strike}}">{{r.when}}</span>
+          <span style="display: block; font-size: 11px; color: #5F6B6D; margin-top: 3px">{{r.clock}}</span>
+        </span>
+      </a>
+    </sc-for>
+  </div>
+  <div style="padding: 10px 16px 24px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #5F6B6D">
+    <span>Live updates every 30 s</span>
+    <button style="height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid #2D3436; background: #fff; font: inherit; font-weight: 700; color: #2D3436; display: flex; align-items: center; gap: 6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"></path></svg>Map this stop</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const base = { cardBg: '#FFFFFF', border: '1px solid transparent', routeBg: '#F2B705', strike: 'none', live: true, statusColor: '#0F6B45', extra: '' };
+    return { rows: [
+      { ...base, route: 'M2', dest: 'UQ Lakes', status: 'LIVE', extra: ' · Many seats', when: 'Now', clock: '8:14', chipBg: '#2D3436', chipFg: '#fff', border: '2px solid #2D3436' },
+      { ...base, route: '66', dest: 'UQ Lakes via Mater Hill', status: '+3 min late', statusColor: '#A3271F', when: '4 min', clock: '8:18', chipBg: '#F2B705', chipFg: '#2D3436' },
+      { ...base, route: '412', dest: 'UQ Lakes express', status: 'LIVE', extra: ' · Express', when: '7 min', clock: '8:21', chipBg: '#FDF3D0', chipFg: '#5c4300' },
+      { ...base, route: '199', dest: 'West End (detour)', status: 'SCHEDULED', statusColor: '#5F6B6D', live: false, when: '11 min', clock: '8:25', chipBg: '#FDF3D0', chipFg: '#5c4300' },
+      { ...base, route: 'M2', dest: 'UQ Lakes', status: 'CANCELLED', statusColor: '#A3271F', live: false, extra: ' · next M2 in 18 min', when: '13 min', clock: '8:27', chipBg: '#EDE7DA', chipFg: '#5F6B6D', strike: 'line-through', cardBg: '#F7F2E8', routeBg: '#E6DFCF' },
+      { ...base, route: '66', dest: 'UQ Lakes via Mater Hill', status: 'LIVE', extra: ' · Few seats', when: '16 min', clock: '8:30', chipBg: '#FDF3D0', chipFg: '#5c4300' },
+      { ...base, route: '199', dest: 'West End', status: 'SCHEDULED', statusColor: '#5F6B6D', live: false, when: '9:22 am', clock: 'Scheduled', chipBg: '#FDF3D0', chipFg: '#5c4300' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

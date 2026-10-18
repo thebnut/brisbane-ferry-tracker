@@ -1,0 +1,8 @@
+build/
+.react-router/
+.wrangler/
+test-results/
+playwright-report/
+.dev.vars
+# Static client data built by `pnpm data` (or served by the API's /data/bus/*); never committed.
+public/data/

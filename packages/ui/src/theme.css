@@ -1,0 +1,178 @@
+/*
+ * @bft/ui theme: the single shared BrisbaneFerry palette (round 2, docs/design/transit/round2-ferry-look/ferry-look-spec.md).
+ * Every app imports this one file after `@import "tailwindcss";`.
+ *
+ * Colours come from the live ferry app (tailwind.config.js, src/index.css) plus the logo colours, with the AA
+ * adjustments from the spec: teal text #1E7C80, aqua headings #007C99, white text on orange only large bold on #E55A2B.
+ */
+
+/* Scan the component sources so their utility classes are generated in the app's CSS. */
+@source "./";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-wordmark: "Poppins", "Inter", system-ui, sans-serif;
+
+  /* Logo */
+  --color-logo-teal: #2a9a9e;
+  --color-logo-orange: #fe8e22;
+
+  /* Ferry app palette */
+  --color-ferry-orange: #ff6b35;
+  --color-ferry-orange-dark: #e55a2b;
+  --color-ferry-orange-deep: #b8400f;
+  /* Orange fill for small white text (LIVE pill/badge, active pills, buttons, ≤5 min chip): 5.18:1 with white. */
+  --color-ferry-orange-aa: #c2410c;
+  --color-ferry-sunset: #ff8c42;
+  --color-ferry-orange-light: #ffe5d9;
+  --color-ferry-aqua: #00a8cc;
+  --color-ferry-aqua-light: #5dccdb;
+  --color-ferry-light-blue: #e6f2ff;
+  --color-ferry-blue: #0066cc;
+  --color-charcoal: #2d3436;
+  --color-cream: #fdf5e6;
+  --color-golden: #f5b800;
+
+  /* AA text variants */
+  --color-teal-text: #1e7c80;
+  --color-aqua-text: #007c99;
+
+  /* Status */
+  --color-chip-later-bg: #dcfce7;
+  --color-chip-later-text: #166534;
+  --color-chip-later-border: #86efac;
+  --color-sched-bg: #f3f4f6;
+  --color-sched-text: #4b5563;
+  --color-cancel-bg: #fee2e2;
+  --color-cancel-text: #991b1b;
+
+  /* Maps */
+  --color-map-ground: #f4f7f8;
+  --color-map-river: #cde9f0;
+
+  /* Dark mode surfaces (spec "Dark mode") */
+  --color-night-1: #14191b;
+  --color-night-2: #1b2326;
+  --color-night-card: #222b2e;
+  --color-night-text: #f1f5f6;
+
+  --radius-card: 12px;
+  --radius-button: 8px;
+
+  --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-header: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+  --shadow-live: 0 0 15px rgb(255 107 53 / 0.5);
+  --shadow-hot: 0 0 20px rgb(255 107 53 / 0.45);
+
+  --animate-pulse-dot: pulse-dot 2s ease-in-out infinite;
+  --animate-glow: glow 2s ease-in-out infinite;
+
+  @keyframes pulse-dot {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.35);
+      opacity: 0.6;
+    }
+  }
+  @keyframes glow {
+    0%,
+    100% {
+      box-shadow: 0 0 15px rgb(255 107 53 / 0.5);
+    }
+    50% {
+      box-shadow: 0 0 30px rgb(255 107 53 / 0.8);
+    }
+  }
+}
+
+/* Gradients from the ferry app, as utilities. */
+@utility bg-page {
+  background-image: linear-gradient(135deg, #ffe5d9 0%, #ffffff 50%, #e6f2ff 100%);
+  background-attachment: fixed;
+  &:where(.dark, .dark *) {
+    background-image: linear-gradient(135deg, var(--color-night-1), var(--color-night-2));
+  }
+}
+@utility bg-header {
+  background-image: linear-gradient(90deg, #ffffff, #ffe5d9, #e6f2ff);
+  &:where(.dark, .dark *) {
+    background-image: linear-gradient(90deg, var(--color-night-2), var(--color-night-card));
+  }
+}
+@utility bg-strip {
+  background-image: linear-gradient(90deg, #ffffff, rgb(255 229 217 / 0.5));
+  &:where(.dark, .dark *) {
+    background-image: linear-gradient(90deg, var(--color-night-2), var(--color-night-card));
+  }
+}
+@utility bg-board-header {
+  background-image: linear-gradient(90deg, rgb(255 255 255 / 0.8), rgb(255 229 217 / 0.5));
+  &:where(.dark, .dark *) {
+    background-image: linear-gradient(90deg, var(--color-night-card), var(--color-night-2));
+  }
+}
+@utility bg-hot {
+  background-image: linear-gradient(90deg, #ffe5d9, #ffffff);
+  &:where(.dark, .dark *) {
+    background-image: linear-gradient(90deg, #3a2a22, var(--color-night-card));
+  }
+}
+@utility bg-more {
+  background-image: linear-gradient(90deg, #ffffff, #ffe5d9);
+  &:where(.dark, .dark *) {
+    background-image: linear-gradient(90deg, var(--color-night-card), #3a2a22);
+  }
+}
+@utility bg-departing {
+  /* Spec gradient #EF4444 → #FF6B35, darkened so white 16px text passes AA (≥4.5:1 across the gradient). */
+  background-image: linear-gradient(90deg, #dc2626, #c2410c);
+}
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-page text-charcoal font-sans antialiased min-h-screen;
+  }
+  body:where(.dark, .dark *) {
+    color: var(--color-night-text);
+  }
+  ::selection {
+    background: var(--color-ferry-orange);
+    color: #fff;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-aqua-text);
+    outline-offset: 2px;
+  }
+  /* biome-ignore-start lint/complexity/noImportantStyles: reduced motion must beat component animations. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  /* biome-ignore-end lint/complexity/noImportantStyles: reduced motion */
+}
+
+/*
+ * A page rendered from the service worker's cache (or with an old render time) hides its live claims until a live
+ * API call reaches the network (connectivity.ts liveGuardScript, R2-T7).
+ */
+html[data-live-unconfirmed] [data-live-claim] {
+  /* biome-ignore lint/complexity/noImportantStyles: must beat the components' display utilities. */
+  display: none !important;
+}

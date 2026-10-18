@@ -1,0 +1,220 @@
+name: Transit static timetable
+
+# Builds the transit static data plane (docs/architecture/transit-architecture.md §3.2, ADR-0002): validates the SEQ
+# GTFS feed, builds stop-day blobs for D-1..D+6, uploads the output as a workflow artifact, and publishes to R2
+# (bucket bft-transit-data) when the CLOUDFLARE_API_TOKEN secret exists. S3 credentials are derived from that token
+# (key id = token id, secret = sha256(token)), so the token needs R2 write permission. Publishing uploads only blobs
+# the bucket's own manifest doesn't already reference (no per-object HEADs), which keeps a daily run around 1.1k
+# Class A operations, inside the R2 free tier. It never commits to git and never touches GitHub Pages; the legacy daily
+# job (update-schedule.yml) is separate and unchanged.
+#
+# Weekly (the Sunday 03:15 AEST run) and on demand (workflow_dispatch gc=true), the gc job deletes unreferenced
+# pipeline objects under static/ only (pipeline/src/gc/gc.ts: keeps every generation the manifests name or uploaded
+# in the last 14 days, and anything younger than 48 h) and uploads its report as an artifact.
+#
+# Exit codes of the build: 0 ok, 2 structural failure (nothing published), 3 quarantined (live manifest keeps the
+# previous generation of the quarantined modes; the new one is in manifest.staging.json). Promote a quarantined build
+# with workflow_dispatch accept=<generation>.
+
+on:
+  schedule:
+    # 03:15 AEST (UTC+10, no DST) = 17:15 UTC
+    - cron: '15 17 * * *'
+  workflow_dispatch:
+    inputs:
+      accept:
+        description: 'Promote quarantined generation(s), comma-separated'
+        required: false
+        default: ''
+      date:
+        description: 'Service date D (YYYYMMDD); default today in Brisbane'
+        required: false
+        default: ''
+      gc:
+        description: 'Also run R2 garbage collection (gc --apply) after publishing'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: transit-static
+  cancel-in-progress: false
+
+env:
+  GTFS_URL: https://gtfsrt.api.translink.com.au/GTFS/SEQ_GTFS.zip
+  R2_BUCKET: bft-transit-data
+  GTFS_VALIDATOR_VERSION: 8.0.1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      status: ${{ steps.build.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Download feed
+        run: curl -fsSL --retry 3 -o "$RUNNER_TEMP/gtfs.zip" "$GTFS_URL" && ls -l "$RUNNER_TEMP/gtfs.zip"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: MobilityData gtfs-validator (ERROR notices fail closed)
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/gtfs-validator.jar" \
+            "https://github.com/MobilityData/gtfs-validator/releases/download/v${GTFS_VALIDATOR_VERSION}/gtfs-validator-${GTFS_VALIDATOR_VERSION}-cli.jar"
+          java -Xmx6g -jar "$RUNNER_TEMP/gtfs-validator.jar" -i "$RUNNER_TEMP/gtfs.zip" -o "$RUNNER_TEMP/validator" -n
+          node --experimental-transform-types --disable-warning=ExperimentalWarning \
+            pipeline/src/validate/gtfs-validator.ts "$RUNNER_TEMP/validator/report.json"
+
+      - name: Golden fixtures (core)
+        run: pnpm --filter @bft/core test
+
+      - name: Build
+        id: build
+        env:
+          ACCEPT: ${{ inputs.accept }}
+          DATE: ${{ inputs.date }}
+          # The previous generation (quarantine checks, manifest.previous) is read from R2 itself.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          args=(build --gtfs "$RUNNER_TEMP/gtfs.zip" --out "$RUNNER_TEMP/out" --work-dir "$RUNNER_TEMP/feed")
+          [ -n "$ACCEPT" ] && args+=(--accept "$ACCEPT")
+          [ -n "$DATE" ] && args+=(--date "$DATE")
+          [ -n "$CLOUDFLARE_API_TOKEN" ] && args+=(--previous r2)
+          set +e
+          node --experimental-transform-types --disable-warning=ExperimentalWarning pipeline/src/cli.ts "${args[@]}" \
+            2> >(tee "$RUNNER_TEMP/build-stderr.txt" >&2)
+          code=$?
+          set -e
+          case $code in
+            0) echo "status=ok" >> "$GITHUB_OUTPUT" ;;
+            3) echo "status=quarantined" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::build failed with exit code $code (2 = structural failure, nothing published)"; exit $code ;;
+          esac
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: transit-static-${{ github.run_id }}
+          path: ${{ runner.temp }}/out
+          retention-days: 5
+          compression-level: 0
+
+      - name: Open or update the quarantine issue
+        if: steps.build.outputs.status == 'quarantined'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo "~~~"
+            grep -A50 QUARANTINED "$RUNNER_TEMP/build-stderr.txt"
+            echo "~~~"
+            echo
+            echo "Promote with workflow_dispatch accept=<generation> after checking the reasons."
+          } > "$RUNNER_TEMP/issue.md"
+          existing="$(gh issue list --state open --label transit-quarantine --json number -q '.[0].number')"
+          if [ -n "$existing" ]; then gh issue comment "$existing" --body-file "$RUNNER_TEMP/issue.md"
+          else gh label create transit-quarantine --color D93F0B --force >/dev/null
+               gh issue create --title "Transit static build quarantined" --label transit-quarantine --body-file "$RUNNER_TEMP/issue.md"
+          fi
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      HAS_CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    steps:
+      - name: Skip (no Cloudflare credentials)
+        if: env.HAS_CF_TOKEN != 'true'
+        run: echo "::notice::CLOUDFLARE_API_TOKEN is not set; the build is available as a workflow artifact only."
+      - uses: actions/checkout@v4
+        if: env.HAS_CF_TOKEN == 'true'
+      - uses: pnpm/action-setup@v4
+        if: env.HAS_CF_TOKEN == 'true'
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v4
+        if: env.HAS_CF_TOKEN == 'true'
+        with:
+          node-version: '22'
+          cache: pnpm
+      - if: env.HAS_CF_TOKEN == 'true'
+        run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        if: env.HAS_CF_TOKEN == 'true'
+        with:
+          name: transit-static-${{ github.run_id }}
+          path: ${{ runner.temp }}/out
+      - name: Publish to R2 (only blobs the bucket doesn't already reference; manifest.json last)
+        if: env.HAS_CF_TOKEN == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          node --experimental-transform-types --disable-warning=ExperimentalWarning pipeline/src/cli.ts \
+            publish --from "$RUNNER_TEMP/out" --target r2
+
+  gc:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HAS_CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+      FORCE_GC: ${{ inputs.gc == true }}
+    steps:
+      - name: Decide (Sundays in Brisbane, or workflow_dispatch gc=true, and only with Cloudflare credentials)
+        id: when
+        run: |
+          dow="$(TZ=Australia/Brisbane date +%u)"
+          if [ "$HAS_CF_TOKEN" = true ] && { [ "$FORCE_GC" = true ] || { [ "$GITHUB_EVENT_NAME" = schedule ] && [ "$dow" = 7 ]; }; }; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GC skipped (event $GITHUB_EVENT_NAME, Brisbane weekday $dow, credentials $HAS_CF_TOKEN)."
+          fi
+      - uses: actions/checkout@v4
+        if: steps.when.outputs.run == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.when.outputs.run == 'true'
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v4
+        if: steps.when.outputs.run == 'true'
+        with:
+          node-version: '22'
+          cache: pnpm
+      - if: steps.when.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+      - name: Garbage-collect unreferenced static/ objects (exit 4 = a safety rail aborted, nothing deleted)
+        if: steps.when.outputs.run == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          node --experimental-transform-types --disable-warning=ExperimentalWarning pipeline/src/cli.ts \
+            gc --target r2 --apply --report "$RUNNER_TEMP/gc-report.json"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.when.outputs.run == 'true'
+        with:
+          name: transit-gc-${{ github.run_id }}
+          path: ${{ runner.temp }}/gc-report.json
+          retention-days: 90
+          if-no-files-found: warn

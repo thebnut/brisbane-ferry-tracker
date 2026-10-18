@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop, Ferry Sibling</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5B3FD1}a:hover{color:#432CA8}
+</style>
+</helmet>
+<div style="min-height: 860px; box-sizing: border-box; background: #FFFBF4; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #2D3436; font-variant-numeric: tabular-nums">
+  <header style="background: #FFFFFF; border-bottom: 1px solid #EEE7DA">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 14px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px">
+      <div style="font-size: 26px; letter-spacing: -0.02em; margin-right: auto"><span style="font-weight: 500">Brisbane</span><span style="font-weight: 800; color: #5B3FD1">Train</span></div>
+      <span style="font-size: 13px; color: #5F6B6E">Updated 8:04 am · <span style="color: #1F7A3A; font-weight: 700">● Live</span></span>
+      <div role="group" aria-label="Service filter" style="display: flex; background: #F3EEE4; border-radius: 12px; padding: 4px">
+        <button aria-pressed="true" style="min-height: 40px; padding: 0 16px; border: 0; border-radius: 9px; background: #FFFFFF; font: inherit; font-size: 14px; font-weight: 700">All services</button>
+        <button aria-pressed="false" style="min-height: 40px; padding: 0 16px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-size: 14px; font-weight: 600; color: #4A5457">Express</button>
+      </div>
+      <button style="min-height: 44px; padding: 0 16px; border-radius: 12px; border: 2px solid #5B3FD1; background: #FFFFFF; color: #3F2A9E; font: inherit; font-weight: 700">Map</button>
+      <button style="min-height: 44px; padding: 0 16px; border-radius: 12px; border: 0; background: #5B3FD1; color: #FFFFFF; font: inherit; font-weight: 700">Refresh</button>
+    </div>
+  </header>
+  <main style="max-width: 1200px; margin: 0 auto; padding: 24px; display: flex; flex-wrap: wrap; gap: 24px">
+    <sc-for list="{{boards}}" as="b" hint-placeholder-count="2">
+      <section style="flex: 1 1 340px; min-width: 0; background: #FFFFFF; border-radius: 20px; box-shadow: 0 2px 12px rgba(45,52,54,0.08); padding: 20px">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px">
+          <label style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; font-weight: 800; color: #5F6B6E">FROM</span><select style="min-height: 44px; border-radius: 12px; border: 1px solid #E5DFD3; padding: 0 10px; font: inherit; font-weight: 700; background: #FFFBF4"><option>{{b.from}}</option></select></label>
+          <span style="padding-top: 16px; color: #8A9396">→</span>
+          <label style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; font-weight: 800; color: #5F6B6E">TO</span><select style="min-height: 44px; border-radius: 12px; border: 1px solid #E5DFD3; padding: 0 10px; font: inherit; font-weight: 700; background: #FFFBF4"><option>{{b.to}}</option></select></label>
+        </div>
+        <sc-for list="{{b.rows}}" as="r" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-top: 1px solid #F3EEE4; min-height: 56px">
+            <span style="{{r.bar}}"></span>
+            <div style="flex: 1; min-width: 0">
+              <div style="{{r.timeStyle}}">{{r.time}} <span style="{{r.tagStyle}}">{{r.tag}}</span></div>
+              <div style="font-size: 13px; color: #5F6B6E">{{r.sub}}</div>
+            </div>
+            <span style="{{r.platStyle}}">{{r.plat}}</span>
+            <span style="{{r.chipStyle}}">{{r.chip}}</span>
+          </div>
+        </sc-for>
+      </section>
+    </sc-for>
+    <aside style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+      <div style="background: #EAF1EE; border-radius: 20px; height: 240px; position: relative; overflow: hidden">
+        <svg width="100%" height="240" viewBox="0 0 320 240" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><path d="M-10 180 C 80 150, 140 200, 200 170 S 300 120, 340 140" fill="none" stroke="#BFD9E6" stroke-width="20"></path><path d="M300 30 L 220 100 L 140 140 L 40 190" fill="none" stroke="#0A7A6E" stroke-width="6" stroke-linecap="round"></path><path d="M220 100 L 140 125 L 30 140" fill="none" stroke="#1E9F4A" stroke-width="6" stroke-linecap="round"></path><circle cx="200" cy="110" r="9" fill="#5B3FD1" stroke="#FFFFFF" stroke-width="3"></circle><circle cx="120" cy="130" r="8" fill="#1E9F4A" stroke="#FFFFFF" stroke-width="3"></circle></svg>
+        <div style="position: absolute; left: 12px; bottom: 12px; background: #FFFFFF; border-radius: 10px; padding: 6px 10px; font-size: 13px; font-weight: 700">3 trains live on your trip</div>
+      </div>
+      <div style="background: #FFF1D6; border-radius: 20px; padding: 16px; color: #5C3D00">
+        <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.06em">2 ALERTS</div>
+        <div style="font-size: 15px; font-weight: 700; margin-top: 6px; color: #2D3436">8:17 am Rosewood cancelled</div>
+        <div style="font-size: 14px; margin-top: 4px; color: #4A3A12">Ipswich line reduced after 7 pm</div>
+      </div>
+    </aside>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":860}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const lines = { spr: '#0A7A6E', ips: '#1E9F4A' };
+    const chip = (n, hot) => 'padding: 7px 12px; border-radius: 999px; font-size: 15px; font-weight: 800; white-space: nowrap; ' + (hot ? 'background: #5B3FD1; color: #FFFFFF' : n === 'live' ? 'background: #ECE8FB; color: #3F2A9E' : 'background: #F3EEE4; color: #2D3436');
+    const tagStyles = {
+      'LIVE': 'font-size: 11px; font-weight: 800; color: #1F7A3A',
+      '+2 min late': 'font-size: 12px; font-weight: 700; color: #B3261E',
+      'CANCELLED': 'font-size: 11px; font-weight: 800; color: #8C1D18',
+      'SCHEDULED': 'font-size: 11px; font-weight: 700; color: #5F6B6E',
+      'PLATFORM 7': 'font-size: 11px; font-weight: 800; color: #9A4A00'
+    };
+    const mk = (time, tag, sub, line, plat, c, kind, cancelled) => ({
+      time, tag, sub, plat, chip: c,
+      bar: 'width: 6px; height: 40px; border-radius: 3px; background: ' + lines[line],
+      timeStyle: 'font-size: 18px; font-weight: 800; ' + (cancelled ? 'text-decoration: line-through; color: #6B7477' : ''),
+      tagStyle: tagStyles[tag] || tagStyles.SCHEDULED,
+      platStyle: plat ? 'padding: 4px 9px; border-radius: 8px; font-size: 13px; font-weight: 700; ' + (tag === 'PLATFORM 7' ? 'background: #FFB547; color: #2D3436' : 'background: #ECE8FB; color: #3F2A9E') : 'display: none',
+      chipStyle: c ? chip(kind, kind === 'hot') : 'display: none'
+    });
+    return { boards: [
+      { from: 'Roma Street', to: 'Indooroopilly', rows: [
+        mk('8:07 am', 'LIVE', 'Springfield · Express · arr 8:19', 'spr', 'Plat 8', '3 min', 'hot'),
+        mk('8:14 am', 'PLATFORM 7', 'Ipswich/Rosewood · All stops · +2 min', 'ips', 'Plat 7', '10 min', 'live'),
+        mk('8:17 am', 'CANCELLED', 'Rosewood · All stops', 'ips', '', '', '', true),
+        mk('8:22 am', 'SCHEDULED', 'Springfield · Express · arr 8:34', 'spr', 'Plat 8', '18 min', ''),
+        mk('8:27 am', 'SCHEDULED', 'Rosewood · All stops · arr 8:42', 'ips', 'Plat 9', '23 min', '')
+      ]},
+      { from: 'Indooroopilly', to: 'Roma Street', rows: [
+        mk('8:09 am', 'LIVE', 'Ipswich/Rosewood · All stops · arr 8:24', 'ips', 'Plat 1', '5 min', 'live'),
+        mk('8:16 am', 'LIVE', 'Springfield · Express · arr 8:28', 'spr', 'Plat 2', '12 min', 'live'),
+        mk('8:24 am', 'SCHEDULED', 'Ipswich/Rosewood · All stops', 'ips', 'Plat 1', '20 min', ''),
+        mk('8:31 am', 'SCHEDULED', 'Springfield · Express', 'spr', 'Plat 2', '27 min', ''),
+        mk('8:39 am', 'SCHEDULED', 'Ipswich/Rosewood · All stops', 'ips', 'Plat 1', '35 min', '')
+      ]}
+    ]};
+  }
+}
+</script>
+</body>
+</html>

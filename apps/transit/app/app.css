@@ -1,0 +1,49 @@
+@import "tailwindcss";
+@import "@bft/ui/theme.css";
+@source "./";
+/* The mounted mode pages are the standalone apps' own modules: generate their classes too. */
+@source "../../ferry/app";
+@source "../../train/app";
+@source "../../bus/app";
+
+/* Mode pages' own content styles (copied from each app's app.css: ferry legal pages, bus about page). */
+.legal h1 {
+  @apply mb-1 text-2xl font-bold text-charcoal;
+}
+.legal h2 {
+  @apply mt-6 mb-2 text-lg font-semibold text-aqua-text;
+}
+.legal p,
+.legal li {
+  @apply text-base leading-relaxed text-gray-800;
+}
+.legal ul {
+  @apply list-disc pl-6;
+}
+.legal a {
+  @apply text-ferry-orange-deep underline;
+}
+.legal .lede {
+  @apply text-sm text-gray-600;
+}
+.prose-about h2 {
+  @apply mt-6 mb-2 text-lg font-semibold text-aqua-text dark:text-ferry-aqua-light;
+}
+.prose-about p,
+.prose-about li {
+  @apply text-base leading-relaxed text-gray-800 dark:text-night-text/90;
+}
+.prose-about a {
+  @apply text-ferry-orange-deep underline dark:text-ferry-sunset;
+}
+.prose-about ul {
+  @apply list-disc pl-6;
+}
+
+/*
+ * Height of the bottom bars on phones. Fixed panels in the bus pages (search sheet, trip footer) sit above
+ * var(--bft-bottom-bar, 58px); here the Mode Tabs (60px) carry a mode's section pills (44px) on top.
+ */
+:root {
+  --bft-bottom-bar: 104px;
+}

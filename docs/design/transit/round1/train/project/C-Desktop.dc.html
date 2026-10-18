@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop, Line First</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B32C4}a:hover{color:#36239A}
+</style>
+</helmet>
+<div style="min-height: 860px; box-sizing: border-box; background: #F6F7F9; font-family: 'Figtree', system-ui, sans-serif; color: #1D2226; font-variant-numeric: tabular-nums">
+  <header style="max-width: 1240px; margin: 0 auto; padding: 22px 24px 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px">
+    <div style="font-size: 26px; margin-right: auto"><span style="font-weight: 500">Brisbane</span><span style="font-weight: 800; color: #5B3FD1">Train</span></div>
+    <nav aria-label="Main" style="display: flex; gap: 4px; background: #1D2226; border-radius: 999px; padding: 5px">
+      <a href="#" aria-current="page" style="min-height: 40px; padding: 0 18px; display: flex; align-items: center; border-radius: 999px; background: #FFFFFF; color: #1D2226; text-decoration: none; font-weight: 700; font-size: 14px">Trips</a>
+      <a href="#" style="min-height: 40px; padding: 0 18px; display: flex; align-items: center; color: #D5D9DD; text-decoration: none; font-weight: 600; font-size: 14px">Lines</a>
+      <a href="#" style="min-height: 40px; padding: 0 18px; display: flex; align-items: center; color: #D5D9DD; text-decoration: none; font-weight: 600; font-size: 14px">Status</a>
+    </nav>
+  </header>
+  <main style="max-width: 1240px; margin: 0 auto; padding: 16px 24px 32px; display: flex; flex-wrap: wrap; gap: 24px">
+    <section style="flex: 1 1 420px; min-width: 0; background: #FFFFFF; border: 1px solid #E6E8EC; border-radius: 24px; padding: 20px; position: relative; overflow: hidden">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 800">Roma Street → Indooroopilly</h2>
+      <div style="font-size: 13px; color: #4F5860">2 lines, 12–15 min · 3 trains live</div>
+      <svg width="100%" height="460" viewBox="0 0 440 460" aria-hidden="true" style="display: block; margin-top: 8px">
+        <g fill="none" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M360 60 L 360 150 L 300 210 L 200 210 L 120 290 L 120 420" stroke="#0A7A6E"></path>
+          <path d="M360 60 L 360 150 L 300 210 L 200 210" stroke="#1E9F4A" transform="translate(0 14)"></path>
+          <path d="M200 224 L 40 224" stroke="#1E9F4A"></path>
+          <path d="M360 60 L 360 20" stroke="#D5D9DD"></path>
+          <path d="M374 150 L 430 206" stroke="#D5D9DD"></path>
+        </g>
+        <rect x="344" y="134" width="32" height="46" rx="16" fill="#FFFFFF" stroke="#1D2226" stroke-width="4"></rect>
+        <circle cx="250" cy="210" r="6" fill="#FFFFFF" stroke="#0A7A6E" stroke-width="3"></circle>
+        <circle cx="200" cy="217" r="9" fill="#FFFFFF" stroke="#1D2226" stroke-width="4"></circle>
+        <circle cx="160" cy="250" r="6" fill="#FFFFFF" stroke="#0A7A6E" stroke-width="3"></circle>
+        <circle cx="120" cy="290" r="13" fill="#FFFFFF" stroke="#5B3FD1" stroke-width="6"></circle>
+        <rect x="320" y="176" width="30" height="16" rx="8" fill="#5B3FD1" stroke="#FFFFFF" stroke-width="2" transform="rotate(-45 335 184)"></rect>
+        <rect x="364" y="80" width="16" height="30" rx="8" fill="#1D2226" stroke="#FFFFFF" stroke-width="2"></rect>
+        <text x="390" y="162" font-family="Figtree" font-size="14" font-weight="800" fill="#1D2226">Roma St</text>
+        <text x="186" y="196" font-family="Figtree" font-size="13" fill="#4F5860">Toowong</text>
+        <text x="140" y="296" font-family="Figtree" font-size="15" font-weight="800" fill="#4B32C4">Indooroopilly</text>
+      </svg>
+    </section>
+    <section style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+        <div style="{{r.card}}">
+          <span style="{{r.chip}}">{{r.line}}</span>
+          <span style="{{r.timeStyle}}">{{r.time}}</span>
+          <span style="flex: 1; font-size: 13px; color: #4F5860">{{r.sub}}</span>
+          <span style="{{r.tagStyle}}">{{r.tag}}</span>
+          <span style="{{r.dueStyle}}">{{r.due}}</span>
+        </div>
+      </sc-for>
+      <div style="background: #FFF1D6; border-radius: 20px; padding: 14px 18px; font-size: 14px; color: #5C3D00"><strong>Ipswich/Rosewood:</strong> 8:17 cancelled; every 30 min after 7 pm.</div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":860}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const C = { spr: '#0A7A6E', ips: '#1E9F4A' };
+    const T = { live: 'color: #17602E', late: 'color: #8A4200', cancel: 'color: #B3261E', sched: 'color: #4F5860' };
+    const row = (l, line, time, sub, tag, ts, due, k) => ({
+      line, time, sub, tag, due,
+      card: 'display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #FFFFFF; border-radius: 20px; padding: 14px 18px; min-height: 64px; box-sizing: border-box; ' + (k === 'next' ? 'border: 2px solid #5B3FD1' : 'border: 1px solid #E6E8EC'),
+      chip: 'font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; color: #FFFFFF; background: ' + (k === 'cancel' ? '#6A737B' : C[l]),
+      timeStyle: "font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 600; " + (k === 'cancel' ? 'text-decoration: line-through; color: #6A737B' : ''),
+      tagStyle: 'font-size: 12px; font-weight: 700; ' + T[ts],
+      dueStyle: 'font-size: 22px; font-weight: 800; min-width: 70px; text-align: right; ' + (k === 'next' ? 'color: #4B32C4' : '')
+    });
+    return { rows: [
+      row('spr', 'Springfield · Express', '8:07', 'Plat 8 · arr 8:19', '● LIVE', 'live', '3 min', 'next'),
+      row('ips', 'Ipswich · All stops', '8:14', 'Plat 7 (was 9) · arr 8:29', '+2 min', 'late', '10 min'),
+      row('ips', 'Rosewood · All stops', '8:17', 'next 8:27', 'CANCELLED', 'cancel', '', 'cancel'),
+      row('spr', 'Springfield · Express', '8:22', 'Plat 8 · arr 8:34', 'SCHEDULED', 'sched', '18 min'),
+      row('ips', 'Ipswich · All stops', '8:27', 'Plat 9 · arr 8:42', 'SCHEDULED', 'sched', '23 min')
+    ]};
+  }
+}
+</script>
+</body>
+</html>

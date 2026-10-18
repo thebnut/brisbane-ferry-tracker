@@ -7,7 +7,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   // Build output, native iOS project (CocoaPods/Capacitor output), third-party
   // assets, and generated schedule JSON are not our lint surface.
-  globalIgnores(['dist', 'ios', 'assets', 'public', 'schedule-data*', '**/node_modules']),
+  globalIgnores(['dist', 'ios', 'assets', 'public', 'schedule-data*', '**/node_modules', 'packages', 'apps', 'services', 'pipeline']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [

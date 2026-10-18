@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus Kerbside · System states</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&amp;family=Barlow:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1E2224}a:hover{color:#000}
+</style>
+</helmet>
+<div style="width: 1700px; height: 844px; box-sizing: border-box; background: #D8D4CA; font-family: 'Barlow', system-ui, sans-serif; color: #1E2224; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 46px; font-variant-numeric: tabular-nums">
+
+  <section aria-label="Loading" style="background: #F2F0EA; display: flex; flex-direction: column; overflow: hidden">
+    <header style="background: #1E2224; color: #fff; padding: 20px 16px"><div style="font-size: 12px; font-weight: 800; letter-spacing: 1.4px; color: #F2B705">LOADING</div><h2 style="margin: 2px 0 0; font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 700">Cultural Centre · P1</h2><div style="font-size: 13px; color: #C3C8CA">Finding buses…</div></header>
+    <sc-for list="{{skel}}" as="k" hint-placeholder-count="7">
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 0 16px 0 12px; border-bottom: 1px solid #DDD9CF">
+        <span style="width: 68px; height: 50px; border-radius: 5px; background: #3A4044"></span>
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span style="height: 12px; width: {{k.w}}; background: #DDD9CF; border-radius: 3px"></span><span style="height: 10px; width: 40%; background: #E6E2D9; border-radius: 3px"></span></span>
+        <span style="width: 44px; height: 34px; background: #DDD9CF; border-radius: 3px"></span>
+      </div>
+    </sc-for>
+  </section>
+
+  <section aria-label="Empty" style="background: #F2F0EA; display: flex; flex-direction: column; overflow: hidden">
+    <header style="background: #1E2224; color: #fff; padding: 20px 16px"><div style="font-size: 12px; font-weight: 800; letter-spacing: 1.4px; color: #F2B705">EMPTY</div><h2 style="margin: 2px 0 0; font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 700">Adelaide St · 37</h2><div style="font-size: 13px; color: #C3C8CA">11:48 pm</div></header>
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; gap: 14px">
+      <div style="background: #0F1213; color: #F2B705; border-radius: 6px; padding: 20px; font-family: 'Barlow Condensed', sans-serif; text-align: center"><div style="font-size: 40px; font-weight: 800; line-height: 1">NOT IN SERVICE</div><div style="font-size: 18px; font-weight: 600; color: #E8D9A8; margin-top: 6px">No more buses from this stop tonight</div></div>
+      <p style="margin: 0; font-size: 16px; line-height: 1.45">Next: route <b>60</b> at <b>5:12 am (19/10)</b>.</p>
+      <button style="height: 56px; border-radius: 8px; border: 0; background: #F2B705; color: #1E2224; font: inherit; font-weight: 800; font-size: 16px">Show tomorrow</button>
+      <a href="B-Search.dc.html" style="height: 56px; border-radius: 8px; border: 2px solid #1E2224; text-decoration: none; font-weight: 700; display: flex; align-items: center; justify-content: center">Find a NightLink stop</a>
+    </div>
+  </section>
+
+  <section aria-label="Offline" style="background: #F2F0EA; display: flex; flex-direction: column; overflow: hidden">
+    <header style="background: #1E2224; color: #fff; padding: 20px 16px"><div style="font-size: 12px; font-weight: 800; letter-spacing: 1.4px; color: #F2B705">OFFLINE</div><h2 style="margin: 2px 0 0; font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 700">Cultural Centre · P1</h2><div style="font-size: 13px; color: #C3C8CA">Stop 1832</div></header>
+    <div style="background: #F2B705; padding: 12px 16px; display: flex; gap: 10px; align-items: center; font-size: 14px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.6a10 10 0 0 1 14 0M12 20h.01M3 3l18 18"></path></svg>
+      <span><b>No connection.</b> Timetable from 7:58 am. Not live.</span>
+    </div>
+    <sc-for list="{{cached}}" as="c" hint-placeholder-count="6">
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 0 16px 0 12px; border-bottom: 1px dashed #C9C5BA; color: #3B4245">
+        <span style="width: 68px; height: 46px; border-radius: 5px; border: 2px solid #1E2224; color: #1E2224; font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-sizing: border-box">{{c.route}}</span>
+        <span style="flex: 1"><b style="font-size: 15px">{{c.dest}}</b><br><span style="font-size: 12px; font-weight: 700; color: #565D60">SCHEDULED</span></span>
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 700">{{c.time}}</span>
+      </div>
+    </sc-for>
+  </section>
+
+  <section aria-label="Error" style="background: #F2F0EA; display: flex; flex-direction: column; overflow: hidden">
+    <header style="background: #1E2224; color: #fff; padding: 20px 16px"><div style="font-size: 12px; font-weight: 800; letter-spacing: 1.4px; color: #F2B705">ERROR</div><h2 style="margin: 2px 0 0; font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 700">Cultural Centre · P1</h2><div style="font-size: 13px; color: #C3C8CA">Stop 1832</div></header>
+    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; gap: 14px">
+      <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 44px; font-weight: 800; line-height: 1">Live feed down</div>
+      <p style="margin: 0; font-size: 16px; line-height: 1.45">We couldn’t reach TransLink’s real-time service. Your stop’s timetable still works.</p>
+      <button style="height: 56px; border-radius: 8px; border: 0; background: #F2B705; color: #1E2224; font: inherit; font-weight: 800; font-size: 16px">Retry now</button>
+      <button style="height: 56px; border-radius: 8px; border: 2px solid #1E2224; background: transparent; color: #1E2224; font: inherit; font-weight: 700; font-size: 16px">Use timetable</button>
+      <p style="margin: 0; font-size: 13px; color: #565D60">Retrying automatically every 30 s.</p>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1700,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      skel: [{ w: '70%' }, { w: '55%' }, { w: '80%' }, { w: '60%' }, { w: '75%' }, { w: '50%' }, { w: '65%' }],
+      cached: [
+        { route: 'M2', dest: 'UQ Lakes', time: '8:14' },
+        { route: '66', dest: 'UQ Lakes', time: '8:15' },
+        { route: '412', dest: 'UQ Lakes exp', time: '8:21' },
+        { route: '199', dest: 'West End', time: '8:25' },
+        { route: 'M2', dest: 'UQ Lakes', time: '8:27' },
+        { route: '66', dest: 'UQ Lakes', time: '8:30' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

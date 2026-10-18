@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus · Find a stop</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Poppins:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#E55A2B}a:hover{color:#B8400F}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: linear-gradient(135deg, #FFE5D9 0%, #FFFFFF 50%, #E6F2FF 100%); font-family: Inter, system-ui, sans-serif; color: #2D3436; display: flex; flex-direction: column">
+
+<header style="background: linear-gradient(90deg, #FFFFFF, #FFE5D9, #E6F2FF); border-bottom: 2px solid rgba(255,107,53,0.5); box-shadow: 0 10px 15px -5px rgba(0,0,0,0.1); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto">
+<div style="display: flex; align-items: center; gap: 6px">
+<img src="/_blob/f469fc98762384bbed3dbe954bca5d44" alt="" style="width: 54px; height: 54px">
+<div style="display: flex; flex-direction: column; line-height: 1.1">
+<span style="font-family: Poppins, sans-serif; font-weight: 700; font-size: 21px; color: #2A9A9E">BrisbaneBus</span>
+<span style="font-family: Poppins, sans-serif; font-weight: 600; font-size: 16px; color: #FE8E22">Departure Boards</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" aria-label="Settings" style="width: 44px; height: 44px; border-radius: 999px; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,107,53,0.2); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #007C99; padding: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"></path></svg></button>
+<span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF6B35; border-radius: 999px; padding: 7px 14px; box-shadow: 0 0 15px rgba(255,107,53,0.5)">LIVE</span>
+</div>
+</header>
+
+<main style="flex: 1 1 auto; padding: 14px 16px 12px; display: flex; flex-direction: column; justify-content: flex-end; gap: 10px; overflow: hidden">
+<div style="border-radius: 12px; padding: 10px 14px; background: linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,229,217,0.5)); border: 1px solid rgba(255,107,53,0.1); font-weight: 600; font-size: 14px; color: #007C99; display: flex; justify-content: space-between">
+<span>6 stops match “cultural”</span><span style="color: #4B5563; font-weight: 500">Best match nearest your thumb</span>
+</div>
+<sc-for list="{{results}}" as="r" hint-placeholder-count="5">
+<a href="B-Departures.dc.html" style="{{r.cardStyle}}">
+<span style="width: 44px; height: 44px; border-radius: 12px; background: #E6F2FF; color: #007C99; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 0 0 auto; line-height: 1"><span style="font-size: 9px; font-weight: 700">PLAT</span><span style="font-size: 19px; font-weight: 800">{{r.plat}}</span></span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 15px; font-weight: 700; color: #2D3436">{{r.name}}</span>
+<span style="font-size: 12px; color: #4B5563">{{r.meta}}</span>
+<span style="display: flex; gap: 4px; flex-wrap: wrap">
+<sc-for list="{{r.routes}}" as="rt" hint-placeholder-count="3"><span style="{{rt.style}}">{{rt.n}}</span></sc-for>
+</span>
+</span>
+<span style="font-size: 13px; font-weight: 700; color: #C2410C; white-space: nowrap">{{r.dist}}</span>
+</a>
+</sc-for>
+</main>
+
+<section aria-label="Search" style="flex: 0 0 auto; background: rgba(255,255,255,0.97); border-radius: 22px 22px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,0.10); border-top: 1px solid rgba(255,107,53,0.2); padding: 12px 16px 18px; display: flex; flex-direction: column; gap: 10px">
+<label for="q" style="font-size: 13px; font-weight: 700">Stop name or number</label>
+<div style="display: flex; align-items: center; gap: 10px; background: #FFFFFF; border: 2px solid #FF6B35; border-radius: 12px; padding: 0 6px 0 12px; height: 52px; box-shadow: 0 0 12px rgba(255,107,53,0.25)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E55A2B" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+<input id="q" type="text" value="cultural" style="border: 0; outline: none; font: inherit; font-size: 17px; flex: 1 1 auto; background: transparent; color: #2D3436">
+<button type="button" aria-label="Clear search" style="width: 40px; height: 40px; border: 0; border-radius: 999px; background: #F3F4F6; color: #4B5563; display: flex; align-items: center; justify-content: center; padding: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button type="button" style="font: inherit; font-size: 13px; font-weight: 600; color: #007C99; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,107,53,0.2); border-radius: 999px; padding: 8px 14px; min-height: 40px; display: flex; align-items: center; gap: 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"></path></svg>Near me</button>
+<button type="button" style="font: inherit; font-size: 13px; font-weight: 600; color: #007C99; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,107,53,0.2); border-radius: 999px; padding: 8px 14px; min-height: 40px">Recent: Mater Hill</button>
+<button type="button" style="font: inherit; font-size: 13px; font-weight: 600; color: #007C99; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,107,53,0.2); border-radius: 999px; padding: 8px 14px; min-height: 40px">Stop 1771</button>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const rt = (n, special) => ({ n, style: 'font-size: 12px; font-weight: 800; color: #FFFFFF; background: ' + (special ? '#C2410C' : '#1E7C80') + '; border-radius: 6px; padding: 2px 7px' });
+const card = 'text-decoration: none; display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.9); border-radius: 12px; padding: 12px 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); min-height: 72px; box-sizing: border-box';
+const best = 'text-decoration: none; display: flex; align-items: center; gap: 12px; background: linear-gradient(90deg, #FFE5D9, #FFFFFF); border: 2px solid #FF6B35; border-radius: 12px; padding: 11px 13px; box-shadow: 0 0 18px rgba(255,107,53,0.35); min-height: 72px; box-sizing: border-box';
+return {
+results: [
+{ name: 'Cultural Centre, Melbourne St', meta: 'Stop 1840 · street stop', plat: 'A', dist: '1.9 km', cardStyle: card, routes: [rt('192'), rt('196'), rt('199')] },
+{ name: 'Cultural Centre busway, platform 4', meta: 'Stop 1835 · southbound', plat: '4', dist: '1.8 km', cardStyle: card, routes: [rt('100'), rt('111'), rt('130'), rt('140')] },
+{ name: 'Cultural Centre busway, platform 2', meta: 'Stop 1833 · to City', plat: '2', dist: '1.8 km', cardStyle: card, routes: [rt('66'), rt('M1', true), rt('M2', true)] },
+{ name: 'Cultural Centre busway, platform 1', meta: 'Stop 1832 · to UQ Lakes, Eight Mile Plains', plat: '1', dist: '1.8 km', cardStyle: best, routes: [rt('66'), rt('M2', true), rt('111'), rt('+6')] }
+]
+};
+}
+}
+</script>
+</body>
+</html>

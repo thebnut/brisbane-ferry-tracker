@@ -1,0 +1,23 @@
+# pnpm workspace for the transit platform (docs/architecture/transit-architecture.md §3.6).
+# The legacy ferry app at the repo root still installs and builds with npm on
+# Vercel (package-lock.json, vercel.json installCommand). Do not add a
+# `workspaces` field to the root package.json: npm would then pick these up.
+packages:
+  - packages/*
+  - apps/*
+  - services/*
+  - pipeline
+minimumReleaseAgeExclude:
+  - '@cloudflare/workers-types@5.20261018.1'
+  - '@tanstack/query-core@5.104.4'
+  - '@tanstack/react-query@5.104.4'
+onlyBuiltDependencies:
+  - esbuild
+  - workerd
+  - sharp
+allowBuilds:
+  esbuild: true
+  workerd: true
+  sharp: true
+  # buf ships its binary through optional platform packages; its postinstall is only a fallback.
+  '@bufbuild/buf': false

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus · Loading, empty, offline, error</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Poppins:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#E55A2B}a:hover{color:#B8400F}
+</style>
+</helmet>
+<div style="width: 1700px; height: 844px; box-sizing: border-box; padding: 0 10px; display: flex; gap: 40px; background: #FFFFFF; font-family: Inter, system-ui, sans-serif; color: #2D3436">
+
+<sc-for list="{{panels}}" as="p" hint-placeholder-count="4">
+<div style="width: 390px; height: 844px; flex: 0 0 390px; overflow: hidden; background: linear-gradient(135deg, #FFE5D9 0%, #FFFFFF 50%, #E6F2FF 100%); display: flex; flex-direction: column; box-shadow: 0 0 0 1px rgba(0,0,0,0.06)">
+<header style="background: linear-gradient(90deg, #FFFFFF, #FFE5D9, #E6F2FF); border-bottom: 2px solid rgba(255,107,53,0.5); box-shadow: 0 10px 15px -5px rgba(0,0,0,0.1); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto">
+<div style="display: flex; align-items: center; gap: 6px">
+<img src="/_blob/f469fc98762384bbed3dbe954bca5d44" alt="" style="width: 54px; height: 54px">
+<div style="display: flex; flex-direction: column; line-height: 1.1">
+<span style="font-family: Poppins, sans-serif; font-weight: 700; font-size: 21px; color: #2A9A9E">BrisbaneBus</span>
+<span style="font-family: Poppins, sans-serif; font-weight: 600; font-size: 16px; color: #FE8E22">Departure Boards</span>
+</div>
+</div>
+<span style="{{p.pillStyle}}">{{p.pill}}</span>
+</header>
+<div style="padding: 10px 16px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: #C2410C">{{p.label}}</span>
+<span style="border-radius: 12px; padding: 10px 14px; background: linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,229,217,0.5)); border: 1px solid rgba(255,107,53,0.1); font-weight: 700; color: #007C99">Cultural Centre, platform 1</span>
+</div>
+
+<sc-if value="{{p.isLoading}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 0 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: #007C99"><span style="width: 20px; height: 20px; border-radius: 999px; border: 3px solid #FFE5D9; border-top-color: #FF6B35; box-sizing: border-box"></span>Getting live buses…</div>
+<sc-for list="{{skeleton}}" as="s" hint-placeholder-count="5">
+<div style="background: rgba(255,255,255,0.9); border-radius: 12px; padding: 12px 14px; min-height: 76px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08)">
+<span style="width: 60px; height: 52px; border-radius: 12px; background: #E5E7EB"></span>
+<span style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px"><span style="height: 14px; width: 70%; border-radius: 6px; background: #E5E7EB"></span><span style="height: 10px; width: 40%; border-radius: 6px; background: #F3F4F6"></span></span>
+<span style="width: 56px; height: 28px; border-radius: 8px; background: #FFE5D9"></span>
+</div>
+</sc-for>
+<p style="margin: 0; font-size: 13px; color: #4B5563; text-align: center">Timetable shows first, live times slot in within a second.</p>
+</div>
+</sc-if>
+
+<sc-if value="{{p.isEmpty}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 24px 24px 0; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center">
+<img src="/_blob/f469fc98762384bbed3dbe954bca5d44" alt="" style="width: 140px; height: 140px; opacity: 0.9">
+<h2 style="margin: 0; font-size: 22px; font-weight: 800">No more buses tonight</h2>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #374151">The last 66 left at 11:48 pm. First bus tomorrow:</p>
+<div style="background: rgba(255,255,255,0.9); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); align-self: stretch">
+<span style="min-width: 60px; height: 52px; border-radius: 12px; background: #1E7C80; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800">66</span>
+<span style="flex: 1 1 auto; text-align: left; font-size: 16px; font-weight: 700">UQ Lakes</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end"><span style="font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums">5:12 am</span><span style="font-size: 13px; font-weight: 700; color: #C2410C">(19/10)</span></span>
+</div>
+<a href="B-Search.dc.html" style="align-self: stretch; text-decoration: none; font-size: 16px; font-weight: 700; color: #C2410C; background: linear-gradient(90deg, #FFFFFF, #FFE5D9); border: 2px solid rgba(255,107,53,0.3); border-radius: 8px; min-height: 50px; display: flex; align-items: center; justify-content: center">Find a NightLink stop nearby</a>
+</div>
+</sc-if>
+
+<sc-if value="{{p.isOffline}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 0 16px; display: flex; flex-direction: column; gap: 10px">
+<div role="status" style="background: #2D3436; color: #FFFFFF; border-radius: 12px; padding: 12px 14px; display: flex; gap: 10px; align-items: center; font-size: 14px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8C42" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0M12 19v.5M3 3l18 18"></path></svg>
+<span style="display: flex; flex-direction: column"><strong>You’re offline</strong><span style="color: #D1D5DB; font-size: 13px">Timetable saved at 2:10 pm · no live times</span></span>
+</div>
+<sc-for list="{{offline}}" as="o" hint-placeholder-count="4">
+<div style="background: rgba(255,255,255,0.75); border-radius: 12px; padding: 10px 14px; min-height: 72px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; border: 1px dashed #D1D5DB">
+<span style="min-width: 60px; height: 52px; border-radius: 12px; background: #6B9C9E; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800">{{o.route}}</span>
+<span style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 15px; font-weight: 700">{{o.dest}}</span><span style="align-self: flex-start; font-size: 11px; font-weight: 600; color: #4B5563; background: #F3F4F6; border-radius: 999px; padding: 2px 8px">SCHEDULED</span></span>
+<span style="font-size: 20px; font-weight: 800; color: #4B5563; font-variant-numeric: tabular-nums">{{o.time}}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{p.isError}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 24px 24px 0; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center">
+<div style="width: 120px; height: 120px; border-radius: 999px; background: #FFE5D9; display: flex; align-items: center; justify-content: center"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3L2 20h20z"></path><path d="M12 10v4M12 17v.5"></path></svg></div>
+<h2 style="margin: 0; font-size: 22px; font-weight: 800">Live times aren’t coming through</h2>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #374151">TransLink’s live feed didn’t answer. Timetable times are still shown below and we’ll keep trying every 30 seconds.</p>
+<button type="button" style="align-self: stretch; font: inherit; font-size: 16px; font-weight: 700; color: #FFFFFF; background: #E55A2B; border: 0; border-radius: 8px; min-height: 50px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.15)">Try again</button>
+<a href="B-Departures.dc.html" style="font-size: 15px; font-weight: 700">Show timetable only</a>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1700,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const live = 'font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF6B35; border-radius: 999px; padding: 7px 14px; box-shadow: 0 0 15px rgba(255,107,53,0.5)';
+const off = 'font-size: 12px; font-weight: 700; color: #374151; background: #E5E7EB; border-radius: 999px; padding: 7px 14px';
+const base = { isLoading: false, isEmpty: false, isOffline: false, isError: false };
+return {
+panels: [
+Object.assign({}, base, { label: 'LOADING', pill: 'LIVE', pillStyle: live, isLoading: true }),
+Object.assign({}, base, { label: 'EMPTY', pill: 'LIVE', pillStyle: live, isEmpty: true }),
+Object.assign({}, base, { label: 'OFFLINE', pill: 'OFFLINE', pillStyle: off, isOffline: true }),
+Object.assign({}, base, { label: 'ERROR', pill: 'NO LIVE DATA', pillStyle: off, isError: true })
+],
+skeleton: [1, 2, 3, 4, 5],
+offline: [
+{ route: '66', dest: 'UQ Lakes', time: '2:50 pm' },
+{ route: 'M2', dest: 'UQ Lakes', time: '2:55 pm' },
+{ route: '111', dest: 'Eight Mile Plains', time: '2:59 pm' },
+{ route: '66', dest: 'UQ Lakes', time: '3:00 pm' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

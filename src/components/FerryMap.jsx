@@ -406,6 +406,11 @@ function FerryMap({ vehiclePositions, tripUpdates, onHide }) {
           // Filter to only ferry stops
           currentStop = isFerryStop(currentStop) ? currentStop : null;
         }
+      } else if (vp.v1Stops) {
+        // /v1 data source (utils/dataSource.js): no TripUpdates, so use the
+        // stop context the v1 mapper derived from the vehicle's stopId/status.
+        currentStop = isFerryStop(vp.v1Stops.currentStop) ? vp.v1Stops.currentStop : null;
+        nextStop = isFerryStop(vp.v1Stops.nextStop) ? vp.v1Stops.nextStop : null;
       }
       
       return {

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus · Service alerts</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#8A6400}a:hover{color:#5c4300}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FFFBF2; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #2D3436; display: flex; flex-direction: column; overflow: hidden">
+  <div style="padding: 24px 20px 8px">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.6px">Alerts</h1>
+    <p style="margin: 4px 0 0; font-size: 14px; color: #5F6B6D">For your stops and routes first</p>
+  </div>
+  <div style="display: flex; gap: 8px; padding: 8px 16px 12px">
+    <button style="height: 40px; padding: 0 14px; border-radius: 999px; border: 0; background: #2D3436; color: #fff; font: inherit; font-size: 14px; font-weight: 700">Affects me · 2</button>
+    <button style="height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid #E3D3AE; background: #fff; color: #2D3436; font: inherit; font-size: 14px; font-weight: 600">All network · 14</button>
+  </div>
+  <div style="flex: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 10px">
+    <sc-for list="{{alerts}}" as="a" hint-placeholder-count="4">
+      <article style="background: #fff; border-radius: 18px; padding: 14px; box-shadow: 0 1px 5px rgba(45,52,54,0.07); display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; align-items: center; gap: 8px">
+          <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; padding: 4px 8px; border-radius: 6px; background: {{a.sevBg}}; color: {{a.sevFg}}; display: inline-flex; align-items: center; gap: 5px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 3l10 18H2z"></path><path d="M12 10v4"></path></svg>{{a.sev}}</span>
+          <span style="font-size: 12px; color: #5F6B6D">{{a.when}}</span>
+        </div>
+        <h2 style="margin: 0; font-size: 16px; font-weight: 800">{{a.title}}</h2>
+        <p style="margin: 0; font-size: 14px; line-height: 1.45; color: #3F4A4C">{{a.body}}</p>
+        <div style="display: flex; gap: 5px; flex-wrap: wrap">
+          <sc-for list="{{a.routes}}" as="r" hint-placeholder-count="2"><span style="font-size: 13px; font-weight: 800; padding: 3px 9px; border-radius: 8px; background: #F2B705; color: #2D3436">{{r}}</span></sc-for>
+        </div>
+      </article>
+    </sc-for>
+  </div>
+  <nav aria-label="Main" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #fff; border-top: 1px solid #EFE5CF; padding: 6px 8px 22px">
+    <a href="Main.dc.html" style="text-decoration: none; color: #5F6B6D; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; min-height: 52px; justify-content: center"><span style="padding: 4px 16px; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7z"></path></svg></span>My stops</a>
+    <a href="A-Search.dc.html" style="text-decoration: none; color: #5F6B6D; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; min-height: 52px; justify-content: center"><span style="padding: 4px 16px; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg></span>Search</a>
+    <a href="A-Map.dc.html" style="text-decoration: none; color: #5F6B6D; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; min-height: 52px; justify-content: center"><span style="padding: 4px 16px; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"></path><path d="M9 4v14M15 6v14"></path></svg></span>Map</a>
+    <a href="A-Alerts.dc.html" aria-current="page" style="text-decoration: none; color: #2D3436; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 12px; font-weight: 700; min-height: 52px; justify-content: center"><span style="background: #FDF3D0; border-radius: 999px; padding: 4px 16px; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg></span>Alerts</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const major = { sev: 'DISRUPTION', sevBg: '#8E1F18', sevFg: '#FFFFFF' };
+    const minor = { sev: 'DETOUR', sevBg: '#FDF3D0', sevFg: '#5c4300' };
+    const info = { sev: 'PLANNED', sevBg: '#E9EEF0', sevFg: '#2D3436' };
+    return { alerts: [
+      { ...minor, when: 'Tonight 7 pm – 5 am', title: 'Route 199 detour at Grey St', body: 'Grey St is closed for works. Board at Melbourne St (stop 5) instead of Cultural Centre platform 1.', routes: ['199'] },
+      { ...major, when: 'Now · updated 8:02 am', title: 'Delays on the South East Busway', body: 'A breakdown near Buranda is causing delays of up to 10 minutes on outbound services.', routes: ['66', '111', 'M1'] },
+      { ...info, when: 'Sat 25 Oct', title: 'Adelaide St stops temporarily moved', body: 'Stops 37–39 move 50 m east for an event. Departures in the app follow the change.', routes: ['60', '330', '333'] }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

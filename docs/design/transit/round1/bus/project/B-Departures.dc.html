@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneBus Kerbside · Departures</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&amp;family=Barlow:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1E2224}a:hover{color:#000}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F2F0EA; font-family: 'Barlow', system-ui, sans-serif; color: #1E2224; display: flex; flex-direction: column; overflow: hidden; font-variant-numeric: tabular-nums">
+  <header style="background: #1E2224; color: #fff; padding: 14px 12px 16px">
+    <div style="display: flex; align-items: center; gap: 6px">
+      <a href="B-Home.dc.html" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #fff"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+      <div style="flex: 1; min-width: 0">
+        <h1 style="margin: 0; font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 700; line-height: 1.05">Cultural Centre</h1>
+        <div style="font-size: 13px; color: #C3C8CA">Stop 1832 · to UQ, Toowong</div>
+      </div>
+      <span style="display: flex; flex-direction: column; align-items: center; background: #F2B705; color: #1E2224; border-radius: 6px; padding: 2px 10px"><span style="font-size: 10px; font-weight: 700; letter-spacing: 1px">PLAT</span><span style="font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 800; line-height: 1">1</span></span>
+      <button aria-label="Saved stop" style="width: 44px; height: 44px; border: 0; background: transparent; color: #F2B705; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 17.3l-6.2 3.6 1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7z"></path></svg></button>
+    </div>
+    <a href="B-Detail.dc.html" style="margin-top: 14px; text-decoration: none; color: #fff; display: flex; align-items: center; gap: 14px; background: #2B3134; border-radius: 8px; padding: 12px; min-height: 96px; box-sizing: border-box">
+      <span style="width: 96px; height: 72px; background: #0F1213; border-radius: 6px; color: #F2B705; font-family: 'Barlow Condensed', sans-serif; font-size: 52px; font-weight: 800; display: flex; align-items: center; justify-content: center">M2</span>
+      <span style="flex: 1"><span style="display: block; font-size: 17px; font-weight: 700">UQ Lakes</span><span style="display: block; font-size: 12px; font-weight: 700; color: #5BE3A3">● LIVE · GPS · Many seats</span></span>
+      <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 56px; font-weight: 800; line-height: 1; color: #F2B705">Now</span>
+    </a>
+  </header>
+  <a href="B-Alerts.dc.html" style="text-decoration: none; color: #1E2224; background: #F2B705; display: flex; align-items: center; gap: 8px; padding: 0 16px; min-height: 44px; font-size: 14px">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 3l10 18H2z"></path><path d="M12 10v4M12 17v.5"></path></svg>
+    <span style="flex: 1"><b>199 detour</b> tonight · board at stop 5</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+  </a>
+  <ol style="list-style: none; margin: 0; padding: 0; flex: 1; overflow: hidden">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+      <li>
+        <a href="B-Detail.dc.html" style="text-decoration: none; color: {{r.fg}}; display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 0 16px 0 12px; border-bottom: 1px solid #DDD9CF; background: {{r.bg}}">
+          <span style="width: 68px; height: 50px; border-radius: 5px; background: {{r.tileBg}}; color: {{r.tileFg}}; font-family: 'Barlow Condensed', sans-serif; font-size: 32px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0">{{r.route}}</span>
+          <span style="flex: 1; min-width: 0">
+            <span style="display: block; font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: {{r.strike}}">{{r.dest}}</span>
+            <span style="display: block; font-size: 12px; font-weight: 700; color: {{r.sc}}">{{r.status}}</span>
+          </span>
+          <span style="text-align: right; min-width: 74px">
+            <span style="display: block; font-family: 'Barlow Condensed', sans-serif; font-size: 38px; font-weight: 800; line-height: 0.95; text-decoration: {{r.strike}}">{{r.num}}</span>
+            <span style="display: block; font-size: 11px; font-weight: 700; color: #565D60; letter-spacing: 0.6px">{{r.unit}}</span>
+          </span>
+        </a>
+      </li>
+    </sc-for>
+  </ol>
+  <div style="display: flex; gap: 8px; padding: 10px 12px 26px; background: #F2F0EA">
+    <a href="B-Map.dc.html" style="flex: 1; height: 52px; border-radius: 8px; background: #1E2224; color: #fff; text-decoration: none; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"></path></svg>Buses on map</a>
+    <button style="height: 52px; padding: 0 16px; border-radius: 8px; border: 2px solid #1E2224; background: transparent; font: inherit; font-weight: 700; color: #1E2224">Filter routes</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const b = { fg: '#1E2224', bg: 'transparent', tileBg: '#1E2224', tileFg: '#F2B705', strike: 'none', sc: '#0D6A44', unit: 'MIN' };
+    return { rows: [
+      { ...b, route: '66', dest: 'UQ Lakes via Mater Hill', status: '+3 min late · Few seats', sc: '#A3271F', num: '4' },
+      { ...b, route: '412', dest: 'UQ Lakes · Express', status: '● LIVE · Express', num: '7' },
+      { ...b, route: '199', dest: 'West End (detour)', status: 'SCHEDULED', sc: '#565D60', num: '11' },
+      { ...b, route: 'M2', dest: 'UQ Lakes', status: 'CANCELLED · next M2 in 18 min', sc: '#A3271F', num: '13', strike: 'line-through', fg: '#565D60', bg: '#E8E4DA', tileBg: '#9A968C', tileFg: '#F2F0EA' },
+      { ...b, route: '66', dest: 'UQ Lakes via Mater Hill', status: '● LIVE · Few seats', num: '16' },
+      { ...b, route: 'M2', dest: 'UQ Lakes', status: 'SCHEDULED', sc: '#565D60', num: '18' },
+      { ...b, route: '199', dest: 'West End', status: 'SCHEDULED', sc: '#565D60', num: '9:22', unit: 'AM' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

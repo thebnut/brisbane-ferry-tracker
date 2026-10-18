@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Unified Journey · Journey options</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1C2024}a:hover{color:#000}
+.tn{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F3F4F6; font-family: 'Instrument Sans', system-ui, sans-serif; color: #1C2024; display: flex; flex-direction: column; overflow: hidden">
+  <header style="background: #FFFFFF; padding: 16px 16px 12px; box-shadow: 0 1px 0 #E3E5E8; display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; align-items: center; gap: 6px">
+      <a href="B-Home.dc.html" aria-label="Back" style="width: 44px; height: 44px; margin-left: -8px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C2024" stroke-width="2.2" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+      <div style="flex: 1"><h1 style="margin: 0; font-size: 20px; font-weight: 700">Home → Work</h1><div style="font-size: 13px; color: #5B6168">New Farm → QUT Gardens Point</div></div>
+      <button aria-label="Saved journey" style="width: 44px; height: 44px; border-radius: 22px; border: 0; background: #F3F4F6; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="#1C2024" stroke="#1C2024" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></button>
+    </div>
+    <div role="group" aria-label="Sort" style="display: flex; gap: 6px">
+      <button aria-pressed="true" style="height: 36px; padding: 0 12px; border-radius: 18px; border: 0; background: #1C2024; color: #FFFFFF; font: 700 13px 'Instrument Sans', sans-serif">Leave soonest</button>
+      <button aria-pressed="false" style="height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid #D5D8DC; background: #FFFFFF; font: 600 13px 'Instrument Sans', sans-serif; color: #1C2024">Fewest changes</button>
+      <button aria-pressed="false" style="height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid #D5D8DC; background: #FFFFFF; font: 600 13px 'Instrument Sans', sans-serif; color: #1C2024">Less walking</button>
+    </div>
+  </header>
+  <main style="flex: 1; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px">
+    <sc-for list="{{ opts }}" as="o" hint-placeholder-count="5">
+      <a href="B-Detail.dc.html" style="{{ o.cardStyle }}">
+        <div style="display: flex; align-items: flex-end; justify-content: space-between">
+          <div><div class="tn" style="{{ o.leaveStyle }}">{{ o.leave }}</div><div class="tn" style="font-size: 13px; color: #3A4047">{{ o.times }}</div></div>
+          <span style="{{ o.statusStyle }}">{{ o.status }}</span>
+        </div>
+        <div style="display: flex; gap: 3px; height: 8px; border-radius: 4px; overflow: hidden" aria-hidden="true"><sc-for list="{{ o.legs }}" as="l" hint-placeholder-count="3"><span style="{{ l.bar }}"></span></sc-for></div>
+        <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap"><sc-for list="{{ o.legs }}" as="l" hint-placeholder-count="3"><span style="{{ l.chip }}">{{ l.label }}</span></sc-for></div>
+        <span style="{{ o.noteStyle }}">{{ o.note }}</span>
+      </a>
+    </sc-for>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const seg = (c, g) => 'flex: ' + g + ' 1 0; background: ' + c;
+const walk = (g) => 'flex: ' + g + ' 1 0; background: repeating-linear-gradient(90deg, #9AA1A8 0 4px, transparent 4px 7px)';
+const chip = (bg, fg) => 'font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 7px; background: ' + bg + '; color: ' + fg;
+const w = 'font-size: 13px; font-weight: 600; color: #4A5057';
+const card = 'display: flex; flex-direction: column; gap: 8px; background: #FFFFFF; border-radius: 18px; padding: 14px; text-decoration: none; box-shadow: 0 1px 2px rgba(16,24,40,0.06)';
+const big = 'font-size: 26px; font-weight: 700; line-height: 1; letter-spacing: -0.02em';
+const live = 'font-size: 12px; font-weight: 700; color: #1C7A3E';
+const sched = 'font-size: 12px; font-weight: 700; color: #5B6168';
+const hide = 'display: none';
+const bus = chip('#F2B705', '#2D3436'), ferry = chip('#B8400F', '#FFFFFF'), ferryX = chip('#E6E8EB', '#5B6168') + '; text-decoration: line-through';
+return { opts: [
+{ cardStyle: card, leave: 'Leave in 4 min', leaveStyle: big, times: '7:35 → 8:02 pm · 27 min · 1 change', status: '● LIVE', statusStyle: live, legs: [{ bar: walk(3), chip: w, label: 'Walk 3' }, { bar: seg('#F2B705', 6), chip: bus, label: '199' }, { bar: walk(2), chip: w, label: '2' }, { bar: seg('#FF6B35', 16), chip: ferry, label: 'F1' }], note: 'Bus 199 from Merthyr Rd · Few seats', noteStyle: 'font-size: 13px; color: #4A5057' },
+{ cardStyle: card + '; opacity: 0.92', leave: '7:43 pm', leaveStyle: 'font-size: 26px; font-weight: 700; line-height: 1; color: #6B7178; text-decoration: line-through', times: 'This option no longer works', status: 'CANCELLED', statusStyle: 'font-size: 12px; font-weight: 800; padding: 3px 7px; border-radius: 5px; background: #1C2024; color: #FFFFFF', legs: [{ bar: walk(3), chip: w, label: 'Walk 3' }, { bar: seg('#F2B705', 6), chip: bus, label: '199' }, { bar: seg('#C9CDD2', 16), chip: ferryX, label: 'F1 7:58' }], note: 'The 7:58 pm F1 from Teneriffe is cancelled.', noteStyle: 'font-size: 13px; color: #A3330A; font-weight: 600' },
+{ cardStyle: card, leave: 'Leave in 15 min', leaveStyle: big, times: '7:46 → 8:20 pm · 34 min · 1 change', status: '● LIVE · +3 late', statusStyle: 'font-size: 12px; font-weight: 700; color: #A3330A', legs: [{ bar: walk(6), chip: w, label: 'Walk 6' }, { bar: seg('#FF6B35', 22), chip: ferry, label: 'F1' }, { bar: walk(4), chip: w, label: '4' }], note: 'Ferry only, from New Farm Park', noteStyle: 'font-size: 13px; color: #4A5057' },
+{ cardStyle: card, leave: 'Leave in 19 min', leaveStyle: big, times: '7:50 → 8:22 pm · 32 min · 1 change', status: 'SCHEDULED', statusStyle: sched, legs: [{ bar: walk(3), chip: w, label: 'Walk 3' }, { bar: seg('#F2B705', 6), chip: bus, label: '199' }, { bar: walk(2), chip: w, label: '2' }, { bar: seg('#FF6B35', 16), chip: ferry, label: 'F1' }], note: '', noteStyle: hide },
+{ cardStyle: card, leave: '8:05 pm', leaveStyle: big, times: '8:05 → 8:36 pm · 31 min · no change', status: 'SCHEDULED', statusStyle: sched, legs: [{ bar: walk(4), chip: w, label: 'Walk 4' }, { bar: seg('#F2B705', 20), chip: bus, label: '196' }, { bar: walk(7), chip: w, label: '7' }], note: '', noteStyle: hide }
+]};
+}
+}
+</script>
+</body>
+</html>

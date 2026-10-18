@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mode Tabs · States</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2D3436}a:hover{color:#000}
+.tn{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 1700px; height: 844px; box-sizing: border-box; background: #E9E6DF; font-family: 'Figtree', system-ui, sans-serif; color: #2D3436; display: flex; justify-content: space-between; padding: 0">
+  <div style="width: 390px; display: flex; flex-direction: column">
+    <div style="height: 40px; display: flex; align-items: center; font-size: 14px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #4A4F52">Loading · schedule first</div>
+    <div style="flex: 1; background: #FBFAF7; border-radius: 24px; overflow: hidden; display: flex; flex-direction: column">
+      <div style="padding: 20px; display: flex; justify-content: space-between; align-items: baseline"><h2 style="margin: 0; font-size: 28px; font-weight: 800">Saved</h2><span style="font-size: 13px; color: #5F6468; display: flex; align-items: center; gap: 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5F6468" stroke-width="2.5" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>Getting live times…</span></div>
+      <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 12px">
+        <div style="background: #FFFFFF; border: 1px solid #E6E2D9; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px"><div style="font-weight: 700">Bulimba → Riverside</div><div style="display: flex; justify-content: space-between"><span style="font-size: 12px; font-weight: 700; color: #5F6468">SCHEDULED · F11</span><span class="tn" style="font-size: 22px; font-weight: 800">4 min</span></div><div style="display: flex; justify-content: space-between"><span style="font-size: 12px; font-weight: 700; color: #5F6468">SCHEDULED · F1</span><span class="tn" style="font-size: 18px; font-weight: 700">10 min</span></div></div>
+        <div style="background: #FFFFFF; border: 1px solid #E6E2D9; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px"><div style="width: 60%; height: 16px; border-radius: 6px; background: #ECE9E2"></div><div style="width: 100%; height: 26px; border-radius: 6px; background: #F2EFE9"></div><div style="width: 100%; height: 22px; border-radius: 6px; background: #F2EFE9"></div></div>
+        <div style="background: #FFFFFF; border: 1px solid #E6E2D9; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px"><div style="width: 50%; height: 16px; border-radius: 6px; background: #ECE9E2"></div><div style="width: 100%; height: 26px; border-radius: 6px; background: #F2EFE9"></div><div style="width: 100%; height: 22px; border-radius: 6px; background: #F2EFE9"></div></div>
+        <p style="margin: 0; font-size: 14px; color: #4A4F52; line-height: 1.4">Timetable shows straight away; live times replace it as they arrive.</p>
+      </div>
+    </div>
+  </div>
+  <div style="width: 390px; display: flex; flex-direction: column">
+    <div style="height: 40px; display: flex; align-items: center; font-size: 14px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #4A4F52">Empty · no more tonight</div>
+    <div style="flex: 1; background: #FBFAF7; border-radius: 24px; overflow: hidden; display: flex; flex-direction: column">
+      <div style="background: #FFE5D9; padding: 20px"><div style="font-size: 18px"><span>Brisbane</span><b style="color: #B8400F">Ferry</b></div><div style="margin-top: 12px; height: 52px; border-radius: 14px; background: #FFFFFF; display: flex; align-items: center; padding: 0 14px; font-weight: 800; font-size: 18px">Bulimba → Riverside</div></div>
+      <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 32px; text-align: center">
+        <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#B8400F" stroke-width="1.5" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+        <h2 style="margin: 0; font-size: 24px; font-weight: 800">No more ferries tonight</h2>
+        <p style="margin: 0; font-size: 16px; color: #4A4F52; line-height: 1.45">First service tomorrow is the F1 at <b class="tn">5:52 am <span style="color: #A3330A">(19/10)</span></b>.</p>
+        <button style="height: 48px; padding: 0 20px; border-radius: 24px; border: 2px solid #2D3436; background: #FFFFFF; font: 700 15px 'Figtree', sans-serif; color: #2D3436">Check bus or train instead</button>
+      </div>
+    </div>
+  </div>
+  <div style="width: 390px; display: flex; flex-direction: column">
+    <div style="height: 40px; display: flex; align-items: center; font-size: 14px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #4A4F52">Offline · cached timetable</div>
+    <div style="flex: 1; background: #FBFAF7; border-radius: 24px; overflow: hidden; display: flex; flex-direction: column">
+      <div style="background: #5B3FD1; color: #FFFFFF; padding: 20px"><div style="font-size: 18px"><span>Brisbane</span><b>Train</b></div><div style="margin-top: 8px; font-size: 20px; font-weight: 800">Morningside → Central</div></div>
+      <div role="status" style="margin: 12px 16px 0; background: #2D3436; color: #FFFFFF; border-radius: 14px; padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 20h.01M3 3l18 18"/></svg><span><b>You're offline.</b> Showing the timetable saved at 7:31 pm. Live times, delays and platform changes are paused.</span></div>
+      <div style="padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; opacity: 0.92">
+        <div style="background: #FFFFFF; border: 1px dashed #B9B3A6; border-radius: 16px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center"><div><div style="font-size: 12px; font-weight: 700; color: #5F6468">SCHEDULED · Platform 2</div><div class="tn" style="font-size: 14px">7:40 pm → Central 7:59 pm</div></div><span class="tn" style="font-size: 22px; font-weight: 800">7:40</span></div>
+        <div style="background: #FFFFFF; border: 1px dashed #B9B3A6; border-radius: 16px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center"><div><div style="font-size: 12px; font-weight: 700; color: #5F6468">SCHEDULED · Platform 2</div><div class="tn" style="font-size: 14px">7:55 pm → Central 8:14 pm</div></div><span class="tn" style="font-size: 22px; font-weight: 800">7:55</span></div>
+        <div style="background: #FFFFFF; border: 1px dashed #B9B3A6; border-radius: 16px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center"><div><div style="font-size: 12px; font-weight: 700; color: #5F6468">SCHEDULED · Platform 2</div><div class="tn" style="font-size: 14px">8:10 pm → Central 8:29 pm</div></div><span class="tn" style="font-size: 22px; font-weight: 800">8:10</span></div>
+      </div>
+    </div>
+  </div>
+  <div style="width: 390px; display: flex; flex-direction: column">
+    <div style="height: 40px; display: flex; align-items: center; font-size: 14px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #4A4F52">Error · live feed failed</div>
+    <div style="flex: 1; background: #FBFAF7; border-radius: 24px; overflow: hidden; display: flex; flex-direction: column">
+      <div style="background: #F2B705; padding: 20px"><div style="font-size: 18px"><span>Brisbane</span><b>Bus</b></div><div style="margin-top: 8px; font-size: 20px; font-weight: 800">Oxford St, stop 1832</div></div>
+      <div role="alert" style="margin: 16px; background: #FFFFFF; border: 2px solid #A3330A; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; gap: 10px; align-items: center; font-weight: 800; font-size: 17px; color: #A3330A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></svg>Live times unavailable</div>
+        <p style="margin: 0; font-size: 15px; line-height: 1.45; color: #2D3436">TransLink's live feed isn't responding. You're seeing the timetable, which won't show delays.</p>
+        <button style="height: 48px; border-radius: 12px; border: 0; background: #2D3436; color: #FFFFFF; font: 700 15px 'Figtree', sans-serif">Try again</button>
+      </div>
+      <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 8px">
+        <div style="background: #FFFFFF; border: 1px solid #E6E2D9; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 10px"><span style="font-size: 15px; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: #FDF3D0">230</span><span style="flex: 1; font-size: 12px; font-weight: 700; color: #5F6468">SCHEDULED</span><span class="tn" style="font-size: 22px; font-weight: 800">3 min</span></div>
+        <div style="background: #FFFFFF; border: 1px solid #E6E2D9; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 10px"><span style="font-size: 15px; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: #FDF3D0">230</span><span style="flex: 1; font-size: 12px; font-weight: 700; color: #5F6468">SCHEDULED</span><span class="tn" style="font-size: 22px; font-weight: 800">18 min</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1700,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

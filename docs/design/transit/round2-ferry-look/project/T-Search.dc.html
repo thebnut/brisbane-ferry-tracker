@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BrisbaneTrain pick a trip</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Poppins:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#E55A2B}a:hover{color:#B8400F}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; overflow: hidden; display: flex; flex-direction: column; background: linear-gradient(135deg, #FFE5D9 0%, #FFFFFF 50%, #E6F2FF 100%); font-family: Inter, system-ui, sans-serif; color: #2D3436">
+
+<header style="flex: 0 0 auto; background: linear-gradient(90deg, #FFFFFF, #FFE5D9, #E6F2FF); border-bottom: 2px solid rgba(255,107,53,0.5); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.12); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 6px">
+<img src="/_blob/c529a31f2397418a458da66f4007f78e" alt="" style="width: 56px; height: 56px">
+<div style="display: flex; flex-direction: column; line-height: 1.05">
+<span style="font-family: Poppins, sans-serif; font-weight: 700; font-size: 21px; color: #2A9A9E">BrisbaneTrain</span>
+<span style="font-family: Poppins, sans-serif; font-weight: 600; font-size: 16px; color: #FE8E22">Departure Boards</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" aria-label="Settings" style="width: 44px; height: 44px; border-radius: 999px; background: rgba(255,255,255,0.9); border: 1px solid rgba(255,107,53,0.2); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; color: #007C99; padding: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"></path></svg></button>
+<span style="font-size: 12px; font-weight: 700; color: #FFFFFF; background: #FF6B35; border-radius: 999px; padding: 7px 14px; box-shadow: 0 0 15px rgba(255,107,53,0.5); animation: pulse 2s infinite">LIVE</span>
+</div>
+</header>
+
+<main style="flex: 1 1 auto; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<h1 style="margin: 0; font-size: 20px; font-weight: 800">Choose your trip</h1>
+
+<div style="border-radius: 12px; background: rgba(255,255,255,0.9); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 6px 14px; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #F1E3DB">
+<span style="width: 12px; height: 12px; border-radius: 999px; border: 3px solid #1E7C80; box-sizing: border-box"></span>
+<div style="display: flex; flex-direction: column; flex: 1 1 auto">
+<label for="from" style="font-size: 12px; font-weight: 600; color: #4B5563">From</label>
+<input id="from" value="Roma Street" style="font: inherit; font-size: 17px; font-weight: 700; color: #2D3436; border: 0; background: transparent; padding: 2px 0; outline: none">
+</div>
+<button type="button" aria-label="Swap origin and destination" style="width: 44px; height: 44px; border-radius: 999px; border: 1px solid rgba(255,107,53,0.3); background: #FFFFFF; color: #E55A2B; display: flex; align-items: center; justify-content: center; padding: 0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"></path></svg></button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 8px 0">
+<span style="width: 12px; height: 12px; border-radius: 3px; background: #FF6B35"></span>
+<div style="display: flex; flex-direction: column; flex: 1 1 auto">
+<label for="to" style="font-size: 12px; font-weight: 600; color: #E55A2B">To</label>
+<input id="to" value="Indoo" style="font: inherit; font-size: 17px; font-weight: 700; color: #2D3436; border: 0; border-bottom: 2px solid #FF6B35; background: transparent; padding: 2px 0; outline: none">
+</div>
+</div>
+</div>
+
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #374151; padding: 0 2px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#007C99" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h0"></path></svg>
+<span>Only stations with a direct train from Roma Street are shown.</span>
+</div>
+
+<div style="border-radius: 12px; padding: 14px 16px; background: linear-gradient(90deg, #FFE5D9, #FFFFFF); border: 2px solid #FF6B35; display: flex; align-items: center; gap: 12px">
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 18px; font-weight: 800"><span style="color: #E55A2B">Indoo</span>roopilly</span>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<span style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: #FFFFFF; font-size: 12px; font-weight: 600"><span style="width: 9px; height: 9px; border-radius: 999px; background: #2F8F46"></span>Ipswich/Rosewood</span>
+<span style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: #FFFFFF; font-size: 12px; font-weight: 600"><span style="width: 9px; height: 9px; border-radius: 999px; background: #1F6FB2"></span>Springfield</span>
+</div>
+</div>
+<span style="font-size: 13px; color: #374151; text-align: right">11–15 min<br>every 7 min</span>
+</div>
+
+<h2 style="margin: 6px 0 0; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #007C99">Reachable from Roma Street, by line</h2>
+
+<sc-for list="{{lines}}" as="l" hint-placeholder-count="3">
+<div style="border-radius: 12px; background: rgba(255,255,255,0.9); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="{{l.pill}}">{{l.name}}</span>
+<span style="font-size: 12px; color: #4B5563; margin-left: auto">{{l.dir}}</span>
+</div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{l.stations}}" as="s" hint-placeholder-count="4"><button type="button" style="font: inherit; font-size: 13px; font-weight: 600; color: #2D3436; background: #F7F2EF; border: 1px solid #EADBD2; border-radius: 999px; padding: 6px 11px; min-height: 32px">{{s}}</button></sc-for>
+</div>
+</div>
+</sc-for>
+</main>
+
+<nav aria-label="Main" style="flex: 0 0 auto; background: rgba(255,255,255,0.95); border-top: 1px solid rgba(255,107,53,0.2); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 8px 8px 20px">
+<a href="T-Home.dc.html" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #4B5563; font-size: 12px; font-weight: 600; min-height: 48px"><span style="padding: 4px 16px; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg></span>Home</a>
+<a href="T-Search.dc.html" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #E55A2B; font-size: 12px; font-weight: 700; min-height: 48px"><span style="background: #FFE5D9; border-radius: 999px; padding: 4px 16px; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></span>Stations</a>
+<a href="T-Map.dc.html" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #4B5563; font-size: 12px; font-weight: 600; min-height: 48px"><span style="padding: 4px 16px; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"></path><path d="M9 4v14M15 6v14"></path></svg></span>Map</a>
+<a href="T-Alerts.dc.html" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #4B5563; font-size: 12px; font-weight: 600; min-height: 48px"><span style="padding: 4px 16px; display: flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg></span>Alerts</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const pill = (c, dark) => 'padding: 4px 10px; border-radius: 999px; background: ' + c + '; color: #FFFFFF; font-size: 12px; font-weight: 700';
+return {
+lines: [
+{ name: 'Ipswich/Rosewood', pill: pill('#2F8F46'), dir: 'Westbound', stations: ['Milton', 'Toowong', 'Taringa', 'Indooroopilly', 'Corinda', 'Ipswich'] },
+{ name: 'Springfield', pill: pill('#1F6FB2'), dir: 'Westbound', stations: ['Toowong', 'Indooroopilly', 'Darra', 'Springfield Central'] },
+{ name: 'Caboolture', pill: pill('#1E7C80'), dir: 'Northbound', stations: ['Central', 'Fortitude Valley', 'Bowen Hills', 'Eagle Junction', 'Northgate'] }
+]
+};
+}
+}
+</script>
+</body>
+</html>
