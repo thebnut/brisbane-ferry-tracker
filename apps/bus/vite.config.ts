@@ -25,7 +25,7 @@ function noMapOnServer(): Plugin {
 export default defineConfig({
   plugins: [
     noMapOnServer(),
-    cloudflare({ viteEnvironment: { name: 'ssr' } }),
+    cloudflare({ viteEnvironment: { name: 'ssr' }, inspectorPort: false }),
     tailwindcss(),
     reactRouter(),
     pwa(),

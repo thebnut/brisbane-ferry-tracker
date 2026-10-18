@@ -5,7 +5,7 @@ import { defineConfig } from 'vite'
 import { pwa } from './pwa.config.ts'
 
 export default defineConfig({
-  plugins: [cloudflare({ viteEnvironment: { name: 'ssr' } }), tailwindcss(), reactRouter(), pwa()],
+  plugins: [cloudflare({ viteEnvironment: { name: 'ssr' }, inspectorPort: false }), tailwindcss(), reactRouter(), pwa()],
   build: { assetsInlineLimit: 0 },
   // Don't pick up the legacy root app's postcss.config.js (Tailwind 3); Tailwind 4 runs as a Vite plugin here.
   css: { postcss: { plugins: [] } },
