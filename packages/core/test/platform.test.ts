@@ -29,10 +29,12 @@ const day: StaticStopDay = {
     { id: 'c2', name: 'Central station, platform 2', platform: '2', key: 'central' },
     { id: 'r1', name: 'Roma Street station, platform 7', platform: '7', key: 'roma-street' },
   ],
+  // Per-file downstream table (#41 contract): event[9] indexes into it.
+  downstreams: [[2, 180, 0, 1]],
   events: [
-    [0, 5, 36000, 36000, 0, 0, 0, 0, 0, [2, 180, 0, 1]],
-    [1, 5, 36600, 36600, 0, 0, 1, 0, 0, [2, 180, 0, 1]],
-    [2, 5, 37200, 37200, 0, 0, 0, 0, 0, [2, 180, 0, 1]],
+    [0, 5, 36000, 36000, 0, 0, 0, 0, 0, 0],
+    [1, 5, 36600, 36600, 0, 0, 1, 0, 0, 0],
+    [2, 5, 37200, 37200, 0, 0, 0, 0, 0, 0],
   ],
 }
 

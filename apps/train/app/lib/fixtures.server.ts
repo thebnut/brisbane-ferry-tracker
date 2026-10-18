@@ -105,6 +105,7 @@ export function stationDay(fx: FixtureDay, key: string): StaticStopDay | null {
     routes: [],
     headsigns: [],
     stops: [],
+    downstreams: [],
     events: [],
   }
   const intern = <T>(arr: T[], map: Map<string, number>, id: string, make: () => T) => {
@@ -119,6 +120,7 @@ export function stationDay(fx: FixtureDay, key: string): StaticStopDay | null {
   const routeI = new Map<string, number>()
   const headI = new Map<string, number>()
   const stopI = new Map<string, number>()
+  const dsI = new Map<string, number>()
   for (const t of idx.trips) {
     const rows = rowsOf(t)
     for (let r = 0; r < rows.length - 1; r++) {
@@ -148,7 +150,8 @@ export function stationDay(fx: FixtureDay, key: string): StaticStopDay | null {
         intern(day.stops, stopI, boardId, () => stopRefOf(boardId)),
         row.pickup as StopEventTuple[7],
         t.d,
-        ds,
+        // Per-file deduped downstream table (#41 contract): the event stores an index into it.
+        intern(day.downstreams, dsI, ds.join(','), () => ds),
       ])
     }
   }
