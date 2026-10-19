@@ -184,29 +184,41 @@ describe('offline backoff (smoke round 9, Codex r1)', () => {
     expect(at.length).toBeLessThanOrEqual(16)
   })
 
-  it("starts the HTTP-error backoff over at the browser's online event, even when its own attempt fails (Codex r2)", async () => {
-    vi.useFakeTimers()
-    const { fetcher, at, elapsed } = timedFetcher(() => new Response('busy', { status: 503 }))
-    render(
-      <QueryClientProvider client={makeQueryClient()}>
-        <Board fetcher={fetcher} tick={600_000} />
-      </QueryClientProvider>,
-    )
-    await advance(200_000)
-    expect(Math.max(...pollGaps(at))).toBeGreaterThan(45_000)
-    // The event comes between polls: a board already fetching keeps its request (useRefetchOnReconnect), so a failed
-    // poll's retry still due (a second later) would stand in for the attempt. Where the polls fall depends on the
-    // backoff's jitter, which comes from the fake clock's start (the real time), so wait out any retry.
-    for (let i = 0; i < 30 && elapsed() - (at.at(-1) as number) <= 1_100; i++) await advance(100)
-    expect(elapsed() - (at.at(-1) as number)).toBeGreaterThan(1_100)
-    const n = at.length
-    await act(async () => {
-      window.dispatchEvent(new Event('online'))
-    })
-    await advance(3_000)
-    // An attempt at once (and its retry), both failing; the next comes at the first wait, not the longest.
-    expect(at.length).toBe(n + 2)
-    await advance(16_000)
-    expect(at.length).toBeGreaterThan(n + 2)
-  })
+  // Where the backed-off polls fall depends on the backoff's jitter (errorUpdatedAt % 1000), so on the fake clock's
+  // start: from these offsets past a whole second, a failed poll's retry is (or isn't) still due at the 200 s mark.
+  // Pinned so both paths run every time; before #95, +19, +28 and +37 ms failed (47 of 1,000 offsets).
+  it.each([
+    { offset: 0, retryDue: false },
+    { offset: 19, retryDue: true },
+    { offset: 28, retryDue: true },
+    { offset: 37, retryDue: true },
+  ])(
+    "starts the HTTP-error backoff over at the browser's online event, even when its own attempt fails (Codex r2), start +$offset ms",
+    async ({ offset, retryDue }) => {
+      vi.useFakeTimers()
+      vi.setSystemTime(Date.UTC(2026, 9, 20) + offset)
+      const { fetcher, at, elapsed } = timedFetcher(() => new Response('busy', { status: 503 }))
+      render(
+        <QueryClientProvider client={makeQueryClient()}>
+          <Board fetcher={fetcher} tick={600_000} />
+        </QueryClientProvider>,
+      )
+      await advance(200_000)
+      expect(Math.max(...pollGaps(at))).toBeGreaterThan(45_000)
+      expect(elapsed() - (at.at(-1) as number) <= 1_100).toBe(retryDue)
+      // The event comes between polls: a board already fetching keeps its request (useRefetchOnReconnect), so a failed
+      // poll's retry still due (a second later) would stand in for the attempt. Wait out any retry.
+      for (let i = 0; i < 30 && elapsed() - (at.at(-1) as number) <= 1_100; i++) await advance(100)
+      expect(elapsed() - (at.at(-1) as number)).toBeGreaterThan(1_100)
+      const n = at.length
+      await act(async () => {
+        window.dispatchEvent(new Event('online'))
+      })
+      await advance(3_000)
+      // An attempt at once (and its retry), both failing; the next comes at the first wait, not the longest.
+      expect(at.length).toBe(n + 2)
+      await advance(16_000)
+      expect(at.length).toBeGreaterThan(n + 2)
+    },
+  )
 })
