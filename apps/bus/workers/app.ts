@@ -10,6 +10,7 @@
  */
 
 import { withBuild } from '@bft/core/build'
+import { ROUTE_SHORT_RE } from '@bft/core/contract'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
@@ -86,7 +87,7 @@ const xml = (body: string, maxAge = 86400) =>
     },
   })
 
-async function sitemap(url: URL, env: Env): Promise<Response | null> {
+export async function sitemap(url: URL, env: Env): Promise<Response | null> {
   const site = env.SITE_URL
   if (url.pathname === '/sitemap.xml') {
     const text = await dataText(env, '/data/bus/stops.json')
@@ -103,7 +104,13 @@ async function sitemap(url: URL, env: Env): Promise<Response | null> {
   if (url.pathname === '/sitemaps/routes.xml') {
     const text = await dataText(env, '/data/bus/lines.json')
     if (!text) return new Response('Unavailable', { status: 503 })
-    const paths = routeShortsFromLinesText(text).map(routePath)
+    // Only routes whose page renders: the page needs data/bus/routes/{short}.json, which the pipeline writes for
+    // every such line in the same publish as lines.json. Data published before route files existed has none, so
+    // probe one first rather than list routes that all 404 (a 503 tells crawlers to come back later).
+    const shorts = routeShortsFromLinesText(text).filter((s) => ROUTE_SHORT_RE.test(s))
+    if (shorts.length > 0 && !(await dataText(env, `/data/bus/routes/${shorts[0]}.json`)))
+      return new Response('Unavailable', { status: 503 })
+    const paths = shorts.map(routePath)
     return xml(urlsetXml(site, paths, { changefreq: 'weekly', priority: '0.5' }))
   }
   const m = /^\/sitemaps\/stops-(\d+)\.xml$/.exec(url.pathname)

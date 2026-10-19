@@ -6,6 +6,7 @@ import type {
   GenerationIndex,
   LinesFile,
   Manifest,
+  RouteFile,
   StaticStopDay,
   StopIndexFile,
   TripIndexDay,
@@ -56,6 +57,7 @@ describe('build window and outputs', () => {
     expect(counts.tripIndex).toBe(32)
     expect(counts.stops).toBe(4)
     expect(counts.lines).toBe(4)
+    expect(counts.route).toBe(2)
     expect(counts.legacy).toBe(1)
     expect(counts.shard).toBeGreaterThan(0)
   })
@@ -236,6 +238,31 @@ describe('client data', () => {
       ],
       routes: ['BDBR', 'BRBD'],
     })
+  })
+
+  it('bus route files: one per line, the busiest patterns with stop names and positions (route pages)', async () => {
+    const files = (await listFiles(out)).filter((f) => /^data\/[^/]+\/routes\//.test(f)).sort()
+    expect(files).toEqual(['data/bus/routes/400.json', 'data/bus/routes/66.json'])
+    const lines = await readJsonFile<LinesFile>(out, 'data/bus/lines.json')
+    const stops = new Map(
+      (await readJsonFile<StopIndexFile>(out, 'data/bus/stops.json')).stops.map((s) => [s.key, s]),
+    )
+    for (const line of lines.lines) {
+      const r = await readJsonFile<RouteFile>(out, `data/bus/routes/${line.short}.json`)
+      expect(r).toMatchObject({ mode: 'bus', generation: lines.generation, short: line.short })
+      expect(r.long).toBe(line.long)
+      const first = line.patterns[0] as LinesFile['lines'][number]['patterns'][number]
+      expect(r.patterns[0]).toMatchObject({ directionId: first.directionId, headsign: first.headsign })
+      expect(r.patterns[0]?.stops.map((s) => s.key)).toEqual(first.stops)
+      for (const s of r.patterns.flatMap((p) => p.stops)) {
+        const e = stops.get(s.key)
+        expect(s).toEqual(
+          e?.code
+            ? { key: e.key, name: e.name, code: e.code, lat: e.lat, lon: e.lon }
+            : { key: e?.key, name: e?.name, lat: e?.lat, lon: e?.lon },
+        )
+      }
+    }
   })
 
   it('geo tiles hold each stop in its geohash5 cell', async () => {

@@ -282,6 +282,35 @@ export const LinesFile = z.object({
 })
 export type LinesFile = z.infer<typeof LinesFile>
 
+/**
+ * data/{mode}/routes/{short}.json (bus only for now): one line with its main stopping patterns (the two busiest per
+ * direction) and those stops' names and positions, so a route page renders without the whole stop index. Written
+ * for every line whose short name matches ROUTE_SHORT_RE (the route page accepts no other); see routeFileFor.
+ */
+export const RouteStop = StopIndexEntry.pick({ key: true, name: true, code: true, lat: true, lon: true })
+export type RouteStop = z.infer<typeof RouteStop>
+
+export const RouteFile = z.object({
+  schemaVersion: z.literal(SCHEMA_VERSION),
+  mode: Mode,
+  generation: z.string(),
+  short: z.string(),
+  long: z.string().optional(),
+  color: z
+    .string()
+    .regex(/^[0-9A-Fa-f]{6}$/)
+    .optional(),
+  textColor: z
+    .string()
+    .regex(/^[0-9A-Fa-f]{6}$/)
+    .optional(),
+  patterns: z.array(StopPattern.omit({ stops: true }).extend({ stops: z.array(RouteStop) })),
+})
+export type RouteFile = z.infer<typeof RouteFile>
+
+/** Route short names that get a route file and a route page (/route/{short}): safe as a URL and an object key. */
+export const ROUTE_SHORT_RE = /^[\w-]{1,12}$/
+
 // ---------------------------------------------------------------------------
 // 2. Realtime snapshot (rt/snapshot-{seq}.json.br) and the stop-event state machine
 // ---------------------------------------------------------------------------

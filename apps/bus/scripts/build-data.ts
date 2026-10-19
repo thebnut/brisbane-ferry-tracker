@@ -265,8 +265,8 @@ writeFileSync(join(outDir, 'lines.json'), linesJson)
 mkdirSync(join(outDir, 'routes'), { recursive: true })
 const entryByKey = new Map(entries.map((e) => [e.key, e]))
 for (const line of linesFile.lines) {
-  const rf: RouteFile = routeFileFor(line, entryByKey, generation)
-  writeFileSync(join(outDir, 'routes', `${encodeURIComponent(line.short)}.json`), JSON.stringify(rf))
+  const rf: RouteFile | null = routeFileFor(line, entryByKey, generation)
+  if (rf) writeFileSync(join(outDir, 'routes', `${encodeURIComponent(line.short)}.json`), JSON.stringify(rf))
 }
 const gz = (s: string | Buffer) => gzipSync(s, { level: 9 }).length
 const br = (s: string | Buffer) =>
