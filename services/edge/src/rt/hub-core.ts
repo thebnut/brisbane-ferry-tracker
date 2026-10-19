@@ -15,7 +15,13 @@ import type { StaticStore } from '../data/static-store.ts'
 import { type FeedMessage, FeedMessageSchema } from '../gen/gtfs-realtime_pb.js'
 import { errorMessage, type Logger, silentLogger } from '../log.ts'
 import { buildAlerts, buildSnapshot, ModeIndex } from './build.ts'
-import { COMBINED_KEY, type CombinedSection, decodeCombined, encodeCombined, parseIndex } from './combined.ts'
+import {
+  COMBINED_KEY,
+  type CombinedSection,
+  decodeCombined,
+  encodeCombined,
+  INDEX_BYTES,
+} from './combined.ts'
 import { type FeedSpec, feedsFor, type RtConfig } from './feeds.ts'
 import {
   alertsDocument,
@@ -915,11 +921,18 @@ export class HubCore {
       const bytes = obj.arrayBuffer
         ? new Uint8Array(await obj.arrayBuffer())
         : new TextEncoder().encode(await obj.text())
-      // The index's seq counts even when a section (or the size) is unusable: it may be past the pointer, and a seq
-      // left unread could be reused by the next build (Codex r2 on #100).
-      const index = parseIndex(bytes, undefined)
-      if (index && Number.isSafeInteger(index.seq) && index.seq > r.seq) r.seq = index.seq
-      const got = decodeCombined(bytes)
+      // The index's seq counts even when its sections, size or documents are unusable: it may be past the pointer,
+      // and a seq left unread could be reused by the next build (Codex r2 and r4 on #100).
+      const indexSeq = combinedIndexSeq(bytes)
+      if (indexSeq != null && indexSeq > r.seq) r.seq = indexSeq
+      // A malformed object counts as missing (decodeCombined can throw on a malformed index), never as a restore
+      // that fails forever (Codex r4).
+      let got: ReturnType<typeof decodeCombined> = null
+      try {
+        got = decodeCombined(bytes)
+      } catch {
+        got = null
+      }
       if (!got || got.index.seq < c.seq) return null
       const docs: Array<[Mode, RtSnapshot]> = []
       for (const d of got.docs) {
@@ -1093,11 +1106,37 @@ interface DayRead {
   bytes: Promise<Uint8Array | Error> | null
 }
 
-/** A snapshot document, or null when it is not JSON with a header seq. */
+/**
+ * A snapshot document, or null when it is not JSON with the shape restore and the next build rely on (header seq,
+ * staticGeneration and serviceDates; trips, vehicles, alerts). A cheap structural check, not the full schema: the
+ * Free plan's CPU budget rules out parsing every record (Codex r4 on #100).
+ */
 function parseSnapshot(text: string): RtSnapshot | null {
+  let s: RtSnapshot
   try {
-    const s = JSON.parse(text) as RtSnapshot
-    return typeof s?.header?.seq === 'number' ? s : null
+    s = JSON.parse(text) as RtSnapshot
+  } catch {
+    return null
+  }
+  const h = s?.header
+  const isObject = (v: unknown) => v != null && typeof v === 'object' && !Array.isArray(v)
+  const ok =
+    isObject(h) &&
+    Number.isSafeInteger(h.seq) &&
+    isObject(h.staticGeneration) &&
+    Array.isArray(h.serviceDates) &&
+    isObject(s.trips) &&
+    Array.isArray(s.vehicles) &&
+    Array.isArray(s.alerts)
+  return ok ? s : null
+}
+
+/** The seq of a combined object's index, read without its other checks (only for the seq watermark). */
+function combinedIndexSeq(bytes: Uint8Array): number | null {
+  try {
+    const seq = (JSON.parse(new TextDecoder().decode(bytes.subarray(0, INDEX_BYTES))) as { seq?: unknown })
+      ?.seq
+    return Number.isSafeInteger(seq) ? (seq as number) : null
   } catch {
     return null
   }

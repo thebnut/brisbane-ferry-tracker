@@ -336,4 +336,52 @@ describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {
     await hub.alarm()
     expect(objSeq(r2)).toBe(published + 6)
   })
+
+  /** The restarted hub's combined object with its index edited (re-padded to the index size) and body replaced. */
+  function editObject(
+    r2: GatedR2,
+    index: (idx: Record<string, unknown>) => void,
+    body?: (b: string) => string,
+  ) {
+    const text = r2.files.get(COMBINED_KEY) as string
+    const idx = JSON.parse(text.slice(0, 1024))
+    index(idx)
+    const rest = text.slice(1024)
+    r2.files.set(COMBINED_KEY, JSON.stringify(idx).padEnd(1024, ' ') + (body ? body(rest) : rest))
+  }
+
+  it('an index with an invalid section range still gives its seq (Codex r4)', async () => {
+    const { r2, hub, storage, published } = await restarted('ferry', 'combined')
+    editObject(r2, (idx) => {
+      idx.seq = published + 1
+      ;(idx.sections as Record<string, number[]>).ferry = [0, 1, published + 1]
+    })
+    storage.data.clear()
+    expect((await hub.pull(null)).seq).toBeNull()
+    await hub.alarm()
+    expect(objSeq(r2)).toBe(published + 2)
+  })
+
+  it('a malformed index (sections: null) counts as missing, not a restore that fails forever (Codex r4)', async () => {
+    const { r2, hub, published } = await restarted('ferry', 'combined')
+    editObject(r2, (idx) => {
+      idx.sections = null
+    })
+    expect((await hub.pull(null)).seq).toBeNull()
+    await hub.alarm()
+    expect(objSeq(r2)).toBe(published + 1)
+  })
+
+  it('a section that is JSON but not a snapshot (no trips) counts as missing (Codex r4)', async () => {
+    const { r2, hub, published } = await restarted('ferry', 'combined')
+    // Same length, so the index's offsets still hold: the section parses but has no `trips`.
+    editObject(
+      r2,
+      () => {},
+      (b) => b.replace('"trips":', '"tripz":'),
+    )
+    expect((await hub.pull(null)).seq).toBeNull()
+    await hub.alarm()
+    expect(objSeq(r2)).toBe(published + 1)
+  })
 })
