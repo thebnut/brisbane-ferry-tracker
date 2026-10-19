@@ -16,6 +16,8 @@ export interface WorkerEnv extends AiEnv {
   RT_UPSTREAM: string
   /** Alarm interval in ms (default 15000). */
   RT_CYCLE_MS?: string
+  /** `combined` (one R2 object for every mode, ranged reads) or `documents` (default). See HubDeps.layout. */
+  RT_R2_LAYOUT?: string
   /** How old (ms) an isolate's snapshot copy may be before a request waits for the refresh (default 60000). */
   RT_SNAPSHOT_MAX_STALE_MS?: string
   /** Most a request waits for realtime before answering scheduled rows as stale/unavailable (ms, default 1200). */

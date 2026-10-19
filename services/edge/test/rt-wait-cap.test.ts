@@ -385,6 +385,7 @@ describe('RtHub publish and timings', () => {
       upstream: 'https://up.test/api/realtime/SEQ',
       fetchTimeoutMs: 50,
       r2,
+      layout: 'combined',
       profile,
       log,
     })

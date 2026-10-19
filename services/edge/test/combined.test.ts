@@ -128,12 +128,14 @@ describe('combined object reads (pullFromR2)', () => {
     expect(r.status.seq).toBe(7)
   })
 
-  it('a truncated object fails safe: retried once, then an error (the client keeps its copy, stale)', async () => {
+  it('a truncated object fails safe: retried, then an error (the client keeps its copy, stale)', async () => {
     resetRangeHints()
     const whole = encodeCombined(head, sections())
     const src = new MemoryDataSource(files(whole.slice(0, whole.byteLength - 100)))
     await expect(pullFromR2(src, null, 'bus', NOW)).rejects.toThrow(/inconsistent/)
-    expect(src.reads.filter((r) => r.startsWith(`${COMBINED_KEY}@0+`))).toHaveLength(2)
+    // Two probes, the pointer (which still names the combined layout), two more: bounded.
+    expect(src.reads.filter((r) => r.startsWith(`${COMBINED_KEY}@0+`))).toHaveLength(4)
+    expect(src.reads.filter((r) => r === R2_LATEST_KEY)).toHaveLength(1)
     // Through the client: a good copy, then the object is truncated. The copy is kept and turns stale, never null.
     let t = NOW
     const good = new MemoryDataSource(files(whole))
@@ -191,5 +193,60 @@ describe('combined object reads (pullFromR2)', () => {
     const plain = { kind: 'memory' as const, get: (k: string) => mem.get(k) }
     const r = await pullFromR2(plain, null, 'train', NOW)
     expect(r).toMatchObject({ seq: 7, json: doc(7, 40) })
+  })
+
+  it('Codex A2 r1: the first combined publish landing between the probe and the pointer read is followed', async () => {
+    resetRangeHints()
+    const object = encodeCombined(head, sections())
+    const src = new MemoryDataSource(new Map([[R2_LATEST_KEY, pointer()]]))
+    const realRange = src.getRange.bind(src)
+    src.getRange = async (key: string, offset: number, length: number, etag?: string) => {
+      const r = await realRange(key, offset, length, etag)
+      src.files.set(COMBINED_KEY, object) // the hub publishes right after our first probe
+      return r
+    }
+    const r = await pullFromR2(src, null, 'ferry', NOW)
+    expect(r).toMatchObject({ seq: 5, json: doc(5, 3) })
+  })
+
+  it('Codex A2 r1: a corrupt abandoned combined object never blocks the per-mode documents the pointer names', async () => {
+    const whole = encodeCombined(head, sections())
+    const legacyDoc = doc(9, 2)
+    const legacyPointer = {
+      seq: 9,
+      files: { ferry: { key: 'rt/ferry/latest.json', seq: 9 } },
+      fetchedAt: NOW,
+      status: { seq: 9, sourceTimestamp: head.sourceTimestamp, fetchedAt: NOW - 1000, generations: {} },
+    }
+    const src = new MemoryDataSource(
+      new Map([
+        [COMBINED_KEY, whole.slice(0, whole.byteLength - 100)],
+        [R2_LATEST_KEY, new TextEncoder().encode(JSON.stringify(legacyPointer))],
+        ['rt/ferry/latest.json', new TextEncoder().encode(legacyDoc)],
+      ]),
+    )
+    expect(await pullFromR2(src, null, 'ferry', NOW)).toMatchObject({ seq: 9, json: legacyDoc })
+  })
+
+  it('Codex A2 r1: without ranged reads, index and section come from one whole read (one version)', async () => {
+    const mem = new MemoryDataSource(files())
+    // Each whole read sees a different version: the second moves train into ferry's former bytes.
+    const swapped = encodeCombined(head, [
+      { mode: 'ferry', json: doc(7, 40), seq: 7 },
+      { mode: 'train', json: doc(5, 3), seq: 5 },
+      { mode: 'bus', json: doc(7, 400), seq: 7 },
+    ])
+    let n = 0
+    const plain = {
+      kind: 'memory' as const,
+      get: async (k: string) => {
+        const o = await mem.get(k)
+        if (k === COMBINED_KEY && ++n === 1) mem.files.set(COMBINED_KEY, swapped)
+        return o
+      },
+    }
+    const r = await pullFromR2(plain, null, 'ferry', NOW)
+    expect(r).toMatchObject({ seq: 5, json: doc(5, 3) })
+    expect(n).toBe(1)
   })
 })

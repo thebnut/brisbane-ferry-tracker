@@ -9,7 +9,14 @@
  */
 
 import type { RtSnapshot } from '@bft/core'
-import { type DataSource, decodeJson, type RangeRead, readBytes, supportsRange } from './data/source.ts'
+import {
+  type DataSource,
+  decodeJson,
+  type RangeRead,
+  type RangeSource,
+  readBytes,
+  supportsRange,
+} from './data/source.ts'
 import { COMBINED_KEY, type CombinedIndex, decodeSection, INDEX_BYTES, parseIndex } from './rt/combined.ts'
 import {
   type HubStatus,
@@ -28,27 +35,28 @@ export async function pullFromR2(
   nowMs: number = Date.now(),
 ): Promise<PullResult> {
   if (!scope || scope === 'alerts') return pullDocuments(src, sinceSeq, scope, nowMs)
-  const c = await readCombined(src, scope)
-  if (c) {
-    const answer = (s: SectionRead, status: HubStatus): PullResult =>
-      s.json == null
-        ? { seq: null, json: null, status }
-        : { seq: s.seq, json: s.seq === sinceSeq ? null : s.json, status }
-    if (nowMs - c.index.fetchedAt <= freshFor(c.index)) return answer(c, indexStatus(c))
-    // Older than one poll: the content hasn't changed for a while (the index times are as old as it), or the hub
-    // went back to per-mode documents and abandoned this object. The pointer says which, and has the current status.
-    const pointer = await readPointer(src)
-    if (pointer?.combined) {
-      let cur: SectionRead | null = c
-      // The object was replaced since our read (a publish in between): read it again.
-      if (cur.index.seq < pointer.combined.seq) cur = await readCombined(src, scope)
-      if (!cur || cur.index.seq < pointer.combined.seq) {
-        throw new Error(`combined object older than the pointer's seq ${pointer.combined.seq}`)
-      }
-      const fresher = (pointer.status.seq ?? pointer.seq) >= cur.index.seq
-      return answer(cur, fresher ? pointer.status : indexStatus(cur))
+  const answer = (s: SectionRead, status: HubStatus): PullResult =>
+    s.json == null
+      ? { seq: null, json: null, status }
+      : { seq: s.seq, json: s.seq === sinceSeq ? null : s.json, status }
+  // A current combined object answers alone (one ranged GET). Anything else (none, inconsistent, older than one
+  // poll) is settled by the pointer, which names the layout the hub publishes now (Codex review A2 r1).
+  const c = await readCombined(src, scope).catch(() => 'inconsistent' as const)
+  if (c && c !== 'inconsistent' && nowMs - c.index.fetchedAt <= freshFor(c.index))
+    return answer(c, indexStatus(c))
+  const pointer = await readPointer(src)
+  if (pointer?.combined) {
+    // Our read may predate the pointer (a publish in between, or the first combined publish): read it again.
+    const cur =
+      c && c !== 'inconsistent' && c.index.seq >= pointer.combined.seq ? c : await readCombined(src, scope)
+    if (!cur || cur.index.seq < pointer.combined.seq) {
+      throw new Error(`combined object older than the pointer's seq ${pointer.combined.seq}`)
     }
+    const fresher = (pointer.status.seq ?? pointer.seq) >= cur.index.seq
+    return answer(cur, fresher ? pointer.status : indexStatus(cur))
   }
+  // Per-mode documents (a hub before the combined object, or one switched back): an abandoned combined object, even
+  // a corrupt one, is ignored.
   return pullDocuments(src, sinceSeq, scope, nowMs)
 }
 
@@ -151,6 +159,17 @@ export const resetRangeHints = () => rangeHints.clear()
  * doesn't match is retried once from the start, then thrown: the caller keeps its copy (stale), never a misparse.
  */
 async function readCombined(src: DataSource, scope: SnapshotScope): Promise<SectionRead | null> {
+  if (!supportsRange(src)) {
+    // One whole read: index and section from the same bytes, so one version (Codex review A2 r1).
+    const all = await readBytes(src, COMBINED_KEY)
+    if (!all) return null
+    const index = parseIndex(all, all.byteLength)
+    const sec = index?.sections[scope as keyof CombinedIndex['sections']]
+    if (index && !sec) return { index, json: null, seq: index.seq }
+    const json = index && sec ? decodeSection(all.subarray(sec[0], sec[0] + sec[1]), sec[2]) : null
+    if (index && sec && json != null) return { index, json, seq: sec[2] }
+    throw new Error(`combined object ${COMBINED_KEY} inconsistent for ${scope}`)
+  }
   for (let attempt = 0; attempt < 2; attempt++) {
     const first = await readRange(src, COMBINED_KEY, 0, rangeHints.get(scope) ?? INDEX_BYTES)
     if (first == null) return null
@@ -174,17 +193,15 @@ async function readCombined(src: DataSource, scope: SnapshotScope): Promise<Sect
   throw new Error(`combined object ${COMBINED_KEY} inconsistent for ${scope}`)
 }
 
-/** A ranged read; a source without range support reads the whole object (one version, so no etag pin needed). */
+/** A ranged read (only on a RangeSource; others read the whole object, see readCombined). */
 async function readRange(
-  src: DataSource,
+  src: DataSource & RangeSource,
   key: string,
   offset: number,
   length: number,
   etag?: string,
 ): Promise<RangeRead | 'changed' | null> {
-  if (supportsRange(src)) return src.getRange(key, offset, length, etag)
-  const all = await readBytes(src, key)
-  return all ? { bytes: all.slice(offset, offset + length), size: all.byteLength, etag: '' } : null
+  return src.getRange(key, offset, length, etag)
 }
 
 /** A combined object is current for one poll (plus slack) after it was written. */

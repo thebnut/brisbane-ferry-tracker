@@ -121,6 +121,12 @@ export interface HubDeps {
   fetchTimeoutMs?: number
   /** Log the phase timings of every poll (RT_PROFILE=1), not just slow ones. */
   profile?: boolean
+  /**
+   * R2 layout of the mode documents (RT_R2_LAYOUT): `documents` (one object per mode, the default) or `combined`
+   * (one object, ranged reads). Readers of this release read both, chosen by the pointer; readers of earlier releases
+   * read only `documents`. So: deploy with `documents`, then switch to `combined`; switch back before rolling back.
+   */
+  layout?: 'documents' | 'combined'
 }
 
 /**
@@ -233,6 +239,7 @@ export class HubCore {
   private r2Pending = false
   private readonly startedAt: number
   private readonly cycleMs: number
+  private readonly layout: 'documents' | 'combined'
   private readonly alarmMs: number
   private lastPollStart = Number.NEGATIVE_INFINITY
   /** Phase timings of the last completed poll (tests, and the log line). */
@@ -244,6 +251,7 @@ export class HubCore {
     this.feeds = feedsFor(d.config)
     this.startedAt = d.now()
     this.cycleMs = d.cycleMs ?? CYCLE_MS
+    this.layout = d.layout ?? 'documents'
     this.alarmMs = Math.min(KEEPALIVE_MS, this.cycleMs)
     this.log = d.log ?? silentLogger
   }
@@ -574,9 +582,12 @@ export class HubCore {
     const seq = this.meta.seq
     if (this.r2Pending) {
       const json = { httpMetadata: { contentType: 'application/json' } }
-      // Per-mode documents (§3.3 split), all in one combined object (an edge isolate still reads only the mode it
-      // serves, with ranged GETs). The object is overwritten in place: R2 PUTs are atomic and readers check its size,
-      // etag and section seqs, so no deletes are needed. Alerts go to a ring slot named by the pointer.
+      // Per-mode documents (§3.3 split). Layout `combined`: all in one object, overwritten in place (an edge isolate
+      // still reads only the mode it serves, with ranged GETs). Layout `documents`: one overwritten
+      // `rt/{mode}/latest.json` per mode. R2 PUTs are atomic and readers check sizes, etags and seqs, so no deletes are
+      // needed. Alerts go to a ring slot named by the pointer.
+      const combined = this.layout === 'combined'
+      const keyFor = (m: Mode) => (combined ? COMBINED_KEY : modeLatestKey(m))
       const docs = splitSnapshot(snap, this.tripModes, this.d.config.modes)
       // One entry per PUT: the scopes it writes and what each will then hold.
       const writes: Array<Array<[SnapshotScope, Published]>> = []
@@ -587,16 +598,22 @@ export class HubCore {
         const body = documentBody(doc)
         const content = documentContent(doc.header, body)
         const prev = this.published.get(m)
-        if (prev?.content === content && prev.json != null) {
-          sections.push({ mode: m, json: prev.json, seq: prev.seq })
+        if (prev?.content === content && prev.key === keyFor(m) && (prev.json != null || !combined)) {
+          if (prev.json != null) sections.push({ mode: m, json: prev.json, seq: prev.seq })
           continue
         }
         const docJson = documentJson(doc.header, body)
         sections.push({ mode: m, json: docJson, seq })
-        changed.push([m, { content, key: COMBINED_KEY, seq, json: docJson }])
+        changed.push([m, { content, key: keyFor(m), seq, ...(combined ? { json: docJson } : {}) }])
       }
       const puts: Promise<unknown>[] = []
-      if (changed.length > 0) {
+      if (!combined) {
+        for (const [m, p] of changed) {
+          const docJson = sections.find((x) => x.mode === m)?.json as string
+          puts.push(this.put(r2, p.key, docJson, json))
+          writes.push([[m, p]])
+        }
+      } else if (changed.length > 0) {
         const head = { seq, sourceTimestamp: snap.header.sourceTimestamp, fetchedAt: snap.header.fetchedAt }
         const bytes = encodeCombined({ ...head, cycleMs: this.cycleMs }, sections)
         puts.push(
@@ -627,7 +644,7 @@ export class HubCore {
           if (r.status !== 'fulfilled') continue
           // A new alerts slot needs the pointer at once, even if this publish fails and the next finds nothing new.
           if (scope === 'alerts') this.alertsMoved = true
-          else this.combinedSeq = seq
+          else if (combined) this.combinedSeq = seq
         }
       })
       const failed = settled.find((r) => r.status === 'rejected')
@@ -639,13 +656,19 @@ export class HubCore {
       this.pointerOwed = true
       return
     }
-    // Modes are named only through `combined`: a reader that predates it finds no per-mode entry (no snapshot for a
-    // minute, during a rollback) rather than a key it can't parse.
+    // The pointer names the layout readers should use. `combined`: modes only through `combined`, so a reader that
+    // predates it finds no per-mode entry rather than a key it can't parse (hence the RT_R2_LAYOUT switch-over, see
+    // HubDeps.layout). `documents`: each mode's latest object, as before.
     const files: NonNullable<R2Pointer['files']> = {}
-    const alertsDoc = this.published.get('alerts')
-    if (alertsDoc) files.alerts = { key: alertsDoc.key, seq: alertsDoc.seq }
+    for (const [scope, p] of this.published) {
+      if (scope === 'alerts' || (this.layout === 'documents' && this.d.config.modes.includes(scope))) {
+        files[scope] = { key: p.key, seq: p.seq }
+      }
+    }
     const pointer: R2Pointer = { seq, files, fetchedAt: now, status: this.status() }
-    if (this.combinedSeq > 0) pointer.combined = { key: COMBINED_KEY, seq: this.combinedSeq }
+    if (this.layout === 'combined' && this.combinedSeq > 0) {
+      pointer.combined = { key: COMBINED_KEY, seq: this.combinedSeq }
+    }
     await this.put(r2, R2_LATEST_KEY, JSON.stringify(pointer), {
       httpMetadata: { contentType: 'application/json', cacheControl: 'no-store' },
     })

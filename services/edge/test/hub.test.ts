@@ -79,7 +79,7 @@ function toLegacyLayout(r2: FakeR2) {
 const TU = 'TripUpdates/Ferry'
 const VP = 'VehiclePositions/Ferry'
 
-function setup(opts: { modes?: string; r2?: FakeR2 } = {}) {
+function setup(opts: { modes?: string; r2?: FakeR2; layout?: 'documents' | 'combined' } = {}) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   const tree = buildTree()
   const up = new FakeUpstream()
@@ -94,6 +94,7 @@ function setup(opts: { modes?: string; r2?: FakeR2 } = {}) {
       upstream: 'https://up.test/api/realtime/SEQ',
       fetchTimeoutMs: 50,
       r2: opts.r2,
+      layout: opts.layout ?? 'combined',
     })
   const nowS = () => Math.floor(clock.t / 1000)
   up.set(
@@ -966,6 +967,59 @@ describe('Codex review regressions', () => {
     await fresh.cycle()
     expect((await fresh.pull(null)).seq).toBeGreaterThan(ptr.seq)
     expect(combinedOf(r2)?.index.seq).toBeGreaterThan(ptr.seq) // rewritten whole
+  })
+
+  it('RT_R2_LAYOUT: documents by default (as #97), and a switch to combined and back keeps every reader served', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2, modes: 'ferry,train', layout: 'documents' })
+    await warm(h)
+    // Default layout: per-mode objects named by the pointer, no combined object (readers of #97 keep working).
+    const ptr = JSON.parse(dec(r2.files.get('rt/latest.json')))
+    expect(Object.keys(ptr.files).sort()).toEqual(['alerts', 'ferry', 'train'])
+    expect(ptr.combined).toBeUndefined()
+    expect(r2.files.has(COMBINED_KEY)).toBe(false)
+    const read = async (at: number) =>
+      (await pullFromR2(new MemoryDataSource(r2.files), null, 'ferry', at)).json
+    expect(RtSnapshot.parse(JSON.parse((await read(h.clock.t)) as string)).trips).toHaveProperty(`T1@${D}`)
+    // Switch to combined (a deploy with RT_R2_LAYOUT=combined: a fresh hub instance on the same storage).
+    const mk = (layout: 'documents' | 'combined') =>
+      new HubCore({
+        storage: h.storage,
+        fetch: h.up.fetch,
+        now: h.clock.now,
+        store: storeFor(h.tree, h.clock.now),
+        config: parseRtModes('ferry,train'),
+        upstream: 'https://up.test/api/realtime/SEQ',
+        fetchTimeoutMs: 50,
+        r2,
+        layout,
+      })
+    const combined = mk('combined')
+    for (let i = 0; i < 3; i++) {
+      h.clock.advance(CYCLE_MS)
+      h.up.set(TU, feed(h.nowS(), []))
+      h.up.set(VP, feed(h.nowS(), [vehicle('V1', 'T1', D, -27.45, 153.05 + i / 1e4)]))
+      await combined.cycle()
+      // Every poll, a reader at that moment and one a minute later get the ferry document.
+      expect(await read(h.clock.t)).not.toBeNull()
+      expect(await read(h.clock.t + 60_000)).not.toBeNull()
+    }
+    expect(JSON.parse(dec(r2.files.get('rt/latest.json'))).combined.key).toBe(COMBINED_KEY)
+    // And back (switch to documents before a rollback): the pointer drops `combined`, the stale object is ignored.
+    const back = mk('documents')
+    for (let i = 0; i < 3; i++) {
+      h.clock.advance(CYCLE_MS)
+      h.up.set(VP, feed(h.nowS(), [vehicle('V1', 'T1', D, -27.45, 153.06 + i / 1e4)]))
+      await back.cycle()
+      expect(await read(h.clock.t)).not.toBeNull()
+      expect(await read(h.clock.t + 60_000)).not.toBeNull()
+    }
+    const last = JSON.parse(dec(r2.files.get('rt/latest.json')))
+    expect(last.combined).toBeUndefined()
+    const got = JSON.parse((await read(h.clock.t + 60_000)) as string)
+    // The per-mode object may be newer than the pointer's heartbeat; it is the newest content either way.
+    expect(got.header.seq).toBeGreaterThanOrEqual(last.files.ferry.seq)
+    expect(got.vehicles[0].lon).toBeCloseTo(153.06 + 2 / 1e4, 4)
   })
 
   it('combined: readers accept the old per-mode layout (deploy or rollback) and the new one, chosen by the pointer', async () => {
