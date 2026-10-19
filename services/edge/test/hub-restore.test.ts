@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { COMBINED_KEY, parseIndex } from '../src/rt/combined.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
 import { CYCLE_MS, HubCore, modeLatestKey, R2_LATEST_KEY, snapshotSeq } from '../src/rt/hub-core.ts'
 import {
@@ -38,7 +39,9 @@ class GatedR2 {
   }
   async put(key: string, value: Uint8Array | string) {
     const text = typeof value === 'string' ? value : new TextDecoder().decode(value)
-    this.puts.push(`${key}@${key === R2_LATEST_KEY ? JSON.parse(text).seq : snapshotSeq(text)}`)
+    this.puts.push(
+      `${key}@${key === R2_LATEST_KEY ? JSON.parse(text).seq : key === COMBINED_KEY ? combinedSeq(text) : snapshotSeq(text)}`,
+    )
     this.files.set(key, text)
   }
   async get(key: string) {
@@ -53,10 +56,13 @@ class GatedR2 {
   }
 }
 
+/** The index seq of a combined object held as text (it is JSON and spaces throughout). */
+const combinedSeq = (text: string) => parseIndex(new TextEncoder().encode(text), undefined)?.seq ?? null
+
 const TU = 'TripUpdates/Ferry'
 const VP = 'VehiclePositions/Ferry'
 
-function setup(modes = 'ferry') {
+function setup(modes = 'ferry', layout: 'documents' | 'combined' = 'documents') {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   const tree = buildTree()
   const up = new FakeUpstream()
@@ -72,6 +78,7 @@ function setup(modes = 'ferry') {
       upstream: 'https://up.test/api/realtime/SEQ',
       fetchTimeoutMs: 50,
       r2,
+      layout,
     })
   const nowS = () => Math.floor(clock.t / 1000)
   /** New feed content, so the next cycle rebuilds (and publishes) a new seq. */
@@ -105,15 +112,17 @@ const ferryPuts = (r2: GatedR2) =>
   r2.puts.filter((p) => p.startsWith(`${modeLatestKey('ferry')}@`)).map((p) => Number(p.split('@')[1]))
 
 /** A hub that has published a few seqs, then a fresh instance (eviction or deploy) over the same storage and R2. */
-async function restarted(modes = 'ferry') {
-  const h = setup(modes)
+async function restarted(modes = 'ferry', layout: 'documents' | 'combined' = 'documents') {
+  const h = setup(modes, layout)
   const first = h.mk()
   for (let i = 1; i <= 3; i++) {
     h.change(i)
     await first.alarm()
     h.clock.advance(CYCLE_MS)
   }
-  const published = docSeq(h.r2) as number
+  const published = (
+    layout === 'combined' ? combinedSeq(h.r2.files.get(COMBINED_KEY) as string) : docSeq(h.r2)
+  ) as number
   expect(published).toBeGreaterThan(0)
   h.change(10)
   return { ...h, published, hub: h.mk() }
@@ -269,5 +278,62 @@ describe('RtHub restore: one shared in-flight restore (Codex r1/r2 on #96)', () 
     storage.data.clear()
     await hub.alarm()
     expect(docSeq(r2)).toBe(published + 6)
+  })
+})
+
+describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {
+  const objSeq = (r2: GatedR2) => combinedSeq(r2.files.get(COMBINED_KEY) as string)
+
+  it('a cycle during a restore held on the combined object waits for it, then publishes past it', async () => {
+    const { r2, hub, published } = await restarted('ferry', 'combined')
+    expect(JSON.parse(r2.files.get(R2_LATEST_KEY) as string).combined.key).toBe(COMBINED_KEY)
+    const putsBefore = r2.puts.length
+    const release = r2.hold(COMBINED_KEY)
+    const pull = hub.pull(null)
+    const alarm = hub.alarm()
+    await settle()
+    expect(r2.puts.length).toBe(putsBefore)
+    expect(hub.status().seq).toBeNull()
+    release()
+    const [pulled] = await Promise.all([pull, alarm])
+    expect(pulled.seq).toBe(published)
+    expect(objSeq(r2)).toBe(published + 1)
+    expect((await hub.pull(null)).seq).toBe(published + 1)
+    // The first publish after the restore rewrites the combined object, the alerts slot and the pointer, pointer last.
+    const after = r2.puts.slice(putsBefore).map((p) => p.split('@')[0] as string)
+    expect(after).toEqual(expect.arrayContaining([COMBINED_KEY, R2_LATEST_KEY]))
+    expect(after.some((k) => k.startsWith('rt/alerts/'))).toBe(true)
+    expect(after.at(-1)).toBe(R2_LATEST_KEY)
+  })
+
+  it('the restore cannot overwrite a newer state (held on the alerts slot after reading the object)', async () => {
+    const { r2, hub, published } = await restarted('ferry', 'combined')
+    const pointer = JSON.parse(r2.files.get(R2_LATEST_KEY) as string)
+    const release = r2.hold(pointer.files.alerts.key)
+    const pull = hub.pull(null)
+    await settle()
+    const alarm = hub.alarm()
+    await settle()
+    release()
+    await Promise.all([pull, alarm])
+    const now = await hub.pull(null)
+    expect(now.seq).toBe(published + 1)
+    expect(JSON.parse(now.json as string).header.seq).toBe(published + 1)
+  })
+
+  it('an unusable combined object still contributes its index seq (never reuse a published seq)', async () => {
+    const { r2, hub, storage, published } = await restarted('ferry', 'combined')
+    // The object is ahead of the pointer and one section is corrupt; the object's own storage is lost.
+    const text = r2.files.get(COMBINED_KEY) as string
+    const index = text
+      .slice(0, 1024)
+      .trimEnd()
+      .replace(`"seq":${published},`, `"seq":${published + 5},`)
+    const body = text.slice(1024).replace('{"header"', 'X"header"')
+    r2.files.set(COMBINED_KEY, index.padEnd(1024, ' ') + body)
+    storage.data.clear()
+    expect((await hub.pull(null)).seq).toBeNull()
+    await hub.alarm()
+    expect(objSeq(r2)).toBe(published + 6)
   })
 })

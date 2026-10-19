@@ -5,7 +5,8 @@ import { createApp } from '../src/app.ts'
 import { MemoryDataSource } from '../src/data/source.ts'
 import { FeedMessageSchema } from '../src/gen/gtfs-realtime_pb.js'
 import { silentLogger } from '../src/log.ts'
-import { pullFromR2 } from '../src/r2-snapshots.ts'
+import { pullFromR2, resetRangeHints } from '../src/r2-snapshots.ts'
+import { COMBINED_KEY, decodeCombined, encodeCombined } from '../src/rt/combined.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
 import {
   ALERTS_EVERY_MS,
@@ -51,10 +52,34 @@ class FakeR2 {
   }
 }
 
+const dec = (b: Uint8Array | undefined) => new TextDecoder().decode(b)
+const combinedOf = (r2: FakeR2) => decodeCombined(r2.files.get(COMBINED_KEY) as Uint8Array)
+/** One mode's document JSON, from the combined object. */
+const modeJson = (r2: FakeR2, m: string) => combinedOf(r2)?.docs.find((d) => d.mode === m)?.json as string
+const modeDoc = (r2: FakeR2, m: string) => JSON.parse(modeJson(r2, m))
+/** Rewrite one mode's document inside the combined object (the index keeps naming the same seqs). */
+function setModeDoc(r2: FakeR2, m: string, doc: unknown) {
+  const c = combinedOf(r2) as NonNullable<ReturnType<typeof combinedOf>>
+  const sections = c.docs.map((d) => (d.mode === m ? { ...d, json: JSON.stringify(doc) } : d))
+  r2.files.set(COMBINED_KEY, encodeCombined(c.index, sections))
+}
+/** Leave R2 as a hub from before the combined object would have: per-mode latest documents named by the pointer. */
+function toLegacyLayout(r2: FakeR2) {
+  const c = combinedOf(r2) as NonNullable<ReturnType<typeof combinedOf>>
+  const ptr = JSON.parse(dec(r2.files.get('rt/latest.json')))
+  for (const d of c.docs) {
+    r2.files.set(modeLatestKey(d.mode), new TextEncoder().encode(d.json))
+    ptr.files[d.mode] = { key: modeLatestKey(d.mode), seq: d.seq }
+  }
+  delete ptr.combined
+  r2.files.delete(COMBINED_KEY)
+  r2.files.set('rt/latest.json', new TextEncoder().encode(JSON.stringify(ptr)))
+}
+
 const TU = 'TripUpdates/Ferry'
 const VP = 'VehiclePositions/Ferry'
 
-function setup(opts: { modes?: string; r2?: FakeR2 } = {}) {
+function setup(opts: { modes?: string; r2?: FakeR2; layout?: 'documents' | 'combined' } = {}) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   const tree = buildTree()
   const up = new FakeUpstream()
@@ -69,6 +94,7 @@ function setup(opts: { modes?: string; r2?: FakeR2 } = {}) {
       upstream: 'https://up.test/api/realtime/SEQ',
       fetchTimeoutMs: 50,
       r2: opts.r2,
+      layout: opts.layout ?? 'combined',
     })
   const nowS = () => Math.floor(clock.t / 1000)
   up.set(
@@ -395,29 +421,39 @@ describe('RtHub R2 publish', () => {
     const h = setup({ r2 })
     await warm(h)
     const seq = (await h.hub.pull(null)).seq as number
-    // Per-mode document, the alerts document (alerts changed), then the pointer.
+    // The combined mode object, the alerts document (alerts changed), then the pointer.
     expect(r2.ops.slice(-3)).toEqual([
-      `put:${modeLatestKey('ferry')}`,
+      `put:${COMBINED_KEY}`,
       `put:${scopeKey('alerts', seq)}`,
       'put:rt/latest.json',
     ])
+    resetRangeHints()
     const src = new MemoryDataSource(r2.files)
-    const writtenAt = JSON.parse(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry')))).header
-      .fetchedAt
+    const writtenAt = combinedOf(r2)?.index.fetchedAt as number
     const a = await pullFromR2(src, null, 'ferry', writtenAt)
     expect(a.seq).toBe(seq)
     expect(RtSnapshot.parse(JSON.parse(a.json as string)).header.seq).toBe(seq)
     expect(a.status.stats?.ferry?.matched).toBe(1)
+    // A cold isolate: the per-mode probe misses and the pointer names the combined object; then the index and its
+    // section (pinned to the same object version).
+    expect(src.reads).toEqual([
+      modeLatestKey('ferry'),
+      'rt/latest.json',
+      `${COMBINED_KEY}@0+1024`,
+      expect.stringMatching(/^rt\/modes\/combined\.dat@\d+\+\d+$/),
+    ])
     const reads = src.reads.length
     const b = await pullFromR2(src, seq, 'ferry', writtenAt + 5_000)
     expect(b.json).toBeNull()
-    // Single-read refresh: a fresh mode object is one GET, with no pointer read first.
-    expect(src.reads.slice(reads)).toEqual([modeLatestKey('ferry')])
-    // An object older than DIRECT_FRESH_MS (content unchanged for a while): one pointer read for the status, and the
-    // object already read is reused.
+    // Warm: one ranged GET covering the index and the ferry section, with no pointer read.
+    expect(src.reads.slice(reads)).toEqual([expect.stringMatching(/^rt\/modes\/combined\.dat@0\+\d+$/)])
+    // An object older than one poll (content unchanged for a while): one pointer read for the status.
     const c = await pullFromR2(src, seq, 'ferry', writtenAt + 60_000)
     expect(c).toMatchObject({ seq, json: null })
-    expect(src.reads.slice(reads + 1)).toEqual([modeLatestKey('ferry'), 'rt/latest.json'])
+    expect(src.reads.slice(reads + 1)).toEqual([
+      expect.stringMatching(/^rt\/modes\/combined\.dat@0\+\d+$/),
+      'rt/latest.json',
+    ])
   })
 
   it('keeps the snapshot only in R2 (not DO storage) and restores it from R2 after a restart', async () => {
@@ -442,8 +478,10 @@ describe('RtHub R2 publish', () => {
       await h.hub.alarm()
       h.clock.advance(CYCLE_MS)
     }
-    // Modes: one overwritten object each. Alerts: a ring of at most R2_KEEP_SNAPSHOTS. Nothing is deleted.
-    expect([...r2.files.keys()].filter((k) => k.startsWith('rt/ferry/'))).toEqual([modeLatestKey('ferry')])
+    // Modes: one overwritten combined object. Alerts: a ring of at most R2_KEEP_SNAPSHOTS. Nothing is deleted.
+    expect(
+      [...r2.files.keys()].filter((k) => k.startsWith('rt/ferry/') || k.startsWith('rt/modes/')),
+    ).toEqual([COMBINED_KEY])
     const alertSlots = [...r2.files.keys()].filter((k) => k.startsWith('rt/alerts/')).length
     expect(alertSlots).toBeLessThanOrEqual(R2_KEEP_SNAPSHOTS)
     expect(alertSlots).toBeGreaterThan(R2_KEEP_SNAPSHOTS / 8) // alerts move every 4th poll here
@@ -451,7 +489,7 @@ describe('RtHub R2 publish', () => {
     const seq = (await h.hub.pull(null)).seq as number
     expect(seq).toBeGreaterThan(R2_KEEP_SNAPSHOTS)
     expect(scopeKey('alerts', seq)).toBe(`rt/alerts/snapshot-${seq % R2_KEEP_SNAPSHOTS}.json`)
-    const doc = JSON.parse(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry'))))
+    const doc = modeDoc(r2, 'ferry')
     expect(doc.header.seq).toBe(seq)
   })
 
@@ -511,7 +549,7 @@ describe('Codex review regressions', () => {
     h.up.set(TU, feed(h.nowS(), []))
     await fresh.cycle()
     expect((await fresh.pull(null)).seq).toBe(published + 1)
-    expect(snapshotSeq(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry'))))).toBe(published + 1)
+    expect(snapshotSeq(modeJson(r2, 'ferry'))).toBe(published + 1)
   })
 
   it('#3 a failed R2 publish is retried on the next cycle even when feeds are unchanged', async () => {
@@ -524,14 +562,14 @@ describe('Codex review regressions', () => {
     const seq = (await h.hub.pull(null)).seq as number
     r2.fail = false
     await h.hub.cycle() // all 304s, nothing rebuilt
-    expect(snapshotSeq(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry'))))).toBe(seq)
+    expect(snapshotSeq(modeJson(r2, 'ferry'))).toBe(seq)
     expect(h.hub.status().lastError).toBeNull()
     // The pointer follows within its heartbeat, still with nothing rebuilt.
     h.clock.advance(POINTER_HEARTBEAT_MS)
     await h.hub.cycle()
     const pointer = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
     expect(pointer.seq).toBe(seq)
-    expect(pointer.files.ferry.seq).toBe(seq)
+    expect(pointer.combined.seq).toBe(seq)
   })
 
   it('#2 a DUPLICATED trip takes its identity and start time from TripProperties', async () => {
@@ -675,10 +713,9 @@ describe('Codex review regressions', () => {
     )
     await h.hub.cycle()
     // Rewrite the published snapshot as an older build would have: no gen on the record.
-    const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
-    const old = JSON.parse(new TextDecoder().decode(r2.files.get(ptr.files.ferry.key)))
+    const old = modeDoc(r2, 'ferry')
     delete old.trips[`T2@${D}`].gen
-    r2.files.set(ptr.files.ferry.key, new TextEncoder().encode(JSON.stringify(old)))
+    setModeDoc(r2, 'ferry', old)
     for (let restart = 0; restart < 2; restart++) {
       const fresh = h.mk()
       for (let i = 0; i < 3; i++) {
@@ -696,9 +733,11 @@ describe('Codex review regressions', () => {
     const h = setup({ r2, modes: 'ferry,train' })
     await warm(h)
     const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
-    expect(Object.keys(ptr.files).sort()).toEqual(['alerts', 'ferry', 'train'])
-    const ferry = RtSnapshot.parse(JSON.parse(new TextDecoder().decode(r2.files.get(ptr.files.ferry.key))))
-    const train = RtSnapshot.parse(JSON.parse(new TextDecoder().decode(r2.files.get(ptr.files.train.key))))
+    expect(Object.keys(ptr.files)).toEqual(['alerts'])
+    expect(ptr.combined.key).toBe(COMBINED_KEY)
+    expect(Object.keys(combinedOf(r2)?.index.sections ?? {}).sort()).toEqual(['ferry', 'train'])
+    const ferry = RtSnapshot.parse(modeDoc(r2, 'ferry'))
+    const train = RtSnapshot.parse(modeDoc(r2, 'train'))
     expect(Object.keys(ferry.trips)).toEqual([`T1@${D}`])
     expect(ferry.vehicles.map((v) => v.id)).toEqual(['V1'])
     expect(train.trips).toEqual({})
@@ -773,12 +812,11 @@ describe('Codex review regressions', () => {
     const r2 = new FakeR2()
     const h = setup({ r2, modes: 'ferry,train' })
     await warm(h)
-    const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
     const orphan = { key: `X9@${D}`, rel: 'CANCELED', ts: 1, until: h.nowS() + 3600, gen: 'g1', updates: [] }
     for (const m of ['ferry', 'train']) {
-      const doc = JSON.parse(new TextDecoder().decode(r2.files.get(ptr.files[m].key)))
+      const doc = modeDoc(r2, m)
       doc.trips[orphan.key] = orphan
-      r2.files.set(ptr.files[m].key, new TextEncoder().encode(JSON.stringify(doc)))
+      setModeDoc(r2, m, doc)
     }
     const fresh = h.mk()
     for (const m of ['ferry', 'train'] as const) {
@@ -862,7 +900,7 @@ describe('Codex review regressions', () => {
     r2.put = realPut
     expect(pointerTries).toBe(1)
     const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
-    const modeSeq = snapshotSeq(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry'))))
+    const modeSeq = snapshotSeq(modeJson(r2, 'ferry'))
     expect(modeSeq).toBe((await h.hub.pull(null)).seq) // written in the failed publish
     expect(modeSeq).toBeGreaterThan(ptr.seq) // and newer than the pointer
     const fresh = h.mk()
@@ -880,6 +918,8 @@ describe('Codex review regressions', () => {
     const r2 = new FakeR2()
     const h = setup({ r2 })
     await warm(h)
+    toLegacyLayout(r2) // a hub from before the combined object
+    resetRangeHints() // a fresh isolate (no layout learned from earlier tests)
     const latest = JSON.parse(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry'))))
     // An older ring publisher now writes rt/ferry/snapshot-{slot} + a pointer naming it; latest.json is abandoned.
     const seq = latest.header.seq + 5
@@ -899,7 +939,7 @@ describe('Codex review regressions', () => {
     expect((await pullFromR2(src, null, 'ferry', latest.header.fetchedAt + 60_000)).seq).toBe(seq)
   })
 
-  it('single-read review: the pointer fallback accepts a partially published (newer) mode object', async () => {
+  it('combined: the pointer fallback accepts a combined object written after the pointer (partial publish)', async () => {
     const r2 = new FakeR2()
     const h = setup({ r2 })
     await warm(h)
@@ -908,39 +948,130 @@ describe('Codex review regressions', () => {
       if (key === 'rt/latest.json') throw new Error('r2 down')
       return realPut(key, value)
     }
-    h.clock.advance(CYCLE_MS)
+    h.clock.advance(POINTER_HEARTBEAT_MS)
     h.up.set(TU, feed(h.nowS(), []))
     await h.hub.cycle()
-    const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
-    const doc = JSON.parse(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry'))))
-    expect(doc.header.seq).toBe(ptr.seq + 1)
-    // Past the direct-read freshness window the reader takes the pointer path, and still gets the newer object.
-    const r = await pullFromR2(new MemoryDataSource(r2.files), null, 'ferry', doc.header.fetchedAt + 60_000)
-    expect(r.seq).toBe(ptr.seq + 1)
-    // A warm reader holding the pointer's seq also gets the newer object, with its header status.
-    const warmR = await pullFromR2(
-      new MemoryDataSource(r2.files),
-      ptr.seq,
-      'ferry',
-      doc.header.fetchedAt + 60_000,
-    )
-    expect(warmR.seq).toBe(ptr.seq + 1)
-    expect(warmR.json).not.toBeNull()
-    expect(warmR.status.seq).toBe(ptr.seq + 1)
-    // And a reader already on the newer seq is told nothing changed.
-    const same = await pullFromR2(
-      new MemoryDataSource(r2.files),
-      ptr.seq + 1,
-      'ferry',
-      doc.header.fetchedAt + 60_000,
-    )
-    expect(same).toMatchObject({ seq: ptr.seq + 1, json: null })
+    r2.put = realPut
+    const ptr = JSON.parse(dec(r2.files.get('rt/latest.json')))
+    const index = combinedOf(r2)?.index as NonNullable<ReturnType<typeof combinedOf>>['index']
+    expect(index.seq).toBeGreaterThan(ptr.combined.seq)
+    const newSeq = index.sections.ferry?.[2] as number
+    // Past one poll the reader consults the pointer, and still takes the newer object, with its own status.
+    const at = index.fetchedAt + 60_000
+    const r = await pullFromR2(new MemoryDataSource(r2.files), null, 'ferry', at)
+    expect(r.seq).toBe(newSeq)
+    expect(r.status.seq).toBe(index.seq)
+    const same = await pullFromR2(new MemoryDataSource(r2.files), newSeq, 'ferry', at)
+    expect(same).toMatchObject({ seq: newSeq, json: null })
+  })
+
+  it('combined: a truncated object at restore is not misparsed; the hub restarts clean past every seq', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2 })
+    await warm(h)
+    const ptr = JSON.parse(dec(r2.files.get('rt/latest.json')))
+    const whole = r2.files.get(COMBINED_KEY) as Uint8Array
+    r2.files.set(COMBINED_KEY, whole.slice(0, whole.byteLength - 40))
+    const fresh = h.mk()
+    const restored = await fresh.pull(null)
+    expect(restored.json).toBeNull()
+    h.clock.advance(CYCLE_MS)
+    h.up.set(TU, feed(h.nowS(), []))
+    await fresh.cycle()
+    expect((await fresh.pull(null)).seq).toBeGreaterThan(ptr.seq)
+    expect(combinedOf(r2)?.index.seq).toBeGreaterThan(ptr.seq) // rewritten whole
+  })
+
+  it('RT_R2_LAYOUT: documents by default (as #97), and a switch to combined and back keeps every reader served', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2, modes: 'ferry,train', layout: 'documents' })
+    await warm(h)
+    // Default layout: per-mode objects named by the pointer, no combined object (readers of #97 keep working).
+    const ptr = JSON.parse(dec(r2.files.get('rt/latest.json')))
+    expect(Object.keys(ptr.files).sort()).toEqual(['alerts', 'ferry', 'train'])
+    expect(ptr.combined).toBeUndefined()
+    expect(r2.files.has(COMBINED_KEY)).toBe(false)
+    const read = async (at: number) =>
+      (await pullFromR2(new MemoryDataSource(r2.files), null, 'ferry', at)).json
+    expect(RtSnapshot.parse(JSON.parse((await read(h.clock.t)) as string)).trips).toHaveProperty(`T1@${D}`)
+    // Switch to combined (a deploy with RT_R2_LAYOUT=combined: a fresh hub instance on the same storage).
+    const mk = (layout: 'documents' | 'combined') =>
+      new HubCore({
+        storage: h.storage,
+        fetch: h.up.fetch,
+        now: h.clock.now,
+        store: storeFor(h.tree, h.clock.now),
+        config: parseRtModes('ferry,train'),
+        upstream: 'https://up.test/api/realtime/SEQ',
+        fetchTimeoutMs: 50,
+        r2,
+        layout,
+      })
+    const combined = mk('combined')
+    for (let i = 0; i < 3; i++) {
+      h.clock.advance(CYCLE_MS)
+      h.up.set(TU, feed(h.nowS(), []))
+      h.up.set(VP, feed(h.nowS(), [vehicle('V1', 'T1', D, -27.45, 153.05 + i / 1e4)]))
+      await combined.cycle()
+      // Every poll, a reader at that moment and one a minute later get the ferry document.
+      expect(await read(h.clock.t)).not.toBeNull()
+      expect(await read(h.clock.t + 60_000)).not.toBeNull()
+    }
+    expect(JSON.parse(dec(r2.files.get('rt/latest.json'))).combined.key).toBe(COMBINED_KEY)
+    // And back (switch to documents before a rollback): the pointer drops `combined`, the stale object is ignored.
+    const back = mk('documents')
+    for (let i = 0; i < 3; i++) {
+      h.clock.advance(CYCLE_MS)
+      h.up.set(VP, feed(h.nowS(), [vehicle('V1', 'T1', D, -27.45, 153.06 + i / 1e4)]))
+      await back.cycle()
+      expect(await read(h.clock.t)).not.toBeNull()
+      expect(await read(h.clock.t + 60_000)).not.toBeNull()
+    }
+    const last = JSON.parse(dec(r2.files.get('rt/latest.json')))
+    expect(last.combined).toBeUndefined()
+    const got = JSON.parse((await read(h.clock.t + 60_000)) as string)
+    // The per-mode object may be newer than the pointer's heartbeat; it is the newest content either way.
+    expect(got.header.seq).toBeGreaterThanOrEqual(last.files.ferry.seq)
+    expect(got.vehicles[0].lon).toBeCloseTo(153.06 + 2 / 1e4, 4)
+  })
+
+  it('combined: readers accept the old per-mode layout (deploy or rollback) and the new one, chosen by the pointer', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2, modes: 'ferry,train' })
+    await warm(h)
+    const seq = (await h.hub.pull(null, 'ferry')).seq as number
+    const at = combinedOf(r2)?.index.fetchedAt as number
+    const src = () => new MemoryDataSource(r2.files)
+    const fresh = await pullFromR2(src(), null, 'ferry', at)
+    // The old layout only (an older hub's documents, no combined object): read as before.
+    const saved = new Map(r2.files)
+    toLegacyLayout(r2)
+    const legacy = await pullFromR2(src(), null, 'ferry', at)
+    expect(legacy.seq).toBe(fresh.seq)
+    expect(legacy.json).toBe(fresh.json)
+    // A hub that went back to per-mode documents leaves a stale combined object behind: the pointer has no
+    // `combined`, so once the object is older than a poll, readers take the per-mode documents.
+    const legacyFiles = new Map(r2.files)
+    for (const [k, v] of saved) if (k === COMBINED_KEY) r2.files.set(k, v)
+    const newer = { ...modeDoc(r2, 'ferry'), header: { ...modeDoc(r2, 'ferry').header, seq: seq + 9 } }
+    r2.files.set(modeLatestKey('ferry'), new TextEncoder().encode(JSON.stringify(newer)))
+    const ptr = JSON.parse(dec(legacyFiles.get('rt/latest.json')))
+    ptr.seq = seq + 9
+    ptr.files.ferry = { key: modeLatestKey('ferry'), seq: seq + 9 }
+    r2.files.set('rt/latest.json', new TextEncoder().encode(JSON.stringify(ptr)))
+    expect((await pullFromR2(src(), null, 'ferry', at + 60_000)).seq).toBe(seq + 9)
+    // And restore reads the old layout too.
+    const restored = await h.mk().pull(null, 'train')
+    expect(restored.json).not.toBeNull()
   })
 })
 
 describe('R2 PUT budget: unchanged documents and the pointer are not rewritten', () => {
   const VPR = 'VehiclePositions/Rail'
-  const text = (r2: FakeR2, key: string) => new TextDecoder().decode(r2.files.get(key))
+  /** A mode's document (its section of the combined object) or any other object, as text. */
+  const isModeKey = (key: string) => /^rt\/[a-z]+\/latest\.json$/.test(key)
+  const text = (r2: FakeR2, key: string) =>
+    isModeKey(key) ? modeJson(r2, key.split('/')[1] as string) : new TextDecoder().decode(r2.files.get(key))
   const docSeq = (r2: FakeR2, key: string) => snapshotSeq(text(r2, key))
   /** A vehicle report stamped with its own time (as TransLink's are), so only a move changes it. */
   const at = (n: number, id: string, tripId: string, lat: number, lon: number) =>
@@ -978,7 +1109,8 @@ describe('R2 PUT budget: unchanged documents and the pointer are not rewritten',
     expect(r2.ops).toEqual([])
     expect(h.hub.lastTimings?.r2Puts).toBe(0)
     await poll(h, { train: 1 })
-    expect(r2.ops).toEqual([`put:${trainKey}`])
+    // One combined object; the ferry section in it is carried over unchanged, with its older seq.
+    expect(r2.ops).toEqual([`put:${COMBINED_KEY}`])
     expect(docSeq(r2, trainKey)).toBe((await h.hub.pull(null)).seq)
     expect(docSeq(r2, ferryKey)).toBe(ferrySeq)
     // The train document carries only train content; ferry still serves its older document.
@@ -1002,11 +1134,7 @@ describe('R2 PUT budget: unchanged documents and the pointer are not rewritten',
     await poll(h)
     const seq = (await h.hub.pull(null)).seq as number
     // The alerts slot first (the ferry document too: its alerts changed), the pointer last, at once.
-    expect(r2.ops).toEqual([
-      `put:${modeLatestKey('ferry')}`,
-      `put:${scopeKey('alerts', seq)}`,
-      'put:rt/latest.json',
-    ])
+    expect(r2.ops).toEqual([`put:${COMBINED_KEY}`, `put:${scopeKey('alerts', seq)}`, 'put:rt/latest.json'])
     const ptr2 = JSON.parse(text(r2, 'rt/latest.json'))
     expect(ptr2.files.alerts).toEqual({ key: scopeKey('alerts', seq), seq })
     expect(ptr2.files.alerts.seq).not.toBe(ptr.files.alerts.seq)
@@ -1021,7 +1149,7 @@ describe('R2 PUT budget: unchanged documents and the pointer are not rewritten',
       if (key === 'rt/latest.json') expect(inflight).toBe(0)
       inflight++
       // Documents finish in reverse order of starting, slowly.
-      await new Promise((r) => setTimeout(r, key.includes('ferry') ? 15 : 5))
+      await new Promise((r) => setTimeout(r, key === COMBINED_KEY ? 15 : 5))
       inflight--
       order.push(key)
       return realPut(key, value)
@@ -1037,8 +1165,9 @@ describe('R2 PUT budget: unchanged documents and the pointer are not rewritten',
     const ptr = JSON.parse(text(r2, 'rt/latest.json'))
     const seq = (await h.hub.pull(null)).seq as number
     expect(ptr.seq).toBe(seq)
-    expect(ptr.files.ferry).toEqual({ key: modeLatestKey('ferry'), seq })
-    expect(ptr.files.train).toEqual({ key: modeLatestKey('train'), seq })
+    expect(ptr.combined).toEqual({ key: COMBINED_KEY, seq })
+    expect(combinedOf(r2)?.index.sections.ferry?.[2]).toBe(seq)
+    expect(combinedOf(r2)?.index.sections.train?.[2]).toBe(seq)
   })
 
   it('a pointer skipped by a publish is written on its heartbeat even when nothing is rebuilt', async () => {
@@ -1051,7 +1180,7 @@ describe('R2 PUT budget: unchanged documents and the pointer are not rewritten',
     expect(h.hub.lastTimings?.rebuilt).toBe(false)
     const ptr = JSON.parse(text(r2, 'rt/latest.json'))
     expect(ptr.seq).toBe(seq)
-    expect(ptr.files.train.seq).toBe(seq)
+    expect(ptr.combined.seq).toBe(seq)
     r2.ops.length = 0
     h.clock.advance(POINTER_HEARTBEAT_MS)
     await h.hub.cycle() // nothing owed: nothing written
@@ -1112,37 +1241,42 @@ describe('R2 PUT budget: unchanged documents and the pointer are not rewritten',
     expect(health.rt.sourceTimestamp).toBe(source)
   })
 
-  it('a partial failure keeps what was written (Codex review A r1): no stale skip on reversion, no redundant PUT', async () => {
+  it('a failed combined PUT forgets the modes it changed (Codex review A r1): no stale skip, no older seq', async () => {
     const { r2, h } = await warmed()
     const ferryKey = modeLatestKey('ferry')
-    const trainKey = modeLatestKey('train')
     await poll(h, { ferry: 1, train: 1 }) // content A for ferry
+    const ferryA = docSeq(r2, ferryKey) as number
     const realPut = r2.put.bind(r2)
     r2.put = async (key: string, value: Uint8Array | string) => {
-      if (key === trainKey) throw new Error('r2 down')
+      if (key === COMBINED_KEY) {
+        await realPut(key, value) // it lands, but the call reports a failure
+        throw new Error('r2 down')
+      }
       return realPut(key, value)
     }
-    await poll(h, { ferry: 2, train: 2 }) // ferry B lands, train fails
+    await poll(h, { ferry: 2, train: 1 }) // ferry B, reported failed
     expect(h.hub.status().lastError).toMatch(/r2 down/)
-    const ferryB = docSeq(r2, ferryKey)
+    const ferryB = docSeq(r2, ferryKey) as number
     r2.put = realPut
+    // Reversion to A: R2 may hold B, so ferry is written again, under a seq newer than B's (never A's older one,
+    // which a reader holding B would ignore).
     r2.ops.length = 0
-    // Unchanged content: ferry (written) is not PUT again; train (failed, state unknown) is.
-    await poll(h, { ferry: 2, train: 2 })
-    expect(r2.ops.filter((o) => o !== 'put:rt/latest.json')).toEqual([`put:${trainKey}`])
-    expect(docSeq(r2, ferryKey)).toBe(ferryB)
-    // Reversion to content A: R2 holds B, so ferry is rewritten.
-    r2.ops.length = 0
-    await poll(h, { ferry: 1, train: 2 })
-    expect(r2.ops).toContain(`put:${ferryKey}`)
+    await poll(h, { ferry: 1, train: 1 })
+    expect(r2.ops).toContain(`put:${COMBINED_KEY}`)
     expect(JSON.parse(text(r2, ferryKey)).vehicles[0].lon).toBeCloseTo(153.05 + 1 / 1e4, 4)
+    expect(docSeq(r2, ferryKey)).toBeGreaterThan(ferryB)
+    expect(ferryB).toBeGreaterThan(ferryA)
+    // Nothing changed now: nothing but (at most) the pointer is written.
+    r2.ops.length = 0
+    await poll(h, { ferry: 1, train: 1 })
+    expect(r2.ops.filter((o) => o !== 'put:rt/latest.json')).toEqual([])
   })
 
   it('a new alerts slot written in a failed publish still moves the pointer at once on the retry', async () => {
     const { r2, h } = await warmed('ferry,train')
     const realPut = r2.put.bind(r2)
     r2.put = async (key: string, value: Uint8Array | string) => {
-      if (key === modeLatestKey('train')) throw new Error('r2 down')
+      if (key === COMBINED_KEY) throw new Error('r2 down')
       return realPut(key, value)
     }
     h.clock.advance(ALERTS_EVERY_MS)
@@ -1164,11 +1298,13 @@ describe('R2 PUT budget: unchanged documents and the pointer are not rewritten',
     h.clock.advance(POINTER_HEARTBEAT_MS)
     await h.hub.cycle()
     const ptr = JSON.parse(text(r2, 'rt/latest.json'))
-    expect(ptr.files.ferry.seq).toBeLessThan(ptr.files.train.seq)
+    const sections = combinedOf(r2)?.index.sections
+    const [ferrySeq, trainSeq] = [sections?.ferry?.[2] as number, sections?.train?.[2] as number]
+    expect(ferrySeq).toBeLessThan(trainSeq)
     const before = await h.hub.pull(null)
     const fresh = h.mk()
     const restored = RtSnapshot.parse(JSON.parse((await fresh.pull(null)).json as string))
-    expect(restored.header.seq).toBe(ptr.files.train.seq) // the newest document's header
+    expect(restored.header.seq).toBe(trainSeq) // the newest document's header
     expect(Object.keys(restored.trips).sort()).toEqual(
       Object.keys(RtSnapshot.parse(JSON.parse(before.json as string)).trips).sort(),
     )
