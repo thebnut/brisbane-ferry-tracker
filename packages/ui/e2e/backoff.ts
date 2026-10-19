@@ -7,7 +7,29 @@
  * are taken from each answer, so the fixture server's own latency under a parallel run doesn't count.
  */
 import { type BrowserContext, expect, type Page, type Request, test } from '@playwright/test'
+import { BACKOFF_MAX_MS, RECONNECT_PROBE_MS } from '../src/connectivity.ts'
 import { goOffline, visibleLiveClaims, waitForServiceWorker } from './offline.ts'
+
+/** Time allowed from the probe's request to its answer and the page seeing it (fixture server, parallel run). */
+const ANSWER_MARGIN_MS = 2_000
+
+/**
+ * The latest time (ms after an outage began) at which the probe must ask again after the network returns
+ * `elapsedMs` into the outage, from the schedule's constants (probeWhileUnreachable): waits of RECONNECT_PROBE_MS
+ * doubling up to BACKOFF_MAX_MS, each up to a fifth shorter. A probe due earlier may already have gone, early, while
+ * the network was still out, so this is the first probe that can't have gone before `elapsedMs`; it goes no later
+ * than its full-length time. A stuck or over-long backoff misses it.
+ */
+export function probeDueByMs(elapsedMs: number): number {
+  let latest = 0
+  let earliest = 0
+  for (let n = 0; ; n++) {
+    const wait = Math.min(BACKOFF_MAX_MS, RECONNECT_PROBE_MS * 2 ** n)
+    latest += wait
+    earliest += wait * 0.8
+    if (earliest >= elapsedMs) return latest
+  }
+}
 
 /** Live API calls, the fixture copies included. */
 const LIVE = /\/v1\//
@@ -69,10 +91,10 @@ export function backoffSuite({
   const boardsOf = (per: Map<string, number>) =>
     [...per.keys()].filter((u) => departures.test(u.split('?')[0] ?? u))
   // A network answer for a board (not the service worker's cached copy of one).
-  const answered = (page: Page) =>
+  const answered = (page: Page, timeout = 10_000) =>
     page.waitForResponse(
       (r) => departures.test(new URL(r.url()).pathname) && r.ok() && !r.headers()['x-bft-cache'],
-      { timeout: 75_000 },
+      { timeout },
     )
 
   test.describe(`offline backoff (smoke round 9)${label ? ` (${label})` : ''}`, () => {
@@ -85,6 +107,7 @@ export function backoffSuite({
       const calls = countCalls(page)
       const restore = await lieFi(context)
       await expect(page.locator('[data-banner=offline]').first()).toBeVisible({ timeout: 20_000 })
+      // The outage began at or just before the banner (its first failed call).
       const from = Date.now()
       await page.waitForTimeout(60_000)
       const per = calls.since(from)
@@ -95,9 +118,10 @@ export function backoffSuite({
       for (const [url, n] of per) expect(n, url).toBeLessThanOrEqual(10)
       for (const url of boards) expect(per.get(url), url).toBeGreaterThanOrEqual(2)
 
-      // The network is back with no event: the next attempt comes at the backed-off time, then LIVE within seconds.
+      // The network is back with no event: the next attempt comes at the backed-off time (no later than the schedule
+      // allows, plus a margin of up to 1 s for when the outage began before the banner), then LIVE within seconds.
       const back = Date.now()
-      const first = answered(page)
+      const first = answered(page, probeDueByMs(back - from + 1_000) - (back - from) + ANSWER_MARGIN_MS)
       await restore()
       await first
       const answeredAt = Date.now()

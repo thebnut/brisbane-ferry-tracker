@@ -285,3 +285,16 @@ describe("pollEvery: a live query's refetchInterval (offline backoff)", () => {
     for (let i = 0; i < 5; i++) expect(pollEvery(15_000)(q)).toBe(first)
   })
 })
+
+describe('probeDueByMs: the e2e ceiling for the next probe, from the schedule constants', () => {
+  it('is the first probe that cannot have gone early (jitter) before the network returned', async () => {
+    const { probeDueByMs } = await import('../e2e/backoff.ts')
+    // 2.5, 7.5, 17.5, 37.5, 77.5, 137.5 s at full length; at most a fifth shorter each.
+    expect(probeDueByMs(0)).toBe(2_500)
+    expect(probeDueByMs(2_500)).toBe(7_500)
+    // Bus R7: the network back ~16-17.5 s into the outage; the 17.5 s probe may have gone at 14 s.
+    expect(probeDueByMs(17_500)).toBe(37_500)
+    expect(probeDueByMs(61_000)).toBe(77_500)
+    expect(probeDueByMs(63_000)).toBe(137_500)
+  })
+})
