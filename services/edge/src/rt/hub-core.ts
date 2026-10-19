@@ -16,7 +16,15 @@ import { type FeedMessage, FeedMessageSchema } from '../gen/gtfs-realtime_pb.js'
 import { errorMessage, type Logger, silentLogger } from '../log.ts'
 import { buildAlerts, buildSnapshot, ModeIndex } from './build.ts'
 import { type FeedSpec, feedsFor, type RtConfig } from './feeds.ts'
-import { alertsDocument, mergeDocuments, type SnapshotScope, splitSnapshot } from './split.ts'
+import {
+  alertsDocument,
+  documentBody,
+  documentContent,
+  documentJson,
+  mergeDocuments,
+  type SnapshotScope,
+  splitSnapshot,
+} from './split.ts'
 
 export const CYCLE_MS = 15_000
 /** Alarm cadence that keeps the object resident (it is evicted after ~10 s idle); polls still run every CYCLE_MS. */
@@ -28,6 +36,12 @@ export const WATCHDOG_STALE_MS = 45_000
 export const RAW_PERSIST_EVERY_MS = 60_000
 /** A poll whose wall time reaches this logs its phase timings even without RT_PROFILE. */
 export const SLOW_CYCLE_MS = 2_500
+/**
+ * With no document to commit, the pointer is rewritten at most this often, only to keep its hub status (source
+ * timestamp, fetchedAt, lastError) fresh for /v1/health, /v1/alerts and mode readers whose document is unchanged.
+ * Every 3rd 15 s poll in production, every 2nd 30 s poll on staging; health's 120 s thresholds keep ample margin.
+ */
+export const POINTER_HEARTBEAT_MS = 45_000
 /** DO storage values are capped (2 MiB on SQLite-backed objects); chunk well below that. */
 const CHUNK_BYTES = 1 << 20
 const CHUNK_CHARS = 512 * 1024
@@ -157,6 +171,13 @@ interface Meta {
   snapChunks: number
 }
 
+interface Published {
+  /** documentContent() of what the key holds. */
+  content: string
+  key: string
+  seq: number
+}
+
 interface LoadedMode {
   generation: string
   dates: string[]
@@ -186,7 +207,15 @@ export class HubCore {
   private rawPersistedAt = 0
   /** Trip key → mode of the current snapshot, for the per-mode split. */
   private tripModes = new Map<string, Mode>()
-  private alertsPublished: { alerts: RtSnapshot['alerts']; key: string; seq: number } | null = null
+  /**
+   * What each scope's R2 document holds (its content, without the per-poll header fields) and under which key and
+   * seq. A scope whose content is unchanged is not rewritten; the pointer keeps naming its older seq.
+   */
+  private published = new Map<SnapshotScope, Published>()
+  /** When the pointer was last written (0: not since this instance started). */
+  private pointerAt = 0
+  /** A publish skipped the pointer, so it lags the snapshot: write it once POINTER_HEARTBEAT_MS has passed. */
+  private pointerOwed = false
   private drillDead = false
   /** The current snapshot still needs publishing to R2 (a publish failed, or it was just rebuilt). */
   private r2Pending = false
@@ -494,8 +523,9 @@ export class HubCore {
     await this.d.storage.put(writes)
     tm.persist = lap()
 
-    // Publish (or retry a failed publish) even when nothing changed this cycle (Codex review #3).
-    if (this.d.r2 && this.snapshot && this.r2Pending) {
+    // Publish (or retry a failed publish) even when nothing changed this cycle (Codex review #3), and write a pointer
+    // an earlier publish skipped once its heartbeat is due.
+    if (this.d.r2 && this.snapshot && (this.r2Pending || this.pointerOwed)) {
       try {
         await this.publishR2(now)
         this.r2Pending = false
@@ -510,10 +540,17 @@ export class HubCore {
   }
 
   /**
-   * Publish to R2: the sequence-numbered snapshot first, then the small `rt/latest.json` pointer (idempotent; a
-   * reader never sees a pointer to a missing object). Uncompressed: gzip would cost several ms of the 10 ms Free
-   * CPU budget and R2 egress is free. Two Class A writes per cycle (~345k a month); the ring of
-   * R2_KEEP_SNAPSHOTS keys keeps the bucket bounded without deletes.
+   * Publish to R2: the per-scope documents whose content changed, then the small `rt/latest.json` pointer (a reader
+   * never sees a pointer to a missing object). Uncompressed: gzip would cost several ms of the 10 ms Free CPU budget
+   * and R2 egress is free. The ring of R2_KEEP_SNAPSHOTS alerts keys keeps the bucket bounded without deletes.
+   *
+   * PUTs (hub R2 PUT budget, 20 Oct): a document is rewritten only when its content changed, compared without the
+   * header fields that move every poll (seq, sourceTimestamp, fetchedAt, stats); an unchanged document keeps its
+   * older seq and the pointer keeps naming it. The pointer itself is written when the alerts document moved to a new
+   * ring key, and otherwise at most every POINTER_HEARTBEAT_MS, since mode readers take a fresh per-mode object
+   * straight from its key (and accept one newer than the pointer, see pullFromR2); the pointer's other job, the hub
+   * status for health and for unchanged documents, only needs to stay well inside the 120 s health and 300 s stale
+   * limits.
    *
    * The documents are written in parallel, then the pointer (peak stall profiling, 19 Oct: one sequential PUT per
    * mode put four or five R2 round trips on every poll). A partial failure leaves what a sequential one did: some
@@ -523,36 +560,52 @@ export class HubCore {
     const r2 = this.d.r2 as R2Like
     const snap = this.snapshot as RtSnapshot
     const seq = this.meta.seq
-    const json = { httpMetadata: { contentType: 'application/json' } }
-    // Per-mode documents (§3.3 split): an edge isolate reads only the mode it serves.
+    let alertsMoved = false
+    if (this.r2Pending) {
+      const json = { httpMetadata: { contentType: 'application/json' } }
+      // Per-mode documents (§3.3 split): an edge isolate reads only the mode it serves. One overwritten object per
+      // mode: an edge refresh is a single GET (no pointer first). R2 PUTs are atomic, and readers check the header
+      // seq, so overwriting is safe; no deletes needed. Alerts go to a ring slot named by the pointer.
+      const docs = splitSnapshot(snap, this.tripModes, this.d.config.modes)
+      const scopes: Array<[SnapshotScope, RtSnapshot, string]> = this.d.config.modes.map((m) => [
+        m,
+        docs[m] as RtSnapshot,
+        modeLatestKey(m),
+      ])
+      scopes.push(['alerts', alertsDocument(snap), scopeKey('alerts', seq)])
+      const next = new Map(this.published)
+      const puts: Promise<unknown>[] = []
+      for (const [scope, doc, key] of scopes) {
+        const body = documentBody(doc)
+        const content = documentContent(doc.header, body)
+        if (this.published.get(scope)?.content === content) continue
+        puts.push(this.put(r2, key, documentJson(doc.header, body), json))
+        next.set(scope, { content, key, seq })
+        if (scope === 'alerts') alertsMoved = true
+      }
+      // Every PUT settles before the publish (and so the poll) ends: a failed sibling must not leave another PUT
+      // running that could land after the next poll's and roll its document back (Codex r1). Then the first failure.
+      const failed = (await Promise.allSettled(puts)).find((r) => r.status === 'rejected')
+      if (failed) throw failed.reason
+      // Only once every document is written: a failed PUT is retried, whole, with the next publish.
+      this.published = next
+    }
+    const due =
+      this.pointerAt === 0 || alertsMoved || now - this.pointerAt >= POINTER_HEARTBEAT_MS - POLL_SLACK_MS
+    if (!due) {
+      this.pointerOwed = true
+      return
+    }
     const files: NonNullable<R2Pointer['files']> = {}
-    const docs = splitSnapshot(snap, this.tripModes, this.d.config.modes)
-    const puts: Promise<unknown>[] = []
-    for (const m of this.d.config.modes) {
-      // One overwritten object per mode: an edge refresh is a single GET (no pointer first). R2 PUTs are atomic, and
-      // readers check the header seq, so overwriting is safe; no deletes needed.
-      const key = modeLatestKey(m)
-      puts.push(this.put(r2, key, JSON.stringify(docs[m]), json))
-      files[m] = { key, seq }
+    for (const [scope, p] of this.published) {
+      if (scope === 'alerts' || this.d.config.modes.includes(scope)) files[scope] = { key: p.key, seq: p.seq }
     }
-    // The alerts document only when the alerts changed (alerts refresh every 60 s): keeps writes under 1M a month.
-    let alerts = this.alertsPublished
-    if (alerts?.alerts !== snap.alerts) {
-      const key = scopeKey('alerts', seq)
-      puts.push(this.put(r2, key, JSON.stringify(alertsDocument(snap)), json))
-      alerts = { alerts: snap.alerts, key, seq }
-    }
-    // Every PUT settles before the publish (and so the poll) ends: a failed sibling must not leave another PUT running
-    // that could land after the next poll's and roll its document back (Codex r1). Then the first failure, if any.
-    const failed = (await Promise.allSettled(puts)).find((r) => r.status === 'rejected')
-    if (failed) throw failed.reason
-    // Only once its document is written: a failed alerts PUT is retried with the next publish.
-    this.alertsPublished = alerts
-    files.alerts = { key: alerts.key, seq: alerts.seq }
     const pointer: R2Pointer = { seq, files, fetchedAt: now, status: this.status() }
     await this.put(r2, R2_LATEST_KEY, JSON.stringify(pointer), {
       httpMetadata: { contentType: 'application/json', cacheControl: 'no-store' },
     })
+    this.pointerAt = now
+    this.pointerOwed = false
   }
 
   /** One R2 PUT, counted for the poll's timings. */

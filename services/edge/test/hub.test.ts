@@ -13,6 +13,7 @@ import {
   HubCore,
   KEEPALIVE_MS,
   modeLatestKey,
+  POINTER_HEARTBEAT_MS,
   R2_KEEP_SNAPSHOTS,
   scopeKey,
   snapshotSeq,
@@ -401,15 +402,22 @@ describe('RtHub R2 publish', () => {
       'put:rt/latest.json',
     ])
     const src = new MemoryDataSource(r2.files)
-    const a = await pullFromR2(src, null, 'ferry', h.clock.t)
+    const writtenAt = JSON.parse(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry')))).header
+      .fetchedAt
+    const a = await pullFromR2(src, null, 'ferry', writtenAt)
     expect(a.seq).toBe(seq)
     expect(RtSnapshot.parse(JSON.parse(a.json as string)).header.seq).toBe(seq)
     expect(a.status.stats?.ferry?.matched).toBe(1)
     const reads = src.reads.length
-    const b = await pullFromR2(src, seq, 'ferry', h.clock.t)
+    const b = await pullFromR2(src, seq, 'ferry', writtenAt + 5_000)
     expect(b.json).toBeNull()
-    // Single-read refresh: a mode is one GET, with no pointer read first.
+    // Single-read refresh: a fresh mode object is one GET, with no pointer read first.
     expect(src.reads.slice(reads)).toEqual([modeLatestKey('ferry')])
+    // An object older than DIRECT_FRESH_MS (content unchanged for a while): one pointer read for the status, and the
+    // object already read is reused.
+    const c = await pullFromR2(src, seq, 'ferry', writtenAt + 60_000)
+    expect(c).toMatchObject({ seq, json: null })
+    expect(src.reads.slice(reads + 1)).toEqual([modeLatestKey('ferry'), 'rt/latest.json'])
   })
 
   it('keeps the snapshot only in R2 (not DO storage) and restores it from R2 after a restart', async () => {
@@ -426,16 +434,19 @@ describe('RtHub R2 publish', () => {
   it('writes a fixed ring of R2_KEEP_SNAPSHOTS keys and never deletes', async () => {
     const r2 = new FakeR2()
     const h = setup({ r2 })
-    for (let i = 0; i < R2_KEEP_SNAPSHOTS + 3; i++) {
+    // Content changes every poll (a moving vehicle, a new alert each minute), so every document keeps being written.
+    for (let i = 0; i < 4 * R2_KEEP_SNAPSHOTS + 3; i++) {
       h.up.set(TU, feed(h.nowS(), []))
+      h.up.set(VP, feed(h.nowS(), [vehicle('V1', 'T1', D, -27.45, 153.05 + i / 1e4)]))
+      h.up.set('alerts', feed(h.nowS(), [alert(`a${i}`, 'Bulimba works', 'F1-4055')]))
       await h.hub.alarm()
       h.clock.advance(CYCLE_MS)
     }
     // Modes: one overwritten object each. Alerts: a ring of at most R2_KEEP_SNAPSHOTS. Nothing is deleted.
     expect([...r2.files.keys()].filter((k) => k.startsWith('rt/ferry/'))).toEqual([modeLatestKey('ferry')])
-    expect([...r2.files.keys()].filter((k) => k.startsWith('rt/alerts/')).length).toBeLessThanOrEqual(
-      R2_KEEP_SNAPSHOTS,
-    )
+    const alertSlots = [...r2.files.keys()].filter((k) => k.startsWith('rt/alerts/')).length
+    expect(alertSlots).toBeLessThanOrEqual(R2_KEEP_SNAPSHOTS)
+    expect(alertSlots).toBeGreaterThan(R2_KEEP_SNAPSHOTS / 8) // alerts move every 4th poll here
     expect(r2.ops.some((o) => o.startsWith('delete'))).toBe(false)
     const seq = (await h.hub.pull(null)).seq as number
     expect(seq).toBeGreaterThan(R2_KEEP_SNAPSHOTS)
@@ -513,9 +524,14 @@ describe('Codex review regressions', () => {
     const seq = (await h.hub.pull(null)).seq as number
     r2.fail = false
     await h.hub.cycle() // all 304s, nothing rebuilt
+    expect(snapshotSeq(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry'))))).toBe(seq)
+    expect(h.hub.status().lastError).toBeNull()
+    // The pointer follows within its heartbeat, still with nothing rebuilt.
+    h.clock.advance(POINTER_HEARTBEAT_MS)
+    await h.hub.cycle()
     const pointer = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
     expect(pointer.seq).toBe(seq)
-    expect(h.hub.status().lastError).toBeNull()
+    expect(pointer.files.ferry.seq).toBe(seq)
   })
 
   it('#2 a DUPLICATED trip takes its identity and start time from TripProperties', async () => {
@@ -848,7 +864,7 @@ describe('Codex review regressions', () => {
     await fresh.cycle()
     const after = RtSnapshot.parse(JSON.parse((await fresh.pull(null, 'ferry')).json as string))
     expect(after.trips[`T2@${D}`]?.rel).toBe('CANCELED')
-    expect(after.header.seq).toBe((modeSeq as number) + 1) // never reuses the partially published seq
+    expect(after.header.seq).toBeGreaterThan(modeSeq as number) // never reuses the partially published seq
   })
 
   it('single-read review: a stale latest object (older publisher took over) falls back to the pointer', async () => {
@@ -910,5 +926,205 @@ describe('Codex review regressions', () => {
       doc.header.fetchedAt + 60_000,
     )
     expect(same).toMatchObject({ seq: ptr.seq + 1, json: null })
+  })
+})
+
+describe('R2 PUT budget: unchanged documents and the pointer are not rewritten', () => {
+  const VPR = 'VehiclePositions/Rail'
+  const text = (r2: FakeR2, key: string) => new TextDecoder().decode(r2.files.get(key))
+  const docSeq = (r2: FakeR2, key: string) => snapshotSeq(text(r2, key))
+  /** A vehicle report stamped with its own time (as TransLink's are), so only a move changes it. */
+  const at = (n: number, id: string, tripId: string, lat: number, lon: number) =>
+    vehicle(id, tripId, D, lat, lon + n / 1e4, epoch(D, '07:00:00') + n)
+  /** One poll: header times always move; ferry/train vehicles move only when asked. */
+  async function poll(
+    h: ReturnType<typeof setup>,
+    move: { ferry?: number; train?: number } = {},
+    hub: HubCore = h.hub,
+  ) {
+    h.clock.advance(CYCLE_MS)
+    h.up.set(TU, feed(h.nowS(), []))
+    h.up.set(VP, feed(h.nowS(), [at(move.ferry ?? 0, 'V1', 'T1', -27.45, 153.05)]))
+    h.up.set(VPR, feed(h.nowS(), [at(move.train ?? 0, 'R1', 'TR9', -27.46, 153.02)]))
+    await hub.cycle()
+  }
+  async function warmed(modes = 'ferry,train') {
+    const r2 = new FakeR2()
+    const h = setup({ r2, modes })
+    await warm(h)
+    await poll(h)
+    h.clock.advance(POINTER_HEARTBEAT_MS)
+    await poll(h) // settles: every document current, pointer just written
+    return { r2, h }
+  }
+
+  it('an unchanged mode is not rewritten; a changed one is; header-only polls write nothing', async () => {
+    const { r2, h } = await warmed()
+    const ferryKey = modeLatestKey('ferry')
+    const trainKey = modeLatestKey('train')
+    const ferrySeq = docSeq(r2, ferryKey)
+    r2.ops.length = 0
+    await poll(h) // feed headers moved, content didn't
+    expect(h.hub.lastTimings?.rebuilt).toBe(true)
+    expect(r2.ops).toEqual([])
+    expect(h.hub.lastTimings?.r2Puts).toBe(0)
+    await poll(h, { train: 1 })
+    expect(r2.ops).toEqual([`put:${trainKey}`])
+    expect(docSeq(r2, trainKey)).toBe((await h.hub.pull(null)).seq)
+    expect(docSeq(r2, ferryKey)).toBe(ferrySeq)
+    // The train document carries only train content; ferry still serves its older document.
+    expect(JSON.parse(text(r2, trainKey)).vehicles.map((v: { id: string }) => v.id)).toEqual(['R1'])
+    expect(JSON.parse(text(r2, ferryKey)).vehicles.map((v: { id: string }) => v.id)).toEqual(['V1'])
+  })
+
+  it('alerts refetched with the same content are not rewritten; changed alerts are, and move the pointer', async () => {
+    const { r2, h } = await warmed('ferry')
+    const ptr = JSON.parse(text(r2, 'rt/latest.json'))
+    r2.ops.length = 0
+    for (let i = 0; i < 5; i++) {
+      h.up.set('alerts', feed(h.nowS(), [alert('a1', 'Bulimba works', 'F1-4055')])) // same alert, new body
+      await poll(h)
+    }
+    expect(h.up.calls.filter((c) => c.path === 'alerts').length).toBeGreaterThan(1)
+    expect(r2.ops.filter((o) => o.includes('/alerts/'))).toEqual([])
+    h.clock.advance(ALERTS_EVERY_MS)
+    h.up.set('alerts', feed(h.nowS(), [alert('a2', 'Riverside closed', 'F1-4055')]))
+    r2.ops.length = 0
+    await poll(h)
+    const seq = (await h.hub.pull(null)).seq as number
+    // The alerts slot first (the ferry document too: its alerts changed), the pointer last, at once.
+    expect(r2.ops).toEqual([
+      `put:${modeLatestKey('ferry')}`,
+      `put:${scopeKey('alerts', seq)}`,
+      'put:rt/latest.json',
+    ])
+    const ptr2 = JSON.parse(text(r2, 'rt/latest.json'))
+    expect(ptr2.files.alerts).toEqual({ key: scopeKey('alerts', seq), seq })
+    expect(ptr2.files.alerts.seq).not.toBe(ptr.files.alerts.seq)
+  })
+
+  it('the pointer lands last, after every changed document has settled, and at most once per heartbeat', async () => {
+    const { r2, h } = await warmed()
+    const realPut = r2.put.bind(r2)
+    let inflight = 0
+    const order: string[] = []
+    r2.put = async (key: string, value: Uint8Array | string) => {
+      if (key === 'rt/latest.json') expect(inflight).toBe(0)
+      inflight++
+      // Documents finish in reverse order of starting, slowly.
+      await new Promise((r) => setTimeout(r, key.includes('ferry') ? 15 : 5))
+      inflight--
+      order.push(key)
+      return realPut(key, value)
+    }
+    const pointers = () => r2.ops.filter((o) => o === 'put:rt/latest.json').length
+    const before = pointers()
+    // Every poll changes both modes; over 2 heartbeats the pointer is written only on its heartbeat.
+    const polls = Math.round((2 * POINTER_HEARTBEAT_MS) / CYCLE_MS)
+    for (let i = 1; i <= polls; i++) await poll(h, { ferry: i, train: i })
+    expect(pointers() - before).toBe(2)
+    expect(order.at(-1)).toBe('rt/latest.json')
+    // The pointer names the newest documents.
+    const ptr = JSON.parse(text(r2, 'rt/latest.json'))
+    const seq = (await h.hub.pull(null)).seq as number
+    expect(ptr.seq).toBe(seq)
+    expect(ptr.files.ferry).toEqual({ key: modeLatestKey('ferry'), seq })
+    expect(ptr.files.train).toEqual({ key: modeLatestKey('train'), seq })
+  })
+
+  it('a pointer skipped by a publish is written on its heartbeat even when nothing is rebuilt', async () => {
+    const { r2, h } = await warmed()
+    await poll(h, { train: 1 }) // a document written, the pointer not yet due
+    const seq = (await h.hub.pull(null)).seq as number
+    expect(JSON.parse(text(r2, 'rt/latest.json')).seq).toBeLessThan(seq)
+    h.clock.advance(POINTER_HEARTBEAT_MS)
+    await h.hub.cycle() // every feed 304: nothing rebuilt
+    expect(h.hub.lastTimings?.rebuilt).toBe(false)
+    const ptr = JSON.parse(text(r2, 'rt/latest.json'))
+    expect(ptr.seq).toBe(seq)
+    expect(ptr.files.train.seq).toBe(seq)
+    r2.ops.length = 0
+    h.clock.advance(POINTER_HEARTBEAT_MS)
+    await h.hub.cycle() // nothing owed: nothing written
+    expect(r2.ops).toEqual([])
+  })
+
+  it('readers handle documents of different ages and take freshness from the source timestamp', async () => {
+    const { r2, h } = await warmed()
+    const ferryAt = JSON.parse(text(r2, modeLatestKey('ferry'))).header
+    // Five minutes of polls in which only the train moves: the ferry document keeps its old header.
+    for (let i = 1; i <= 20; i++) await poll(h, { train: i })
+    h.clock.advance(POINTER_HEARTBEAT_MS)
+    await h.hub.cycle() // pointer heartbeat
+    const ferry = JSON.parse(text(r2, modeLatestKey('ferry')))
+    expect(ferry.header.seq).toBe(ferryAt.seq)
+    expect(ferry.header.sourceTimestamp).toBe(ferryAt.sourceTimestamp)
+    const src = new MemoryDataSource(r2.files)
+    const source = (await h.hub.pull(null)).status.sourceTimestamp as number
+    expect(source - ferryAt.sourceTimestamp).toBeGreaterThan(300) // past STALE_AFTER_S if read from the document
+    const f = await pullFromR2(src, null, 'ferry', h.clock.t)
+    expect(f.seq).toBe(ferryAt.seq)
+    expect(f.status.sourceTimestamp).toBe(source)
+    expect(f.status.seq).toBeGreaterThan(ferryAt.seq)
+    const t = await pullFromR2(src, null, 'train', h.clock.t)
+    expect(t.seq).toBeGreaterThan(ferryAt.seq)
+    // Through the API: the unchanged ferry document is live, with the upstream source time, not the document's.
+    const client = (scope: SnapshotScope) =>
+      new SnapshotClient(
+        { pull: (s, sc) => pullFromR2(src, s, sc, h.clock.t), getRaw: async () => null },
+        h.clock.now,
+        () => {},
+        null,
+        scope,
+      )
+    const clients = new Map<SnapshotScope, SnapshotClient>()
+    const app = createApp({
+      store: storeFor(h.tree, h.clock.now),
+      snapshots: client('alerts'),
+      snapshotsFor: (sc) => {
+        const cl = clients.get(sc) ?? client(sc)
+        clients.set(sc, cl)
+        return cl
+      },
+      now: h.clock.now,
+      log: silentLogger,
+      combinedFeeds: false,
+      polledModes: ['ferry', 'train'],
+    })
+    const body = (await (await app.request('/v1/ferry/vehicles')).json()) as {
+      rtState: string
+      rtSourceTimestamp: number
+      vehicles: Array<{ id: string }>
+    }
+    expect(body.rtState).toBe('live')
+    expect(body.rtSourceTimestamp).toBe(source)
+    expect(body.vehicles.map((v) => v.id)).toEqual(['V1'])
+    const health = (await (await app.request('/v1/health')).json()) as { rt: { sourceTimestamp: number } }
+    expect(health.rt.sourceTimestamp).toBe(source)
+  })
+
+  it('restore after a restart merges documents of different ages (newest header, every scope)', async () => {
+    const { r2, h } = await warmed()
+    for (let i = 1; i <= 4; i++) await poll(h, { train: i })
+    h.clock.advance(POINTER_HEARTBEAT_MS)
+    await h.hub.cycle()
+    const ptr = JSON.parse(text(r2, 'rt/latest.json'))
+    expect(ptr.files.ferry.seq).toBeLessThan(ptr.files.train.seq)
+    const before = await h.hub.pull(null)
+    const fresh = h.mk()
+    const restored = RtSnapshot.parse(JSON.parse((await fresh.pull(null)).json as string))
+    expect(restored.header.seq).toBe(ptr.files.train.seq) // the newest document's header
+    expect(Object.keys(restored.trips).sort()).toEqual(
+      Object.keys(RtSnapshot.parse(JSON.parse(before.json as string)).trips).sort(),
+    )
+    expect(restored.vehicles.map((v) => v.id).sort()).toEqual(['R1', 'V1'])
+    // A restarted hub publishes everything once (its trip indexes reload, so its first documents differ anyway),
+    // under a seq past every published one, pointer last.
+    r2.ops.length = 0
+    await poll(h, { train: 5 }, fresh)
+    expect(r2.ops.at(-1)).toBe('put:rt/latest.json')
+    const seq = (await fresh.pull(null)).seq as number
+    expect(seq).toBeGreaterThan(ptr.seq) // never reuses a published seq
+    expect(docSeq(r2, modeLatestKey('train'))).toBe(seq)
   })
 })
