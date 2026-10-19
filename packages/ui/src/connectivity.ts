@@ -533,6 +533,50 @@ export function dropDeparted<T>(rows: T[], departsAt: (row: T) => number, nowMs:
 export const DEMO_HEADER = 'x-bft-demo'
 
 /**
+ * Message a page sends its service workers after the one-off demo clean-up dropped runtime caches (R9): each saves its
+ * install-time pages and the sending page again (startServiceWorker).
+ */
+export const RESAVE_PAGES = 'bft-resave-pages'
+
+/**
+ * Web Lock ordering the one-off demo clean-up against Cache Storage writers, across pages and service workers of this
+ * origin (R9, Codex reviews r2, r3): the clean-up holds it exclusively from its listing of the caches until it has
+ * settled, and every page-copy and cache write holds it shared until its put has settled, so no write lands while the
+ * clean-up decides what to delete. Nothing releases it on a timer. Without Web Locks (or if a request fails) writers
+ * go ahead at once, and the clean-up doesn't touch Cache Storage at all: it can't hold the writers back.
+ */
+export const CACHE_WRITE_LOCK = 'bft-cache-writes'
+
+/**
+ * Takes CACHE_WRITE_LOCK; resolves once granted with its release, or with null when it wasn't granted: held and
+ * `ifAvailable`, no Web Locks here, or the request failed. Only a release means the lock is held.
+ */
+export function holdCacheLock(
+  mode: 'shared' | 'exclusive',
+  ifAvailable = false,
+): Promise<(() => void) | null> {
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks
+  if (!locks) return Promise.resolve(null)
+  return new Promise((granted) => {
+    locks
+      .request(CACHE_WRITE_LOCK, { mode, ifAvailable }, (lock) =>
+        lock ? new Promise<void>((release) => granted(() => release())) : granted(null),
+      )
+      .catch(() => granted(null))
+  })
+}
+
+/** Runs a cache write while no clean-up runs (CACHE_WRITE_LOCK, shared, until the write has settled). */
+export async function whileNoCleanup<T>(write: () => Promise<T>): Promise<T> {
+  const release = await holdCacheLock('shared')
+  try {
+    return await write()
+  } finally {
+    release?.()
+  }
+}
+
+/**
  * Saves the page at `url` into the service worker's page cache (the first page view, and transit's client
  * navigations): fetched again from the network, kept only if it is an ordinary HTML page (not an error, not demo).
  */
@@ -544,6 +588,6 @@ export async function savePageCopy(cacheName: string, url: string): Promise<bool
     !(res.headers.get('content-type') ?? '').includes('text/html')
   )
     return false
-  await (await caches.open(cacheName)).put(url, res)
+  await whileNoCleanup(async () => (await caches.open(cacheName)).put(url, res))
   return true
 }
