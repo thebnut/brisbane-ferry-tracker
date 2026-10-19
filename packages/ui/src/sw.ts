@@ -16,7 +16,7 @@ import { CacheExpiration, ExpirationPlugin } from 'workbox-expiration'
 import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
-import { DEMO_HEADER, markCachedPages, markCacheHits } from './connectivity.ts'
+import { DEMO_HEADER, markCachedPages, markCacheHits, RESAVE_PAGES } from './connectivity.ts'
 
 /**
  * Workbox plugin for the page and loader-data caches: demo responses are never stored. A cacheWillUpdate plugin
@@ -59,9 +59,43 @@ export interface ServiceWorkerConfig {
 interface ExtendableEventLike extends Event {
   waitUntil(p: Promise<unknown>): void
 }
+interface ExtendableMessageEventLike extends ExtendableEventLike {
+  data: unknown
+  source: { url?: string } | null
+}
 interface SwScope {
   skipWaiting(): Promise<void>
+  location: { origin: string }
   addEventListener(type: 'install' | 'activate', fn: (e: ExtendableEventLike) => void): void
+  addEventListener(type: 'message', fn: (e: ExtendableMessageEventLike) => void): void
+}
+
+/** Demo and test switches: a page with one is never re-saved (the apps' copy writers skip them too). */
+const NO_RESAVE_PARAMS = ['fixtures', 'rt']
+
+/**
+ * The pages a RESAVE_PAGES message asks for: the install-time pages and the sending page, if it is an ordinary page
+ * of this origin. Only the sender's own URL is used, never one carried in the message.
+ */
+export function pagesToResave(
+  installPages: string[],
+  senderUrl: string | undefined,
+  origin: string,
+): string[] {
+  const pages = new Set(installPages)
+  try {
+    const url = senderUrl ? new URL(senderUrl) : undefined
+    if (
+      url &&
+      url.origin === origin &&
+      !url.pathname.startsWith('/__') &&
+      !NO_RESAVE_PARAMS.some((k) => url.searchParams.has(k))
+    )
+      pages.add(url.href)
+  } catch {
+    // Not a URL: only the install-time pages.
+  }
+  return [...pages]
 }
 
 /** Same-origin stylesheet and script URLs a page's HTML references (links, modulepreloads, the entry import). */
@@ -226,6 +260,19 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
         ]).catch(() => {}),
       )
     })
+
+  // The one-off demo clean-up dropped the page cache, maybe just after this worker saved its pages at install or the
+  // page saved its own copy: save them again (R9). Best effort and bounded, like the install.
+  sw.addEventListener('message', (event) => {
+    if ((event.data as { type?: unknown } | null)?.type !== RESAVE_PAGES) return
+    const urls = pagesToResave(installPages, event.source?.url, sw.location.origin)
+    event.waitUntil(
+      Promise.race([
+        savePages(config.pages.cacheName, urls),
+        new Promise((resolve) => setTimeout(resolve, 10_000)),
+      ]).catch(() => {}),
+    )
+  })
 
   // A new build: drop caches it doesn't own and expired entries (R6-B1), then re-fetch the saved pages so their
   // copies reference this build's assets (best effort, ≤ 10 s).

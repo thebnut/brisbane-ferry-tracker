@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { cleanUpCaches, offlinePage, referencedAssets, savePages, usablePageCopy } from '../src/sw.ts'
+import {
+  cleanUpCaches,
+  offlinePage,
+  pagesToResave,
+  referencedAssets,
+  savePages,
+  usablePageCopy,
+} from '../src/sw.ts'
 
 const html = `<html><head><link rel="stylesheet" href="/assets/root-abc.css"><link rel="modulepreload" href="/assets/entry.client-x1.js"></head>
 <body><script type="module">import "/assets/manifest-1.js";import * as route0 from "/assets/root-y.js";</script>
@@ -91,5 +98,23 @@ describe('pages saved at install (R8-T1)', () => {
     } finally {
       globalThis.fetch = real
     }
+  })
+})
+
+describe('pages re-saved after the demo clean-up (R9)', () => {
+  const origin = 'https://transit.example'
+  it("the install-time pages and the sender's own ordinary page, never another origin's or a demo one", () => {
+    expect(pagesToResave(['/'], `${origin}/ferry`, origin)).toEqual(['/', `${origin}/ferry`])
+    expect(pagesToResave(['/'], `${origin}/`, origin)).toEqual(['/', `${origin}/`])
+    expect(pagesToResave([], `${origin}/stop/1?x=1`, origin)).toEqual([`${origin}/stop/1?x=1`])
+    for (const url of [
+      'https://evil.example/',
+      `${origin}/stop/1?fixtures=1`,
+      `${origin}/stop/1?rt=off`,
+      `${origin}/__fixtures/v1/x`,
+      'not a url',
+      undefined,
+    ])
+      expect(pagesToResave(['/'], url, origin)).toEqual(['/'])
   })
 })

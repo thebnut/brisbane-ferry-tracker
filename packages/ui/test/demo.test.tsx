@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   DemoExitLink,
   FIXTURE_COOKIE_MAX_AGE_S,
@@ -116,5 +116,137 @@ describe('demo pages are never kept (Codex review of R7-B1)', () => {
     expect(put).toEqual(['/stop/10802'])
     g.fetch = realFetch
     delete g.caches
+  })
+})
+
+/** A Cache Storage stand-in that records deletions. */
+function fakeCaches(names: string[]) {
+  const deleted: string[] = []
+  const storage = {
+    keys: async () => [...names],
+    delete: async (n: string) => {
+      deleted.push(n)
+      return true
+    },
+  } as unknown as CacheStorage
+  return { storage, deleted }
+}
+
+describe('the one-off clean-up removes only what the device held when the page started (R9)', () => {
+  it('a copy saved or rewritten since, and a cache created since, stay; the workers re-save their pages', async () => {
+    const { clearDemoLeftovers } = await import('../src/demo-cleanup.ts')
+    localStorage.setItem('bft-train-offline:central:', 'old day')
+    localStorage.setItem('bft-bus-v1:1', 'rewritten since')
+    localStorage.setItem('bft-ferry-v1:2', 'saved since')
+    localStorage.setItem('bft-bus-saved', '[]')
+    const start = {
+      copies: new Map([
+        ['bft-train-offline:central:', 'old day'],
+        ['bft-bus-v1:1', 'old copy'],
+      ]),
+      caches: ['workbox-precache-v2-x', 'transit-pages', 'transit-old'],
+    }
+    const { storage, deleted } = fakeCaches([
+      'workbox-precache-v2-x',
+      'transit-pages',
+      'transit-old',
+      'transit-data',
+    ])
+    const resave = vi.fn(async () => {})
+    expect(await clearDemoLeftovers({ all: true, start }, localStorage, storage, resave)).toBe(1)
+    expect(localStorage.getItem('bft-train-offline:central:')).toBeNull()
+    expect(localStorage.getItem('bft-bus-v1:1')).toBe('rewritten since')
+    expect(localStorage.getItem('bft-ferry-v1:2')).toBe('saved since')
+    expect(localStorage.getItem('bft-bus-saved')).toBe('[]')
+    expect(deleted).toEqual(['transit-pages', 'transit-old'])
+    expect(resave).toHaveBeenCalledTimes(1)
+    // Demo data is still removed wherever it is found.
+    localStorage.setItem('bft-ferry-v1:3', JSON.stringify({ generation: 'fixture-20261020' }))
+    deleted.length = 0
+    expect(
+      await clearDemoLeftovers(
+        { all: true, start: { copies: new Map(), caches: [] } },
+        localStorage,
+        storage,
+        resave,
+      ),
+    ).toBe(1)
+    expect(localStorage.getItem('bft-ferry-v1:3')).toBeNull()
+    expect(deleted).toEqual([])
+    localStorage.clear()
+  })
+
+  it('nothing deleted: no re-save', async () => {
+    const { clearDemoLeftovers } = await import('../src/demo-cleanup.ts')
+    const { storage } = fakeCaches(['workbox-precache-v2-x'])
+    const resave = vi.fn(async () => {})
+    await clearDemoLeftovers({ all: true }, localStorage, storage, resave)
+    expect(resave).not.toHaveBeenCalled()
+  })
+
+  it('a fresh device (nothing held at the start) only records that it is done; an older one is cleaned once', async () => {
+    const { DEMO_MIGRATION_KEY, migrateOnce } = await import('../src/demo-cleanup.ts')
+    const realCaches = (globalThis as { caches?: unknown }).caches
+    const { storage, deleted } = fakeCaches(['transit-pages'])
+    ;(globalThis as { caches?: unknown }).caches = storage
+    try {
+      // The service worker saved the home after the page started (the R9 race): the clean-up leaves it.
+      localStorage.setItem('bft-transit-v1:1', 'saved since')
+      await migrateOnce(Promise.resolve({ copies: new Map(), caches: [] }))
+      expect(localStorage.getItem(DEMO_MIGRATION_KEY)).toBe('r7')
+      expect(deleted).toEqual([])
+      expect(localStorage.getItem('bft-transit-v1:1')).toBe('saved since')
+
+      localStorage.clear()
+      localStorage.setItem('bft-transit-v1:1', 'from before')
+      await migrateOnce(
+        Promise.resolve({
+          copies: new Map([['bft-transit-v1:1', 'from before']]),
+          caches: ['transit-pages'],
+        }),
+      )
+      expect(localStorage.getItem('bft-transit-v1:1')).toBeNull()
+      expect(deleted).toEqual(['transit-pages'])
+      expect(localStorage.getItem(DEMO_MIGRATION_KEY)).toBe('r7')
+      // Once only.
+      localStorage.setItem('bft-transit-v1:1', 'from before')
+      await migrateOnce(
+        Promise.resolve({
+          copies: new Map([['bft-transit-v1:1', 'from before']]),
+          caches: ['transit-pages'],
+        }),
+      )
+      expect(localStorage.getItem('bft-transit-v1:1')).toBe('from before')
+    } finally {
+      ;(globalThis as { caches?: unknown }).caches = realCaches
+      localStorage.clear()
+    }
+  })
+
+  it('the hook notes the device before anything on the page is saved', async () => {
+    function Allowed() {
+      useFixtureCookie('bft_fixtures', false, false, true)
+      return null
+    }
+    localStorage.clear()
+    render(<Allowed />)
+    // A board writes its copy once the page has rendered.
+    localStorage.setItem('bft-ferry-v1:1', 'first visit')
+    await vi.waitFor(() => expect(localStorage.getItem('bft-demo-cleanup')).toBe('r7'))
+    expect(localStorage.getItem('bft-ferry-v1:1')).toBe('first visit')
+    localStorage.clear()
+  })
+
+  it('asks every worker of the registration once to re-save', async () => {
+    const { askWorkersToResave } = await import('../src/demo-cleanup.ts')
+    const active = { postMessage: vi.fn() }
+    const installing = { postMessage: vi.fn() }
+    const container = {
+      getRegistration: async () => ({ installing, waiting: null, active }),
+    } as unknown as ServiceWorkerContainer
+    await askWorkersToResave(container)
+    expect(installing.postMessage).toHaveBeenCalledWith({ type: 'bft-resave-pages' })
+    expect(active.postMessage).toHaveBeenCalledTimes(1)
+    await askWorkersToResave(undefined)
   })
 })

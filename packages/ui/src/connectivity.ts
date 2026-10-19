@@ -533,6 +533,12 @@ export function dropDeparted<T>(rows: T[], departsAt: (row: T) => number, nowMs:
 export const DEMO_HEADER = 'x-bft-demo'
 
 /**
+ * Message a page sends its service workers after the one-off demo clean-up dropped runtime caches (R9): each saves its
+ * install-time pages and the sending page again (startServiceWorker).
+ */
+export const RESAVE_PAGES = 'bft-resave-pages'
+
+/**
  * Saves the page at `url` into the service worker's page cache (the first page view, and transit's client
  * navigations): fetched again from the network, kept only if it is an ordinary HTML page (not an error, not demo).
  */

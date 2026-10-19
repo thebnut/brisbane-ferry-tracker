@@ -16,6 +16,38 @@ export function fixtureCookie(name: string, on: boolean): string {
     : `${name}=; path=/; max-age=0; samesite=lax`
 }
 
+/** The apps' offline timetable copies (bus, train, transit Saved, ferry), kept per stop whatever the data mode. */
+export const OFFLINE_COPY_PREFIXES = ['bft-bus-v1:', 'bft-train-offline:', 'bft-transit-v1:', 'bft-ferry-v1:']
+
+/** What the device held when this page started: its offline copies (key → value) and Cache Storage names. */
+export interface DeviceStart {
+  copies: ReadonlyMap<string, string>
+  caches: readonly string[]
+}
+
+let deviceStart: Promise<DeviceStart> | undefined
+/**
+ * Notes what the device holds, once per page and before anything on it is saved: the first render comes before any
+ * board writes its copy, and before the service worker registers (after `load`) to save its pages. The one-off
+ * clean-up removes only this (R9).
+ */
+function noteDeviceStart(): Promise<DeviceStart> {
+  if (deviceStart) return deviceStart
+  const copies = new Map<string, string>()
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key != null && OFFLINE_COPY_PREFIXES.some((p) => key.startsWith(p)))
+        copies.set(key, localStorage.getItem(key) ?? '')
+    }
+  } catch {
+    // Storage blocked: nothing kept there either.
+  }
+  const names = typeof caches === 'undefined' ? Promise.resolve([]) : caches.keys().catch(() => [])
+  deviceStart = names.then((c) => ({ copies, caches: c }))
+  return deviceStart
+}
+
 let demoSession = false
 /**
  * Is this page in a visitor's demo session (?fixtures=1 and its cookie)? Then nothing it shows is kept on the device:
@@ -35,10 +67,11 @@ export const isDemoSession = () => demoSession
 export function useFixtureCookie(name: string, active: boolean, forced = false, allowed = true): void {
   // During render, before any board below fetches and writes its copy.
   demoSession = active && !forced
+  if (allowed && !forced && typeof window !== 'undefined') void noteDeviceStart()
   useEffect(() => {
     if (forced) return
     // The clean-up code loads only when needed (it is precached, so offline too): first-load JS budget.
-    if (allowed) void import('./demo-cleanup.ts').then((m) => m.migrateOnce())
+    if (allowed) void import('./demo-cleanup.ts').then((m) => m.migrateOnce(noteDeviceStart()))
     const params = new URLSearchParams(location.search)
     const q = params.get('fixtures')
     if (q === '1' && active) {
