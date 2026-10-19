@@ -15,6 +15,7 @@
     "./theme.css": "./src/theme.css",
     "./assets/*": "./assets/*",
     "./sw": "./src/sw.ts",
+    "./upstream": "./src/upstream.ts",
     "./e2e/*": "./e2e/*"
   },
   "sideEffects": [

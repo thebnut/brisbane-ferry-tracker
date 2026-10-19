@@ -3,7 +3,7 @@
  *
  * "Online" means the browser says so (navigator.onLine and its online/offline events) AND the last API call reached
  * the network. A call counts as failed when fetch() throws, when the service worker answered from its cache (its data
- * caches mark those responses, see `markCacheHits`), or when it is still unanswered after `SLOW_REQUEST_MS` (lie-fi).
+ * caches mark those responses, see `markCacheHits`), or when it is still unanswered after `LIVE_REQUEST_TIMEOUT_MS` (lie-fi; it is then abandoned).
  * The next call that reaches the network clears it, and so does the browser's own "online" event.
  */
 import { useEffect, useState, useSyncExternalStore } from 'react'
@@ -11,8 +11,11 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 /** Header the service worker adds to /v1 responses it serves from its cache instead of the network. */
 export const SW_CACHE_HEADER = 'x-bft-cache'
 
-/** A request still unanswered after this long marks the connection as down until a request succeeds. */
-export const SLOW_REQUEST_MS = 8_000
+/**
+ * A live request still unanswered after this long (headers and body) is abandoned, and marks the connection as down
+ * until a request succeeds. The board then shows its offline copy and the next poll or probe asks again.
+ */
+export const LIVE_REQUEST_TIMEOUT_MS = 8_000
 
 /** Live data whose TransLink source is older than this is shown as timetable times. */
 export const LIVE_SOURCE_MAX_AGE_S = 300
@@ -314,20 +317,46 @@ const LIVE_PATH = /^(?:https?:\/\/[^/]+)?(?:\/__fixtures)?\/v1\//
  * stale-while-revalidate caches even with no connection, so they say nothing about being online.
  */
 export async function trackedFetch(input: string, init?: RequestInit): Promise<Response> {
-  const live = LIVE_PATH.test(input)
-  const slow = live ? setTimeout(reportOffline, SLOW_REQUEST_MS) : undefined
+  if (!LIVE_PATH.test(input)) {
+    try {
+      return await fetch(input, init)
+    } catch (error) {
+      if (!init?.signal?.aborted) reportOffline()
+      throw error
+    }
+  }
+  // A live call is abandoned after LIVE_REQUEST_TIMEOUT_MS, body included (R8-F1). One that never settled (bft-api
+  // held some for minutes) kept its query fetching: TanStack joins the 15 s poll, the reconnect refetch and the probe
+  // to the request in flight, so the board stayed "Offline · scheduled" until it ended.
+  const caller = init?.signal
+  const deadline = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    reportOffline()
+    deadline.abort()
+  }, LIVE_REQUEST_TIMEOUT_MS)
+  const onAbort = () => deadline.abort(caller?.reason)
+  if (caller?.aborted) onAbort()
+  else caller?.addEventListener('abort', onAbort, { once: true })
   try {
-    const res = await fetch(input, init)
+    const res = await fetch(input, { ...init, signal: deadline.signal })
+    const body = NULL_BODY_STATUS.has(res.status) ? null : await res.arrayBuffer()
     if (res.headers.get(SW_CACHE_HEADER)) reportOffline()
-    else if (live) reportOnline()
-    return res
+    else reportOnline()
+    return new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers })
   } catch (error) {
-    if (!init?.signal?.aborted) reportOffline()
+    if (timedOut) throw new TypeError(`Failed to fetch: no answer within ${LIVE_REQUEST_TIMEOUT_MS} ms`)
+    if (!caller?.aborted) reportOffline()
     throw error
   } finally {
-    clearTimeout(slow)
+    clearTimeout(timer)
+    caller?.removeEventListener('abort', onAbort)
   }
 }
+
+/** Statuses whose Response can't carry a body. */
+const NULL_BODY_STATUS = new Set([101, 103, 204, 205, 304])
 
 /** Bodies parsed from a response the service worker served from its cache (see noteCacheCopy). */
 const cacheCopies = new WeakSet<object>()

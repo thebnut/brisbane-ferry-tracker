@@ -224,6 +224,18 @@ describe('the home page’s live judgement (R7-T1)', () => {
     ).toEqual({ live: true, unconfirmed: false })
   })
 
+  it('R8-T1: nothing saved, a page from the device’s copy is unconfirmed (banner too) until it reaches the network', () => {
+    const cached = { ...opts, unconfirmedBefore: NOW + 10_000 }
+    expect(homeLiveState([], [], cached)).toEqual({ live: false, unconfirmed: true })
+    expect(homeLiveState([], [], { ...cached, reached: true })).toEqual({ live: true, unconfirmed: false })
+    expect(homeLiveState([], [], { ...cached, reached: true, online: false })).toEqual({
+      live: false,
+      unconfirmed: false,
+    })
+    // A fresh page needs no answer of its own.
+    expect(homeLiveState([], [], opts)).toEqual({ live: true, unconfirmed: false })
+  })
+
   it('never LIVE before the saved items are read (the server render and hydration)', () => {
     expect(homeLiveState(null, [], opts)).toEqual({ live: false, unconfirmed: false })
   })
@@ -233,9 +245,10 @@ describe('the home page’s live judgement (R7-T1)', () => {
       false,
     )
     expect(homeLiveState([], [], opts)).toEqual({ live: true, unconfirmed: false })
+    // A cached copy: not LIVE, and unconfirmed (the banner shows with the OFFLINE pill, R8-T1).
     expect(homeLiveState([], [], { ...opts, unconfirmedBefore: NOW })).toEqual({
       live: false,
-      unconfirmed: false,
+      unconfirmed: true,
     })
   })
 })

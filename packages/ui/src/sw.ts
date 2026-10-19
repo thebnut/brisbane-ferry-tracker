@@ -42,6 +42,11 @@ export interface ServiceWorkerConfig {
   /** Brand colour for the offline page's heading rule. */
   themeColor: string
   pages: CacheSpec
+  /**
+   * Pages saved into the page cache when this worker installs (R8-T1: the transit home), so they open offline even
+   * if the visitor went offline before the first page view was saved, or only ever opened another page.
+   */
+  installPages?: string[]
   /** React Router client-navigation loader data (`<path>.data`), cached like the pages. */
   routeData?: CacheSpec
   /** Live /v1 departures and trips. */
@@ -56,7 +61,7 @@ interface ExtendableEventLike extends Event {
 }
 interface SwScope {
   skipWaiting(): Promise<void>
-  addEventListener(type: 'activate', fn: (e: ExtendableEventLike) => void): void
+  addEventListener(type: 'install' | 'activate', fn: (e: ExtendableEventLike) => void): void
 }
 
 /** Same-origin stylesheet and script URLs a page's HTML references (links, modulepreloads, the entry import). */
@@ -210,6 +215,18 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
     )
   }
 
+  // Best effort and bounded: a page that can't be fetched never fails the install.
+  const installPages = config.installPages ?? []
+  if (installPages.length)
+    sw.addEventListener('install', (event) => {
+      event.waitUntil(
+        Promise.race([
+          savePages(config.pages.cacheName, installPages),
+          new Promise((resolve) => setTimeout(resolve, 10_000)),
+        ]).catch(() => {}),
+      )
+    })
+
   // A new build: drop caches it doesn't own and expired entries (R6-B1), then re-fetch the saved pages so their
   // copies reference this build's assets (best effort, ≤ 10 s).
   sw.addEventListener('activate', (event) => {
@@ -254,16 +271,30 @@ export async function cleanUpCaches(specs: CacheSpec[], storage: CacheStorage = 
 
 async function refreshPages(cacheName: string): Promise<void> {
   const cache = await caches.open(cacheName)
-  const requests = await cache.keys()
-  await Promise.allSettled(
-    requests.map(async (req) => {
-      const res = await fetch(req.url, { credentials: 'same-origin', cache: 'no-store' })
+  await savePages(
+    cacheName,
+    (await cache.keys()).map((req) => req.url),
+  )
+}
+
+/**
+ * Fetches each page from the network and keeps it in the page cache if it is an ordinary HTML page (not an error, not
+ * demo). Whether a kept copy is used is still up to usablePageCopy (its assets must be precached, #61).
+ */
+export async function savePages(cacheName: string, urls: string[], storage: CacheStorage = caches) {
+  const cache = await storage.open(cacheName)
+  const saved = await Promise.allSettled(
+    urls.map(async (url) => {
+      const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store' })
       if (
-        res.ok &&
-        !res.headers.has(DEMO_HEADER) &&
-        (res.headers.get('content-type') ?? '').includes('text/html')
+        !res.ok ||
+        res.headers.has(DEMO_HEADER) ||
+        !(res.headers.get('content-type') ?? '').includes('text/html')
       )
-        await cache.put(req.url, res)
+        return false
+      await cache.put(url, res)
+      return true
     }),
   )
+  return saved.map((r) => r.status === 'fulfilled' && r.value)
 }

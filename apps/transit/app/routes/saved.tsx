@@ -16,11 +16,12 @@ import {
   SavedTripCard,
   vesselName,
 } from '@bft/ui'
-import { type OfflineCopy, useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { isNetworkAnswer, type OfflineCopy, retryWhenBack, useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { AskBox } from '../components/AskBox.tsx'
 import { TransitFooter, TransitHeader, TransitStrip } from '../components/Chrome.tsx'
+import { fetchAlerts } from '../lib/api.ts'
 import { MODE_BASES } from '../lib/modes.ts'
 import { asOffline, useApi, useSavedDepartures } from '../lib/queries.ts'
 import { readSavedItems, type SavedItem } from '../lib/saved.ts'
@@ -135,22 +136,31 @@ type CardData = (DeparturesResponse & OfflineCopy) | undefined
  *  - `live` (the header pill): online, confirmed, and every saved card has an answer that is live and fresh. A card
  *    still waiting for its answer, or whose request failed, is not live: before R7-T1 a pending card counted as live,
  *    so an offline reload kept LIVE up for as long as the requests took to fail (Codex review: a failed one too).
- * Before the saved items are read (server render, hydration) it is never LIVE. With nothing saved there is nothing to
- * judge: LIVE while online on a fresh page.
+ * Before the saved items are read (server render, hydration) it is never LIVE. With nothing saved there are no cards:
+ * a fresh page is LIVE while online, and a page from the device's copy is unconfirmed, with the banner as well as the
+ * OFFLINE pill (R8-T1: the pill showed with no banner), until the page has a network answer of its own (`reached`,
+ * useReachedNetwork).
  */
 export function homeLiveState(
   items: readonly unknown[] | null,
   cards: ReadonlyArray<{ data: CardData; pending: boolean }>,
-  { online, nowMs, unconfirmedBefore }: { online: boolean; nowMs: number; unconfirmedBefore: number | null },
+  {
+    online,
+    nowMs,
+    unconfirmedBefore,
+    reached = false,
+  }: { online: boolean; nowMs: number; unconfirmedBefore: number | null; reached?: boolean },
 ): { live: boolean; unconfirmed: boolean } {
-  const answered = cards.some(
-    ({ data }) =>
-      data != null && !data.offline && (unconfirmedBefore == null || data.generatedAt > unconfirmedBefore),
-  )
-  const unconfirmed = unconfirmedBefore != null && !answered && (items == null || items.length > 0)
+  const answered =
+    cards.some(
+      ({ data }) =>
+        data != null && !data.offline && (unconfirmedBefore == null || data.generatedAt > unconfirmedBefore),
+    ) ||
+    (items?.length === 0 && reached)
+  const unconfirmed = unconfirmedBefore != null && !answered
   // Saved items not read yet (the server render and hydration): nothing confirmed, so no LIVE (Codex review).
   if (!online || unconfirmed || items == null) return { live: false, unconfirmed }
-  if (items.length === 0) return { live: unconfirmedBefore == null, unconfirmed }
+  if (items.length === 0) return { live: true, unconfirmed }
   // Every saved card, each with an answer (one still waiting, or one that failed, has nothing live to show).
   const live =
     cards.length === items.length &&
@@ -225,6 +235,45 @@ function SavedList({
   )
 }
 
+/**
+ * With nothing saved, a page from the device's copy has no card whose answer can confirm it (R8-T1). It asks the API
+ * itself (the alerts), now and whenever the connection may be back (retryWhenBack), until a network answer arrives,
+ * and again after every disconnect.
+ */
+export function useReachedNetwork(needed: boolean): boolean {
+  const { fetcher } = useApi()
+  const online = useOnline()
+  const [reached, setReached] = useState(false)
+  // A confirmation lasts only while the connection does: after a disconnect, LIVE needs a new answer (Codex review).
+  useEffect(() => {
+    if (!online) setReached(false)
+  }, [online])
+  useEffect(() => {
+    if (!needed || reached) return
+    const ctrl = new AbortController()
+    let busy = false
+    const ask = () => {
+      if (busy) return
+      busy = true
+      fetchAlerts(fetcher, { signal: ctrl.signal })
+        .then((body) => {
+          if (isNetworkAnswer(body)) setReached(true)
+        })
+        .catch(() => {})
+        .finally(() => {
+          busy = false
+        })
+    }
+    ask()
+    const off = retryWhenBack(ask)
+    return () => {
+      off()
+      ctrl.abort()
+    }
+  }, [needed, reached, fetcher])
+  return reached
+}
+
 export default function Saved({ loaderData }: Route.ComponentProps) {
   const now = useNow(loaderData.renderedAt)
   const online = useOnline()
@@ -234,10 +283,11 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   const { mode, fetcher } = useApi()
   const qs = useSavedDepartures(fetcher, mode, items ?? [])
   const unconfirmedBefore = useUnconfirmedBefore()
+  const reached = useReachedNetwork(items?.length === 0 && unconfirmedBefore != null)
   const { live, unconfirmed } = homeLiveState(
     items,
     qs.map((q) => ({ data: q.data, pending: q.isPending })),
-    { online, nowMs: now, unconfirmedBefore },
+    { online, nowMs: now, unconfirmedBefore, reached },
   )
   return (
     <>
@@ -257,7 +307,14 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
         {/* A card built from offline copies keeps the banner until its own network answer (R6-B1), and so does a page
             served from the device's copy until a card has one (R7-T1). */}
         {!online || unconfirmed || qs.some((q) => q.data?.offline) ? (
-          <OfflineBanner kind="offline" detail="Showing saved timetables. No live times." />
+          <OfflineBanner
+            kind="offline"
+            detail={
+              items?.length === 0
+                ? 'Nothing is saved on this device yet. Live times return once you are back online.'
+                : 'Showing saved timetables. No live times.'
+            }
+          />
         ) : null}
         {items == null ? (
           <p data-loading="" className="text-sm text-sched-text dark:text-night-text/70">

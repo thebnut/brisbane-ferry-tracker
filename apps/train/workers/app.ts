@@ -10,6 +10,7 @@
  */
 
 import { DEMO_HEADER } from '@bft/ui/connectivity'
+import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
 import { validateProxied } from '../app/lib/contract.server.ts'
@@ -36,13 +37,16 @@ const requestHandler = createRequestHandler(
 export async function proxyApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
   const target = `${url.pathname}${url.search}`
-  const init: RequestInit = { method: 'GET', headers: { accept: 'application/json' } }
   try {
-    const res = env.API
-      ? await env.API.fetch(new Request(`https://bft-api${target}`, init))
-      : await fetch(`${env.API_BASE}${target}`, init)
-    // Contract check at the edge, so the browser can trust the shape without shipping zod.
-    return await validateProxied(url.pathname, res)
+    // One deadline for headers, body and contract check, and the visitor's abort reaches the API (R8-F1).
+    return await proxied(request, async (signal) => {
+      const init: RequestInit = { method: 'GET', headers: { accept: 'application/json' }, signal }
+      const res = env.API
+        ? await env.API.fetch(new Request(`https://bft-api${target}`, init))
+        : await fetch(`${env.API_BASE}${target}`, init)
+      // Contract check at the edge, so the browser can trust the shape without shipping zod.
+      return validateProxied(url.pathname, res)
+    })
   } catch (error) {
     return Response.json(
       { error: 'upstream_unavailable', detail: error instanceof Error ? error.message : String(error) },
