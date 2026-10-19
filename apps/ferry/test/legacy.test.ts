@@ -87,6 +87,49 @@ describe('legacy endpoints on the ferry origin (cutover blocker)', () => {
     expect(res.headers.get('access-control-allow-origin')).toBe('capacitor://localhost')
   })
 
+  it('/api/gtfs-proxy passes a 204 or 304 through with its status and headers, a 200 unchanged (L7)', async () => {
+    const answers: Record<string, () => Response> = {
+      TripUpdates: () =>
+        new Response(new Uint8Array([4, 5]), {
+          status: 200,
+          headers: { 'content-type': 'application/octet-stream', etag: '"a"' },
+        }),
+      VehiclePositions: () => new Response(null, { status: 204, headers: { 'x-upstream': 'empty' } }),
+      Alerts: () =>
+        new Response(null, { status: 304, headers: { etag: '"b"', 'cache-control': 'max-age=15' } }),
+    }
+    const api = {
+      fetch: async (r: Request) =>
+        (answers[new URL(r.url).searchParams.get('endpoint') ?? ''] as () => Response)(),
+    } as unknown as Fetcher
+    const call = async (endpoint: string) =>
+      (await handleLegacy(
+        new Request(`https://www.brisbaneferry.com/api/gtfs-proxy?endpoint=${endpoint}`, {
+          headers: { origin: 'capacitor://localhost' },
+        }),
+        env({ API: api }),
+      )) as Response
+
+    const ok = await call('TripUpdates')
+    expect(ok.status).toBe(200)
+    expect(ok.headers.get('etag')).toBe('"a"')
+    expect(ok.headers.get('content-type')).toBe('application/octet-stream')
+    expect(new Uint8Array(await ok.arrayBuffer())).toEqual(new Uint8Array([4, 5]))
+
+    const empty = await call('VehiclePositions')
+    expect(empty.status).toBe(204)
+    expect(empty.body).toBeNull()
+    expect(empty.headers.get('x-upstream')).toBe('empty')
+    expect(empty.headers.get('access-control-allow-origin')).toBe('capacitor://localhost')
+
+    const unchanged = await call('Alerts')
+    expect(unchanged.status).toBe(304)
+    expect(unchanged.body).toBeNull()
+    expect(unchanged.headers.get('etag')).toBe('"b"')
+    expect(unchanged.headers.get('cache-control')).toBe('max-age=15')
+    expect(unchanged.headers.get('access-control-allow-origin')).toBe('capacitor://localhost')
+  })
+
   it('error paths return the legacy JSON bodies with CORS instead of throwing (Codex review)', async () => {
     const api = {
       fetch: async () => {

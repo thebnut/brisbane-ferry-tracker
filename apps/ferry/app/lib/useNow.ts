@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
  * Current time that ticks every `intervalMs`. Starts at `initialMs` (the server's render time) so hydration matches
  * the server HTML, then switches to the device clock after mount.
  */
-export function useNow(initialMs: number, intervalMs = 15_000): number {
+export function useNow(initialMs: number, intervalMs: number): number {
   const [now, setNow] = useState(initialMs)
   useEffect(() => {
     setNow(Date.now())
