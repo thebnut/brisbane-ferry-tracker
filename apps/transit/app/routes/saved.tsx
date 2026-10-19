@@ -191,6 +191,21 @@ export function lastAnswerAt(
   return newest
 }
 
+/**
+ * lastAnswerAt kept across renders, so it stays at the last answer while the cards turn into offline copies. Per data
+ * mode (`scope`): a demo answer's time never carries over to an ordinary visit's cards, or back (Codex review).
+ */
+export function useLastAnswerAt(
+  scope: string,
+  cards: ReadonlyArray<CardData>,
+  unconfirmedBefore: number | null,
+): number | null {
+  const [kept, setKept] = useState<{ scope: string; at: number | null }>({ scope, at: null })
+  const at = lastAnswerAt(kept.scope === scope ? kept.at : null, cards, unconfirmedBefore)
+  if (kept.scope !== scope || kept.at !== at) setKept({ scope, at })
+  return at
+}
+
 function SavedList({
   items,
   qs,
@@ -310,18 +325,15 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
     qs.map((q) => ({ data: q.data, pending: q.isPending })),
     { online, nowMs: now, unconfirmedBefore, reached },
   )
-  // Kept across renders, so it stays at the last answer while the cards turn into offline copies.
-  const [updatedAt, setUpdatedAt] = useState<number | null>(null)
-  const newest = lastAnswerAt(
-    updatedAt,
+  const updatedAt = useLastAnswerAt(
+    `${mode.fixtures}:${mode.rt}`,
     qs.map((q) => q.data),
     unconfirmedBefore,
   )
-  if (newest !== updatedAt) setUpdatedAt(newest)
   return (
     <>
       <TransitHeader live={live} />
-      <TransitStrip updatedAt={newest}>
+      <TransitStrip updatedAt={updatedAt}>
         {items ? (
           <span className="text-sm font-semibold text-aqua-text dark:text-ferry-aqua-light">
             {items.length} saved · all modes
