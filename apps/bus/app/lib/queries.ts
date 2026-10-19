@@ -9,6 +9,7 @@ import {
   type LiveState,
   liveState,
   type OfflineCopy,
+  pollEvery,
   replacesBoard,
   timetableStatus,
 } from '@bft/ui/connectivity'
@@ -31,6 +32,9 @@ import { buildSearchIndex } from './search.ts'
 import { readOffline, writeOffline } from './storage.ts'
 
 export const POLL_MS = 15_000
+/** Live data polling, backing off while calls fail (@bft/ui pollEvery). */
+const poll = pollEvery(POLL_MS)
+const pollAlerts = pollEvery(60_000)
 /** Saved stops refresh their offline timetable copy at most this often. */
 const OFFLINE_REFRESH_MS = 3 * 3600_000
 
@@ -171,7 +175,7 @@ export function departuresOptions(
     },
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
-    refetchInterval: POLL_MS,
+    refetchInterval: poll,
   }
 }
 
@@ -226,7 +230,7 @@ export function useTrip(
     queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance, { signal }),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
-    refetchInterval: POLL_MS,
+    refetchInterval: poll,
   })
 }
 
@@ -235,7 +239,7 @@ export function useVehicles(fetcher: ApiFetcher, mode: DataMode, route: string |
     queryKey: ['bus', 'vehicles', mode.fixtures, mode.rt, route],
     queryFn: ({ signal }) => fetchVehicles(fetcher, route, signal),
     enabled,
-    refetchInterval: POLL_MS,
+    refetchInterval: poll,
   })
 }
 
@@ -246,7 +250,7 @@ export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsRe
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
     staleTime: 60_000,
-    refetchInterval: 60_000,
+    refetchInterval: pollAlerts,
   })
 }
 

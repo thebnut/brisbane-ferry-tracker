@@ -1,12 +1,14 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
 import type { DeparturesResponse } from '@bft/core/contract'
-import { asOfflineCopy, bestOfflineCopy, isOnline, replacesBoard } from '@bft/ui/connectivity'
+import { asOfflineCopy, bestOfflineCopy, isOnline, pollEvery, replacesBoard } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { type ApiFetcher, browserFetcher, fetchDepartures, fetchTrip, fetchVehicles } from './api.ts'
 import { readOffline, writeOffline } from './storage.ts'
 
 export const POLL_MS = 15_000
+/** Live data polling, backing off while calls fail (@bft/ui pollEvery). */
+const poll = pollEvery(POLL_MS)
 
 export function makeQueryClient() {
   return new QueryClient({
@@ -84,7 +86,7 @@ export function departuresOptions(
     },
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
-    refetchInterval: POLL_MS,
+    refetchInterval: poll,
   }
 }
 
@@ -104,7 +106,7 @@ export function useTrip(fetcher: ApiFetcher, mode: DataMode, tripInstance: strin
     queryKey: ['ferry', 'trip', mode.fixtures, mode.rt, tripInstance],
     queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance as string, signal),
     enabled: !!tripInstance,
-    refetchInterval: POLL_MS,
+    refetchInterval: poll,
   })
 }
 
@@ -113,7 +115,7 @@ export function useVehicles(fetcher: ApiFetcher, mode: DataMode, enabled: boolea
     queryKey: ['ferry', 'vehicles', mode.fixtures, mode.rt],
     queryFn: ({ signal }) => fetchVehicles(fetcher, signal),
     enabled,
-    refetchInterval: POLL_MS,
+    refetchInterval: poll,
   })
 }
 

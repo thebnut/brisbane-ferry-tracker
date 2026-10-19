@@ -46,7 +46,7 @@ export function readSavedPair(): StopPair | null {
  * so later visits show the default board, whose From/To pickers and Settings change the stops.
  */
 export function shouldShowSelector(): boolean {
-  const remember = safe(() => localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION), null) === 'true'
+  const remember = readRemember()
   const saved = safe(() => localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS), null)
   const seen = safe(() => localStorage.getItem(STORAGE_KEYS.SELECTOR_SEEN), null) === '1'
   return !(saved && remember) && !seen
