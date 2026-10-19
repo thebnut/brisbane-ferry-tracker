@@ -420,4 +420,30 @@ describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {
     await hub.alarm()
     expect(objSeq(r2)).toBe(published + 2)
   })
+
+  it('an index without a valid seq is rejected, and its section seqs still count (Codex r7)', async () => {
+    const { r2, hub, storage, mk, published } = await restarted('ferry', 'combined')
+    // Move the object past the pointer: its section is at a later seq than the pointer names.
+    const got = decodeCombined(new TextEncoder().encode(r2.files.get(COMBINED_KEY) as string))
+    if (!got) throw new Error('combined object did not decode')
+    const ahead = published + 2
+    const sections = got.docs.map((d) => ({
+      ...d,
+      seq: ahead,
+      json: d.json.replace(`"seq":${d.seq},`, `"seq":${ahead},`),
+    }))
+    const bytes = encodeCombined({ ...got.index, seq: ahead }, sections)
+    r2.files.set(COMBINED_KEY, new TextDecoder().decode(bytes))
+    editObject(r2, (idx) => {
+      delete idx.seq
+    })
+    storage.data.clear()
+    expect((await hub.pull(null)).seq).toBeNull()
+    await hub.alarm()
+    expect(objSeq(r2)).toBe(ahead + 1)
+    // With a valid index the same object restores, and the next build still goes past it.
+    const fresh = mk()
+    storage.data.clear()
+    expect((await fresh.pull(null)).seq).toBe(ahead + 1)
+  })
 })

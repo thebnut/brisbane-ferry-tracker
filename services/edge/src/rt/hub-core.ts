@@ -933,7 +933,7 @@ export class HubCore {
       } catch {
         got = null
       }
-      if (!got || got.index.seq < c.seq) return null
+      if (!got || !Number.isSafeInteger(got.index.seq) || got.index.seq < c.seq) return null
       const docs: Array<[Mode, RtSnapshot]> = []
       for (const d of got.docs) {
         // A malformed section makes the whole object unusable (missing), not a restore that fails forever.
@@ -1080,6 +1080,8 @@ export class HubCore {
     if (r.alertsStale) this.meta.alertsAt = 0
     const snapshot = r.snapshot
     if (!snapshot) return
+    // Backstop: whichever document it came from, the next build goes past the restored snapshot's own seq.
+    if (snapshot.header.seq > this.meta.seq) this.meta.seq = snapshot.header.seq
     if (this.snapshot && this.snapshot.header.seq >= snapshot.header.seq) return
     this.snapshotJson = null // serialised on demand (fullJson)
     this.snapshot = snapshot
@@ -1136,12 +1138,21 @@ function parseSnapshot(text: string): RtSnapshot | null {
   return ok ? s : null
 }
 
-/** The seq of a combined object's index, read without its other checks (only for the seq watermark). */
+/**
+ * The highest seq a combined object's index names (its own, or any section's), read without its other checks: only
+ * for the seq watermark (Codex r4 and r7 on #100).
+ */
 function combinedIndexSeq(bytes: Uint8Array): number | null {
   try {
-    const seq = (JSON.parse(new TextDecoder().decode(bytes.subarray(0, INDEX_BYTES))) as { seq?: unknown })
-      ?.seq
-    return Number.isSafeInteger(seq) ? (seq as number) : null
+    const idx = JSON.parse(new TextDecoder().decode(bytes.subarray(0, INDEX_BYTES))) as {
+      seq?: unknown
+      sections?: unknown
+    }
+    const seqs = [idx?.seq]
+    if (idx?.sections && typeof idx.sections === 'object')
+      for (const s of Object.values(idx.sections)) if (Array.isArray(s)) seqs.push(s[2])
+    const ok = seqs.filter((n): n is number => Number.isSafeInteger(n))
+    return ok.length > 0 ? Math.max(...ok) : null
   } catch {
     return null
   }
