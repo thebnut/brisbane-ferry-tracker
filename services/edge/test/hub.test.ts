@@ -1140,7 +1140,10 @@ describe('R2 PUT budget: unchanged documents and the pointer are not rewritten',
     h.up.set('alerts', feed(h.nowS(), [alert('a3', 'New closure', 'F1-4055')]))
     await poll(h, { train: 1 })
     r2.put = realPut
-    const slot = [...r2.ops].reverse().find((o) => o.includes('/alerts/'))?.slice(4)
+    const slot = [...r2.ops]
+      .reverse()
+      .find((o) => o.includes('/alerts/'))
+      ?.slice(4)
     expect(slot).toBeDefined()
     await poll(h, { train: 1 }) // alerts unchanged now; the pointer is still owed for the new slot
     expect(JSON.parse(text(r2, 'rt/latest.json')).files.alerts.key).toBe(slot)

@@ -600,9 +600,7 @@ export class HubCore {
       if (failed) throw failed.reason
     }
     const due =
-      this.pointerAt === 0 ||
-      this.alertsMoved ||
-      now - this.pointerAt >= POINTER_HEARTBEAT_MS - POLL_SLACK_MS
+      this.pointerAt === 0 || this.alertsMoved || now - this.pointerAt >= POINTER_HEARTBEAT_MS - POLL_SLACK_MS
     if (!due) {
       this.pointerOwed = true
       return
