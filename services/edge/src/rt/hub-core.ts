@@ -542,7 +542,10 @@ export class HubCore {
       puts.push(this.put(r2, key, JSON.stringify(alertsDocument(snap)), json))
       alerts = { alerts: snap.alerts, key, seq }
     }
-    await Promise.all(puts)
+    // Every PUT settles before the publish (and so the poll) ends: a failed sibling must not leave another PUT running
+    // that could land after the next poll's and roll its document back (Codex r1). Then the first failure, if any.
+    const failed = (await Promise.allSettled(puts)).find((r) => r.status === 'rejected')
+    if (failed) throw failed.reason
     // Only once its document is written: a failed alerts PUT is retried with the next publish.
     this.alertsPublished = alerts
     files.alerts = { key: alerts.key, seq: alerts.seq }

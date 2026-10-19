@@ -105,6 +105,7 @@ export default {
     const { app } = getIsolate(env)
     return withRequestDeadline(req, async () => app.fetch(req, env, ctx), {
       build: buildId(env.BUILD_SHA),
+      corsAllowAll: env.CORS_ALLOW_ALL === 'true',
       onCut: (o) =>
         log.warn('request cut', {
           why: o.why,

@@ -272,6 +272,24 @@ describe('request deadline', () => {
     expect(cuts).toEqual(['abandoned'])
   })
 
+  it('a cut-off answer carries the CORS policy and a request id, like the app (Codex r1)', async () => {
+    const cut = (origin: string, corsAllowAll = false) =>
+      withRequestDeadline(
+        new Request('http://x/v1/health', { headers: { origin, 'cf-ray': 'ray1' } }),
+        never,
+        {
+          ms: 10,
+          corsAllowAll,
+        },
+      )
+    const allowed = await cut('https://www.brisbaneferry.com')
+    expect(allowed.headers.get('access-control-allow-origin')).toBe('https://www.brisbaneferry.com')
+    expect(allowed.headers.get('vary')).toBe('Origin')
+    expect(allowed.headers.get('x-request-id')).toBe('ray1')
+    expect((await cut('https://evil.example')).headers.get('access-control-allow-origin')).toBeNull()
+    expect((await cut('https://evil.example', true)).headers.get('access-control-allow-origin')).toBe('*')
+  })
+
   it('a prompt answer passes through untouched; POSTs are not raced', async () => {
     const ok = await withRequestDeadline(new Request('http://x/v1/health'), async () => new Response('hi'), {
       ms: 40,
@@ -316,8 +334,11 @@ describe('RtHub publish and timings', () => {
     readonly order: string[] = []
     inFlight = 0
     maxInFlight = 0
+    /** Keys whose PUT fails at once (the others still take `delayMs`). */
+    readonly failing = new Set<string>()
     constructor(private readonly delayMs: number) {}
     async put(key: string, value: Uint8Array | string) {
+      if (this.failing.has(key)) throw new Error(`r2 put ${key} failed`)
       this.inFlight++
       this.maxInFlight = Math.max(this.maxInFlight, this.inFlight)
       await sleep(this.delayMs)
@@ -405,6 +426,18 @@ describe('RtHub publish and timings', () => {
     expect(t?.r2Chars).toBeGreaterThan(0)
     const line = lines.find((l) => l.msg === 'rt cycle timings')
     expect(line?.fields?.publish).toBe(t?.publish)
+  })
+
+  it('a failed PUT: the poll ends only after its sibling PUTs land, and the pointer is not written (Codex r1)', async () => {
+    const r2 = new SlowR2(60)
+    r2.failing.add(modeLatestKey('train'))
+    const { core } = hub(r2)
+    await core.cycle()
+    // The ferry PUT landed before the poll ended, so it can't land after the next poll's and roll ferry back.
+    expect(r2.inFlight).toBe(0)
+    expect(r2.order).toContain(modeLatestKey('ferry'))
+    expect(r2.order).not.toContain(R2_LATEST_KEY)
+    expect(core.status().lastError).toMatch(/r2: r2 put rt\/train\/latest.json failed/)
   })
 
   it('without RT_PROFILE a fast poll logs no timings', async () => {

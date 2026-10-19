@@ -12,6 +12,7 @@
  * its own deadline. POSTs (/v1/ask, /mcp, Turnstile verify) and WebSocket upgrades keep their own limits.
  */
 import { BUILD_HEADER } from '@bft/core'
+import { corsHeaders } from './cors.ts'
 
 export const REQUEST_DEADLINE_MS = 7_000
 
@@ -30,21 +31,33 @@ export interface DeadlineOutcome {
   ms: number
 }
 
+export interface DeadlineOptions {
+  ms?: number
+  build?: string
+  /** CORS_ALLOW_ALL, so a cut-off answer carries the same CORS headers as the app's (a browser can read it). */
+  corsAllowAll?: boolean
+  now?: () => number
+  onCut?: (o: DeadlineOutcome) => void
+}
+
 /**
- * `handle(req)`, unless the deadline passes or the caller aborts first. `onCut` is told which (for the log).
+ * `handle(req)`, unless the deadline passes or the caller aborts first. `onCut` is told which (for the log). A cut-off
+ * answer carries what the app's middleware would have added: CORS, x-request-id and the build marker (Codex r1).
  */
 export function withRequestDeadline(
   req: Request,
   handle: () => Promise<Response>,
-  opts: { ms?: number; build?: string; now?: () => number; onCut?: (o: DeadlineOutcome) => void } = {},
+  opts: DeadlineOptions = {},
 ): Promise<Response> {
   if (!isBounded(req)) return handle()
   const ms = opts.ms ?? REQUEST_DEADLINE_MS
   const now = opts.now ?? Date.now
   const t0 = now()
   const headers = (): Record<string, string> => ({
+    ...corsHeaders(req.headers.get('origin'), opts.corsAllowAll ?? false),
     'content-type': 'application/json',
     'cache-control': 'no-store',
+    'x-request-id': req.headers.get('cf-ray') ?? crypto.randomUUID(),
     ...(opts.build ? { [BUILD_HEADER]: opts.build } : {}),
   })
   let timer: ReturnType<typeof setTimeout> | undefined
