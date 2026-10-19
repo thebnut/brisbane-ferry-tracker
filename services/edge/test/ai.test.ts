@@ -239,6 +239,16 @@ describe('quotedTerm', () => {
     expect(quotedTerm('<>')).toBeNull()
     expect(quotedTerm(undefined)).toBeNull()
   })
+  it('removes every single-quote style and spaces out every double-quote style', () => {
+    expect(quotedTerm('‘foo')).toBe("'foo'")
+    expect(quotedTerm('‘st peter’s’')).toBe("'st peters'")
+    for (const q of ["'", '`', '´', 'ʹ', 'ʻ', 'ʼ', 'ʽ', '‘', '’', '‚', '‛', '′', '‵', '＇', '｀'])
+      expect(quotedTerm(`${q}a${q}b${q}`)).toBe("'ab'")
+    for (const q of ['"', '«', '»', '‹', '›', '“', '”', '„', '‟', '″', '‶', '〝', '〞', '＂'])
+      expect(quotedTerm(`${q}a${q}b${q}`)).toBe("'a b'")
+    expect(quotedTerm('‘’“”')).toBeNull()
+    expect(quotedTerm(`‘${'x'.repeat(50)}’`)).toBe(`'${'x'.repeat(40)}…'`)
+  })
 })
 
 describe('budget config', () => {
