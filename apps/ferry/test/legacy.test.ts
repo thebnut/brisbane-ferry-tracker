@@ -1,4 +1,6 @@
 // @vitest-environment node
+
+import { API_TIMEOUT_MS } from '@bft/ui/upstream'
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest'
 // @ts-expect-error The legacy Vercel helper is plain JS without types; imported to prove allowlist parity.
 import { isAllowedOrigin as legacyAllowed } from '../../../api/_cors.js'
@@ -103,7 +105,7 @@ describe('legacy endpoints on the ferry origin (cutover blocker)', () => {
     const spy = fetchSpy
     const e = env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK })
     for (const [origin, want] of [
-      ['https://www.brisbaneferry.com', 403],
+      ['https://www.brisbaneferry.com', 400],
       ['capacitor://localhost', 400],
     ] as const) {
       for (const body of ['null', '"text"', 'not json']) {
@@ -111,12 +113,58 @@ describe('legacy endpoints on the ferry origin (cutover blocker)', () => {
           new Request('https://x/api/feedback', { method: 'POST', body, headers: { origin } }),
           e,
         )) as Response
-        // Web: no token in a malformed body, so the Turnstile gate answers first.
+        // Validation answers before the Turnstile gate (L2), for web and iOS alike.
         expect(f.status, `${origin} ${body}`).toBe(want)
         expect(f.headers.get('access-control-allow-origin')).toBe(origin)
       }
     }
     expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('/api/gtfs-proxy has the /v1 deadline: a held request is a 502 upstream_unavailable with CORS (L3)', async () => {
+    vi.useFakeTimers()
+    try {
+      let signal: AbortSignal | null | undefined
+      const api = {
+        fetch: (r: Request) => {
+          signal = r.signal
+          return new Promise<Response>(() => {})
+        },
+      } as unknown as Fetcher
+      const pending = handleLegacy(
+        new Request('https://www.brisbaneferry.com/api/gtfs-proxy?endpoint=VehiclePositions', {
+          headers: { origin: 'capacitor://localhost' },
+        }),
+        env({ API: api }),
+      ) as Promise<Response>
+      await vi.advanceTimersByTimeAsync(API_TIMEOUT_MS)
+      const res = await pending
+      expect(res.status).toBe(502)
+      expect((await res.json()).error).toBe('upstream_unavailable')
+      expect(res.headers.get('access-control-allow-origin')).toBe('capacitor://localhost')
+      expect(res.headers.get('cache-control')).toBe('no-store')
+      // The upstream call is abandoned too.
+      expect(signal?.aborted).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('/api/gtfs-proxy: a body still streaming at the deadline is a 502 too', async () => {
+    vi.useFakeTimers()
+    try {
+      const api = {
+        fetch: async () => new Response(new ReadableStream({ start() {} })),
+      } as unknown as Fetcher
+      const pending = handleLegacy(
+        new Request('https://www.brisbaneferry.com/api/gtfs-proxy?endpoint=TripUpdates'),
+        env({ API: api }),
+      ) as Promise<Response>
+      await vi.advanceTimersByTimeAsync(API_TIMEOUT_MS)
+      expect((await pending).status).toBe(502)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('/api/feedback preflight is a 200, GET is a 405, other paths are not handled', async () => {
@@ -476,6 +524,34 @@ describe('/api/feedback Turnstile gate (api/_turnstile.js)', () => {
     )
     expect(res.status).toBe(429)
     expect(v.fetch).not.toHaveBeenCalled()
+  })
+
+  it('validation runs before verification: an invalid post is a 400 that never reaches bft-api (L2)', async () => {
+    const v = verifyApi()
+    const lim = limiter(true)
+    for (const body of [
+      { feedback: 'short', turnstileToken: 'tok-1' },
+      { ...good, email: 'not-an-email', turnstileToken: 'tok-1' },
+    ]) {
+      const res = await post(
+        env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, API: v.api, FEEDBACK_LIMITER: lim as never }),
+        body,
+      )
+      expect(res.status).toBe(400)
+      expect(res.headers.get('access-control-allow-origin')).toBe('https://www.brisbaneferry.com')
+    }
+    // Still rate limited first (the stricter order), and never verified or posted.
+    expect(lim.limit).toHaveBeenCalledTimes(2)
+    expect(v.fetch).not.toHaveBeenCalled()
+    expect(fetchSpy).not.toHaveBeenCalled()
+    // A rate-limited invalid post is a 429, not a 400.
+    const limited = await post(
+      env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, API: v.api, FEEDBACK_LIMITER: limiter(false) as never }),
+      { feedback: 'short', turnstileToken: 'tok-1' },
+    )
+    expect(limited.status).toBe(429)
+    // A valid post without a token still fails closed at the gate.
+    expect((await post(env({ FEEDBACK_DISCORD_WEBHOOK_URL: HOOK, API: v.api }), good)).status).toBe(403)
   })
 
   it('preflight allows the X-BFT-Client header for newer iOS builds', async () => {

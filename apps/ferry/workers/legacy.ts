@@ -9,11 +9,14 @@
  *                                Turnstile secret); the iOS app posts token-less (trade-off in api/_turnstile.js)
  * CORS matches api/_cors.js byte for byte (same allowlist, headers and preflight).
  */
+
+import { proxied, UpstreamTimeout } from '@bft/ui/upstream'
 import {
   feedbackApp,
   RATE_LIMITED_BODY,
   relayFeedback,
   UNAVAILABLE_BODY,
+  validateFeedback,
 } from '../../../api/_feedback-discord.js'
 import { checkTurnstile, IOS_CLIENT_HEADER, verifyWithApi } from '../../../api/_turnstile.js'
 
@@ -90,13 +93,27 @@ export async function handleLegacy(
     if (request.method !== 'GET')
       return withCors(Response.json({ error: 'Method not allowed' }, { status: 405 }), origin, allowAll)
     const target = `/api/gtfs-proxy${url.search}`
-    const init: RequestInit = { method: 'GET' }
     try {
-      const res = env.API
-        ? await env.API.fetch(new Request(`https://bft-api${target}`, init))
-        : await fetch(`${env.API_BASE}${target}`, init)
+      // The /v1 proxies' deadline, body included, and the visitor's abort reaches the API (Claude release review):
+      // during a bft-api stall old iOS builds got no answer for as long as it held the request.
+      const res = await proxied(request, async (signal) => {
+        const init: RequestInit = { method: 'GET', signal }
+        const upstream = env.API
+          ? await env.API.fetch(new Request(`https://bft-api${target}`, init))
+          : await fetch(`${env.API_BASE}${target}`, init)
+        return new Response(await upstream.arrayBuffer(), upstream)
+      })
       return withCors(res, origin, allowAll)
     } catch (error) {
+      if (error instanceof UpstreamTimeout)
+        return withCors(
+          Response.json(
+            { error: 'upstream_unavailable', detail: error.message },
+            { status: 502, headers: { 'cache-control': 'no-store' } },
+          ),
+          origin,
+          allowAll,
+        )
       // Same body and status as api/gtfs-proxy.js on failure (Codex review).
       console.error('Proxy error:', error instanceof Error ? error.message : String(error))
       return withCors(
@@ -107,7 +124,7 @@ export async function handleLegacy(
     }
   }
 
-  // /api/feedback: CORS, POST only, rate limit, then the shared validation and Discord relay.
+  // /api/feedback: CORS, POST only, rate limit, the shared validation, Turnstile, then the Discord relay.
   const json = (body: unknown, status: number, extra?: HeadersInit) =>
     withCors(Response.json(body, { status, headers: extra }), origin, allowAll)
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -135,6 +152,9 @@ export async function handleLegacy(
   } catch {
     // A missing or malformed body fails validation like an empty feedback (Codex review: it used to throw).
   }
+  // Validated before Turnstile, so a post that can only get a 400 never spends its token or a verify call.
+  const checked = validateFeedback(parsed)
+  if (!checked.ok) return json({ error: checked.error }, 400)
   const denied = await checkTurnstile({
     origin,
     clientHeader: request.headers.get(IOS_CLIENT_HEADER),

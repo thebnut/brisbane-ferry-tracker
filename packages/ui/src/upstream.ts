@@ -7,6 +7,9 @@
 /** Upstream time limit: a hung binding (seen for 60 s during a bft-api redeploy, minutes in R8-F1) must not hang. */
 export const API_TIMEOUT_MS = 10_000
 
+/** The error a `proxied` call fails with at its deadline (other failures are the call's own). */
+export class UpstreamTimeout extends Error {}
+
 export function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const t = new Promise<never>((_, reject) => {
@@ -32,7 +35,7 @@ export function proxied<T>(
   let timer: ReturnType<typeof setTimeout> | undefined
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      const error = new Error(`upstream timeout after ${ms} ms`)
+      const error = new UpstreamTimeout(`upstream timeout after ${ms} ms`)
       ctrl.abort(error)
       reject(error)
     }, ms)

@@ -61,24 +61,24 @@ export function departuresOptions(
           ],
           Date.now(),
         )
+      const shown = client.getQueryData<DeparturesResponse>(queryKey)
       try {
         const res = await fetchDepartures(fetcher, from, to, { at, signal })
         // Judged on this response, not only on the connection flag another request may have just cleared, and never
-        // older than the board on screen (R6-B1).
-        // The board may be showing the kept copy (FerryBoards, offline), so compare with the newer of the two.
-        const shown = client.getQueryData<DeparturesResponse>(queryKey)
-        const kept = at ? null : (readOffline(from, to) as DeparturesResponse | null)
-        const newest = kept && (!shown || kept.generatedAt > shown.generatedAt) ? kept : shown
-        if (replacesBoard(res, newest)) {
-          if (!at) writeOffline(from, to, res)
+        // older than the server board on screen (R6-B1). Not against the kept copy: a network answer from the edge
+        // cache can be a little older than it, and the board then stayed "Offline" for a poll (release review).
+        if (replacesBoard(res, shown)) {
+          // The kept copy only moves forward.
+          const kept = at ? null : (readOffline(from, to) as DeparturesResponse | null)
+          if (!at && !(kept && res.generatedAt < kept.generatedAt)) writeOffline(from, to, res)
           return res
         }
         // The service worker answered from its cache (maybe hours old): an offline board until a network answer.
-        return asOfflineCopy(offlineCopy(res) ?? res)
+        return asOfflineCopy(offlineCopy(res) ?? res, shown)
       } catch (error) {
         // Offline with no cached response from the service worker: the board on screen or the last copy we kept.
         const cached = isOnline() ? null : offlineCopy()
-        if (cached) return asOfflineCopy(cached)
+        if (cached) return asOfflineCopy(cached, shown)
         throw error
       }
     },

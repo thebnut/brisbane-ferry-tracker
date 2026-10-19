@@ -383,24 +383,45 @@ export function isNetworkAnswer(body: unknown): boolean {
 
 /**
  * May a freshly fetched body replace the board on screen as live data? Only a network answer (isNetworkAnswer) that
- * is not older than the board: an older body means some cache answered without saying so, and a board never goes
- * back to an older body (R6-B1).
+ * is not older than the server board on screen: an older body means some cache answered without saying so, and a
+ * board never goes back to an older body (R6-B1). Server times only (serverStamp): a board built on the device, or a
+ * copy saved on it, never holds a network answer back, whatever the device clock says (Codex release review).
  */
 export function replacesBoard(
   body: { generatedAt: number },
-  shown: { generatedAt: number } | null | undefined,
+  shown: ({ generatedAt: number } & OfflineCopy) | null | undefined,
 ) {
-  return isNetworkAnswer(body) && !(shown && body.generatedAt < shown.generatedAt)
+  const at = serverStamp(shown)
+  return isNetworkAnswer(body) && !(at != null && body.generatedAt < at)
 }
 
 /** Marks a board built from copies on hand while offline. liveState keeps it 'offline' until a network answer replaces it. */
 export interface OfflineCopy {
   offline?: boolean
+  /**
+   * The server generation time of the board this copy replaced on screen, or null when there was none: the copy's own
+   * `generatedAt` may be a device-clock stamp (a timetable saved on the device) or an older saved answer.
+   */
+  serverGeneratedAt?: number | null
 }
 
-/** A board's copy, marked as offline (a new object: TanStack's structural sharing must see the change). */
-export function asOfflineCopy<T extends object>(copy: T): T & { offline: true } {
-  return { ...copy, offline: true }
+/** The server time a board on screen was generated at: a response's own `generatedAt`, an offline copy's kept one. */
+export function serverStamp(
+  board: ({ generatedAt: number } & OfflineCopy) | null | undefined,
+): number | null {
+  if (!board) return null
+  return board.serverGeneratedAt !== undefined ? board.serverGeneratedAt : board.generatedAt
+}
+
+/**
+ * A board's copy, marked as offline (a new object: TanStack's structural sharing must see the change). It keeps the
+ * server time of `shown`, the board on screen it replaces, for replacesBoard.
+ */
+export function asOfflineCopy<T extends object>(
+  copy: T,
+  shown: ({ generatedAt: number } & OfflineCopy) | null | undefined,
+): T & { offline: true; serverGeneratedAt: number | null } {
+  return { ...copy, offline: true, serverGeneratedAt: serverStamp(shown) }
 }
 
 /**

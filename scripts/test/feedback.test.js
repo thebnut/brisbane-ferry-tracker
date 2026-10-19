@@ -167,9 +167,9 @@ describe('legacy /api/feedback (Vercel)', () => {
       assert.equal(res.statusCode, 400, JSON.stringify(body));
       assert.deepEqual(res.body, { error });
     }
-    // A missing or malformed body has no token: 403 on web, 400 from the iOS app (token-less path).
+    // A missing or malformed body fails validation before the Turnstile gate (L2): 400 on web and from iOS.
     for (const body of [undefined, 'not json']) {
-      assert.equal((await call({ body })).statusCode, 403);
+      assert.equal((await call({ body })).statusCode, 400);
       const ios = await call({ body, headers: { origin: 'capacitor://localhost' } });
       assert.equal(ios.statusCode, 400);
       assert.deepEqual(ios.body, { error: 'Feedback must be at least 10 characters long' });
@@ -203,6 +203,18 @@ describe('legacy /api/feedback (Vercel)', () => {
 });
 
 describe('legacy /api/feedback Turnstile gate', () => {
+  it('validation runs before verification: an invalid post is a 400 with no verify or Discord call (L2)', async () => {
+    for (const body of [
+      { feedback: 'short', turnstileToken: 'tok-1' },
+      { ...good, email: 'not-an-email', turnstileToken: 'tok-1' },
+    ]) {
+      const res = await call({ body });
+      assert.equal(res.statusCode, 400);
+    }
+    assert.equal(verifyCalls().length, 0);
+    assert.equal(discordCalls().length, 0);
+  });
+
   it('a valid web token is verified by bft-api-prod with the client IP, then posted to Discord', async () => {
     const res = await call({ body: { ...good, turnstileToken: 'tok-1' }, headers: { 'x-forwarded-for': '198.51.100.7' } });
     assert.equal(res.statusCode, 200);

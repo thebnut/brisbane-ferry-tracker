@@ -57,7 +57,7 @@ export function savedOptions(fetcher: ApiFetcher, mode: DataMode, item: SavedIte
       client,
     }: QueryFunctionContext<typeof queryKey>): Promise<DeparturesResponse & OfflineCopy> => {
       // Offline, the card on screen may be fresher than the service worker's cached answer (R2-B6).
-      const shown = client.getQueryData<DeparturesResponse>(queryKey)
+      const shown = client.getQueryData<DeparturesResponse & OfflineCopy>(queryKey)
       try {
         const res = await fetchDepartures(fetcher, item.mode, item.key, { to: item.to, limit: 20, signal })
         // Judged on this response, not only on the connection flag another request may have just cleared, and never
@@ -66,12 +66,12 @@ export function savedOptions(fetcher: ApiFetcher, mode: DataMode, item: SavedIte
           if (res.departures.length) writeSavedCopy(item, res)
           return res
         }
-        return asOffline(item, bestOfflineCopy([shown, res], Date.now()))
+        return asOffline(item, bestOfflineCopy([shown, res], Date.now()), shown)
       } catch (error) {
         if (isOffline()) {
-          if (shown) return asOffline(item, shown)
+          if (shown) return asOffline(item, shown, shown)
           const copy = offlineRows(item, Date.now())
-          if (copy) return asOffline(item, null, copy)
+          if (copy) return asOffline(item, null, shown, copy)
         }
         throw error
       }
@@ -80,8 +80,16 @@ export function savedOptions(fetcher: ApiFetcher, mode: DataMode, item: SavedIte
   }
 }
 
-/** A card's data as "Offline · scheduled": the device's copy or the last response, as timetable only. */
-export function asOffline(item: SavedItem, res: DeparturesResponse | null, copy?: Departure[]) {
+/**
+ * A card's data as "Offline · scheduled": the device's copy or the last response, as timetable only. It keeps the
+ * server time of `shown`, the card it replaces; without a response its own `generatedAt` is the device clock's.
+ */
+export function asOffline(
+  item: SavedItem,
+  res: DeparturesResponse | null,
+  shown: (DeparturesResponse & OfflineCopy) | null | undefined,
+  copy?: Departure[],
+) {
   // The device's copy or the response, whichever has more departures to come (an old cached response can be empty).
   const own = res ? asScheduled(res.departures, Date.now()) : []
   const kept = copy ?? offlineRows(item, Date.now())
@@ -98,12 +106,15 @@ export function asOffline(item: SavedItem, res: DeparturesResponse | null, copy?
     to: null,
     departures: [],
   }
-  return asOfflineCopy({
-    ...base,
-    rtState: 'unavailable' as const,
-    rtSourceTimestamp: null,
-    departures: rows,
-  })
+  return asOfflineCopy(
+    {
+      ...base,
+      rtState: 'unavailable' as const,
+      rtSourceTimestamp: null,
+      departures: rows,
+    },
+    shown,
+  )
 }
 
 export function useSavedDepartures(fetcher: ApiFetcher, mode: DataMode, items: SavedItem[]) {

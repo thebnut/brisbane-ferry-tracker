@@ -85,18 +85,18 @@ export function departuresOptions(
         const nowMs = Date.now()
         return bestOfflineCopy([client.getQueryData<Board>(queryKey), ...more, savedDay(nowMs)], nowMs)
       }
+      const shown = client.getQueryData<Board>(queryKey)
       try {
         const res = await fetchDepartures(fetcher, from, to, { limit, signal })
         // Judged on this response, not only on the connection flag another request may have just cleared, and never
-        // older than the board on screen (R6-B1).
-        return replacesBoard(res, client.getQueryData<Board>(queryKey))
-          ? res
-          : asOfflineCopy(offlineCopy(res) ?? res)
+        // older than the server board on screen (R6-B1). A board built from the saved day carries no server time (its
+        // `generatedAt` is the device's savedAt), so it never holds a network answer back (release review).
+        return replacesBoard(res, shown) ? res : asOfflineCopy(offlineCopy(res) ?? res, shown)
       } catch (error) {
         // Offline: the board on screen, or the saved full-day timetable as scheduled times.
         const copy = isOffline() ? offlineCopy() : null
         if (!copy) throw error
-        return asOfflineCopy(copy)
+        return asOfflineCopy(copy, shown)
       }
     },
     initialData: initial ?? undefined,
