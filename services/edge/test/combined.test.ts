@@ -306,10 +306,39 @@ describe('combined object reads (pullFromR2)', () => {
   })
 
   it('Codex A2 r3: concurrent cold reads of several modes agree on the layout, in both directions', async () => {
+    /**
+     * Holds every read of a round and releases them newest first, so the reads interleave: each one's redirect lands
+     * after the others' (the order that made a shared toggled hint flip another read's layout back).
+     */
+    const lifo = (src: MemoryDataSource) => {
+      let held: Array<() => void> = []
+      const gate = () =>
+        new Promise<void>((resolve) => {
+          held.push(resolve)
+          if (held.length === 1) {
+            setTimeout(() => {
+              const round = held.reverse()
+              held = []
+              for (const r of round) r()
+            }, 0)
+          }
+        })
+      const get = src.get.bind(src)
+      const range = src.getRange.bind(src)
+      src.get = async (k: string) => {
+        await gate()
+        return get(k)
+      }
+      src.getRange = async (k: string, o: number, l: number, e?: string) => {
+        await gate()
+        return range(k, o, l, e)
+      }
+      return src
+    }
+    const modes = ['ferry', 'train', 'bus', 'ferry', 'train', 'bus'] as const
     // Combined published, cold isolate (hint: documents): many reads at once.
     resetRangeHints()
-    const c = new MemoryDataSource(files())
-    const modes = ['ferry', 'train', 'bus', 'ferry', 'train', 'bus'] as const
+    const c = lifo(new MemoryDataSource(files()))
     const got = await Promise.all(modes.map((m) => pullFromR2(c, null, m, NOW)))
     expect(got.map((r) => r.seq)).toEqual([5, 7, 7, 5, 7, 7])
     // Now the hub is back on per-mode documents while this isolate's hint says combined.
@@ -321,15 +350,17 @@ describe('combined object reads (pullFromR2)', () => {
       fetchedAt: NOW,
       status: { seq: 9, sourceTimestamp: head.sourceTimestamp, fetchedAt: NOW - 1000, generations: {} },
     }
-    const d = new MemoryDataSource(
-      new Map<string, Uint8Array>([
-        [COMBINED_KEY, encodeCombined({ ...head, fetchedAt: NOW - 600_000 }, sections())], // abandoned
-        [R2_LATEST_KEY, new TextEncoder().encode(JSON.stringify(docsPointer))],
-        ...['ferry', 'train', 'bus'].map((m): [string, Uint8Array] => [
-          `rt/${m}/latest.json`,
-          new TextEncoder().encode(doc(9, 1)),
+    const d = lifo(
+      new MemoryDataSource(
+        new Map<string, Uint8Array>([
+          [COMBINED_KEY, encodeCombined({ ...head, fetchedAt: NOW - 600_000 }, sections())], // abandoned
+          [R2_LATEST_KEY, new TextEncoder().encode(JSON.stringify(docsPointer))],
+          ...['ferry', 'train', 'bus'].map((m): [string, Uint8Array] => [
+            `rt/${m}/latest.json`,
+            new TextEncoder().encode(doc(9, 1)),
+          ]),
         ]),
-      ]),
+      ),
     )
     const back = await Promise.all(modes.map((m) => pullFromR2(d, null, m, NOW)))
     expect(back.map((r) => r.seq)).toEqual([9, 9, 9, 9, 9, 9])
