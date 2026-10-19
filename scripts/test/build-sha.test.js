@@ -115,6 +115,8 @@ test('public/data guard: untracked, modified, staged and assume-unchanged files 
     assert.deepEqual(strayPublicData(r.dir), ['apps/train/public/data/train/stops.json'])
     r.git('update-index', '--assume-unchanged', 'apps/train/public/data/train/stops.json')
     assert.deepEqual(strayPublicData(r.dir), ['apps/train/public/data/train/stops.json'])
+    // Named from the repo root even when run from an app folder, as the deploy scripts do.
+    assert.deepEqual(strayPublicData(join(r.dir, 'apps/train')), ['apps/train/public/data/train/stops.json'])
     r.git('update-index', '--no-assume-unchanged', 'apps/train/public/data/train/stops.json')
     r.git('checkout', '--', 'apps/train/public/data/train/stops.json')
 
@@ -159,6 +161,37 @@ test('public/data guard: a symlink at or below apps/<app>/public/data, or at pub
     } finally {
       r.done()
       rmSync(outside, { recursive: true, force: true })
+    }
+  }
+})
+
+test('public/data guard: a file symlink directly under apps/ is not an app and does not block a deploy', () => {
+  const r = dataRepo()
+  try {
+    r.put('README.md', 'x')
+    symlinkSync('../README.md', join(r.dir, 'apps/README.md'))
+    r.commit('README.md', 'apps/README.md')
+    assert.deepEqual(strayPublicData(r.dir), [])
+    assert.equal(run(r.dir).status, 0)
+  } finally {
+    r.done()
+  }
+})
+
+test('public/data guard: data inside a nested repository at the app, public or data level stops it', () => {
+  for (const [nested, file] of [
+    ['apps/example', 'apps/example/public/data/bus/routes.json'],
+    ['apps/x/public', 'apps/x/public/data/bus/routes.json'],
+    ['apps/x/public/data', 'apps/x/public/data/bus/routes.json'],
+  ]) {
+    const r = dataRepo()
+    try {
+      r.put(file)
+      execFileSync('git', ['init', '-q'], { cwd: join(r.dir, nested) })
+      assert.ok(strayPublicData(r.dir).includes(file), nested)
+      assert.equal(run(r.dir).status, 1)
+    } finally {
+      r.done()
     }
   }
 })

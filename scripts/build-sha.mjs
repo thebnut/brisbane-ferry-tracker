@@ -12,7 +12,7 @@
  * data until the next deploy. `git status --porcelain` alone hides ignored files, so the marker can't catch this.
  */
 import { execFileSync } from 'node:child_process'
-import { lstatSync, readdirSync } from 'node:fs'
+import { lstatSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -33,54 +33,56 @@ export function buildSha(cwd = process.cwd()) {
 
 /** Repo-relative paths under any apps/<app>/public/data that differ from HEAD; empty when the deploy may go ahead. */
 export function strayPublicData(cwd = process.cwd()) {
-  const git = gitIn(cwd)
+  const root = gitIn(cwd)('rev-parse', '--show-toplevel').trim()
+  // Run at the top: `ls-files` prints paths relative to its cwd, and the deploy scripts run from apps/<app>.
+  const git = gitIn(root)
+  const entries = (...args) => git(...args, '--', ...PUBLIC_DATA).split('\0').filter(Boolean)
   // traditional + all lists every ignored file one by one (matching mode collapses an ignored folder to one entry).
-  const status = git(
-    'status',
-    '--porcelain=v1',
-    '-z',
-    '--no-renames',
-    '--ignored=traditional',
-    '--untracked-files=all',
-    '--',
-    ...PUBLIC_DATA,
-  )
-  const changed = status
-    .split('\0')
-    .filter(Boolean)
+  const changed = entries('status', '--porcelain=v1', '-z', '--no-renames', '--ignored=traditional', '--untracked-files=all')
     .map((entry) => entry.slice(3))
   // assume-unchanged (lowercase tag) or skip-worktree (S) tracked files never show in `git status`, edited or not.
-  const hidden = git('ls-files', '-v', '-z', '--', ...PUBLIC_DATA)
-    .split('\0')
-    .filter((entry) => /^([a-z]|S) /.test(entry))
-    .map((entry) => entry.slice(2))
-  return [...new Set([...changed, ...hidden, ...symlinks(git('rev-parse', '--show-toplevel').trim())])].sort()
+  const listed = entries('ls-files', '-v', '-z')
+  const hidden = listed.filter((entry) => /^([a-z]|S) /.test(entry)).map((entry) => entry.slice(2))
+  const tracked = new Set(listed.map((entry) => entry.slice(2)))
+  return [...new Set([...changed, ...hidden, ...onDisk(root, tracked)])].sort()
 }
 
-/** Symlinks at apps/<app>, its public, public/data, or anywhere below it: Vite's public copy follows them. */
-function symlinks(root) {
+/**
+ * What git can't see but the build copies: a symlink to a directory at apps/<app> or apps/<app>/public, any symlink at
+ * public/data or below (Vite's public copy follows links), and any file there the outer repo doesn't track (one
+ * inside a nested repository, which `git status` reports only as the repository's folder).
+ */
+function onDisk(root, tracked) {
   const found = []
-  const stat = (rel) => {
+  const lstat = (rel) => {
     try {
       return lstatSync(join(root, rel))
     } catch {
       return null
     }
   }
+  const linksToDir = (rel) => {
+    try {
+      return statSync(join(root, rel)).isDirectory()
+    } catch {
+      return false
+    }
+  }
   const walk = (rel) => {
     for (const entry of readdirSync(join(root, rel), { withFileTypes: true })) {
       const child = `${rel}/${entry.name}`
-      if (entry.isSymbolicLink()) found.push(child)
-      else if (entry.isDirectory()) walk(child)
+      if (entry.isDirectory()) walk(child)
+      else if (entry.isSymbolicLink() || !tracked.has(child)) found.push(child)
     }
   }
-  if (!stat('apps')?.isDirectory()) return stat('apps')?.isSymbolicLink() ? ['apps'] : found
+  if (lstat('apps')?.isSymbolicLink() && linksToDir('apps')) return ['apps']
+  if (!lstat('apps')?.isDirectory()) return found
   for (const app of readdirSync(join(root, 'apps'))) {
     for (const rel of [`apps/${app}`, `apps/${app}/public`, `apps/${app}/public/data`]) {
-      const s = stat(rel)
-      if (s?.isSymbolicLink()) found.push(rel)
+      const s = lstat(rel)
+      if (s?.isSymbolicLink() && (rel.endsWith('/data') || linksToDir(rel))) found.push(rel)
       if (!s?.isDirectory()) break
-      if (rel.endsWith('/public/data')) walk(rel)
+      if (rel.endsWith('/data')) walk(rel)
     }
   }
   return found
