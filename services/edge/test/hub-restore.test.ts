@@ -1,0 +1,234 @@
+import { describe, expect, it } from 'vitest'
+import { parseRtModes } from '../src/rt/feeds.ts'
+import { CYCLE_MS, HubCore, modeLatestKey, R2_LATEST_KEY, snapshotSeq } from '../src/rt/hub-core.ts'
+import {
+  alert,
+  buildTree,
+  Clock,
+  D,
+  epoch,
+  FakeStorage,
+  FakeUpstream,
+  feed,
+  storeFor,
+  tripUpdate,
+  vehicle,
+} from './fixtures.ts'
+
+/** An R2 fake whose reads of one key can be held open, and that records the header seq of every PUT. */
+class GatedR2 {
+  readonly files = new Map<string, string>()
+  /** `key@seq` per PUT, in order. */
+  readonly puts: string[] = []
+  /** Reads per key. */
+  readonly gets = new Map<string, number>()
+  failGets = 0
+  private gate: { key: string; open: Promise<void> } | null = null
+  /** Hold every read of `key` until the returned release() is called. */
+  hold(key: string): () => void {
+    let release = () => {}
+    const open = new Promise<void>((r) => {
+      release = r
+    })
+    this.gate = { key, open }
+    return () => {
+      this.gate = null
+      release()
+    }
+  }
+  async put(key: string, value: Uint8Array | string) {
+    const text = typeof value === 'string' ? value : new TextDecoder().decode(value)
+    this.puts.push(`${key}@${key === R2_LATEST_KEY ? JSON.parse(text).seq : snapshotSeq(text)}`)
+    this.files.set(key, text)
+  }
+  async get(key: string) {
+    this.gets.set(key, (this.gets.get(key) ?? 0) + 1)
+    if (this.gate?.key === key) await this.gate.open
+    if (this.failGets > 0) {
+      this.failGets--
+      throw new Error('r2 get failed')
+    }
+    const t = this.files.get(key)
+    return t != null ? { text: async () => t } : null
+  }
+}
+
+const TU = 'TripUpdates/Ferry'
+const VP = 'VehiclePositions/Ferry'
+
+function setup() {
+  const clock = new Clock(epoch(D, '07:55:00') * 1000)
+  const tree = buildTree()
+  const up = new FakeUpstream()
+  const storage = new FakeStorage()
+  const r2 = new GatedR2()
+  const mk = () =>
+    new HubCore({
+      storage,
+      fetch: up.fetch,
+      now: clock.now,
+      store: storeFor(tree, clock.now),
+      config: parseRtModes('ferry'),
+      upstream: 'https://up.test/api/realtime/SEQ',
+      fetchTimeoutMs: 50,
+      r2,
+    })
+  const nowS = () => Math.floor(clock.t / 1000)
+  /** New feed content, so the next cycle rebuilds (and publishes) a new seq. */
+  const change = (n: number) => {
+    up.set(
+      TU,
+      feed(nowS(), [
+        tripUpdate('e1', { tripId: 'T1', startDate: D, routeId: 'F1-4055' }, [
+          { seq: 1, stopId: '317584', depTime: epoch(D, '08:02:00') + n },
+        ]),
+      ]),
+    )
+    up.set(VP, feed(nowS(), [vehicle('V1', 'T1', D, -27.45, 153.05 + n / 1e4)]))
+  }
+  change(0)
+  up.set('alerts', feed(nowS(), [alert('a1', 'Bulimba works', 'F1-4055')]))
+  return { clock, up, storage, r2, mk, change }
+}
+
+/**
+ * Let every runnable promise chain finish: enough macrotask turns for a whole cycle (the trip-index gunzip takes a
+ * few), so a cycle that did not wait for the held restore would have built and published by now.
+ */
+async function settle() {
+  for (let i = 0; i < 50; i++) await new Promise((r) => setTimeout(r, 0))
+}
+
+const docSeq = (r2: GatedR2) => snapshotSeq(r2.files.get(modeLatestKey('ferry')) as string)
+/** The seqs of the ferry document's PUTs, in order. */
+const ferryPuts = (r2: GatedR2) =>
+  r2.puts.filter((p) => p.startsWith(`${modeLatestKey('ferry')}@`)).map((p) => Number(p.split('@')[1]))
+
+/** A hub that has published a few seqs, then a fresh instance (eviction or deploy) over the same storage and R2. */
+async function restarted() {
+  const h = setup()
+  const first = h.mk()
+  for (let i = 1; i <= 3; i++) {
+    h.change(i)
+    await first.alarm()
+    h.clock.advance(CYCLE_MS)
+  }
+  const published = docSeq(h.r2) as number
+  expect(published).toBeGreaterThan(0)
+  h.change(10)
+  return { ...h, published, hub: h.mk() }
+}
+
+describe('RtHub restore: one shared in-flight restore (Codex r1/r2 on #96)', () => {
+  it('a cycle during a slow restore waits for it, then publishes past the restored seq', async () => {
+    const { r2, hub, published } = await restarted()
+    const putsBefore = r2.puts.length
+    const release = r2.hold(R2_LATEST_KEY)
+    // A pull (from the API) starts the restore and is held on the pointer read; the alarm's cycle arrives meanwhile.
+    const pull = hub.pull(null)
+    const alarm = hub.alarm()
+    await settle()
+    // Nothing built or published yet: the cycle is waiting on the same restore.
+    expect(r2.puts.length).toBe(putsBefore)
+    expect(hub.status().seq).toBeNull()
+    release()
+    const [pulled] = await Promise.all([pull, alarm])
+    expect(pulled.seq).toBe(published)
+    expect(docSeq(r2)).toBe(published + 1)
+    expect((await hub.pull(null)).seq).toBe(published + 1)
+    // The restored hub's first publish writes every document and the pointer (its change-only state starts empty).
+    const after = r2.puts.slice(putsBefore).map((p) => p.split('@')[0] as string)
+    expect(after).toEqual(expect.arrayContaining([modeLatestKey('ferry'), R2_LATEST_KEY]))
+    expect(after.some((k) => k.startsWith('rt/alerts/'))).toBe(true)
+    expect(after.at(-1)).toBe(R2_LATEST_KEY)
+  })
+
+  it('the restore cannot overwrite a newer state: a later pull sees the cycle’s seq, not the restored one', async () => {
+    const { r2, hub, published } = await restarted()
+    // The restore has read the pointer and the ferry document and is held on the alerts ring slot when the alarm's
+    // cycle arrives (holding the ferry read instead would let the restore pick up the cycle's own newer document).
+    const pointer = JSON.parse(r2.files.get(R2_LATEST_KEY) as string)
+    const release = r2.hold(pointer.files.alerts.key)
+    const pull = hub.pull(null)
+    await settle()
+    const alarm = hub.alarm()
+    await settle()
+    release()
+    await Promise.all([pull, alarm])
+    const now = await hub.pull(null)
+    expect(now.seq).toBe(published + 1)
+    expect(JSON.parse(now.json as string).header.seq).toBe(published + 1)
+    expect(docSeq(r2)).toBe(published + 1)
+  })
+
+  it('concurrent callers share one restore (the pointer is read once)', async () => {
+    const { r2, hub } = await restarted()
+    const release = r2.hold(R2_LATEST_KEY)
+    r2.gets.clear()
+    const all = Promise.all([hub.pull(null), hub.ensureRunning(), hub.cycle(), hub.pull(null, 'ferry')])
+    await settle()
+    release()
+    await all
+    // One restore: each of the pointer, the ferry document and the alerts document is read once.
+    expect([...r2.gets.values()]).toEqual([1, 1, 1])
+    expect(r2.gets.get(R2_LATEST_KEY)).toBe(1)
+  })
+
+  it('seq is monotonic across restarts (storage lost), concurrent restores and cycles', async () => {
+    const { r2, mk, change, clock, storage, published } = await restarted()
+    let hub = mk()
+    for (let round = 0; round < 3; round++) {
+      // The object's own storage is lost too, so R2 is the only record of the published seq.
+      storage.data.clear()
+      const release = r2.hold(R2_LATEST_KEY)
+      const calls = [hub.pull(null), hub.alarm(), hub.ensureRunning()]
+      await settle()
+      release()
+      await Promise.all(calls)
+      for (let i = 0; i < 2; i++) {
+        clock.advance(CYCLE_MS)
+        change(100 * round + i)
+        await hub.alarm()
+      }
+      hub = mk() // evicted again
+    }
+    const seqs = ferryPuts(r2)
+    for (let i = 1; i < seqs.length; i++) expect(seqs[i]).toBeGreaterThan(seqs[i - 1] as number)
+    expect(seqs.at(-1)).toBeGreaterThanOrEqual(published + 9)
+  })
+
+  it('a failed restore applies nothing and is retried by the next call', async () => {
+    const { r2, hub, published } = await restarted()
+    // The pointer read succeeds, the ferry document read fails: the seq it already learnt must not leak in.
+    const puts = r2.puts.length
+    const orig = r2.get.bind(r2)
+    let failed = false
+    r2.get = async (key: string) => {
+      if (key === modeLatestKey('ferry') && !failed) {
+        failed = true
+        throw new Error('r2 get failed')
+      }
+      return orig(key)
+    }
+    await expect(hub.pull(null)).rejects.toThrow('r2 get failed')
+    expect(hub.status().seq).toBeNull()
+    // The alarm swallows the error into lastError and keeps the chain; nothing is published from a failed restore.
+    expect(r2.puts.length).toBe(puts)
+    const retried = await hub.pull(null)
+    expect(retried.seq).toBe(published)
+    await hub.alarm()
+    expect(docSeq(r2)).toBe(published + 1)
+  })
+
+  it('an alarm whose restore fails records the error and the next alarm restores and publishes', async () => {
+    const { r2, hub, clock, published } = await restarted()
+    r2.failGets = 1
+    await hub.alarm()
+    expect(hub.status().lastError).toContain('r2 get failed')
+    expect(docSeq(r2)).toBe(published)
+    clock.advance(CYCLE_MS)
+    await hub.alarm()
+    expect(docSeq(r2)).toBe(published + 1)
+    expect(hub.status().lastError).toBeNull()
+  })
+})
