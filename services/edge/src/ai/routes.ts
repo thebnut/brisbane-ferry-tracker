@@ -181,15 +181,22 @@ const VerifyBody = z.object({
   remoteip: z.string().max(64).optional(),
 })
 
+/** Apostrophes, single quotes, single guillemets and primes, all removed so "st peter‘s" reads 'st peters' too. */
+const SINGLE_QUOTES = /['`´ʹʻʼʽ‘’‚‛′‵‹›＇｀]/g
+/** Double quotes, guillemets and double primes, each replaced by a space like `"`. */
+const DOUBLE_QUOTES = /["«»“”„‟″‶〝〞〟＂]/g
+
 /**
- * The user's own stop term for "I couldn't find a stop called 'x'": plain text only (control characters, quotes,
- * angle brackets, backticks and backslashes removed, whitespace collapsed), capped at 40 characters, in single quotes. The Ask box
- * renders answers as React text, so this is defence in depth for other clients of /v1/ask. Null when nothing is left.
+ * The user's own stop term for "I couldn't find a stop called 'x'": plain text only (control characters, quotes of
+ * any style, angle brackets, backticks and backslashes removed, whitespace collapsed), capped at 40 characters, in
+ * single quotes. The Ask box renders answers as React text, so this is defence in depth for other clients of /v1/ask.
+ * Null when nothing is left.
  */
 export function quotedTerm(raw: string | undefined, max = 40): string | null {
   const t = (raw ?? '')
-    .replace(/['’`]/g, '')
-    .replace(/[\p{Cc}\p{Cf}<>"\\]/gu, ' ')
+    .replace(SINGLE_QUOTES, '')
+    .replace(/[\p{Cc}\p{Cf}<>\\]/gu, ' ')
+    .replace(DOUBLE_QUOTES, ' ')
     .replace(/\s+/g, ' ')
     .trim()
   if (!t) return null
