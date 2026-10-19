@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react'
+import { Component, type ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import {
   DemoExitLink,
@@ -8,6 +9,7 @@ import {
   isDemoSession,
   useFixtureCookie,
 } from '../src/demo.tsx'
+import { withLocks } from './locks.ts'
 
 function Probe({ active, forced = false }: { active: boolean; forced?: boolean }) {
   useFixtureCookie('bft_fixtures', active, forced, false)
@@ -260,6 +262,46 @@ describe('the one-off clean-up removes only what the device held when the page s
     await vi.waitFor(() => expect(localStorage.getItem('bft-demo-cleanup')).toBe('r7'))
     expect(localStorage.getItem('bft-bus-offline:10802')).toBeNull()
     localStorage.clear()
+  })
+
+  it('a first render that never commits still runs the clean-up and lets the writers go (Codex review r4)', async () => {
+    class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+      state = { failed: false }
+      static getDerivedStateFromError() {
+        return { failed: true }
+      }
+      render() {
+        return this.state.failed ? <p>fallback</p> : this.props.children
+      }
+    }
+    await withLocks(async () => {
+      localStorage.clear()
+      vi.resetModules()
+      const { useFixtureCookie: hook } = await import('../src/demo.tsx')
+      const { holdCacheLock } = await import('../src/connectivity.ts')
+      function Broken(): ReactNode {
+        hook('bft_fixtures', false, false, true)
+        throw new Error('render failed')
+      }
+      const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
+      try {
+        render(
+          <Boundary>
+            <Broken />
+          </Boundary>,
+        )
+        expect(screen.getByText('fallback')).toBeTruthy()
+        await vi.waitFor(() => expect(localStorage.getItem('bft-demo-cleanup')).toBe('r7'))
+        await vi.waitFor(async () => {
+          const release = await holdCacheLock('exclusive', true)
+          expect(release).not.toBeNull()
+          release?.()
+        })
+      } finally {
+        quiet.mockRestore()
+        localStorage.clear()
+      }
+    })
   })
 
   it('the hook notes the device before anything on the page is saved', async () => {

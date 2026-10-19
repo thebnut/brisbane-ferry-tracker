@@ -38,7 +38,6 @@ export const DEMO_MIGRATION_KEY = 'bft-demo-cleanup'
 export const DEMO_MIGRATION = 'r7'
 
 let deviceStart: DeviceStart | undefined
-let cleanupStarted = false
 /** Once per page, where the one-off clean-up hasn't run yet (R9, see DeviceStart). */
 function noteDeviceStart(): DeviceStart | undefined {
   if (deviceStart) return deviceStart
@@ -57,8 +56,19 @@ function noteDeviceStart(): DeviceStart | undefined {
     return undefined
   }
   // A write in progress (another tab): no clean-up on this page, the next load tries again.
-  deviceStart = { copies, lock: holdCacheLock('exclusive', true) }
-  return deviceStart
+  const start: DeviceStart = { copies, lock: holdCacheLock('exclusive', true) }
+  deviceStart = start
+  // The clean-up runs from here, not from an effect: the lock is let go however it ends, even if this render never
+  // commits (Codex review r4). Its code loads only when needed (precached, so offline too): first-load JS budget.
+  void start.lock.then(
+    (release) =>
+      release &&
+      import('./demo-cleanup.ts')
+        .then((m) => m.migrateOnce(start))
+        .catch(() => {})
+        .finally(release),
+  )
+  return start
 }
 
 let demoSession = false
@@ -83,16 +93,6 @@ export function useFixtureCookie(name: string, active: boolean, forced = false, 
   if (allowed && !forced && typeof window !== 'undefined') void noteDeviceStart()
   useEffect(() => {
     if (forced) return
-    // The clean-up code loads only when needed (it is precached, so offline too): first-load JS budget. Once per page
-    // (StrictMode runs effects twice), and the writers are let go however it ends.
-    const start = allowed ? deviceStart : undefined
-    if (start && !cleanupStarted) {
-      cleanupStarted = true
-      void import('./demo-cleanup.ts')
-        .then((m) => m.migrateOnce(start))
-        .catch(() => {})
-        .finally(() => start.lock.then((release) => release?.()))
-    }
     const params = new URLSearchParams(location.search)
     const q = params.get('fixtures')
     if (q === '1' && active) {
@@ -110,7 +110,7 @@ export function useFixtureCookie(name: string, active: boolean, forced = false, 
         `${location.pathname}${search ? `?${search}` : ''}${location.hash}`,
       )
     }
-  }, [name, active, forced, allowed])
+  }, [name, active, forced])
 }
 
 /** "Exit demo": this page with `?fixtures=0`, a full load so the server renders it with real data. */
