@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/contract/index.ts",
+    "./fixture-clock": "./src/util/fixture-clock.ts",
     "./fixtures/*": "./fixtures/*",
     "./geo": "./src/geo/index.ts"
   },
