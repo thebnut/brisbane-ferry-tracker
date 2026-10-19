@@ -181,6 +181,15 @@ export function Footer() {
           </span>
         </p>
         <p className="mt-2">Live times refresh every 15 seconds • All times in Brisbane time</p>
+        <p className="mt-3">
+          {/* A document link: /feedback redirects to the transit site's feedback sheet (R7, R8-FB). */}
+          <a
+            href="/feedback"
+            className="inline-flex min-h-11 items-center font-semibold text-ferry-orange-deep no-underline transition-colors hover:text-ferry-orange-dark"
+          >
+            <span aria-hidden="true">💬&nbsp;</span>Send Feedback & Ideas
+          </a>
+        </p>
         <p className="mt-2 text-xs text-gray-600 dark:text-night-text/70">
           BrisbaneTrain is independent and not affiliated with Queensland Rail or Translink.
         </p>
