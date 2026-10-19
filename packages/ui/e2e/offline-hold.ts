@@ -192,10 +192,17 @@ export function offlineHoldSuite({
           test.setTimeout(holdMs + 120_000)
           await prepare?.(page)
           await pin(context)
+          // A poll through the service worker, so its cache holds a pinned answer (a row due in 10 minutes). Watched
+          // from the first load: a poll can land while the service worker settles, and the next is a poll period
+          // (15 s) later. The service worker must have answered it (an answer before it took control isn't cached).
+          const polled = page.waitForResponse(
+            (r) => departures.test(new URL(r.url()).pathname) && r.fromServiceWorker(),
+            { timeout: 60_000 },
+          )
+          polled.catch(() => {})
           await page.goto(path)
           await waitForServiceWorker(page, pagesCache)
-          // A poll through the service worker, so its cache holds a pinned answer (a row due in 10 minutes).
-          await page.waitForResponse((r) => departures.test(new URL(r.url()).pathname), { timeout: 20_000 })
+          await polled
           await page.waitForTimeout(1_000)
           await context.unrouteAll({ behavior: 'ignoreErrors' })
           await expect(page.locator(rows).first()).toBeVisible()

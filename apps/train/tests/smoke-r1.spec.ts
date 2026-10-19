@@ -39,13 +39,16 @@ test.describe('phone width 360 px (T1, T4)', () => {
       }
       await route.fulfill({ response: res, json: body })
     })
+    // The board polls every 15 s: wait for the pinned response, then for its chip. Watched from the load, so a poll
+    // that lands before the rows show isn't missed.
+    const pinned = page.waitForResponse((r) => r.url().includes('/v1/train/stops/central/departures'), {
+      timeout: 45_000,
+    })
+    pinned.catch(() => {})
     await page.goto('/station/central?to=ferny-grove')
     const board = page.locator('[data-board=central]')
     await expect(board.getByTestId('departure').first()).toBeVisible()
-    // The board polls every 15 s: wait for the pinned response, then for its chip.
-    await page.waitForResponse((r) => r.url().includes('/v1/train/stops/central/departures'), {
-      timeout: 30_000,
-    })
+    await pinned
     await expect(board.locator('[data-tone]').first()).toBeVisible()
     const { scrollWidth, innerWidth } = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
