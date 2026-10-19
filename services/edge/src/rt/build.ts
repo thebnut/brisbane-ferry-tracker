@@ -266,16 +266,13 @@ function resolveAdded(
     if (!stopId || !idx.stopIds.has(stopId)) return null
     let arr = evTime(u.arrival)
     let dep = evTime(u.departure)
-    if ((arr == null || dep == null) && original && has(u, 'stopSequence')) {
-      const st = original.stops.get(u.stopSequence)
-      if (st) {
-        // Same trust rule as predictStop: an hour-plus departure delay must be stated, not taken from the arrival.
-        const arrDelay = evDelay(u.arrival)
-        if (dep == null && evDelay(u.departure) == null && Math.abs(arrDelay ?? 0) > MAX_UNSTATED_DELAY_S)
-          return null
-        arr ??= st.arrEpoch + shift + (arrDelay ?? evDelay(u.departure) ?? 0)
-        dep ??= st.depEpoch + shift + (evDelay(u.departure) ?? arrDelay ?? 0)
-      }
+    const depStated = dep != null || evDelay(u.departure) != null
+    // A duplicate's own timetable at this stop: the original's, shifted to the new start.
+    const st = original && has(u, 'stopSequence') ? original.stops.get(u.stopSequence) : undefined
+    const timetable = st ? { arr: st.arrEpoch + shift, dep: st.depEpoch + shift } : undefined
+    if ((arr == null || dep == null) && timetable) {
+      arr ??= timetable.arr + (evDelay(u.arrival) ?? evDelay(u.departure) ?? 0)
+      dep ??= timetable.dep + (evDelay(u.departure) ?? evDelay(u.arrival) ?? 0)
     }
     // Same origin rule as normaliseUpdates: the origin's arrival is the inbound vehicle, not this trip.
     const atOrigin = originSeq != null ? has(u, 'stopSequence') && u.stopSequence === originSeq : n === 0
@@ -283,11 +280,22 @@ function resolveAdded(
     arr ??= dep
     dep ??= arr
     if (arr == null || dep == null) return null
+    let depOut = Math.max(arr, dep)
+    // Same trust rule as predictStop: an hour-plus departure delay the feed doesn't state as this stop's departure
+    // (taken from the arrival, or pushed there by the clamp) falls back to the duplicate's timetable at this stop.
+    if (
+      timetable &&
+      !(depStated && depOut === dep) &&
+      Math.abs(depOut - timetable.dep) > MAX_UNSTATED_DELAY_S
+    ) {
+      arr = timetable.arr
+      depOut = timetable.dep
+    }
     stops.push({
       stopId,
       seq: has(u, 'stopSequence') ? u.stopSequence : stops.length + 1,
       arr,
-      dep: Math.max(arr, dep),
+      dep: depOut,
     })
   }
   if (stops.length < 2) return null

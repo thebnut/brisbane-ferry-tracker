@@ -228,13 +228,31 @@ describe('79-min-late ferry row (smoke round 9)', () => {
       expect(snap.trips[`rt:DUP@${D0}`]?.added?.stops[0]).toMatchObject({ dep: epoch(D0, '15:15:00') })
     })
 
-    it('a duplicate with an hour-plus departure taken only from an arrival delay is dropped (#1)', () => {
+    it.each([
+      ['an arrival delay only', { arrDelay: 79 * 60 }],
+      ['a late arrival and an on-time departure', { arrDelay: 79 * 60, depDelay: 0 }],
+      ['an absolute arrival only', { arrTime: epoch(D0, '16:39:00') }],
+    ])(
+      'a duplicate stop whose hour-plus departure comes from %s keeps its timetable (Codex r2 #1, r3)',
+      (_, stu) => {
+        const snap = dupSnap([
+          { seq: 1, stopId: UQ, depDelay: 120 },
+          { seq: 2, stopId: WEST_END, ...stu },
+        ])
+        // The duplicate starts 15:15, so its West End timetable is 15:20; the stated origin delay is kept.
+        expect(snap.trips[`rt:DUP@${D0}`]?.added?.stops).toEqual([
+          { stopId: UQ, seq: 1, arr: epoch(D0, '15:17:00'), dep: epoch(D0, '15:17:00') },
+          { stopId: WEST_END, seq: 2, arr: epoch(D0, '15:20:00'), dep: epoch(D0, '15:20:00') },
+        ])
+      },
+    )
+
+    it('a duplicate stop with a stated hour-plus departure delay keeps it', () => {
       const snap = dupSnap([
         { seq: 1, stopId: UQ, depDelay: 0 },
-        { seq: 2, stopId: WEST_END, arrDelay: 79 * 60 },
+        { seq: 2, stopId: WEST_END, depDelay: 79 * 60 },
       ])
-      expect(snap.trips[`rt:DUP@${D0}`]).toBeUndefined()
-      expect(snap.header.stats?.ferry?.addedDropped).toBe(1)
+      expect(snap.trips[`rt:DUP@${D0}`]?.added?.stops[1]).toMatchObject({ dep: epoch(D0, '16:39:00') })
     })
 
     it("a vehicle whose start_time isn't the duplicate's is not attached to it (#3)", () => {
