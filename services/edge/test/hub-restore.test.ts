@@ -38,7 +38,10 @@ class GatedR2 {
       release()
     }
   }
+  /** PUTs of these keys fail (after nothing is written). */
+  readonly failPuts = new Set<string>()
   async put(key: string, value: Uint8Array | string) {
+    if (this.failPuts.has(key)) throw new Error(`r2 put ${key} failed`)
     const text = typeof value === 'string' ? value : new TextDecoder().decode(value)
     this.puts.push(
       `${key}@${key === R2_LATEST_KEY ? JSON.parse(text).seq : key === COMBINED_KEY ? combinedSeq(text) : snapshotSeq(text)}`,
@@ -69,7 +72,7 @@ function setup(modes = 'ferry', layout: 'documents' | 'combined' = 'documents') 
   const up = new FakeUpstream()
   const storage = new FakeStorage()
   const r2 = new GatedR2()
-  const mk = () =>
+  const mk = (l = layout) =>
     new HubCore({
       storage,
       fetch: up.fetch,
@@ -79,7 +82,7 @@ function setup(modes = 'ferry', layout: 'documents' | 'combined' = 'documents') 
       upstream: 'https://up.test/api/realtime/SEQ',
       fetchTimeoutMs: 50,
       r2,
-      layout,
+      layout: l,
     })
   const nowS = () => Math.floor(clock.t / 1000)
   /** New feed content, so the next cycle rebuilds (and publishes) a new seq. */
@@ -179,8 +182,9 @@ describe('RtHub restore: one shared in-flight restore (Codex r1/r2 on #96)', () 
     await settle()
     release()
     await all
-    // One restore: each of the pointer, the ferry document and the alerts document is read once.
-    expect([...r2.gets.values()]).toEqual([1, 1, 1])
+    // One restore: each of the pointer, the ferry document, the alerts document and (for its seq only, Codex r11)
+    // the combined object's key is read once.
+    expect([...r2.gets.values()]).toEqual([1, 1, 1, 1])
     expect(r2.gets.get(R2_LATEST_KEY)).toBe(1)
   })
 
@@ -514,4 +518,34 @@ describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {
     expect(objSeq(r2)).toBe(published + 1)
     expect((await hub.pull(null, 'ferry')).seq).toBe(published + 1)
   })
+})
+
+describe('RtHub restore across a layout switch whose pointer PUT failed (Codex r11)', () => {
+  const combinedSeqOf = (r2: GatedR2) => combinedSeq(r2.files.get(COMBINED_KEY) as string)
+
+  for (const [from, to] of [
+    ['documents', 'combined'],
+    ['combined', 'documents'],
+  ] as const) {
+    it(`${from} → ${to}: the new layout's seq is never reused after DO storage is lost`, async () => {
+      const { r2, mk, storage, clock, change, published } = await restarted('ferry', from)
+      // The switched hub's first publish lands its object (and alerts) at published + 1, but not the pointer.
+      r2.failPuts.add(R2_LATEST_KEY)
+      const switched = mk(to)
+      await switched.alarm()
+      const landed = to === 'combined' ? combinedSeqOf(r2) : docSeq(r2)
+      expect(landed).toBe(published + 1)
+      // The pointer (written on its heartbeat) is still behind, and names the old layout.
+      expect(JSON.parse(r2.files.get(R2_LATEST_KEY) as string).seq).toBeLessThan(published + 1)
+      // Evicted with its storage lost; the pointer recovers.
+      r2.failPuts.clear()
+      storage.data.clear()
+      const fresh = mk(to)
+      clock.advance(CYCLE_MS)
+      change(30)
+      await fresh.alarm()
+      const next = to === 'combined' ? combinedSeqOf(r2) : docSeq(r2)
+      expect(next).toBe(published + 2)
+    })
+  }
 })

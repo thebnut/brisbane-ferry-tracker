@@ -1068,16 +1068,51 @@ export class HubCore {
       // Never reuse a published seq (Codex review #1): continue after whatever R2 already holds, even when this
       // object's own storage is empty or behind.
       if (pointer && pointer.seq > r.seq) r.seq = pointer.seq
+      // Which layout's objects the restore read (and so took seqs from).
+      let readLayout: 'documents' | 'combined' | null = null
       if (!r.snapshot && (pointer?.files || pointer?.combined)) {
         r.snapshot = await this.restoreFromDocuments(pointer, r)
+        readLayout = pointer.combined ? 'combined' : 'documents'
       } else if (!r.snapshot && pointer?.key) {
         const obj = await this.d.r2.get(pointer.key)
         const text = obj ? await obj.text() : null
         // A ring slot may already hold a newer snapshot than the pointer names: only adopt the matching one.
         r.snapshot = text != null && snapshotSeq(text) === pointer.seq ? parseSnapshot(text) : null
       }
+      // A layout switch (RT_R2_LAYOUT) whose object PUT landed but whose pointer PUT failed leaves a seq only the
+      // other layout's objects record: take the seqs of whatever this restore did not read too (Codex r11 on #100).
+      if (readLayout !== 'combined') await this.combinedSeqInto(r)
+      if (readLayout !== 'documents') await this.documentSeqsInto(r)
     }
     return r
+  }
+
+  /** Watermark only: the combined object's index seqs. I/O errors propagate (retry); bad content is ignored. */
+  private async combinedSeqInto(r: Restored): Promise<void> {
+    const obj = await (this.d.r2 as R2Like).get?.(COMBINED_KEY)
+    if (!obj) return
+    const bytes = obj.arrayBuffer
+      ? new Uint8Array(await obj.arrayBuffer())
+      : new TextEncoder().encode(await obj.text())
+    const seq = combinedIndexSeq(bytes)
+    if (seq != null && seq > r.seq) r.seq = seq
+  }
+
+  /** Watermark only: each polled mode's latest document's header seq. I/O errors propagate; bad content is ignored. */
+  private async documentSeqsInto(r: Restored): Promise<void> {
+    const r2 = this.d.r2 as R2Like
+    for (const m of this.d.config.modes) {
+      const obj = await r2.get?.(modeLatestKey(m))
+      const text = obj ? await obj.text() : null
+      if (text == null) continue
+      let seq: unknown = null
+      try {
+        seq = snapshotSeq(text)
+      } catch {
+        seq = null
+      }
+      if (Number.isSafeInteger(seq) && (seq as number) > r.seq) r.seq = seq as number
+    }
   }
 
   /**
