@@ -8,12 +8,15 @@
  * primed the way Chrome's works: every document and /assets file the first online load received is kept, and
  * replayed while offline; everything else fails as disconnected.
  */
-import { type BrowserContext, expect, type Page, type Route, test } from '@playwright/test'
+import { type BrowserContext, expect, type Page, type Response, type Route, test } from '@playwright/test'
 import { visibleLiveClaims } from './offline.ts'
 
 /** Records what the page received, and replays documents and assets from it while `offline` is on. */
 async function httpCache(context: BrowserContext, page: Page) {
-  const kept = new Map<string, { status: number; headers: Record<string, string>; body: Buffer }>()
+  const kept = new Map<
+    string,
+    { status: number; headers: Record<string, string>; body: Awaited<ReturnType<Response['body']>> }
+  >()
   page.on('response', async (res) => {
     const req = res.request()
     const path = new URL(req.url()).pathname

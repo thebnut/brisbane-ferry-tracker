@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanUpCaches, offlinePage, referencedAssets, usablePageCopy } from '../src/sw.ts'
+import { cleanUpCaches, offlinePage, referencedAssets, savePages, usablePageCopy } from '../src/sw.ts'
 
 const html = `<html><head><link rel="stylesheet" href="/assets/root-abc.css"><link rel="modulepreload" href="/assets/entry.client-x1.js"></head>
 <body><script type="module">import "/assets/manifest-1.js";import * as route0 from "/assets/root-y.js";</script>
@@ -63,5 +63,33 @@ describe('stale caches on activate (R6-B1)', () => {
     const removed = await cleanUpCaches([spec('bus-pages'), spec('bus-data')], storage)
     expect(removed).toEqual(['bus-api-old', 'workbox-runtime-http://x/'])
     expect(deleted).toEqual(removed)
+  })
+})
+
+describe('pages saved at install (R8-T1)', () => {
+  it('keeps ordinary HTML pages only: not an error, not demo, not another type', async () => {
+    const put: string[] = []
+    const storage = {
+      open: async () => ({ put: async (url: string) => void put.push(url) }),
+    } as unknown as CacheStorage
+    const answers: Record<string, Response> = {
+      '/': new Response('<html></html>', { headers: { 'content-type': 'text/html; charset=utf-8' } }),
+      '/demo': new Response('<html></html>', { headers: { 'content-type': 'text/html', 'x-bft-demo': '1' } }),
+      '/err': new Response('<html></html>', { status: 503, headers: { 'content-type': 'text/html' } }),
+      '/json': Response.json({}),
+    }
+    const real = globalThis.fetch
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      expect(init?.cache).toBe('no-store')
+      if (url === '/down') throw new TypeError('Failed to fetch')
+      return answers[url] as Response
+    }) as typeof fetch
+    try {
+      const saved = await savePages('transit-pages', ['/', '/demo', '/err', '/json', '/down'], storage)
+      expect(saved).toEqual([true, false, false, false, false])
+      expect(put).toEqual(['/'])
+    } finally {
+      globalThis.fetch = real
+    }
   })
 })
