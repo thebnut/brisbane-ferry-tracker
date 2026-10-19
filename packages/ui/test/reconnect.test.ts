@@ -229,25 +229,59 @@ describe("pollEvery: a live query's refetchInterval (offline backoff)", () => {
     reportOnline()
     vi.restoreAllMocks()
   })
+  /** A query whose last good answer was at `data` and, if `error` is given, whose last fetch failed then. */
+  const query = (data: number, error?: number) => ({
+    state: { status: error == null ? 'success' : 'error', dataUpdatedAt: data, errorUpdatedAt: error ?? 0 },
+  })
 
   it('polls every 15 s while calls get through, as before', async () => {
     const { pollEvery } = await import('../src/connectivity.ts')
-    expect(pollEvery(15_000)()).toBe(15_000)
-    expect(pollEvery(60_000)()).toBe(60_000)
+    expect(pollEvery(15_000)(query(1_000))).toBe(15_000)
+    expect(pollEvery(60_000)(query(1_000))).toBe(60_000)
   })
 
   it('never polls while the browser says it is offline', async () => {
     const { pollEvery, reportOffline } = await import('../src/connectivity.ts')
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
-    expect(pollEvery(15_000)()).toBe(false)
+    expect(pollEvery(15_000)(query(1_000))).toBe(false)
+    expect(pollEvery(15_000)(query(1_000, 20_000))).toBe(false)
     reportOffline()
-    expect(pollEvery(15_000)()).toBe(false)
+    expect(pollEvery(15_000)(query(1_000))).toBe(false)
   })
 
   it('under lie-fi leaves it to the probe, backing it up at the longest wait', async () => {
     const { BACKOFF_MAX_MS, pollEvery, reportOffline } = await import('../src/connectivity.ts')
     reportOffline()
-    expect(pollEvery(15_000)()).toBe(BACKOFF_MAX_MS)
+    expect(pollEvery(15_000)(query(1_000))).toBe(BACKOFF_MAX_MS)
     expect(BACKOFF_MAX_MS).toBe(60_000)
+  })
+
+  it('after an HTTP error, waits as long as the query has gone without a good answer: 15 s up to 60 s, jittered (Codex r1)', async () => {
+    const { pollEvery } = await import('../src/connectivity.ts')
+    const poll = pollEvery(15_000)
+    // Error times ending in 000 ms: no jitter.
+    expect(poll(query(1_000_000, 1_015_000))).toBe(15_000)
+    expect(poll(query(1_000_000, 1_016_000))).toBe(16_000)
+    expect(poll(query(1_000_000, 1_031_000))).toBe(31_000)
+    expect(poll(query(1_000_000, 1_062_000))).toBe(60_000)
+    expect(poll(query(1_000_000, 9_000_000))).toBe(60_000)
+    // Never answered: the longest wait.
+    expect(poll(query(0, 1_000_000))).toBe(60_000)
+    // Jitter: up to a fifth shorter, never longer than the cap.
+    for (let ms = 0; ms < 1000; ms += 37) {
+      const wait = poll(query(1_000_000, 1_062_000 + ms)) as number
+      expect(wait).toBeLessThanOrEqual(60_000)
+      expect(wait).toBeGreaterThan(48_000)
+    }
+    // A good answer: back to 15 s.
+    expect(poll(query(1_070_000, 1_062_000))).toBe(15_000)
+  })
+
+  it('gives the same wait on every read of one failure (a new value would restart the timer at each render)', async () => {
+    const { pollEvery } = await import('../src/connectivity.ts')
+    const q = query(1_000_000, 1_031_437)
+    const first = pollEvery(15_000)(q)
+    vi.spyOn(Date, 'now').mockReturnValue(5_000_000)
+    for (let i = 0; i < 5; i++) expect(pollEvery(15_000)(q)).toBe(first)
   })
 })

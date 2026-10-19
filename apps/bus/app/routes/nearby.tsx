@@ -18,8 +18,9 @@ import {
   nearest,
   positionFromParams,
 } from '../lib/geo.ts'
+import { useGeoTiles } from '../lib/geo-queries.ts'
 import { useApi } from '../lib/mode.ts'
-import { useGeoTiles, useStopIndex } from '../lib/queries.ts'
+import { useStopIndex } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
 import { stopHref } from '../lib/stops.ts'
 import { useNow } from '../lib/useNow.ts'

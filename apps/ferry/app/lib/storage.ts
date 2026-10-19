@@ -60,23 +60,6 @@ export function readRemember(): boolean {
   return safe(() => localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION), null) === 'true'
 }
 
-export function savePair(pair: StopPair, remember: boolean): void {
-  safe(() => {
-    if (remember) {
-      localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true')
-      localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, JSON.stringify(pair))
-      sessionStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS_SESSION)
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.REMEMBER_SELECTION)
-      localStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS)
-      sessionStorage.setItem(STORAGE_KEYS.SELECTED_STOPS_SESSION, JSON.stringify(pair))
-    }
-    const maxAge = remember ? '; max-age=31536000' : ''
-    // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is not in Safari; this is a plain preference cookie.
-    document.cookie = `${PAIR_COOKIE}=${pair.outbound.id}.${pair.inbound.id}; path=/; samesite=lax${maxAge}`
-  }, undefined)
-}
-
 export function readDepartAt(): number | null {
   const v = safe(() => sessionStorage.getItem(STORAGE_KEYS.DEPARTURE_TIME), null)
   const ms = v ? Date.parse(v) : Number.NaN

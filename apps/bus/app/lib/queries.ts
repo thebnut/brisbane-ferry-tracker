@@ -1,5 +1,5 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
-import type { AlertsResponse, DeparturesResponse, TripResponse } from '@bft/core/contract'
+import type { AlertsResponse, DeparturesResponse } from '@bft/core/contract'
 import {
   asOfflineCopy,
   bestOfflineCopy,
@@ -20,20 +20,16 @@ import {
   browserFetcher,
   fetchAlerts,
   fetchDepartures,
-  fetchGeoTile,
   fetchLines,
   fetchStopIndex,
-  fetchTrip,
-  fetchVehicles,
   OFFLINE_LIMIT,
 } from './api.ts'
-import type { GeoTileFile } from './data-contract.ts'
 import { buildSearchIndex } from './search.ts'
 import { readOffline, writeOffline } from './storage.ts'
 
 export const POLL_MS = 15_000
 /** Live data polling, backing off while calls fail (@bft/ui pollEvery). */
-const poll = pollEvery(POLL_MS)
+export const poll = pollEvery(POLL_MS)
 const pollAlerts = pollEvery(60_000)
 /** Saved stops refresh their offline timetable copy at most this often. */
 const OFFLINE_REFRESH_MS = 3 * 3600_000
@@ -219,30 +215,6 @@ export function useManyDepartures(
   })
 }
 
-export function useTrip(
-  fetcher: ApiFetcher,
-  mode: DataMode,
-  tripInstance: string,
-  initial: TripResponse | null,
-) {
-  return useQuery({
-    queryKey: ['bus', 'trip', mode.fixtures, mode.rt, tripInstance],
-    queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance, { signal }),
-    initialData: initial ?? undefined,
-    initialDataUpdatedAt: initial?.generatedAt,
-    refetchInterval: poll,
-  })
-}
-
-export function useVehicles(fetcher: ApiFetcher, mode: DataMode, route: string | null, enabled = true) {
-  return useQuery({
-    queryKey: ['bus', 'vehicles', mode.fixtures, mode.rt, route],
-    queryFn: ({ signal }) => fetchVehicles(fetcher, route, signal),
-    enabled,
-    refetchInterval: poll,
-  })
-}
-
 export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsResponse | null = null) {
   return useQuery({
     queryKey: ['bus', 'alerts', mode.fixtures, mode.rt],
@@ -279,19 +251,4 @@ export function useLines(fetcher: ApiFetcher, mode: DataMode, enabled = true) {
     enabled,
     staleTime: Number.POSITIVE_INFINITY,
   })
-}
-
-/** Geohash tiles (own + neighbours) for nearby. Missing tiles (no stops) resolve to null. */
-export function useGeoTiles(fetcher: ApiFetcher, mode: DataMode, geohashes: string[]) {
-  const results = useQueries({
-    queries: geohashes.map((gh) => ({
-      queryKey: ['bus', 'geo', mode.fixtures, gh],
-      queryFn: ({ signal }: { signal: AbortSignal }) => fetchGeoTile(fetcher, gh, signal),
-      staleTime: Number.POSITIVE_INFINITY,
-    })),
-  })
-  const loading = results.some((r) => r.isPending)
-  const error = results.find((r) => r.error)?.error ?? null
-  const tiles = results.map((r) => r.data).filter((t): t is GeoTileFile => !!t)
-  return { tiles, loading, error }
 }

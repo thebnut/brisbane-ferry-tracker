@@ -251,10 +251,14 @@ export interface RefetchableClient {
     filters: { type: 'active'; predicate(query: PolledQuery): boolean },
     options: { cancelRefetch: boolean },
   ): Promise<unknown>
+  getQueryCache(): { getAll(): PolledQuery[] }
 }
-/** The part of a TanStack Query this reads: its observers' options (where `refetchInterval` lives). */
+/**
+ * The part of a TanStack Query this reads: its observers' options (where `refetchInterval` lives), which setOptions
+ * applies again (the observer then reads its refetchInterval afresh).
+ */
 interface PolledQuery {
-  observers: ReadonlyArray<{ options: object }>
+  observers: ReadonlyArray<{ options: object; setOptions(options: object): void }>
 }
 const isPolled = (q: PolledQuery) =>
   q.observers.some((o) => (o.options as { refetchInterval?: unknown }).refetchInterval != null)
@@ -303,13 +307,28 @@ export function probeWhileUnreachable(probe: () => void, firstMs = RECONNECT_PRO
 }
 
 /**
- * A live query's `refetchInterval` (TanStack reads it after each fetch): every `ms` while API calls get through, as
- * before. None while the browser says it is offline: its `online` event refetches every board (onReconnect). While
- * calls fail with the browser online (lie-fi), probeWhileUnreachable refetches every board on its backoff, so the
- * board's own timer only backs that up, at the longest wait.
+ * A live query's `refetchInterval` (TanStack reads it after each fetch, and on every render): every `ms` while API
+ * calls get through, as before. A query whose last fetch failed with an answer from the network (an HTTP error) waits
+ * as long as it has gone without a good answer, from `ms` up to BACKOFF_MAX_MS, up to a fifth shorter. The same for
+ * every render of one failure (the jitter comes from its time): a value that changed would restart the timer. None
+ * while the browser says it is offline: its `online` event refetches every board (onReconnect). While calls fail
+ * with the browser online (lie-fi), probeWhileUnreachable refetches every board on its backoff, so the board's own
+ * timer only backs that up, at the longest wait.
  */
-export const pollEvery = (ms: number) => () =>
-  isOnline() ? ms : navigator.onLine !== false && BACKOFF_MAX_MS
+export const pollEvery =
+  (ms: number) =>
+  ({ state: { status, dataUpdatedAt, errorUpdatedAt } }: QueryState) =>
+    isOnline()
+      ? status === 'error'
+        ? Math.min(BACKOFF_MAX_MS, Math.max(ms, errorUpdatedAt - dataUpdatedAt)) *
+          (1 - (errorUpdatedAt % 1000) / 5000)
+        : ms
+      : navigator.onLine !== false && BACKOFF_MAX_MS
+
+/** The part of a TanStack Query that pollEvery reads. */
+interface QueryState {
+  state: { status: string; dataUpdatedAt: number; errorUpdatedAt: number }
+}
 
 /**
  * onReconnect for an app's QueryClient, refetching every active polled query at once (R3-X9), and probing them while
@@ -328,9 +347,15 @@ export function useRefetchOnReconnect(client: RefetchableClient): void {
     }
     const offReconnect = onReconnect(refetch)
     const offProbe = probeWhileUnreachable(refetch)
+    // Offline, a poll timed before then would still fire: the boards read their refetchInterval (pollEvery) again.
+    const offOffline = subscribe((e) => {
+      if (e?.type === 'offline')
+        for (const q of client.getQueryCache().getAll()) for (const o of q.observers) o.setOptions(o.options)
+    })
     return () => {
       offReconnect()
       offProbe()
+      offOffline()
     }
   }, [client])
 }

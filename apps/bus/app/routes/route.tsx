@@ -14,12 +14,12 @@ import { validateRoute, validateRouteIndex } from '../lib/contract.server.ts'
 import type { RouteFile } from '../lib/data-contract.ts'
 import { haversine } from '../lib/geo.ts'
 import { useApi } from '../lib/mode.ts'
-import { useVehicles } from '../lib/queries.ts'
 import { cachedRouteIndex } from '../lib/route-index.server.ts'
 import { pageMeta, routeMetaTags, SITE_URL } from '../lib/seo.ts'
 import { fixtureFallbackOn, loaderEnv, settle } from '../lib/server.server.ts'
 import { stopCode, stopHref, tripHref } from '../lib/stops.ts'
 import { useNow } from '../lib/useNow.ts'
+import { useVehicles } from '../lib/vehicles.ts'
 import type { Route } from './+types/route'
 
 const RouteMap = lazy(() => import('../components/RouteMap.tsx'))

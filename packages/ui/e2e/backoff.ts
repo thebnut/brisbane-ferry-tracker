@@ -3,7 +3,8 @@
  * bus ~80 failed requests in 50 s, transit / with saved stops 40 /v1 calls a minute). Under lie-fi (every /v1 call
  * fails, navigator.onLine stays true) a minute costs each board at most 10 calls and polling never stops; LIVE returns
  * within seconds of the first answer that gets through, and at once on the browser's `online` event. Offline
- * (navigator.onLine false) the boards don't poll at all, and they come back at once with the `online` event.
+ * (navigator.onLine false) the boards don't poll at all, and they ask again at once with the `online` event. Times
+ * are taken from each answer, so the fixture server's own latency under a parallel run doesn't count.
  */
 import { type BrowserContext, expect, type Page, type Request, test } from '@playwright/test'
 import { goOffline, visibleLiveClaims, waitForServiceWorker } from './offline.ts'
@@ -119,7 +120,12 @@ export function backoffSuite({
       await page.waitForTimeout(25_000)
       await restore()
       const back = Date.now()
+      // An attempt at once, and LIVE within seconds of its answer (the fixture server's own time not counted).
+      const asked = page.waitForRequest((r) => departures.test(new URL(r.url()).pathname), { timeout: 2_000 })
+      const first = answered(page)
       await page.evaluate(() => window.dispatchEvent(new Event('online')))
+      await asked
+      await first
       await expect(page.locator('[data-banner=offline]')).toHaveCount(0, { timeout: 5_000 })
       await expect.poll(() => visibleLiveClaims(page), { timeout: 5_000, intervals: [100] }).not.toEqual([])
       console.log(`${path}: LIVE ${Date.now() - back} ms after the online event`)
@@ -138,11 +144,15 @@ export function backoffSuite({
       await page.waitForTimeout(35_000)
       const per = calls.since(from)
       console.log(`${path}: /v1 calls in 35 s offline`, Object.fromEntries(per))
-      // At most the one poll already timed before the browser said it was offline, per live URL.
-      for (const [url, n] of per) expect(n, url).toBeLessThanOrEqual(1)
+      // None at all, not even a poll timed before the browser said it was offline (Codex r1).
+      expect(Object.fromEntries(per)).toEqual({})
 
-      await goOnline()
       const back = Date.now()
+      const asked = page.waitForRequest((r) => departures.test(new URL(r.url()).pathname), { timeout: 2_000 })
+      const first = answered(page)
+      await goOnline()
+      await asked
+      await first
       await expect(page.locator('[data-banner=offline]')).toHaveCount(0, { timeout: 5_000 })
       await expect.poll(() => visibleLiveClaims(page), { timeout: 5_000, intervals: [100] }).not.toEqual([])
       console.log(`${path}: LIVE ${Date.now() - back} ms after coming back online`)
