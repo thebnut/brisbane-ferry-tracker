@@ -21,8 +21,8 @@ describe('stableInline', () => {
       PINNED,
     )
     expect(a).toBe(b)
-    expect(a).toContain(`__bftRenderedAt=${PINNED}`)
-    expect(a).toContain(`"renderedAt":${PINNED + 3}`)
+    expect(a).toContain(`__bftRenderedAt=${PINNED + 1_234}`)
+    expect(a).toContain(`"renderedAt":${PINNED + 1_237}`)
     expect(a).not.toContain('AAAA')
   })
 
@@ -31,6 +31,16 @@ describe('stableInline', () => {
     const out = stableInline(page('n0nce', RENDERED, data), 'n0nce', PINNED)
     expect(out).toContain(`"data":${data}`)
     expect(out).not.toContain('/assets/a.js')
+  })
+
+  it("render times never collide with the fixtures' timestamps (generatedAt is the pinned instant)", () => {
+    const out = stableInline(page('n0nce', RENDERED, `{"generatedAt":${PINNED}}`), 'n0nce', PINNED)
+    const rendered = [...out.matchAll(/__bftRenderedAt=(\d{13})|"renderedAt":(\d{13})/g)].map((m) =>
+      Number(m[1] ?? m[2]),
+    )
+    expect(rendered).toHaveLength(2)
+    for (const r of rendered) expect(r).not.toBe(PINNED)
+    expect(out).toContain(`"generatedAt":${PINNED}`)
   })
 
   it('keeps the inline length, so the gzip size reflects the real content', () => {
