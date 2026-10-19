@@ -144,10 +144,15 @@ export function backoffSuite({
       await page.waitForTimeout(25_000)
       // An attempt at once, and LIVE within seconds of its answer (the fixture server's own time not counted).
       // Watched from before the network returns: a backed-off probe can get through first, and its reconnect
-      // refetch would then throttle the online event's.
-      const asked = page.waitForRequest((r) => departures.test(new URL(r.url()).pathname), { timeout: 2_000 })
+      // refetch would then throttle the online event's. Only an attempt made once it is back counts (not a probe
+      // still cut off).
+      let restored = false
+      const asked = page.waitForRequest((r) => restored && departures.test(new URL(r.url()).pathname), {
+        timeout: 2_000,
+      })
       const first = answered(page)
       await restore()
+      restored = true
       const back = Date.now()
       await page.evaluate(() => window.dispatchEvent(new Event('online')))
       await asked
