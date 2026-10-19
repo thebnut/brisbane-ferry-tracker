@@ -13,8 +13,8 @@
  */
 import { execFileSync } from 'node:child_process'
 import { lstatSync, readdirSync, realpathSync, statSync } from 'node:fs'
-import { join } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // Anchored at the repo root (`top`), since the deploy scripts run from apps/<app> or services/edge. `glob` keeps `*`
 // to one path segment; the bare pattern catches a `data` file or symlink, the `/**` one everything below it.
@@ -89,10 +89,12 @@ function onDisk(root, tracked) {
   return found
 }
 
-// Real paths on both sides: run through a symlinked path the check would fail, print nothing and skip the guard.
-if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+// Real paths on both sides (`--preserve-symlinks-main` keeps a link's spelling in import.meta.url): a mismatch would
+// print nothing, exit 0 and skip the guard.
+const self = realpathSync(fileURLToPath(import.meta.url))
+if (process.argv[1] && realpathSync(process.argv[1]) === self) {
   // This script's own repo, not the cwd's: a nested repository at apps/<app> would otherwise answer for itself.
-  const repo = fileURLToPath(new URL('..', import.meta.url))
+  const repo = dirname(dirname(self))
   const sha = buildSha(repo)
   const stray = strayPublicData(repo)
   if (stray.length) {

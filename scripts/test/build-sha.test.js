@@ -237,9 +237,20 @@ test('build-sha run through a symlinked path still prints the sha (and so still 
   const links = mkdtempSync(join(tmpdir(), 'build-sha-link-'))
   try {
     symlinkSync(r.dir, join(links, 'repo'))
-    const res = spawnSync('node', [join(links, 'repo/scripts/build-sha.mjs')], { cwd: r.dir, encoding: 'utf8' })
-    assert.equal(res.status, 0, res.stderr)
-    assert.equal(res.stdout, `${r.git('rev-parse', '--short=7', 'HEAD')}\n`)
+    const viaLink = (env = {}) =>
+      spawnSync('node', [join(links, 'repo/scripts/build-sha.mjs')], {
+        cwd: r.dir,
+        encoding: 'utf8',
+        env: { ...process.env, ...env },
+      })
+    for (const env of [{}, { NODE_OPTIONS: '--preserve-symlinks-main' }]) {
+      const res = viaLink(env)
+      assert.equal(res.status, 0, res.stderr)
+      assert.equal(res.stdout, `${r.git('rev-parse', '--short=7', 'HEAD')}\n`)
+    }
+    mkdirSync(join(r.dir, 'apps/bus/public/data'), { recursive: true })
+    writeFileSync(join(r.dir, 'apps/bus/public/data/routes.json'), '{}')
+    for (const env of [{}, { NODE_OPTIONS: '--preserve-symlinks-main' }]) assert.equal(viaLink(env).status, 1)
   } finally {
     r.done()
     rmSync(links, { recursive: true, force: true })
