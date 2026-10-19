@@ -7,7 +7,7 @@ import { FAVOURITES_KEY } from '@bft/train/app/lib/storage.ts'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { stationName, trainBoardHref } from '../app/lib/hrefs.ts'
 import { offlineRows, readSavedItems, writeSavedCopy } from '../app/lib/saved.ts'
-import { cardModel, greeting, homeLiveState } from '../app/routes/saved.tsx'
+import { cardModel, greeting, homeLiveState, lastAnswerAt } from '../app/routes/saved.tsx'
 
 const NOW = Date.UTC(2026, 9, 19, 9, 30) // 7:30 pm Brisbane
 const s = NOW / 1000
@@ -250,5 +250,35 @@ describe('the home page’s live judgement (R7-T1)', () => {
       live: false,
       unconfirmed: true,
     })
+  })
+})
+
+describe('R9-T1: "Last updated" is the newest network answer, never the clock', () => {
+  const answer = (generatedAt: number) => ({ ...res([dep({})]), generatedAt })
+  const offline = (generatedAt: number) => ({ ...answer(generatedAt), offline: true as const })
+
+  it('nothing until a card has a network answer', () => {
+    expect(lastAnswerAt(null, [], null)).toBeNull()
+    expect(lastAnswerAt(null, [undefined, undefined], null)).toBeNull()
+    // Offline copies (one stamped with the device clock when there was no response) set nothing.
+    expect(lastAnswerAt(null, [offline(NOW), offline(Date.now())], null)).toBeNull()
+  })
+
+  it('the newest answer among the cards', () => {
+    expect(lastAnswerAt(null, [answer(NOW - 30_000), undefined, answer(NOW)], null)).toBe(NOW)
+    expect(lastAnswerAt(null, [answer(NOW), offline(NOW + 60_000)], null)).toBe(NOW)
+  })
+
+  it('ignores answers that came with a page from the device’s copy', () => {
+    expect(lastAnswerAt(null, [answer(NOW)], NOW + 10_000)).toBeNull()
+    expect(lastAnswerAt(null, [answer(NOW + 20_000)], NOW + 10_000)).toBe(NOW + 20_000)
+  })
+
+  it('stays at the last answer offline, and moves on with the next one', () => {
+    // The cards turned into offline copies: the time shown before stays.
+    expect(lastAnswerAt(NOW, [offline(NOW), undefined], null)).toBe(NOW)
+    // Never back to an older answer.
+    expect(lastAnswerAt(NOW, [answer(NOW - 60_000)], null)).toBe(NOW)
+    expect(lastAnswerAt(NOW, [answer(NOW + 15_000)], null)).toBe(NOW + 15_000)
   })
 })

@@ -170,6 +170,42 @@ export function homeLiveState(
   return { live, unconfirmed }
 }
 
+/**
+ * The home's "Last updated" (R9-T1): the newest `generatedAt` among the cards' own network answers, never the clock.
+ * Not an offline copy (built from the service worker's cached answer, the last response or the device's timetable,
+ * maybe stamped with the device clock), and not an answer that came with a page from the device's copy
+ * (`unconfirmedBefore`). It never goes back (`kept`, the last value shown), so offline it stays at the last real
+ * answer's time; nothing until there is one (never a status that contradicts LIVE, R3-X11).
+ */
+export function lastAnswerAt(
+  kept: number | null,
+  cards: ReadonlyArray<CardData>,
+  unconfirmedBefore: number | null,
+): number | null {
+  let newest = kept
+  for (const data of cards) {
+    if (data == null || data.offline || (unconfirmedBefore != null && data.generatedAt <= unconfirmedBefore))
+      continue
+    if (newest == null || data.generatedAt > newest) newest = data.generatedAt
+  }
+  return newest
+}
+
+/**
+ * lastAnswerAt kept across renders, so it stays at the last answer while the cards turn into offline copies. Per data
+ * mode (`scope`): a demo answer's time never carries over to an ordinary visit's cards, or back (Codex review).
+ */
+export function useLastAnswerAt(
+  scope: string,
+  cards: ReadonlyArray<CardData>,
+  unconfirmedBefore: number | null,
+): number | null {
+  const [kept, setKept] = useState<{ scope: string; at: number | null }>({ scope, at: null })
+  const at = lastAnswerAt(kept.scope === scope ? kept.at : null, cards, unconfirmedBefore)
+  if (kept.scope !== scope || kept.at !== at) setKept({ scope, at })
+  return at
+}
+
 function SavedList({
   items,
   qs,
@@ -289,10 +325,15 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
     qs.map((q) => ({ data: q.data, pending: q.isPending })),
     { online, nowMs: now, unconfirmedBefore, reached },
   )
+  const updatedAt = useLastAnswerAt(
+    `${mode.fixtures}:${mode.rt}`,
+    qs.map((q) => q.data),
+    unconfirmedBefore,
+  )
   return (
     <>
       <TransitHeader live={live} />
-      <TransitStrip updatedAt={items ? now : null}>
+      <TransitStrip updatedAt={updatedAt}>
         {items ? (
           <span className="text-sm font-semibold text-aqua-text dark:text-ferry-aqua-light">
             {items.length} saved · all modes
