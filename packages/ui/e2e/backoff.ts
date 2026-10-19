@@ -153,19 +153,23 @@ export function backoffSuite({
       page.on('request', onRequest)
       let deadline = Number.POSITIVE_INFINITY
       const first = page.waitForResponse(
-        (r) =>
-          (madeAt.get(r.request()) ?? Number.POSITIVE_INFINITY) <= deadline &&
-          r.ok() &&
-          !r.headers()['x-bft-cache'],
+        (r) => {
+          const made = madeAt.get(r.request())
+          return made !== undefined && made <= deadline && r.ok() && !r.headers()['x-bft-cache']
+        },
         { timeout: 10_000 },
       )
       first.catch(() => {})
-      await restore()
-      const back = Date.now()
-      deadline = back + 2_000
-      await page.evaluate(() => window.dispatchEvent(new Event('online')))
-      await first
-      page.off('request', onRequest)
+      let back: number
+      try {
+        await restore()
+        back = Date.now()
+        deadline = back + 2_000
+        await page.evaluate(() => window.dispatchEvent(new Event('online')))
+        await first
+      } finally {
+        page.off('request', onRequest)
+      }
       await expect(page.locator('[data-banner=offline]')).toHaveCount(0, { timeout: 5_000 })
       await expect.poll(() => visibleLiveClaims(page), { timeout: 5_000, intervals: [100] }).not.toEqual([])
       console.log(`${path}: LIVE ${Date.now() - back} ms after the online event`)
