@@ -13,4 +13,6 @@ interface Env {
   TRANSIT_SITE_URL?: string
   /** "1" allows indexing (production domain, once verified); otherwise X-Robots-Tag noindex and robots.txt disallows all. */
   INDEXABLE?: string
+  /** Deployed short git sha for the x-bft-build header, passed by the deploy scripts; unset locally ("dev"). */
+  BUILD_SHA?: string
 }

@@ -62,6 +62,7 @@ function getIsolate(rawEnv: WorkerEnv) {
       polledModes: cfg.modes,
       log,
       aiStatus: () => aiHealthStatus(env),
+      build: env.BUILD_SHA,
     })
     // Phase 0 spike: time N snapshot rebuilds inside workerd from outside (Date.now is frozen inside).
     app.get('/__spike/rt', async (c) => {

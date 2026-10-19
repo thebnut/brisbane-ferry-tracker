@@ -10,6 +10,7 @@
  *                         loaders read their own app's context: each gets this Env with its own canonical SITE_URL.
  */
 import { cloudflareContext as busContext } from '@bft/bus/app/lib/context.ts'
+import { withBuild } from '@bft/core/build'
 import { cloudflareContext as ferryContext } from '@bft/ferry/app/lib/context.ts'
 import { handleLegacy } from '@bft/ferry/workers/legacy.ts'
 import { cloudflareContext as trainContext } from '@bft/train/app/lib/context.ts'
@@ -135,10 +136,23 @@ export default {
     // One nonce per request: the CSP header and every context (transit's root and the mounted apps) share it.
     const nonce = newNonce()
     const www = wwwRedirectLocation(request.url, env.SITE_URL)
-    const res = www ? canonicalRedirect(www) : await route(request, env, ctx, nonce)
-    return withRobotsTag(withSecurityHeaders(res, nonce), env.INDEXABLE === '1')
+    const res = www ? canonicalRedirect(www) : await guarded(() => route(request, env, ctx, nonce))
+    return withBuild(withRobotsTag(withSecurityHeaders(res, nonce), env.INDEXABLE === '1'), env.BUILD_SHA)
   },
 } satisfies ExportedHandler<Env>
+
+async function guarded(handle: () => Promise<Response>): Promise<Response> {
+  try {
+    return await handle()
+  } catch (error) {
+    // A throw would become Cloudflare's own error page, without the security headers or the build marker.
+    console.error('worker error', error instanceof Error ? error.message : String(error))
+    return new Response('Internal error', {
+      status: 500,
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+    })
+  }
+}
 
 async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
   const url = new URL(request.url)

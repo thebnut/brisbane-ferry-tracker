@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto'
+import { request as httpRequest, type IncomingHttpHeaders } from 'node:http'
 import { expect, test } from '@playwright/test'
 
 // The main pages, server-rendered by the Worker with a per-request nonce CSP (workers/security.ts).
@@ -72,4 +74,48 @@ test('hashed build assets are cached immutably; HTML and the service worker are 
     expect(res.status(), path).toBe(200)
     expect(res.headers()['cache-control'] ?? '', path).not.toMatch(/immutable|max-age=[1-9]/)
   }
+})
+
+test('every Worker response names its build (x-bft-build; "dev" locally, the deployed sha on a host)', async ({
+  request,
+}) => {
+  for (const path of ['/', '/no-such-page']) {
+    const res = await request.get(path)
+    expect(res.headers()['x-bft-build'], `${path} ${res.status()}`).toBe('dev')
+  }
+})
+
+/** The handshake answer of a raw WebSocket upgrade (Playwright exposes no handshake headers). */
+function upgrade(url: string): Promise<{ status: number; headers: IncomingHttpHeaders }> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(url, {
+      headers: {
+        Connection: 'Upgrade',
+        Upgrade: 'websocket',
+        'Sec-WebSocket-Version': '13',
+        'Sec-WebSocket-Key': randomBytes(16).toString('base64'),
+      },
+    })
+    req.on('upgrade', (res, socket) => {
+      socket.destroy()
+      resolve({ status: res.statusCode ?? 0, headers: res.headers })
+    })
+    req.on('response', (res) => {
+      res.resume()
+      resolve({ status: res.statusCode ?? 0, headers: res.headers })
+    })
+    req.on('error', reject)
+    req.end()
+  })
+}
+
+test('the trip WebSocket upgrade (101) names its build too', async ({ page }) => {
+  // TRIP_WS=1 in the test server: the service detail page opens /v1/train/trips/{key}/ws.
+  const opened = page.waitForEvent('websocket', (ws) => /\/v1\/train\/trips\/.+\/ws$/.test(ws.url()))
+  await page.goto('/station/central')
+  await page.locator('[data-board=central] [data-testid=departure] a').first().click()
+  const ws = await opened
+  const res = await upgrade(ws.url().replace(/^ws/, 'http'))
+  expect(res.status).toBe(101)
+  expect(res.headers['x-bft-build']).toBe('dev')
 })

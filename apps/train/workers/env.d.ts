@@ -17,4 +17,6 @@ interface Env {
   API_WS_BASE?: string
   /** TripSocket Durable Object namespace (WebSocket prototype). */
   TRIP_SOCKET?: DurableObjectNamespace<import('./tripSocket.ts').TripSocket>
+  /** Deployed short git sha for the x-bft-build header, passed by the deploy scripts; unset locally ("dev"). */
+  BUILD_SHA?: string
 }

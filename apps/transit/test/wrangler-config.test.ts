@@ -3,6 +3,7 @@
  * "production" env binds the real domains, nothing in production serves fixtures or demo data, and
  * "production-preview" is the same Worker minus its domains.
  */
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { unstable_readConfig } from 'wrangler'
@@ -105,5 +106,28 @@ describe('demo data never reaches production, and staging shows real data (R7-B1
     const vars = read('staging').vars as Record<string, unknown>
     expect(vars.FIXTURES).toBe('0')
     expect(vars).not.toHaveProperty('FIXTURE_FALLBACK')
+  })
+})
+
+describe('deploy scripts stamp the deployed commit (x-bft-build)', () => {
+  const scripts = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+    .scripts as Record<string, string>
+  const deploys = Object.entries(scripts).filter(([name]) => name.startsWith('deploy:'))
+
+  it('every deploy:* script computes the sha before building and passes it to wrangler as BUILD_SHA', () => {
+    expect(deploys.map(([name]) => name)).toEqual(
+      expect.arrayContaining(['deploy:staging', 'deploy:production']),
+    )
+    for (const [name, cmd] of deploys) {
+      const env = name.slice('deploy:'.length)
+      expect(cmd, name).toBe(
+        `BUILD_SHA=$(node ../../scripts/build-sha.mjs) && CLOUDFLARE_ENV=${env} pnpm build && wrangler deploy --var BUILD_SHA:$BUILD_SHA`,
+      )
+    }
+  })
+
+  it('no env hardcodes BUILD_SHA (unset locally and in tests: "dev")', () => {
+    for (const env of [undefined, ...deploys.map(([name]) => name.slice('deploy:'.length))])
+      expect(read(env).vars, String(env)).not.toHaveProperty('BUILD_SHA')
   })
 })

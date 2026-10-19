@@ -9,6 +9,7 @@
  *  - everything else  React Router SSR
  */
 
+import { withBuild } from '@bft/core/build'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
@@ -59,16 +60,31 @@ export default {
   async fetch(request, env, ctx) {
     const nonce = newNonce()
     const www = wwwRedirectLocation(request.url, env.SITE_URL)
-    const socket = www ? null : routeTripSocket(request, env)
-    const res = www ? canonicalRedirect(www) : socket ? await socket : await route(request, env, ctx, nonce)
+    const res = www
+      ? canonicalRedirect(www)
+      : await guarded(() => routeTripSocket(request, env) ?? route(request, env, ctx, nonce))
     // A WebSocket upgrade (101) goes back untouched: a Response can't be rebuilt with status 101 or its webSocket.
+    // TripSocket sets x-bft-build on it itself.
     if (res.status === 101) return res
-    return withRobotsTag(
-      withSecurityHeaders(res, nonce, wsOriginOf(env.API_WS_BASE)),
-      siteInfo(env).indexable,
+    return withBuild(
+      withRobotsTag(withSecurityHeaders(res, nonce, wsOriginOf(env.API_WS_BASE)), siteInfo(env).indexable),
+      env.BUILD_SHA,
     )
   },
 } satisfies ExportedHandler<Env>
+
+async function guarded(handle: () => Promise<Response>): Promise<Response> {
+  try {
+    return await handle()
+  } catch (error) {
+    // A throw would become Cloudflare's own error page, without the security headers or the build marker.
+    console.error('worker error', error instanceof Error ? error.message : String(error))
+    return new Response('Internal error', {
+      status: 500,
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+    })
+  }
+}
 
 async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
   const url = new URL(request.url)
