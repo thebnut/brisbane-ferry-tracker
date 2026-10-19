@@ -143,20 +143,29 @@ export function backoffSuite({
       // Long enough for the waits to have grown past the time allowed below.
       await page.waitForTimeout(25_000)
       // An attempt at once, and LIVE within seconds of its answer (the fixture server's own time not counted).
-      // Watched from before the network returns: a backed-off probe can get through first, and its reconnect
-      // refetch would then throttle the online event's. Only an attempt made once it is back counts (not a probe
-      // still cut off).
-      let restored = false
-      const asked = page.waitForRequest((r) => restored && departures.test(new URL(r.url()).pathname), {
-        timeout: 2_000,
-      })
-      const first = answered(page)
+      // Watched from before the network returns: a backed-off probe can get through first (even while restore()
+      // runs), and its reconnect refetch would then throttle the online event's. The attempt that counts is one the
+      // network answered (not a probe still cut off), made no later than 2 s after the event.
+      const madeAt = new Map<Request, number>()
+      const onRequest = (r: Request) => {
+        if (departures.test(new URL(r.url()).pathname)) madeAt.set(r, Date.now())
+      }
+      page.on('request', onRequest)
+      let deadline = Number.POSITIVE_INFINITY
+      const first = page.waitForResponse(
+        (r) =>
+          (madeAt.get(r.request()) ?? Number.POSITIVE_INFINITY) <= deadline &&
+          r.ok() &&
+          !r.headers()['x-bft-cache'],
+        { timeout: 10_000 },
+      )
+      first.catch(() => {})
       await restore()
-      restored = true
       const back = Date.now()
+      deadline = back + 2_000
       await page.evaluate(() => window.dispatchEvent(new Event('online')))
-      await asked
       await first
+      page.off('request', onRequest)
       await expect(page.locator('[data-banner=offline]')).toHaveCount(0, { timeout: 5_000 })
       await expect.poll(() => visibleLiveClaims(page), { timeout: 5_000, intervals: [100] }).not.toEqual([])
       console.log(`${path}: LIVE ${Date.now() - back} ms after the online event`)
