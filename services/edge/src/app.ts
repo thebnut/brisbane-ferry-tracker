@@ -65,6 +65,12 @@ const DEFAULT_LIMIT = 20
 /** `at` within this of now is treated as a live query for caching. */
 const AT_LIVE_WINDOW_MS = 2 * 60_000
 const MAX_LIMIT = 100
+/**
+ * A cold departures request can chain bounded static reads (manifest, index, then snapshot, stations and stop-day in
+ * parallel: 3 s each at worst). Past this much of its time the next-day top-up (another stop-day read) is skipped,
+ * so the worst case stays under the apps' 10 s proxy deadline (release review r3 P3).
+ */
+export const DEPARTURES_TOPUP_BUDGET_MS = 7_000
 /** bbox queries snap outward to this grid (degrees) so cache keys stay bounded. */
 export const BBOX_GRID = 0.05
 
@@ -147,6 +153,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
   // ---------------------------------------------------------------- departures
 
   app.get('/v1/:mode/stops/:key/departures', async (c) => {
+    const startedMs = now()
     const mode = parseMode(c)
     if (!mode) return c.json({ error: 'unknown mode' }, 400)
     const key = c.req.param('key')
@@ -244,7 +251,8 @@ export function createApp(deps: AppDeps): Hono<Env> {
     let m = merge(days)
     // Late in the evening today's rows run out: carry on into the next service day ("first ferry tomorrow").
     const next = addDays(dates.at(-1) ?? currentServiceDate(fromMs), 1)
-    if (m.departures.length < limit && index.serviceDates.includes(next)) {
+    const inBudget = now() - startedMs < DEPARTURES_TOPUP_BUDGET_MS
+    if (m.departures.length < limit && index.serviceDates.includes(next) && inBudget) {
       const more = await load([next])
       if (more.length > 0) {
         dates.push(next)

@@ -9,9 +9,15 @@
  * The refresh age is measured from when this isolate last pulled, not from the snapshot's fetchedAt: if the hub
  * stalls, a fetchedAt-based rule would call the DO on every request.
  *
- * No request waits on a refresh for longer than its deadline (the 19 Oct staging stall, see ./deadline.ts): a
- * refresh still pending after SNAPSHOT_REFRESH_DEADLINE_MS is abandoned, so the next request starts a new one, and
- * an abandoned refresh that settles late commits nothing.
+ * No request waits on a refresh for longer than its deadline (the 19 Oct staging stall, see ./deadline.ts). A refresh
+ * still pending after SNAPSHOT_REFRESH_DEADLINE_MS is abandoned, and how depends on why:
+ * - **slow** (its own timer fired, so its request is alive): it keeps running in the background and still commits
+ *   when it lands, if nothing newer has. The 10 s attempt throttle stands, so a hub or R2 that is steadily slower than
+ *   the deadline is asked every 10 s and its answers are used (release review r3 P2), not re-asked every 3 s and
+ *   thrown away;
+ * - **lost** (a later request finds it past its deadline and unsettled, see `isDead`: its I/O died with its request):
+ *   the next request retries at once.
+ * Commits only move forward: an answer older than the isolate's copy is ignored, whenever it lands.
  */
 import { type RtSnapshot, type Vehicle, vehiclesByTrip } from '@bft/core'
 import { awaitFlight, DeadlineError, type Flight, flight, isDead, within } from './deadline.ts'
@@ -29,10 +35,16 @@ export const SNAPSHOT_MAX_STALE_MS = 60_000
 export const SNAPSHOT_REFRESH_DEADLINE_MS = 3_000
 /** How long a request holding an expired copy (older than maxStaleMs) waits for the refresh before being served it. */
 export const SNAPSHOT_STALE_WAIT_MS = 1_500
+/**
+ * How long a slow refresh is kept alive in its request's `waitUntil` so it can still commit. By then the next attempt
+ * is due anyway, and it stays well inside the 30 s Workers allow `waitUntil` after a response.
+ */
+export const SNAPSHOT_LATE_COMMIT_MS = SNAPSHOT_REFRESH_MS
 
 export interface SnapshotTiming {
   refreshDeadlineMs: number
   staleWaitMs: number
+  lateCommitMs: number
 }
 
 /** RT_SNAPSHOT_MAX_STALE_MS (ms), clamped to at least the 10 s refresh interval; unset or invalid: the default. */
@@ -70,14 +82,16 @@ export class SnapshotClient {
   private lastStatus: HubStatus | null = null
   private loadedAt = Number.NEGATIVE_INFINITY
   private attemptedAt = Number.NEGATIVE_INFINITY
-  /** The refresh in flight; only the refresh holding this token may commit what it loads. */
+  /** The refresh in flight, which requests join. One abandoned at its deadline may still commit (see `commit`). */
   private inflight: Refresh | null = null
   private tokens = 0
+  /** Bumped on every commit, so a late answer can tell whether anything committed since it started. */
+  private commits = 0
   private readonly raws = new Map<string, RawShare>()
   private readonly timing: SnapshotTiming
   /** For tests and /v1/health: how many times the hub was actually called. */
   hubCalls = 0
-  /** For tests: refreshes abandoned at their deadline. */
+  /** For tests: refreshes abandoned at their deadline (slow or lost). */
   abandoned = 0
 
   constructor(
@@ -94,6 +108,7 @@ export class SnapshotClient {
     this.timing = {
       refreshDeadlineMs: timing.refreshDeadlineMs ?? SNAPSHOT_REFRESH_DEADLINE_MS,
       staleWaitMs: timing.staleWaitMs ?? SNAPSHOT_STALE_WAIT_MS,
+      lateCommitMs: timing.lateCommitMs ?? SNAPSHOT_LATE_COMMIT_MS,
     }
   }
 
@@ -126,7 +141,7 @@ export class SnapshotClient {
     const now = this.now()
     const { refreshDeadlineMs } = this.timing
     // A refresh past its deadline is presumed lost (its request ended); drop it so this request can start another.
-    if (this.inflight && isDead(this.inflight, now, refreshDeadlineMs)) this.abandon(this.inflight)
+    if (this.inflight && isDead(this.inflight, now, refreshDeadlineMs)) this.abandon(this.inflight, 'lost')
     const age = now - this.loadedAt
     // Refresh attempts are throttled on their own clock, so a failing hub or R2 isn't asked on every request
     // (Codex re-review #4); `loadedAt` still reflects only successful loads.
@@ -139,14 +154,13 @@ export class SnapshotClient {
     // Cold or expired: wait for the refresh, joining one already in flight; only starting a new one is throttled.
     if (!this.inflight && !mayAttempt) return this.current
     const run = this.attempt(wu)
-    // Each waiter races the shared refresh on its own timer, never past the refresh's deadline.
+    // Each waiter races the shared refresh on its own timer, never past the refresh's deadline. A waiter that runs
+    // out leaves the refresh alone: its own timer abandons it as slow, or a later request's `isDead` check as lost.
     const left = run.at + refreshDeadlineMs - now
     const wait = this.current ? Math.min(this.timing.staleWaitMs, left) : left
     try {
       return await within(run.p, wait, 'rt snapshot refresh')
-    } catch (e) {
-      // Waited to the refresh's deadline: abandon it, so the next request isn't left joining it.
-      if (e instanceof DeadlineError && wait >= left) this.abandon(run)
+    } catch {
       return this.current
     }
   }
@@ -160,47 +174,55 @@ export class SnapshotClient {
     const token = ++this.tokens
     const at = this.now()
     this.attemptedAt = at
-    const p = within(this.refresh(token), this.timing.refreshDeadlineMs, 'rt snapshot refresh').then(
+    const work = this.refresh({ token, at, commits: this.commits })
+    const p = within(work, this.timing.refreshDeadlineMs, 'rt snapshot refresh').then(
       (value) => {
         if (this.inflight?.token === token) this.inflight = null
         return value
       },
       (e: unknown) => {
-        if (e instanceof DeadlineError) this.abandon({ token })
+        // This timer runs in the refresh's own request, so that request is alive: the I/O is slow, not lost.
+        if (e instanceof DeadlineError) this.abandon({ token }, 'slow')
         else if (this.inflight?.token === token) this.inflight = null
         throw e
       },
     )
     const run: Refresh = Object.assign(flight(p, at), { token })
     this.inflight = run
-    waitUntil(p.catch(() => null))
+    // Keep the request alive for the refresh itself (bounded), not just its deadline, so a slow answer still lands.
+    waitUntil(within(work, this.timing.lateCommitMs, 'rt snapshot late commit').catch(() => null))
     return run
   }
 
-  private abandon(run: { token: number }): void {
+  private abandon(run: { token: number }, why: 'slow' | 'lost'): void {
     if (this.inflight?.token !== run.token) return
     this.inflight = null
     // A lost refresh says nothing about the hub (a failed one does), so the next request may retry at once rather
-    // than wait out the 10 s attempt throttle (Codex r1 #1). Each retry is bounded by the same deadline.
-    this.attemptedAt = Number.NEGATIVE_INFINITY
+    // than wait out the 10 s attempt throttle (Codex r1 #1). Each retry is bounded by the same deadline. A slow one
+    // keeps the throttle: it is still running and may yet commit, and retrying every deadline would only pile on.
+    if (why === 'lost') this.attemptedAt = Number.NEGATIVE_INFINITY
     this.abandoned++
     console.error(
-      JSON.stringify({ level: 'error', msg: 'rt snapshot refresh abandoned', scope: this.scope ?? 'all' }),
+      JSON.stringify({
+        level: 'error',
+        msg: 'rt snapshot refresh abandoned',
+        why,
+        scope: this.scope ?? 'all',
+      }),
     )
   }
 
-  private async refresh(token: number): Promise<CurrentSnapshot | null> {
-    // An abandoned refresh that settles late must not overwrite what a newer one loaded.
-    const live = () => this.inflight?.token === token
-    const cached = await this.fromCache(live)
-    if (cached || !live()) return this.current
+  private async refresh(run: RefreshRun): Promise<CurrentSnapshot | null> {
+    const cached = await this.fromCache()
+    if (cached) {
+      this.commit(run, cached)
+      return this.current
+    }
+    // Abandoned before it reached the hub: don't add a hub call the throttle didn't allow for.
+    if (this.inflight?.token !== run.token) return this.current
     this.hubCalls++
     const r = await this.hub.pull(this.current?.seq ?? null, this.scope)
-    if (!live()) return this.current
-    this.loadedAt = this.now()
-    this.lastStatus = r.status
-    if (r.json != null && r.seq != null) {
-      this.adopt(r.seq, r.json)
+    if (this.commit(run, r) && r.json != null && r.seq != null && this.current?.seq === r.seq) {
       if (this.cache) {
         const res = new Response(r.json, {
           headers: {
@@ -215,7 +237,7 @@ export class SnapshotClient {
     return this.current
   }
 
-  private async fromCache(live: () => boolean): Promise<CurrentSnapshot | null> {
+  private async fromCache(): Promise<Loaded | null> {
     if (!this.cache) return null
     try {
       const res = await this.cache.match(this.cacheUrl)
@@ -223,19 +245,32 @@ export class SnapshotClient {
       const seq = Number(res.headers.get('x-seq'))
       const status = res.headers.get('x-status')
       const json = this.current && this.current.seq >= seq ? null : await res.text()
-      if (!live()) return null
-      if (status) this.lastStatus = JSON.parse(status) as HubStatus
-      this.loadedAt = this.now()
-      if (json != null) this.adopt(seq, json)
-      return this.current
+      return { seq, json, status: status ? (JSON.parse(status) as HubStatus) : null }
     } catch {
       return null
     }
   }
 
-  private adopt(seq: number, json: string): void {
-    const snapshot = JSON.parse(json) as RtSnapshot
-    this.current = { seq, snapshot, vehiclesByTrip: vehiclesByTrip(snapshot.vehicles) }
+  /**
+   * Commit what a refresh loaded, if it may: on time (still the refresh in flight), or late with nothing committed
+   * since it started, or late with a newer seq. The snapshot itself only ever moves forward, and an answer older than
+   * the isolate's copy doesn't touch the status either. A late answer is dated from when its refresh started, so it
+   * never makes the copy look fresher than it is. True when committed.
+   */
+  private commit(run: RefreshRun, r: Loaded): boolean {
+    const onTime = this.inflight?.token === run.token
+    const cur = this.current
+    const newer = r.seq != null && (cur == null || r.seq > cur.seq)
+    const older = r.seq != null && cur != null && r.seq < cur.seq
+    if (!onTime && !newer && this.commits !== run.commits) return false
+    this.commits++
+    this.loadedAt = Math.max(this.loadedAt, onTime ? this.now() : run.at)
+    if (r.status && !older) this.lastStatus = r.status
+    if (newer && r.json != null && r.seq != null) {
+      const snapshot = JSON.parse(r.json) as RtSnapshot
+      this.current = { seq: r.seq, snapshot, vehiclesByTrip: vehiclesByTrip(snapshot.vehicles) }
+    }
+    return true
   }
 
   /**
@@ -277,6 +312,20 @@ export class SnapshotClient {
 }
 
 type Refresh = Flight<CurrentSnapshot | null> & { token: number }
+
+/** One refresh: its token, when it started, and the commit count then. */
+interface RefreshRun {
+  token: number
+  at: number
+  commits: number
+}
+
+/** What a refresh loaded, from the Cache API or the hub. */
+interface Loaded {
+  seq: number | null
+  json: string | null
+  status: HubStatus | null
+}
 
 interface RawShare {
   last: { value: RawFeed | null; at: number } | null

@@ -12,7 +12,8 @@ export const TRIP_INDEX_CACHE_MAX_BYTES = 1 << 20
 /**
  * A shared read (manifest, index, stop-day blob or shard) still pending after this is presumed lost and replaced,
  * and its waiters fail instead of hanging (see ../deadline.ts). These are small R2 reads (~400 ms from BNE on
- * staging); a cold departures request makes at most three in a row, so the worst case stays under the 10 s proxy.
+ * staging). A cold departures request can chain three of these plus the snapshot refresh (each up to 3 s); it skips
+ * its next-day top-up past DEPARTURES_TOPUP_BUDGET_MS (../app.ts), so its worst case stays under the 10 s proxy.
  */
 export const STATIC_LOAD_DEADLINE_MS = 3_000
 /** Trip-index days are large (bus ~3-4 MB gzipped) and only on the trip-detail path, so they get longer. */
