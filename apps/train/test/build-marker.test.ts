@@ -8,10 +8,12 @@ vi.mock('cloudflare:workers', () => ({ DurableObject: class {} }))
 // SSR stands in for React Router: any HTML page.
 vi.mock('react-router', async (orig) => ({
   ...(await orig<typeof import('react-router')>()),
-  createRequestHandler: () => async () =>
-    new Response('<!doctype html><title>t</title>', {
+  createRequestHandler: () => async (request: Request) => {
+    if (new URL(request.url).pathname === '/throw') throw new Error('boom')
+    return new Response('<!doctype html><title>t</title>', {
       headers: { 'content-type': 'text/html; charset=utf-8' },
-    }),
+    })
+  },
 }))
 
 const SHA = '1a2b3c4'
@@ -53,6 +55,22 @@ describe('x-bft-build', () => {
     const missing = await get('/__fixtures/v1/alerts', envWith())
     expect(missing.status).toBe(404)
     expect(missing.headers.get('x-bft-build')).toBe(SHA)
+  })
+
+  it('is on a thrown error too: a generic 500 with the security headers, not the platform error page', async () => {
+    const res = await get('/throw', envWith())
+    expect(res.status).toBe(500)
+    expect(await res.text()).toBe('Internal error')
+    expect(res.headers.get('x-bft-build')).toBe(SHA)
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(res.headers.get('cache-control')).toBe('no-store')
+  })
+
+  it('is on a malformed trip WebSocket path (the router throws URIError)', async () => {
+    const env = envWith({ TRIP_WS: '1', TRIP_SOCKET: { idFromName: vi.fn(), get: vi.fn() } })
+    const res = await get('/v1/train/trips/%ZZ/ws', env)
+    expect(res.status).toBe(500)
+    expect(res.headers.get('x-bft-build')).toBe(SHA)
   })
 
   it('is "dev" without BUILD_SHA, and never echoes a value that is not a sha', async () => {

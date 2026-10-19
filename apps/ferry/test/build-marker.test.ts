@@ -7,10 +7,12 @@ vi.mock('virtual:react-router/server-build', () => ({}))
 // SSR stands in for React Router: any HTML page.
 vi.mock('react-router', async (orig) => ({
   ...(await orig<typeof import('react-router')>()),
-  createRequestHandler: () => async () =>
-    new Response('<!doctype html><title>t</title>', {
+  createRequestHandler: () => async (request: Request) => {
+    if (new URL(request.url).pathname === '/throw') throw new Error('boom')
+    return new Response('<!doctype html><title>t</title>', {
       headers: { 'content-type': 'text/html; charset=utf-8' },
-    }),
+    })
+  },
 }))
 
 const SHA = '1a2b3c4'
@@ -57,6 +59,15 @@ describe('x-bft-build', () => {
   it('is on the legacy endpoints too', async () => {
     const res = await get('/api/gtfs-proxy?endpoint=Nope', envWith())
     expect(res.headers.get('x-bft-build')).toBe(SHA)
+  })
+
+  it('is on a thrown error too: a generic 500 with the security headers, not the platform error page', async () => {
+    const res = await get('/throw', envWith())
+    expect(res.status).toBe(500)
+    expect(await res.text()).toBe('Internal error')
+    expect(res.headers.get('x-bft-build')).toBe(SHA)
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(res.headers.get('cache-control')).toBe('no-store')
   })
 
   it('is "dev" without BUILD_SHA, and never echoes a value that is not a sha', async () => {
