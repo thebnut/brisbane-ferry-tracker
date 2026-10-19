@@ -933,7 +933,8 @@ export class HubCore {
         if (!got || !Number.isSafeInteger(got.index.seq) || got.index.seq < c.seq) return null
         const docs: Array<[Mode, RtSnapshot]> = []
         for (const d of got.docs) {
-          // A malformed section makes the whole object unusable (missing).
+          // A malformed section, or one under an unknown mode name, makes the whole object unusable (missing).
+          if (!MODES.has(d.mode)) return null
           const doc = parseSnapshot(d.json)
           if (!doc) return null
           docs.push([d.mode, doc])
@@ -978,6 +979,10 @@ export class HubCore {
       for (const [scope, e] of Object.entries(f)) {
         // With the combined object the pointer names modes only through it.
         if (scope === 'alerts' || combined) continue
+        if (!MODES.has(scope)) {
+          complete = false
+          continue
+        }
         const d = await read(e)
         if (d) docs.push([scope as Mode, d])
         else complete = false
@@ -1130,10 +1135,10 @@ const isTripRecord = (t: unknown): boolean => {
 
 /**
  * A snapshot document, or null when it is not JSON with the shape restore and the next build rely on (header seq,
- * staticGeneration and string serviceDates; every trip a record as isTripRecord checks, every vehicle an object whose `mode`
+ * string staticGeneration values and string serviceDates; every trip a record as isTripRecord checks, every vehicle an object whose `mode`
  * (if any) is a known mode and every alert an object with a `modes` array: the per-scope split reads both).
  * A cheap structural check, not the full schema, which would cost too much of the Free plan's CPU budget per
- * restore (Codex r4 to r9 on #100).
+ * restore (Codex r4 to r10 on #100).
  */
 function parseSnapshot(text: string): RtSnapshot | null {
   let s: RtSnapshot
@@ -1148,6 +1153,7 @@ function parseSnapshot(text: string): RtSnapshot | null {
     isObject(h) &&
     Number.isSafeInteger(h.seq) &&
     isObject(h.staticGeneration) &&
+    Object.values(h.staticGeneration).every((g) => typeof g === 'string') &&
     Array.isArray(h.serviceDates) &&
     h.serviceDates.every((d) => typeof d === 'string') &&
     isObject(s.trips) &&

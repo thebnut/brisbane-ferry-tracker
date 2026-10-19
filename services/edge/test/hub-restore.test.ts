@@ -1,3 +1,4 @@
+import type { Mode } from '@bft/core'
 import { describe, expect, it } from 'vitest'
 import { COMBINED_KEY, decodeCombined, encodeCombined, parseIndex } from '../src/rt/combined.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
@@ -339,6 +340,16 @@ describe('RtHub restore: one shared in-flight restore (Codex r1/r2 on #96)', () 
       expect(docSeq(r2)).toBe(published + 1)
     }
   })
+
+  it('a non-string staticGeneration value counts the document as missing (Codex r10)', async () => {
+    const { r2, hub, published } = await restarted()
+    const doc = JSON.parse(r2.files.get(modeLatestKey('ferry')) as string)
+    doc.header.staticGeneration.ferry = { bad: true }
+    r2.files.set(modeLatestKey('ferry'), JSON.stringify(doc))
+    expect((await hub.pull(null, 'ferry')).seq).toBeNull()
+    await hub.alarm()
+    expect(docSeq(r2)).toBe(published + 1)
+  })
 })
 
 describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {
@@ -490,5 +501,17 @@ describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {
     const fresh = mk()
     storage.data.clear()
     expect((await fresh.pull(null)).seq).toBe(ahead + 1)
+  })
+
+  it('a section under an unknown mode name makes the object unusable (Codex r10)', async () => {
+    const { r2, hub, published } = await restarted('ferry', 'combined')
+    const got = decodeCombined(new TextEncoder().encode(r2.files.get(COMBINED_KEY) as string))
+    if (!got) throw new Error('combined object did not decode')
+    const sections = got.docs.map((d) => ({ ...d, mode: 'constructor' as Mode }))
+    r2.files.set(COMBINED_KEY, new TextDecoder().decode(encodeCombined({ ...got.index }, sections)))
+    expect((await hub.pull(null, 'ferry')).seq).toBeNull()
+    await hub.alarm()
+    expect(objSeq(r2)).toBe(published + 1)
+    expect((await hub.pull(null, 'ferry')).seq).toBe(published + 1)
   })
 })
