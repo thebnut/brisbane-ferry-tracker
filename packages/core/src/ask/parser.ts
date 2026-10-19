@@ -30,6 +30,7 @@ export type ParseResult =
       ok: false
       reason: 'no_match' | 'unresolved_stop' | 'ambiguous_stop'
       normalized: string
+      /** For unresolved_stop: the stop name as the question gave it (normalised, mode words removed). */
       detail?: string
     }
 
@@ -108,6 +109,12 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
     normalized: s,
     ...(detail ? { detail } : {}),
   })
+  // The first stop name an explicit "from X to Y", "from X" or "at X" couldn't resolve, so the answer can say which.
+  // Looser shapes ("X to Y" with no "from") don't set it: their halves are often not stop names at all.
+  let missing: string | undefined
+  const miss = (raw: string) => {
+    missing ??= stripModeWords(raw) || undefined
+  }
 
   // Time constraints the grammar can't represent (first/last service, another day, a clock time) must not be
   // silently answered as "next departures" (Codex PR review). Leave them to the LLM / hint.
@@ -217,7 +224,10 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
       const from = resolve(resolver, fromText, mode)
       const to = resolve(resolver, toText, mode ?? (typeof from === 'object' ? from.mode : undefined))
       if (from === 'ambiguous' || to === 'ambiguous') return fail('ambiguous_stop')
-      if (from === 'unresolved' || to === 'unresolved') continue
+      if (from === 'unresolved' || to === 'unresolved') {
+        if (re === FROM_TO[0]) miss(from === 'unresolved' ? fromText : toText)
+        continue
+      }
       return {
         ok: true,
         normalized: s,
@@ -246,7 +256,8 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
           },
         }
       }
-      return fail('unresolved_stop', fm[1])
+      miss(fm[1] as string)
+      return fail('unresolved_stop', missing)
     }
   }
 
@@ -267,6 +278,7 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
         },
       }
     }
+    if (/\b(departures|leaving|times|timetable|board|next)\b/.test(s)) miss(am[1] as string)
   }
   if (/\b(departures|what is leaving|leaving|timetable)\b/.test(s)) {
     const at = resolve(
@@ -278,5 +290,5 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
     if (typeof at === 'object')
       return { ok: true, normalized: s, intent: { kind: 'departures_at', mode: mode ?? at.mode, at } }
   }
-  return fail('no_match')
+  return missing ? fail('unresolved_stop', missing) : fail('no_match')
 }

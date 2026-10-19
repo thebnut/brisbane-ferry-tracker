@@ -158,3 +158,13 @@ describe('AskBox', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/__fixtures/v1/ask')
   })
 })
+
+describe('answer text is rendered as text, never markup', () => {
+  it('an echoed stop term with markup shows literally', async () => {
+    const { default: AskAnswer } = await import('../app/components/AskAnswer.tsx')
+    const answer = "I couldn't find a stop called '<img src=x onerror=alert(1)>'."
+    const { container } = render(<AskAnswer result={toResult(200, { answer, source: 'fallback' })} />)
+    expect(container.querySelector('img')).toBeNull()
+    expect(screen.getByText(answer)).toBeTruthy()
+  })
+})

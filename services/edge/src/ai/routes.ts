@@ -181,6 +181,22 @@ const VerifyBody = z.object({
   remoteip: z.string().max(64).optional(),
 })
 
+/**
+ * The user's own stop term for "I couldn't find a stop called 'x'": plain text only (control characters, quotes,
+ * angle brackets, backticks and backslashes removed, whitespace collapsed), capped at 40 characters, in single quotes. The Ask box
+ * renders answers as React text, so this is defence in depth for other clients of /v1/ask. Null when nothing is left.
+ */
+export function quotedTerm(raw: string | undefined, max = 40): string | null {
+  const t = (raw ?? '')
+    .replace(/['’`]/g, '')
+    .replace(/[\p{Cc}\p{Cf}<>"\\]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!t) return null
+  const chars = [...t]
+  return `'${chars.length > max ? `${chars.slice(0, max).join('').trimEnd()}…` : t}'`
+}
+
 const CANNOT_ANSWER: Record<string, string> = {
   trip_planning:
     'I can\'t plan multi-step journeys yet. Try asking for the next service between two stops, e.g. "next train from Bowen Hills to the airport".',
@@ -286,20 +302,23 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
       })
     }
 
+    const missing = parse && !parse.ok && parse.reason === 'unresolved_stop' ? quotedTerm(parse.detail) : null
     const hint = {
       ...base,
       source: 'fallback' as const,
-      answer:
-        'Try: "next train from Bowen Hills to the airport", "departures at Bulimba ferry" or "alerts on the Ferny Grove line".',
+      answer: missing
+        ? `I couldn't find a stop called ${missing}. Try its full name or the stop number on the sign.`
+        : 'Try: "next train from Bowen Hills to the airport", "departures at Bulimba ferry" or "alerts on the Ferny Grove line".',
     }
-    const cfg = budgetConfig(env)
-    if (!cfg.enabled || cfg.monthlyBudgetUsd <= 0) return c.json({ ...hint, ai: { enabled: false } })
+    // Before the kill switch, so an ambiguous stop gets its specific message with AI off too.
     if (parse && !parse.ok && parse.reason === 'ambiguous_stop')
       return c.json({
         ...hint,
         answer:
           'That name matches more than one stop. Add the mode (ferry, train or bus) or the stop number.',
       })
+    const cfg = budgetConfig(env)
+    if (!cfg.enabled || cfg.monthlyBudgetUsd <= 0) return c.json({ ...hint, ai: { enabled: false } })
 
     const ipHash = await ipKey(ipRaw, env.IP_HASH_SALT ?? 'bft')
     if (!env.TURNSTILE_SECRET)
