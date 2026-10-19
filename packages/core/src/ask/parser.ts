@@ -221,6 +221,11 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
       fromText = fromText
         .replace(/^.*\b(?:next|when is the next|when is|what time is the next|what time|is there a)\b/, '')
         .trim()
+      // Trailing fillers ("to bulimba now") aren't part of the stop name, nor of the name an answer reports (Codex
+      // review of #81).
+      const filler = /\s+(?:right now|next|now|soon|today)$/
+      fromText = fromText.replace(filler, '')
+      toText = toText.replace(filler, '')
       const from = resolve(resolver, fromText, mode)
       const to = resolve(resolver, toText, mode ?? (typeof from === 'object' ? from.mode : undefined))
       if (from === 'ambiguous' || to === 'ambiguous') return fail('ambiguous_stop')

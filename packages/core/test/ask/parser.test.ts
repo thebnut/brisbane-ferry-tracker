@@ -56,10 +56,24 @@ describe('parser details', () => {
       ['next train to bowen hills from nowhereville', 'nowhereville'],
       ['when is the next train from nowhereville', 'nowhereville'],
       ['departures at nowhereville ferry terminal', 'nowhereville'],
+      ['next ferry from bulimba to zzyzx now', 'zzyzx'],
+      ['next ferry to zzyzx from bulimba right now', 'zzyzx'],
     ]
     for (const [q, term] of cases) {
       const r = parseQuestion(q, testResolver)
       expect(r.ok ? r.intent : [r.reason, r.detail], q).toEqual(['unresolved_stop', term])
+    }
+  })
+  it('trailing fillers do not break a known stop', () => {
+    for (const q of [
+      'next ferry from bulimba to south bank now',
+      'next ferry to south bank from bulimba soon',
+    ]) {
+      const r = parseQuestion(q, testResolver)
+      expect(r.ok && r.intent.kind === 'next_departure' && [r.intent.from.key, r.intent.to.key], q).toEqual([
+        '317584',
+        '317586',
+      ])
     }
   })
   it('looser shapes without from/at do not guess a stop name', () => {
