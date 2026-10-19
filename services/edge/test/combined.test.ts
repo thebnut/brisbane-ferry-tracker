@@ -304,4 +304,34 @@ describe('combined object reads (pullFromR2)', () => {
     await pullFromR2(legacy, null, 'ferry', NOW)
     expect(legacy.reads).toEqual(['rt/ferry/latest.json'])
   })
+
+  it('Codex A2 r3: concurrent cold reads of several modes agree on the layout, in both directions', async () => {
+    // Combined published, cold isolate (hint: documents): many reads at once.
+    resetRangeHints()
+    const c = new MemoryDataSource(files())
+    const modes = ['ferry', 'train', 'bus', 'ferry', 'train', 'bus'] as const
+    const got = await Promise.all(modes.map((m) => pullFromR2(c, null, m, NOW)))
+    expect(got.map((r) => r.seq)).toEqual([5, 7, 7, 5, 7, 7])
+    // Now the hub is back on per-mode documents while this isolate's hint says combined.
+    const docsPointer = {
+      seq: 9,
+      files: Object.fromEntries(
+        ['ferry', 'train', 'bus'].map((m) => [m, { key: `rt/${m}/latest.json`, seq: 9 }]),
+      ),
+      fetchedAt: NOW,
+      status: { seq: 9, sourceTimestamp: head.sourceTimestamp, fetchedAt: NOW - 1000, generations: {} },
+    }
+    const d = new MemoryDataSource(
+      new Map<string, Uint8Array>([
+        [COMBINED_KEY, encodeCombined({ ...head, fetchedAt: NOW - 600_000 }, sections())], // abandoned
+        [R2_LATEST_KEY, new TextEncoder().encode(JSON.stringify(docsPointer))],
+        ...['ferry', 'train', 'bus'].map((m): [string, Uint8Array] => [
+          `rt/${m}/latest.json`,
+          new TextEncoder().encode(doc(9, 1)),
+        ]),
+      ]),
+    )
+    const back = await Promise.all(modes.map((m) => pullFromR2(d, null, m, NOW)))
+    expect(back.map((r) => r.seq)).toEqual([9, 9, 9, 9, 9, 9])
+  })
 })

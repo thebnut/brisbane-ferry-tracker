@@ -48,15 +48,21 @@ export async function pullFromR2(
 ): Promise<PullResult> {
   if (!scope || scope === 'alerts') return pullDocuments(src, sinceSeq, scope, nowMs) as Promise<PullResult>
   let known: R2Pointer | undefined
+  // This read's own layout: concurrent refreshes of other scopes share the hint, so a redirect's target comes from
+  // the pointer itself, never from toggling (Codex review A2 r3).
+  let layout = layoutHint
   // At most one switch each way within a read (the hub switching twice inside one read means try again later).
   for (let hop = 0; hop < 3; hop++) {
     const r =
-      layoutHint === 'combined'
+      layout === 'combined'
         ? await pullCombined(src, sinceSeq, scope, nowMs, known)
         : await pullDocuments(src, sinceSeq, scope, nowMs, known)
-    if (!isRedirect(r)) return r
+    if (!isRedirect(r)) {
+      layoutHint = layout
+      return r
+    }
     known = r.redirect
-    layoutHint = layoutHint === 'combined' ? 'documents' : 'combined'
+    layout = r.redirect.combined ? 'combined' : 'documents'
   }
   throw new Error('rt layout changed during the read')
 }
