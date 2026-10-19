@@ -300,7 +300,8 @@ describe('other /v1 routes', () => {
       feed(s.nowS(), [
         tripUpdate('x', { tripId: 'X1', startDate: D, routeId: 'F1-4055', scheduleRelationship: 1 }, [
           { seq: 1, stopId: '317584', arrTime: epoch(D, '09:00:40'), depTime: epoch(D, '09:00:10') },
-          { seq: 2, stopId: '317590', arrTime: epoch(D, '09:12:00') },
+          { seq: 2, stopId: '317586', arrTime: epoch(D, '09:06:40'), depTime: epoch(D, '09:06:10') },
+          { seq: 3, stopId: '317590', arrTime: epoch(D, '09:12:00') },
         ]),
       ]),
     )
@@ -311,7 +312,10 @@ describe('other /v1 routes', () => {
     const res = await s.get(`/v1/ferry/trips/${encodeURIComponent(`rt:X1@${D}`)}`)
     expect(res.status).toBe(200)
     const body = TripResponse.parse(await res.json())
-    expect(body.stops[0]).toMatchObject({ estArr: epoch(D, '09:00:40'), estDep: epoch(D, '09:00:40') })
+    // At the origin the arrival is the inbound vehicle's, so the stated departure stands (smoke round 9); at an
+    // intermediate stop the departure is clamped to the arrival.
+    expect(body.stops[0]).toMatchObject({ estArr: epoch(D, '09:00:10'), estDep: epoch(D, '09:00:10') })
+    expect(body.stops[1]).toMatchObject({ estArr: epoch(D, '09:06:40'), estDep: epoch(D, '09:06:40') })
     for (const stop of body.stops) expect(stop.estDep ?? 0).toBeGreaterThanOrEqual(stop.estArr ?? 0)
   })
 
