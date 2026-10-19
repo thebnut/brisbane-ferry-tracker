@@ -5,7 +5,8 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { formatClock, Icon, type MiniDeparture, MyStopCard, minutesUntil } from '@bft/ui'
+import { formatClock, Icon, minutesUntil } from '@bft/ui'
+import { type MiniDeparture, MyStopCard } from '@bft/ui/bus'
 import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { Link } from 'react-router'
 import { SearchPanel } from '../components/SearchPanel.tsx'

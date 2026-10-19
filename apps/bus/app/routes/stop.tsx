@@ -5,7 +5,8 @@
  */
 
 import type { Alert } from '@bft/core/contract'
-import { FilterPills, NoticeStrip, PillButton, SaveButton } from '@bft/ui'
+import { FilterPills, PillButton } from '@bft/ui'
+import { NoticeStrip, SaveButton } from '@bft/ui/bus'
 import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { data, redirect } from 'react-router'

@@ -1,6 +1,7 @@
 /** Settings (theme) for the transit pages; lazy, see Chrome.tsx. Writes the same cookie and key the mode pages read. */
 import { KEYS as BUS_KEYS } from '@bft/bus/app/lib/storage.ts'
-import { BottomSheet, SegmentedControl } from '@bft/ui'
+import { BottomSheet } from '@bft/ui'
+import { SegmentedControl } from '@bft/ui/bus'
 import { useState } from 'react'
 import { useRouteLoaderData } from 'react-router'
 import { getCookie, safe, THEME_COOKIE } from '../lib/storage.ts'

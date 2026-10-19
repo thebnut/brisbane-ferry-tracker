@@ -6,12 +6,11 @@ import {
   ErrorState,
   formatClock,
   MoreButton,
-  RouteDepartureCard,
   RouteTile,
   routeTileVariant,
-  SkeletonRows,
 } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
+import { RouteDepartureCard, SkeletonRows } from '@bft/ui/bus'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { rowLabel, rowViews } from '../lib/departures.ts'

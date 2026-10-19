@@ -189,16 +189,16 @@ test('Saved mixes every mode and works offline as "Offline · scheduled"', async
  * ferry home 139.8, train home 149.2, bus home 143.6, bus stop 144.5 KB) plus the Mode Tabs shell, held to
  * standalone + 10 KB.
  */
-// The transit pages: 150 KB until #70 (R7), whose offline screen, reconnect probe, demo-data guards and page copies
-// add about 2.5 KB gz of shared code (measured 19 Oct: / 149.7, /nearby 149.5, /alerts 150.7, from about 148).
 const BUDGET_KB: Record<string, number> = {
-  '/': 152,
-  '/nearby': 152,
-  '/alerts': 152,
+  '/': 150,
+  '/nearby': 150,
+  '/alerts': 150,
   '/ferry': 139.8 + 10,
   '/train': 149.2 + 10,
-  '/bus': 143.6 + 10,
-  '/bus/stop/10802': 144.5 + 10,
+  // +3 (#70, R7): the bus boards' elements moved to their own chunk (@bft/ui/bus), which takes about 3 KB gz off
+  // every other page but costs the Bus pages about 1 KB in separate compression, plus R7's shared offline code.
+  '/bus': 143.6 + 13,
+  '/bus/stop/10802': 144.5 + 13,
 }
 
 test('first-load JS within budget on every top-level page; MapLibre is never on it', async ({ request }) => {

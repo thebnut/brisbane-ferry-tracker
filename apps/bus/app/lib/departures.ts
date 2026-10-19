@@ -1,6 +1,7 @@
 /** Departure rows → card props: countdown, status note and tone, highlighted next bus (B-Departures rules). */
 import type { Alert, Departure } from '@bft/core/contract'
-import { dayMarker, formatClock, minutesUntil, type NoteTone } from '@bft/ui'
+import { dayMarker, formatClock, minutesUntil } from '@bft/ui'
+import type { NoteTone } from '@bft/ui/bus'
 import { routeShortOf } from './stops.ts'
 
 export interface RowView {

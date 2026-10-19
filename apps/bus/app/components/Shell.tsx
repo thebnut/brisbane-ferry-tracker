@@ -9,11 +9,11 @@ import {
   LivePill,
   OfflineBanner,
   PillButton,
-  SegmentedControl,
   SettingsPill,
   StatusStrip,
 } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
+import { SegmentedControl } from '@bft/ui/bus'
 import { type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { at } from '../lib/base.ts'

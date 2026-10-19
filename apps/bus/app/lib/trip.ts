@@ -1,6 +1,7 @@
 /** Trip detail helpers (B-Detail timeline). */
 import type { TripResponse, TripStop } from '@bft/core/contract'
-import { type BusTimelineStop, formatClock } from '@bft/ui'
+import { formatClock } from '@bft/ui'
+import type { BusTimelineStop } from '@bft/ui/bus'
 import type { RouteFile } from './data-contract.ts'
 import { stopCode } from './stops.ts'
 

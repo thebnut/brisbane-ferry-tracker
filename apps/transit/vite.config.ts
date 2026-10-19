@@ -55,8 +55,11 @@ export default defineConfig({
                 {
                   name: 'ui',
                   // demo-cleanup is loaded on demand: off every page's first load.
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|demo-cleanup)/,
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|demo-cleanup|bus\.tsx)/,
                 },
+                // The bus boards' elements (@bft/ui/bus) that only the Bus pages load. After 'ui', so the modules they
+                // share stay there.
+                { name: 'ui-bus', test: /packages[\\/]ui[\\/]src[\\/]bus\.tsx$/ },
               ],
             },
           },
