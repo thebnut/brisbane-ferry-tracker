@@ -843,19 +843,28 @@ describe('Codex review regressions', () => {
       feed(h.nowS(), [tripUpdate('c', { tripId: 'T2', startDate: D, scheduleRelationship: 3 }, [])]),
     )
     await h.hub.cycle()
-    // Next publish: the mode object is overwritten, then the pointer PUT fails.
+    // Next publish: the mode object is overwritten, then the pointer PUT fails. The ferry content must change (a
+    // moving vehicle; the retained cancellation alone is unchanged content, written once) and the pointer must be due
+    // (heartbeat), or the publish writes only one of them and there is no partial publish to test (#96 x #97).
     const realPut = r2.put.bind(r2)
+    let pointerTries = 0
     r2.put = async (key: string, value: Uint8Array | string) => {
-      if (key === 'rt/latest.json') throw new Error('r2 down')
+      if (key === 'rt/latest.json') {
+        pointerTries++
+        throw new Error('r2 down')
+      }
       return realPut(key, value)
     }
-    h.clock.advance(CYCLE_MS)
+    h.clock.advance(POINTER_HEARTBEAT_MS)
     h.up.set(TU, feed(h.nowS(), []))
+    h.up.set(VP, feed(h.nowS(), [vehicle('V1', 'T1', D, -27.45, 153.06)]))
     await h.hub.cycle()
     r2.put = realPut
+    expect(pointerTries).toBe(1)
     const ptr = JSON.parse(new TextDecoder().decode(r2.files.get('rt/latest.json')))
     const modeSeq = snapshotSeq(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry'))))
-    expect(modeSeq).toBe(ptr.seq + 1)
+    expect(modeSeq).toBe((await h.hub.pull(null)).seq) // written in the failed publish
+    expect(modeSeq).toBeGreaterThan(ptr.seq) // and newer than the pointer
     const fresh = h.mk()
     const restored = RtSnapshot.parse(JSON.parse((await fresh.pull(null)).json as string))
     expect(restored.trips[`T2@${D}`]?.rel).toBe('CANCELED')
@@ -1172,5 +1181,9 @@ describe('R2 PUT budget: unchanged documents and the pointer are not rewritten',
     const seq = (await fresh.pull(null)).seq as number
     expect(seq).toBeGreaterThan(ptr.seq) // never reuses a published seq
     expect(docSeq(r2, modeLatestKey('train'))).toBe(seq)
+    // After the cold load (#96 loads every mode's index in the first poll), the next unchanged poll writes nothing.
+    r2.ops.length = 0
+    await poll(h, { train: 5 }, fresh)
+    expect(r2.ops).toEqual([])
   })
 })
