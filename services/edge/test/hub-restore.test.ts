@@ -576,3 +576,38 @@ describe('RtHub restore after DO storage loss: an alerts slot only it records (C
     })
   }
 })
+
+describe('RtHub restore after DO storage loss: a mode document the pointer does not name (Codex r13)', () => {
+  it('a mode added to RT_MODES whose PUT alone landed keeps its seq', async () => {
+    const { r2, storage, up, clock, change, nowS, published } = await restarted('ferry')
+    const tree = buildTree()
+    const mkModes = (modes: string) =>
+      new HubCore({
+        storage,
+        fetch: up.fetch,
+        now: clock.now,
+        store: storeFor(tree, clock.now),
+        config: parseRtModes(modes),
+        upstream: 'https://up.test/api/realtime/SEQ',
+        fetchTimeoutMs: 50,
+        r2,
+      })
+    // Train joins: only its document lands (at published + 1); ferry, alerts and so the pointer fail.
+    r2.failPuts.add(modeLatestKey('ferry'))
+    for (let n = 0; n < 240; n++) r2.failPuts.add(scopeKey('alerts', n))
+    const expanded = mkModes('ferry,train')
+    clock.advance(CYCLE_MS)
+    await expanded.alarm()
+    expect(snapshotSeq(r2.files.get(modeLatestKey('train')) as string)).toBe(published + 1)
+    expect(JSON.parse(r2.files.get(R2_LATEST_KEY) as string).files.train).toBeUndefined()
+    // Storage lost: the restart must go past the train document's seq.
+    r2.failPuts.clear()
+    storage.data.clear()
+    const fresh = mkModes('ferry,train')
+    clock.advance(CYCLE_MS)
+    change(50)
+    up.set('alerts', feed(nowS(), [alert('a3', 'Changed', 'F1-4055')]))
+    await fresh.alarm()
+    expect((await fresh.pull(null)).seq).toBe(published + 2)
+  })
+})

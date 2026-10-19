@@ -1081,12 +1081,19 @@ export class HubCore {
       }
       // A layout switch (RT_R2_LAYOUT) whose object PUT landed but whose pointer PUT failed leaves a seq only the
       // other layout's objects record: take the seqs of whatever this restore did not read too (Codex r11 on #100).
-      if (readLayout !== 'combined') await this.combinedSeqInto(r)
-      if (readLayout !== 'documents') await this.documentSeqsInto(r)
       // Each cycle persists meta (with its new seq) before publishing, so while meta exists it already reserves every
-      // published seq. Without it (DO storage lost), an alerts slot can hold a seq nothing else records: one written
-      // in a publish whose mode PUT and pointer failed. Scan the whole alerts ring then (Codex r12 on #100).
-      if (!meta) await this.alertsRingSeqsInto(r)
+      // published seq. Without it (DO storage lost), any object a partial publish wrote can hold a seq nothing else
+      // records: an alerts slot, or a mode document the pointer doesn't name (a mode added to RT_MODES whose PUT alone
+      // landed). Sweep every object a hub of this release writes then: the combined object, every supported mode's
+      // latest document and the whole alerts ring (Codex r12 and r13 on #100).
+      if (!meta) {
+        await this.combinedSeqInto(r)
+        await this.documentSeqsInto(r, Mode.options)
+        await this.alertsRingSeqsInto(r)
+      } else {
+        if (readLayout !== 'combined') await this.combinedSeqInto(r)
+        if (readLayout !== 'documents') await this.documentSeqsInto(r, this.d.config.modes)
+      }
     }
     return r
   }
@@ -1130,10 +1137,10 @@ export class HubCore {
     if (seq != null && seq > r.seq) r.seq = seq
   }
 
-  /** Watermark only: each polled mode's latest document's header seq. I/O errors propagate; bad content is ignored. */
-  private async documentSeqsInto(r: Restored): Promise<void> {
+  /** Watermark only: each given mode's latest document's header seq. I/O errors propagate; bad content is ignored. */
+  private async documentSeqsInto(r: Restored, modes: readonly Mode[]): Promise<void> {
     const r2 = this.d.r2 as R2Like
-    for (const m of this.d.config.modes) {
+    for (const m of modes) {
       const obj = await r2.get?.(modeLatestKey(m))
       this.seqInto(r, obj ? await obj.text() : null)
     }
