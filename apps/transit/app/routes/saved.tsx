@@ -237,11 +237,17 @@ function SavedList({
 
 /**
  * With nothing saved, a page from the device's copy has no card whose answer can confirm it (R8-T1). It asks the API
- * itself (the alerts), now and whenever the connection may be back (retryWhenBack), until one network answer arrives.
+ * itself (the alerts), now and whenever the connection may be back (retryWhenBack), until a network answer arrives,
+ * and again after every disconnect.
  */
-function useReachedNetwork(needed: boolean): boolean {
+export function useReachedNetwork(needed: boolean): boolean {
   const { fetcher } = useApi()
+  const online = useOnline()
   const [reached, setReached] = useState(false)
+  // A confirmation lasts only while the connection does: after a disconnect, LIVE needs a new answer (Codex review).
+  useEffect(() => {
+    if (!online) setReached(false)
+  }, [online])
   useEffect(() => {
     if (!needed || reached) return
     const ctrl = new AbortController()
