@@ -142,11 +142,13 @@ export function backoffSuite({
       await expect(page.locator('[data-banner=offline]').first()).toBeVisible({ timeout: 20_000 })
       // Long enough for the waits to have grown past the time allowed below.
       await page.waitForTimeout(25_000)
-      await restore()
-      const back = Date.now()
       // An attempt at once, and LIVE within seconds of its answer (the fixture server's own time not counted).
+      // Watched from before the network returns: a backed-off probe can get through first, and its reconnect
+      // refetch would then throttle the online event's.
       const asked = page.waitForRequest((r) => departures.test(new URL(r.url()).pathname), { timeout: 2_000 })
       const first = answered(page)
+      await restore()
+      const back = Date.now()
       await page.evaluate(() => window.dispatchEvent(new Event('online')))
       await asked
       await first
