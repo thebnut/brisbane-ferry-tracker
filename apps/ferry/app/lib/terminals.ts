@@ -41,6 +41,9 @@ export const DEFAULT_STOPS: StopPair = {
 }
 
 export const terminalById = (id: string): Terminal | null => byId.get(id) ?? null
+/** A trip stop's display name: the curated terminal name wins over the API's GTFS name, then the bare stop id. */
+export const tripStopName = (stopId: string, apiName?: string | null): string =>
+  terminalById(stopId)?.name ?? apiName ?? stopId
 export const terminalBySlug = (slug: string): Terminal | null => bySlug.get(slug) ?? null
 /** Canonical (unprefixed) terminal path for seo.ts and the sitemap; links use terminalHref. */
 export const terminalPath = (slug: string) => `/terminal/${slug}`
