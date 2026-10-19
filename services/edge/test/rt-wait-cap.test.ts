@@ -10,8 +10,9 @@ import { FetcherDataSource } from '../src/data/source.ts'
 import { AbandonedError, within } from '../src/deadline.ts'
 import { silentLogger } from '../src/log.ts'
 import { ABANDONED_STATUS, isBounded, withRequestDeadline } from '../src/request-deadline.ts'
+import { COMBINED_KEY } from '../src/rt/combined.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
-import { CYCLE_MS, HubCore, modeLatestKey, type PullResult, R2_LATEST_KEY } from '../src/rt/hub-core.ts'
+import { CYCLE_MS, HubCore, type PullResult, R2_LATEST_KEY } from '../src/rt/hub-core.ts'
 import {
   type HubClient,
   parseRtWait,
@@ -384,23 +385,24 @@ describe('RtHub publish and timings', () => {
       upstream: 'https://up.test/api/realtime/SEQ',
       fetchTimeoutMs: 50,
       r2,
+      layout: 'combined',
       profile,
       log,
     })
     return { core, clock, lines }
   }
 
-  it('writes the mode and alerts documents in parallel, and the pointer only after them', async () => {
+  it('writes the combined mode object and the alerts document in parallel, and the pointer only after them', async () => {
     const r2 = new SlowR2(30)
     const { core } = hub(r2)
     await core.cycle()
-    const docs = [modeLatestKey('ferry'), modeLatestKey('train')]
+    const docs = [COMBINED_KEY, r2.order.find((k) => k.startsWith('rt/alerts/')) as string]
     expect(r2.maxInFlight).toBeGreaterThanOrEqual(docs.length)
     expect(r2.order.at(-1)).toBe(R2_LATEST_KEY)
     for (const k of docs) expect(r2.order.indexOf(k)).toBeLessThan(r2.order.indexOf(R2_LATEST_KEY))
     expect(core.lastTimings?.r2Puts).toBe(r2.order.length)
-    // Two documents and an alerts document in parallel, then the pointer: about two PUT times, not four.
-    expect(core.lastTimings?.publish).toBeLessThan(30 * 4)
+    // The combined object and the alerts document in parallel, then the pointer: about two PUT times, not three.
+    expect(core.lastTimings?.publish).toBeLessThan(30 * 3)
   })
 
   it('records per-phase timings each poll and logs them with RT_PROFILE', async () => {
@@ -430,14 +432,15 @@ describe('RtHub publish and timings', () => {
 
   it('a failed PUT: the poll ends only after its sibling PUTs land, and the pointer is not written (Codex r1)', async () => {
     const r2 = new SlowR2(60)
-    r2.failing.add(modeLatestKey('train'))
+    r2.failing.add(COMBINED_KEY)
     const { core } = hub(r2)
     await core.cycle()
     // The ferry PUT landed before the poll ended, so it can't land after the next poll's and roll ferry back.
     expect(r2.inFlight).toBe(0)
-    expect(r2.order).toContain(modeLatestKey('ferry'))
+    // The alerts document's PUT landed before the poll ended.
+    expect(r2.order.some((k) => k.startsWith('rt/alerts/'))).toBe(true)
     expect(r2.order).not.toContain(R2_LATEST_KEY)
-    expect(core.status().lastError).toMatch(/r2: r2 put rt\/train\/latest.json failed/)
+    expect(core.status().lastError).toMatch(/r2: r2 put rt\/modes\/combined.dat failed/)
   })
 
   it('without RT_PROFILE a fast poll logs no timings', async () => {
