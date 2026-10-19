@@ -10,9 +10,11 @@ import {
   liveState,
   markCacheHits,
   noteCacheCopy,
+  replacesBoard,
   reportOffline,
   reportOnline,
   SW_CACHE_HEADER,
+  serverStamp,
   timetableStatus,
   trackedFetch,
   tripAsTimetable,
@@ -252,8 +254,33 @@ describe('a board judges its own response, not the connection flag (R6-B1)', () 
     expect(isNetworkAnswer(noteCacheCopy(new Response('{}'), body()))).toBe(false)
   })
   it('an offline copy stays offline in liveState whatever the flag says, until replaced', () => {
-    const copy = asOfflineCopy(body())
+    const copy = asOfflineCopy(body(), null)
     expect(liveState(copy, { offline: false, nowMs: NOW })).toBe('offline')
     expect(liveState(body(), { offline: false, nowMs: NOW })).toBeNull()
+  })
+})
+
+describe('replacesBoard compares server times only (release review C2, L4)', () => {
+  const at = (generatedAt: number) => ({ generatedAt })
+  it('R6-B1: never back to a body older than the server board on screen', () => {
+    expect(replacesBoard(at(NOW - 1), at(NOW))).toBe(false)
+    expect(replacesBoard(at(NOW), at(NOW))).toBe(true)
+    expect(replacesBoard(at(NOW), undefined)).toBe(true)
+  })
+  it('a board built on the device (device-clock stamp, no server time) never holds an answer back', () => {
+    const fast = asOfflineCopy(at(NOW + 5 * 60_000), null)
+    expect(serverStamp(fast)).toBeNull()
+    expect(replacesBoard(at(NOW), fast)).toBe(true)
+  })
+  it('an offline copy keeps the server time of the board it replaced, across copies', () => {
+    const first = asOfflineCopy(at(NOW + 5 * 60_000), at(NOW - 10_000))
+    const second = asOfflineCopy(at(NOW + 6 * 60_000), first)
+    expect(serverStamp(second)).toBe(NOW - 10_000)
+    expect(replacesBoard(at(NOW - 20_000), second)).toBe(false)
+    expect(replacesBoard(at(NOW - 5_000), second)).toBe(true)
+  })
+  it('a cached copy is never a replacement, whatever its time', () => {
+    const cached = noteCacheCopy(new Response('{}', { headers: { [SW_CACHE_HEADER]: 'sw' } }), at(NOW + 1))
+    expect(replacesBoard(cached, at(NOW))).toBe(false)
   })
 })

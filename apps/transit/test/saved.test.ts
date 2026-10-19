@@ -232,19 +232,26 @@ describe('the home page’s live judgement (R7-T1)', () => {
       live: false,
       unconfirmed: false,
     })
-    // A fresh page needs no answer of its own.
-    expect(homeLiveState([], [], opts)).toEqual({ live: true, unconfirmed: false })
+  })
+
+  it('nothing saved: LIVE only after the page’s own network answer, fresh page or not (Codex release review)', () => {
+    // A fresh server render through an API outage: no answer, no LIVE (and no banner while the browser is online).
+    expect(homeLiveState([], [], opts)).toEqual({ live: false, unconfirmed: false })
+    expect(homeLiveState([], [], { ...opts, reached: true })).toEqual({ live: true, unconfirmed: false })
+    expect(homeLiveState([], [], { ...opts, reached: true, online: false })).toEqual({
+      live: false,
+      unconfirmed: false,
+    })
   })
 
   it('never LIVE before the saved items are read (the server render and hydration)', () => {
     expect(homeLiveState(null, [], opts)).toEqual({ live: false, unconfirmed: false })
   })
 
-  it('never LIVE offline; with nothing saved, LIVE only on a fresh page', () => {
+  it('never LIVE offline; with nothing saved, never LIVE from a cached copy', () => {
     expect(homeLiveState(items, [{ data: live, pending: false }], { ...opts, online: false }).live).toBe(
       false,
     )
-    expect(homeLiveState([], [], opts)).toEqual({ live: true, unconfirmed: false })
     // A cached copy: not LIVE, and unconfirmed (the banner shows with the OFFLINE pill, R8-T1).
     expect(homeLiveState([], [], { ...opts, unconfirmedBefore: NOW })).toEqual({
       live: false,

@@ -255,7 +255,7 @@ describe('overlapping copy refreshes (Codex review round 2)', () => {
 
 describe('the kept copy the board may show counts too (Codex review round 4)', () => {
   afterEach(() => vi.useRealTimers())
-  it('an answer older than the kept timetable does not replace the board', async () => {
+  it('a kept timetable stamped after an edge-cached answer never holds that answer back (release review L4)', async () => {
     vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
     const mode = { fixtures: false, rt: null }
     const fetcher = async () =>
@@ -270,7 +270,7 @@ describe('the kept copy the board may show counts too (Codex review round 4)', (
       queryKey: opts.queryKey,
       meta: undefined,
     })
-    expect(out.offline).toBe(true)
-    expect(out.generatedAt).toBe(NOW - 10_000)
+    expect(out.offline).toBeUndefined()
+    expect(out.generatedAt).toBe(NOW - 20_000)
   })
 })

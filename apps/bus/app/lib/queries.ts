@@ -107,11 +107,13 @@ export function asOfflineTimetable(
   stopId: string,
   res: DeparturesResponse | ReadonlyArray<DeparturesResponse | null | undefined> | null,
   nowMs: number,
+  /** The board on screen it replaces, whose server time it keeps (@bft/ui asOfflineCopy). */
+  shown: Board | null | undefined,
 ): Board | null {
   const copy = readOffline(stopId)?.body as DeparturesResponse | undefined
   const base = bestOfflineCopy([...(Array.isArray(res) ? res : [res]), copy], nowMs)
   if (!base) return null
-  return asOfflineCopy(asTimetable(base, nowMs, 'unavailable'))
+  return asOfflineCopy(asTimetable(base, nowMs, 'unavailable'), shown)
 }
 
 /** A response as timetable times only: no live estimates or GPS, nothing that has already left. */
@@ -149,21 +151,19 @@ export function departuresOptions(
       try {
         const res = await fetchDepartures(fetcher, stopId, { signal })
         // A network answer, judged on this response (not on the connection flag, which another request may have just
-        // cleared) and never older than the board on screen (R6-B1).
-        // Offline the board may show the kept timetable (liveView), so compare with the newer of the two.
-        const kept = readOffline(stopId)?.body as DeparturesResponse | undefined
-        const newest = kept && (!shown || kept.generatedAt > shown.generatedAt) ? kept : shown
-        if (replacesBoard(res, newest)) {
+        // cleared) and never older than the server board on screen (R6-B1). Not against the kept timetable: a network
+        // answer from the edge cache can be a little older than it (release review).
+        if (replacesBoard(res, shown)) {
           void refreshOfflineCopy(fetcher, stopId)
           return res
         }
         // Offline but the service worker answered from its cache (maybe hours old): never show its stale live
         // estimates, and keep the board on screen if it has more departures to come.
-        return asOfflineTimetable(stopId, [shown, res], Date.now()) ?? res
+        return asOfflineTimetable(stopId, [shown, res], Date.now(), shown) ?? res
       } catch (error) {
         // Offline with no cached response: the board on screen or the saved timetable copy.
         if (offline()) {
-          const fallback = asOfflineTimetable(stopId, [shown], Date.now())
+          const fallback = asOfflineTimetable(stopId, [shown], Date.now(), shown)
           if (fallback) return fallback
         }
         throw error
@@ -191,7 +191,7 @@ export function liveView(
   // A board built offline (Board.offline) stays offline in liveState until its own network answer replaces it.
   const state = liveState(res, { offline: !online, nowMs, unconfirmedBefore })
   if (!res || state == null) return { data: res, state }
-  if (state === 'offline') return { data: asOfflineTimetable(stopId, res, nowMs) ?? res, state }
+  if (state === 'offline') return { data: asOfflineTimetable(stopId, res, nowMs, res) ?? res, state }
   return { data: asTimetable(res, nowMs, state), state }
 }
 

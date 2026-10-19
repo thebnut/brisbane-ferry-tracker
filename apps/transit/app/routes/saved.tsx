@@ -16,7 +16,13 @@ import {
   SavedTripCard,
   vesselName,
 } from '@bft/ui'
-import { isNetworkAnswer, type OfflineCopy, retryWhenBack, useUnconfirmedBefore } from '@bft/ui/connectivity'
+import {
+  isNetworkAnswer,
+  type OfflineCopy,
+  retryWhenBack,
+  useDisconnects,
+  useUnconfirmedBefore,
+} from '@bft/ui/connectivity'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { AskBox } from '../components/AskBox.tsx'
@@ -137,9 +143,9 @@ type CardData = (DeparturesResponse & OfflineCopy) | undefined
  *    still waiting for its answer, or whose request failed, is not live: before R7-T1 a pending card counted as live,
  *    so an offline reload kept LIVE up for as long as the requests took to fail (Codex review: a failed one too).
  * Before the saved items are read (server render, hydration) it is never LIVE. With nothing saved there are no cards:
- * a fresh page is LIVE while online, and a page from the device's copy is unconfirmed, with the banner as well as the
- * OFFLINE pill (R8-T1: the pill showed with no banner), until the page has a network answer of its own (`reached`,
- * useReachedNetwork).
+ * LIVE needs the page's own network answer (`reached`, useReachedNetwork), however the page was loaded (Codex review:
+ * a fresh server render claimed LIVE through an API outage). A page from the device's copy is unconfirmed until then,
+ * with the banner as well as the OFFLINE pill (R8-T1: the pill showed with no banner).
  */
 export function homeLiveState(
   items: readonly unknown[] | null,
@@ -160,7 +166,7 @@ export function homeLiveState(
   const unconfirmed = unconfirmedBefore != null && !answered
   // Saved items not read yet (the server render and hydration): nothing confirmed, so no LIVE (Codex review).
   if (!online || unconfirmed || items == null) return { live: false, unconfirmed }
-  if (items.length === 0) return { live: true, unconfirmed }
+  if (items.length === 0) return { live: reached, unconfirmed }
   // Every saved card, each with an answer (one still waiting, or one that failed, has nothing live to show).
   const live =
     cards.length === items.length &&
@@ -223,7 +229,7 @@ function SavedList({
   const models = items.map((it, i) => {
     const data = qs[i]?.data
     const live = liveState(data, { offline: !online, nowMs, unconfirmedBefore }) == null
-    return cardModel(it, live ? data : asOffline(it, data ?? null), nowMs)
+    return cardModel(it, live ? data : asOffline(it, data ?? null, data), nowMs)
   })
   const soonest = models.reduce<number | null>(
     (best, m, i) =>
@@ -272,18 +278,18 @@ function SavedList({
 }
 
 /**
- * With nothing saved, a page from the device's copy has no card whose answer can confirm it (R8-T1). It asks the API
- * itself (the alerts), now and whenever the connection may be back (retryWhenBack), until a network answer arrives,
- * and again after every disconnect.
+ * With nothing saved, the home has no card whose answer can confirm it (R8-T1), whether the page is fresh or the
+ * device's copy. It asks the API itself (the alerts, through the same timeout and cache marking as every /v1 call),
+ * now and whenever the connection may be back (retryWhenBack), until a network answer arrives, and again after every
+ * disconnect or failed call.
  */
 export function useReachedNetwork(needed: boolean): boolean {
   const { fetcher } = useApi()
-  const online = useOnline()
-  const [reached, setReached] = useState(false)
-  // A confirmation lasts only while the connection does: after a disconnect, LIVE needs a new answer (Codex review).
-  useEffect(() => {
-    if (!online) setReached(false)
-  }, [online])
+  // A confirmation lasts only while the connection does: after any disconnect, LIVE needs a new answer (Codex
+  // reviews), counted by @bft/ui so a disconnect React never rendered (a failure and a success in one batch) counts.
+  const disconnects = useDisconnects()
+  const [reachedAt, setReachedAt] = useState<number | null>(null)
+  const reached = reachedAt === disconnects
   useEffect(() => {
     if (!needed || reached) return
     const ctrl = new AbortController()
@@ -293,7 +299,7 @@ export function useReachedNetwork(needed: boolean): boolean {
       busy = true
       fetchAlerts(fetcher, { signal: ctrl.signal })
         .then((body) => {
-          if (isNetworkAnswer(body)) setReached(true)
+          if (isNetworkAnswer(body)) setReachedAt(disconnects)
         })
         .catch(() => {})
         .finally(() => {
@@ -306,7 +312,7 @@ export function useReachedNetwork(needed: boolean): boolean {
       off()
       ctrl.abort()
     }
-  }, [needed, reached, fetcher])
+  }, [needed, reached, fetcher, disconnects])
   return reached
 }
 
@@ -319,7 +325,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   const { mode, fetcher } = useApi()
   const qs = useSavedDepartures(fetcher, mode, items ?? [])
   const unconfirmedBefore = useUnconfirmedBefore()
-  const reached = useReachedNetwork(items?.length === 0 && unconfirmedBefore != null)
+  const reached = useReachedNetwork(items?.length === 0)
   const { live, unconfirmed } = homeLiveState(
     items,
     qs.map((q) => ({ data: q.data, pending: q.isPending })),

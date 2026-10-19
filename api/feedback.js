@@ -1,5 +1,5 @@
 import { applyCors } from './_cors.js';
-import { RATE_LIMITED_BODY, feedbackApp, relayFeedback } from './_feedback-discord.js';
+import { RATE_LIMITED_BODY, feedbackApp, relayFeedback, validateFeedback } from './_feedback-discord.js';
 import { createMemoryRateLimiter } from './_rate-limit.js';
 import { IOS_CLIENT_HEADER, checkTurnstile, verifyWithApi } from './_turnstile.js';
 
@@ -63,6 +63,9 @@ export default async function handler(req, res) {
   }
 
   const parsed = readBody(req);
+  // Validated before Turnstile, so a post that can only get a 400 never spends its token or a verify call.
+  const checked = validateFeedback(parsed);
+  if (!checked.ok) return res.status(400).json({ error: checked.error });
   const ip = clientIp(req);
   const denied = await checkTurnstile({
     origin: req.headers.origin,
