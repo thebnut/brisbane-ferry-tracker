@@ -181,10 +181,10 @@ const VerifyBody = z.object({
   remoteip: z.string().max(64).optional(),
 })
 
-/** Apostrophes and single quotes, all removed so "st peter‘s" reads like "st peter's" ('st peters'). */
-const SINGLE_QUOTES = /['`´ʹʻʼʽ‘’‚‛′‵＇｀]/g
-/** Double quotes, guillemets and primes, each replaced by a space like `"`. */
-const DOUBLE_QUOTES = /["«»‹›“”„‟″‶〝〞＂]/g
+/** Apostrophes, single quotes, single guillemets and primes, all removed so "st peter‘s" reads 'st peters' too. */
+const SINGLE_QUOTES = /['`´ʹʻʼʽ‘’‚‛′‵‹›＇｀]/g
+/** Double quotes, guillemets and double primes, each replaced by a space like `"`. */
+const DOUBLE_QUOTES = /["«»“”„‟″‶〝〞〟＂]/g
 
 /**
  * The user's own stop term for "I couldn't find a stop called 'x'": plain text only (control characters, quotes of
