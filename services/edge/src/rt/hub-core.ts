@@ -858,15 +858,18 @@ export class HubCore {
       return parseSnapshot(text)
     }
     const load = async (f: NonNullable<R2Pointer['files']>) => {
+      // Read every named document even after one fails: each read moves the seq watermark (a mode document can be
+      // newer than the pointer), and one left unread could have its seq reused by the next build (Codex r2 on #100).
       const docs: Array<[Mode, RtSnapshot]> = []
+      let complete = true
       for (const [scope, e] of Object.entries(f)) {
         if (scope === 'alerts') continue
         const d = await read(e)
-        if (!d) return null
-        docs.push([scope as Mode, d])
+        if (d) docs.push([scope as Mode, d])
+        else complete = false
       }
       const alerts = f.alerts ? await read(f.alerts) : null
-      if (f.alerts && !alerts) return null
+      if (!complete || (f.alerts && !alerts)) return null
       return { docs, alerts }
     }
     // A slot overwritten between our reads fails its seq check: re-read the pointer and try once more.

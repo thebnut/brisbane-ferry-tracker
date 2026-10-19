@@ -56,7 +56,7 @@ class GatedR2 {
 const TU = 'TripUpdates/Ferry'
 const VP = 'VehiclePositions/Ferry'
 
-function setup() {
+function setup(modes = 'ferry') {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   const tree = buildTree()
   const up = new FakeUpstream()
@@ -68,7 +68,7 @@ function setup() {
       fetch: up.fetch,
       now: clock.now,
       store: storeFor(tree, clock.now),
-      config: parseRtModes('ferry'),
+      config: parseRtModes(modes),
       upstream: 'https://up.test/api/realtime/SEQ',
       fetchTimeoutMs: 50,
       r2,
@@ -105,8 +105,8 @@ const ferryPuts = (r2: GatedR2) =>
   r2.puts.filter((p) => p.startsWith(`${modeLatestKey('ferry')}@`)).map((p) => Number(p.split('@')[1]))
 
 /** A hub that has published a few seqs, then a fresh instance (eviction or deploy) over the same storage and R2. */
-async function restarted() {
-  const h = setup()
+async function restarted(modes = 'ferry') {
+  const h = setup(modes)
   const first = h.mk()
   for (let i = 1; i <= 3; i++) {
     h.change(i)
@@ -256,5 +256,18 @@ describe('RtHub restore: one shared in-flight restore (Codex r1/r2 on #96)', () 
     expect((await hub.pull(null)).seq).toBeNull()
     await hub.alarm()
     expect(docSeq(r2)).toBe(published + 1)
+  })
+
+  it('an unusable mode document does not stop the restore reading the others’ seqs (Codex r2)', async () => {
+    const { r2, hub, storage, published } = await restarted('ferry,train')
+    // The train document is newer than the pointer (#97 skips pointer writes), the ferry one is malformed, and the
+    // object's own storage is lost: only the train document's header says how far the seq has gone.
+    const train = r2.files.get(modeLatestKey('train')) as string
+    const trainSeq = snapshotSeq(train) as number
+    r2.files.set(modeLatestKey('train'), train.replace(`"seq":${trainSeq},`, `"seq":${published + 5},`))
+    r2.files.set(modeLatestKey('ferry'), `{"header":{"schemaVersion":1,"seq":${published},`)
+    storage.data.clear()
+    await hub.alarm()
+    expect(docSeq(r2)).toBe(published + 6)
   })
 })
