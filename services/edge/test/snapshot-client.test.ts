@@ -52,9 +52,10 @@ describe('SnapshotClient stale-while-revalidate', () => {
     seq = 2
     // The hub is slow now, but the request still resolves with the copy it has.
     expect((await client.get())?.seq).toBe(1)
-    expect(bg).toHaveLength(1)
+    // Every refresh goes to waitUntil (the cold one too, so it outlives a waiter whose wait runs out).
+    expect(bg).toHaveLength(2)
     release()
-    await bg[0]
+    await bg[1]
     expect((await client.get())?.seq).toBe(2)
     expect(calls).toBe(2)
   })

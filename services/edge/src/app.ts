@@ -128,7 +128,10 @@ export function createApp(deps: AppDeps): Hono<Env> {
       st.fetchedAt != null
     const sourceTs = snap ? (fresh ? (st?.sourceTimestamp as number) : snap.header.sourceTimestamp) : null
     const fetchedAt = snap ? (fresh ? (st?.fetchedAt as number) : snap.header.fetchedAt) : null
-    const rtState: RtState = rtStateFor(indexed ? sourceTs : null, Math.floor(nowMs / 1000), genOk)
+    let rtState: RtState = rtStateFor(indexed ? sourceTs : null, Math.floor(nowMs / 1000), genOk)
+    // A copy no refresh has confirmed for maxStaleMs (this request's wait for the refresh ran out, or the refresh
+    // failed) is served, but never as live.
+    if (rtState === 'live' && client.expired) rtState = 'stale'
     const ageS = fetchedAt != null ? Math.max(0, (nowMs - fetchedAt) / 1000) : 0
     return {
       cur,
