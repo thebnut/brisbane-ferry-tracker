@@ -109,7 +109,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
   /** Snapshot plus the rtState for one mode's static generation. */
   async function rt(c: Context<Env>, mode: Mode | null, generation: string | null) {
     const client = deps.snapshotsFor?.(mode ?? 'alerts') ?? deps.snapshots
-    const cur = await client.get(waitUntilOf(c))
+    const cur = await client.get(waitUntilOf(c), c.req.raw.signal)
     const nowMs = now()
     const snap = cur?.snapshot ?? null
     const hubGen = mode == null ? undefined : snap?.header.staticGeneration[mode]
@@ -455,7 +455,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const client = deps.snapshotsFor?.('alerts') ?? deps.snapshots
     const [manifest, cur] = await Promise.all([
       deps.store.getManifest(waitUntilOf(c)).catch(() => null),
-      client.get(waitUntilOf(c)),
+      client.get(waitUntilOf(c), c.req.raw.signal),
     ])
     const status = client.status
     // The hub status (from the pointer) is the freshest view; the alerts document's header can lag up to 60 s.
@@ -541,7 +541,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const keys = legacyFeedKeys(endpoint, deps.combinedFeeds, deps.polledModes)
     if (!keys) return c.json({ error: 'Unknown endpoint', detail: endpoint }, 400)
     // Never fetch upstream here: serve what the hub stored, or 503.
-    const raws = await Promise.all(keys.map((k) => deps.snapshots.raw(k)))
+    const raws = await Promise.all(keys.map((k) => deps.snapshots.raw(k, c.req.raw.signal)))
     const parts = raws.filter((r) => r != null)
     if (parts.length === 0) {
       return c.json({ error: 'Realtime feed not available yet' }, 503, { 'cache-control': 'no-store' })

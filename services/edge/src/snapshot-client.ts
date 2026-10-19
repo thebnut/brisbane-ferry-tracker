@@ -20,7 +20,15 @@
  * Commits only move forward: an answer older than the isolate's copy is ignored, whenever it lands.
  */
 import { type RtSnapshot, type Vehicle, vehiclesByTrip } from '@bft/core'
-import { awaitFlight, DeadlineError, type Flight, flight, isDead, within } from './deadline.ts'
+import {
+  AbandonedError,
+  awaitFlight,
+  DeadlineError,
+  type Flight,
+  flight,
+  isDead,
+  within,
+} from './deadline.ts'
 import type { HubStatus, PullResult, RawFeed } from './rt/hub-core.ts'
 import type { SnapshotScope } from './rt/split.ts'
 
@@ -36,6 +44,12 @@ export const SNAPSHOT_REFRESH_DEADLINE_MS = 3_000
 /** How long a request holding an expired copy (older than maxStaleMs) waits for the refresh before being served it. */
 export const SNAPSHOT_STALE_WAIT_MS = 1_500
 /**
+ * Default for RT_WAIT_MS: the most any request waits for realtime, cold or expired (the 19 Oct peak stall). Past it
+ * the request is answered from what the isolate has: scheduled rows with rtState `stale` (an expired copy) or
+ * `unavailable` (none). The refresh itself keeps its own deadline and still commits for the next request.
+ */
+export const RT_WAIT_MS = 1_200
+/**
  * How long a slow refresh is kept alive in its request's `waitUntil` so it can still commit. By then the next attempt
  * is due anyway, and it stays well inside the 30 s Workers allow `waitUntil` after a response.
  */
@@ -45,6 +59,15 @@ export interface SnapshotTiming {
   refreshDeadlineMs: number
   staleWaitMs: number
   lateCommitMs: number
+  /** Cap on any one request's wait for a refresh (RT_WAIT_MS). */
+  requestWaitMs: number
+}
+
+/** RT_WAIT_MS (ms), clamped to 100 ms..SNAPSHOT_REFRESH_DEADLINE_MS; unset or invalid: the default. */
+export function parseRtWait(value: string | undefined): number {
+  const n = Number(value)
+  if (!value || !Number.isFinite(n) || n <= 0) return RT_WAIT_MS
+  return Math.min(SNAPSHOT_REFRESH_DEADLINE_MS, Math.max(100, Math.floor(n)))
 }
 
 /** RT_SNAPSHOT_MAX_STALE_MS (ms), clamped to at least the 10 s refresh interval; unset or invalid: the default. */
@@ -109,6 +132,7 @@ export class SnapshotClient {
       refreshDeadlineMs: timing.refreshDeadlineMs ?? SNAPSHOT_REFRESH_DEADLINE_MS,
       staleWaitMs: timing.staleWaitMs ?? SNAPSHOT_STALE_WAIT_MS,
       lateCommitMs: timing.lateCommitMs ?? SNAPSHOT_LATE_COMMIT_MS,
+      requestWaitMs: timing.requestWaitMs ?? RT_WAIT_MS,
     }
   }
 
@@ -135,9 +159,13 @@ export class SnapshotClient {
    * or very old (> 60 s) copy makes the request wait, and only for a bounded time: with an expired copy up to
    * SNAPSHOT_STALE_WAIT_MS (then it gets that copy, which `expired` flags), with none until the refresh deadline
    * (then null, the "unavailable" path). On staging a blocking refresh cost ~1 s (two R2 reads from BNE), a
-   * background one costs the request nothing.
+   * background one costs the request nothing. Either wait is capped at RT_WAIT_MS, and ends as soon as `signal` (the
+   * caller's request) aborts; the refresh carries on for the next request.
    */
-  async get(waitUntil?: (p: Promise<unknown>) => void): Promise<CurrentSnapshot | null> {
+  async get(
+    waitUntil?: (p: Promise<unknown>) => void,
+    signal?: AbortSignal,
+  ): Promise<CurrentSnapshot | null> {
     const now = this.now()
     const { refreshDeadlineMs } = this.timing
     // A refresh past its deadline is presumed lost (its request ended); drop it so this request can start another.
@@ -157,9 +185,9 @@ export class SnapshotClient {
     // Each waiter races the shared refresh on its own timer, never past the refresh's deadline. A waiter that runs
     // out leaves the refresh alone: its own timer abandons it as slow, or a later request's `isDead` check as lost.
     const left = run.at + refreshDeadlineMs - now
-    const wait = this.current ? Math.min(this.timing.staleWaitMs, left) : left
+    const wait = Math.min(this.timing.requestWaitMs, this.current ? this.timing.staleWaitMs : left, left)
     try {
-      return await within(run.p, wait, 'rt snapshot refresh')
+      return await within(run.p, wait, 'rt snapshot refresh', signal)
     } catch {
       return this.current
     }
@@ -278,9 +306,10 @@ export class SnapshotClient {
 
   /**
    * Raw protobuf for the legacy proxy, shared per feed key for 10 s. A fetch still pending at the refresh deadline
-   * is replaced like a snapshot refresh; waiters get the last good copy (or null) instead of hanging.
+   * is replaced like a snapshot refresh; waiters get the last good copy (or null) instead of hanging, and stop waiting
+   * when `signal` (their request) aborts.
    */
-  raw(key: string): Promise<RawFeed | null> {
+  raw(key: string, signal?: AbortSignal): Promise<RawFeed | null> {
     let s = this.raws.get(key)
     if (!s) {
       s = { last: null, run: null }
@@ -306,8 +335,9 @@ export class SnapshotClient {
         .catch(() => {})
     }
     const run = share.run
-    return awaitFlight(run, now, refreshDeadlineMs, `hub getRaw ${key}`).catch((e) => {
+    return awaitFlight(run, now, refreshDeadlineMs, `hub getRaw ${key}`, signal).catch((e) => {
       if (e instanceof DeadlineError && share.run === run) share.run = null
+      if (e instanceof AbandonedError) return share.last?.value ?? null
       console.error(JSON.stringify({ level: 'error', msg: 'hub getRaw failed', key, error: String(e) }))
       return share.last?.value ?? null
     })

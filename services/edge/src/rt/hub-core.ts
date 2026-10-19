@@ -26,6 +26,8 @@ export const ALERTS_EVERY_MS = 60_000
 export const FETCH_TIMEOUT_MS = 5_000
 export const WATCHDOG_STALE_MS = 45_000
 export const RAW_PERSIST_EVERY_MS = 60_000
+/** A poll whose wall time reaches this logs its phase timings even without RT_PROFILE. */
+export const SLOW_CYCLE_MS = 2_500
 /** DO storage values are capped (2 MiB on SQLite-backed objects); chunk well below that. */
 const CHUNK_BYTES = 1 << 20
 const CHUNK_CHARS = 512 * 1024
@@ -97,6 +99,28 @@ export interface HubDeps {
   cycleMs?: number
   /** Per upstream fetch; 5 s in production, shorter in tests. */
   fetchTimeoutMs?: number
+  /** Log the phase timings of every poll (RT_PROFILE=1), not just slow ones. */
+  profile?: boolean
+}
+
+/**
+ * Wall time per phase of one poll, for the "rt cycle timings" log. In workerd the clock only advances across I/O, so
+ * pure-CPU phases (decode, build) read ~0 there; the I/O phases are what this measures.
+ */
+export interface CycleTimings {
+  restore: number
+  indexes: number
+  fetch: number
+  decode: number
+  build: number
+  persist: number
+  publish: number
+  total: number
+  feeds: number
+  changed: number
+  rebuilt: boolean
+  r2Puts: number
+  r2Chars: number
 }
 
 export interface RawFeed {
@@ -170,6 +194,10 @@ export class HubCore {
   private readonly cycleMs: number
   private readonly alarmMs: number
   private lastPollStart = Number.NEGATIVE_INFINITY
+  /** Phase timings of the last completed poll (tests, and the log line). */
+  lastTimings: CycleTimings | null = null
+  /** R2 writes of the poll in progress, for its timings. */
+  private puts = { n: 0, chars: 0 }
 
   constructor(private readonly d: HubDeps) {
     this.feeds = feedsFor(d.config)
@@ -328,7 +356,51 @@ export class HubCore {
   }
 
   private async runCycle(): Promise<void> {
+    const t = { at: this.d.now() }
+    const lap = () => {
+      const n = this.d.now()
+      const ms = n - t.at
+      t.at = n
+      return ms
+    }
+    const started = t.at
+    this.puts = { n: 0, chars: 0 }
+    const tm: Omit<CycleTimings, 'total' | 'r2Puts' | 'r2Chars'> = {
+      restore: 0,
+      indexes: 0,
+      fetch: 0,
+      decode: 0,
+      build: 0,
+      persist: 0,
+      publish: 0,
+      feeds: 0,
+      changed: 0,
+      rebuilt: false,
+    }
+    try {
+      await this.runCycleTimed(lap, tm)
+    } finally {
+      const timings: CycleTimings = {
+        ...tm,
+        total: this.d.now() - started,
+        r2Puts: this.puts.n,
+        r2Chars: this.puts.chars,
+      }
+      this.lastTimings = timings
+      if (this.d.profile || timings.total >= SLOW_CYCLE_MS) {
+        const fields = { ...timings, seq: this.meta.seq }
+        if (timings.total >= SLOW_CYCLE_MS) this.log.warn('rt cycle timings', fields)
+        else this.log.info('rt cycle timings', fields)
+      }
+    }
+  }
+
+  private async runCycleTimed(
+    lap: () => number,
+    tm: Omit<CycleTimings, 'total' | 'r2Puts' | 'r2Chars'>,
+  ): Promise<void> {
     await this.restore()
+    tm.restore = lap()
     const now = this.d.now()
     const errors: string[] = []
 
@@ -336,9 +408,12 @@ export class HubCore {
       errors.push(`static: ${errorMessage(e)}`)
       return false
     })
+    tm.indexes = lap()
 
     const due = this.feeds.filter((f) => f.kind !== 'alerts' || now - this.meta.alertsAt >= ALERTS_EVERY_MS)
     const fetched = await Promise.all(due.map((f) => this.fetchFeed(f, now)))
+    tm.fetch = lap()
+    tm.feeds = due.length
     const changed: FeedSpec[] = []
     fetched.forEach((r, i) => {
       const f = due[i] as FeedSpec
@@ -368,6 +443,8 @@ export class HubCore {
       this.alerts = buildAlerts(alertsFeed, this.routeModes(), this.stopModes())
     }
 
+    tm.decode = lap()
+    tm.changed = changed.length
     const writes: Record<string, unknown> = {}
     let rebuilt = false
     if (changed.length > 0 || indexesChanged || !this.snapshot) {
@@ -399,6 +476,8 @@ export class HubCore {
         if (!this.d.r2) Object.assign(writes, this.snapshotWrites(this.fullJson() as string))
       }
     }
+    tm.build = lap()
+    tm.rebuilt = rebuilt
     // Raw protobufs only matter after a restart (the legacy proxy serves memory first, and the hub refetches within
     // 15 s), so persist them at most once a minute: every cycle cost Free-plan CPU on staging.
     if (now - this.rawPersistedAt >= RAW_PERSIST_EVERY_MS) {
@@ -413,6 +492,7 @@ export class HubCore {
     this.meta.lastError = errors.length > 0 ? errors.join('; ') : null
     writes.meta = { ...this.meta }
     await this.d.storage.put(writes)
+    tm.persist = lap()
 
     // Publish (or retry a failed publish) even when nothing changed this cycle (Codex review #3).
     if (this.d.r2 && this.snapshot && this.r2Pending) {
@@ -425,6 +505,7 @@ export class HubCore {
         await this.d.storage.put({ meta: { ...this.meta } })
       }
     }
+    tm.publish = lap()
     if (errors.length > 0) this.log.warn('rt cycle partial', { errors, seq: this.meta.seq })
   }
 
@@ -433,6 +514,10 @@ export class HubCore {
    * reader never sees a pointer to a missing object). Uncompressed: gzip would cost several ms of the 10 ms Free
    * CPU budget and R2 egress is free. Two Class A writes per cycle (~345k a month); the ring of
    * R2_KEEP_SNAPSHOTS keys keeps the bucket bounded without deletes.
+   *
+   * The documents are written in parallel, then the pointer (peak stall profiling, 19 Oct: one sequential PUT per
+   * mode put four or five R2 round trips on every poll). A partial failure leaves what a sequential one did: some
+   * latest objects newer than the pointer, which readers accept (see pullFromR2), and a retry next poll.
    */
   private async publishR2(now: number): Promise<void> {
     const r2 = this.d.r2 as R2Like
@@ -442,24 +527,36 @@ export class HubCore {
     // Per-mode documents (§3.3 split): an edge isolate reads only the mode it serves.
     const files: NonNullable<R2Pointer['files']> = {}
     const docs = splitSnapshot(snap, this.tripModes, this.d.config.modes)
+    const puts: Promise<unknown>[] = []
     for (const m of this.d.config.modes) {
       // One overwritten object per mode: an edge refresh is a single GET (no pointer first). R2 PUTs are atomic, and
       // readers check the header seq, so overwriting is safe; no deletes needed.
       const key = modeLatestKey(m)
-      await r2.put(key, JSON.stringify(docs[m]), json)
+      puts.push(this.put(r2, key, JSON.stringify(docs[m]), json))
       files[m] = { key, seq }
     }
     // The alerts document only when the alerts changed (alerts refresh every 60 s): keeps writes under 1M a month.
-    if (this.alertsPublished?.alerts !== snap.alerts) {
+    let alerts = this.alertsPublished
+    if (alerts?.alerts !== snap.alerts) {
       const key = scopeKey('alerts', seq)
-      await r2.put(key, JSON.stringify(alertsDocument(snap)), json)
-      this.alertsPublished = { alerts: snap.alerts, key, seq }
+      puts.push(this.put(r2, key, JSON.stringify(alertsDocument(snap)), json))
+      alerts = { alerts: snap.alerts, key, seq }
     }
-    files.alerts = { key: this.alertsPublished.key, seq: this.alertsPublished.seq }
+    await Promise.all(puts)
+    // Only once its document is written: a failed alerts PUT is retried with the next publish.
+    this.alertsPublished = alerts
+    files.alerts = { key: alerts.key, seq: alerts.seq }
     const pointer: R2Pointer = { seq, files, fetchedAt: now, status: this.status() }
-    await r2.put(R2_LATEST_KEY, JSON.stringify(pointer), {
+    await this.put(r2, R2_LATEST_KEY, JSON.stringify(pointer), {
       httpMetadata: { contentType: 'application/json', cacheControl: 'no-store' },
     })
+  }
+
+  /** One R2 PUT, counted for the poll's timings. */
+  private put(r2: R2Like, key: string, body: string, opts: Parameters<R2Like['put']>[2]): Promise<unknown> {
+    this.puts.n++
+    this.puts.chars += body.length
+    return r2.put(key, body, opts)
   }
 
   private async fetchFeed(f: FeedSpec, now: number): Promise<{ raw?: RawFeed; error?: string }> {

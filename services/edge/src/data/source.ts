@@ -29,16 +29,25 @@ export class R2DataSource implements DataSource {
   }
 }
 
+/**
+ * A read over the data Worker binding is cut off after this, body included. Callers already stop waiting at their own
+ * deadlines (3-6 s); this ends the subrequest itself, so it can't stay open after them (the 19 Oct peak stall).
+ */
+export const DATA_FETCH_TIMEOUT_MS = 10_000
+
 /** The static-assets data Worker (`services/data`), reached over a service binding. */
 export class FetcherDataSource implements DataSource {
   readonly kind = 'assets'
   constructor(
     private readonly fetcher: { fetch(input: string, init?: RequestInit): Promise<Response> },
     private readonly origin = 'https://bft-data.internal',
+    private readonly timeoutMs = DATA_FETCH_TIMEOUT_MS,
   ) {}
 
   async get(key: string): Promise<DataObject | null> {
-    const res = await this.fetcher.fetch(`${this.origin}/${encodePath(key)}`)
+    const res = await this.fetcher.fetch(`${this.origin}/${encodePath(key)}`, {
+      signal: AbortSignal.timeout(this.timeoutMs),
+    })
     if (res.status === 404) return null
     if (!res.ok || !res.body) throw new Error(`data source ${key}: HTTP ${res.status}`)
     const len = res.headers.get('content-length')

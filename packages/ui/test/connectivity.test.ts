@@ -57,6 +57,8 @@ describe('liveState (F3/T5/B3/X4)', () => {
   it("passes the API's own state through", () => {
     expect(liveState(res({ rtState: 'reloading' }), { offline: false, nowMs: NOW })).toBe('reloading')
     expect(liveState(res({ rtState: 'unavailable' }), { offline: false, nowMs: NOW })).toBe('unavailable')
+    // bft-api answers `stale` when its realtime wait (RT_WAIT_MS) ran out on an expired copy: never shown as live.
+    expect(liveState(res({ rtState: 'stale' }), { offline: false, nowMs: NOW })).toBe('stale')
   })
 })
 

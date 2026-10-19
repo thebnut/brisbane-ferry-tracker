@@ -15,6 +15,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import { BUILD_HEADER, buildId } from '@bft/core/build'
 import type { TripResponse } from '@bft/core/contract'
+import { API_TIMEOUT_MS } from '@bft/ui/upstream'
 import { validateTrip } from '../app/lib/contract.server.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import { onConnect, onCycle, type PushState } from '../app/lib/tripFingerprint.ts'
@@ -56,17 +57,26 @@ export class TripSocket extends DurableObject<Env> {
   private async load(key: string): Promise<TripResponse | null> {
     this.stats.upstream++
     const path = `/v1/train/trips/${encodeURIComponent(key)}`
+    // The /v1 proxies' deadline, body included: a call bft-api holds open must not stall the trip's cycle.
+    const ctrl = new AbortController()
+    const timer = setTimeout(
+      () => ctrl.abort(new Error(`upstream timeout after ${API_TIMEOUT_MS} ms`)),
+      API_TIMEOUT_MS,
+    )
     try {
+      const init = { signal: ctrl.signal }
       const res =
         this.env.FIXTURES === '1'
           ? await handleFixtureApi(new URL(`http://fixtures/__fixtures${path}`), Date.now())
           : this.env.API
-            ? await this.env.API.fetch(new Request(`https://bft-api${path}`))
-            : await fetch(`${this.env.API_BASE}${path}`)
+            ? await this.env.API.fetch(new Request(`https://bft-api${path}`, init))
+            : await fetch(`${this.env.API_BASE}${path}`, init)
       if (!res.ok) return null
       return validateTrip(await res.json())
     } catch {
       return null
+    } finally {
+      clearTimeout(timer)
     }
   }
 

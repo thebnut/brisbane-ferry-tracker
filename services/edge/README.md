@@ -23,6 +23,8 @@ Design: `docs/architecture/transit-architecture.md` §3.3, §3.8, §3.10 and ADR
 | `RT_UPSTREAM` | TransLink SEQ | GTFS-RT base URL. |
 | `RT_CYCLE_MS` | `15000` | Poll interval. The alarm itself fires every 7.5 s (or less) so the DO stays resident: Cloudflare evicts an object after ~10 s idle, which would drop its trip indexes every cycle. |
 | `RT_SNAPSHOT_MAX_STALE_MS` | `60000` | How old an edge isolate's snapshot copy may be before a request waits for the refresh (min 10000). Lower trades latency for freshness: each wait is one R2 read (~300 ms from BNE). The wait is capped at 1.5 s; after that the request gets the old copy with `rtState` `stale`. |
+| `RT_WAIT_MS` | `1200` | The most any request waits for realtime (cold isolate or expired copy; 100 ms to 3 s). Past it the request answers scheduled rows with `rtState` `stale` (an expired copy) or `unavailable` (none); the refresh keeps running and commits for the next request. A request also stops waiting when its caller aborts, and every GET is cut off at 7 s (503 `timeout`; 499 when the caller left first). |
+| `RT_PROFILE` | unset | `1` logs `rt cycle timings` (restore, indexes, fetch, decode, build, persist, publish, total; R2 PUT count and size) for every hub poll. Polls of 2.5 s or more are always logged, as a warning. In workerd the clock only moves across I/O, so CPU-only phases read ~0. |
 | `CORS_ALLOW_ALL` | `false` | Break-glass wildcard CORS, as in the legacy proxy. |
 | `DATA_BUCKET` (R2) | staging: `bft-transit-data` | Static tree + `rt/` snapshots. Takes precedence over `DATA`. |
 | `DATA` (service) | dev: `bft-data-dev` | Assets Worker fallback (`services/data`). |
