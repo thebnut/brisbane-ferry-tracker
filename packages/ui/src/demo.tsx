@@ -23,51 +23,24 @@ export const OFFLINE_COPY_PREFIXES = ['bft-bus-v1:', 'bft-train-offline:', 'bft-
 /** A copy made from demo data, under any key: fixture responses and data files carry a `fixture-…` generation. */
 export const FIXTURE_COPY = /"(?:staticGeneration|generation)":"fixture-/
 
-/** Identifies one stored response: a copy saved again later has another `date` (the Workers' responses carry one). */
-export const responseStamp = (res: Response) =>
-  ['date', 'etag', 'content-length'].map((h) => res.headers.get(h) ?? '').join('|')
-
 /**
  * What the device held when this page started: its offline copies and copies made from demo data (key → value),
- * and each runtime cache's entries (cache name → URL → responseStamp).
+ * read during the first render, before any board writes one; and CACHE_WRITE_LOCK, asked for then too (null when a
+ * write held it): while the clean-up holds it no cache write lands, so the caches it lists are what it began with.
  */
 export interface DeviceStart {
   copies: ReadonlyMap<string, string>
-  caches: ReadonlyMap<string, ReadonlyMap<string, string>>
-}
-
-async function cacheEntries(): Promise<DeviceStart['caches']> {
-  const held = new Map<string, Map<string, string>>()
-  if (typeof caches === 'undefined') return held
-  for (const name of await caches.keys()) {
-    if (name.startsWith('workbox-precache')) continue
-    const cache = await caches.open(name)
-    const entries = new Map<string, string>()
-    for (const req of await cache.keys()) {
-      const res = await cache.match(req)
-      if (res) entries.set(req.url, responseStamp(res))
-    }
-    held.set(name, entries)
-  }
-  return held
+  lock: Promise<(() => void) | null>
 }
 
 /** Set once the one-off clean-up of demo data stored before R7-B1 has run on this device (demo-cleanup.ts). */
 export const DEMO_MIGRATION_KEY = 'bft-demo-cleanup'
 export const DEMO_MIGRATION = 'r7'
-/** The longest the clean-up holds back cache writers (the service worker's install waits up to 10 s for its saves). */
-const CLEANUP_MAX_MS = 5_000
 
-let deviceStart: Promise<DeviceStart> | undefined
-let endCleanup = () => {}
+let deviceStart: DeviceStart | undefined
 let cleanupStarted = false
-/**
- * Where the one-off clean-up hasn't run yet: notes what the device holds, once per page and before anything on it is
- * saved, and holds back every cache writer (CACHE_WRITE_LOCK) until the clean-up has finished, so it can only ever
- * remove what was there when it began (R9). The offline copies are read during the first render, before any board
- * writes one; the caches once the lock is granted, so no writer can interleave with the listing or the deletions.
- */
-function noteDeviceStart(): Promise<DeviceStart> | undefined {
+/** Once per page, where the one-off clean-up hasn't run yet (R9, see DeviceStart). */
+function noteDeviceStart(): DeviceStart | undefined {
   if (deviceStart) return deviceStart
   const copies = new Map<string, string>()
   try {
@@ -83,13 +56,8 @@ function noteDeviceStart(): Promise<DeviceStart> | undefined {
     // Storage blocked: nothing kept there, and no marker can be set either.
     return undefined
   }
-  deviceStart = holdCacheLock('exclusive', CLEANUP_MAX_MS)
-    .then(async (release) => {
-      endCleanup = release
-      return cacheEntries()
-    })
-    .catch(() => new Map())
-    .then((c) => ({ copies, caches: c }))
+  // A write in progress (another tab): no clean-up on this page, the next load tries again.
+  deviceStart = { copies, lock: holdCacheLock('exclusive', true) }
   return deviceStart
 }
 
@@ -123,7 +91,7 @@ export function useFixtureCookie(name: string, active: boolean, forced = false, 
       void import('./demo-cleanup.ts')
         .then((m) => m.migrateOnce(start))
         .catch(() => {})
-        .finally(() => endCleanup())
+        .finally(() => start.lock.then((release) => release?.()))
     }
     const params = new URLSearchParams(location.search)
     const q = params.get('fixtures')
@@ -133,7 +101,7 @@ export function useFixtureCookie(name: string, active: boolean, forced = false, 
     } else if (q === '0') {
       // biome-ignore lint/suspicious/noDocumentCookie: as above.
       document.cookie = fixtureCookie(name, false)
-      void import('./demo-cleanup.ts').then((m) => m.clearDemoLeftovers())
+      void import('./demo-cleanup.ts').then((m) => m.leaveDemo())
       params.delete('fixtures')
       const search = params.toString()
       history.replaceState(

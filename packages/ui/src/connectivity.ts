@@ -540,44 +540,36 @@ export const RESAVE_PAGES = 'bft-resave-pages'
 
 /**
  * Web Lock ordering the one-off demo clean-up against Cache Storage writers, across pages and service workers of this
- * origin (R9, Codex review r2): the clean-up holds it exclusively from its snapshot of the device to its last deletion,
- * and every page-copy and cache write holds it shared around its put, so no write lands while the clean-up decides
- * what to delete. Where Web Locks are missing, both go ahead at once (the response stamps still protect new copies).
+ * origin (R9, Codex reviews r2, r3): the clean-up holds it exclusively from its listing of the caches until it has
+ * settled, and every page-copy and cache write holds it shared until its put has settled, so no write lands while the
+ * clean-up decides what to delete. Nothing releases it on a timer. Where Web Locks are missing both go ahead at once
+ * (response stamps still protect what was saved since).
  */
 export const CACHE_WRITE_LOCK = 'bft-cache-writes'
 
-/**
- * Takes CACHE_WRITE_LOCK in `mode` and resolves, once granted, with its release; it is released after `maxMs` anyway,
- * so a lost release can never block writers for long.
- */
-export function holdCacheLock(mode: 'shared' | 'exclusive', maxMs: number): Promise<() => void> {
+/** Takes CACHE_WRITE_LOCK; resolves once granted with its release, or with null if `ifAvailable` and it is held. */
+export function holdCacheLock(
+  mode: 'shared' | 'exclusive',
+  ifAvailable = false,
+): Promise<(() => void) | null> {
   const locks = typeof navigator === 'undefined' ? undefined : navigator.locks
   if (!locks) return Promise.resolve(() => {})
   return new Promise((granted) => {
     locks
-      .request(
-        CACHE_WRITE_LOCK,
-        { mode },
-        () =>
-          new Promise<void>((release) => {
-            const timer = setTimeout(release, maxMs)
-            granted(() => {
-              clearTimeout(timer)
-              release()
-            })
-          }),
+      .request(CACHE_WRITE_LOCK, { mode, ifAvailable }, (lock) =>
+        lock ? new Promise<void>((release) => granted(() => release())) : granted(null),
       )
       .catch(() => granted(() => {}))
   })
 }
 
-/** Runs a cache write while no clean-up runs (CACHE_WRITE_LOCK, shared). */
+/** Runs a cache write while no clean-up runs (CACHE_WRITE_LOCK, shared, until the write has settled). */
 export async function whileNoCleanup<T>(write: () => Promise<T>): Promise<T> {
-  const release = await holdCacheLock('shared', 10_000)
+  const release = await holdCacheLock('shared')
   try {
     return await write()
   } finally {
-    release()
+    release?.()
   }
 }
 

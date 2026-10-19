@@ -37,22 +37,27 @@ export const skipDemoResponses = {
 
 /**
  * Workbox plugin for every runtime cache, last in its list: the put waits while the one-off demo clean-up runs and
- * holds CACHE_WRITE_LOCK (shared) until it lands (R9), so the clean-up never deletes a response stored meanwhile.
- * Released at cacheDidUpdate, or after 10 s if the put failed. As a cacheWillUpdate plugin it replaces Workbox's own
- * "only 200" filter (NetworkFirst's, and StaleWhileRevalidate's 200-or-opaque), so it keeps that rule: only a 200 is
- * stored, never an error over a good copy.
+ * holds CACHE_WRITE_LOCK (shared) until it has settled (R9): released at cacheDidUpdate, or at handlerDidComplete
+ * when the put failed (Workbox calls it once everything the handler waited on has settled). As a cacheWillUpdate
+ * plugin it replaces Workbox's own "only 200" filter (NetworkFirst's, and StaleWhileRevalidate's 200-or-opaque), so
+ * it keeps that rule: only a 200 is stored, never an error over a good copy.
  */
+type PluginState = { state?: Record<string, unknown> }
+const releaseWrite = async ({ state }: PluginState) => {
+  const release = state?.release as (() => void) | null | undefined
+  if (state) state.release = undefined
+  release?.()
+}
 export const waitForCleanup = {
-  cacheWillUpdate: async ({ response, state }: { response: Response; state?: Record<string, unknown> }) => {
+  cacheWillUpdate: async ({ response, state }: PluginState & { response: Response }) => {
     if (response.status !== 200) return null
-    const release = await holdCacheLock('shared', 10_000)
+    const release = await holdCacheLock('shared')
     if (state) state.release = release
-    else release()
+    else release?.()
     return response
   },
-  cacheDidUpdate: async ({ state }: { state?: Record<string, unknown> }) => {
-    ;(state?.release as (() => void) | undefined)?.()
-  },
+  cacheDidUpdate: releaseWrite,
+  handlerDidComplete: releaseWrite,
 }
 
 export interface CacheSpec {

@@ -119,70 +119,99 @@ describe('pages re-saved after the demo clean-up (R9)', () => {
   })
 })
 
-/** A first-in, first-out Web Locks stand-in (shared and exclusive), as navigator.locks orders requests. */
+/** A first-in, first-out Web Locks stand-in (shared, exclusive and ifAvailable), as navigator.locks orders requests. */
 function fakeLocks() {
-  type Req = { mode: 'shared' | 'exclusive'; run: () => Promise<unknown> }
+  type Mode = 'shared' | 'exclusive'
+  type Req = { mode: Mode; run: () => Promise<unknown> }
   const queue: Req[] = []
   let shared = 0
   let exclusive = false
+  const grantable = (mode: Mode) => !exclusive && (mode === 'shared' || shared === 0)
+  const start = (next: Req) => {
+    if (next.mode === 'exclusive') exclusive = true
+    else shared++
+    void next.run().finally(() => {
+      if (next.mode === 'exclusive') exclusive = false
+      else shared--
+      pump()
+    })
+  }
   const pump = () => {
-    while (queue.length) {
-      const next = queue[0] as Req
-      if (exclusive || (next.mode === 'exclusive' && shared > 0)) return
-      queue.shift()
-      if (next.mode === 'exclusive') exclusive = true
-      else shared++
-      void next.run().finally(() => {
-        if (next.mode === 'exclusive') exclusive = false
-        else shared--
-        pump()
-      })
-    }
+    while (queue.length && grantable((queue[0] as Req).mode)) start(queue.shift() as Req)
   }
   return {
-    request: (_name: string, opts: { mode: 'shared' | 'exclusive' }, cb: () => Promise<unknown>) =>
+    request: (
+      _name: string,
+      opts: { mode: Mode; ifAvailable?: boolean },
+      cb: (lock: object | null) => Promise<unknown> | unknown,
+    ) =>
       new Promise((resolve, reject) => {
-        queue.push({ mode: opts.mode, run: () => cb().then(resolve, reject) })
+        if (opts.ifAvailable && (queue.length || !grantable(opts.mode))) {
+          Promise.resolve(cb(null)).then(resolve, reject)
+          return
+        }
+        queue.push({ mode: opts.mode, run: () => Promise.resolve(cb({})).then(resolve, reject) })
         pump()
       }),
   }
 }
 
-describe('cache writers wait while the one-off demo clean-up runs (R9, Codex review r2)', () => {
-  it('a page-copy write and a Workbox put land only after the clean-up lets go', async () => {
+const withLocks = async (run: () => Promise<void>) => {
+  const real = (navigator as unknown as { locks?: unknown }).locks
+  Object.defineProperty(navigator, 'locks', { value: fakeLocks(), configurable: true })
+  try {
+    await run()
+  } finally {
+    Object.defineProperty(navigator, 'locks', { value: real, configurable: true })
+  }
+}
+const tick = () => new Promise((r) => setTimeout(r, 20))
+
+describe('cache writers wait while the one-off demo clean-up runs (R9, Codex reviews r2, r3)', () => {
+  it('a page-copy write and a Workbox put land only after the clean-up lets go, however long it takes', async () => {
     const { holdCacheLock, whileNoCleanup } = await import('../src/connectivity.ts')
     const { waitForCleanup } = await import('../src/sw.ts')
-    const nav = navigator as unknown as { locks?: unknown }
-    const real = nav.locks
-    Object.defineProperty(navigator, 'locks', { value: fakeLocks(), configurable: true })
-    try {
+    await withLocks(async () => {
       const order: string[] = []
-      const endCleanup = await holdCacheLock('exclusive', 5_000)
+      const endCleanup = await holdCacheLock('exclusive', true)
+      expect(endCleanup).not.toBeNull()
       const write = whileNoCleanup(async () => void order.push('page copy'))
       const state: Record<string, unknown> = {}
       const put = waitForCleanup
         .cacheWillUpdate({ response: new Response('ok'), state })
         .then((r) => void order.push(r ? 'workbox put' : 'skipped'))
-      await new Promise((r) => setTimeout(r, 20))
+      // No timer lets them through.
+      await new Promise((r) => setTimeout(r, 200))
       expect(order).toEqual([])
       order.push('clean-up done')
-      endCleanup()
+      endCleanup?.()
       await Promise.all([write, put])
       expect(order).toEqual(['clean-up done', 'page copy', 'workbox put'])
-      // The Workbox put holds its shared lock until cacheDidUpdate: a clean-up asking now waits for it.
-      let granted = false
-      const next = holdCacheLock('exclusive', 5_000).then((release) => {
-        granted = true
-        release()
-      })
-      await new Promise((r) => setTimeout(r, 20))
-      expect(granted).toBe(false)
+
+      // The Workbox put holds its shared lock until it has settled: a clean-up starting now is turned away.
+      expect(await holdCacheLock('exclusive', true)).toBeNull()
       await waitForCleanup.cacheDidUpdate({ state })
-      await next
-      expect(granted).toBe(true)
-    } finally {
-      Object.defineProperty(navigator, 'locks', { value: real, configurable: true })
-    }
+      // Released once only, even if Workbox also calls handlerDidComplete.
+      await waitForCleanup.handlerDidComplete({ state })
+      const next = await holdCacheLock('exclusive', true)
+      expect(next).not.toBeNull()
+      next?.()
+    })
+  })
+
+  it('a put that failed (no cacheDidUpdate) lets go when its handler completes', async () => {
+    const { holdCacheLock } = await import('../src/connectivity.ts')
+    const { waitForCleanup } = await import('../src/sw.ts')
+    await withLocks(async () => {
+      const state: Record<string, unknown> = {}
+      await waitForCleanup.cacheWillUpdate({ response: new Response('ok'), state })
+      expect(await holdCacheLock('exclusive', true)).toBeNull()
+      await waitForCleanup.handlerDidComplete({ state })
+      await tick()
+      const release = await holdCacheLock('exclusive', true)
+      expect(release).not.toBeNull()
+      release?.()
+    })
   })
 
   it("keeps Workbox's only-200 rule, and without Web Locks writes at once", async () => {
