@@ -48,7 +48,8 @@ export async function clearDemoLeftovers(
     deadline = Number.POSITIVE_INFINITY,
   }: { all?: boolean; start?: Pick<DeviceStart, 'copies'>; deadline?: number } = {},
   storage: Storage = localStorage,
-  cacheStorage: CacheStorage | undefined = typeof caches === 'undefined' ? undefined : caches,
+  // null: leave Cache Storage alone.
+  cacheStorage: CacheStorage | null | undefined = typeof caches === 'undefined' ? undefined : caches,
   resave: () => Promise<void> = askWorkersToResave,
   now: () => number = Date.now,
 ): Promise<number> {
@@ -92,11 +93,18 @@ export async function clearDemoLeftovers(
   return stale.length
 }
 
-/** `?fixtures=0`: drop what demo mode left, holding back cache writers meanwhile. */
+/**
+ * `?fixtures=0`: drop what demo mode left, holding back cache writers meanwhile. Without the lock (no Web Locks) only
+ * the localStorage copies go: Cache Storage is left alone rather than raced.
+ */
 export async function leaveDemo(): Promise<void> {
   const release = await holdCacheLock('exclusive')
   try {
-    await clearDemoLeftovers({ deadline: Date.now() + CLEANUP_MAX_MS })
+    await clearDemoLeftovers(
+      { deadline: Date.now() + CLEANUP_MAX_MS },
+      localStorage,
+      release ? undefined : null,
+    )
   } catch {
     // Timed out: whatever is left is removed on the next `?fixtures=0`.
   } finally {
@@ -115,7 +123,8 @@ export async function leaveDemo(): Promise<void> {
 export async function migrateOnce(start: DeviceStart, maxMs = CLEANUP_MAX_MS, now: () => number = Date.now) {
   try {
     if (localStorage.getItem(DEMO_MIGRATION_KEY) === DEMO_MIGRATION) return
-    // Not granted (a write was in progress when the page started): the next load tries again.
+    // Not granted (a write was in progress when the page started, or no Web Locks here): not done, and nothing is
+    // removed; the next load tries again.
     if (!(await start.lock)) return
     await clearDemoLeftovers(
       { all: true, start, deadline: now() + maxMs },

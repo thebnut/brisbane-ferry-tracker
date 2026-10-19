@@ -25,8 +25,8 @@ export const FIXTURE_COPY = /"(?:staticGeneration|generation)":"fixture-/
 
 /**
  * What the device held when this page started: its offline copies and copies made from demo data (key → value),
- * read during the first render, before any board writes one; and CACHE_WRITE_LOCK, asked for then too (null when a
- * write held it): while the clean-up holds it no cache write lands, so the caches it lists are what it began with.
+ * read during the first render, before any board writes one; and CACHE_WRITE_LOCK, asked for then too (null when it
+ * wasn't granted: a write held it, or no Web Locks): while the clean-up holds it no cache write lands, so the caches it lists are what it began with.
  */
 export interface DeviceStart {
   copies: ReadonlyMap<string, string>

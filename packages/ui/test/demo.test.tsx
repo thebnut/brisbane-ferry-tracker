@@ -235,7 +235,7 @@ describe('the one-off clean-up removes only what the device held when the page s
     const { storage, deleted } = fakeCaches({ 'bus-pages': ['/stop/1'] })
     await withCaches(storage, async () => {
       localStorage.setItem('bft-bus-v1:1', JSON.stringify({ generation: 'fixture-20261020' }))
-      await leaveDemo()
+      await withLocks(leaveDemo)
       expect(localStorage.getItem('bft-bus-v1:1')).toBeNull()
       expect(deleted).toEqual(['bus-pages /stop/1'])
     })
@@ -257,11 +257,44 @@ describe('the one-off clean-up removes only what the device held when the page s
       'bft-bus-offline:10802',
       JSON.stringify({ body: { staticGeneration: 'fixture-20261020' } }),
     )
-    const Allowed = await freshPage()
-    render(<Allowed />)
-    await vi.waitFor(() => expect(localStorage.getItem('bft-demo-cleanup')).toBe('r7'))
+    await withLocks(async () => {
+      const Allowed = await freshPage()
+      render(<Allowed />)
+      await vi.waitFor(() => expect(localStorage.getItem('bft-demo-cleanup')).toBe('r7'))
+    })
     expect(localStorage.getItem('bft-bus-offline:10802')).toBeNull()
     localStorage.clear()
+  })
+
+  it('without Web Locks, or when the request fails, nothing is removed and it is not marked done (Codex review r5)', async () => {
+    const { holdCacheLock } = await import('../src/connectivity.ts')
+    const nav = navigator as unknown as { locks?: unknown }
+    const real = nav.locks
+    for (const locks of [undefined, { request: () => Promise.reject(new Error('SecurityError')) }]) {
+      Object.defineProperty(navigator, 'locks', { value: locks, configurable: true })
+      try {
+        expect(await holdCacheLock('exclusive')).toBeNull()
+        localStorage.clear()
+        localStorage.setItem('bft-ferry-v1:1', 'saved before')
+        const { storage, deleted } = fakeCaches({ 'transit-pages': ['/'] })
+        await withCaches(storage, async () => {
+          const Allowed = await freshPage()
+          render(<Allowed />)
+          await new Promise((r) => setTimeout(r, 50))
+          expect(localStorage.getItem('bft-demo-cleanup')).toBeNull()
+          expect(localStorage.getItem('bft-ferry-v1:1')).toBe('saved before')
+          expect(deleted).toEqual([])
+          // Leaving demo mode still drops demo copies, but leaves Cache Storage alone.
+          localStorage.setItem('bft-bus-v1:2', JSON.stringify({ generation: 'fixture-20261020' }))
+          const { leaveDemo } = await import('../src/demo-cleanup.ts')
+          await leaveDemo()
+          expect(localStorage.getItem('bft-bus-v1:2')).toBeNull()
+          expect(deleted).toEqual([])
+        })
+      } finally {
+        Object.defineProperty(navigator, 'locks', { value: real, configurable: true })
+      }
+    }
   })
 
   it('a first render that never commits still runs the clean-up and lets the writers go (Codex review r4)', async () => {
@@ -306,11 +339,13 @@ describe('the one-off clean-up removes only what the device held when the page s
 
   it('the hook notes the device before anything on the page is saved', async () => {
     localStorage.clear()
-    const Allowed = await freshPage()
-    render(<Allowed />)
-    // A board writes its copy once the page has rendered.
-    localStorage.setItem('bft-ferry-v1:1', 'first visit')
-    await vi.waitFor(() => expect(localStorage.getItem('bft-demo-cleanup')).toBe('r7'))
+    await withLocks(async () => {
+      const Allowed = await freshPage()
+      render(<Allowed />)
+      // A board writes its copy once the page has rendered.
+      localStorage.setItem('bft-ferry-v1:1', 'first visit')
+      await vi.waitFor(() => expect(localStorage.getItem('bft-demo-cleanup')).toBe('r7'))
+    })
     expect(localStorage.getItem('bft-ferry-v1:1')).toBe('first visit')
     localStorage.clear()
   })

@@ -542,24 +542,27 @@ export const RESAVE_PAGES = 'bft-resave-pages'
  * Web Lock ordering the one-off demo clean-up against Cache Storage writers, across pages and service workers of this
  * origin (R9, Codex reviews r2, r3): the clean-up holds it exclusively from its listing of the caches until it has
  * settled, and every page-copy and cache write holds it shared until its put has settled, so no write lands while the
- * clean-up decides what to delete. Nothing releases it on a timer. Where Web Locks are missing both go ahead at once
- * (response stamps still protect what was saved since).
+ * clean-up decides what to delete. Nothing releases it on a timer. Without Web Locks (or if a request fails) writers
+ * go ahead at once, and the clean-up doesn't touch Cache Storage at all: it can't hold the writers back.
  */
 export const CACHE_WRITE_LOCK = 'bft-cache-writes'
 
-/** Takes CACHE_WRITE_LOCK; resolves once granted with its release, or with null if `ifAvailable` and it is held. */
+/**
+ * Takes CACHE_WRITE_LOCK; resolves once granted with its release, or with null when it wasn't granted: held and
+ * `ifAvailable`, no Web Locks here, or the request failed. Only a release means the lock is held.
+ */
 export function holdCacheLock(
   mode: 'shared' | 'exclusive',
   ifAvailable = false,
 ): Promise<(() => void) | null> {
   const locks = typeof navigator === 'undefined' ? undefined : navigator.locks
-  if (!locks) return Promise.resolve(() => {})
+  if (!locks) return Promise.resolve(null)
   return new Promise((granted) => {
     locks
       .request(CACHE_WRITE_LOCK, { mode, ifAvailable }, (lock) =>
         lock ? new Promise<void>((release) => granted(() => release())) : granted(null),
       )
-      .catch(() => granted(() => {}))
+      .catch(() => granted(null))
   })
 }
 
