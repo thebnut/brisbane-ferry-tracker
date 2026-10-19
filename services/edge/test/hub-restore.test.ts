@@ -307,6 +307,38 @@ describe('RtHub restore: one shared in-flight restore (Codex r1/r2 on #96)', () 
     await hub.alarm()
     expect(docSeq(r2)).toBe(published + 4)
   })
+
+  it('a vehicle whose mode is not a known mode counts the document as missing (Codex r9)', async () => {
+    const { r2, hub, published } = await restarted()
+    const doc = JSON.parse(r2.files.get(modeLatestKey('ferry')) as string)
+    expect(doc.vehicles.length).toBeGreaterThan(0)
+    doc.vehicles[0].mode = 'constructor'
+    r2.files.set(modeLatestKey('ferry'), JSON.stringify(doc))
+    expect((await hub.pull(null, 'ferry')).seq).toBeNull()
+    await hub.alarm()
+    expect(docSeq(r2)).toBe(published + 1)
+    expect((await hub.pull(null, 'ferry')).seq).toBe(published + 1)
+  })
+
+  it('a trip whose `until` is not a number, or a non-string service date, counts the document as missing', async () => {
+    for (const edit of [
+      (doc: { trips: Record<string, { until?: unknown }> }) => {
+        const first = Object.keys(doc.trips)[0] as string
+        ;(doc.trips[first] as { until?: unknown }).until = { valueOf: null }
+      },
+      (doc: { header: { serviceDates: unknown[] } }) => {
+        doc.header.serviceDates = [{ toString: null }]
+      },
+    ]) {
+      const { r2, hub, published } = await restarted()
+      const doc = JSON.parse(r2.files.get(modeLatestKey('ferry')) as string)
+      edit(doc)
+      r2.files.set(modeLatestKey('ferry'), JSON.stringify(doc))
+      expect((await hub.pull(null, 'ferry')).seq).toBeNull()
+      await hub.alarm()
+      expect(docSeq(r2)).toBe(published + 1)
+    }
+  })
 })
 
 describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {

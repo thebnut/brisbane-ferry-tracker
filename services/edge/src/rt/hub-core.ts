@@ -9,7 +9,7 @@
  * - `ensureRunning()` (called by the Worker's 1-minute cron) re-arms the chain when the last completed cycle is
  *   more than 45 s old or no alarm is set.
  */
-import { type Alert, addDays, brisbaneDate, type Manifest, type Mode, type RtSnapshot } from '@bft/core'
+import { type Alert, addDays, brisbaneDate, type Manifest, Mode, type RtSnapshot } from '@bft/core'
 import { fromBinary } from '@bufbuild/protobuf'
 import type { StaticStore } from '../data/static-store.ts'
 import { type FeedMessage, FeedMessageSchema } from '../gen/gtfs-realtime_pb.js'
@@ -1115,12 +1115,25 @@ interface DayRead {
   bytes: Promise<Uint8Array | Error> | null
 }
 
+const MODES: ReadonlySet<unknown> = new Set(Mode.options)
+
+/** A trip record as buildSnapshot's carry path reads it: a string key, `until` a number if present. */
+const isTripRecord = (t: unknown): boolean => {
+  if (t == null || typeof t !== 'object' || Array.isArray(t)) return false
+  const r = t as { key?: unknown; until?: unknown; gen?: unknown }
+  return (
+    typeof r.key === 'string' &&
+    (r.until == null || Number.isFinite(r.until)) &&
+    (r.gen === undefined || typeof r.gen === 'string')
+  )
+}
+
 /**
  * A snapshot document, or null when it is not JSON with the shape restore and the next build rely on (header seq,
- * staticGeneration and serviceDates; every trip an object with a string key, every vehicle an object, every alert
- * an object with a `modes` array, which the per-scope split reads).
+ * staticGeneration and string serviceDates; every trip a record as isTripRecord checks, every vehicle an object whose `mode`
+ * (if any) is a known mode and every alert an object with a `modes` array: the per-scope split reads both).
  * A cheap structural check, not the full schema, which would cost too much of the Free plan's CPU budget per
- * restore (Codex r4 to r6 on #100).
+ * restore (Codex r4 to r9 on #100).
  */
 function parseSnapshot(text: string): RtSnapshot | null {
   let s: RtSnapshot
@@ -1136,11 +1149,12 @@ function parseSnapshot(text: string): RtSnapshot | null {
     Number.isSafeInteger(h.seq) &&
     isObject(h.staticGeneration) &&
     Array.isArray(h.serviceDates) &&
+    h.serviceDates.every((d) => typeof d === 'string') &&
     isObject(s.trips) &&
     Array.isArray(s.vehicles) &&
     Array.isArray(s.alerts) &&
-    Object.values(s.trips).every((t) => isObject(t) && typeof (t as { key?: unknown }).key === 'string') &&
-    s.vehicles.every(isObject) &&
+    Object.values(s.trips).every(isTripRecord) &&
+    s.vehicles.every((v) => isObject(v) && (v.mode === undefined || MODES.has(v.mode))) &&
     s.alerts.every((a) => isObject(a) && Array.isArray((a as { modes?: unknown }).modes))
   return ok ? s : null
 }
