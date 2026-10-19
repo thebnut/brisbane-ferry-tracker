@@ -254,4 +254,21 @@ export class StaticStore {
     if (raw == null) return null
     return this.validate ? TripIndexDay.parse(raw) : (raw as TripIndexDay)
   }
+
+  /**
+   * A mode-day trip index's gzip bytes, not decoded and not cached. The RT hub fetches several days at once and
+   * decodes them one at a time with decodeTripIndexDay, so it never holds two parsed bus days (~60 MB each) together.
+   */
+  async tripIndexDayBytes(index: GenerationIndex, serviceDate: string): Promise<Uint8Array | null> {
+    const sha = index.tripIndex?.[serviceDate]
+    if (!sha) return null
+    const key = blobKey(sha)
+    return within(readBytes(this.source, key), TRIP_INDEX_LOAD_DEADLINE_MS, key)
+  }
+
+  /** Decode and parse bytes from tripIndexDayBytes. */
+  async decodeTripIndexDay(bytes: Uint8Array): Promise<TripIndexDay> {
+    const raw = await decodeJson(bytes)
+    return this.validate ? TripIndexDay.parse(raw) : (raw as TripIndexDay)
+  }
 }

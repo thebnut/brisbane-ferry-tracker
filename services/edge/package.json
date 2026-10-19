@@ -11,6 +11,7 @@
     "lint": "biome check .",
     "gen:proto": "sh scripts/gen-proto.sh",
     "spike": "node --expose-gc --experimental-transform-types --no-warnings scripts/spike.ts",
+    "coldload": "node --expose-gc --experimental-transform-types --no-warnings scripts/coldload.ts",
     "shadow-diff": "node --experimental-transform-types --no-warnings scripts/shadow-diff.ts",
     "freshness": "node --experimental-transform-types --no-warnings scripts/freshness.ts",
     "deploy:staging": "BUILD_SHA=$(node ../../scripts/build-sha.mjs) && wrangler deploy --env staging --var BUILD_SHA:$BUILD_SHA",
