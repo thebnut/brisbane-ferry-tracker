@@ -7,6 +7,7 @@
  *  - everything else  React Router SSR
  */
 
+import { withBuild } from '@bft/core/build'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
@@ -49,7 +50,7 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
 export default {
   async fetch(request, env, ctx) {
     const nonce = newNonce()
-    return withSecurityHeaders(await route(request, env, ctx, nonce), nonce)
+    return withBuild(withSecurityHeaders(await route(request, env, ctx, nonce), nonce), env.BUILD_SHA)
   },
 } satisfies ExportedHandler<Env>
 

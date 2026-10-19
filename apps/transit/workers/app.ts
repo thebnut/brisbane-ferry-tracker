@@ -10,6 +10,7 @@
  *                         loaders read their own app's context: each gets this Env with its own canonical SITE_URL.
  */
 import { cloudflareContext as busContext } from '@bft/bus/app/lib/context.ts'
+import { withBuild } from '@bft/core/build'
 import { cloudflareContext as ferryContext } from '@bft/ferry/app/lib/context.ts'
 import { handleLegacy } from '@bft/ferry/workers/legacy.ts'
 import { cloudflareContext as trainContext } from '@bft/train/app/lib/context.ts'
@@ -136,7 +137,7 @@ export default {
     const nonce = newNonce()
     const www = wwwRedirectLocation(request.url, env.SITE_URL)
     const res = www ? canonicalRedirect(www) : await route(request, env, ctx, nonce)
-    return withRobotsTag(withSecurityHeaders(res, nonce), env.INDEXABLE === '1')
+    return withBuild(withRobotsTag(withSecurityHeaders(res, nonce), env.INDEXABLE === '1'), env.BUILD_SHA)
   },
 } satisfies ExportedHandler<Env>
 

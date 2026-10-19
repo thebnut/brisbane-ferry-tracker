@@ -33,7 +33,7 @@ import {
   vehicle,
 } from './fixtures.ts'
 
-async function setup(opts: { modes?: string; warm?: boolean; scoped?: boolean } = {}) {
+async function setup(opts: { modes?: string; warm?: boolean; scoped?: boolean; build?: string } = {}) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   const tree = buildTree()
   const up = new FakeUpstream()
@@ -117,6 +117,7 @@ async function setup(opts: { modes?: string; warm?: boolean; scoped?: boolean } 
     log: silentLogger,
     combinedFeeds: cfg.combined,
     polledModes: cfg.modes,
+    ...(opts.build !== undefined ? { build: opts.build } : {}),
   })
   const get = (path: string, headers: Record<string, string> = {}) => app.request(path, { headers })
   return { clock, tree, up, hub, app, get, pulls, nowS }
@@ -405,6 +406,42 @@ describe('other /v1 routes', () => {
     const s = await setup()
     expect((await s.get('/v1/health', { 'cf-ray': 'abc-SYD' })).headers.get('x-request-id')).toBe('abc-SYD')
     expect((await s.get('/nope')).headers.get('x-request-id')).toMatch(/[0-9a-f-]{36}/)
+  })
+
+  it('every response carries the build marker, and health reports it', async () => {
+    const s = await setup({ build: '1a2b3c4' })
+    s.app.get('/boom', () => {
+      throw new Error('boom')
+    })
+    const health = await s.get('/v1/health')
+    expect(health.headers.get('x-bft-build')).toBe('1a2b3c4')
+    expect(HealthResponse.parse(await health.json()).build).toBe('1a2b3c4')
+    const answers = [
+      await s.get('/v1/ferry/stops/317584/departures'),
+      await s.get('/v1/nope/vehicles'),
+      await s.get('/nope'),
+      await s.get('/boom'),
+      await s.app.request('/v1/health', { method: 'OPTIONS', headers: { origin: 'capacitor://localhost' } }),
+    ]
+    expect(answers.map((r) => r.status)).toEqual([200, 400, 404, 500, 200])
+    for (const r of answers) expect(r.headers.get('x-bft-build'), r.url).toBe('1a2b3c4')
+    // Stale RT: health still names the build on its 503.
+    s.clock.advance(5 * 60_000)
+    const stale = await s.get('/v1/health')
+    expect(stale.status).toBe(503)
+    expect(stale.headers.get('x-bft-build')).toBe('1a2b3c4')
+  })
+
+  it('the marker is "dev" without a build, and never echoes a value that is not a sha', async () => {
+    const dev = await setup()
+    const res = await dev.get('/v1/health')
+    expect(res.headers.get('x-bft-build')).toBe('dev')
+    expect(HealthResponse.parse(await res.json()).build).toBe('dev')
+    for (const junk of ['main', 'refs/heads/develop', '/home/runner/work', 'abc', '1a2b3c4\nx'])
+      expect((await (await setup({ build: junk })).get('/nope')).headers.get('x-bft-build'), junk).toBe('dev')
+    expect((await (await setup({ build: '1a2b3c4-dirty' })).get('/nope')).headers.get('x-bft-build')).toBe(
+      '1a2b3c4-dirty',
+    )
   })
 })
 

@@ -13,9 +13,9 @@
     "spike": "node --expose-gc --experimental-transform-types --no-warnings scripts/spike.ts",
     "shadow-diff": "node --experimental-transform-types --no-warnings scripts/shadow-diff.ts",
     "freshness": "node --experimental-transform-types --no-warnings scripts/freshness.ts",
-    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:staging": "BUILD_SHA=$(node ../../scripts/build-sha.mjs) && wrangler deploy --env staging --var BUILD_SHA:$BUILD_SHA",
     "deploy:data-staging": "pnpm --filter @bft/data deploy:staging",
-    "deploy:production": "wrangler deploy --env production"
+    "deploy:production": "BUILD_SHA=$(node ../../scripts/build-sha.mjs) && wrangler deploy --env production --var BUILD_SHA:$BUILD_SHA"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",

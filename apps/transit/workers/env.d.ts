@@ -29,4 +29,6 @@ interface Env {
   FEEDBACK_DISCORD_WEBHOOK_URL?: string
   FEEDBACK_LIMITER?: RateLimit
   CORS_ALLOW_ALL?: string
+  /** Deployed short git sha for the x-bft-build header, passed by the deploy scripts; unset locally ("dev"). */
+  BUILD_SHA?: string
 }

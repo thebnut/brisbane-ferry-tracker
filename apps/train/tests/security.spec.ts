@@ -73,3 +73,12 @@ test('hashed build assets are cached immutably; HTML and the service worker are 
     expect(res.headers()['cache-control'] ?? '', path).not.toMatch(/immutable|max-age=[1-9]/)
   }
 })
+
+test('every Worker response names its build (x-bft-build; "dev" locally, the deployed sha on a host)', async ({
+  request,
+}) => {
+  for (const path of ['/', '/no-such-page']) {
+    const res = await request.get(path)
+    expect(res.headers()['x-bft-build'], `${path} ${res.status()}`).toBe('dev')
+  }
+})

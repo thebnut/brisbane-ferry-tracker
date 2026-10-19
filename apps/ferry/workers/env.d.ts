@@ -17,4 +17,6 @@ interface Env {
   TURNSTILE_SITEKEY?: string
   /** "true": wildcard CORS on the legacy endpoints (rollback mode, as in api/_cors.js). */
   CORS_ALLOW_ALL?: string
+  /** Deployed short git sha for the x-bft-build header, passed by the deploy scripts; unset locally ("dev"). */
+  BUILD_SHA?: string
 }

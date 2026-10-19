@@ -9,6 +9,7 @@
  *  - everything else  React Router SSR
  */
 
+import { withBuild } from '@bft/core/build'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
@@ -63,9 +64,9 @@ export default {
     const res = www ? canonicalRedirect(www) : socket ? await socket : await route(request, env, ctx, nonce)
     // A WebSocket upgrade (101) goes back untouched: a Response can't be rebuilt with status 101 or its webSocket.
     if (res.status === 101) return res
-    return withRobotsTag(
-      withSecurityHeaders(res, nonce, wsOriginOf(env.API_WS_BASE)),
-      siteInfo(env).indexable,
+    return withBuild(
+      withRobotsTag(withSecurityHeaders(res, nonce, wsOriginOf(env.API_WS_BASE)), siteInfo(env).indexable),
+      env.BUILD_SHA,
     )
   },
 } satisfies ExportedHandler<Env>

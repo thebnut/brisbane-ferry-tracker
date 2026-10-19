@@ -9,6 +9,7 @@
  *  - everything else     React Router SSR
  */
 
+import { withBuild } from '@bft/core/build'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
@@ -122,7 +123,7 @@ export default {
     const nonce = newNonce()
     const www = wwwRedirectLocation(request.url, env.SITE_URL)
     const res = www ? canonicalRedirect(www) : await route(request, env, ctx, nonce)
-    return withRobotsTag(withSecurityHeaders(res, nonce), env.INDEXABLE === '1')
+    return withBuild(withRobotsTag(withSecurityHeaders(res, nonce), env.INDEXABLE === '1'), env.BUILD_SHA)
   },
 } satisfies ExportedHandler<Env>
 

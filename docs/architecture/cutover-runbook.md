@@ -11,6 +11,14 @@ Approvals (Brett, 18 Oct, via Dev): production deploys and merges to `main`, the
 
 Every step lists a **check**, a **rollback** and the **report entry** to add (`~/Dev_local/BrisFerry/bft-transit-build-report.md`, "Prod / shared-branch actions log").
 
+**Build marker: verify every deploy (all five Workers, staging, production-preview and production).** Every Worker response (HTML, `/v1` proxy answers and errors) carries `x-bft-build: <short sha>`, and `bft-api`'s `/v1/health` also returns `"build"`. The `deploy:*` scripts compute it from the checkout with `scripts/build-sha.mjs` before building and pass it as `wrangler deploy --var BUILD_SHA:<sha>`; it gets `-dirty` when the tree has uncommitted or untracked changes, and the deploy stops outside a git checkout. Local dev and tests show `dev`. Static files (`/assets/*`, icons, `sw.js`) are answered by Workers static assets without running the Worker, so they don't carry it; check an HTML page. After **each** deploy:
+```sh
+git rev-parse --short=7 HEAD                    # the commit being released, e.g. 1a2b3c4
+curl -sI https://<host>/ | grep -i x-bft-build   # must print exactly that sha
+curl -s https://<api host>/v1/health | jq -r .build   # bft-api only: the same sha
+```
+A mismatch, `dev`, or a `-dirty` suffix on a production host means the wrong code went out: stop, find out why, and redeploy from a clean checkout of the release commit before continuing. Record the sha per host in the report.
+
 ## 0. Preconditions (staging, end to end)
 - [ ] All transit PRs merged to develop: #44, #45, #48, #49, #47, #51, #46, #50, and this one.
 - [ ] Staging is healthy for 24 h: `https://bft-api.brisbanetransit.workers.dev/v1/health` shows `ok: true` and RT age < 60 s. The nightly shadow diff shows 0 differences. `/v1/ask/status` shows the ledger within its cap.
@@ -59,6 +67,7 @@ Every step lists a **check**, a **rollback** and the **report entry** to add (`~
 - From `main`: `pnpm --filter @bft/edge deploy:production`. Wrangler creates the Worker custom domain `api.brisbaneferry.com` (a new hostname; no existing record changes). The prod hub writes canonical `rt/…` keys, and staging uses `rt-staging/…` (`RT_R2_PREFIX`).
 - Set the secrets (step 0). AI stays **off** in prod.
 - **Check:**
+  - `x-bft-build` on `https://api.brisbaneferry.com/v1/health`, and its `build`, equal the release commit (see "Build marker" above)
   - `/v1/health` is ok
   - `/v1/ferry/stops/317584/departures?to=317590` is live
   - CORS from `https://www.brisbaneferry.com`
@@ -85,6 +94,7 @@ Every step lists a **check**, a **rollback** and the **report entry** to add (`~
 - From `main`: `pnpm --filter @bft/ferry deploy:production`. Its custom domain is a new hostname.
 - **Security-header gate (mandatory before step 5):** `curl -sI https://next.brisbaneferry.com/` and a static asset must show HSTS, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, and on HTML a CSP with `script-src 'self' 'nonce-…'` (no `'unsafe-inline'`), `frame-ancestors 'none'` and `object-src 'none'` (`apps/ferry/workers/security.ts`, `public/_headers`). The browser console must show no CSP violations on home, a terminal page, the map and an offline reload.
 - **Check:**
+  - `x-bft-build` on `https://next.brisbaneferry.com/` equals the release commit (see "Build marker" above)
   - Lighthouse mobile slow 4G (LCP target ≤ 1.5 s, measure and record)
   - SSR terminal pages: `/terminal/*` URLs, canonicals and `sitemap.xml` identical to the live site (diff the URL lists)
   - PWA install and offline
@@ -160,7 +170,7 @@ Status: prepared 19 Oct 2026; **nothing deployed and no DNS changed**. Scope (Br
   pnpm --filter @bft/transit deploy:production-preview
   ```
   This creates `bft-train-prod`, `bft-bus-prod` and `bft-transit-prod` on their workers.dev hosts. It adds no custom domain and changes no DNS record. Then set transit's feedback secret: `wrangler secret put FEEDBACK_DISCORD_WEBHOOK_URL --name bft-transit-prod`, pasting the value at the prompt (never on the command line, never printed).
-- **Check:** the deploy output lists `env.API (bft-api-prod)`, `ALLOW_FIXTURES "0"`, `FIXTURES "0"`, `INDEXABLE "0"` and no custom domains. The Worker's Domains & Routes in the dashboard shows only the workers.dev host.
+- **Check:** `curl -sI https://bft-<app>-prod.brisbanetransit.workers.dev/ | grep -i x-bft-build` equals `git rev-parse --short=7 HEAD` for each app (see "Build marker" above). The deploy output lists `env.API (bft-api-prod)`, `ALLOW_FIXTURES "0"`, `FIXTURES "0"`, `INDEXABLE "0"` and no custom domains. The Worker's Domains & Routes in the dashboard shows only the workers.dev host.
 - **Rollback:** `npx wrangler rollback --name bft-<app>-prod` (or `wrangler rollback --env production` from the app directory) restores the previous version. Before step 4 nothing links to these hosts, so leaving a bad version up is also safe. Deleting a Worker needs Brett's OK.
 - **Report:** the version ID of each Worker.
 
@@ -216,7 +226,7 @@ The apex and www hostnames **already have DNS records**, and a Worker custom dom
   scripts/prod-check.sh transit https://brisbanetransit.com --prod --www
   ```
   Repeat the browser console checks from 8.2 on the real domains, and submit one test feedback from transit's Ferry tab and confirm it arrives (the PROD widget lists brisbanetransit.com and www).
-- **Check:** `ALL PASS` for each, including the www → apex 301.
+- **Check:** `ALL PASS` for each, including the www → apex 301, and `x-bft-build` on each apex equals the release commit (see "Build marker" above).
 - **Rollback:**
   - Worker-level: `npx wrangler rollback --name bft-<app>-prod`. The domains stay attached.
   - Domain-level: as 8.3. Restore the exported records after removing the custom domains.
