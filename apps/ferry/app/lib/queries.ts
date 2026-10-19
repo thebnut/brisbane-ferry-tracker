@@ -139,6 +139,6 @@ export function useShownData(
     () => (data && hold ? (readOffline(from, to) as DeparturesResponse | null) : null),
     [data, from, to, hold, stored],
   )
-  // Never null here: the board's own data is a copy.
-  return data && hold ? (bestOfflineCopy([data, kept], now) as DeparturesResponse) : data
+  // The board's own data is a copy, so never null; not held (no kept copy), that is the data itself.
+  return data && (bestOfflineCopy([data, kept], now) as DeparturesResponse)
 }

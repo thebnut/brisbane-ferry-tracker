@@ -121,8 +121,10 @@ export function FerryBoards({
   // failure that fell back to fixtures (FIXTURE_FALLBACK) used to make demo mode stick for the session (R7-B1).
   useFixtureCookie(FIXTURE_COOKIE, mode.fixtures, mode.forced === true, mode.allowed === true)
 
-  const same = (a: StopPair, b: StopPair) => a.outbound.id === b.outbound.id && a.inbound.id === b.inbound.id
-  const useInitial = same(pair, serverPair) && departAt == null
+  const useInitial =
+    pair.outbound.id === serverPair.outbound.id &&
+    pair.inbound.id === serverPair.inbound.id &&
+    departAt == null
   const out = useDepartures(
     fetcher,
     mode,
