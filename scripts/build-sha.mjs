@@ -12,9 +12,9 @@
  * data until the next deploy. `git status --porcelain` alone hides ignored files, so the marker can't catch this.
  */
 import { execFileSync } from 'node:child_process'
-import { lstatSync, readdirSync, statSync } from 'node:fs'
+import { lstatSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 // Anchored at the repo root (`top`), since the deploy scripts run from apps/<app> or services/edge. `glob` keeps `*`
 // to one path segment; the bare pattern catches a `data` file or symlink, the `/**` one everything below it.
@@ -80,17 +80,21 @@ function onDisk(root, tracked) {
   for (const app of readdirSync(join(root, 'apps'))) {
     for (const rel of [`apps/${app}`, `apps/${app}/public`, `apps/${app}/public/data`]) {
       const s = lstat(rel)
-      if (s?.isSymbolicLink() && (rel.endsWith('/data') || linksToDir(rel))) found.push(rel)
+      const data = rel === `apps/${app}/public/data`
+      if (s?.isSymbolicLink() && (data || linksToDir(rel))) found.push(rel)
       if (!s?.isDirectory()) break
-      if (rel.endsWith('/data')) walk(rel)
+      if (data) walk(rel)
     }
   }
   return found
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const sha = buildSha()
-  const stray = strayPublicData()
+// Real paths on both sides: run through a symlinked path the check would fail, print nothing and skip the guard.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+  // This script's own repo, not the cwd's: a nested repository at apps/<app> would otherwise answer for itself.
+  const repo = fileURLToPath(new URL('..', import.meta.url))
+  const sha = buildSha(repo)
+  const stray = strayPublicData(repo)
   if (stray.length) {
     process.stderr.write(
       [

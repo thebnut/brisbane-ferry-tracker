@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
@@ -10,12 +10,21 @@ import { buildSha, strayPublicData } from '../build-sha.mjs'
 
 const SCRIPT = fileURLToPath(new URL('../build-sha.mjs', import.meta.url))
 
+function withScript(dir) {
+  mkdirSync(join(dir, 'scripts'))
+  copyFileSync(SCRIPT, join(dir, 'scripts/build-sha.mjs'))
+  return join(dir, 'scripts/build-sha.mjs')
+}
+
 function repo() {
   const dir = mkdtempSync(join(tmpdir(), 'build-sha-'))
   const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim()
   git('init', '-q')
-  git('-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-q', '--allow-empty', '-m', 'x')
-  return { dir, git, done: () => rmSync(dir, { recursive: true, force: true }) }
+  // The CLI guards the repo it lives in (not the cwd's), so each temp repo carries its own copy, as the real one does.
+  const script = withScript(dir)
+  git('add', 'scripts/build-sha.mjs')
+  git('-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-q', '-m', 'x')
+  return { dir, git, script, done: () => rmSync(dir, { recursive: true, force: true }) }
 }
 
 test('build-sha prints the 7-character short sha of HEAD, and nothing else', () => {
@@ -23,7 +32,7 @@ test('build-sha prints the 7-character short sha of HEAD, and nothing else', () 
   try {
     const head = r.git('rev-parse', 'HEAD')
     assert.equal(buildSha(r.dir), head.slice(0, 7))
-    assert.equal(execFileSync('node', [SCRIPT], { cwd: r.dir, encoding: 'utf8' }), `${head.slice(0, 7)}\n`)
+    assert.equal(execFileSync('node', [r.script], { cwd: r.dir, encoding: 'utf8' }), `${head.slice(0, 7)}\n`)
   } finally {
     r.done()
   }
@@ -43,7 +52,7 @@ test('build-sha fails outside a git checkout, so the deploy script stops', () =>
   const dir = mkdtempSync(join(tmpdir(), 'build-sha-nogit-'))
   try {
     assert.throws(() =>
-      execFileSync('node', [SCRIPT], { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_CEILING_DIRECTORIES: tmpdir() } }),
+      execFileSync('node', [withScript(dir)], { cwd: dir, stdio: 'pipe', env: { ...process.env, GIT_CEILING_DIRECTORIES: tmpdir() } }),
     )
   } finally {
     rmSync(dir, { recursive: true, force: true })
@@ -65,10 +74,9 @@ function dataRepo() {
   put('apps/x/.gitignore', 'public/data/\n')
   put('apps/train/public/data/train/stops.json')
   commit('apps/x/.gitignore', 'apps/train/public/data/train/stops.json')
-  return { ...r, put, commit }
+  return { ...r, put, commit, run: (cwd = r.dir) => spawnSync('node', [r.script], { cwd, encoding: 'utf8' }) }
 }
 
-const run = (cwd) => spawnSync('node', [SCRIPT], { cwd, encoding: 'utf8' })
 
 test('public/data guard: a clean checkout with tracked public/data files passes, from any app folder', () => {
   const r = dataRepo()
@@ -76,7 +84,7 @@ test('public/data guard: a clean checkout with tracked public/data files passes,
     mkdirSync(join(r.dir, 'apps/x/app'), { recursive: true })
     assert.deepEqual(strayPublicData(r.dir), [])
     for (const cwd of [r.dir, join(r.dir, 'apps/x'), join(r.dir, 'apps/x/app')]) {
-      const res = run(cwd)
+      const res = r.run(cwd)
       assert.equal(res.status, 0, res.stderr)
       assert.match(res.stdout, /^[0-9a-f]{7}\n$/)
       assert.equal(res.stderr, '')
@@ -94,7 +102,7 @@ test('public/data guard: an ignored file under apps/x/public/data stops the depl
     // `git status --porcelain` hides ignored files, so the marker alone would still claim a clean commit.
     assert.doesNotMatch(buildSha(r.dir), /-dirty/)
     assert.deepEqual(strayPublicData(r.dir), ['apps/x/public/data/bus/routes.json', 'apps/x/public/data/bus/routes/66.json'])
-    const res = run(join(r.dir, 'apps/x'))
+    const res = r.run(join(r.dir, 'apps/x'))
     assert.equal(res.status, 1)
     assert.equal(res.stdout, '')
     assert.match(res.stderr, /apps\/x\/public\/data\/bus\/routes\/66\.json/)
@@ -138,7 +146,7 @@ test('public/data guard: files outside apps/*/public/data do not trip it (they o
     r.put('public/data/a.json')
     r.put('apps/x/build/client/data/bus/routes.json')
     assert.deepEqual(strayPublicData(r.dir), [])
-    const res = run(r.dir)
+    const res = r.run(r.dir)
     assert.equal(res.status, 0, res.stderr)
     assert.match(res.stdout, /^[0-9a-f]{7}-dirty\n$/)
   } finally {
@@ -157,7 +165,7 @@ test('public/data guard: a symlink at or below apps/<app>/public/data, or at pub
       r.commit(link)
       assert.equal(r.git('status', '--porcelain', '--ignored', '--untracked-files=all'), '')
       assert.deepEqual(strayPublicData(r.dir), [link], link)
-      assert.equal(run(r.dir).status, 1)
+      assert.equal(r.run(r.dir).status, 1)
     } finally {
       r.done()
       rmSync(outside, { recursive: true, force: true })
@@ -172,7 +180,7 @@ test('public/data guard: a file symlink directly under apps/ is not an app and d
     symlinkSync('../README.md', join(r.dir, 'apps/README.md'))
     r.commit('README.md', 'apps/README.md')
     assert.deepEqual(strayPublicData(r.dir), [])
-    assert.equal(run(r.dir).status, 0)
+    assert.equal(r.run(r.dir).status, 0)
   } finally {
     r.done()
   }
@@ -189,9 +197,51 @@ test('public/data guard: data inside a nested repository at the app, public or d
       r.put(file)
       execFileSync('git', ['init', '-q'], { cwd: join(r.dir, nested) })
       assert.ok(strayPublicData(r.dir).includes(file), nested)
-      assert.equal(run(r.dir).status, 1)
+      assert.equal(r.run(r.dir).status, 1)
     } finally {
       r.done()
     }
+  }
+})
+
+test('public/data guard: an app named data is scanned like any other, not as a data folder', () => {
+  const r = dataRepo()
+  try {
+    r.put('apps/data/package.json')
+    r.commit('apps/data/package.json')
+    assert.deepEqual(strayPublicData(r.dir), [])
+    r.put('apps/data/public/data/a.json')
+    assert.deepEqual(strayPublicData(r.dir), ['apps/data/public/data/a.json'])
+  } finally {
+    r.done()
+  }
+})
+
+test('public/data guard: run from a nested repository at apps/<app>, the script still checks its own repo', () => {
+  const r = dataRepo()
+  try {
+    const app = join(r.dir, 'apps/bus')
+    r.put('apps/bus/public/data/bus/routes.json')
+    execFileSync('git', ['init', '-q'], { cwd: app })
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-q', '--allow-empty', '-m', 'n'], { cwd: app })
+    const res = spawnSync('node', ['../../scripts/build-sha.mjs'], { cwd: app, encoding: 'utf8' })
+    assert.equal(res.status, 1)
+    assert.match(res.stderr, /apps\/bus\/public\/data\/bus\/routes\.json/)
+  } finally {
+    r.done()
+  }
+})
+
+test('build-sha run through a symlinked path still prints the sha (and so still runs the guard)', () => {
+  const r = repo()
+  const links = mkdtempSync(join(tmpdir(), 'build-sha-link-'))
+  try {
+    symlinkSync(r.dir, join(links, 'repo'))
+    const res = spawnSync('node', [join(links, 'repo/scripts/build-sha.mjs')], { cwd: r.dir, encoding: 'utf8' })
+    assert.equal(res.status, 0, res.stderr)
+    assert.equal(res.stdout, `${r.git('rev-parse', '--short=7', 'HEAD')}\n`)
+  } finally {
+    r.done()
+    rmSync(links, { recursive: true, force: true })
   }
 })
