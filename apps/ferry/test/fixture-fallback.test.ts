@@ -60,3 +60,20 @@ describe('FIXTURE_FALLBACK guard (R7-B1)', () => {
     await expect(fetcher(PATH)).rejects.toThrow()
   })
 })
+
+describe('proxy deadline (R8-F1)', () => {
+  it('an API that never answers gets a 502 at the deadline, and the API sees the abort', async () => {
+    vi.useFakeTimers()
+    const { API_TIMEOUT_MS } = await import('@bft/ui/upstream')
+    let upstream: Request | undefined
+    const env = envWith({ ALLOW_FIXTURES: '0' }, (req) => {
+      upstream = req
+      return hanging(req)
+    })
+    const res = proxyApi(new Request('https://app.test/v1/ferry/stops/317584/departures?to=317590'), env)
+    await vi.advanceTimersByTimeAsync(API_TIMEOUT_MS)
+    expect((await res).status).toBe(502)
+    expect(upstream?.signal.aborted).toBe(true)
+    vi.useRealTimers()
+  })
+})

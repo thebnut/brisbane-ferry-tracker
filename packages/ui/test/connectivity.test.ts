@@ -6,12 +6,12 @@ import {
   isNetworkAnswer,
   isOnline,
   LIVE_REFRESH_MAX_AGE_MS,
+  LIVE_REQUEST_TIMEOUT_MS,
   liveState,
   markCacheHits,
   noteCacheCopy,
   reportOffline,
   reportOnline,
-  SLOW_REQUEST_MS,
   SW_CACHE_HEADER,
   timetableStatus,
   trackedFetch,
@@ -103,14 +103,93 @@ describe('trackedFetch', () => {
     await expect(trackedFetch('/v1/x', { signal: ctrl.signal })).rejects.toThrow()
     expect(isOnline()).toBe(true)
   })
-  it('a live request unanswered for SLOW_REQUEST_MS marks offline (lie-fi)', async () => {
+  it('a live request unanswered for LIVE_REQUEST_TIMEOUT_MS marks offline (lie-fi)', async () => {
     vi.useFakeTimers()
     browser()
     vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})))
     void trackedFetch('/v1/bus/stops/1/departures')
     expect(isOnline()).toBe(true)
-    await vi.advanceTimersByTimeAsync(SLOW_REQUEST_MS)
+    await vi.advanceTimersByTimeAsync(LIVE_REQUEST_TIMEOUT_MS)
     expect(isOnline()).toBe(false)
+  })
+
+  /** A fetch that hangs until its signal aborts, like the browser's (R8-F1: bft-api held requests for minutes). */
+  const hangingFetch = () =>
+    vi.fn(
+      (_input: string, init?: RequestInit) =>
+        new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+        }),
+    )
+
+  it('R8-F1: a live request that never answers is abandoned at LIVE_REQUEST_TIMEOUT_MS, so its query settles', async () => {
+    vi.useFakeTimers()
+    browser()
+    const fetch = hangingFetch()
+    vi.stubGlobal('fetch', fetch)
+    const result = trackedFetch('/v1/ferry/stops/317584/departures?to=317590').catch((e: unknown) => e)
+    await vi.advanceTimersByTimeAsync(LIVE_REQUEST_TIMEOUT_MS - 1)
+    expect(fetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    const error = await result
+    // A network failure (isOfflineFailure, getJson's 'network' kind), not the caller's abort.
+    expect(error).toBeInstanceOf(TypeError)
+    expect(String(error)).toMatch(/^TypeError: Failed to fetch/)
+    expect(fetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(true)
+    expect(isOnline()).toBe(false)
+    // The next answer clears it at once.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"ok":1}')))
+    const res = await trackedFetch('/v1/ferry/stops/317584/departures?to=317590')
+    expect(await res.json()).toEqual({ ok: 1 })
+    expect(isOnline()).toBe(true)
+  })
+
+  it('R8-F1: the deadline covers the body too (headers arrive, the body never does)', async () => {
+    vi.useFakeTimers()
+    browser()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: string, init?: RequestInit) => {
+        const body = new ReadableStream({
+          start(c) {
+            init?.signal?.addEventListener('abort', () => c.error(new DOMException('aborted', 'AbortError')))
+          },
+        })
+        return new Response(body, { headers: { 'content-type': 'application/json' } })
+      }),
+    )
+    const result = trackedFetch('/v1/train/stops/central/departures').catch((e: unknown) => e)
+    await vi.advanceTimersByTimeAsync(LIVE_REQUEST_TIMEOUT_MS)
+    expect(await result).toBeInstanceOf(TypeError)
+    expect(isOnline()).toBe(false)
+  })
+
+  it("the caller's abort still reaches the request, and isn't a connection failure", async () => {
+    vi.useFakeTimers()
+    browser()
+    const fetch = hangingFetch()
+    vi.stubGlobal('fetch', fetch)
+    const ctrl = new AbortController()
+    const result = trackedFetch('/v1/bus/stops/1/departures', { signal: ctrl.signal }).catch(
+      (e: unknown) => e,
+    )
+    ctrl.abort()
+    expect(((await result) as DOMException).name).toBe('AbortError')
+    expect(fetch.mock.calls[0]?.[1]?.signal?.aborted).toBe(true)
+    await vi.advanceTimersByTimeAsync(LIVE_REQUEST_TIMEOUT_MS)
+    expect(isOnline()).toBe(true)
+  })
+
+  it('keeps status and headers, and a no-body status works', async () => {
+    browser()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('{"e":1}', { status: 503, headers: { 'x-a': '1' } })),
+    )
+    const res = await trackedFetch('/v1/ferry/stops/1/departures')
+    expect([res.status, res.headers.get('x-a'), await res.text()]).toEqual([503, '1', '{"e":1}'])
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
+    expect((await trackedFetch('/v1/ferry/stops/1/departures')).status).toBe(204)
   })
 })
 

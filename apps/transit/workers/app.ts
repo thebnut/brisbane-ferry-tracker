@@ -26,7 +26,7 @@ import {
   withSecurityHeaders,
   wwwRedirectLocation,
 } from './security.ts'
-import { API_TIMEOUT_MS, ASK_TIMEOUT_MS, withTimeout } from './timeouts.ts'
+import { ASK_TIMEOUT_MS, proxied, withTimeout } from './timeouts.ts'
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
@@ -39,14 +39,15 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
   try {
     // The deadline covers the body read and validation too, not just the response headers (Codex review).
-    return await withTimeout(
-      Promise.resolve(
-        apiFetch(env, `${url.pathname}${url.search}`, {
+    // The visitor's abort and the deadline both reach the API (R8-F1).
+    return await proxied(request, async (signal) =>
+      validateProxied(
+        url.pathname,
+        await apiFetch(env, `${url.pathname}${url.search}`, {
           headers: { accept: 'application/json' },
-          signal: AbortSignal.timeout(API_TIMEOUT_MS),
+          signal,
         }),
-      ).then((res) => validateProxied(url.pathname, res)),
-      API_TIMEOUT_MS,
+      ),
     )
   } catch (error) {
     return Response.json(

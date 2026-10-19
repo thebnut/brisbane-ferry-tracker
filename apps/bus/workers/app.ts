@@ -10,6 +10,7 @@
  */
 
 import { DEMO_HEADER } from '@bft/ui/connectivity'
+import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
 import { validateProxied } from '../app/lib/contract.server.ts'
@@ -37,8 +38,8 @@ const requestHandler = createRequestHandler(
   import.meta.env.MODE,
 )
 
-async function upstream(env: Env, target: string): Promise<Response> {
-  const init: RequestInit = { method: 'GET', headers: { accept: 'application/json' } }
+async function upstream(env: Env, target: string, signal?: AbortSignal): Promise<Response> {
+  const init: RequestInit = { method: 'GET', headers: { accept: 'application/json' }, signal }
   return env.API
     ? env.API.fetch(new Request(`https://bft-api${target}`, init))
     : fetch(`${env.API_BASE}${target}`, init)
@@ -47,10 +48,13 @@ async function upstream(env: Env, target: string): Promise<Response> {
 export async function proxyApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
   try {
-    const res = await upstream(env, `${url.pathname}${url.search}`)
-    if (res.status >= 500 && fixtureFallbackOn(env)) return handleFixtureApi(url, Date.now(), env)
-    // Contract check at the edge, so the browser can trust the shape without shipping zod.
-    return await validateProxied(url.pathname, res)
+    // One deadline for headers, body and contract check, and the visitor's abort reaches the API (R8-F1).
+    return await proxied(request, async (signal) => {
+      const res = await upstream(env, `${url.pathname}${url.search}`, signal)
+      if (res.status >= 500 && fixtureFallbackOn(env)) return handleFixtureApi(url, Date.now(), env)
+      // Contract check at the edge, so the browser can trust the shape without shipping zod.
+      return validateProxied(url.pathname, res)
+    })
   } catch (error) {
     if (fixtureFallbackOn(env)) return handleFixtureApi(url, Date.now(), env)
     return Response.json(

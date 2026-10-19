@@ -40,11 +40,17 @@ export function newNonce(): string {
   return btoa(String.fromCharCode(...bytes))
 }
 
-/** Add the base headers to any Worker response, plus the CSP when it's an HTML document. */
+/**
+ * Add the base headers to any Worker response, plus the CSP when it's an HTML document. HTML carries a per-request
+ * nonce, so a page that set no Cache-Control of its own gets `private, no-store` (never cached or shared), as in the
+ * other apps (R8-F1: /privacy, /terms and the 404 page went out with none, so the HTTP cache could keep them).
+ */
 export function withSecurityHeaders(res: Response, nonce: string): Response {
   const out = new Response(res.body, res)
   for (const [k, v] of Object.entries(BASE_SECURITY_HEADERS)) out.headers.set(k, v)
-  if ((out.headers.get('content-type') ?? '').includes('text/html'))
+  if ((out.headers.get('content-type') ?? '').includes('text/html')) {
     out.headers.set('Content-Security-Policy', contentSecurityPolicy(nonce))
+    if (!out.headers.has('cache-control')) out.headers.set('cache-control', 'private, no-store')
+  }
   return out
 }
