@@ -294,6 +294,19 @@ describe('RtHub restore: one shared in-flight restore (Codex r1/r2 on #96)', () 
     expect(docSeq(r2)).toBe(published + 1)
     expect(JSON.parse((await hub.pull(null, 'alerts')).json as string).alerts.length).toBe(1)
   })
+
+  it('a document whose header seq is not a number counts as missing; later documents are still read (Codex r8)', async () => {
+    const { r2, hub, storage, published } = await restarted('ferry,train')
+    // Ferry's seq is an object that can't be compared; train's document is ahead of the pointer.
+    r2.files.set(modeLatestKey('ferry'), '{"header":{"seq":{"valueOf":null,"toString":null}}}')
+    const train = r2.files.get(modeLatestKey('train')) as string
+    const trainSeq = snapshotSeq(train) as number
+    r2.files.set(modeLatestKey('train'), train.replace(`"seq":${trainSeq},`, `"seq":${published + 3},`))
+    storage.data.clear()
+    expect((await hub.pull(null)).seq).toBeNull()
+    await hub.alarm()
+    expect(docSeq(r2)).toBe(published + 4)
+  })
 })
 
 describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {

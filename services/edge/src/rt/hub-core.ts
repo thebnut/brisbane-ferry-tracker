@@ -918,45 +918,52 @@ export class HubCore {
       if (!r2.get) return null
       const obj = await r2.get(c.key)
       if (!obj) return null
+      // I/O errors (the GET, the body) propagate, so the restore is retried. Everything after works on content:
+      // whatever is wrong with it, the object counts as missing, never as a restore that fails forever (Codex r4
+      // and r8 on #100).
       const bytes = obj.arrayBuffer
         ? new Uint8Array(await obj.arrayBuffer())
         : new TextEncoder().encode(await obj.text())
-      // The index's seq counts even when its sections, size or documents are unusable: it may be past the pointer,
-      // and a seq left unread could be reused by the next build (Codex r2 and r4 on #100).
-      const indexSeq = combinedIndexSeq(bytes)
-      if (indexSeq != null && indexSeq > r.seq) r.seq = indexSeq
-      // A malformed object counts as missing (decodeCombined can throw on a malformed index), never as a restore
-      // that fails forever (Codex r4).
-      let got: ReturnType<typeof decodeCombined> = null
       try {
-        got = decodeCombined(bytes)
+        // The index's seq counts even when its sections, size or documents are unusable: it may be past the
+        // pointer, and a seq left unread could be reused by the next build (Codex r2 and r4).
+        const indexSeq = combinedIndexSeq(bytes)
+        if (indexSeq != null && indexSeq > r.seq) r.seq = indexSeq
+        const got = decodeCombined(bytes)
+        if (!got || !Number.isSafeInteger(got.index.seq) || got.index.seq < c.seq) return null
+        const docs: Array<[Mode, RtSnapshot]> = []
+        for (const d of got.docs) {
+          // A malformed section makes the whole object unusable (missing).
+          const doc = parseSnapshot(d.json)
+          if (!doc) return null
+          docs.push([d.mode, doc])
+        }
+        return docs
       } catch {
-        got = null
+        return null
       }
-      if (!got || !Number.isSafeInteger(got.index.seq) || got.index.seq < c.seq) return null
-      const docs: Array<[Mode, RtSnapshot]> = []
-      for (const d of got.docs) {
-        // A malformed section makes the whole object unusable (missing), not a restore that fails forever.
-        const doc = parseSnapshot(d.json)
-        if (!doc) return null
-        docs.push([d.mode, doc])
-      }
-      return docs
     }
     const read = async (e: { key: string; seq: number } | undefined): Promise<RtSnapshot | null> => {
       if (!e || !r2.get) return null
+      // I/O errors propagate (the restore is retried); a problem with the content makes the document missing, so
+      // the fallbacks below apply rather than a restore that fails forever (Codex r8 on #100).
       const obj = await r2.get(e.key)
       const text = obj ? await obj.text() : null
-      const seq = text != null ? snapshotSeq(text) : null
-      if (text == null || seq == null) return null
-      // A per-mode latest object is overwritten before the pointer: after a partial publish it can be newer than
-      // the pointer, and it is that mode's newest committed content, so accept it and move the seq watermark past
-      // it (Codex review of #49). Ring slots (alerts) must match exactly.
-      const overwritten = e.key.endsWith('/latest.json')
-      if (overwritten ? seq < e.seq : seq !== e.seq) return null
-      if (seq > r.seq) r.seq = seq
-      // A malformed document counts as missing (the fallbacks below apply), not as a restore that fails forever.
-      return parseSnapshot(text)
+      if (text == null) return null
+      try {
+        const seq = snapshotSeq(text)
+        if (!Number.isSafeInteger(seq)) return null
+        const n = seq as number
+        // A per-mode latest object is overwritten before the pointer: after a partial publish it can be newer than
+        // the pointer, and it is that mode's newest committed content, so accept it and move the seq watermark past
+        // it (Codex review of #49). Ring slots (alerts) must match exactly.
+        const overwritten = e.key.endsWith('/latest.json')
+        if (overwritten ? n < e.seq : n !== e.seq) return null
+        if (n > r.seq) r.seq = n
+        return parseSnapshot(text)
+      } catch {
+        return null
+      }
     }
     const load = async (f: NonNullable<R2Pointer['files']>, combined?: R2Pointer['combined']) => {
       // Read every named document even after one fails: each read moves the seq watermark (a mode document can be
