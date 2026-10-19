@@ -63,7 +63,7 @@ describe('stopNameFor', () => {
 })
 
 /** Each test uses its own generation: the stop index is cached per isolate by mode and generation. */
-async function busApp(stopIndex: unknown, generation: string) {
+async function busApp(stopIndex: unknown, generation: string, failIndex = false) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   const trips = {
     [D]: [
@@ -85,6 +85,11 @@ async function busApp(stopIndex: unknown, generation: string) {
   if (stopIndex)
     tree.source.files.set('data/bus/stops.json', new TextEncoder().encode(JSON.stringify(stopIndex)))
   else tree.source.files.delete('data/bus/stops.json')
+  if (failIndex) {
+    const get = tree.source.get.bind(tree.source)
+    tree.source.get = (key) =>
+      key === 'data/bus/stops.json' ? Promise.reject(new Error('R2 down')) : get(key)
+  }
   const up = new FakeUpstream()
   const nowS = Math.floor(clock.t / 1000)
   up.set('TripUpdates/Bus', feed(nowS, []))
@@ -127,6 +132,15 @@ describe('/v1/bus/trips', () => {
       ['77777', undefined],
       ['place_cannon', 'Cannon Hill interchange'],
     ])
+  })
+
+  it('a failing stop-index read never fails the trip: ids only', async () => {
+    const app = await busApp(BUS_STOPS, 'g-index-error', true)
+    const res = await app.request(`/v1/bus/trips/B232@${D}`)
+    expect(res.status).toBe(200)
+    const body = TripResponse.parse(await res.json())
+    expect(body.stops).toHaveLength(5)
+    expect(body.stops.every((s) => s.name === undefined)).toBe(true)
   })
 
   it('without a stop index the trip still answers, with ids only', async () => {
