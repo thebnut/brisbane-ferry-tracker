@@ -5,6 +5,7 @@
 import { BottomSheet, PrimaryButton, SecondaryButton } from '@bft/ui'
 import { StopSearch } from '@bft/ui/stop-search'
 import { lazy, Suspense, useMemo, useState } from 'react'
+import { savePair } from '../lib/save-pair.ts'
 import { readRemember } from '../lib/storage.ts'
 import {
   choice,
@@ -19,7 +20,8 @@ const MapView = lazy(() => import('@bft/ui/map'))
 
 export interface StopSelectorProps {
   initial: StopPair
-  onSave: (pair: StopPair, remember: boolean) => void
+  /** After the pair is saved on this device. */
+  onSave: (pair: StopPair) => void
   onClose: () => void
 }
 
@@ -77,7 +79,9 @@ export default function StopSelector({ initial, onSave, onClose }: StopSelectorP
     const o = terminalById(origin)
     const d = terminalById(destination)
     if (!o || !d) return
-    onSave(normalisePair({ outbound: choice(o), inbound: choice(d) }), remember)
+    const pair = normalisePair({ outbound: choice(o), inbound: choice(d) })
+    savePair(pair, remember)
+    onSave(pair)
   }
 
   return (

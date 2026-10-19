@@ -34,7 +34,6 @@ import {
   markSelectorSeen,
   readDepartAt,
   readSavedPair,
-  savePair,
   shouldShowSelector,
   writeDepartAt,
 } from '../lib/storage.ts'
@@ -180,8 +179,8 @@ export function FerryBoards({
     setSelected(null)
   }
 
-  const save = (next: StopPair, remember: boolean) => {
-    savePair(next, remember)
+  // The selector has saved the pair (savePair).
+  const save = (next: StopPair) => {
     setShowSelector(false)
     setDepartAt(null)
     writeDepartAt(null)

@@ -52,7 +52,7 @@ export function DepartureList({
           <span className="text-sched-text">Loading departures…</span>
         </div>
       ) : departures == null && error ? (
-        <ErrorState onRetry={onRetry}>Check your connection. We'll keep trying every 15 seconds.</ErrorState>
+        <ErrorState onRetry={onRetry}>Check your connection. We'll keep trying.</ErrorState>
       ) : list.length === 0 && offline ? (
         <EmptyState title="Offline: no saved timetable for this trip">
           Ferries may still be running. Times come back when you reconnect.

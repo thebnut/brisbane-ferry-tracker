@@ -8,6 +8,7 @@ import {
   bestOfflineCopy,
   isOnline,
   type OfflineCopy,
+  pollEvery,
   replacesBoard,
 } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
@@ -25,6 +26,9 @@ import { offlineRows } from './departures.ts'
 import { readOfflineDay } from './storage.ts'
 
 export const POLL_MS = 15_000
+/** Live data polling, backing off while calls fail (@bft/ui pollEvery). */
+const poll = pollEvery(POLL_MS)
+const pollAlerts = pollEvery(60_000)
 
 export function makeQueryClient() {
   return new QueryClient({
@@ -108,7 +112,7 @@ export function departuresOptions(
     },
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
-    refetchInterval: POLL_MS,
+    refetchInterval: poll,
   }
 }
 
@@ -136,7 +140,7 @@ export function useTrip(
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
     // When the WebSocket prototype pushes updates, polling is off (see useTripSocket).
-    refetchInterval: enabled ? POLL_MS : false,
+    refetchInterval: enabled ? poll : false,
   })
 }
 
@@ -145,7 +149,7 @@ export function useVehicles(fetcher: ApiFetcher, mode: DataMode, enabled: boolea
     queryKey: ['train', 'vehicles', mode.fixtures, mode.rt],
     queryFn: ({ signal }) => fetchVehicles(fetcher, signal),
     enabled,
-    refetchInterval: POLL_MS,
+    refetchInterval: poll,
   })
 }
 
@@ -159,6 +163,6 @@ export function useAlerts(
     queryFn: ({ signal }) => fetchAlerts(fetcher, { signal }),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
-    refetchInterval: 60_000,
+    refetchInterval: pollAlerts,
   })
 }

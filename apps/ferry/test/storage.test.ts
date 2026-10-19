@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
-import { markSelectorSeen, STORAGE_KEYS, savePair, shouldShowSelector } from '../app/lib/storage.ts'
+import { savePair } from '../app/lib/save-pair.ts'
+import { markSelectorSeen, STORAGE_KEYS, shouldShowSelector } from '../app/lib/storage.ts'
 
 const pair = { outbound: { id: '317584', name: 'Bulimba' }, inbound: { id: '317590', name: 'Riverside' } }
 
