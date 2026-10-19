@@ -112,7 +112,15 @@ describe('combined object reads (pullFromR2)', () => {
       sourceTimestamp: head.sourceTimestamp,
       fetchedAt: head.fetchedAt,
     })
-    expect(src.reads).toEqual([`${COMBINED_KEY}@0+${INDEX_BYTES}`, expect.stringMatching(/@1024\+\d+$/)])
+    // A cold isolate assumes per-mode documents (the default layout): its probe misses, the pointer names the
+    // combined object, then the index and its section (pinned to the same object version). From then on it starts
+    // with the combined object.
+    expect(src.reads).toEqual([
+      'rt/ferry/latest.json',
+      R2_LATEST_KEY,
+      `${COMBINED_KEY}@0+${INDEX_BYTES}`,
+      expect.stringMatching(/@1024\+\d+$/),
+    ])
     src.reads.length = 0
     const b = await pullFromR2(src, 5, 'ferry', NOW)
     expect(b).toMatchObject({ seq: 5, json: null })
@@ -248,5 +256,52 @@ describe('combined object reads (pullFromR2)', () => {
     const r = await pullFromR2(plain, null, 'ferry', NOW)
     expect(r).toMatchObject({ seq: 5, json: doc(5, 3) })
     expect(n).toBe(1)
+  })
+
+  it('Codex A2 r2: the hub switching to combined between a documents pointer read and its retry is followed', async () => {
+    resetRangeHints()
+    const object = encodeCombined(head, sections())
+    const docsPointer = {
+      seq: 4,
+      files: { ferry: { key: 'rt/ferry/latest.json', seq: 4 } },
+      fetchedAt: NOW,
+      status: { seq: 4, sourceTimestamp: head.sourceTimestamp, fetchedAt: NOW - 1000, generations: {} },
+    }
+    // No per-mode object yet holds seq 4 (it is being written), so the documents path re-reads the pointer; by then
+    // the hub has switched to the combined object.
+    const src = new MemoryDataSource(
+      new Map([[R2_LATEST_KEY, new TextEncoder().encode(JSON.stringify(docsPointer))]]),
+    )
+    const realGet = src.get.bind(src)
+    let pointerReads = 0
+    src.get = async (k: string) => {
+      if (k === R2_LATEST_KEY && ++pointerReads === 2) {
+        src.files.set(COMBINED_KEY, object)
+        src.files.set(R2_LATEST_KEY, pointer())
+      }
+      return realGet(k)
+    }
+    const r = await pullFromR2(src, null, 'ferry', NOW)
+    expect(r).toMatchObject({ seq: 5, json: doc(5, 3) })
+  })
+
+  it('steady state is one GET per refresh in either layout', async () => {
+    resetRangeHints()
+    // Combined: learned after the first read.
+    const c = new MemoryDataSource(files())
+    await pullFromR2(c, null, 'ferry', NOW)
+    c.reads.length = 0
+    await pullFromR2(c, 5, 'ferry', NOW)
+    expect(c.reads).toHaveLength(1)
+    // Per-mode documents (the default layout): a fresh per-mode object is one GET, with no combined probe.
+    resetRangeHints()
+    const legacy = new MemoryDataSource(
+      new Map([
+        ['rt/ferry/latest.json', new TextEncoder().encode(doc(9, 2))],
+        [R2_LATEST_KEY, pointer()],
+      ]),
+    )
+    await pullFromR2(legacy, null, 'ferry', NOW)
+    expect(legacy.reads).toEqual(['rt/ferry/latest.json'])
   })
 })

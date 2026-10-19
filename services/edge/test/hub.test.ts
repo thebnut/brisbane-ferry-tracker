@@ -434,8 +434,11 @@ describe('RtHub R2 publish', () => {
     expect(a.seq).toBe(seq)
     expect(RtSnapshot.parse(JSON.parse(a.json as string)).header.seq).toBe(seq)
     expect(a.status.stats?.ferry?.matched).toBe(1)
-    // A cold isolate: the index, then its section (pinned to the same object version).
+    // A cold isolate: the per-mode probe misses and the pointer names the combined object; then the index and its
+    // section (pinned to the same object version).
     expect(src.reads).toEqual([
+      modeLatestKey('ferry'),
+      'rt/latest.json',
       `${COMBINED_KEY}@0+1024`,
       expect.stringMatching(/^rt\/modes\/combined\.dat@\d+\+\d+$/),
     ])
@@ -907,6 +910,7 @@ describe('Codex review regressions', () => {
     const h = setup({ r2 })
     await warm(h)
     toLegacyLayout(r2) // a hub from before the combined object
+    resetRangeHints() // a fresh isolate (no layout learned from earlier tests)
     const latest = JSON.parse(new TextDecoder().decode(r2.files.get(modeLatestKey('ferry'))))
     // An older ring publisher now writes rt/ferry/snapshot-{slot} + a pointer naming it; latest.json is abandoned.
     const seq = latest.header.seq + 5
