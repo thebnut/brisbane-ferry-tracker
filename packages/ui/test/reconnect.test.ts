@@ -229,60 +229,120 @@ describe("pollEvery: a live query's refetchInterval (offline backoff)", () => {
     reportOnline()
     vi.restoreAllMocks()
   })
-  /** A query whose last good answer was at `data` and, if `error` is given, whose last fetch failed then. */
-  const query = (data: number, error?: number) => ({
-    state: { status: error == null ? 'success' : 'error', dataUpdatedAt: data, errorUpdatedAt: error ?? 0 },
-  })
+  /** A TanStack query stand-in: `fail` records a failed fetch (errorUpdatedAt from `at`), `succeed` a good one. */
+  const query = () => {
+    const q = { state: { status: 'success', errorUpdateCount: 0, errorUpdatedAt: 0 } }
+    return {
+      q,
+      fail(at: number) {
+        q.state = { status: 'error', errorUpdateCount: q.state.errorUpdateCount + 1, errorUpdatedAt: at }
+      },
+      succeed() {
+        q.state = { ...q.state, status: 'success' }
+      },
+    }
+  }
 
   it('polls every 15 s while calls get through, as before', async () => {
     const { pollEvery } = await import('../src/connectivity.ts')
-    expect(pollEvery(15_000)(query(1_000))).toBe(15_000)
-    expect(pollEvery(60_000)(query(1_000))).toBe(60_000)
+    expect(pollEvery(15_000)(query().q)).toBe(15_000)
+    expect(pollEvery(60_000)(query().q)).toBe(60_000)
   })
 
   it('never polls while the browser says it is offline', async () => {
     const { pollEvery, reportOffline } = await import('../src/connectivity.ts')
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
-    expect(pollEvery(15_000)(query(1_000))).toBe(false)
-    expect(pollEvery(15_000)(query(1_000, 20_000))).toBe(false)
+    const b = query()
+    expect(pollEvery(15_000)(b.q)).toBe(false)
+    b.fail(1_000)
+    expect(pollEvery(15_000)(b.q)).toBe(false)
     reportOffline()
-    expect(pollEvery(15_000)(query(1_000))).toBe(false)
+    expect(pollEvery(15_000)(b.q)).toBe(false)
   })
 
   it('under lie-fi leaves it to the probe, backing it up at the longest wait', async () => {
     const { BACKOFF_MAX_MS, pollEvery, reportOffline } = await import('../src/connectivity.ts')
     reportOffline()
-    expect(pollEvery(15_000)(query(1_000))).toBe(BACKOFF_MAX_MS)
+    expect(pollEvery(15_000)(query().q)).toBe(BACKOFF_MAX_MS)
     expect(BACKOFF_MAX_MS).toBe(60_000)
   })
 
-  it('after an HTTP error, waits as long as the query has gone without a good answer: 15 s up to 60 s, jittered (Codex r1)', async () => {
+  it('HTTP errors in a row double the wait, 15 s up to 60 s, and a good answer brings back 15 s (Codex r1)', async () => {
     const { pollEvery } = await import('../src/connectivity.ts')
     const poll = pollEvery(15_000)
+    const b = query()
+    expect(poll(b.q)).toBe(15_000)
     // Error times ending in 000 ms: no jitter.
-    expect(poll(query(1_000_000, 1_015_000))).toBe(15_000)
-    expect(poll(query(1_000_000, 1_016_000))).toBe(16_000)
-    expect(poll(query(1_000_000, 1_031_000))).toBe(31_000)
-    expect(poll(query(1_000_000, 1_062_000))).toBe(60_000)
-    expect(poll(query(1_000_000, 9_000_000))).toBe(60_000)
-    // Never answered: the longest wait.
-    expect(poll(query(0, 1_000_000))).toBe(60_000)
-    // Jitter: up to a fifth shorter, never longer than the cap.
+    const waits = [1, 2, 3, 4, 5].map((i) => {
+      b.fail(i * 1_000_000)
+      return poll(b.q)
+    })
+    expect(waits).toEqual([15_000, 30_000, 60_000, 60_000, 60_000])
+    // A query with no data yet is 'pending' again while it asks: still backing off.
+    b.q.state = { ...b.q.state, status: 'pending' }
+    expect(poll(b.q)).toBe(60_000)
+    b.succeed()
+    expect(poll(b.q)).toBe(15_000)
+    b.fail(9_000_000)
+    expect(poll(b.q)).toBe(15_000)
+  })
+
+  it('jitter only shortens a wait, by at most a fifth, so the cap holds', async () => {
+    const { pollEvery } = await import('../src/connectivity.ts')
+    const poll = pollEvery(15_000)
     for (let ms = 0; ms < 1000; ms += 37) {
-      const wait = poll(query(1_000_000, 1_062_000 + ms)) as number
+      const b = query()
+      poll(b.q)
+      for (let i = 0; i < 4; i++) b.fail(1_000_000 * (i + 1) + ms)
+      const wait = poll(b.q) as number
       expect(wait).toBeLessThanOrEqual(60_000)
       expect(wait).toBeGreaterThan(48_000)
     }
-    // A good answer: back to 15 s.
-    expect(poll(query(1_070_000, 1_062_000))).toBe(15_000)
   })
 
   it('gives the same wait on every read of one failure (a new value would restart the timer at each render)', async () => {
     const { pollEvery } = await import('../src/connectivity.ts')
-    const q = query(1_000_000, 1_031_437)
-    const first = pollEvery(15_000)(q)
+    const poll = pollEvery(15_000)
+    const b = query()
+    poll(b.q)
+    b.fail(1_031_437)
+    b.fail(2_031_437)
+    const first = poll(b.q)
     vi.spyOn(Date, 'now').mockReturnValue(5_000_000)
-    for (let i = 0; i < 5; i++) expect(pollEvery(15_000)(q)).toBe(first)
+    for (let i = 0; i < 5; i++) expect(poll(b.q)).toBe(first)
+  })
+
+  it('never reads a server time, so a device clock behind the server still backs off (Codex r2)', async () => {
+    const { pollEvery } = await import('../src/connectivity.ts')
+    const poll = pollEvery(15_000)
+    // Initial data stamped by the server five minutes ahead of this device: only the count matters.
+    const b = query()
+    b.q.state = { ...b.q.state, dataUpdatedAt: Date.now() + 300_000 } as typeof b.q.state
+    poll(b.q)
+    for (let i = 1; i <= 3; i++) b.fail(Date.now() - 1_000 + i * 1_000)
+    expect(poll(b.q)).toBeGreaterThan(48_000)
+  })
+
+  it("starts over at the browser's online, offline and visibilitychange events (Codex r2)", async () => {
+    const { pollEvery } = await import('../src/connectivity.ts')
+    const poll = pollEvery(15_000)
+    for (const fire of [
+      () => window.dispatchEvent(new Event('online')),
+      () => window.dispatchEvent(new Event('offline')),
+      () => document.dispatchEvent(new Event('visibilitychange')),
+    ]) {
+      const b = query()
+      poll(b.q)
+      for (let i = 1; i <= 4; i++) b.fail(i * 1_000_000)
+      expect(poll(b.q)).toBe(60_000)
+      fire()
+      // The event's own attempt is still in flight: the first wait. It fails too: still the first wait, then 30 s.
+      expect(poll(b.q)).toBe(15_000)
+      b.fail(7_000_000)
+      expect(poll(b.q)).toBe(15_000)
+      b.fail(8_000_000)
+      expect(poll(b.q)).toBe(30_000)
+    }
   })
 })
 

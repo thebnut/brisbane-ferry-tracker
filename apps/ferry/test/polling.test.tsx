@@ -21,20 +21,28 @@ const body: DeparturesResponse = {
   departures: [],
 }
 
-function Probe({ fetcher }: { fetcher: ApiFetcher }) {
-  useDepartures(fetcher, { fixtures: false, rt: null }, 'a', 'b', null, null)
+function Probe({ fetcher, initial = null }: { fetcher: ApiFetcher; initial?: DeparturesResponse | null }) {
+  useDepartures(fetcher, { fixtures: false, rt: null }, 'a', 'b', null, initial)
   return null
 }
 
 /** The board with the root's reconnect handling, re-rendered every `tick` ms as the real board is (its clock). */
-function Board({ fetcher, tick }: { fetcher: ApiFetcher; tick: number }) {
+function Board({
+  fetcher,
+  tick,
+  initial,
+}: {
+  fetcher: ApiFetcher
+  tick: number
+  initial?: DeparturesResponse | null
+}) {
   useRefetchOnReconnect(useQueryClient())
   const [, setN] = useState(0)
   useEffect(() => {
     const id = setInterval(() => setN((n) => n + 1), tick)
     return () => clearInterval(id)
   }, [tick])
-  return <Probe fetcher={fetcher} />
+  return <Probe fetcher={fetcher} initial={initial} />
 }
 
 /** When each call was made (ms of fake time since the start). */
@@ -152,5 +160,48 @@ describe('offline backoff (smoke round 9, Codex r1)', () => {
     expect(at.length).toBe(3)
     await advance(POLL_MS)
     expect(at.length).toBe(4)
+  })
+
+  /** The polls of a run (a failed poll's retry, a second later, folded into it) and the gaps between them. */
+  const pollGaps = (at: number[], from = 0) => {
+    const polls = at.filter((t, i) => t >= from && (i === 0 || t - (at[i - 1] as number) > 2_000))
+    return polls.slice(1).map((t, i) => t - (polls[i] as number))
+  }
+
+  it('backs off on HTTP errors even when the server clock is ahead of the device (Codex r2)', async () => {
+    vi.useFakeTimers()
+    const { fetcher, at } = timedFetcher(() => new Response('busy', { status: 503 }))
+    // The server-rendered board, generated five minutes "later" than this device's clock.
+    const initial = { ...body, generatedAt: Date.now() + 300_000 }
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <Board fetcher={fetcher} tick={5_000} initial={initial} />
+      </QueryClientProvider>,
+    )
+    await advance(240_000)
+    const gaps = pollGaps(at)
+    expect(Math.max(...gaps)).toBeGreaterThan(45_000)
+    expect(at.length).toBeLessThanOrEqual(16)
+  })
+
+  it("starts the HTTP-error backoff over at the browser's online event, even when its own attempt fails (Codex r2)", async () => {
+    vi.useFakeTimers()
+    const { fetcher, at } = timedFetcher(() => new Response('busy', { status: 503 }))
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <Board fetcher={fetcher} tick={600_000} />
+      </QueryClientProvider>,
+    )
+    await advance(200_000)
+    expect(Math.max(...pollGaps(at))).toBeGreaterThan(45_000)
+    const n = at.length
+    await act(async () => {
+      window.dispatchEvent(new Event('online'))
+    })
+    await advance(3_000)
+    // An attempt at once (and its retry), both failing; the next comes at the first wait, not the longest.
+    expect(at.length).toBe(n + 2)
+    await advance(16_000)
+    expect(at.length).toBeGreaterThan(n + 2)
   })
 })

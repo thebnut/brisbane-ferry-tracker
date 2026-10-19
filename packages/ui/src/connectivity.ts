@@ -28,6 +28,8 @@ export const LIVE_SOURCE_MAX_AGE_S = 300
 export const LIVE_REFRESH_MAX_AGE_MS = 60_000
 
 let unreachable = false
+/** Browser online, offline and visibilitychange events so far. */
+let events = 0
 const listeners = new Set<(e?: Event) => void>()
 /** Disconnects so far (a failed API call or the browser going offline), however quickly the connection came back. */
 let disconnects = 0
@@ -160,6 +162,8 @@ export function isOnline(): boolean {
 const onBrowserEvent = (e: Event) => {
   if (e.type === 'online') unreachable = false
   else if (e.type === 'offline') disconnects++
+  // Any of them starts the boards' HTTP-error backoff over (pollEvery).
+  events++
   for (const l of listeners) l(e)
 }
 if (typeof window !== 'undefined') {
@@ -307,27 +311,40 @@ export function probeWhileUnreachable(probe: () => void, firstMs = RECONNECT_PRO
 }
 
 /**
- * A live query's `refetchInterval` (TanStack reads it after each fetch, and on every render): every `ms` while API
- * calls get through, as before. A query whose last fetch failed with an answer from the network (an HTTP error) waits
- * as long as it has gone without a good answer, from `ms` up to BACKOFF_MAX_MS, up to a fifth shorter. The same for
- * every render of one failure (the jitter comes from its time): a value that changed would restart the timer. None
- * while the browser says it is offline: its `online` event refetches every board (onReconnect). While calls fail
- * with the browser online (lie-fi), probeWhileUnreachable refetches every board on its backoff, so the board's own
- * timer only backs that up, at the longest wait.
+ * Per query: the browser-event count and its errorUpdateCount when its HTTP-error backoff last started over (its last
+ * good answer, or the browser's last online, offline or visibilitychange event).
  */
-export const pollEvery =
-  (ms: number) =>
-  ({ state: { status, dataUpdatedAt, errorUpdatedAt } }: QueryState) =>
-    isOnline()
-      ? status === 'error'
-        ? Math.min(BACKOFF_MAX_MS, Math.max(ms, errorUpdatedAt - dataUpdatedAt)) *
-          (1 - (errorUpdatedAt % 1000) / 5000)
-        : ms
-      : navigator.onLine !== false && BACKOFF_MAX_MS
+const backoffFrom = new WeakMap<object, [number, number]>()
+
+/**
+ * A live query's `refetchInterval` (TanStack reads it after each fetch, and on every render): every `ms` while API
+ * calls get through, as before. After failed fetches that got an answer from the network (HTTP errors), `ms` doubling
+ * with each failure in a row, up to BACKOFF_MAX_MS, up to a fifth shorter. Counted on this device (TanStack's
+ * errorUpdateCount), never from a server time (Codex r2); started over by a good answer and by the browser's online,
+ * offline and visibilitychange events. The same for every read of one failure (the jitter comes from its time): a
+ * value that changed would restart the timer. None while the browser says it is offline: its `online` event refetches
+ * every board (onReconnect). While calls fail with the browser online (lie-fi), probeWhileUnreachable refetches every
+ * board on its backoff, so the board's own timer only backs that up, at the longest wait.
+ */
+export const pollEvery = (ms: number) => (query: QueryState) => {
+  const { status, errorUpdateCount, errorUpdatedAt } = query.state
+  let from = backoffFrom.get(query)
+  // A query with no data yet goes back to 'pending' while it asks again: only a good answer starts over.
+  if (status === 'success' || from?.[0] !== events) {
+    from = [events, errorUpdateCount]
+    backoffFrom.set(query, from)
+  }
+  const failures = errorUpdateCount - from[1]
+  return isOnline()
+    ? failures
+      ? Math.min(BACKOFF_MAX_MS, ms * 2 ** (failures - 1)) * (1 - (errorUpdatedAt % 1000) / 5000)
+      : ms
+    : navigator.onLine !== false && BACKOFF_MAX_MS
+}
 
 /** The part of a TanStack Query that pollEvery reads. */
 interface QueryState {
-  state: { status: string; dataUpdatedAt: number; errorUpdatedAt: number }
+  state: { status: string; errorUpdateCount: number; errorUpdatedAt: number }
 }
 
 /**
