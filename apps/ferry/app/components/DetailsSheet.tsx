@@ -20,7 +20,7 @@ import type { ApiFetcher } from '../lib/api.ts'
 import { effectiveDep, isExpress, serviceLabel } from '../lib/departures.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useTrip } from '../lib/queries.ts'
-import { terminalById } from '../lib/terminals.ts'
+import { terminalById, tripStopName } from '../lib/terminals.ts'
 
 const MapView = lazy(() => import('@bft/ui/map'))
 
@@ -72,7 +72,7 @@ export function DetailsSheet({
     from >= 0
       ? tripStops.slice(from).map((s) => ({
           id: `${s.stopId}:${s.stopSequence}`,
-          name: cleanStopName(s.name ?? terminalById(s.stopId)?.name ?? s.stopId),
+          name: cleanStopName(tripStopName(s.stopId, s.name)),
           stops: s.status !== 'skipped' && (s.pickup !== 1 || s.dropOff !== 1),
         }))
       : []

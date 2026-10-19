@@ -11,6 +11,7 @@ import {
   TERMINALS,
   terminalById,
   terminalBySlug,
+  tripStopName,
   withOrigin,
 } from '../app/lib/terminals.ts'
 
@@ -79,5 +80,17 @@ describe('pairFromParams (R3-F2 deep links)', () => {
     expect(pairFromParams(p('from=317581&to=317590'), DEFAULT_STOPS)?.inbound.id).toBe('317589')
     // No destination: keep the saved one when reachable.
     expect(pairFromParams(p('from=317583'), DEFAULT_STOPS)?.inbound.id).toBe('317590')
+  })
+})
+
+describe('tripStopName (R3: curated names win over the API trip-stop name)', () => {
+  it('shows the curated terminal name when the API name differs', () => {
+    expect(tripStopName('317590', 'Riverside ferry terminal, Eagle St')).toBe('Riverside')
+    expect(tripStopName('319637', 'Qut Gardens Point Ferry Terminal')).toBe('QUT Gardens Point')
+  })
+  it('falls back to the API name, then the stop id, for a stop not in the curated list', () => {
+    expect(tripStopName('999999', 'Somewhere ferry terminal')).toBe('Somewhere ferry terminal')
+    expect(tripStopName('999999', undefined)).toBe('999999')
+    expect(tripStopName('999999', null)).toBe('999999')
   })
 })
