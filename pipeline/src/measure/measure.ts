@@ -91,7 +91,9 @@ const second = await publish(outDir, new DirTarget(join(work, 'target')))
 const lines: string[] = []
 const out = (s = '') => lines.push(s)
 
-out(`Feed ${res.feedVersion}, service date D = ${D}, window ${res.serviceDates[0]}..${res.serviceDates[7]}.`)
+out(
+  `Feed ${res.feedVersion}, service date D = ${D}, window ${res.serviceDates[0]}..${res.serviceDates.at(-1)}.`,
+)
 out(
   `Build: ${buildSecs.toFixed(1)} s wall, peak RSS ${rssMb.toFixed(0)} MB (this process, incl. the measurement hooks).`,
 )
