@@ -117,11 +117,15 @@ export function useVehicles(fetcher: ApiFetcher, mode: DataMode, enabled: boolea
   })
 }
 
+/** Bumped by another tab's storage writes (the event never fires for this tab's own). */
+let stored = 0
+globalThis.addEventListener?.('storage', () => stored++)
+
 /**
  * The data a board shows: offline (`hold`), the best of its data and the copy kept on this device (bestOfflineCopy,
- * by the time `now`). The kept copy is read once per change of the data, pair or hold, not on every clock tick:
- * offline, the board re-renders with the countdown (L8). A copy another tab keeps meanwhile shows by the next poll:
- * offline the poll still runs (offlineFirst) and its queryFn reads the kept copy, so a changed answer is new data.
+ * by the time `now`). The kept copy is read once per change of the data, pair or hold, or on the next render after
+ * another tab writes to storage (this tab's own writes come with new data), not on every clock tick: offline, the
+ * board re-renders with the countdown (L8).
  */
 export function useShownData(
   data: DeparturesResponse | undefined,
@@ -130,9 +134,11 @@ export function useShownData(
   hold: boolean,
   now: number,
 ): DeparturesResponse | undefined {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `stored` reads again after another tab's write (Codex review).
   const kept = useMemo(
     () => (data && hold ? (readOffline(from, to) as DeparturesResponse | null) : null),
-    [data, from, to, hold],
+    [data, from, to, hold, stored],
   )
-  return data && hold ? (bestOfflineCopy([data, kept], now) ?? data) : data
+  // Never null here: the board's own data is a copy.
+  return data && hold ? (bestOfflineCopy([data, kept], now) as DeparturesResponse) : data
 }

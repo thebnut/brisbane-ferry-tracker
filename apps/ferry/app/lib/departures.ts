@@ -42,13 +42,10 @@ export function cardModel(d: Departure, nowMs: number): DepartureCardProps & { k
   const dep = effectiveDep(d)
   const rawArr = d.estArrTo ?? d.schedArrTo
   const arr = rawArr != null ? arrivalAfter(dep, rawArr) : null
-  const badges: BadgeKind[] = []
-  if (d.status === 'live') badges.push('live')
-  if (d.gps) badges.push('gps')
-  if (d.status === 'scheduled') badges.push('scheduled')
-  if (d.status === 'cancelled') badges.push('cancelled')
-  if (d.status === 'skipped') badges.push('skipped')
-  if (d.status === 'unknown') badges.push('unknown')
+  // LIVE, then GPS, then any other status: every contract status is a badge kind.
+  const badges: BadgeKind[] = d.gps ? ['gps'] : []
+  if (live) badges.unshift('live')
+  else badges.push(d.status)
 
   // From the clock minutes shown, so "9:02 pm → 9:04 pm" always reads 2 mins.
   const journeyMins = arr != null ? minutesBetween(dep, arr) : null

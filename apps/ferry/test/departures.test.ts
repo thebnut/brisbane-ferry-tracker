@@ -61,6 +61,20 @@ describe('cardModel', () => {
     expect(c.cancelled).toBe(true)
     expect(c.badges).toEqual(['cancelled'])
   })
+  it('badges: LIVE, then GPS, then any other status, for every status (L8 budget offset)', () => {
+    const want: Record<Departure['status'], string[]> = {
+      live: ['live'],
+      scheduled: ['scheduled'],
+      cancelled: ['cancelled'],
+      skipped: ['skipped'],
+      unknown: ['unknown'],
+    }
+    for (const [status, badges] of Object.entries(want) as Array<[Departure['status'], string[]]>) {
+      expect(cardModel(dep({ status, gps: false }), NOW).badges, status).toEqual(badges)
+      const withGps = status === 'live' ? ['live', 'gps'] : ['gps', ...badges]
+      expect(cardModel(dep({ status, gps: true }), NOW).badges, `${status} gps`).toEqual(withGps)
+    }
+  })
   it('next-day departures get the (DD/MM) marker', () => {
     const c = cardModel(dep({ schedDep: s(29, 10), estDep: null, status: 'scheduled', gps: false }), NOW)
     expect(c.dayMarker).toBe('(19/10)')
