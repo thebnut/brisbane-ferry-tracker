@@ -7,6 +7,7 @@
  * The next call that reaches the network clears it, and so does the browser's own "online" event.
  */
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { NULL_BODY_STATUS } from './upstream.ts'
 
 /** Header the service worker adds to /v1 responses it serves from its cache instead of the network. */
 export const SW_CACHE_HEADER = 'x-bft-cache'
@@ -380,9 +381,6 @@ export async function trackedFetch(input: string, init?: RequestInit): Promise<R
     caller?.removeEventListener('abort', onAbort)
   }
 }
-
-/** Statuses whose Response can't carry a body. */
-const NULL_BODY_STATUS = new Set([101, 103, 204, 205, 304])
 
 /** Bodies parsed from a response the service worker served from its cache (see noteCacheCopy). */
 const cacheCopies = new WeakSet<object>()

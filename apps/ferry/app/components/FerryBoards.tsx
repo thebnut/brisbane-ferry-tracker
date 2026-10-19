@@ -16,7 +16,7 @@ import {
   StopSelect,
   useFixtureCookie,
 } from '@bft/ui'
-import { bestOfflineCopy, useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   applyFilter,
@@ -28,12 +28,11 @@ import {
   visibleRows,
 } from '../lib/departures.ts'
 import { cleanStopName } from '../lib/names.ts'
-import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
+import { type DataMode, useDepartures, useFetcher, useShownData } from '../lib/queries.ts'
 import {
   FIXTURE_COOKIE,
   markSelectorSeen,
   readDepartAt,
-  readOffline,
   readSavedPair,
   savePair,
   shouldShowSelector,
@@ -147,13 +146,11 @@ export function FerryBoards({
   const stateOf = (q: typeof out) => boardState(q.data, offline, now, unconfirmedBefore)
   // Offline, a board shows the best copy on hand: its data, or the copy kept on this device. After an offline reload
   // its data is the cached page's (maybe last night's, every row gone) until the first poll (R6-B1). Read only once
-  // the board is offline, after hydration, so the first render still matches the HTML.
-  const shown = (q: typeof out, from: string, to: string) =>
-    q.data && departAt == null && stateOf(q) === 'offline'
-      ? (bestOfflineCopy([q.data, readOffline(from, to) as DeparturesResponse | null], now) ?? q.data)
-      : q.data
-  const outData = shown(out, pair.outbound.id, pair.inbound.id)
-  const backData = shown(back, pair.inbound.id, pair.outbound.id)
+  // the board is offline, after hydration, so the first render still matches the HTML, and once per change, not per
+  // tick (L8); which copy is best still depends on the time.
+  const holds = (q: typeof out) => departAt == null && stateOf(q) === 'offline'
+  const outData = useShownData(out.data, pair.outbound.id, pair.inbound.id, holds(out), now)
+  const backData = useShownData(back.data, pair.inbound.id, pair.outbound.id, holds(back), now)
   const view = (q: typeof out, data: typeof outData) =>
     data ? applyFilter(visibleRows(data.departures, stateOf(q), now), filter) : null
   const outList = view(out, outData)

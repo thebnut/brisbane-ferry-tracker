@@ -116,3 +116,22 @@ export function useVehicles(fetcher: ApiFetcher, mode: DataMode, enabled: boolea
     refetchInterval: POLL_MS,
   })
 }
+
+/**
+ * The data a board shows: offline (`hold`), the best of its data and the copy kept on this device (bestOfflineCopy,
+ * by the time `now`). The kept copy is read once per change of the data, pair or hold, not on every clock tick:
+ * offline, the board re-renders with the countdown (L8).
+ */
+export function useShownData(
+  data: DeparturesResponse | undefined,
+  from: string,
+  to: string,
+  hold: boolean,
+  now: number,
+): DeparturesResponse | undefined {
+  const kept = useMemo(
+    () => (data && hold ? (readOffline(from, to) as DeparturesResponse | null) : null),
+    [data, from, to, hold],
+  )
+  return data && hold ? (bestOfflineCopy([data, kept], now) ?? data) : data
+}
