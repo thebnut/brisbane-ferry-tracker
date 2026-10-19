@@ -22,6 +22,13 @@ export function getEnv(context: Readonly<RouterContextProvider>): Env | null {
   }
 }
 
+/**
+ * FIXTURE_FALLBACK (answer with fixtures when the API fails) is a development switch: it counts only where demo data is
+ * allowed at all (ALLOW_FIXTURES), so a stray value can never put demo data on a production page (R7-B1).
+ */
+export const fixtureFallbackOn = (env: Pick<Env, 'ALLOW_FIXTURES' | 'FIXTURE_FALLBACK'> | null | undefined) =>
+  env?.ALLOW_FIXTURES === '1' && env?.FIXTURE_FALLBACK === '1'
+
 export function isFixtureMode(request: Request, env: Env | null): boolean {
   if (!env) return false
   if (env.FIXTURES === '1') return true
@@ -50,16 +57,19 @@ export function loaderEnv(request: Request, context: Readonly<RouterContextProvi
       binding
         ? binding.fetch(new Request(`https://bft-api${path}`, { signal: init?.signal }))
         : fetch(`${base}${path}`, { signal: init?.signal })
-    // Staging only: while bft-api has no bus data, answer from fixtures (responses then carry a fixture-*
-    // generation, and DataBanner says "Demo data").
-    api =
-      env?.FIXTURE_FALLBACK === '1'
-        ? async (path, init) => {
-            const res = await live(path, init).catch(() => null)
-            if (res && res.status < 500) return res
-            return handleFixtureApi(new URL(`http://fixtures/__fixtures${path}`), Date.now(), env)
-          }
-        : live
+    // Development only (fixtureFallbackOn): an API error is answered from fixtures (responses then carry a fixture-*
+    // generation, and DataBanner says "Demo data"). Never for a call cut off by its time budget (settle): a slow
+    // API is not a failed one, and staging showed "Demo data" that way (R7-B1).
+    api = fixtureFallbackOn(env)
+      ? async (path, init) => {
+          const res = await live(path, init).catch((error: unknown) => {
+            if (init?.signal?.aborted) throw error
+            return null
+          })
+          if (res && res.status < 500) return res
+          return handleFixtureApi(new URL(`http://fixtures/__fixtures${path}`), Date.now(), env)
+        }
+      : live
   }
   // Client data (/data/bus/*): the build's static copy first (free, no API hop), then the API or fixtures.
   const fetcher: ApiFetcher = async (path, init) => {

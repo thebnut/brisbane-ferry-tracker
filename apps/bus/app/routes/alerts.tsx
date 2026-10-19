@@ -3,7 +3,8 @@
  * the routes serving them) or all routes. Server-rendered from /v1/alerts?mode=bus.
  */
 import type { Alert } from '@bft/core/contract'
-import { cx, RouteTile, routeTileVariant, SegmentedControl } from '@bft/ui'
+import { cx, RouteTile, routeTileVariant } from '@bft/ui'
+import { SegmentedControl } from '@bft/ui/bus'
 import { useEffect, useMemo, useState } from 'react'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { alertKind, forMyStops, KIND_LABEL, sortAlerts, whenText } from '../lib/alerts.ts'

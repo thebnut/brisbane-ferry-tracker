@@ -5,5 +5,6 @@ export default [
   route('terminal/:slug', 'routes/terminal.tsx'),
   route('privacy', 'routes/privacy.tsx'),
   route('terms', 'routes/terms.tsx'),
+  route('feedback', 'routes/feedback.tsx'),
   route('*', 'routes/not-found.tsx'),
 ] satisfies RouteConfig

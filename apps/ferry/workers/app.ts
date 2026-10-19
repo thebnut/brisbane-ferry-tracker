@@ -6,11 +6,14 @@
  *  - /sitemap.xml     generated, same URLs as the legacy postbuild sitemap
  *  - everything else  React Router SSR
  */
+
+import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
 import { validateProxied } from '../app/lib/contract.server.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import { sitemapXml } from '../app/lib/seo.ts'
+import { fixtureFallbackOn, isFixtureMode } from '../app/lib/server.server.ts'
 import { handleLegacy } from './legacy.ts'
 import { newNonce, withSecurityHeaders } from './security.ts'
 
@@ -27,11 +30,11 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
     const res = env.API
       ? await env.API.fetch(new Request(`https://bft-api${target}`, init))
       : await fetch(`${env.API_BASE}${target}`, init)
-    if (res.status >= 500 && env.FIXTURE_FALLBACK === '1') return handleFixtureApi(url, Date.now())
+    if (res.status >= 500 && fixtureFallbackOn(env)) return handleFixtureApi(url, Date.now())
     // Contract check at the edge, so the browser can trust the shape without shipping zod.
     return await validateProxied(url.pathname, res)
   } catch (error) {
-    if (env.FIXTURE_FALLBACK === '1') return handleFixtureApi(url, Date.now())
+    if (fixtureFallbackOn(env)) return handleFixtureApi(url, Date.now())
     return Response.json(
       { error: 'upstream_unavailable', detail: error instanceof Error ? error.message : String(error) },
       { status: 502, headers: { 'cache-control': 'no-store' } },
@@ -65,5 +68,11 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
   }
   const context = new RouterContextProvider()
   context.set(cloudflareContext, { env, ctx, nonce })
-  return requestHandler(request, context)
+  const res = await requestHandler(request, context)
+  // A visitor's demo session (not FIXTURES=1 for everyone): marked so no cache keeps it (R7-B1).
+  if (env.FIXTURES === '1' || !isFixtureMode(request, env)) return res
+  const marked = new Response(res.body, res)
+  marked.headers.set(DEMO_HEADER, '1')
+  marked.headers.set('cache-control', 'private, no-store')
+  return marked
 }

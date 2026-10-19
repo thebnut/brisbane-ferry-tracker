@@ -1,3 +1,4 @@
+import { isDemoSession } from '@bft/ui/demo'
 /**
  * Per-device preferences: saved stops ("My stops"), recent searches, theme and offline timetable copies. Saved
  * stops and the theme also go in small cookies so the server can render the right rows and colours into the HTML.
@@ -128,6 +129,8 @@ const offlineKey = (stopId: string) => `${OFFLINE_PREFIX}${stopId}`
 export const OFFLINE_UNSAVED_MAX = 8
 
 export function writeOffline(stopId: string, body: unknown): void {
+  // A visitor's demo session keeps nothing on the device (R7-B1).
+  if (isDemoSession()) return
   safe(() => {
     localStorage.setItem(offlineKey(stopId), JSON.stringify({ savedAt: Date.now(), body }))
     pruneOffline()

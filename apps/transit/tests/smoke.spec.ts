@@ -195,8 +195,10 @@ const BUDGET_KB: Record<string, number> = {
   '/alerts': 150,
   '/ferry': 139.8 + 10,
   '/train': 149.2 + 10,
-  '/bus': 143.6 + 10,
-  '/bus/stop/10802': 144.5 + 10,
+  // +3 (#70, R7): the bus boards' elements moved to their own chunk (@bft/ui/bus), which takes about 3 KB gz off
+  // every other page but costs the Bus pages about 1 KB in separate compression, plus R7's shared offline code.
+  '/bus': 143.6 + 13,
+  '/bus/stop/10802': 144.5 + 13,
 }
 
 test('first-load JS within budget on every top-level page; MapLibre is never on it', async ({ request }) => {

@@ -6,7 +6,7 @@
  * The 12k-stop index loads lazily after first paint (or on focus) and the service worker keeps it. Each search's
  * duration is recorded on `window.__bftSearch` for the Playwright performance check.
  */
-import { SearchField, StopResultCard, ThumbSheet } from '@bft/ui'
+import { SearchField, StopResultCard, ThumbSheet } from '@bft/ui/bus'
 import { type ReactNode, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import type { StopIndexEntry } from '../lib/data-contract.ts'

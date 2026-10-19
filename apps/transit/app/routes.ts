@@ -38,5 +38,6 @@ export default [
     ]),
   ]),
   route('ask', 'routes/ask.tsx'),
+  route('feedback', 'routes/feedback.tsx'),
   route('*', 'routes/not-found.tsx'),
 ] satisfies RouteConfig

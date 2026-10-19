@@ -32,3 +32,20 @@ describe('wrangler.jsonc Turnstile sitekeys', () => {
       expect(read(env).vars.TURNSTILE_SITEKEY, String(env)).not.toBe(TEST_SITEKEY)
   })
 })
+
+describe('demo data never reaches production, and staging shows real data (R7-B1)', () => {
+  it('production envs serve no fixtures: FIXTURES and ALLOW_FIXTURES are "0" (or unset), no FIXTURE_FALLBACK', () => {
+    for (const env of ['production']) {
+      const vars = read(env).vars as Record<string, unknown>
+      expect(vars.FIXTURES ?? '0', env).toBe('0')
+      expect(vars.ALLOW_FIXTURES ?? '0', env).toBe('0')
+      expect(vars, env).not.toHaveProperty('FIXTURE_FALLBACK')
+    }
+  })
+
+  it('staging answers API failures with its error and offline states, never with fixtures', () => {
+    const vars = read('staging').vars as Record<string, unknown>
+    expect(vars.FIXTURES).toBe('0')
+    expect(vars).not.toHaveProperty('FIXTURE_FALLBACK')
+  })
+})

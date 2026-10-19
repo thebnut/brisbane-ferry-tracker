@@ -18,7 +18,9 @@
     "ALLOW_FIXTURES": "1",
     // "1" serves fixture data to everyone (dev and Playwright without the live API).
     "FIXTURES": "0",
-    "SITE_URL": "https://bft-bus.brisbanetransit.workers.dev"
+    "SITE_URL": "https://bft-bus.brisbanetransit.workers.dev",
+    // /feedback goes to the transit site's feedback sheet (this app has none of its own).
+    "TRANSIT_SITE_URL": "https://bft-transit.brisbanetransit.workers.dev"
   },
   "env": {
     "staging": {
@@ -28,9 +30,9 @@
         "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
         "ALLOW_FIXTURES": "1",
         "FIXTURES": "0",
-        // Until bft-api has bus data: answer with fixture data (the pages say "Demo data") when the API errors.
-        "FIXTURE_FALLBACK": "1",
-        "SITE_URL": "https://bft-bus.brisbanetransit.workers.dev"
+        "SITE_URL": "https://bft-bus.brisbanetransit.workers.dev",
+        // /feedback goes to the transit site's feedback sheet (this app has none of its own).
+        "TRANSIT_SITE_URL": "https://bft-transit.brisbanetransit.workers.dev"
       },
       // SSR loaders and the /v1 + /data proxy call the API Worker in-process through this binding.
       "services": [{ "binding": "API", "service": "bft-api" }]
@@ -48,6 +50,8 @@
         "FIXTURES": "0",
         // No FIXTURE_FALLBACK: production never serves demo data.
         "SITE_URL": "https://brisbanebus.com",
+        // /feedback goes to the transit site's feedback sheet (this app has none of its own).
+        "TRANSIT_SITE_URL": "https://brisbanetransit.com",
         // Soft launch: noindex + robots Disallow until the real domain is verified, then "1" (runbook 8.5).
         "INDEXABLE": "0"
       },
@@ -68,6 +72,8 @@
         "FIXTURES": "0",
         // No FIXTURE_FALLBACK: production never serves demo data.
         "SITE_URL": "https://brisbanebus.com",
+        // /feedback goes to the transit site's feedback sheet (this app has none of its own).
+        "TRANSIT_SITE_URL": "https://brisbanetransit.com",
         // Soft launch: noindex + robots Disallow until the real domain is verified, then "1" (runbook 8.5).
         "INDEXABLE": "0"
       },

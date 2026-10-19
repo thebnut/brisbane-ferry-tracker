@@ -6,7 +6,6 @@
 
 import type { TripResponse } from '@bft/core/contract'
 import {
-  BigCountdown,
   dayMarker,
   delayText,
   ErrorState,
@@ -15,16 +14,13 @@ import {
   liveState,
   minutesBetween,
   minutesUntil,
-  OccupancyMeter,
   PrimaryButton,
   RouteTile,
   routeTileVariant,
-  SaveButton,
-  SkeletonRows,
   StatusBadge,
-  TripTimeline,
   tripAsTimetable,
 } from '@bft/ui'
+import { BigCountdown, OccupancyMeter, SaveButton, SkeletonRows, TripTimeline } from '@bft/ui/bus'
 import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { data, Link, useNavigate } from 'react-router'
 import { BusNav, DataBanner, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'

@@ -173,3 +173,26 @@ export function OfflineBanner({ kind, detail }: OfflineBannerProps) {
     </div>
   )
 }
+
+export interface OfflineScreenProps {
+  /** What couldn't load, e.g. "This screen". */
+  what?: string
+  children?: ReactNode
+}
+
+/**
+ * A screen whose data needs the network, opened offline (R7-T2): the offline banner and a plain explanation, never
+ * the error boundary's "Something went wrong". The app retries by itself (retryWhenBack) and the screen replaces this
+ * once its data loads.
+ */
+export function OfflineScreen({ what = 'This screen', children }: OfflineScreenProps) {
+  return (
+    <div data-offline-route="" className="mx-auto flex max-w-3xl flex-col gap-3 px-3.5 py-6 md:px-4">
+      <OfflineBanner
+        kind="offline"
+        detail={`${what} needs a connection. It loads by itself when you're back online.`}
+      />
+      {children}
+    </div>
+  )
+}

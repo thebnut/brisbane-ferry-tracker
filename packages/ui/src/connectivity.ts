@@ -200,6 +200,36 @@ export function onReconnect(onBack: () => void): () => void {
   }
 }
 
+/**
+ * Did a page's data fail to load because the network is down (R7-T2)? A client navigation fetches its loader data
+ * (`<path>.data`); offline the service worker has no copy, so fetch() rejects with a TypeError ("Failed to fetch",
+ * Safari's "Load failed", Firefox's "NetworkError…"), and React Router hands that to the error boundary. Any error
+ * while the browser says it is offline, or while API calls are failing, counts too.
+ */
+export function isOfflineFailure(error: unknown): boolean {
+  // Only in the browser: an error on the server says nothing about the device's connection.
+  if (typeof window === 'undefined') return false
+  if (!isOnline()) return true
+  return error instanceof TypeError && /^(?:failed to fetch|load failed|networkerror)/i.test(error.message)
+}
+
+/** How often a screen that needs the network retries while it waits for it (as well as on every reconnect). */
+export const OFFLINE_RETRY_MS = 10_000
+
+/**
+ * For a screen that couldn't load offline (R7-T2): calls `retry` the moment the connection may be back (onReconnect),
+ * and every OFFLINE_RETRY_MS meanwhile, because a dead connection that never said it was offline (lie-fi, the
+ * service worker cut off) never says it is back either. Returns an unsubscribe.
+ */
+export function retryWhenBack(retry: () => void, intervalMs = OFFLINE_RETRY_MS): () => void {
+  const off = onReconnect(retry)
+  const id = setInterval(retry, intervalMs)
+  return () => {
+    off()
+    clearInterval(id)
+  }
+}
+
 /** The polled (live) queries of a TanStack QueryClient: what a reconnect refetches. Static data stays cached. */
 export interface RefetchableClient {
   refetchQueries(
@@ -214,21 +244,60 @@ interface PolledQuery {
 const isPolled = (q: PolledQuery) =>
   q.observers.some((o) => (o.options as { refetchInterval?: unknown }).refetchInterval != null)
 
-/** onReconnect for an app's QueryClient, refetching every active polled query at once (R3-X9). */
+/** While API calls fail but the browser says it is online, the live boards retry this often (R7). */
+export const RECONNECT_PROBE_MS = 2_500
+
+/**
+ * Calls `probe` every `intervalMs` while API calls are failing (or answered from the service worker's cache) and the
+ * browser still says it is online. That connection can come back without any event: DevTools' "Service Workers →
+ * Offline" unticked, a flaky link, a captive network let through. Until the next 15 s poll reached the network,
+ * nothing noticed, so a saved stop took 15–25 s to show LIVE again (R7). Once a probe gets through, onReconnect
+ * refetches every board. With navigator.onLine false the browser's `online` event does the job instead.
+ */
+export function probeWhileUnreachable(probe: () => void, intervalMs = RECONNECT_PROBE_MS): () => void {
+  let id: ReturnType<typeof setInterval> | undefined
+  // A hidden tab doesn't poll, so it doesn't probe either (Codex review); onReconnect refetches when it is shown.
+  const tick = () => {
+    if (document.visibilityState !== 'hidden') probe()
+  }
+  const update = () => {
+    const probing = unreachable && navigator.onLine !== false
+    if (probing && id === undefined) id = setInterval(tick, intervalMs)
+    else if (!probing && id !== undefined) {
+      clearInterval(id)
+      id = undefined
+    }
+  }
+  const unsubscribe = subscribe(update)
+  update()
+  return () => {
+    unsubscribe()
+    if (id !== undefined) clearInterval(id)
+  }
+}
+
+/**
+ * onReconnect for an app's QueryClient, refetching every active polled query at once (R3-X9), and probing them while
+ * the connection is down without the browser knowing (probeWhileUnreachable).
+ */
 export function useRefetchOnReconnect(client: RefetchableClient): void {
-  useEffect(
-    () =>
-      onReconnect(() => {
-        void client
-          .refetchQueries(
-            { type: 'active', predicate: isPolled },
-            // A board already fetching keeps its request (one reaching the network is what told us we're back).
-            { cancelRefetch: false },
-          )
-          .catch(() => {})
-      }),
-    [client],
-  )
+  useEffect(() => {
+    const refetch = () => {
+      void client
+        .refetchQueries(
+          { type: 'active', predicate: isPolled },
+          // A board already fetching keeps its request (one reaching the network is what told us we're back).
+          { cancelRefetch: false },
+        )
+        .catch(() => {})
+    }
+    const offReconnect = onReconnect(refetch)
+    const offProbe = probeWhileUnreachable(refetch)
+    return () => {
+      offReconnect()
+      offProbe()
+    }
+  }, [client])
 }
 
 /** `isOnline()` as React state: true during SSR and hydration, then the live answer. */
@@ -425,4 +494,27 @@ export const DEPARTED_GRACE_S = 60
 export function dropDeparted<T>(rows: T[], departsAt: (row: T) => number, nowMs: number, live: boolean): T[] {
   const cutoff = nowMs / 1000 - (live ? DEPARTED_GRACE_S : 0)
   return rows.filter((r) => departsAt(r) >= cutoff)
+}
+
+/**
+ * Header each Worker adds to a page or loader-data response rendered in a visitor's demo session (?fixtures=1 and
+ * its cookie, R7-B1): the service worker never keeps such a response (skipDemoResponses), and neither does
+ * savePageCopy, so a demo page can never come back later under an ordinary visit's URL.
+ */
+export const DEMO_HEADER = 'x-bft-demo'
+
+/**
+ * Saves the page at `url` into the service worker's page cache (the first page view, and transit's client
+ * navigations): fetched again from the network, kept only if it is an ordinary HTML page (not an error, not demo).
+ */
+export async function savePageCopy(cacheName: string, url: string): Promise<boolean> {
+  const res = await fetch(url, { credentials: 'same-origin' })
+  if (
+    !res.ok ||
+    res.headers.has(DEMO_HEADER) ||
+    !(res.headers.get('content-type') ?? '').includes('text/html')
+  )
+    return false
+  await (await caches.open(cacheName)).put(url, res)
+  return true
 }

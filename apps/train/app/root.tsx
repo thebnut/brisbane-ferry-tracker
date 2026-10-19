@@ -1,3 +1,4 @@
+import { useFixtureCookie } from '@bft/ui'
 import {
   LIVE_GUARD_CSS,
   liveGuardScript,
@@ -22,7 +23,7 @@ import { Footer, SiteHeader } from './components/Chrome.tsx'
 import { cloudflareContext } from './lib/context.ts'
 import { makeQueryClient } from './lib/queries.ts'
 import { getEnv, isFixtureMode } from './lib/server.server.ts'
-import { themeFromCookie } from './lib/storage.ts'
+import { FIXTURE_COOKIE, themeFromCookie } from './lib/storage.ts'
 
 // No web-font request: Inter/Poppins are used when installed, otherwise system-ui (a render-blocking font
 // stylesheet would cost LCP). The lockup's wordmark is live text in Poppins with system fallbacks.
@@ -43,6 +44,10 @@ export function loader({ request, context }: Route.LoaderArgs) {
     nonce: context.get(cloudflareContext).nonce,
     theme: themeFromCookie(request.headers.get('cookie')),
     fixtures,
+    /** FIXTURES=1: demo data for everyone (development, tests), no demo session to start or end. */
+    fixturesForced: env?.FIXTURES === '1',
+    /** ALLOW_FIXTURES: this Worker lets visitors switch demo mode on (never in production). */
+    demoAllowed: env?.ALLOW_FIXTURES === '1',
     // null = poll; '' = this Worker's TripSocket DO (same origin); otherwise a wss:// base.
     tripWs: env?.TRIP_WS === '1' && sameMode ? (env.API_WS_BASE ?? '') : null,
     /** When this HTML was rendered: the live guard compares it with the device clock (R2-T7). */
@@ -89,6 +94,14 @@ export default function App() {
   const [client] = useState(makeQueryClient)
   // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
   useLiveGuardRelease()
+  // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0 (R7-B1).
+  const rootData = useRouteLoaderData<typeof loader>('root')
+  useFixtureCookie(
+    FIXTURE_COOKIE,
+    rootData?.fixtures === true,
+    rootData?.fixturesForced === true,
+    rootData?.demoAllowed === true,
+  )
   // Back online: refetch the live boards at once, not at the next poll (R3-X9).
   useRefetchOnReconnect(client)
   return (

@@ -3,7 +3,8 @@
  * data/bus/routes/{route}.json (server-rendered stop list); the map (lazy) draws the line, the stops as bus diamonds
  * and the live buses; the sheet lists the buses with where they are. `?trip=` highlights one bus ("Track on map").
  */
-import { occupancyText, RouteTile, routeTileVariant, SegmentedControl } from '@bft/ui'
+import { RouteTile, routeTileVariant } from '@bft/ui'
+import { occupancyText, SegmentedControl } from '@bft/ui/bus'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { data, Link, useSearchParams } from 'react-router'
 import { ClientOnly } from '../components/ClientOnly.tsx'
