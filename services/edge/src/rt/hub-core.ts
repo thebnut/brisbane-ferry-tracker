@@ -631,8 +631,9 @@ export class HubCore {
    * Load every given mode's days in this one cycle (cold-start review, 20 Oct: one day per cycle left the last
    * mode, bus, without RT for ~90 s after every deploy). All the blobs are fetched at once (the wall time is R2
    * round trips); decoding, parsing and indexing run one day at a time, so at most one parsed day is alive at once.
-   * Measured (scripts/coldload.ts, real weekday data, Node): all four modes' two days in ~360 ms CPU, live peak
-   * ~52 MB (one day per cycle: ~440 ms over eight cycles, 44 MB), inside cpu_ms 2000 and the 128 MB isolate.
+   * Measured (scripts/coldload.ts: real data, restored snapshot, combined feeds, Node): the whole first cycle, all
+   * four modes, ~390-470 ms CPU, live peak ~76-79 MB for the whole process (one day per cycle: eight cycles of up to
+   * ~240 ms, 70-88 MB), inside cpu_ms 2000 and the 128 MB isolate.
    */
   private async loadUnindexed(
     modes: Mode[],
@@ -648,44 +649,51 @@ export class HubCore {
         if (!index) throw new Error(`index ${generation}/${mode} missing`)
         return want
           .filter((d) => index.tripIndex?.[d])
-          .map((date) => ({
-            date,
-            bytes: this.d.store.tripIndexDayBytes(index, date).then(
-              (b) => b ?? new Error(`trip index ${mode} ${generation} ${date} missing`),
-              (e: unknown) => (e instanceof Error ? e : new Error(String(e))),
-            ),
-          }))
+          .map(
+            (date): DayRead => ({
+              date,
+              bytes: this.d.store.tripIndexDayBytes(index, date).then(
+                (b) => b ?? new Error(`trip index ${mode} ${generation} ${date} missing`),
+                (e: unknown) => (e instanceof Error ? e : new Error(String(e))),
+              ),
+            }),
+          )
       })
-      return { mode, generation, days, index: new ModeIndex(mode, []), dates: [] as string[], failed: false }
+      return {
+        mode,
+        generation,
+        days: days as typeof days | null,
+        index: new ModeIndex(mode, []),
+        dates: [] as string[],
+        failed: false,
+      }
     })
     const fail = (j: (typeof jobs)[number], e: unknown): null => {
       if (!j.failed) errors.push(`static ${j.mode}: ${errorMessage(e)}`)
       j.failed = true
       return null
     }
-    const listed = await Promise.all(jobs.map((j) => j.days.catch((e) => fail(j, e))))
+    const listed = await Promise.all(jobs.map((j) => (j.days as Promise<DayRead[]>).catch((e) => fail(j, e))))
+    // Drop the settled promises: from here each day's bytes are reachable only from its step (r1 review), so a
+    // consumed buffer is released once indexed.
+    for (const j of jobs) j.days = null
     // In date order, as stepReload adds them (all in this invocation, so no mode waits on another's yesterday).
-    // Each step drops its bytes once indexed.
-    const steps: Array<{
-      job: (typeof jobs)[number]
-      date: string
-      bytes: Promise<Uint8Array | Error> | null
-    }> = want.flatMap((date) =>
+    const steps = want.flatMap((date) =>
       jobs.flatMap((job, i) => {
         const day = listed[i]?.find((d) => d.date === date)
-        return day ? [{ job, date, bytes: day.bytes }] : []
+        return day ? [{ job, day }] : []
       }),
     )
     const hasDays = listed.map((l) => (l?.length ?? 0) > 0)
     listed.length = 0
     for (const s of steps) {
-      const bytes = await s.bytes
-      s.bytes = null
+      const bytes = await s.day.bytes
+      s.day.bytes = null
       if (s.job.failed) continue
       try {
         if (bytes instanceof Error) throw bytes
         s.job.index.addDay(await this.d.store.decodeTripIndexDay(bytes as Uint8Array))
-        s.job.dates.push(s.date)
+        s.job.dates.push(s.day.date)
       } catch (e) {
         fail(s.job, e)
       }
@@ -855,6 +863,12 @@ export class HubCore {
       this.alerts = this.snapshot.alerts
     }
   }
+}
+
+/** One trip-index day being read by loadUnindexed: its bytes (or why not), cleared once consumed. */
+interface DayRead {
+  date: string
+  bytes: Promise<Uint8Array | Error> | null
 }
 
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])

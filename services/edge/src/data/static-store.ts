@@ -169,7 +169,12 @@ export class StaticStore {
         ),
         this.now(),
       )
-      load.p.catch(() => this.indexes.deleteIf(k, load))
+      // A missing index isn't cached as null either (like the manifest), so one published later, or a read that
+      // came back empty, is retried on the next call (Codex r1 of the hub cold start).
+      load.p.then(
+        (v) => v == null && this.indexes.deleteIf(k, load),
+        () => this.indexes.deleteIf(k, load),
+      )
       this.indexes.set(k, load)
       f = load
     }

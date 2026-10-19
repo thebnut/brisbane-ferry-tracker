@@ -182,10 +182,17 @@ describe('RtHub cold start: every unindexed mode loads in one cycle', () => {
 
   it('a mode whose generation index is missing fails alone', async () => {
     const h = setup()
-    h.data.source.files.delete('static/g1/train/index.json')
+    const key = 'static/g1/train/index.json'
+    const index = h.data.source.files.get(key) as Uint8Array
+    h.data.source.files.delete(key)
     await h.hub.alarm()
     expect(await generations(h.hub)).toEqual({ ferry: 'g1', tram: 'g1', bus: 'g1' })
     expect((await h.hub.pull(null)).status.lastError).toMatch(/static train: index g1\/train missing/)
+    // The missing index isn't cached: once it appears, the next cycle loads train.
+    h.data.source.files.set(key, index)
+    h.clock.advance(CYCLE_MS)
+    await h.hub.alarm()
+    expect(await generations(h.hub)).toEqual({ ferry: 'g1', train: 'g1', tram: 'g1', bus: 'g1' })
   })
 
   it('a read that throws (R2 error) fails only its mode', async () => {
