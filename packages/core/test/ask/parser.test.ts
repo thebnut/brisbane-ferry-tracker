@@ -49,6 +49,37 @@ describe('parser details', () => {
     const r = parseQuestion('departures at toowong', testResolver)
     expect(r.ok ? r.intent : r.reason).toBe('ambiguous_stop')
   })
+  it('names the stop it could not find (explicit from/to, from, at shapes)', () => {
+    const cases: Array<[string, string]> = [
+      ['next ferry from zzyzx to bulimba', 'zzyzx'],
+      ['next ferry from bulimba to nowhereville', 'nowhereville'],
+      ['next train to bowen hills from nowhereville', 'nowhereville'],
+      ['when is the next train from nowhereville', 'nowhereville'],
+      ['departures at nowhereville ferry terminal', 'nowhereville'],
+      ['next ferry from bulimba to zzyzx now', 'zzyzx'],
+      ['next ferry to zzyzx from bulimba right now', 'zzyzx'],
+    ]
+    for (const [q, term] of cases) {
+      const r = parseQuestion(q, testResolver)
+      expect(r.ok ? r.intent : [r.reason, r.detail], q).toEqual(['unresolved_stop', term])
+    }
+  })
+  it('trailing fillers do not break a known stop', () => {
+    for (const q of [
+      'next ferry from bulimba to south bank now',
+      'next ferry to south bank from bulimba soon',
+    ]) {
+      const r = parseQuestion(q, testResolver)
+      expect(r.ok && r.intent.kind === 'next_departure' && [r.intent.from.key, r.intent.to.key], q).toEqual([
+        '317584',
+        '317586',
+      ])
+    }
+  })
+  it('looser shapes without from/at do not guess a stop name', () => {
+    const r = parseQuestion('what is the weather going to be', testResolver)
+    expect(r.ok ? r.intent : [r.reason, r.detail]).toEqual(['no_match', undefined])
+  })
   it('trip planning is flagged unsupported, not invented', () => {
     const r = parseQuestion('how do I get from Bulimba to the airport', testResolver)
     expect(r.ok && r.intent.kind).toBe('trip_plan_unsupported')
