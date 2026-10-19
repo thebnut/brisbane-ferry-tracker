@@ -17,6 +17,7 @@ import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
 import { validateProxied } from '../app/lib/contract.server.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
+import { cachedRouteIndex } from '../app/lib/route-index.server.ts'
 import {
   robotsTxt,
   STOPS_PER_SITEMAP,
@@ -86,17 +87,19 @@ const xml = (body: string, maxAge = 86400) =>
     },
   })
 
-/** The safe short names in a route index's text, or null when there is no valid index. */
-function routeIndexShorts(text: string | null): string[] | null {
-  if (!text) return null
-  let body: unknown
+/** The safe short names in the route index (isolate-cached, as for route pages), or null when there is no valid index. */
+async function routeIndexShorts(env: Env): Promise<string[] | null> {
+  const load = async () => {
+    const text = await dataText(env, '/data/bus/routes.json')
+    if (!text) throw new Error('no route index')
+    return RouteIndexFile.parse(JSON.parse(text))
+  }
   try {
-    body = JSON.parse(text)
+    const index = await cachedRouteIndex(load, { cache: env.FIXTURES !== '1' && !fixtureFallbackOn(env) })
+    return index.routes.filter((s) => ROUTE_SHORT_RE.test(s))
   } catch {
     return null
   }
-  const parsed = RouteIndexFile.safeParse(body)
-  return parsed.success ? parsed.data.routes.filter((s) => ROUTE_SHORT_RE.test(s)) : null
 }
 
 export async function sitemap(url: URL, env: Env): Promise<Response | null> {
@@ -117,7 +120,7 @@ export async function sitemap(url: URL, env: Env): Promise<Response | null> {
     // Only routes whose page renders: data/bus/routes.json names the route files of the current publish (uploaded
     // after them) and the route page is a 404 for any other name. Without it (data published before route files
     // existed, or unreadable), a 503 tells crawlers to come back later rather than a list of 404 pages.
-    const shorts = routeIndexShorts(await dataText(env, '/data/bus/routes.json'))
+    const shorts = await routeIndexShorts(env)
     if (!shorts) return new Response('Unavailable', { status: 503 })
     const paths = shorts.map(routePath)
     return xml(urlsetXml(site, paths, { changefreq: 'weekly', priority: '0.5' }))
