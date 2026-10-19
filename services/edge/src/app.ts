@@ -37,7 +37,7 @@ import { createLogger, errorMessage, type Logger } from './log.ts'
 import { FEED_MODE_SUFFIX, MODES } from './rt/feeds.ts'
 import type { SnapshotScope } from './rt/split.ts'
 import type { SnapshotClient } from './snapshot-client.ts'
-import { type Stations, stationsFor, tripStopPlatform } from './stations.ts'
+import { type Stations, stationsFor, stopNameFor, tripStopPlatform } from './stations.ts'
 
 export interface AppDeps {
   store: StaticStore
@@ -291,6 +291,18 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const vehicle = r.cur?.vehiclesByTrip.get(tripInstance) ?? null
     const { serviceDate } = parseTripInstanceKey(tripInstance)
     const live = r.rtState === 'live' || r.rtState === 'stale' ? rtTrip : undefined
+    // Stop names from the stop index (already loaded per isolate by the departures route), so clients get "Edward
+    // Street Stop 142 near Queen St", not "Stop 142". Train apps name stations from `stationKey` and their own
+    // network, so train trip stops stay unnamed.
+    const names = mode === 'train' ? null : stationsFor(deps.store, mode, generation).catch(() => null)
+    const named = async (stops: TripStop[]): Promise<TripStop[]> => {
+      const stations = await names
+      if (!stations) return stops
+      return stops.map((s) => {
+        const name = stopNameFor(stations, s.stopId)
+        return name ? { ...s, name } : s
+      })
+    }
 
     let body: TripResponse | null = null
     if (tripInstance.startsWith('rt:')) {
@@ -304,18 +316,20 @@ export function createApp(deps: AppDeps): Hono<Env> {
         headsign: added.headsign,
         status: 'live',
         vehicle,
-        stops: added.stops.map((s) => ({
-          stopId: s.stopId,
-          stopSequence: s.seq,
-          schedArr: null,
-          schedDep: null,
-          estArr: s.arr,
-          // Same rule as predictStop: a vehicle can't leave a stop before it arrives there.
-          estDep: Math.max(s.dep, s.arr),
-          status: 'live',
-          pickup: 0,
-          dropOff: 0,
-        })),
+        stops: await named(
+          added.stops.map((s) => ({
+            stopId: s.stopId,
+            stopSequence: s.seq,
+            schedArr: null,
+            schedDep: null,
+            estArr: s.arr,
+            // Same rule as predictStop: a vehicle can't leave a stop before it arrives there.
+            estDep: Math.max(s.dep, s.arr),
+            status: 'live',
+            pickup: 0,
+            dropOff: 0,
+          })),
+        ),
       }
     } else {
       const index = await deps.store.getIndex(generation, mode)
@@ -365,7 +379,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
         headsign: trip.h,
         status: tripStatus,
         vehicle: r.rtState === 'live' ? vehicle : null,
-        stops,
+        stops: await named(stops),
       }
     }
     return c.json(body, 200, { 'cache-control': r.cacheControl })

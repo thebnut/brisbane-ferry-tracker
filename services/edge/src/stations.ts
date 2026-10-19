@@ -91,3 +91,31 @@ export function tripStopPlatform(
   }
   return out
 }
+
+/**
+ * The same stop written the other way round: a numeric stop number with its leading zeros ("000142", the public
+ * stop_code and the bus app's /stop/000142 links) ↔ the stop_id without them ("142"). Null for anything else
+ * (letters, platform ids), so only purely numeric ids are ever rewritten.
+ */
+export function altStopId(id: string): string | null {
+  if (/^0+\d+$/.test(id)) return id.replace(/^0+(?=\d)/, '')
+  if (/^[1-9]\d{0,4}$/.test(id)) return id.padStart(6, '0')
+  return null
+}
+
+/**
+ * A trip stop's display name from the stop index: its own key first (so a real id with leading zeros or letters is
+ * never rewritten), then its station's name, then the padded/unpadded form of a numeric id.
+ */
+export function stopNameFor(stations: Stations | null, stopId: string): string | undefined {
+  if (!stations) return undefined
+  const own = stations.names.get(stopId) ?? stationName(stations, stopId)
+  if (own) return own
+  const alt = altStopId(stopId)
+  return alt ? (stations.names.get(alt) ?? stationName(stations, alt)) : undefined
+}
+
+const stationName = (stations: Stations, stopId: string) => {
+  const key = stations.byStop.get(stopId)?.stationKey
+  return key ? stations.names.get(key) : undefined
+}

@@ -8,7 +8,17 @@ import { stopCode } from './stops.ts'
 export const at = (s: TripStop) => s.estDep ?? s.schedDep ?? s.estArr ?? s.schedArr ?? 0
 export const schedAt = (s: TripStop) => s.schedDep ?? s.schedArr ?? 0
 
-/** Names of a trip's stops from its route's stop file (the trip endpoint carries ids only for buses). */
+/** True when the API left a stop unnamed (an older API, or a stop missing from its stop index). */
+export const needsStopNames = (trip: TripResponse | null): trip is TripResponse =>
+  !!trip && trip.stops.some((s) => !s.name)
+
+/**
+ * A stop the API couldn't name: its public stop number ("Stop 000142"), else the raw id. The meta line then leaves
+ * the stop number out, so it isn't shown twice.
+ */
+export const unnamedStop = (stopId: string) => `Stop ${stopCode(stopId) ?? stopId}`
+
+/** Names of a trip's stops from its route's stop file: the fallback when the trip endpoint left some unnamed. */
 export function stopNamesFor(trip: TripResponse | null, route: RouteFile | null): Record<string, string> {
   if (!trip || !route) return {}
   const ids = new Set(trip.stops.map((s) => s.stopId))
@@ -37,6 +47,7 @@ export function timeline(
   }
   return stops.map((s, i) => {
     const isFrom = s.stopId === from
+    const name = s.name ?? names[s.stopId]
     const last = i === stops.length - 1
     const kind: BusTimelineStop['kind'] =
       i === hereIdx && trip.vehicle
@@ -51,11 +62,11 @@ export function timeline(
       s.status === 'skipped' ? 'Not stopping' : null,
       last ? 'Terminus' : null,
       kind === 'past' && !isFrom ? 'Departed' : null,
-      !last && kind === 'next' && !isFrom && stopCode(s.stopId) ? `Stop ${stopCode(s.stopId)}` : null,
+      name && !last && kind === 'next' && !isFrom && stopCode(s.stopId) ? `Stop ${stopCode(s.stopId)}` : null,
     ].filter(Boolean)
     return {
       key: `${s.stopId}:${s.stopSequence}`,
-      name: s.name ?? names[s.stopId] ?? `Stop ${s.stopId}`,
+      name: name ?? unnamedStop(s.stopId),
       meta: metaParts.join(' · ') || undefined,
       time: at(s) ? formatClock(at(s)) : '',
       kind: isFrom && kind === 'next' ? 'here' : kind,
