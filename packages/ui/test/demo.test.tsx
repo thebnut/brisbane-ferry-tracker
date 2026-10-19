@@ -53,7 +53,7 @@ describe('demo mode is easy to leave (R7-B1)', () => {
 
 describe('demo data left on the device (Codex review of R7-B1)', () => {
   it('drops copies made from demo data, and the runtime caches when it found any', async () => {
-    const { clearDemoLeftovers } = await import('../src/demo.tsx')
+    const { clearDemoLeftovers } = await import('../src/demo-cleanup.ts')
     localStorage.setItem(
       'bft-bus-offline:10802',
       JSON.stringify({ body: { staticGeneration: 'fixture-20261020' } }),
@@ -91,13 +91,17 @@ describe('demo data left on the device (Codex review of R7-B1)', () => {
 
 describe('demo pages are never kept (Codex review of R7-B1)', () => {
   it('the service worker plugin and savePageCopy skip responses marked as demo', async () => {
-    const { DEMO_HEADER, savePageCopy, skipDemoResponses } = await import('../src/connectivity.ts')
+    const { DEMO_HEADER, savePageCopy } = await import('../src/connectivity.ts')
+    const { skipDemoResponses } = await import('../src/sw.ts')
     const page = (demo: boolean) =>
       new Response('<html></html>', {
         headers: { 'content-type': 'text/html', ...(demo ? { [DEMO_HEADER]: '1' } : {}) },
       })
     expect(await skipDemoResponses.cacheWillUpdate({ response: page(true) })).toBeNull()
     expect(await skipDemoResponses.cacheWillUpdate({ response: page(false) })).not.toBeNull()
+    // Workbox's own rule, which a cacheWillUpdate plugin replaces: an error never replaces a good copy.
+    for (const status of [404, 500, 503])
+      expect(await skipDemoResponses.cacheWillUpdate({ response: new Response('x', { status }) })).toBeNull()
 
     const put: string[] = []
     const cache = { put: async (url: string) => void put.push(url) }

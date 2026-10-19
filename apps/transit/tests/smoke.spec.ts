@@ -189,10 +189,12 @@ test('Saved mixes every mode and works offline as "Offline · scheduled"', async
  * ferry home 139.8, train home 149.2, bus home 143.6, bus stop 144.5 KB) plus the Mode Tabs shell, held to
  * standalone + 10 KB.
  */
+// The transit pages: 150 KB until #70 (R7), whose offline screen, reconnect probe, demo-data guards and page copies
+// add about 2.5 KB gz of shared code (measured 19 Oct: / 149.7, /nearby 149.5, /alerts 150.7, from about 148).
 const BUDGET_KB: Record<string, number> = {
-  '/': 150,
-  '/nearby': 150,
-  '/alerts': 150,
+  '/': 152,
+  '/nearby': 152,
+  '/alerts': 152,
   '/ferry': 139.8 + 10,
   '/train': 149.2 + 10,
   '/bus': 143.6 + 10,

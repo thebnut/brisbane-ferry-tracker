@@ -16,7 +16,17 @@ import { CacheExpiration, ExpirationPlugin } from 'workbox-expiration'
 import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
-import { DEMO_HEADER, markCachedPages, markCacheHits, skipDemoResponses } from './connectivity.ts'
+import { DEMO_HEADER, markCachedPages, markCacheHits } from './connectivity.ts'
+
+/**
+ * Workbox plugin for the page and loader-data caches: demo responses are never stored. A cacheWillUpdate plugin
+ * replaces Workbox's own "only 200" filter, so it keeps that rule too: an error must never replace a good copy
+ * (Codex review).
+ */
+export const skipDemoResponses = {
+  cacheWillUpdate: async ({ response }: { response: Response }) =>
+    response.status === 200 && !response.headers.has(DEMO_HEADER) ? response : null,
+}
 
 export interface CacheSpec {
   cacheName: string

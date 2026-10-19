@@ -4,11 +4,10 @@
  * keep their own app's header and lockup; only the bottom bar is shared.
  */
 
-import { FeedbackButton } from '@bft/ferry/app/components/Chrome.tsx'
 import { AppHeader, DemoExitLink, formatClock, LivePill, SettingsPill, StatusStrip } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
-import { lazy, type ReactNode, Suspense, useState } from 'react'
-import { useRouteLoaderData } from 'react-router'
+import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
+import { Link, useRouteLoaderData, useSearchParams } from 'react-router'
 import { useOnline } from '../lib/useNow.ts'
 
 // Loaded on first open: keeps the bottom sheet and segmented control off every page's first load.
@@ -63,6 +62,38 @@ export function TransitStrip({ updatedAt, children }: { updatedAt: number | null
   )
 }
 
+// The ferry feedback button and sheet (its Turnstile sitekey from the root data), loaded only when asked for: they
+// stay off the home page's first load (its JS budget).
+const FeedbackButton = lazy(() =>
+  import('@bft/ferry/app/components/FeedbackButton.tsx').then((m) => ({ default: m.FeedbackButton })),
+)
+
+/** "Send Feedback & Ideas": a link to ?feedback=1 (what /feedback redirects to), which opens the sheet. */
+function FeedbackEntry() {
+  const [params] = useSearchParams()
+  const asked = params.get('feedback') === '1'
+  const [loaded, setLoaded] = useState(false)
+  useEffect(() => {
+    if (asked) setLoaded(true)
+  }, [asked])
+  const link = (
+    <Link
+      to="?feedback=1"
+      preventScrollReset
+      className="inline-flex min-h-11 items-center font-semibold text-ferry-orange-deep no-underline transition-colors hover:text-ferry-orange-dark"
+    >
+      <span aria-hidden="true">💬&nbsp;</span>Send Feedback & Ideas
+    </Link>
+  )
+  return loaded ? (
+    <Suspense fallback={link}>
+      <FeedbackButton />
+    </Suspense>
+  ) : (
+    link
+  )
+}
+
 export function TransitFooter() {
   return (
     <footer className="mt-10 border-t border-gray-200 py-8 dark:border-night-card">
@@ -83,7 +114,7 @@ export function TransitFooter() {
         </p>
         <p className="mt-2">Live times refresh every 15 seconds • All times in Brisbane time</p>
         <p className="mt-3">
-          <FeedbackButton />
+          <FeedbackEntry />
         </p>
         <p className="mt-2 text-xs text-gray-600 dark:text-night-text/70">
           BrisbaneTransit is independent and not affiliated with Translink, Queensland Rail or Brisbane City

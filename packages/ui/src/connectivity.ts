@@ -503,12 +503,6 @@ export function dropDeparted<T>(rows: T[], departsAt: (row: T) => number, nowMs:
  */
 export const DEMO_HEADER = 'x-bft-demo'
 
-/** Workbox plugin for the page and loader-data caches: demo responses are never stored. */
-export const skipDemoResponses = {
-  cacheWillUpdate: async ({ response }: { response: Response }) =>
-    response.headers.has(DEMO_HEADER) ? null : response,
-}
-
 /**
  * Saves the page at `url` into the service worker's page cache (the first page view, and transit's client
  * navigations): fetched again from the network, kept only if it is an ordinary HTML page (not an error, not demo).

@@ -1,4 +1,4 @@
-import { AppHeader, OfflineScreen, useFixtureCookie } from '@bft/ui'
+import { AppHeader, useFixtureCookie } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
 import {
   isOfflineFailure,
@@ -6,13 +6,12 @@ import {
   LIVE_GUARD_CSS,
   liveGuardScript,
   NO_SCRIPT_LIVE_CSS,
-  retryWhenBack,
   savePageCopy,
   useLiveGuardRelease,
   useRefetchOnReconnect,
 } from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   isRouteErrorResponse,
   Links,
@@ -22,12 +21,11 @@ import {
   ScrollRestoration,
   type ShouldRevalidateFunctionArgs,
   useLocation,
-  useRevalidator,
   useRouteLoaderData,
 } from 'react-router'
 import type { Route } from './+types/root'
 import './app.css'
-import { DesktopModeBar, ModeBar } from './components/ModeBar.tsx'
+import { OfflineRouteScreen } from './components/OfflineRoute.tsx'
 import { makeQueryClient } from './lib/query-client.ts'
 import { getEnv, getNonce, isFixtureMode } from './lib/server.server.ts'
 import { FIXTURE_COOKIE, getCookie, THEME_COOKIE } from './lib/storage.ts'
@@ -188,29 +186,6 @@ function useKeepPageCopies() {
   }, [pathname, search, first])
 }
 
-/** A screen opened offline whose data needs the network (R7-T2): retried until it loads, Mode Tabs kept. */
-export function OfflineRouteScreen() {
-  const { revalidate, state } = useRevalidator()
-  // One revalidation at a time: a new one aborts the one in flight, so retrying every 10 s could keep a slow but
-  // working connection from ever loading the screen (Codex review).
-  const loading = useRef(false)
-  loading.current = state === 'loading'
-  useEffect(
-    () =>
-      retryWhenBack(() => {
-        if (!loading.current) void revalidate().catch(() => {})
-      }),
-    [revalidate],
-  )
-  return (
-    <>
-      <title>Offline | BrisbaneTransit</title>
-      <meta name="robots" content="noindex" />
-      <OfflineScreen />
-    </>
-  )
-}
-
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   return isOfflineFailure(error) ? <RootOfflineScreen /> : <ErrorPage error={error} />
 }
@@ -238,16 +213,15 @@ function ErrorPage({ error }: { error: unknown }) {
   )
 }
 
+/** The root boundary's offline screen: nothing above it (the Mode Tabs come with the mode layout's boundary). */
 function RootOfflineScreen() {
   const client = useMemo(makeQueryClient, [])
   return (
     <QueryClientProvider client={client}>
       <AppHeader mode="transit" logoSrc={emblem} />
-      <DesktopModeBar />
       <main>
         <OfflineRouteScreen />
       </main>
-      <ModeBar />
     </QueryClientProvider>
   )
 }
