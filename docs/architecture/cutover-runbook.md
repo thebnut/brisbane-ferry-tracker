@@ -84,6 +84,20 @@ curl -sI https://<bus host>/data/bus/routes.json | grep -i x-bft-build   # must 
   - TransLink requests ≤ 13k/day across both hubs (staging + prod = about 26k/day; drop staging to `RT_MODES=ferry,train` if needed)
 - **Rollback:** `wrangler rollback --env production`, or detach the custom domain (Brett's OK: that's a delete). Nothing user-facing depends on it yet.
 
+### 2a. RT R2 layout: `RT_R2_LAYOUT` (from #99)
+The hub publishes realtime to R2 in one of two layouts: `documents` (one object per mode, the default) or `combined` (one `rt/modes/combined.dat` object per poll with a byte-offset index, read with ranged GETs; ~1 PUT per poll instead of one per changed mode). The pointer `rt/latest.json` says which layout is current. Readers from #99 on read **both**. **Readers from releases before #99 read only `documents`**, so the order below matters.
+- **Rollout (staging first, then production, each only after the release containing #99 is deployed and verified there):**
+  1. Deploy with `RT_R2_LAYOUT` unset. The hub keeps publishing `documents`, exactly as before.
+  2. Switch: `cd services/edge && BUILD_SHA=$(node ../../scripts/build-sha.mjs) && npx wrangler deploy --env <staging|production> --var BUILD_SHA:$BUILD_SHA --var RT_R2_LAYOUT:combined`. The watchdog restarts the hub on the new version within about a minute.
+  3. **Check:** `/v1/health` ok with `build` unchanged; `rt.ageS` under 60 s; departures `live` for ferry, train, tram and bus; `wrangler tail` shows no `no snapshot` errors; the R2 `PutObject` rate drops (Workers analytics, bucket `bft-transit-data`).
+  - **A `--var` value lasts only for that deploy:** the `deploy:*` scripts don't pass `RT_R2_LAYOUT`, so the next normal deploy returns the hub to `documents`. That is safe (readers read both). To keep `combined` across deploys, set it in that env's `vars` in `services/edge/wrangler.jsonc` with a reviewed PR.
+- **Rollback order:**
+  - **Before any `wrangler rollback` or deploy of a version older than #99**, return the hub to `documents` first: redeploy the current version without `RT_R2_LAYOUT` (or with `--var RT_R2_LAYOUT:documents`).
+  - Wait for the hub to restart and publish at least two polls (≈ 1–2 min).
+  - Confirm the pointer's mode files are per-mode keys (`rt/<mode>/latest.json`) and that departures are `live`. Read-only: `npx wrangler r2 object get bft-transit-data/rt/latest.json --remote --pipe` (staging: `rt-staging/latest.json`).
+  - Only then roll back. A pre-#99 reader facing a `combined` pointer finds no per-mode entry and serves no realtime.
+- **Report entry:** the layout switch (env, time, version id), the PUT rate before and after, and any rollback.
+
 ## 3. Phase 2: the legacy ferry app reads `/v1` (flagged, 10% → 50% → 100%)
 - The legacy app's CSP (`vercel.json` and the iOS `index.html` meta) already allows `https://api.brisbaneferry.com` in `connect-src`. **Check** in a real browser that `/v1` requests succeed with no CSP violations in the console before raising the percentage.
 - Vercel production env: `VITE_TRANSIT_API_BASE=https://api.brisbaneferry.com`, then `VITE_FERRY_V1_PERCENT=10`, and redeploy.
