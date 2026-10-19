@@ -17,6 +17,24 @@ export interface DataSource {
   get(key: string): Promise<DataObject | null>
 }
 
+/** Bytes of one ranged read, with the whole object's size and the etag of the version they came from. */
+export interface RangeRead {
+  bytes: Uint8Array
+  size: number
+  etag: string
+}
+
+/**
+ * Ranged reads, for the realtime combined object only (static data always uses `get`). `etag` pins the read to one
+ * object version: 'changed' when the object was replaced since. A length past the end returns what there is.
+ */
+export interface RangeSource {
+  getRange(key: string, offset: number, length: number, etag?: string): Promise<RangeRead | 'changed' | null>
+}
+
+export const supportsRange = (src: DataSource): src is DataSource & RangeSource =>
+  typeof (src as Partial<RangeSource>).getRange === 'function'
+
 /** R2 binding. Unused until R2 is enabled; then `DATA_BUCKET` takes precedence over the assets Worker. */
 export class R2DataSource implements DataSource {
   readonly kind = 'r2'
@@ -26,6 +44,21 @@ export class R2DataSource implements DataSource {
     const obj = await this.bucket.get(key)
     if (!obj) return null
     return { body: obj.body as ReadableStream<Uint8Array>, etag: obj.httpEtag, size: obj.size }
+  }
+
+  async getRange(
+    key: string,
+    offset: number,
+    length: number,
+    etag?: string,
+  ): Promise<RangeRead | 'changed' | null> {
+    const obj = await this.bucket.get(key, {
+      range: { offset, length },
+      ...(etag ? { onlyIf: { etagMatches: etag } } : {}),
+    })
+    if (!obj) return null
+    if (!('body' in obj)) return 'changed'
+    return { bytes: new Uint8Array(await obj.arrayBuffer()), size: obj.size, etag: obj.etag }
   }
 }
 
@@ -74,6 +107,32 @@ export class MemoryDataSource implements DataSource {
       size: bytes.byteLength,
     }
   }
+
+  /** A ranged read, logged as `key@offset+length`. Each stored array is one object version (its etag). */
+  async getRange(
+    key: string,
+    offset: number,
+    length: number,
+    etag?: string,
+  ): Promise<RangeRead | 'changed' | null> {
+    this.reads.push(`${key}@${offset}+${length}`)
+    const bytes = this.files.get(key)
+    if (!bytes) return null
+    const tag = versionTag(bytes)
+    if (etag && etag !== tag) return 'changed'
+    return { bytes: bytes.slice(offset, offset + length), size: bytes.byteLength, etag: tag }
+  }
+}
+
+const versions = new WeakMap<Uint8Array, string>()
+let nextVersion = 0
+const versionTag = (b: Uint8Array) => {
+  let v = versions.get(b)
+  if (!v) {
+    v = `v${++nextVersion}`
+    versions.set(b, v)
+  }
+  return v
 }
 
 const encodePath = (key: string) => key.split('/').map(encodeURIComponent).join('/')

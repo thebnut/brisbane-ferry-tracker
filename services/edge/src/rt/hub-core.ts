@@ -15,6 +15,7 @@ import type { StaticStore } from '../data/static-store.ts'
 import { type FeedMessage, FeedMessageSchema } from '../gen/gtfs-realtime_pb.js'
 import { errorMessage, type Logger, silentLogger } from '../log.ts'
 import { buildAlerts, buildSnapshot, ModeIndex } from './build.ts'
+import { COMBINED_KEY, type CombinedSection, decodeCombined, encodeCombined } from './combined.ts'
 import { type FeedSpec, feedsFor, type RtConfig } from './feeds.ts'
 import {
   alertsDocument,
@@ -78,8 +79,13 @@ export interface R2Pointer {
   seq: number
   /** Combined snapshot key (older hubs only; per-scope documents are in `files`). */
   key?: string
-  /** Per-scope documents: each mode's snapshot, and the alerts document (rewritten only when alerts change). */
+  /**
+   * Per-scope documents: the alerts document (rewritten only when alerts change) and, from hubs before the combined
+   * object, each mode's snapshot.
+   */
   files?: Partial<Record<SnapshotScope, { key: string; seq: number }>>
+  /** The combined mode object (rt/modes/combined.dat) and the snapshot seq it was written at. */
+  combined?: { key: string; seq: number }
   fetchedAt: number
   status: HubStatus
 }
@@ -92,7 +98,7 @@ export const scopeKey = (scope: SnapshotScope, seq: number) =>
   `rt/${scope}/snapshot-${seq % R2_KEEP_SNAPSHOTS}.json`
 
 export interface R2Like {
-  get?(key: string): Promise<{ text(): Promise<string> } | null>
+  get?(key: string): Promise<{ text(): Promise<string>; arrayBuffer?(): Promise<ArrayBuffer> } | null>
   put(
     key: string,
     value: Uint8Array | string,
@@ -176,6 +182,8 @@ interface Published {
   content: string
   key: string
   seq: number
+  /** A mode document's JSON, carried unchanged into the next combined object. */
+  json?: string
 }
 
 interface LoadedMode {
@@ -218,6 +226,8 @@ export class HubCore {
   private pointerOwed = false
   /** An alerts document moved to a new ring slot that no pointer names yet. */
   private alertsMoved = false
+  /** Snapshot seq of the last combined object written (0: none since this instance started). */
+  private combinedSeq = 0
   private drillDead = false
   /** The current snapshot still needs publishing to R2 (a publish failed, or it was just rebuilt). */
   private r2Pending = false
@@ -564,24 +574,43 @@ export class HubCore {
     const seq = this.meta.seq
     if (this.r2Pending) {
       const json = { httpMetadata: { contentType: 'application/json' } }
-      // Per-mode documents (§3.3 split): an edge isolate reads only the mode it serves. One overwritten object per
-      // mode: an edge refresh is a single GET (no pointer first). R2 PUTs are atomic, and readers check the header
-      // seq, so overwriting is safe; no deletes needed. Alerts go to a ring slot named by the pointer.
+      // Per-mode documents (§3.3 split), all in one combined object (an edge isolate still reads only the mode it
+      // serves, with ranged GETs). The object is overwritten in place: R2 PUTs are atomic and readers check its size,
+      // etag and section seqs, so no deletes are needed. Alerts go to a ring slot named by the pointer.
       const docs = splitSnapshot(snap, this.tripModes, this.d.config.modes)
-      const scopes: Array<[SnapshotScope, RtSnapshot, string]> = this.d.config.modes.map((m) => [
-        m,
-        docs[m] as RtSnapshot,
-        modeLatestKey(m),
-      ])
-      scopes.push(['alerts', alertsDocument(snap), scopeKey('alerts', seq)])
-      const writes: Array<[SnapshotScope, Published]> = []
-      const puts: Promise<unknown>[] = []
-      for (const [scope, doc, key] of scopes) {
+      // One entry per PUT: the scopes it writes and what each will then hold.
+      const writes: Array<Array<[SnapshotScope, Published]>> = []
+      const sections: CombinedSection[] = []
+      const changed: Array<[SnapshotScope, Published]> = []
+      for (const m of this.d.config.modes) {
+        const doc = docs[m] as RtSnapshot
         const body = documentBody(doc)
         const content = documentContent(doc.header, body)
-        if (this.published.get(scope)?.content === content) continue
-        puts.push(this.put(r2, key, documentJson(doc.header, body), json))
-        writes.push([scope, { content, key, seq }])
+        const prev = this.published.get(m)
+        if (prev?.content === content && prev.json != null) {
+          sections.push({ mode: m, json: prev.json, seq: prev.seq })
+          continue
+        }
+        const docJson = documentJson(doc.header, body)
+        sections.push({ mode: m, json: docJson, seq })
+        changed.push([m, { content, key: COMBINED_KEY, seq, json: docJson }])
+      }
+      const puts: Promise<unknown>[] = []
+      if (changed.length > 0) {
+        const head = { seq, sourceTimestamp: snap.header.sourceTimestamp, fetchedAt: snap.header.fetchedAt }
+        const bytes = encodeCombined({ ...head, cycleMs: this.cycleMs }, sections)
+        puts.push(
+          this.put(r2, COMBINED_KEY, bytes, { httpMetadata: { contentType: 'application/octet-stream' } }),
+        )
+        writes.push(changed)
+      }
+      const alerts = alertsDocument(snap)
+      const alertsBody = documentBody(alerts)
+      const alertsContent = documentContent(alerts.header, alertsBody)
+      if (this.published.get('alerts')?.content !== alertsContent) {
+        const key = scopeKey('alerts', seq)
+        puts.push(this.put(r2, key, documentJson(alerts.header, alertsBody), json))
+        writes.push([['alerts', { content: alertsContent, key, seq }]])
       }
       // Every PUT settles before the publish (and so the poll) ends: a failed sibling must not leave another PUT
       // running that could land after the next poll's and roll its document back (Codex r1).
@@ -589,12 +618,17 @@ export class HubCore {
       // Record each scope as it now stands, failures included (Codex review A r1): a written document is what R2
       // holds even if a sibling failed, and a failed one may or may not have landed, so it is forgotten and rewritten
       // with the next publish whatever its content then.
+      // For the combined object that means the modes it changed: if it failed, they are forgotten, so a later
+      // reversion to their older content gets a new seq rather than one older than a version that may have landed.
       settled.forEach((r, i) => {
-        const [scope, p] = writes[i] as [SnapshotScope, Published]
-        if (r.status === 'fulfilled') this.published.set(scope, p)
-        else this.published.delete(scope)
-        // A new alerts slot needs the pointer at once, even if this publish fails and the next finds nothing changed.
-        if (scope === 'alerts' && r.status === 'fulfilled') this.alertsMoved = true
+        for (const [scope, p] of writes[i] ?? []) {
+          if (r.status === 'fulfilled') this.published.set(scope, p)
+          else this.published.delete(scope)
+          if (r.status !== 'fulfilled') continue
+          // A new alerts slot needs the pointer at once, even if this publish fails and the next finds nothing new.
+          if (scope === 'alerts') this.alertsMoved = true
+          else this.combinedSeq = seq
+        }
       })
       const failed = settled.find((r) => r.status === 'rejected')
       if (failed) throw failed.reason
@@ -605,11 +639,13 @@ export class HubCore {
       this.pointerOwed = true
       return
     }
+    // Modes are named only through `combined`: a reader that predates it finds no per-mode entry (no snapshot for a
+    // minute, during a rollback) rather than a key it can't parse.
     const files: NonNullable<R2Pointer['files']> = {}
-    for (const [scope, p] of this.published) {
-      if (scope === 'alerts' || this.d.config.modes.includes(scope)) files[scope] = { key: p.key, seq: p.seq }
-    }
+    const alertsDoc = this.published.get('alerts')
+    if (alertsDoc) files.alerts = { key: alertsDoc.key, seq: alertsDoc.seq }
     const pointer: R2Pointer = { seq, files, fetchedAt: now, status: this.status() }
+    if (this.combinedSeq > 0) pointer.combined = { key: COMBINED_KEY, seq: this.combinedSeq }
     await this.put(r2, R2_LATEST_KEY, JSON.stringify(pointer), {
       httpMetadata: { contentType: 'application/json', cacheControl: 'no-store' },
     })
@@ -619,9 +655,14 @@ export class HubCore {
   }
 
   /** One R2 PUT, counted for the poll's timings. */
-  private put(r2: R2Like, key: string, body: string, opts: Parameters<R2Like['put']>[2]): Promise<unknown> {
+  private put(
+    r2: R2Like,
+    key: string,
+    body: string | Uint8Array,
+    opts: Parameters<R2Like['put']>[2],
+  ): Promise<unknown> {
     this.puts.n++
-    this.puts.chars += body.length
+    this.puts.chars += typeof body === 'string' ? body.length : body.byteLength
     return r2.put(key, body, opts)
   }
 
@@ -724,8 +765,25 @@ export class HubCore {
   }
 
   /** Merge the per-scope documents the pointer names (each slot must hold the named seq). */
-  private async restoreFromDocuments(files: NonNullable<R2Pointer['files']>): Promise<string | null> {
+  private async restoreFromDocuments(pointer: R2Pointer): Promise<string | null> {
     const r2 = this.d.r2 as R2Like
+    // The combined mode object: accepted at or after the seq the pointer names (it is overwritten before the
+    // pointer, like the per-mode latest objects it replaces), and only when its index, size and sections agree.
+    const readCombined = async (c: {
+      key: string
+      seq: number
+    }): Promise<Array<[Mode, RtSnapshot]> | null> => {
+      if (!r2.get) return null
+      const obj = await r2.get(c.key)
+      if (!obj) return null
+      const bytes = obj.arrayBuffer
+        ? new Uint8Array(await obj.arrayBuffer())
+        : new TextEncoder().encode(await obj.text())
+      const got = decodeCombined(bytes)
+      if (!got || got.index.seq < c.seq) return null
+      if (got.index.seq > this.meta.seq) this.meta.seq = got.index.seq
+      return got.docs.map((d) => [d.mode, JSON.parse(d.json) as RtSnapshot])
+    }
     const read = async (e: { key: string; seq: number } | undefined): Promise<RtSnapshot | null> => {
       if (!e || !r2.get) return null
       const obj = await r2.get(e.key)
@@ -740,10 +798,15 @@ export class HubCore {
       if (seq > this.meta.seq) this.meta.seq = seq
       return JSON.parse(text) as RtSnapshot
     }
-    const load = async (f: NonNullable<R2Pointer['files']>) => {
-      const docs: Array<[Mode, RtSnapshot]> = []
+    const load = async (f: NonNullable<R2Pointer['files']>, combined?: R2Pointer['combined']) => {
+      let docs: Array<[Mode, RtSnapshot]> = []
+      if (combined) {
+        const got = await readCombined(combined)
+        if (!got) return null
+        docs = got
+      }
       for (const [scope, e] of Object.entries(f)) {
-        if (scope === 'alerts') continue
+        if (scope === 'alerts' || combined) continue
         const d = await read(e)
         if (!d) return null
         docs.push([scope as Mode, d])
@@ -753,18 +816,19 @@ export class HubCore {
       return { docs, alerts }
     }
     // A slot overwritten between our reads fails its seq check: re-read the pointer and try once more.
-    let got = await load(files)
+    const files = pointer.files ?? {}
+    let got = await load(files, pointer.combined)
     if (!got && r2.get) {
       const ptr = await r2.get(R2_LATEST_KEY)
       const again = ptr ? (JSON.parse(await ptr.text()) as R2Pointer) : null
       // Never reuse a published seq: the re-read pointer may be newer than the one restore() started from.
       if (again && again.seq > this.meta.seq) this.meta.seq = again.seq
-      if (again?.files) got = await load(again.files)
-      if (!got && again?.files) {
+      if (again?.files || again?.combined) got = await load(again.files ?? {}, again.combined)
+      if (!got && (again?.files || again?.combined)) {
         // Still inconsistent: restore the mode documents without alerts and refetch alerts on the next cycle (they
         // are rewritten within one poll), rather than lose the retained cancellations with the whole restore.
-        const { alerts: _skip, ...modesOnly } = again.files
-        got = await load(modesOnly)
+        const { alerts: _skip, ...modesOnly } = again.files ?? {}
+        got = await load(modesOnly, again.combined)
         this.meta.alertsAt = 0
         this.log.warn('rt restore without alerts (alerts document failed its seq check)')
       }
@@ -804,8 +868,8 @@ export class HubCore {
       // Never reuse a published seq (Codex review #1): continue after whatever R2 already holds, even when this
       // object's own storage is empty or behind.
       if (pointer && pointer.seq > this.meta.seq) this.meta.seq = pointer.seq
-      if (!json && pointer?.files) {
-        json = await this.restoreFromDocuments(pointer.files)
+      if (!json && (pointer?.files || pointer?.combined)) {
+        json = await this.restoreFromDocuments(pointer)
       } else if (!json && pointer?.key) {
         const obj = await this.d.r2.get(pointer.key)
         const text = obj ? await obj.text() : null

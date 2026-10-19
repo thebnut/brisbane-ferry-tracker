@@ -1,12 +1,16 @@
 /**
- * Snapshot reads from R2 (when DATA_BUCKET is bound). A mode is one read of `rt/{mode}/latest.json` while that object
- * is fresh, plus `rt/latest.json` for the hub status when the mode's content hasn't changed lately; alerts (and older
- * hubs) go through `rt/latest.json` and then the document it names, only when its seq moved. Keeps the Durable Object
- * off the read path entirely: on Workers Free the DO has 100k requests a day, while R2 has 10M Class B reads a month.
+ * Snapshot reads from R2 (when DATA_BUCKET is bound). A mode is one ranged GET of the combined mode object
+ * (`rt/modes/combined.dat`, see rt/combined.ts) covering its index and that mode's section, while the object is
+ * current; past that, `rt/latest.json` too, for the hub status. Alerts go through `rt/latest.json` and then the
+ * document it names, only when its seq moved. Hubs from before the combined object (per-mode
+ * `rt/{mode}/latest.json` documents) are still read, chosen by the pointer, so a deploy or a rollback in either
+ * direction keeps readers served. Keeps the Durable Object off the read path entirely: on Workers Free the DO has 100k
+ * requests a day, while R2 has 10M Class B reads a month.
  */
 
 import type { RtSnapshot } from '@bft/core'
-import { type DataSource, decodeJson, readBytes } from './data/source.ts'
+import { type DataSource, decodeJson, type RangeRead, readBytes, supportsRange } from './data/source.ts'
+import { COMBINED_KEY, type CombinedIndex, decodeSection, INDEX_BYTES, parseIndex } from './rt/combined.ts'
 import {
   type HubStatus,
   modeLatestKey,
@@ -22,6 +26,38 @@ export async function pullFromR2(
   sinceSeq: number | null,
   scope?: SnapshotScope,
   nowMs: number = Date.now(),
+): Promise<PullResult> {
+  if (!scope || scope === 'alerts') return pullDocuments(src, sinceSeq, scope, nowMs)
+  const c = await readCombined(src, scope)
+  if (c) {
+    const answer = (s: SectionRead, status: HubStatus): PullResult =>
+      s.json == null
+        ? { seq: null, json: null, status }
+        : { seq: s.seq, json: s.seq === sinceSeq ? null : s.json, status }
+    if (nowMs - c.index.fetchedAt <= freshFor(c.index)) return answer(c, indexStatus(c))
+    // Older than one poll: the content hasn't changed for a while (the index times are as old as it), or the hub
+    // went back to per-mode documents and abandoned this object. The pointer says which, and has the current status.
+    const pointer = await readPointer(src)
+    if (pointer?.combined) {
+      let cur: SectionRead | null = c
+      // The object was replaced since our read (a publish in between): read it again.
+      if (cur.index.seq < pointer.combined.seq) cur = await readCombined(src, scope)
+      if (!cur || cur.index.seq < pointer.combined.seq) {
+        throw new Error(`combined object older than the pointer's seq ${pointer.combined.seq}`)
+      }
+      const fresher = (pointer.status.seq ?? pointer.seq) >= cur.index.seq
+      return answer(cur, fresher ? pointer.status : indexStatus(cur))
+    }
+  }
+  return pullDocuments(src, sinceSeq, scope, nowMs)
+}
+
+/** The per-scope document path: alerts, and modes of hubs before the combined object. */
+async function pullDocuments(
+  src: DataSource,
+  sinceSeq: number | null,
+  scope: SnapshotScope | undefined,
+  nowMs: number,
 ): Promise<PullResult> {
   // Modes: one read of rt/{mode}/latest.json, which the hub overwrites whenever that mode's content changes
   // (single-read refresh). Fall back to the pointer when it isn't there (an older hub, or a mode the hub doesn't
@@ -94,6 +130,83 @@ export async function pullFromR2(
     }
   }
   throw new Error(`snapshot for seq ${e.seq} not found at ${e.key}`)
+}
+
+interface SectionRead {
+  index: CombinedIndex
+  /** null: the object has no section for this mode (the hub doesn't publish it). */
+  json: string | null
+  seq: number
+}
+
+/** Bytes each mode's reader asks for first: last time's end of its section, plus room to grow (per isolate). */
+const rangeHints = new Map<SnapshotScope, number>()
+/** Tests: forget the learned first-read sizes. */
+export const resetRangeHints = () => rangeHints.clear()
+
+/**
+ * This mode's section of the combined object, or null when there is no combined object. Usually one ranged GET
+ * (index and section together); a second, pinned to the first one's etag, when the section lies past the first. An
+ * index that disagrees with the object's size, a section past its end, a replaced object or a section whose seq
+ * doesn't match is retried once from the start, then thrown: the caller keeps its copy (stale), never a misparse.
+ */
+async function readCombined(src: DataSource, scope: SnapshotScope): Promise<SectionRead | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const first = await readRange(src, COMBINED_KEY, 0, rangeHints.get(scope) ?? INDEX_BYTES)
+    if (first == null) return null
+    if (first === 'changed') continue
+    const index = parseIndex(first.bytes, first.size)
+    if (!index) continue
+    const sec = index.sections[scope as keyof CombinedIndex['sections']]
+    if (!sec) return { index, json: null, seq: index.seq }
+    const [off, len, seq] = sec
+    rangeHints.set(scope, off + len + Math.ceil(len / 4) + 4096)
+    let bytes: Uint8Array
+    if (off + len <= first.bytes.byteLength) bytes = first.bytes.subarray(off, off + len)
+    else {
+      const rest = await readRange(src, COMBINED_KEY, off, len, first.etag)
+      if (rest == null || rest === 'changed' || rest.bytes.byteLength !== len) continue
+      bytes = rest.bytes
+    }
+    const json = decodeSection(bytes, seq)
+    if (json != null) return { index, json, seq }
+  }
+  throw new Error(`combined object ${COMBINED_KEY} inconsistent for ${scope}`)
+}
+
+/** A ranged read; a source without range support reads the whole object (one version, so no etag pin needed). */
+async function readRange(
+  src: DataSource,
+  key: string,
+  offset: number,
+  length: number,
+  etag?: string,
+): Promise<RangeRead | 'changed' | null> {
+  if (supportsRange(src)) return src.getRange(key, offset, length, etag)
+  const all = await readBytes(src, key)
+  return all ? { bytes: all.slice(offset, offset + length), size: all.byteLength, etag: '' } : null
+}
+
+/** A combined object is current for one poll (plus slack) after it was written. */
+const freshFor = (index: CombinedIndex) => Math.max(DIRECT_FRESH_MS, index.cycleMs + 5_000)
+
+/** Hub status from the index (freshness at the write) and the section's header (stats, generations). */
+function indexStatus(s: SectionRead): HubStatus {
+  const base = s.json != null ? statusOf(s.json, s.seq) : null
+  return {
+    seq: s.index.seq,
+    sourceTimestamp: s.index.sourceTimestamp,
+    fetchedAt: s.index.fetchedAt,
+    lastCycleAt: null,
+    lastError: null,
+    stats: base?.stats ?? null,
+    generations: base?.generations ?? {},
+  }
+}
+
+async function readPointer(src: DataSource): Promise<R2Pointer | null> {
+  const bytes = await readBytes(src, R2_LATEST_KEY)
+  return bytes ? ((await decodeJson(bytes)) as R2Pointer) : null
 }
 
 /** Hub status from a document's header (parsing only the header: JSON.stringify writes it first). */
