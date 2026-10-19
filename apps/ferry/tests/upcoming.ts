@@ -36,7 +36,7 @@ export const pinUpcoming = (context: BrowserContext) =>
       await route.fulfill({ response: res, json: body })
     } catch (error) {
       // A request still in flight when the test ends (a refetch on reconnect): its context is closing.
-      if (!/disposed|closed|Target page/i.test(String(error))) throw error
+      if (!/disposed|closed|Target page|Test ended/i.test(String(error))) throw error
     }
   })
 

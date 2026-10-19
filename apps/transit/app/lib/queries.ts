@@ -5,6 +5,7 @@ import {
   bestOfflineCopy,
   isOnline,
   type OfflineCopy,
+  pollEvery,
   replacesBoard,
 } from '@bft/ui/connectivity'
 import { type QueryFunctionContext, useQueries, useQuery } from '@tanstack/react-query'
@@ -14,6 +15,9 @@ import { type ApiFetcher, browserFetcher, fetchAlerts, fetchDepartures } from '.
 import { asScheduled, offlineRows, type SavedItem, writeSavedCopy } from './saved.ts'
 
 export const POLL_MS = 15_000
+/** Live data polling, backing off while calls fail (@bft/ui pollEvery). */
+export const poll = pollEvery(POLL_MS)
+const pollAlerts = pollEvery(60_000)
 
 export { makeQueryClient } from './query-client.ts'
 
@@ -43,7 +47,7 @@ export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsRe
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
     staleTime: 60_000,
-    refetchInterval: 60_000,
+    refetchInterval: pollAlerts,
   })
 }
 
@@ -76,7 +80,7 @@ export function savedOptions(fetcher: ApiFetcher, mode: DataMode, item: SavedIte
         throw error
       }
     },
-    refetchInterval: POLL_MS,
+    refetchInterval: poll,
   }
 }
 

@@ -4,7 +4,7 @@ import { useQueries } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { type ApiFetcher, fetchDepartures, fetchGeoTile } from './api.ts'
 import { NEARBY_MODES, type NearbyMode } from './nearby.ts'
-import { type DataMode, POLL_MS } from './queries.ts'
+import { type DataMode, poll } from './queries.ts'
 
 /** Own cell + 8 neighbours for every mode. Missing tiles (no stops there) resolve to null. */
 export function useGeoTiles(fetcher: ApiFetcher, mode: DataMode, cells: string[]) {
@@ -45,7 +45,7 @@ export function useStopDepartures(
       queryKey: ['transit', 'departures', mode.fixtures, mode.rt, s.mode, s.key, null, limit],
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         fetchDepartures(fetcher, s.mode, s.key, { limit, signal }),
-      refetchInterval: POLL_MS,
+      refetchInterval: poll,
     })),
   })
 }

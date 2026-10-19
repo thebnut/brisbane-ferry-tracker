@@ -7,7 +7,8 @@ import { routeTileVariant } from '@bft/ui'
 import MapView, { type MapMarker } from '@bft/ui/map'
 import { useMemo } from 'react'
 import { useApi } from '../lib/mode.ts'
-import { useStopIndex, useVehicles } from '../lib/queries.ts'
+import { useStopIndex } from '../lib/queries.ts'
+import { useVehicles } from '../lib/vehicles.ts'
 
 export default function StopMap({
   stopId,

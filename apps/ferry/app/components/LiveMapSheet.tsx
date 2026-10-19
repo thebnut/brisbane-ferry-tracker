@@ -8,8 +8,9 @@ import MapView, { type MapMarker } from '@bft/ui/map'
 import { useMemo } from 'react'
 import type { ApiFetcher } from '../lib/api.ts'
 import { cleanStopName } from '../lib/names.ts'
-import { type DataMode, useVehicles } from '../lib/queries.ts'
+import type { DataMode } from '../lib/queries.ts'
 import { type StopPair, terminalById } from '../lib/terminals.ts'
+import { useVehicles } from '../lib/vehicles.ts'
 
 export interface LiveMapSheetProps {
   pair: StopPair

@@ -46,7 +46,7 @@ export function readSavedPair(): StopPair | null {
  * so later visits show the default board, whose From/To pickers and Settings change the stops.
  */
 export function shouldShowSelector(): boolean {
-  const remember = safe(() => localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION), null) === 'true'
+  const remember = readRemember()
   const saved = safe(() => localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS), null)
   const seen = safe(() => localStorage.getItem(STORAGE_KEYS.SELECTOR_SEEN), null) === '1'
   return !(saved && remember) && !seen
@@ -58,23 +58,6 @@ export function markSelectorSeen(): void {
 
 export function readRemember(): boolean {
   return safe(() => localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION), null) === 'true'
-}
-
-export function savePair(pair: StopPair, remember: boolean): void {
-  safe(() => {
-    if (remember) {
-      localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true')
-      localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, JSON.stringify(pair))
-      sessionStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS_SESSION)
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.REMEMBER_SELECTION)
-      localStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS)
-      sessionStorage.setItem(STORAGE_KEYS.SELECTED_STOPS_SESSION, JSON.stringify(pair))
-    }
-    const maxAge = remember ? '; max-age=31536000' : ''
-    // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is not in Safari; this is a plain preference cookie.
-    document.cookie = `${PAIR_COOKIE}=${pair.outbound.id}.${pair.inbound.id}; path=/; samesite=lax${maxAge}`
-  }, undefined)
 }
 
 export function readDepartAt(): number | null {
