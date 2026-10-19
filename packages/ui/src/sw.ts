@@ -16,7 +16,14 @@ import { CacheExpiration, ExpirationPlugin } from 'workbox-expiration'
 import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
-import { DEMO_HEADER, markCachedPages, markCacheHits, RESAVE_PAGES } from './connectivity.ts'
+import {
+  DEMO_HEADER,
+  holdCacheLock,
+  markCachedPages,
+  markCacheHits,
+  RESAVE_PAGES,
+  whileNoCleanup,
+} from './connectivity.ts'
 
 /**
  * Workbox plugin for the page and loader-data caches: demo responses are never stored. A cacheWillUpdate plugin
@@ -26,6 +33,26 @@ import { DEMO_HEADER, markCachedPages, markCacheHits, RESAVE_PAGES } from './con
 export const skipDemoResponses = {
   cacheWillUpdate: async ({ response }: { response: Response }) =>
     response.status === 200 && !response.headers.has(DEMO_HEADER) ? response : null,
+}
+
+/**
+ * Workbox plugin for every runtime cache, last in its list: the put waits while the one-off demo clean-up runs and
+ * holds CACHE_WRITE_LOCK (shared) until it lands (R9), so the clean-up never deletes a response stored meanwhile.
+ * Released at cacheDidUpdate, or after 10 s if the put failed. As a cacheWillUpdate plugin it replaces Workbox's own
+ * "only 200" filter (NetworkFirst's, and StaleWhileRevalidate's 200-or-opaque), so it keeps that rule: only a 200 is
+ * stored, never an error over a good copy.
+ */
+export const waitForCleanup = {
+  cacheWillUpdate: async ({ response, state }: { response: Response; state?: Record<string, unknown> }) => {
+    if (response.status !== 200) return null
+    const release = await holdCacheLock('shared', 10_000)
+    if (state) state.release = release
+    else release()
+    return response
+  },
+  cacheDidUpdate: async ({ state }: { state?: Record<string, unknown> }) => {
+    ;(state?.release as (() => void) | undefined)?.()
+  },
 }
 
 export interface CacheSpec {
@@ -189,7 +216,13 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
     cacheName: config.pages.cacheName,
     networkTimeoutSeconds: 4,
     // Order matters: a copy from another build is dropped before it's marked as a cached page (R2-T7).
-    plugins: [expire(config.pages), skipDemoResponses, usablePageCopy(isPrecached), markCachedPages],
+    plugins: [
+      expire(config.pages),
+      skipDemoResponses,
+      usablePageCopy(isPrecached),
+      markCachedPages,
+      waitForCleanup,
+    ],
   })
   const stylesheets = config.manifest
     .map((e) => (typeof e === 'string' ? e : e.url))
@@ -229,7 +262,7 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
       new NetworkFirst({
         cacheName: spec.cacheName,
         networkTimeoutSeconds: 4,
-        plugins: [expire(spec), skipDemoResponses],
+        plugins: [expire(spec), skipDemoResponses, waitForCleanup],
       }),
     )
   }
@@ -239,13 +272,13 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
       cacheName: config.live.cacheName,
       networkTimeoutSeconds: 4,
       // Responses served from this cache are marked so the page shows them as offline, not live.
-      plugins: [expire(config.live), markCacheHits],
+      plugins: [expire(config.live), markCacheHits, waitForCleanup],
     }),
   )
   for (const spec of config.staticData ?? []) {
     registerRoute(
       ({ url }) => spec.match.test(url.pathname),
-      new StaleWhileRevalidate({ cacheName: spec.cacheName, plugins: [expire(spec)] }),
+      new StaleWhileRevalidate({ cacheName: spec.cacheName, plugins: [expire(spec), waitForCleanup] }),
     )
   }
 
@@ -339,7 +372,7 @@ export async function savePages(cacheName: string, urls: string[], storage: Cach
         !(res.headers.get('content-type') ?? '').includes('text/html')
       )
         return false
-      await cache.put(url, res)
+      await whileNoCleanup(() => cache.put(url, res))
       return true
     }),
   )

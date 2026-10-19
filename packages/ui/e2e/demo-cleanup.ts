@@ -82,13 +82,14 @@ export function demoCleanupSuite({
         await opensOffline(context, mustOpen)
       })
 
-    test(`the clean-up finishing last (forced) still leaves this visit's and the install's copies`, async ({
+    test(`a slow clean-up (forced) still leaves this visit's and the install's copies`, async ({
       page,
       context,
     }) => {
       // The clean-up as slow as it can be: every Cache Storage listing the page asks for once its document has
-      // parsed (the clean-up's own, which decides what to delete) answers only after the service worker has
-      // installed, saved its pages and this page's copy. Holding the clean-up's chunk instead would delay `load`,
+      // parsed (the clean-up's own, which decides what to delete) answers only 1.5 s after the service worker has
+      // registered, long enough for its install to save its pages here. Before R9 the clean-up then deleted them;
+      // now those saves wait for it (CACHE_WRITE_LOCK). Holding the clean-up's chunk instead would delay `load`,
       // and with it the service worker's registration.
       await context.addInitScript(() => {
         const real = CacheStorage.prototype.keys
@@ -96,20 +97,21 @@ export function demoCleanupSuite({
         const held = new Promise<void>((resolve) => {
           release = resolve
         })
-        const w = window as { __releaseCacheNames?: () => void; __cacheNames?: () => Promise<string[]> }
-        w.__releaseCacheNames = release
-        w.__cacheNames = () => real.call(caches)
+        ;(window as { __cacheNames?: () => Promise<string[]> }).__cacheNames = () => real.call(caches)
         let parsed = false
         document.addEventListener('DOMContentLoaded', () => {
           parsed = true
+          const poll = setInterval(async () => {
+            if (!(await navigator.serviceWorker?.getRegistration())) return
+            clearInterval(poll)
+            setTimeout(release, 1_500)
+          }, 100)
         })
         CacheStorage.prototype.keys = function (this: CacheStorage) {
           return parsed ? held.then(() => real.call(this)) : real.call(this)
         }
       })
       await page.goto(path)
-      await pagesSaved(page, pagesCache, mustOpen)
-      await page.evaluate(() => (window as { __releaseCacheNames?: () => void }).__releaseCacheNames?.())
       await cleanedUp(page)
       await page.waitForTimeout(500)
       await pagesSaved(page, pagesCache, mustOpen)

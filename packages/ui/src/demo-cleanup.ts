@@ -1,10 +1,15 @@
 /** Removing demo data from the device (R7-B1); loaded on demand by demo.tsx. */
 import { RESAVE_PAGES } from './connectivity.ts'
-import { type DeviceStart, FIXTURE_COPY, OFFLINE_COPY_PREFIXES, responseStamp } from './demo.tsx'
+import {
+  DEMO_MIGRATION,
+  DEMO_MIGRATION_KEY,
+  type DeviceStart,
+  FIXTURE_COPY,
+  OFFLINE_COPY_PREFIXES,
+  responseStamp,
+} from './demo.tsx'
 
-/** Set once the one-off clean-up of demo data stored before R7-B1 has run on this device. */
-export const DEMO_MIGRATION_KEY = 'bft-demo-cleanup'
-const DEMO_MIGRATION = 'r7'
+export { DEMO_MIGRATION_KEY }
 
 /** The runtime caches among cache names (the precached app shell is never removed). */
 const runtimeCacheNames = (names: readonly string[]) => names.filter((n) => !n.startsWith('workbox-precache'))

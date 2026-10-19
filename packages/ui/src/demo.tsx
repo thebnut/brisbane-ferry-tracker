@@ -5,6 +5,7 @@
  * Production never allows it (each app's wrangler-config test, and the Workers ignore the cookie there).
  */
 import { useEffect } from 'react'
+import { holdCacheLock } from './connectivity.ts'
 
 /** How long one `?fixtures=1` keeps demo mode on. */
 export const FIXTURE_COOKIE_MAX_AGE_S = 3600
@@ -51,16 +52,26 @@ async function cacheEntries(): Promise<DeviceStart['caches']> {
   return held
 }
 
+/** Set once the one-off clean-up of demo data stored before R7-B1 has run on this device (demo-cleanup.ts). */
+export const DEMO_MIGRATION_KEY = 'bft-demo-cleanup'
+export const DEMO_MIGRATION = 'r7'
+/** The longest the clean-up holds back cache writers (the service worker's install waits up to 10 s for its saves). */
+const CLEANUP_MAX_MS = 5_000
+
 let deviceStart: Promise<DeviceStart> | undefined
+let endCleanup = () => {}
+let cleanupStarted = false
 /**
- * Notes what the device holds, once per page and before anything on it is saved: the first render comes before any
- * board writes its copy, and before the service worker registers (after `load`) to save its pages. The one-off
- * clean-up removes only this (R9).
+ * Where the one-off clean-up hasn't run yet: notes what the device holds, once per page and before anything on it is
+ * saved, and holds back every cache writer (CACHE_WRITE_LOCK) until the clean-up has finished, so it can only ever
+ * remove what was there when it began (R9). The offline copies are read during the first render, before any board
+ * writes one; the caches once the lock is granted, so no writer can interleave with the listing or the deletions.
  */
-function noteDeviceStart(): Promise<DeviceStart> {
+function noteDeviceStart(): Promise<DeviceStart> | undefined {
   if (deviceStart) return deviceStart
   const copies = new Map<string, string>()
   try {
+    if (localStorage.getItem(DEMO_MIGRATION_KEY) === DEMO_MIGRATION) return undefined
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (key == null) continue
@@ -69,9 +80,14 @@ function noteDeviceStart(): Promise<DeviceStart> {
         copies.set(key, value)
     }
   } catch {
-    // Storage blocked: nothing kept there either.
+    // Storage blocked: nothing kept there, and no marker can be set either.
+    return undefined
   }
-  deviceStart = cacheEntries()
+  deviceStart = holdCacheLock('exclusive', CLEANUP_MAX_MS)
+    .then(async (release) => {
+      endCleanup = release
+      return cacheEntries()
+    })
     .catch(() => new Map())
     .then((c) => ({ copies, caches: c }))
   return deviceStart
@@ -99,8 +115,16 @@ export function useFixtureCookie(name: string, active: boolean, forced = false, 
   if (allowed && !forced && typeof window !== 'undefined') void noteDeviceStart()
   useEffect(() => {
     if (forced) return
-    // The clean-up code loads only when needed (it is precached, so offline too): first-load JS budget.
-    if (allowed) void import('./demo-cleanup.ts').then((m) => m.migrateOnce(noteDeviceStart()))
+    // The clean-up code loads only when needed (it is precached, so offline too): first-load JS budget. Once per page
+    // (StrictMode runs effects twice), and the writers are let go however it ends.
+    const start = allowed ? deviceStart : undefined
+    if (start && !cleanupStarted) {
+      cleanupStarted = true
+      void import('./demo-cleanup.ts')
+        .then((m) => m.migrateOnce(start))
+        .catch(() => {})
+        .finally(() => endCleanup())
+    }
     const params = new URLSearchParams(location.search)
     const q = params.get('fixtures')
     if (q === '1' && active) {

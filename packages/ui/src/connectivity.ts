@@ -539,6 +539,49 @@ export const DEMO_HEADER = 'x-bft-demo'
 export const RESAVE_PAGES = 'bft-resave-pages'
 
 /**
+ * Web Lock ordering the one-off demo clean-up against Cache Storage writers, across pages and service workers of this
+ * origin (R9, Codex review r2): the clean-up holds it exclusively from its snapshot of the device to its last deletion,
+ * and every page-copy and cache write holds it shared around its put, so no write lands while the clean-up decides
+ * what to delete. Where Web Locks are missing, both go ahead at once (the response stamps still protect new copies).
+ */
+export const CACHE_WRITE_LOCK = 'bft-cache-writes'
+
+/**
+ * Takes CACHE_WRITE_LOCK in `mode` and resolves, once granted, with its release; it is released after `maxMs` anyway,
+ * so a lost release can never block writers for long.
+ */
+export function holdCacheLock(mode: 'shared' | 'exclusive', maxMs: number): Promise<() => void> {
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks
+  if (!locks) return Promise.resolve(() => {})
+  return new Promise((granted) => {
+    locks
+      .request(
+        CACHE_WRITE_LOCK,
+        { mode },
+        () =>
+          new Promise<void>((release) => {
+            const timer = setTimeout(release, maxMs)
+            granted(() => {
+              clearTimeout(timer)
+              release()
+            })
+          }),
+      )
+      .catch(() => granted(() => {}))
+  })
+}
+
+/** Runs a cache write while no clean-up runs (CACHE_WRITE_LOCK, shared). */
+export async function whileNoCleanup<T>(write: () => Promise<T>): Promise<T> {
+  const release = await holdCacheLock('shared', 10_000)
+  try {
+    return await write()
+  } finally {
+    release()
+  }
+}
+
+/**
  * Saves the page at `url` into the service worker's page cache (the first page view, and transit's client
  * navigations): fetched again from the network, kept only if it is an ordinary HTML page (not an error, not demo).
  */
@@ -550,6 +593,6 @@ export async function savePageCopy(cacheName: string, url: string): Promise<bool
     !(res.headers.get('content-type') ?? '').includes('text/html')
   )
     return false
-  await (await caches.open(cacheName)).put(url, res)
+  await whileNoCleanup(async () => (await caches.open(cacheName)).put(url, res))
   return true
 }

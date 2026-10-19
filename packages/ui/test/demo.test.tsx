@@ -256,16 +256,23 @@ describe('the one-off clean-up removes only what the device held when the page s
     }
   })
 
-  it('demo data under any key counts as held: a device with only that is cleaned (Codex review r1)', async () => {
-    function Allowed() {
-      useFixtureCookie('bft_fixtures', false, false, true)
+  /** A fresh page: demo.tsx notes the device once per page load. */
+  const freshPage = async () => {
+    vi.resetModules()
+    const { useFixtureCookie: hook } = await import('../src/demo.tsx')
+    return function Allowed() {
+      hook('bft_fixtures', false, false, true)
       return null
     }
+  }
+
+  it('demo data under any key counts as held: a device with only that is cleaned (Codex review r1)', async () => {
     localStorage.clear()
     localStorage.setItem(
       'bft-bus-offline:10802',
       JSON.stringify({ body: { staticGeneration: 'fixture-20261020' } }),
     )
+    const Allowed = await freshPage()
     render(<Allowed />)
     await vi.waitFor(() => expect(localStorage.getItem('bft-demo-cleanup')).toBe('r7'))
     expect(localStorage.getItem('bft-bus-offline:10802')).toBeNull()
@@ -273,11 +280,8 @@ describe('the one-off clean-up removes only what the device held when the page s
   })
 
   it('the hook notes the device before anything on the page is saved', async () => {
-    function Allowed() {
-      useFixtureCookie('bft_fixtures', false, false, true)
-      return null
-    }
     localStorage.clear()
+    const Allowed = await freshPage()
     render(<Allowed />)
     // A board writes its copy once the page has rendered.
     localStorage.setItem('bft-ferry-v1:1', 'first visit')
