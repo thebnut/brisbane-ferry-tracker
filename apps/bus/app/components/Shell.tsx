@@ -174,7 +174,7 @@ export { BusNav, DesktopNav, NAV } from './nav.tsx'
 export function Footer({ aboveSheet = false }: { aboveSheet?: boolean }) {
   return (
     <footer
-      className={`mt-10 border-t border-gray-200 py-8 md:pb-8 dark:border-night-card ${aboveSheet ? 'pb-[calc(max(env(safe-area-inset-bottom),6px)+var(--bft-bottom-bar,58px)+166px+1.5rem)]' : 'pb-32'}`}
+      className={`mt-10 border-t border-gray-200 py-8 ${aboveSheet ? 'pb-[calc(max(env(safe-area-inset-bottom),6px)+var(--bft-bottom-bar,58px)+166px+1.5rem)]' : 'pb-32'} md:pb-8 dark:border-night-card`}
     >
       <div className="mx-auto max-w-6xl px-4 text-center text-sm text-gray-700 dark:text-night-text/80">
         <p>
