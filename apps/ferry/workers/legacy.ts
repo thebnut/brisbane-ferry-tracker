@@ -10,7 +10,7 @@
  * CORS matches api/_cors.js byte for byte (same allowlist, headers and preflight).
  */
 
-import { proxied, UpstreamTimeout } from '@bft/ui/upstream'
+import { NULL_BODY_STATUS, proxied, UpstreamTimeout } from '@bft/ui/upstream'
 import {
   feedbackApp,
   RATE_LIMITED_BODY,
@@ -101,7 +101,9 @@ export async function handleLegacy(
         const upstream = env.API
           ? await env.API.fetch(new Request(`https://bft-api${target}`, init))
           : await fetch(`${env.API_BASE}${target}`, init)
-        return new Response(await upstream.arrayBuffer(), upstream)
+        // A 204 or 304 is a valid answer, but it can't be rebuilt with a body (L7).
+        const body = NULL_BODY_STATUS.has(upstream.status) ? null : await upstream.arrayBuffer()
+        return new Response(body, upstream)
       })
       return withCors(res, origin, allowAll)
     } catch (error) {
