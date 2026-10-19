@@ -170,6 +170,27 @@ export function homeLiveState(
   return { live, unconfirmed }
 }
 
+/**
+ * The home's "Last updated" (R9-T1): the newest `generatedAt` among the cards' own network answers, never the clock.
+ * Not an offline copy (built from the service worker's cached answer, the last response or the device's timetable,
+ * maybe stamped with the device clock), and not an answer that came with a page from the device's copy
+ * (`unconfirmedBefore`). It never goes back (`kept`, the last value shown), so offline it stays at the last real
+ * answer's time; nothing until there is one (never a status that contradicts LIVE, R3-X11).
+ */
+export function lastAnswerAt(
+  kept: number | null,
+  cards: ReadonlyArray<CardData>,
+  unconfirmedBefore: number | null,
+): number | null {
+  let newest = kept
+  for (const data of cards) {
+    if (data == null || data.offline || (unconfirmedBefore != null && data.generatedAt <= unconfirmedBefore))
+      continue
+    if (newest == null || data.generatedAt > newest) newest = data.generatedAt
+  }
+  return newest
+}
+
 function SavedList({
   items,
   qs,
@@ -289,10 +310,18 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
     qs.map((q) => ({ data: q.data, pending: q.isPending })),
     { online, nowMs: now, unconfirmedBefore, reached },
   )
+  // Kept across renders, so it stays at the last answer while the cards turn into offline copies.
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null)
+  const newest = lastAnswerAt(
+    updatedAt,
+    qs.map((q) => q.data),
+    unconfirmedBefore,
+  )
+  if (newest !== updatedAt) setUpdatedAt(newest)
   return (
     <>
       <TransitHeader live={live} />
-      <TransitStrip updatedAt={items ? now : null}>
+      <TransitStrip updatedAt={newest}>
         {items ? (
           <span className="text-sm font-semibold text-aqua-text dark:text-ferry-aqua-light">
             {items.length} saved · all modes
