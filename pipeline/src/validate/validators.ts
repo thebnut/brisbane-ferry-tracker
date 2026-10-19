@@ -5,7 +5,7 @@
  *    facts are checked here; the MobilityData validator runs in CI, see scripts/gtfs-validator-report.ts)
  *  - plausible service changes are quarantined: published under manifest.staging.json until accepted
  */
-import type { GenerationIndex, Mode } from '@bft/core'
+import type { CalendarDateRow, CalendarRow, GenerationIndex, Mode } from '@bft/core'
 import { addDays } from '@bft/core'
 
 export class StructuralFailure extends Error {
@@ -18,6 +18,60 @@ export function checkFeedEndDate(feedEndDate: string | undefined, today: string,
   if (!feedEndDate) return ['feed_info.txt has no feed_end_date']
   const min = addDays(today, minDays)
   return feedEndDate < min ? [`feed_end_date ${feedEndDate} is before today+${minDays} (${min})`] : []
+}
+
+/** The service dates a feed claims to cover, inclusive YYYYMMDD ('' when the feed gives no bound). */
+export interface FeedCoverage {
+  start: string
+  end: string
+}
+
+const YMD = /^\d{8}$/
+const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
+
+/**
+ * feed_info's feed_start_date/feed_end_date, else the earliest/latest date calendar.txt or calendar_dates.txt gives
+ * service on. A new TransLink feed starts on the day it is published (generation 20261020-…), so D−1 of the build
+ * window lies before it (issue #93). In a build the end is always feed_info's: loadFeed and checkFeedEndDate require
+ * feed_end_date (fail closed), and that requirement is deliberately not relaxed to the calendar fallback.
+ */
+export function feedCoverage(
+  feedInfo: { startDate: string; endDate: string } | null,
+  calendar: CalendarRow[],
+  calendarDates: CalendarDateRow[],
+): FeedCoverage {
+  const starts: string[] = []
+  const ends: string[] = []
+  for (const r of calendar) {
+    if (!WEEKDAYS.some((d) => r[d] === '1')) continue
+    if (YMD.test(r.start_date)) starts.push(r.start_date)
+    if (YMD.test(r.end_date)) ends.push(r.end_date)
+  }
+  for (const r of calendarDates)
+    if (r.exception_type === '1' && YMD.test(r.date)) {
+      starts.push(r.date)
+      ends.push(r.date)
+    }
+  const pick = (declared: string | undefined, found: string[], earliest: boolean) =>
+    declared && YMD.test(declared) ? declared : (found.sort()[earliest ? 0 : found.length - 1] ?? '')
+  return { start: pick(feedInfo?.startDate, starts, true), end: pick(feedInfo?.endDate, ends, false) }
+}
+
+/** Dates outside the feed's validity: before its start or after its end. */
+export function uncoveredDates(dates: string[], c: FeedCoverage): string[] {
+  return dates.filter((d) => (c.start && d < c.start) || (c.end && d > c.end))
+}
+
+/**
+ * Fails closed when the feed doesn't cover service date D (it starts later or has already ended): today's boards
+ * would be empty. Only dates before D, i.e. D−1, may be uncovered and dropped from the window.
+ */
+export function checkCoversToday(c: FeedCoverage, today: string): string[] {
+  if (c.start && today < c.start)
+    return [`feed starts ${c.start}, after service date ${today}: it doesn't cover today`]
+  if (c.end && today > c.end)
+    return [`feed ended ${c.end}, before service date ${today}: it doesn't cover today`]
+  return []
 }
 
 export interface GoldenFact {
@@ -66,6 +120,11 @@ export interface QuarantineInput {
   closureExplained: (key: string, date: string) => boolean
   /** Allowed relative change in trip count per service date vs the previous generation. */
   tripTolerance?: number
+  /**
+   * The new feed's validity. Dates outside it aren't compared: the new feed can't have service there, so a −100%
+   * drop or a station "losing" service is the feed boundary, not a timetable change. The build reports them instead.
+   */
+  coverage?: FeedCoverage
 }
 
 /** Reasons to quarantine one mode's new generation; empty when it can go live. */
@@ -74,7 +133,9 @@ export function quarantineReasons(q: QuarantineInput): string[] {
   const tol = q.tripTolerance ?? 0.2
   const stats = q.index.stats ?? {}
   const prevStats = q.previous?.stats ?? {}
-  for (const date of q.index.serviceDates) {
+  const skipped = new Set(q.coverage ? uncoveredDates(q.index.serviceDates, q.coverage) : [])
+  const compared = q.index.serviceDates.filter((d) => !skipped.has(d))
+  for (const date of compared) {
     const now = stats[date]
     const before = prevStats[date]
     if (!now || !before || before.trips === 0) continue
@@ -88,7 +149,7 @@ export function quarantineReasons(q: QuarantineInput): string[] {
   if (q.stationKeys) {
     const served = (idx: GenerationIndex | null, date: string) =>
       idx?.blobs[date] ? new Set(Object.keys(idx.blobs[date])) : null
-    for (const date of q.index.serviceDates) {
+    for (const date of compared) {
       const today = served(q.index, date) ?? new Set<string>()
       // Expected service: the previous generation served it on this date. (Comparing weekdays within the window
       // was tried and rejected: SEQ trackwork closes lines on weekends through separate calendar services, not

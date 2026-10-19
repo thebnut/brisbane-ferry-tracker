@@ -6,6 +6,8 @@
  *   data/{mode}/{stops,lines}.json, data/{mode}/geo/{geohash5}.json, data/bus/routes/{short}.json + data/bus/routes.json,
  *   legacy/latest.json,
  *   manifest.staging.json (only when something is quarantined), manifest.json (always last).
+ * A window date before the feed's start (D−1 when TransLink publishes a feed starting on D) is left out of the
+ * generation and reported in `uncoveredDates`: the new feed has no service for it (issue #93).
  * A quarantined mode's client data goes under staging/ so live readers never see it.
  */
 import { existsSync } from 'node:fs'
@@ -32,11 +34,15 @@ import { type Feed, loadFeed, type TripRow } from '../feed/load.ts'
 import { feedContentHash } from '../feed/source.ts'
 import { DirTarget, type Reader, readJson } from '../publish/targets.ts'
 import {
+  checkCoversToday,
   checkFeedEndDate,
   checkGoldenFacts,
+  type FeedCoverage,
+  feedCoverage,
   SEQ_GOLDEN_FACTS,
   quarantineReasons,
   StructuralFailure,
+  uncoveredDates,
 } from '../validate/validators.ts'
 import { BlobWriter, gzipJson, sha256Hex } from './blobs.ts'
 import { buildClientData } from './client-data.ts'
@@ -82,7 +88,11 @@ export interface ModeResult {
 
 export interface BuildResult {
   feedVersion: string
+  /** The window D−1..D+6 less any uncovered dates. */
   serviceDates: string[]
+  /** Window dates outside the feed's validity: not built and not compared with the previous generation. */
+  uncoveredDates: string[]
+  coverage: FeedCoverage
   modes: ModeResult[]
   manifest: Manifest
   staging: Manifest | null
@@ -109,7 +119,7 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   const modes = opts.modes ?? ALL_MODES
   const shardCount = opts.shards ?? DEFAULT_SHARDS
   const d = opts.date ?? brisbaneDate(opts.nowMs)
-  const dates = windowDates(d)
+  const allDates = windowDates(d)
   const builtAt = new Date(opts.nowMs).toISOString()
   let filesWritten = 0
   const writeOut = async (key: string, text: string) => {
@@ -119,12 +129,19 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     filesWritten++
   }
 
-  log(`loading feed ${opts.feedDir} for service dates ${dates[0]}..${dates[7]}`)
-  const feed = await loadFeed(opts.feedDir, { windowDates: dates })
+  log(`loading feed ${opts.feedDir} for service dates ${allDates[0]}..${allDates[7]}`)
+  const feed = await loadFeed(opts.feedDir, { windowDates: allDates })
   log(`loaded ${feed.trips.length}/${feed.tripRowsTotal} trips, ${feed.stopTimes.stop.length}/${feed.stopTimeRowsTotal} stop_times`)
 
-  const structural = checkFeedEndDate(feed.feedInfo?.endDate, d)
+  const coverage = feedCoverage(feed.feedInfo, feed.calendarRows, feed.calendarDateRows)
+  const structural = [...checkFeedEndDate(feed.feedInfo?.endDate, d), ...checkCoversToday(coverage, d)]
   if (structural.length) throw new StructuralFailure(structural)
+  // Only D−1 can be uncovered here (D..D+6 is covered or the checks above failed). Dropping it rather than publishing
+  // it empty keeps the index honest: the edge only reads dates listed in serviceDates.
+  const uncovered = uncoveredDates(allDates, coverage)
+  const dates = allDates.filter((date) => !uncovered.includes(date))
+  if (uncovered.length)
+    log(`feed covers ${coverage.start || '?'}..${coverage.end || '?'}: skipping uncovered service dates ${uncovered.join(', ')}`)
 
   const feedVersion = await feedVersionOf(feed)
   const keys = buildStopKeys(feed)
@@ -217,7 +234,7 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
       ;(index.tripIndex as Record<string, string>)[date] = info.sha
     }
     built.push({ mode, index, tripsByDate, windowTrips, servedKeys })
-    log(`${mode}: generation ${generation}, ${Object.values(stats).reduce((a, s) => a + s.events, 0)} events over 8 days`)
+    log(`${mode}: generation ${generation}, ${Object.values(stats).reduce((a, s) => a + s.events, 0)} events over ${dates.length} days`)
   }
 
   // Structural: golden facts on the real feed.
@@ -246,11 +263,12 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
         : null
     const reasons =
       b.mode === 'bus'
-        ? quarantineReasons({ mode: b.mode, index: b.index, previous, closureExplained: () => false })
+        ? quarantineReasons({ mode: b.mode, index: b.index, previous, coverage, closureExplained: () => false })
         : quarantineReasons({
             mode: b.mode,
             index: b.index,
             previous,
+            coverage,
             // Stations this generation or the previous one serves anywhere in the window.
             stationKeys: new Set(
               [b.index, previous].flatMap((i) => Object.values(i?.blobs ?? {}).flatMap((m) => Object.keys(m))),
@@ -311,6 +329,8 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
   return {
     feedVersion,
     serviceDates: dates,
+    uncoveredDates: uncovered,
+    coverage,
     modes: results,
     manifest,
     staging,
