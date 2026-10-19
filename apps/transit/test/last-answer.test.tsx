@@ -29,10 +29,9 @@ describe('useLastAnswerAt', () => {
   })
 
   it('starts again when the data mode changes (demo to ordinary, and back)', () => {
-    const { result, rerender } = renderHook(
-      ({ scope, cards }) => useLastAnswerAt(scope, cards, null),
-      { initialProps: { scope: 'true:null', cards: [answer(NOW)] as Array<DeparturesResponse | undefined> } },
-    )
+    const { result, rerender } = renderHook(({ scope, cards }) => useLastAnswerAt(scope, cards, null), {
+      initialProps: { scope: 'true:null', cards: [answer(NOW)] as Array<DeparturesResponse | undefined> },
+    })
     expect(result.current).toBe(NOW)
     // The ordinary visit's cards are still waiting, or failed: nothing, not the demo answer's time.
     rerender({ scope: 'false:null', cards: [undefined] })
