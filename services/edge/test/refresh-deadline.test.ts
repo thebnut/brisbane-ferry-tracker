@@ -11,7 +11,12 @@ import { StaticStore } from '../src/data/static-store.ts'
 import { DeadlineError } from '../src/deadline.ts'
 import { silentLogger } from '../src/log.ts'
 import type { PullResult } from '../src/rt/hub-core.ts'
-import { type HubClient, SNAPSHOT_REFRESH_MS, SnapshotClient } from '../src/snapshot-client.ts'
+import {
+  type HubClient,
+  SNAPSHOT_MAX_STALE_MS,
+  SNAPSHOT_REFRESH_MS,
+  SnapshotClient,
+} from '../src/snapshot-client.ts'
 import { stationsFor } from '../src/stations.ts'
 import { buildTree, Clock, D, epoch, storeFor } from './fixtures.ts'
 
@@ -234,6 +239,42 @@ describe('SnapshotClient refresh deadline', () => {
       expect((await client.get())?.seq).toBe(6)
       expect(client.expired).toBe(true)
       expect(client.status?.seq).toBe(6)
+    })
+
+    it('a late answer without a seq (e.g. a missing R2 pointer) does not renew an expired copy (Codex r2)', async () => {
+      const clock = new Clock(0)
+      const late = deferred<PullResult>()
+      const hub = scriptedHub([async () => result(6), () => late.promise], async () => result(7))
+      const bg: Promise<unknown>[] = []
+      const client = new SnapshotClient(hub, clock.now, () => {}, null, 'ferry', undefined, slowTiming)
+      expect((await client.get())?.seq).toBe(6)
+      clock.advance(61_000)
+      expect((await client.get((p) => bg.push(p)))?.seq).toBe(6)
+      await sleep(DEADLINE + 20)
+      expect(client.abandoned).toBe(1)
+      late.resolve({ seq: null, json: null, status: status(null) })
+      await Promise.all(bg)
+      expect((await client.get())?.seq).toBe(6)
+      expect(client.expired).toBe(true)
+      expect(client.status?.seq).toBe(6)
+    })
+
+    it('a late answer with the same seq and nothing committed since confirms the copy, dated from its start', async () => {
+      const clock = new Clock(0)
+      const late = deferred<PullResult>()
+      const hub = scriptedHub([async () => result(6), () => late.promise], async () => result(7))
+      const bg: Promise<unknown>[] = []
+      const client = new SnapshotClient(hub, clock.now, () => {}, null, 'ferry', undefined, slowTiming)
+      expect((await client.get())?.seq).toBe(6)
+      clock.advance(61_000)
+      await client.get((p) => bg.push(p))
+      await sleep(DEADLINE + 20)
+      clock.advance(5_000) // lands 5 s after it started
+      late.resolve({ seq: 6, json: null, status: status(6) })
+      await Promise.all(bg)
+      expect(client.expired).toBe(false)
+      clock.advance(SNAPSHOT_MAX_STALE_MS - 5_000) // maxStale after the refresh *started*: expired again
+      expect(client.expired).toBe(true)
     })
 
     it('a late answer older than the current copy is ignored (snapshot and status)', async () => {

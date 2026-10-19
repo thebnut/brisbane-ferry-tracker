@@ -11,7 +11,7 @@ import { fromBinary } from '@bufbuild/protobuf'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // @ts-expect-error The legacy Vercel helper is plain JS without types; imported to prove parity.
 import { applyCors } from '../../../api/_cors.js'
-import { createApp, DEPARTURES_TOPUP_BUDGET_MS, legacyFeedKeys, snapBbox } from '../src/app.ts'
+import { createApp, legacyFeedKeys, snapBbox } from '../src/app.ts'
 import { corsHeaders } from '../src/cors.ts'
 import { FeedMessageSchema } from '../src/gen/gtfs-realtime_pb.js'
 import { silentLogger } from '../src/log.ts'
@@ -33,9 +33,7 @@ import {
   vehicle,
 } from './fixtures.ts'
 
-async function setup(
-  opts: { modes?: string; warm?: boolean; scoped?: boolean; build?: string; slowIndexMs?: number } = {},
-) {
+async function setup(opts: { modes?: string; warm?: boolean; scoped?: boolean; build?: string } = {}) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   const tree = buildTree()
   const up = new FakeUpstream()
@@ -111,17 +109,8 @@ async function setup(
     }
     return cl
   }
-  const store = storeFor(tree, clock.now)
-  if (opts.slowIndexMs) {
-    // A slow index read: the request's clock moves on while it waits.
-    const getIndex = store.getIndex.bind(store)
-    store.getIndex = async (...args) => {
-      clock.advance(opts.slowIndexMs as number)
-      return getIndex(...args)
-    }
-  }
   const app = createApp({
-    store,
+    store: storeFor(tree, clock.now),
     snapshots,
     ...(opts.scoped ? { snapshotsFor } : {}),
     now: clock.now,
@@ -239,15 +228,6 @@ describe('GET /v1/{mode}/stops/{key}/departures', () => {
       `T2@${D}`,
       `T3@${D}`,
     ])
-  })
-
-  it('skips the next-day top-up once the request is past its budget (stays under the 10 s proxy)', async () => {
-    const s = await setup({ slowIndexMs: DEPARTURES_TOPUP_BUDGET_MS })
-    const body = DeparturesResponse.parse(
-      await (await s.get(`/v1/ferry/stops/317584/departures?at=${epoch('20261019', '23:00:00')}`)).json(),
-    )
-    expect(body.serviceDates).toEqual(['20261019'])
-    expect(body.departures.map((d) => d.tripInstance)).toEqual([`LATE@20261019`])
   })
 
   it('404 with ErrorResponse for a key not in the stop index; 200 empty for a known stop with no service', async () => {

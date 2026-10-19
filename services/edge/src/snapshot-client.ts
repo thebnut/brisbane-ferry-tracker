@@ -253,7 +253,7 @@ export class SnapshotClient {
 
   /**
    * Commit what a refresh loaded, if it may: on time (still the refresh in flight), or late with a newer seq, or late
-   * with the same seq and nothing committed since it started. A late answer older than the copy is ignored. The snapshot itself only ever moves forward, and an answer older than
+   * with the same (non-null) seq and nothing committed since it started. Any other late answer is ignored. The snapshot itself only ever moves forward, and an answer older than
    * the isolate's copy doesn't touch the status either. A late answer is dated from when its refresh started, so it
    * never makes the copy look fresher than it is. True when committed.
    */
@@ -262,8 +262,10 @@ export class SnapshotClient {
     const cur = this.current
     const newer = r.seq != null && (cur == null || r.seq > cur.seq)
     const older = r.seq != null && cur != null && r.seq < cur.seq
-    // Late: only a newer answer, or an equal one with nothing committed since. An older one confirms nothing (Codex r1).
-    if (!onTime && (older || (!newer && this.commits !== run.commits))) return false
+    const same = r.seq != null && cur != null && r.seq === cur.seq
+    // Late: only a newer answer, or the same seq with nothing committed since. An older one, or one without a seq,
+    // confirms nothing (Codex r1, r2).
+    if (!onTime && !newer && !(same && this.commits === run.commits)) return false
     this.commits++
     this.loadedAt = Math.max(this.loadedAt, onTime ? this.now() : run.at)
     if (r.status && !older) this.lastStatus = r.status
