@@ -15,8 +15,9 @@ import type { RouteFile } from '../lib/data-contract.ts'
 import { haversine } from '../lib/geo.ts'
 import { useApi } from '../lib/mode.ts'
 import { useVehicles } from '../lib/queries.ts'
+import { cachedRouteIndex } from '../lib/route-index.server.ts'
 import { pageMeta, routeMetaTags, SITE_URL } from '../lib/seo.ts'
-import { loaderEnv, settle } from '../lib/server.server.ts'
+import { fixtureFallbackOn, loaderEnv, settle } from '../lib/server.server.ts'
 import { stopCode, stopHref, tripHref } from '../lib/stops.ts'
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/route'
@@ -26,10 +27,10 @@ const RouteMap = lazy(() => import('../components/RouteMap.tsx'))
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const short = params.route
   if (!/^[\w-]{1,12}$/.test(short)) throw data(null, { status: 404 })
-  const { fetcher, env } = loaderEnv(request, context)
+  const { fetcher, env, fixtures } = loaderEnv(request, context)
   let unknown = false
   // Route files are never deleted, so the index says which are current. Without it (unreadable right now), the file
-  // alone decides: a page from the last feed beats a 503.
+  // alone decides: a page from the last feed beats a 503. The index is cached in the isolate (route-index.server.ts).
   const [route, index] = await Promise.all([
     settle(async (signal) => {
       try {
@@ -39,7 +40,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
         throw error
       }
     }),
-    settle((signal) => fetchRouteIndex(fetcher, { signal, validate: validateRouteIndex })),
+    settle((signal) =>
+      cachedRouteIndex(() => fetchRouteIndex(fetcher, { signal, validate: validateRouteIndex }), {
+        cache: !fixtures && !fixtureFallbackOn(env),
+      }),
+    ),
   ])
   if (index && !index.routes.includes(short)) unknown = true
   if (unknown || (route && route.patterns.length === 0)) throw data(null, { status: 404 })
