@@ -213,12 +213,15 @@ export const vehicle = (
   startDate: string,
   lat: number,
   lon: number,
+  /** The report's own time, epoch s (without it the hub stamps the feed header time). */
+  ts?: number,
 ): EntityInit => ({
   id,
   vehicle: {
     trip: { tripId, startDate },
     vehicle: { id, label: id },
     position: { latitude: lat, longitude: lon },
+    ...(ts != null ? { timestamp: BigInt(ts) } : {}),
   },
 })
 

@@ -1,7 +1,8 @@
 /**
- * Snapshot reads from R2 (when DATA_BUCKET is bound). A mode is one read of `rt/{mode}/latest.json`; alerts (and
- * older hubs) go through `rt/latest.json` and then the document it names, only when its seq moved. Keeps the Durable Object off the read path entirely: on Workers Free the DO
- * has 100k requests a day, while R2 has 10M Class B reads a month.
+ * Snapshot reads from R2 (when DATA_BUCKET is bound). A mode is one read of `rt/{mode}/latest.json` while that object
+ * is fresh, plus `rt/latest.json` for the hub status when the mode's content hasn't changed lately; alerts (and older
+ * hubs) go through `rt/latest.json` and then the document it names, only when its seq moved. Keeps the Durable Object
+ * off the read path entirely: on Workers Free the DO has 100k requests a day, while R2 has 10M Class B reads a month.
  */
 
 import type { RtSnapshot } from '@bft/core'
@@ -22,18 +23,24 @@ export async function pullFromR2(
   scope?: SnapshotScope,
   nowMs: number = Date.now(),
 ): Promise<PullResult> {
-  // Modes: one read of rt/{mode}/latest.json, which the hub overwrites every poll (single-read refresh). Fall back
-  // to the pointer when it isn't there (an older hub, or a mode the hub doesn't publish).
+  // Modes: one read of rt/{mode}/latest.json, which the hub overwrites whenever that mode's content changes
+  // (single-read refresh). Fall back to the pointer when it isn't there (an older hub, or a mode the hub doesn't
+  // publish), and when it is older than DIRECT_FRESH_MS.
+  let direct: { key: string; json: string } | null = null
   if (scope && scope !== 'alerts') {
-    const json = await readSnapshot(src, modeLatestKey(scope))
+    const key = modeLatestKey(scope)
+    const json = await readSnapshot(src, key)
     const seq = json != null ? snapshotSeq(json) : null
     if (json != null && seq != null) {
       const status = statusOf(json, seq)
-      // A latest object that stopped advancing (the hub rolled back to a ring publisher, which never deletes it)
-      // must not freeze readers: past DIRECT_STALE_MS, take the pointer path instead (Codex review of #49).
-      if (status.fetchedAt == null || nowMs - status.fetchedAt <= DIRECT_STALE_MS) {
+      if (status.fetchedAt == null || nowMs - status.fetchedAt <= DIRECT_FRESH_MS) {
         return { seq, json: seq === sinceSeq ? null : json, status }
       }
+      // Older: either the mode's content hasn't changed for a while (its header times are as old as the content,
+      // so the hub status comes from the pointer), or the object was abandoned (the hub rolled back to a ring
+      // publisher, which never deletes it) and must not freeze readers (Codex review of #49). The pointer says which;
+      // the object just read is reused if the pointer names it.
+      direct = { key, json }
     }
   }
   const pointerBytes = await readBytes(src, R2_LATEST_KEY)
@@ -66,12 +73,14 @@ export async function pullFromR2(
   // Snapshots live in rings of overwritten keys: the slot must hold the seq the pointer names. A mismatch means
   // the hub published between our two reads, so re-read the pointer and try once more.
   for (let attempt = 0; attempt < 2; attempt++) {
-    const json = await readSnapshot(src, e.key)
+    const json = attempt === 0 && direct?.key === e.key ? direct.json : await readSnapshot(src, e.key)
     const got = json != null ? snapshotSeq(json) : null
     // Ring slots must hold exactly the named seq. An overwritten latest object may be newer than the pointer after
     // a partial publish; it is still that scope's newest committed content (Codex review of #49).
     if (json != null && got != null && (isLatest(e.key) ? got >= e.seq : got === e.seq)) {
-      const status = got > e.seq ? statusOf(json, got) : pointer.status
+      // Freshness from the pointer's hub status (the upstream source time as of the pointer), unless the document
+      // was written after it. An unchanged document's own header is as old as its content (see publishR2).
+      const status = got > (pointer.status.seq ?? pointer.seq) ? statusOf(json, got) : pointer.status
       return { seq: got, json: got === sinceSeq ? null : json, status }
     }
     if (attempt === 0) {
@@ -102,8 +111,12 @@ function statusOf(json: string, seq: number): HubStatus {
   }
 }
 
-/** A per-mode latest object older than this is treated as abandoned (polls run every 15 s). */
-export const DIRECT_STALE_MS = 45_000
+/**
+ * A per-mode latest object whose header is at most this old is used with its own status, in one read. Past it, the
+ * pointer gives the status (and says whether the object was abandoned). A mode whose content changes every poll is
+ * rewritten every 15 s in production; on staging (30 s polls) about half the refreshes also read the pointer.
+ */
+export const DIRECT_FRESH_MS = 20_000
 
 async function readSnapshot(src: DataSource, key: string): Promise<string | null> {
   const bytes = await readBytes(src, key)
