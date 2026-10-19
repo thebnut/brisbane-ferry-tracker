@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { COMBINED_KEY, parseIndex } from '../src/rt/combined.ts'
+import { COMBINED_KEY, decodeCombined, encodeCombined, parseIndex } from '../src/rt/combined.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
 import { CYCLE_MS, HubCore, modeLatestKey, R2_LATEST_KEY, snapshotSeq } from '../src/rt/hub-core.ts'
 import {
@@ -383,5 +383,26 @@ describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {
     expect((await hub.pull(null)).seq).toBeNull()
     await hub.alarm()
     expect(objSeq(r2)).toBe(published + 1)
+  })
+
+  it('a section with a malformed trip record counts as missing, so it cannot poison the next build (Codex r5)', async () => {
+    const { r2, hub, clock, change, published } = await restarted('ferry', 'combined')
+    // Re-encoded (valid offsets and seqs) with the ferry document's first trip record replaced by null.
+    const got = decodeCombined(new TextEncoder().encode(r2.files.get(COMBINED_KEY) as string))
+    if (!got) throw new Error('combined object did not decode')
+    const sections = got.docs.map((d) => {
+      const doc = JSON.parse(d.json)
+      const first = Object.keys(doc.trips)[0] as string
+      doc.trips[first] = null
+      return { ...d, json: JSON.stringify(doc) }
+    })
+    r2.files.set(COMBINED_KEY, new TextDecoder().decode(encodeCombined({ ...got.index }, sections)))
+    expect((await hub.pull(null)).seq).toBeNull()
+    await hub.alarm()
+    expect(objSeq(r2)).toBe(published + 1)
+    clock.advance(CYCLE_MS)
+    change(20)
+    await hub.alarm()
+    expect(objSeq(r2)).toBe(published + 2)
   })
 })
