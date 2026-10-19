@@ -32,7 +32,8 @@ const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'satur
 /**
  * feed_info's feed_start_date/feed_end_date, else the earliest/latest date calendar.txt or calendar_dates.txt gives
  * service on. A new TransLink feed starts on the day it is published (generation 20261020-…), so D−1 of the build
- * window lies before it (issue #93).
+ * window lies before it (issue #93). In a build the end is always feed_info's: loadFeed and checkFeedEndDate require
+ * feed_end_date (fail closed), and that requirement is deliberately not relaxed to the calendar fallback.
  */
 export function feedCoverage(
   feedInfo: { startDate: string; endDate: string } | null,
