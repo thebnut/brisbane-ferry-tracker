@@ -197,7 +197,8 @@ describe('offline backoff (smoke round 9, Codex r1)', () => {
     // The event comes between polls: a board already fetching keeps its request (useRefetchOnReconnect), so a failed
     // poll's retry still due (a second later) would stand in for the attempt. Where the polls fall depends on the
     // backoff's jitter, which comes from the fake clock's start (the real time), so wait out any retry.
-    while (elapsed() - (at.at(-1) as number) <= 1_100) await advance(100)
+    for (let i = 0; i < 30 && elapsed() - (at.at(-1) as number) <= 1_100; i++) await advance(100)
+    expect(elapsed() - (at.at(-1) as number)).toBeGreaterThan(1_100)
     const n = at.length
     await act(async () => {
       window.dispatchEvent(new Event('online'))
