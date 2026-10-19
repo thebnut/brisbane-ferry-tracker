@@ -10,7 +10,7 @@ Design: `docs/architecture/transit-architecture.md` §3.3, §3.8, §3.10 and ADR
 | RtHub Durable Object shell / poller core (alarms, feeds, storage, R2) | `src/rt/hub.ts`, `src/rt/hub-core.ts` |
 | Snapshot builder (decode → match → normalise → RtSnapshot) | `src/rt/build.ts` |
 | Feed layout, `RT_MODES` / `RT_INDEX_MODES` | `src/rt/feeds.ts` |
-| Edge snapshot read path (isolate memory, 10 s SharedFetch, R2 or RPC) | `src/snapshot-client.ts`, `src/r2-snapshots.ts` |
+| Edge snapshot read path (isolate memory, 10 s shared refresh with a 3 s deadline, R2 or RPC) | `src/snapshot-client.ts`, `src/r2-snapshots.ts` |
 | DataSource: R2, assets Worker (service binding), local dir, memory | `src/data/` |
 | Generated GTFS-RT types (`pnpm gen:proto`, buf + protoc-gen-es) | `src/gen/`, `proto/`, `buf.gen.yaml` |
 
@@ -22,7 +22,7 @@ Design: `docs/architecture/transit-architecture.md` §3.3, §3.8, §3.10 and ADR
 | `RT_INDEX_MODES` | polled modes minus bus | Modes whose trip indexes the hub loads. Bus doesn't fit a 128 MB DO with the current matcher. |
 | `RT_UPSTREAM` | TransLink SEQ | GTFS-RT base URL. |
 | `RT_CYCLE_MS` | `15000` | Poll interval. The alarm itself fires every 7.5 s (or less) so the DO stays resident: Cloudflare evicts an object after ~10 s idle, which would drop its trip indexes every cycle. |
-| `RT_SNAPSHOT_MAX_STALE_MS` | `60000` | How old an edge isolate's snapshot copy may be before a request waits for the refresh (min 10000). Lower trades latency for freshness: each wait is one R2 read (~300 ms from BNE). |
+| `RT_SNAPSHOT_MAX_STALE_MS` | `60000` | How old an edge isolate's snapshot copy may be before a request waits for the refresh (min 10000). Lower trades latency for freshness: each wait is one R2 read (~300 ms from BNE). The wait is capped at 1.5 s; after that the request gets the old copy with `rtState` `stale`. |
 | `CORS_ALLOW_ALL` | `false` | Break-glass wildcard CORS, as in the legacy proxy. |
 | `DATA_BUCKET` (R2) | staging: `bft-transit-data` | Static tree + `rt/` snapshots. Takes precedence over `DATA`. |
 | `DATA` (service) | dev: `bft-data-dev` | Assets Worker fallback (`services/data`). |

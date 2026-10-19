@@ -3,7 +3,7 @@
  * Indexes and blobs are immutable, so they're cached in isolate memory (bounded LRU); only the manifest is refreshed.
  */
 import { GenerationIndex, Manifest, type Mode, StaticStopDay, shardOf, TripIndexDay } from '@bft/core'
-import { awaitFlight, DeadlineError, type Flight, flight, isDead } from '../deadline.ts'
+import { awaitFlight, DeadlineError, type Flight, flight, isDead, within } from '../deadline.ts'
 import { type DataSource, decodeJson, readBytes, readJson } from './source.ts'
 
 /** Trip-index blobs above this (gzipped) are not cached: bus. */
@@ -99,8 +99,10 @@ export class StaticStore {
     const now = this.now()
     if (this.manifestLoad && isDead(this.manifestLoad, now, this.loadDeadlineMs)) this.manifestLoad = null
     if (!this.manifestLoad) {
+      // The read carries its own deadline too, so a background refresh (waitUntil, no waiter) can't stay pending
+      // and commit late when no request comes along to notice it (Codex r1 #2).
       const load: Flight<Manifest | null> = flight(
-        readJson(this.source, MANIFEST_KEY)
+        within(readJson(this.source, MANIFEST_KEY), this.loadDeadlineMs, MANIFEST_KEY)
           .then((raw) => {
             // A missing manifest isn't cached as null, so one that appears later is picked up on the next read.
             if (raw == null || this.manifestLoad !== load) return this.manifestValue

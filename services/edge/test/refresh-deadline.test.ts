@@ -87,10 +87,7 @@ describe('SnapshotClient refresh deadline', () => {
     expect(value).toBeNull()
     expect(ms).toBeLessThan(DEADLINE + SLACK)
     expect(client.abandoned).toBe(1)
-    // Throttled like a failed refresh: inside 10 s nothing new is started and the request still doesn't wait.
-    expect(await client.get()).toBeNull()
-    expect(hub.pulls).toBe(1)
-    clock.advance(SNAPSHOT_REFRESH_MS)
+    // A lost refresh isn't a hub failure, so it isn't throttled: the very next request retries (Codex r1 #1).
     expect((await client.get())?.seq).toBe(7)
     expect(hub.pulls).toBe(2)
   })
@@ -336,6 +333,30 @@ describe('static reads with a stalled data source', () => {
     await new Promise((r) => setTimeout(r, 10))
     t = 120_000 // let the manifest go stale so a regression would have to show here
     expect((await store.getManifest((p) => void p))?.updatedAt).toBe('g2')
+  })
+
+  it('a background manifest refresh that never answers settles at its own deadline and commits nothing', async () => {
+    let t = 0
+    const late = deferred<null>()
+    const src = new MemoryDataSource(new Map([['manifest.json', manifest('g1')]]))
+    const real = src.get.bind(src)
+    const store = new StaticStore(src, { manifestMaxAgeMs: 60_000, now: () => t, loadDeadlineMs: DEADLINE })
+    expect(await store.currentGeneration('ferry')).toBe('g1')
+    src.get = () =>
+      late.promise.then(() => ({
+        body: new Blob([manifest('g0') as unknown as ArrayBuffer]).stream() as ReadableStream<Uint8Array>,
+      }))
+    t = 61_000
+    const bg: Promise<unknown>[] = []
+    expect(await store.currentGeneration('ferry', (p) => bg.push(p))).toBe('g1')
+    expect(bg).toHaveLength(1)
+    // No other request comes along; the waitUntil promise still ends at the deadline.
+    const { ms } = await timed(bg[0] as Promise<unknown>)
+    expect(ms).toBeLessThan(DEADLINE + SLACK)
+    late.resolve(null)
+    await new Promise((r) => setTimeout(r, 10))
+    src.get = real
+    expect((await store.getManifest())?.modes.ferry?.current).toBe('g1') // the late g0 was not committed
   })
 
   it('an index read that never answers rejects within the deadline and is retried on the next request', async () => {

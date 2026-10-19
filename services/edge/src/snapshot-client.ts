@@ -180,6 +180,9 @@ export class SnapshotClient {
   private abandon(run: { token: number }): void {
     if (this.inflight?.token !== run.token) return
     this.inflight = null
+    // A lost refresh says nothing about the hub (a failed one does), so the next request may retry at once rather
+    // than wait out the 10 s attempt throttle (Codex r1 #1). Each retry is bounded by the same deadline.
+    this.attemptedAt = Number.NEGATIVE_INFINITY
     this.abandoned++
     console.error(
       JSON.stringify({ level: 'error', msg: 'rt snapshot refresh abandoned', scope: this.scope ?? 'all' }),
