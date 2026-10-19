@@ -85,17 +85,22 @@ curl -sI https://<bus host>/data/bus/routes.json | grep -i x-bft-build   # must 
 - **Rollback:** `wrangler rollback --env production`, or detach the custom domain (Brett's OK: that's a delete). Nothing user-facing depends on it yet.
 
 ### 2a. RT R2 layout: `RT_R2_LAYOUT` (from #99)
-The hub publishes realtime to R2 in one of two layouts: `documents` (one object per mode, the default) or `combined` (one `rt/modes/combined.dat` object per poll with a byte-offset index, read with ranged GETs; ~1 PUT per poll instead of one per changed mode). The pointer `rt/latest.json` says which layout is current. Readers from #99 on read **both**. **Readers from releases before #99 read only `documents`**, so the order below matters.
+The hub publishes realtime to R2 in one of two layouts: `documents` (one object per mode, the default) or `combined` (one `rt/modes/combined.dat` object with a byte-offset index, read with ranged GETs). With `combined`, a poll in which any mode's content changed costs one mode-object PUT instead of one per changed mode, and an unchanged poll skips it. Alerts writes and the pointer heartbeat stay separate PUTs in both layouts. The pointer `rt/latest.json` says which layout is current: `files[mode]` entries for `documents`, a `combined: {key, seq}` entry for `combined` (alerts stay in `files`). Readers from #99 on read **both**. **Readers from releases before #99 read only `documents`**, so the order below matters.
 - **Rollout (staging first, then production, each only after the release containing #99 is deployed and verified there):**
   1. Deploy with `RT_R2_LAYOUT` unset. The hub keeps publishing `documents`, exactly as before.
   2. Switch: `cd services/edge && BUILD_SHA=$(node ../../scripts/build-sha.mjs) && npx wrangler deploy --env <staging|production> --var BUILD_SHA:$BUILD_SHA --var RT_R2_LAYOUT:combined`. The watchdog restarts the hub on the new version within about a minute.
-  3. **Check:** `/v1/health` ok with `build` unchanged; `rt.ageS` under 60 s; departures `live` for ferry, train, tram and bus; `wrangler tail` shows no `no snapshot` errors; the R2 `PutObject` rate drops (Workers analytics, bucket `bft-transit-data`).
+  3. **Check:**
+     - `/v1/health` ok with `build` unchanged (`ok` itself needs source and build age under 120 s; aim for `rt.ageS` under 60 s).
+     - Departures `live` for ferry, train, tram and bus.
+     - **The pointer names the combined object, and mode reads really use it:** read the pointer (command under "Rollback order") and check it has a `combined` entry whose `seq` advances across two reads a poll apart. No log line reports a failed mode read (a missing entry returns normally), so healthy health and departures alone don't prove it.
+     - `npx wrangler tail --env <staging|production>` shows hub cycles completing with no errors.
+     - The R2 `PutObject` rate drops: R2 → `bft-transit-data` → Metrics, or GraphQL `r2OperationsAdaptiveGroups` by `actionType`. Both environments share the bucket, so the counts include both hubs; compare 5-minute buckets before and after.
   - **A `--var` value lasts only for that deploy:** the `deploy:*` scripts don't pass `RT_R2_LAYOUT`, so the next normal deploy returns the hub to `documents`. That is safe (readers read both). To keep `combined` across deploys, set it in that env's `vars` in `services/edge/wrangler.jsonc` with a reviewed PR.
 - **Rollback order:**
   - **Before any `wrangler rollback` or deploy of a version older than #99**, return the hub to `documents` first: redeploy the current version without `RT_R2_LAYOUT` (or with `--var RT_R2_LAYOUT:documents`).
-  - Wait for the hub to restart and publish at least two polls (≈ 1–2 min).
-  - Confirm the pointer's mode files are per-mode keys (`rt/<mode>/latest.json`) and that departures are `live`. Read-only: `npx wrangler r2 object get bft-transit-data/rt/latest.json --remote --pipe` (staging: `rt-staging/latest.json`).
-  - Only then roll back. A pre-#99 reader facing a `combined` pointer finds no per-mode entry and serves no realtime.
+  - Wait for the hub to restart on that version (the minute watchdog) and publish (≈ 1–2 min). Don't go on elapsed time alone; confirm the next step.
+  - Confirm the pointer has per-mode `files` entries (`rt/<mode>/latest.json`), no `combined` entry, and a `seq` that advances across two reads a poll apart, and that departures are `live`. Read-only: `npx wrangler r2 object get bft-transit-data/rt/latest.json --remote --pipe` (staging: `bft-transit-data/rt-staging/latest.json`; the keys inside keep their logical `rt/…` names).
+  - Only then roll back. A pre-#99 reader facing a `combined` pointer can't load new mode snapshots: a cold isolate has no realtime, and **a warm one can keep serving its last snapshot labelled `live`**. That's why the pointer must be back on `documents` first.
 - **Report entry:** the layout switch (env, time, version id), the PUT rate before and after, and any rollback.
 
 ## 3. Phase 2: the legacy ferry app reads `/v1` (flagged, 10% → 50% → 100%)
