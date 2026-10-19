@@ -1108,9 +1108,10 @@ interface DayRead {
 
 /**
  * A snapshot document, or null when it is not JSON with the shape restore and the next build rely on (header seq,
- * staticGeneration and serviceDates; every trip an object with a string key, every vehicle and alert an object).
+ * staticGeneration and serviceDates; every trip an object with a string key, every vehicle an object, every alert
+ * an object with a `modes` array, which the per-scope split reads).
  * A cheap structural check, not the full schema, which would cost too much of the Free plan's CPU budget per
- * restore (Codex r4 and r5 on #100).
+ * restore (Codex r4 to r6 on #100).
  */
 function parseSnapshot(text: string): RtSnapshot | null {
   let s: RtSnapshot
@@ -1131,7 +1132,7 @@ function parseSnapshot(text: string): RtSnapshot | null {
     Array.isArray(s.alerts) &&
     Object.values(s.trips).every((t) => isObject(t) && typeof (t as { key?: unknown }).key === 'string') &&
     s.vehicles.every(isObject) &&
-    s.alerts.every(isObject)
+    s.alerts.every((a) => isObject(a) && Array.isArray((a as { modes?: unknown }).modes))
   return ok ? s : null
 }
 

@@ -279,6 +279,21 @@ describe('RtHub restore: one shared in-flight restore (Codex r1/r2 on #96)', () 
     await hub.alarm()
     expect(docSeq(r2)).toBe(published + 6)
   })
+
+  it('an alerts document with a malformed alert restores without alerts, and a scoped pull works (Codex r6)', async () => {
+    const { r2, hub, published } = await restarted()
+    const pointer = JSON.parse(r2.files.get(R2_LATEST_KEY) as string)
+    const slot = JSON.parse(r2.files.get(pointer.files.alerts.key) as string)
+    slot.alerts = [{}]
+    r2.files.set(pointer.files.alerts.key, JSON.stringify(slot))
+    const ferry = await hub.pull(null, 'ferry')
+    expect(ferry.seq).toBe(published)
+    expect(JSON.parse(ferry.json as string).alerts).toEqual([])
+    // Alerts are refetched on the next cycle (the restore marked them stale).
+    await hub.alarm()
+    expect(docSeq(r2)).toBe(published + 1)
+    expect(JSON.parse((await hub.pull(null, 'alerts')).json as string).alerts.length).toBe(1)
+  })
 })
 
 describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {
