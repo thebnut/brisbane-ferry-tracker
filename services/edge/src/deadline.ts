@@ -11,13 +11,30 @@ export class DeadlineError extends Error {
   override name = 'DeadlineError'
 }
 
-/** `p`, or a DeadlineError after `ms`. The timer is the caller's own, set in the caller's request. */
-export function within<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+/** The caller went away (its request's signal aborted) before `what` answered. */
+export class AbandonedError extends Error {
+  override name = 'AbandonedError'
+}
+
+/**
+ * `p`, or a DeadlineError after `ms`, or an AbandonedError as soon as `signal` aborts. The timer is the caller's own,
+ * set in the caller's request. Only the wait ends: `p` itself (often shared with other requests) is left running.
+ */
+export function within<T>(p: Promise<T>, ms: number, what: string, signal?: AbortSignal): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
+  let onAbort: (() => void) | undefined
   const late = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new DeadlineError(`${what}: no answer in ${ms} ms`)), Math.max(0, ms))
+    if (signal) {
+      onAbort = () => reject(new AbandonedError(`${what}: caller went away`))
+      if (signal.aborted) onAbort()
+      else signal.addEventListener('abort', onAbort, { once: true })
+    }
   })
-  return Promise.race([p, late]).finally(() => clearTimeout(timer))
+  return Promise.race([p, late]).finally(() => {
+    clearTimeout(timer)
+    if (onAbort) signal?.removeEventListener('abort', onAbort)
+  })
 }
 
 /** A load shared by concurrent requests, stamped with when it started. */
@@ -41,6 +58,12 @@ export const isDead = (f: Flight<unknown>, nowMs: number, deadlineMs: number): b
   !f.settled && nowMs - f.at >= deadlineMs
 
 /** Wait for a flight for at most what is left of its deadline. */
-export function awaitFlight<T>(f: Flight<T>, nowMs: number, deadlineMs: number, what: string): Promise<T> {
-  return f.settled ? f.p : within(f.p, f.at + deadlineMs - nowMs, what)
+export function awaitFlight<T>(
+  f: Flight<T>,
+  nowMs: number,
+  deadlineMs: number,
+  what: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  return f.settled ? f.p : within(f.p, f.at + deadlineMs - nowMs, what, signal)
 }

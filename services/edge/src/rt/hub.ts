@@ -26,6 +26,7 @@ export class RtHub extends DurableObject<WorkerEnv> {
       upstream: env.RT_UPSTREAM,
       r2: env.DATA_BUCKET,
       cycleMs: env.RT_CYCLE_MS ? Number(env.RT_CYCLE_MS) : undefined,
+      profile: env.RT_PROFILE === '1',
       log: createLogger({ svc: 'bft-rthub' }),
     })
   }

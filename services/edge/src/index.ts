@@ -1,6 +1,8 @@
 /**
  * bft-api Worker entry: the Hono /v1 app, the 1-minute watchdog cron, and the RtHub Durable Object class.
  */
+
+import { buildId } from '@bft/core'
 import { aiHealthStatus, registerAi } from './ai/routes.ts'
 import { createApp } from './app.ts'
 import { withRtNamespace } from './data/rt-prefix.ts'
@@ -9,9 +11,10 @@ import { StaticStore } from './data/static-store.ts'
 import type { WorkerEnv } from './env.ts'
 import { createLogger, errorMessage } from './log.ts'
 import { pullFromR2 } from './r2-snapshots.ts'
+import { withRequestDeadline } from './request-deadline.ts'
 import { parseRtModes } from './rt/feeds.ts'
 import type { SnapshotScope } from './rt/split.ts'
-import { parseMaxStale, SnapshotClient } from './snapshot-client.ts'
+import { parseMaxStale, parseRtWait, SnapshotClient } from './snapshot-client.ts'
 
 export { Budget } from './ai/budget-do.ts'
 export { RtHub } from './rt/hub.ts'
@@ -43,12 +46,21 @@ function getIsolate(rawEnv: WorkerEnv) {
     }
     const waitUntil = (p: Promise<unknown>) => pendingWaitUntil?.(p)
     const maxStale = parseMaxStale(env.RT_SNAPSHOT_MAX_STALE_MS)
-    const snapshots = new SnapshotClient(hubClient, Date.now, waitUntil, undefined, undefined, maxStale)
+    const timing = { requestWaitMs: parseRtWait(env.RT_WAIT_MS) }
+    const snapshots = new SnapshotClient(
+      hubClient,
+      Date.now,
+      waitUntil,
+      undefined,
+      undefined,
+      maxStale,
+      timing,
+    )
     const scoped = new Map<SnapshotScope, SnapshotClient>()
     const snapshotsFor = (scope: SnapshotScope) => {
       let cl = scoped.get(scope)
       if (!cl) {
-        cl = new SnapshotClient(hubClient, Date.now, waitUntil, undefined, scope, maxStale)
+        cl = new SnapshotClient(hubClient, Date.now, waitUntil, undefined, scope, maxStale, timing)
         scoped.set(scope, cl)
       }
       return cl
@@ -90,7 +102,19 @@ function getIsolate(rawEnv: WorkerEnv) {
 export default {
   fetch(req, env, ctx) {
     pendingWaitUntil = (p) => ctx.waitUntil(p)
-    return getIsolate(env).app.fetch(req, env, ctx)
+    const { app } = getIsolate(env)
+    return withRequestDeadline(req, async () => app.fetch(req, env, ctx), {
+      build: buildId(env.BUILD_SHA),
+      corsAllowAll: env.CORS_ALLOW_ALL === 'true',
+      onCut: (o) =>
+        log.warn('request cut', {
+          why: o.why,
+          ms: o.ms,
+          method: req.method,
+          path: new URL(req.url).pathname,
+          rid: req.headers.get('cf-ray') ?? undefined,
+        }),
+    })
   },
   async scheduled(_event, env, ctx) {
     // Watchdog: re-arm the hub's alarm chain if its last completed cycle is older than 45 s.
