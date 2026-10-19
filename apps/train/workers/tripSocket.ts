@@ -13,6 +13,7 @@
  * GET /__trip-ws-stats/{key} (only when TRIP_WS is on).
  */
 import { DurableObject } from 'cloudflare:workers'
+import { BUILD_HEADER, buildId } from '@bft/core/build'
 import type { TripResponse } from '@bft/core/contract'
 import { validateTrip } from '../app/lib/contract.server.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
@@ -89,7 +90,12 @@ export class TripSocket extends DurableObject<Env> {
     if (alarm == null || alarm < now - 5_000 || alarm > now + 2 * CYCLE_MS)
       await this.ctx.storage.setAlarm(nextCycle(now))
     await this.save()
-    return new Response(null, { status: 101, webSocket: client })
+    // The upgrade goes back untouched by the Worker's wrapper, so it carries the build marker from here.
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
+      headers: { [BUILD_HEADER]: buildId(this.env.BUILD_SHA) },
+    })
   }
 
   async alarm(): Promise<void> {

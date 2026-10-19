@@ -7,7 +7,7 @@ import { FAVOURITES_KEY } from '@bft/train/app/lib/storage.ts'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { stationName, trainBoardHref } from '../app/lib/hrefs.ts'
 import { offlineRows, readSavedItems, writeSavedCopy } from '../app/lib/saved.ts'
-import { cardModel, greeting } from '../app/routes/saved.tsx'
+import { cardModel, greeting, homeLiveState, lastAnswerAt } from '../app/routes/saved.tsx'
 
 const NOW = Date.UTC(2026, 9, 19, 9, 30) // 7:30 pm Brisbane
 const s = NOW / 1000
@@ -159,5 +159,133 @@ describe('Saved mixes every app’s own saved items', () => {
   it('greets in Brisbane time', () => {
     expect(greeting(Date.UTC(2026, 9, 19, 22))).toBe('Good morning')
     expect(greeting(NOW)).toBe('Good evening')
+  })
+})
+
+describe('the home page’s live judgement (R7-T1)', () => {
+  const items = [{}, {}]
+  const opts = { online: true, nowMs: NOW, unconfirmedBefore: null }
+  const live = res([dep({ status: 'live', estDep: s + 120 })])
+
+  it('LIVE only once every saved card has a live answer: a pending card is not live', () => {
+    expect(
+      homeLiveState(
+        items,
+        [
+          { data: live, pending: false },
+          { data: undefined, pending: true },
+        ],
+        opts,
+      ),
+    ).toEqual({
+      live: false,
+      unconfirmed: false,
+    })
+    expect(
+      homeLiveState(
+        items,
+        [
+          { data: live, pending: false },
+          { data: live, pending: false },
+        ],
+        opts,
+      ).live,
+    ).toBe(true)
+    expect(homeLiveState(items, [{ data: undefined, pending: true }], opts).live).toBe(false)
+    // A card whose request failed (no data, no longer pending) isn't live either (Codex review).
+    expect(
+      homeLiveState(
+        items,
+        [
+          { data: live, pending: false },
+          { data: undefined, pending: false },
+        ],
+        opts,
+      ).live,
+    ).toBe(false)
+  })
+
+  it('a page from the device’s copy is offline until a card has its own network answer', () => {
+    const cached = { ...opts, unconfirmedBefore: NOW + 10_000 }
+    // Saved items not read yet, or cards still waiting: offline banner, no LIVE.
+    expect(homeLiveState(null, [], cached)).toEqual({ live: false, unconfirmed: true })
+    expect(homeLiveState(items, [{ data: undefined, pending: true }], cached)).toEqual({
+      live: false,
+      unconfirmed: true,
+    })
+    // An answer that came with the page, or an offline copy, confirms nothing.
+    expect(homeLiveState(items, [{ data: live, pending: false }], cached).unconfirmed).toBe(true)
+    const copy = { ...live, generatedAt: NOW + 60_000, offline: true as const }
+    expect(homeLiveState(items, [{ data: copy, pending: false }], cached).unconfirmed).toBe(true)
+    // A network answer after the page: confirmed, and live once every card is.
+    const fresh = { ...live, generatedAt: NOW + 60_000 }
+    expect(
+      homeLiveState([{}], [{ data: fresh, pending: false }], { ...cached, nowMs: NOW + 60_000 }),
+    ).toEqual({ live: true, unconfirmed: false })
+  })
+
+  it('R8-T1: nothing saved, a page from the device’s copy is unconfirmed (banner too) until it reaches the network', () => {
+    const cached = { ...opts, unconfirmedBefore: NOW + 10_000 }
+    expect(homeLiveState([], [], cached)).toEqual({ live: false, unconfirmed: true })
+    expect(homeLiveState([], [], { ...cached, reached: true })).toEqual({ live: true, unconfirmed: false })
+    expect(homeLiveState([], [], { ...cached, reached: true, online: false })).toEqual({
+      live: false,
+      unconfirmed: false,
+    })
+  })
+
+  it('nothing saved: LIVE only after the page’s own network answer, fresh page or not (Codex release review)', () => {
+    // A fresh server render through an API outage: no answer, no LIVE (and no banner while the browser is online).
+    expect(homeLiveState([], [], opts)).toEqual({ live: false, unconfirmed: false })
+    expect(homeLiveState([], [], { ...opts, reached: true })).toEqual({ live: true, unconfirmed: false })
+    expect(homeLiveState([], [], { ...opts, reached: true, online: false })).toEqual({
+      live: false,
+      unconfirmed: false,
+    })
+  })
+
+  it('never LIVE before the saved items are read (the server render and hydration)', () => {
+    expect(homeLiveState(null, [], opts)).toEqual({ live: false, unconfirmed: false })
+  })
+
+  it('never LIVE offline; with nothing saved, never LIVE from a cached copy', () => {
+    expect(homeLiveState(items, [{ data: live, pending: false }], { ...opts, online: false }).live).toBe(
+      false,
+    )
+    // A cached copy: not LIVE, and unconfirmed (the banner shows with the OFFLINE pill, R8-T1).
+    expect(homeLiveState([], [], { ...opts, unconfirmedBefore: NOW })).toEqual({
+      live: false,
+      unconfirmed: true,
+    })
+  })
+})
+
+describe('R9-T1: "Last updated" is the newest network answer, never the clock', () => {
+  const answer = (generatedAt: number) => ({ ...res([dep({})]), generatedAt })
+  const offline = (generatedAt: number) => ({ ...answer(generatedAt), offline: true as const })
+
+  it('nothing until a card has a network answer', () => {
+    expect(lastAnswerAt(null, [], null)).toBeNull()
+    expect(lastAnswerAt(null, [undefined, undefined], null)).toBeNull()
+    // Offline copies (one stamped with the device clock when there was no response) set nothing.
+    expect(lastAnswerAt(null, [offline(NOW), offline(Date.now())], null)).toBeNull()
+  })
+
+  it('the newest answer among the cards', () => {
+    expect(lastAnswerAt(null, [answer(NOW - 30_000), undefined, answer(NOW)], null)).toBe(NOW)
+    expect(lastAnswerAt(null, [answer(NOW), offline(NOW + 60_000)], null)).toBe(NOW)
+  })
+
+  it('ignores answers that came with a page from the device’s copy', () => {
+    expect(lastAnswerAt(null, [answer(NOW)], NOW + 10_000)).toBeNull()
+    expect(lastAnswerAt(null, [answer(NOW + 20_000)], NOW + 10_000)).toBe(NOW + 20_000)
+  })
+
+  it('stays at the last answer offline, and moves on with the next one', () => {
+    // The cards turned into offline copies: the time shown before stays.
+    expect(lastAnswerAt(NOW, [offline(NOW), undefined], null)).toBe(NOW)
+    // Never back to an older answer.
+    expect(lastAnswerAt(NOW, [answer(NOW - 60_000)], null)).toBe(NOW)
+    expect(lastAnswerAt(NOW, [answer(NOW + 15_000)], null)).toBe(NOW + 15_000)
   })
 })

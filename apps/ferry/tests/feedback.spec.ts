@@ -1,16 +1,21 @@
 import { expect, test } from '@playwright/test'
+import { DUMMY_TOKEN, stubTurnstile, TEST_SITEKEY, turnstileRenders } from './turnstile-stub.ts'
 
-// /api/feedback is always stubbed here: tests never reach the Worker's relay or the real n8n webhook.
+// /api/feedback and the Turnstile script are always stubbed here: tests never reach the Worker's relay, the real
+// Discord webhook or Cloudflare.
 
 test('footer feedback: validation, focus trap and Escape, then a stubbed successful submit', async ({
   page,
 }) => {
   const posted: unknown[] = []
+  const turnstile = await stubTurnstile(page)
   await page.route('**/api/feedback', async (route) => {
     posted.push(route.request().postDataJSON())
     await route.fulfill({ json: { success: true, message: 'Feedback submitted successfully' } })
   })
   await page.goto('/privacy')
+  // The widget's script is not on the first-load path: only the sheet loads it.
+  expect(turnstile.requests()).toBe(0)
   const open = page.getByRole('button', { name: 'Send Feedback & Ideas' })
   await open.click()
   const dialog = page.getByRole('dialog', { name: 'Share your feedback' })
@@ -45,13 +50,26 @@ test('footer feedback: validation, focus trap and Escape, then a stubbed success
   await submit.click()
   await expect(dialog.getByRole('status')).toContainText('Thank you!')
   expect(posted).toEqual([
-    { feedback: 'Please add a Teneriffe to Bulimba favourite.', email: 'rider@example.com', name: 'Rider' },
+    {
+      feedback: 'Please add a Teneriffe to Bulimba favourite.',
+      email: 'rider@example.com',
+      name: 'Rider',
+      turnstileToken: DUMMY_TOKEN,
+    },
   ])
+  // Rendered once per open (invisible, action "feedback"), with the test sitekey from playwright.config.ts.
+  expect(turnstile.requests()).toBe(1)
+  expect(await turnstileRenders(page)).toContainEqual({
+    sitekey: TEST_SITEKEY,
+    action: 'feedback',
+    appearance: 'interaction-only',
+  })
   // Closes itself after 2 s, like the legacy modal.
   await expect(dialog).toBeHidden({ timeout: 4000 })
 })
 
 test('feedback: a server error is shown and the form is kept for a retry', async ({ page }) => {
+  await stubTurnstile(page)
   await page.route('**/api/feedback', (route) =>
     route.fulfill({ status: 500, json: { error: 'Failed to submit feedback' } }),
   )
@@ -64,4 +82,27 @@ test('feedback: a server error is shown and the form is kept for a retry', async
   await expect(dialog.getByLabel(/Your feedback/)).toHaveValue('The map is great, thank you.')
   await dialog.getByRole('button', { name: 'Cancel' }).click()
   await expect(dialog).toBeHidden()
+})
+
+test('feedback: a blocked Turnstile script shows a clear error and posts nothing', async ({ page }) => {
+  const posted: unknown[] = []
+  await page.route('https://challenges.cloudflare.com/**', (route) => route.abort())
+  await page.route('**/api/feedback', async (route) => {
+    posted.push(route.request().postDataJSON())
+    await route.fulfill({ json: { success: true } })
+  })
+  await page.goto('/privacy')
+  await page.getByRole('button', { name: 'Send Feedback & Ideas' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Share your feedback' })
+  await dialog.getByLabel(/Your feedback/).fill('The map is great, thank you.')
+  await dialog.getByRole('button', { name: 'Submit feedback' }).click()
+  await expect(dialog.getByRole('alert')).toContainText("couldn't complete the bot check")
+  expect(posted).toEqual([])
+})
+
+test('R7: /feedback opens the feedback sheet on the home page', async ({ page }) => {
+  await stubTurnstile(page)
+  await page.goto('/feedback')
+  await expect(page).toHaveURL(/\/\?feedback=1$/)
+  await expect(page.getByRole('dialog', { name: 'Share your feedback' })).toBeVisible()
 })

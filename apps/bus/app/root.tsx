@@ -1,3 +1,4 @@
+import { useFixtureCookie } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import {
   LIVE_GUARD_CSS,
@@ -23,7 +24,7 @@ import { Footer, SiteHeader } from './components/Shell.tsx'
 import { cloudflareContext } from './lib/context.ts'
 import { makeQueryClient } from './lib/queries.ts'
 import { getEnv, isFixtureMode } from './lib/server.server.ts'
-import { THEME_SCRIPT, themeFromCookie } from './lib/storage.ts'
+import { FIXTURE_COOKIE, THEME_SCRIPT, themeFromCookie } from './lib/storage.ts'
 
 // No web-font request: Inter is first in the font stack and used when installed, otherwise system-ui (a
 // render-blocking Google Fonts stylesheet would cost LCP). The wordmark falls back the same way.
@@ -41,6 +42,10 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     /** The per-request CSP nonce, for the inline scripts below (workers/security.ts). */
     nonce: context.get(cloudflareContext).nonce,
     mode: { fixtures, rt: fixtures ? new URL(request.url).searchParams.get('rt') : null },
+    /** FIXTURES=1: demo data for everyone (development, tests), no demo session to start or end. */
+    fixturesForced: env?.FIXTURES === '1',
+    /** ALLOW_FIXTURES: this Worker lets visitors switch demo mode on (never in production). */
+    demoAllowed: env?.ALLOW_FIXTURES === '1',
     theme: themeFromCookie(request.headers.get('cookie')),
     /** When this HTML was rendered: the live guard compares it with the device clock (R2-T7). */
     renderedAt: Date.now(),
@@ -81,6 +86,14 @@ export default function App() {
   const [client] = useState(makeQueryClient)
   // The live guard (liveGuardScript) lifts only once this app has rendered its own live judgement (R2-T7).
   useLiveGuardRelease()
+  // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0 (R7-B1).
+  const rootData = useRouteLoaderData<typeof loader>('root')
+  useFixtureCookie(
+    FIXTURE_COOKIE,
+    rootData?.mode.fixtures === true,
+    rootData?.fixturesForced === true,
+    rootData?.demoAllowed === true,
+  )
   // Back online: refetch the live boards at once, not at the next poll (R3-X9).
   useRefetchOnReconnect(client)
   return (

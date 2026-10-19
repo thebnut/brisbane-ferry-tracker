@@ -16,7 +16,9 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "data": "tsx scripts/build-data.ts",
-    "deploy:staging": "CLOUDFLARE_ENV=staging pnpm build && wrangler deploy",
+    "deploy:staging": "BUILD_SHA=$(node ../../scripts/build-sha.mjs) && CLOUDFLARE_ENV=staging pnpm build && wrangler deploy --var BUILD_SHA:$BUILD_SHA",
+    "deploy:production-preview": "BUILD_SHA=$(node ../../scripts/build-sha.mjs) && CLOUDFLARE_ENV=production-preview pnpm build && wrangler deploy --var BUILD_SHA:$BUILD_SHA",
+    "deploy:production": "BUILD_SHA=$(node ../../scripts/build-sha.mjs) && CLOUDFLARE_ENV=production pnpm build && wrangler deploy --var BUILD_SHA:$BUILD_SHA",
     "ios:sync": "cap sync ios",
     "ios:open": "cap open ios"
   },

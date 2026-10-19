@@ -10,6 +10,13 @@
   "workers_dev": true,
   "observability": { "enabled": true },
   "assets": { "directory": "./build/client", "binding": "ASSETS" },
+  // /api/feedback per-IP limiter (workers/legacy.ts), keyed by CF-Connecting-IP. Simple periods are 10 or 60 s only,
+  // so "about 3 per 10 minutes" becomes 3 per 60 s: enough for a retry, while a flood is cut to 3/min per IP.
+  // Counters are per Cloudflare location and eventually consistent. Bindings aren't inherited, so every env sets
+  // its own, and each namespace_id is unique in the account (8001/8002 belong to services/edge).
+  "ratelimits": [
+    { "name": "FEEDBACK_LIMITER", "namespace_id": "8104", "simple": { "limit": 3, "period": 60 } }
+  ],
   "vars": {
     // HTTP fallback when the API service binding is absent (local dev, previews).
     "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
@@ -22,7 +29,8 @@
     "FERRY_SITE_URL": "https://www.brisbaneferry.com",
     "TRAIN_SITE_URL": "https://bft-train.brisbanetransit.workers.dev",
     "BUS_SITE_URL": "https://bft-bus.brisbanetransit.workers.dev",
-    // Invisible Turnstile widget for the Ask box (public sitekey; the secret lives on bft-api).
+    // Invisible Turnstile widget for the Ask box and the feedback sheet: the STAGING widget "bft-transit-ask" (public
+    // sitekey; its secret lives on bft-api). Both production envs use the PROD widget (test/wrangler-config.test.ts).
     "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
   },
   "env": {
@@ -40,7 +48,70 @@
         "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
       },
       // SSR loaders, the /v1 + /data proxy and POST /v1/ask call the API Worker in-process through this binding.
-      "services": [{ "binding": "API", "service": "bft-api" }]
+      "services": [{ "binding": "API", "service": "bft-api" }],
+      "ratelimits": [
+        { "name": "FEEDBACK_LIMITER", "namespace_id": "8105", "simple": { "limit": 3, "period": 60 } }
+      ]
+    },
+    // PRODUCTION, step 8.1 (docs/architecture/cutover-runbook.md "Train, bus and transit production"): the same
+    // Worker on its workers.dev host only (bft-transit-prod.brisbanetransit.workers.dev), no custom domains, so it can
+    // be checked before any DNS record changes. Keep it identical to "production" except workers_dev and routes
+    // (test/wrangler-config.test.ts checks this). Deployed from main.
+    "production-preview": {
+      "name": "bft-transit-prod",
+      "workers_dev": true,
+      "vars": {
+        "API_BASE": "https://api.brisbaneferry.com",
+        "ALLOW_FIXTURES": "0",
+        "FIXTURES": "0",
+        "SITE_URL": "https://brisbanetransit.com",
+        "FERRY_SITE_URL": "https://www.brisbaneferry.com",
+        "TRAIN_SITE_URL": "https://brisbanetrain.com",
+        "BUS_SITE_URL": "https://brisbanebus.com",
+        // Stays "0": the mounted mode pages are noindex (canonical copies are the standalone apps).
+        "INDEXABLE": "0",
+        // The PROD widget "bft-transit-prod" (bft-api-prod holds its secret). Its hostnames don't include the
+        // production-preview host, so Turnstile-gated features fail closed there by design (runbook section 9).
+        "TURNSTILE_SITEKEY": "0x4AAAAAAFan8LE5_4cvR40S"
+      },
+      // POST /v1/ask reaches bft-api-prod, where AI_ENABLED=false: deterministic answers or a "Try: …" hint only.
+      "services": [{ "binding": "API", "service": "bft-api-prod" }],
+      // Secret (not here): FEEDBACK_DISCORD_WEBHOOK_URL (wrangler secret put --name bft-transit-prod). Every env has its
+      // own limiter namespace (apps/transit/test/feedback.test.ts), so this one differs from production's.
+      "ratelimits": [
+        { "name": "FEEDBACK_LIMITER", "namespace_id": "8107", "simple": { "limit": 3, "period": 60 } }
+      ]
+    },
+    // PRODUCTION on brisbanetransit.com + www (www 301s to the apex in the Worker). Both hostnames already have DNS records:
+    // deploy this only after Brett has exported and approved replacing them (runbook 8.3–8.4). Deployed from main.
+    "production": {
+      "name": "bft-transit-prod",
+      "workers_dev": false,
+      "routes": [
+        { "pattern": "brisbanetransit.com", "custom_domain": true },
+        { "pattern": "www.brisbanetransit.com", "custom_domain": true }
+      ],
+      "vars": {
+        "API_BASE": "https://api.brisbaneferry.com",
+        "ALLOW_FIXTURES": "0",
+        "FIXTURES": "0",
+        "SITE_URL": "https://brisbanetransit.com",
+        "FERRY_SITE_URL": "https://www.brisbaneferry.com",
+        "TRAIN_SITE_URL": "https://brisbanetrain.com",
+        "BUS_SITE_URL": "https://brisbanebus.com",
+        // Stays "0": the mounted mode pages are noindex (canonical copies are the standalone apps).
+        "INDEXABLE": "0",
+        // The PROD widget "bft-transit-prod" (bft-api-prod holds its secret). Its hostnames don't include the
+        // production-preview host, so Turnstile-gated features fail closed there by design (runbook section 9).
+        "TURNSTILE_SITEKEY": "0x4AAAAAAFan8LE5_4cvR40S"
+      },
+      // POST /v1/ask reaches bft-api-prod, where AI_ENABLED=false: deterministic answers or a "Try: …" hint only.
+      "services": [{ "binding": "API", "service": "bft-api-prod" }],
+      // Secret (not here): FEEDBACK_DISCORD_WEBHOOK_URL (wrangler secret put --name bft-transit-prod). Every env has its
+      // own limiter namespace (apps/transit/test/feedback.test.ts).
+      "ratelimits": [
+        { "name": "FEEDBACK_LIMITER", "namespace_id": "8106", "simple": { "limit": 3, "period": 60 } }
+      ]
     }
   }
 }

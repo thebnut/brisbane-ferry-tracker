@@ -9,9 +9,14 @@ interface Env {
   /** "1" (staging only): serve fixture data when the API errors or has no data, with a visible demo notice. */
   FIXTURE_FALLBACK?: string
   SITE_URL: string
-  /** Legacy /api/feedback relay (Worker secrets in production, same values as Vercel's). */
-  N8N_WEBHOOK_URL?: string
-  N8N_AUTH_TOKEN?: string
+  /** Legacy /api/feedback relay: Discord webhook URL (Worker secret, set by Dev/Brett; never in wrangler.jsonc). */
+  FEEDBACK_DISCORD_WEBHOOK_URL?: string
+  /** /api/feedback per-IP limiter (ratelimits binding); absent only in local dev and tests. */
+  FEEDBACK_LIMITER?: RateLimit
+  /** Public Turnstile sitekey for the feedback sheet (the secret stays on bft-api). */
+  TURNSTILE_SITEKEY?: string
   /** "true": wildcard CORS on the legacy endpoints (rollback mode, as in api/_cors.js). */
   CORS_ALLOW_ALL?: string
+  /** Deployed short git sha for the x-bft-build header, passed by the deploy scripts; unset locally ("dev"). */
+  BUILD_SHA?: string
 }

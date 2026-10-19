@@ -11,6 +11,13 @@
   "observability": { "enabled": true },
   // drop-trailing-slash: prerendered /privacy/index.html is served at /privacy (no redirect), like the live site.
   "assets": { "directory": "./build/client", "binding": "ASSETS", "html_handling": "drop-trailing-slash" },
+  // /api/feedback per-IP limiter (workers/legacy.ts), keyed by CF-Connecting-IP. Simple periods are 10 or 60 s only,
+  // so "about 3 per 10 minutes" becomes 3 per 60 s: enough for a retry, while a flood is cut to 3/min per IP.
+  // Counters are per Cloudflare location and eventually consistent. Bindings aren't inherited, so every env sets
+  // its own, and each namespace_id is unique in the account (8001/8002 belong to services/edge).
+  "ratelimits": [
+    { "name": "FEEDBACK_LIMITER", "namespace_id": "8101", "simple": { "limit": 3, "period": 60 } }
+  ],
   "vars": {
     // HTTP fallback when the API service binding is absent (local dev, previews).
     "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
@@ -18,7 +25,10 @@
     "ALLOW_FIXTURES": "1",
     // "1" serves fixture data to everyone (dev and Playwright without the live API).
     "FIXTURES": "0",
-    "SITE_URL": "https://www.brisbaneferry.com"
+    "SITE_URL": "https://www.brisbaneferry.com",
+    // Local dev uses the STAGING widget like staging. localhost is on neither widget, so the sheet shows the bot-check
+    // error there; Playwright overrides this with the test sitekey.
+    "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
   },
   "env": {
     "staging": {
@@ -28,12 +38,17 @@
         "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
         "ALLOW_FIXTURES": "1",
         "FIXTURES": "0",
-        // Until bft-api has ferry data: answer with fixture data (and say so on the page) when the API errors.
-        "FIXTURE_FALLBACK": "1",
-        "SITE_URL": "https://www.brisbaneferry.com"
+        "SITE_URL": "https://www.brisbaneferry.com",
+        // Invisible Turnstile widget for the feedback sheet: the STAGING widget "bft-transit-ask" (public sitekey; its
+        // secret lives on bft-api, which verifies through the API binding). Production uses the PROD widget
+        // (test/wrangler-config.test.ts).
+        "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
       },
       // The SSR loader and the /v1 proxy call the API Worker in-process through this binding.
-      "services": [{ "binding": "API", "service": "bft-api" }]
+      "services": [{ "binding": "API", "service": "bft-api" }],
+      "ratelimits": [
+        { "name": "FEEDBACK_LIMITER", "namespace_id": "8102", "simple": { "limit": 3, "period": 60 } }
+      ]
     },
     // PRODUCTION: first on the preview host next.brisbaneferry.com; brisbaneferry.com and www move here only at the
     // DNS cutover step of docs/architecture/cutover-runbook.md (Vercel keeps serving until then). Deployed from main.
@@ -45,9 +60,15 @@
         "API_BASE": "https://api.brisbaneferry.com",
         "ALLOW_FIXTURES": "0",
         "FIXTURES": "0",
-        "SITE_URL": "https://www.brisbaneferry.com"
+        "SITE_URL": "https://www.brisbaneferry.com",
+        // The PROD widget "bft-transit-prod": bft-api-prod holds its secret, so a staging sitekey here fails closed.
+        "TURNSTILE_SITEKEY": "0x4AAAAAAFan8LE5_4cvR40S"
       },
-      "services": [{ "binding": "API", "service": "bft-api-prod" }]
+      "services": [{ "binding": "API", "service": "bft-api-prod" }],
+      // Secret (not here): FEEDBACK_DISCORD_WEBHOOK_URL, set by Dev/Brett with wrangler secret put --env production.
+      "ratelimits": [
+        { "name": "FEEDBACK_LIMITER", "namespace_id": "8103", "simple": { "limit": 3, "period": 60 } }
+      ]
     }
   }
 }

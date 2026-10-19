@@ -22,6 +22,8 @@ export interface WorkerEnv extends AiEnv {
   SPIKE_ENABLED?: string
   /** version_metadata binding: lets the cron restart a resident hub that still runs an older deploy. */
   CF_VERSION?: { id: string; tag?: string; timestamp?: string }
+  /** Deployed short git sha, passed by the deploy scripts (`--var BUILD_SHA:…`); unset locally ("dev"). */
+  BUILD_SHA?: string
   /** Secret (wrangler secret put DRILL_TOKEN). Enables POST /__drill/kill-alarm with a bearer token. */
   DRILL_TOKEN?: string
 }

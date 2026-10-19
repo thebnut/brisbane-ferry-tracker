@@ -3,7 +3,8 @@
  * neighbours are fetched from data/bus/geo/ and sorted by haversine distance, so stops just across a tile edge
  * still appear. The position never leaves the browser. `?lat=&lon=` sets a position (links, tests).
  */
-import { EmptyState, Icon, PrimaryButton, SkeletonRows, StopResultCard, useGeolocation } from '@bft/ui'
+import { EmptyState, Icon, PrimaryButton, useGeolocation } from '@bft/ui'
+import { SkeletonRows, StopResultCard } from '@bft/ui/bus'
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { resultMeta } from '../components/SearchPanel.tsx'

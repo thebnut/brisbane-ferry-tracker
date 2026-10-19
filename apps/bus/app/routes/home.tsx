@@ -5,7 +5,8 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { formatClock, Icon, type MiniDeparture, MyStopCard, minutesUntil } from '@bft/ui'
+import { formatClock, Icon, minutesUntil } from '@bft/ui'
+import { type MiniDeparture, MyStopCard } from '@bft/ui/bus'
 import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { Link } from 'react-router'
 import { SearchPanel } from '../components/SearchPanel.tsx'
@@ -101,9 +102,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const activeAlerts = (alertsQ.data?.alerts ?? []).length
   return (
     <>
-      {/* LIVE only while every saved stop's board is live (each confirms itself after a cached page, R2-T7). */}
+      {/* LIVE only while every saved stop's board is live (each confirms itself after a cached page, R2-T7). A board
+          still waiting for its answer is not live (R7-T1). */}
       <SiteHeader
-        live={online && views.every((v) => !v.data || (v.state == null && v.data.rtState === 'live'))}
+        live={online && views.every((v) => v.data && v.state == null && v.data.rtState === 'live')}
       />
       <UpdatedStrip
         updatedAt={first?.generatedAt ?? null}
@@ -122,9 +124,16 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </Link>
         }
       >
-        <main className="mx-auto flex max-w-6xl flex-col gap-3 px-4 pt-3.5 pb-64 md:pb-6">
+        <main className="mx-auto flex max-w-6xl flex-col gap-3 px-4 pt-3.5 pb-6">
           <h1 className="text-xl font-extrabold md:sr-only">My stops</h1>
-          {first ? <DataBanner rtState={first.rtState} hasData generation={first.staticGeneration} /> : null}
+          {first ? (
+            <DataBanner
+              offline={views.some((v) => v.state === 'offline')}
+              rtState={first.rtState}
+              hasData
+              generation={first.staticGeneration}
+            />
+          ) : null}
           {saved.length === 0 ? (
             <FirstVisit />
           ) : (
@@ -191,7 +200,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </>
           )}
         </main>
-        <Footer />
+        {/* The footer, not the content, clears the fixed sheet: it comes last. */}
+        <Footer aboveSheet />
       </SearchPanel>
       <BusNav active="home" alertCount={activeAlerts || undefined} />
     </>

@@ -20,6 +20,22 @@ describe('security headers (cutover gate: at least as strict as vercel.json)', (
       expect(csp).toContain(d)
     for (const [k, v] of Object.entries(BASE_SECURITY_HEADERS)) expect(res.headers.get(k)).toBe(v)
   })
+  it('R8-F1: HTML without its own Cache-Control is never stored; a page that sets one keeps it', () => {
+    const html = (headers: Record<string, string> = {}) =>
+      new Response('<html></html>', { headers: { 'content-type': 'text/html', ...headers } })
+    expect(withSecurityHeaders(html(), 'n').headers.get('cache-control')).toBe('private, no-store')
+    expect(withSecurityHeaders(html({ 'cache-control': 'no-cache' }), 'n').headers.get('cache-control')).toBe(
+      'no-cache',
+    )
+    expect(withSecurityHeaders(Response.json({}), 'n').headers.get('cache-control')).toBeNull()
+  })
+  it("the only external origin added for scripts and frames is Turnstile, exactly per Cloudflare's CSP reference", () => {
+    const d = contentSecurityPolicy('n').split('; ')
+    expect(d).toContain("script-src 'self' 'nonce-n' https://challenges.cloudflare.com")
+    expect(d).toContain('frame-src https://challenges.cloudflare.com')
+    expect(d).toContain("connect-src 'self' https://tiles.openfreemap.org")
+    expect(d.filter((x) => x.includes('challenges.cloudflare.com'))).toHaveLength(2)
+  })
   it('non-HTML responses get the base headers without a CSP', () => {
     const res = withSecurityHeaders(Response.json({}), 'n')
     expect(res.headers.get('x-content-type-options')).toBe('nosniff')

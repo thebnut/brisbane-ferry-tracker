@@ -1,4 +1,5 @@
 /** Server-only helpers for loaders: bindings, fixture mode and the API fetcher. */
+import { fixtureNow } from '@bft/core/fixture-clock'
 import type { RouterContextProvider } from 'react-router'
 import type { ApiFetcher } from './api.ts'
 import { cloudflareContext } from './context.ts'
@@ -36,12 +37,14 @@ export function loaderEnv(request: Request, context: Readonly<RouterContextProvi
   const env = getEnv(context)
   const fixtures = isFixtureMode(request, env)
   const rt = fixtures ? new URL(request.url).searchParams.get('rt') : null
+  // Fixture mode only: ?fixtureNow= pins the fixtures' clock (deterministic budget tests).
+  const now = () => (fixtures ? fixtureNow(new URL(request.url)) : Date.now())
   let fetcher: ApiFetcher
   if (fixtures) {
     fetcher = (path) => {
       const url = new URL(`http://fixtures/__fixtures${path}`)
       if (rt) url.searchParams.set('rt', rt)
-      return handleFixtureApi(url, Date.now())
+      return handleFixtureApi(url, now())
     }
   } else if (env?.API) {
     const api = env.API

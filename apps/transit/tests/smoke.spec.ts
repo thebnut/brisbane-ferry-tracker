@@ -1,5 +1,6 @@
 import { gzipSync } from 'node:zlib'
 import { expect, type Page, test } from '@playwright/test'
+import { stableInline } from './first-load.ts'
 import { pinUpcoming } from './upcoming.ts'
 
 const watchErrors = (page: Page) => {
@@ -193,30 +194,58 @@ const BUDGET_KB: Record<string, number> = {
   '/': 150,
   '/nearby': 150,
   '/alerts': 150,
-  '/ferry': 139.8 + 10,
+  // +0.05 (19 Oct 2026): measured worst 153,416 B at 08:00 AEST (fixtures pinned, nonce and renderedAt normalised). Worst-case SSR loader data,
+  // external JS unchanged; the old value only passed at quieter hours.
+  '/ferry': 139.8 + 10 + 0.05,
   '/train': 149.2 + 10,
-  '/bus': 143.6 + 10,
-  '/bus/stop/10802': 144.5 + 10,
+  // +3 (#70, R7): the bus boards' elements moved to their own chunk (@bft/ui/bus), which takes about 3 KB gz off
+  // every other page but costs the Bus pages about 1 KB in separate compression, plus R7's shared offline code.
+  '/bus': 143.6 + 13,
+  // +0.1 (19 Oct 2026): measured worst 161,345 B at 22:00 AEST (fixtures pinned, nonce and renderedAt normalised). Worst-case SSR loader data,
+  // external JS unchanged; the old value only passed at quieter hours.
+  '/bus/stop/10802': 144.5 + 13 + 0.1,
 }
 
+/**
+ * The inline part of first load (SSR loader data) depends on the clock: more departures at peak. So the pages are
+ * measured with the fixtures pinned (`?fixtureNow=`, fixture mode only) at every hour of one fixed service day, and
+ * each page must fit its budget at its worst hour, not at whatever time the suite happens to run. What remains is
+ * at most ~4 B: React Router's stream reuses one value for the root's and the page's renderedAt when both loaders read
+ * the clock in the same millisecond, which changes the encoding slightly.
+ */
+const DAY_START_MS = Date.UTC(2026, 9, 19, 14) // 00:00 AEST, Tuesday 20 October 2026
+const HOURS = Array.from({ length: 24 }, (_, h) => DAY_START_MS + h * 3_600_000)
 test('first-load JS within budget on every top-level page; MapLibre is never on it', async ({ request }) => {
   // First load = the scripts the server HTML itself references (entry, modulepreloads, inline); chunks a page imports
-  // lazily after hydration (maps, the ferry stop selector, the Ask answer) are not on it.
+  // lazily after hydration (maps, the ferry stop selector, the Ask answer) are not on it. Hashed assets are measured
+  // once each.
+  const assetBytes = new Map<string, number>()
   for (const [path, kb] of Object.entries(BUDGET_KB)) {
-    const html = await (await request.get(path)).text()
-    const urls = [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+\.js)"/g)].map((m) => m[1] as string)
-    const inline = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)]
-      .map((m) => m[1])
-      .join('')
-    let bytes = gzipSync(inline).length
-    for (const u of new Set(urls)) bytes += gzipSync(await (await request.get(u)).body()).length
-    test
-      .info()
-      .annotations.push({ type: `first-load ${path}`, description: `${(bytes / 1024).toFixed(1)} KB gz` })
-    expect(bytes, path).toBeLessThan(kb * 1024)
-    expect(
-      urls.some((u) => /maplibre|MapView/i.test(u)),
-      path,
-    ).toBe(false)
+    let worst = { bytes: 0, at: 0 }
+    for (const at of HOURS) {
+      const res = await request.get(`${path}?fixtureNow=${at}`)
+      expect(res.status(), path).toBe(200)
+      const html = await res.text()
+      const urls = [
+        ...new Set([...html.matchAll(/(?:src|href)="(\/assets\/[^"]+\.js)"/g)].map((m) => m[1] as string)),
+      ]
+      expect(
+        urls.some((u) => /maplibre|MapView/i.test(u)),
+        path,
+      ).toBe(false)
+      const nonce = /'nonce-([^']+)'/.exec(res.headers()['content-security-policy'] ?? '')?.[1]
+      let bytes = gzipSync(stableInline(html, nonce, at)).length
+      for (const u of urls) {
+        if (!assetBytes.has(u)) assetBytes.set(u, gzipSync(await (await request.get(u)).body()).length)
+        bytes += assetBytes.get(u) as number
+      }
+      if (bytes > worst.bytes) worst = { bytes, at }
+    }
+    const hour = new Date(worst.at + 10 * 3_600_000).getUTCHours()
+    test.info().annotations.push({
+      type: `first-load ${path}`,
+      description: `${(worst.bytes / 1024).toFixed(2)} KB gz (${worst.bytes} B) at its worst hour, ${hour}:00 AEST`,
+    })
+    expect(worst.bytes, `${path} at ${hour}:00 AEST`).toBeLessThan(kb * 1024)
   }
 })

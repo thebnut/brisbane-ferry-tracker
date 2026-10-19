@@ -1,3 +1,4 @@
+import { isDemoSession } from '@bft/ui/demo'
 /**
  * Per-device preferences: saved stops ("My stops"), recent searches, theme and offline timetable copies. Saved
  * stops and the theme also go in small cookies so the server can render the right rows and colours into the HTML.
@@ -121,18 +122,44 @@ export function applyTheme(pref: ThemePref): void {
 /** Inline <head> script: set the dark class before first paint (no flash). */
 export const THEME_SCRIPT = `try{var p=localStorage.getItem('${KEYS.THEME}');var d=p==='dark'||(p!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d)}catch(e){}`
 
-// ---- offline timetable copies for saved stops ----
-const offlineKey = (stopId: string) => `bft-bus-v1:${stopId}`
+// ---- offline timetable copies (saved stops, and the stops viewed most recently) ----
+const OFFLINE_PREFIX = 'bft-bus-v1:'
+const offlineKey = (stopId: string) => `${OFFLINE_PREFIX}${stopId}`
+/** Copies kept for stops that aren't saved (~40 KB each); saved stops always keep theirs. */
+export const OFFLINE_UNSAVED_MAX = 8
+
 export function writeOffline(stopId: string, body: unknown): void {
-  safe(
-    () => localStorage.setItem(offlineKey(stopId), JSON.stringify({ savedAt: Date.now(), body })),
-    undefined,
-  )
+  // A visitor's demo session keeps nothing on the device (R7-B1).
+  if (isDemoSession()) return
+  safe(() => {
+    localStorage.setItem(offlineKey(stopId), JSON.stringify({ savedAt: Date.now(), body }))
+    pruneOffline()
+  }, undefined)
 }
+
+/** Drop the oldest copies of unsaved stops beyond OFFLINE_UNSAVED_MAX. */
+function pruneOffline(): void {
+  const saved = new Set(readSaved().map((s) => s.id))
+  const unsaved: Array<{ key: string; savedAt: number }> = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (!key?.startsWith(OFFLINE_PREFIX) || saved.has(key.slice(OFFLINE_PREFIX.length))) continue
+    unsaved.push({ key, savedAt: readOffline(key.slice(OFFLINE_PREFIX.length))?.savedAt ?? 0 })
+  }
+  unsaved.sort((a, b) => b.savedAt - a.savedAt)
+  for (const { key } of unsaved.slice(OFFLINE_UNSAVED_MAX)) localStorage.removeItem(key)
+}
+
 export function readOffline(stopId: string): { savedAt: number; body: unknown } | null {
   const v = safe(() => JSON.parse(localStorage.getItem(offlineKey(stopId)) ?? 'null') as unknown, null)
   return v && typeof v === 'object' && 'body' in v ? (v as { savedAt: number; body: unknown }) : null
 }
+/** A timetable copy with at least one departure is on this device (it may have run out since). */
+export function hasTimetableCopy(stopId: string): boolean {
+  const body = readOffline(stopId)?.body as { departures?: unknown } | undefined
+  return Array.isArray(body?.departures) && body.departures.length > 0
+}
+
 export function dropOffline(stopId: string): void {
   safe(() => localStorage.removeItem(offlineKey(stopId)), undefined)
 }

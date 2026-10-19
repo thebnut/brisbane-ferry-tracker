@@ -7,6 +7,8 @@ interface Env {
   ALLOW_FIXTURES?: string
   FIXTURES?: string
   SITE_URL: string
+  /** The transit site, where /feedback sends people (its feedback sheet). */
+  TRANSIT_SITE_URL?: string
   /** "1" allows indexing (production domain only); otherwise pages are noindex and robots.txt disallows all. */
   INDEXABLE?: string
   /** "1" lets service detail use the hibernating-WebSocket prototype (ADR-0003) at API_WS_BASE. */
@@ -15,4 +17,6 @@ interface Env {
   API_WS_BASE?: string
   /** TripSocket Durable Object namespace (WebSocket prototype). */
   TRIP_SOCKET?: DurableObjectNamespace<import('./tripSocket.ts').TripSocket>
+  /** Deployed short git sha for the x-bft-build header, passed by the deploy scripts; unset locally ("dev"). */
+  BUILD_SHA?: string
 }

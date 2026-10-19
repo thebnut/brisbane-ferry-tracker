@@ -45,6 +45,6 @@ export function corsHeaders(
   h['Access-Control-Allow-Credentials'] = 'true'
   h['Access-Control-Allow-Methods'] = 'GET,POST,OPTIONS'
   h['Access-Control-Allow-Headers'] =
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-BFT-Client'
   return h
 }

@@ -102,6 +102,14 @@ export function boardState(
   return liveState(res, { offline, nowMs, unconfirmedBefore })
 }
 
+/**
+ * The one banner over both boards: offline when either board shows an offline copy (each board's own state wins over
+ * the connection flag, R6-B1; one direction can be fresh while the other is still a copy), else the first board's.
+ */
+export function bannerState(states: BoardState[]): BoardState {
+  return states.includes('offline') ? 'offline' : (states[0] ?? null)
+}
+
 /** Board rows for display: departed rows removed, live claims removed unless the state is live. */
 export function visibleRows(list: Departure[], state: BoardState, nowMs: number): Departure[] {
   const rows = state == null ? list : list.map(asScheduled)

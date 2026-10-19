@@ -16,13 +16,19 @@ interface Env {
   TRAIN_SITE_URL?: string
   BUS_SITE_URL?: string
   TURNSTILE_SITEKEY?: string
-  /** Train only (standalone): indexing and the WebSocket trip prototype. Unset here: noindex, trips poll. */
+  /**
+   * "1" drops the X-Robots-Tag noindex header. Kept "0" in staging and production: the mounted mode pages are noindex
+   * (their canonical copies are the standalone apps, and the train loaders read this flag too) and robots.txt
+   * disallows all. Trips poll here (TRIP_WS unset).
+   */
   INDEXABLE?: string
   TRIP_WS?: string
   API_WS_BASE?: string
   TRIP_SOCKET?: DurableObjectNamespace
   /** Feedback relay and legacy endpoints (apps/ferry/workers/legacy.ts): Worker secrets in production. */
-  N8N_WEBHOOK_URL?: string
-  N8N_AUTH_TOKEN?: string
+  FEEDBACK_DISCORD_WEBHOOK_URL?: string
+  FEEDBACK_LIMITER?: RateLimit
   CORS_ALLOW_ALL?: string
+  /** Deployed short git sha for the x-bft-build header, passed by the deploy scripts; unset locally ("dev"). */
+  BUILD_SHA?: string
 }

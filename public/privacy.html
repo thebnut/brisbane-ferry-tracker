@@ -115,7 +115,7 @@
       </header>
 
       <h1>Privacy Policy</h1>
-      <p class="lede">Last updated 20 April 2026.</p>
+      <p class="lede">Last updated 19 October 2026.</p>
 
       <h2>Who we are</h2>
       <p>
@@ -154,9 +154,25 @@
         browser/OS user-agent string (this is routinely available to any web server).
       </p>
       <p>
-        Feedback is forwarded to a self-hosted <code>n8n</code> webhook that notifies the
-        maintainer. The content you type is not used for any purpose other than responding to
-        your feedback.
+        Feedback is posted to a private channel on <strong>Discord</strong> (Discord Inc.) through
+        a webhook, so the maintainer is notified. What is sent: your message, your name and email
+        if you gave them, the page URL you submitted from, your user-agent string and a
+        timestamp. Your IP address is not sent to Discord. Our server uses it only to limit how
+        many submissions one address can make in a few minutes: it is held briefly in
+        memory (or in our hosting provider's rate-limit counters) for that purpose and is
+        not written to our logs or kept with your feedback. The content you type is not
+        used for any purpose other than responding to your feedback.
+      </p>
+      <p>
+        On the website (not in the iOS app), the feedback form uses <strong>Cloudflare
+        Turnstile</strong> to tell people from spam bots. It loads only when you open the form,
+        usually runs without asking you anything, and sometimes shows a check to tick. Turnstile
+        collects technical signals from your browser (such as its type and how the page was
+        loaded) to make that decision, and it does not set advertising cookies. Our server sends
+        the resulting one-time token and your IP address to Cloudflare to confirm the check;
+        neither is stored with your feedback. See
+        <a href="https://www.cloudflare.com/turnstile-privacy-policy/" rel="noopener noreferrer">Cloudflare's
+        Turnstile privacy addendum</a>.
       </p>
 
       <h3>Analytics</h3>
@@ -221,7 +237,16 @@
           TransLink.
         </li>
         <li>
-          <strong>n8n webhook</strong> — only receives your feedback if you submit the form.
+          <strong>Discord</strong> (Discord Inc.) — only receives your feedback (message, optional
+          name and email, page URL and user-agent) if you submit the form. See
+          <a href="https://discord.com/privacy" rel="noopener noreferrer">Discord's privacy policy</a>.
+        </li>
+        <li>
+          <strong>Cloudflare Turnstile</strong> (Cloudflare Inc.) — runs the anti-spam check on the
+          website's feedback form, and receives the check's token and your IP address when you
+          submit it. See
+          <a href="https://www.cloudflare.com/turnstile-privacy-policy/" rel="noopener noreferrer">Cloudflare's
+          Turnstile privacy addendum</a>.
         </li>
         <li>
           <strong>Google Analytics</strong> (Google LLC) — receives anonymised analytics events.

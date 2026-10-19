@@ -52,7 +52,14 @@ export default defineConfig({
                   name: 'framework',
                   test: /node_modules[\\/](react|react-dom|react-router|scheduler|@tanstack|turbo-stream|cookie|set-cookie-parser)[\\/]/,
                 },
-                { name: 'ui', test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch)/ },
+                {
+                  name: 'ui',
+                  // demo-cleanup is loaded on demand: off every page's first load.
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|demo-cleanup|bus\.tsx)/,
+                },
+                // The bus boards' elements (@bft/ui/bus) that only the Bus pages load. After 'ui', so the modules they
+                // share stay there.
+                { name: 'ui-bus', test: /packages[\\/]ui[\\/]src[\\/]bus\.tsx$/ },
               ],
             },
           },

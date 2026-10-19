@@ -32,7 +32,12 @@ afterEach(() => {
 describe('departure polling', () => {
   it('polls every 15 s while visible and pauses while the page is hidden', async () => {
     vi.useFakeTimers()
-    const fetcher = vi.fn<ApiFetcher>(async () => Response.json(body))
+    const polls = vi.fn()
+    // Every viewed stop also keeps a longer offline copy (limit=100, at most every 3 h): not a poll.
+    const fetcher: ApiFetcher = async (path) => {
+      if (!path.includes('limit=100')) polls()
+      return Response.json(body)
+    }
     render(
       <QueryClientProvider client={makeQueryClient()}>
         <Probe fetcher={fetcher} />
@@ -41,28 +46,28 @@ describe('departure polling', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10)
     })
-    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(polls).toHaveBeenCalledTimes(1)
     await act(async () => {
       await vi.advanceTimersByTimeAsync(POLL_MS)
     })
-    expect(fetcher).toHaveBeenCalledTimes(2)
+    expect(polls).toHaveBeenCalledTimes(2)
 
     // Hidden tab: TanStack's focus manager reports unfocused, refetchIntervalInBackground is false.
     act(() => focusManager.setFocused(false))
     await act(async () => {
       await vi.advanceTimersByTimeAsync(POLL_MS * 4)
     })
-    expect(fetcher).toHaveBeenCalledTimes(2)
+    expect(polls).toHaveBeenCalledTimes(2)
 
     // Visible again: refetch on focus, then polling resumes.
     await act(async () => {
       focusManager.setFocused(true)
       await vi.advanceTimersByTimeAsync(10)
     })
-    expect(fetcher).toHaveBeenCalledTimes(3)
+    expect(polls).toHaveBeenCalledTimes(3)
     await act(async () => {
       await vi.advanceTimersByTimeAsync(POLL_MS)
     })
-    expect(fetcher).toHaveBeenCalledTimes(4)
+    expect(polls).toHaveBeenCalledTimes(4)
   })
 })

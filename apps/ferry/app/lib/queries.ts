@@ -1,6 +1,6 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
 import type { DeparturesResponse } from '@bft/core/contract'
-import { bestOfflineCopy, isOnline } from '@bft/ui/connectivity'
+import { asOfflineCopy, bestOfflineCopy, isOnline, replacesBoard } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { type ApiFetcher, browserFetcher, fetchDepartures, fetchTrip, fetchVehicles } from './api.ts'
@@ -27,6 +27,10 @@ export function makeQueryClient() {
 export interface DataMode {
   fixtures: boolean
   rt: string | null
+  /** Demo data for everyone (FIXTURES=1) or a fallback answer, not a visitor's demo session. */
+  forced?: boolean
+  /** ALLOW_FIXTURES: visitors may switch demo mode on (never in production). */
+  allowed?: boolean
 }
 
 export function useFetcher(mode: DataMode): ApiFetcher {
@@ -57,18 +61,24 @@ export function departuresOptions(
           ],
           Date.now(),
         )
+      const shown = client.getQueryData<DeparturesResponse>(queryKey)
       try {
         const res = await fetchDepartures(fetcher, from, to, { at, signal })
-        if (isOnline()) {
-          if (!at) writeOffline(from, to, res)
+        // Judged on this response, not only on the connection flag another request may have just cleared, and never
+        // older than the server board on screen (R6-B1). Not against the kept copy: a network answer from the edge
+        // cache can be a little older than it, and the board then stayed "Offline" for a poll (release review).
+        if (replacesBoard(res, shown)) {
+          // The kept copy only moves forward.
+          const kept = at ? null : (readOffline(from, to) as DeparturesResponse | null)
+          if (!at && !(kept && res.generatedAt < kept.generatedAt)) writeOffline(from, to, res)
           return res
         }
-        // The service worker answered from its cache (maybe hours old).
-        return offlineCopy(res) ?? res
+        // The service worker answered from its cache (maybe hours old): an offline board until a network answer.
+        return asOfflineCopy(offlineCopy(res) ?? res, shown)
       } catch (error) {
         // Offline with no cached response from the service worker: the board on screen or the last copy we kept.
         const cached = isOnline() ? null : offlineCopy()
-        if (cached) return cached
+        if (cached) return asOfflineCopy(cached, shown)
         throw error
       }
     },

@@ -16,11 +16,18 @@ import {
   SavedTripCard,
   vesselName,
 } from '@bft/ui'
-import { useUnconfirmedBefore } from '@bft/ui/connectivity'
+import {
+  isNetworkAnswer,
+  type OfflineCopy,
+  retryWhenBack,
+  useDisconnects,
+  useUnconfirmedBefore,
+} from '@bft/ui/connectivity'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { AskBox } from '../components/AskBox.tsx'
 import { TransitFooter, TransitHeader, TransitStrip } from '../components/Chrome.tsx'
+import { fetchAlerts } from '../lib/api.ts'
 import { MODE_BASES } from '../lib/modes.ts'
 import { asOffline, useApi, useSavedDepartures } from '../lib/queries.ts'
 import { readSavedItems, type SavedItem } from '../lib/saved.ts'
@@ -126,6 +133,85 @@ export function cardModel(item: SavedItem, res: DeparturesResponse | undefined, 
   }
 }
 
+type CardData = (DeparturesResponse & OfflineCopy) | undefined
+
+/**
+ * The home page's own live judgement (R7-T1), as each mode board makes it for its one board (#60/#61/#68):
+ *  - `unconfirmed`: the page came from the device's copy (the service worker's, or old by the device clock) and no
+ *    card has its own network answer yet, so it shows the offline banner like a board rendered from a cached page;
+ *  - `live` (the header pill): online, confirmed, and every saved card has an answer that is live and fresh. A card
+ *    still waiting for its answer, or whose request failed, is not live: before R7-T1 a pending card counted as live,
+ *    so an offline reload kept LIVE up for as long as the requests took to fail (Codex review: a failed one too).
+ * Before the saved items are read (server render, hydration) it is never LIVE. With nothing saved there are no cards:
+ * LIVE needs the page's own network answer (`reached`, useReachedNetwork), however the page was loaded (Codex review:
+ * a fresh server render claimed LIVE through an API outage). A page from the device's copy is unconfirmed until then,
+ * with the banner as well as the OFFLINE pill (R8-T1: the pill showed with no banner).
+ */
+export function homeLiveState(
+  items: readonly unknown[] | null,
+  cards: ReadonlyArray<{ data: CardData; pending: boolean }>,
+  {
+    online,
+    nowMs,
+    unconfirmedBefore,
+    reached = false,
+  }: { online: boolean; nowMs: number; unconfirmedBefore: number | null; reached?: boolean },
+): { live: boolean; unconfirmed: boolean } {
+  const answered =
+    cards.some(
+      ({ data }) =>
+        data != null && !data.offline && (unconfirmedBefore == null || data.generatedAt > unconfirmedBefore),
+    ) ||
+    (items?.length === 0 && reached)
+  const unconfirmed = unconfirmedBefore != null && !answered
+  // Saved items not read yet (the server render and hydration): nothing confirmed, so no LIVE (Codex review).
+  if (!online || unconfirmed || items == null) return { live: false, unconfirmed }
+  if (items.length === 0) return { live: reached, unconfirmed }
+  // Every saved card, each with an answer (one still waiting, or one that failed, has nothing live to show).
+  const live =
+    cards.length === items.length &&
+    cards.every(
+      (c) => c.data != null && liveState(c.data, { offline: false, nowMs, unconfirmedBefore }) == null,
+    )
+  return { live, unconfirmed }
+}
+
+/**
+ * The home's "Last updated" (R9-T1): the newest `generatedAt` among the cards' own network answers, never the clock.
+ * Not an offline copy (built from the service worker's cached answer, the last response or the device's timetable,
+ * maybe stamped with the device clock), and not an answer that came with a page from the device's copy
+ * (`unconfirmedBefore`). It never goes back (`kept`, the last value shown), so offline it stays at the last real
+ * answer's time; nothing until there is one (never a status that contradicts LIVE, R3-X11).
+ */
+export function lastAnswerAt(
+  kept: number | null,
+  cards: ReadonlyArray<CardData>,
+  unconfirmedBefore: number | null,
+): number | null {
+  let newest = kept
+  for (const data of cards) {
+    if (data == null || data.offline || (unconfirmedBefore != null && data.generatedAt <= unconfirmedBefore))
+      continue
+    if (newest == null || data.generatedAt > newest) newest = data.generatedAt
+  }
+  return newest
+}
+
+/**
+ * lastAnswerAt kept across renders, so it stays at the last answer while the cards turn into offline copies. Per data
+ * mode (`scope`): a demo answer's time never carries over to an ordinary visit's cards, or back (Codex review).
+ */
+export function useLastAnswerAt(
+  scope: string,
+  cards: ReadonlyArray<CardData>,
+  unconfirmedBefore: number | null,
+): number | null {
+  const [kept, setKept] = useState<{ scope: string; at: number | null }>({ scope, at: null })
+  const at = lastAnswerAt(kept.scope === scope ? kept.at : null, cards, unconfirmedBefore)
+  if (kept.scope !== scope || kept.at !== at) setKept({ scope, at })
+  return at
+}
+
 function SavedList({
   items,
   qs,
@@ -143,7 +229,7 @@ function SavedList({
   const models = items.map((it, i) => {
     const data = qs[i]?.data
     const live = liveState(data, { offline: !online, nowMs, unconfirmedBefore }) == null
-    return cardModel(it, live ? data : asOffline(it, data ?? null), nowMs)
+    return cardModel(it, live ? data : asOffline(it, data ?? null, data), nowMs)
   })
   const soonest = models.reduce<number | null>(
     (best, m, i) =>
@@ -177,6 +263,7 @@ function SavedList({
             later={m.later}
             highlighted={i === soonest && (m.minutes ?? 99) <= 15}
             empty={empty}
+            loading={!!q?.isPending}
             href={it.href}
             renderLink={({ href, className, children }) => (
               <Link to={href} className={className} prefetch="intent">
@@ -190,6 +277,45 @@ function SavedList({
   )
 }
 
+/**
+ * With nothing saved, the home has no card whose answer can confirm it (R8-T1), whether the page is fresh or the
+ * device's copy. It asks the API itself (the alerts, through the same timeout and cache marking as every /v1 call),
+ * now and whenever the connection may be back (retryWhenBack), until a network answer arrives, and again after every
+ * disconnect or failed call.
+ */
+export function useReachedNetwork(needed: boolean): boolean {
+  const { fetcher } = useApi()
+  // A confirmation lasts only while the connection does: after any disconnect, LIVE needs a new answer (Codex
+  // reviews), counted by @bft/ui so a disconnect React never rendered (a failure and a success in one batch) counts.
+  const disconnects = useDisconnects()
+  const [reachedAt, setReachedAt] = useState<number | null>(null)
+  const reached = reachedAt === disconnects
+  useEffect(() => {
+    if (!needed || reached) return
+    const ctrl = new AbortController()
+    let busy = false
+    const ask = () => {
+      if (busy) return
+      busy = true
+      fetchAlerts(fetcher, { signal: ctrl.signal })
+        .then((body) => {
+          if (isNetworkAnswer(body)) setReachedAt(disconnects)
+        })
+        .catch(() => {})
+        .finally(() => {
+          busy = false
+        })
+    }
+    ask()
+    const off = retryWhenBack(ask)
+    return () => {
+      off()
+      ctrl.abort()
+    }
+  }, [needed, reached, fetcher, disconnects])
+  return reached
+}
+
 export default function Saved({ loaderData }: Route.ComponentProps) {
   const now = useNow(loaderData.renderedAt)
   const online = useOnline()
@@ -198,15 +324,22 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   useEffect(() => setItems(readSavedItems()), [])
   const { mode, fetcher } = useApi()
   const qs = useSavedDepartures(fetcher, mode, items ?? [])
-  // LIVE in the header only while every loaded card's data is live and fresh (same rule as the cards).
   const unconfirmedBefore = useUnconfirmedBefore()
-  const live =
-    online &&
-    qs.every((q) => !q.data || liveState(q.data, { offline: false, nowMs: now, unconfirmedBefore }) == null)
+  const reached = useReachedNetwork(items?.length === 0)
+  const { live, unconfirmed } = homeLiveState(
+    items,
+    qs.map((q) => ({ data: q.data, pending: q.isPending })),
+    { online, nowMs: now, unconfirmedBefore, reached },
+  )
+  const updatedAt = useLastAnswerAt(
+    `${mode.fixtures}:${mode.rt}`,
+    qs.map((q) => q.data),
+    unconfirmedBefore,
+  )
   return (
     <>
       <TransitHeader live={live} />
-      <TransitStrip updatedAt={items ? now : null}>
+      <TransitStrip updatedAt={updatedAt}>
         {items ? (
           <span className="text-sm font-semibold text-aqua-text dark:text-ferry-aqua-light">
             {items.length} saved · all modes
@@ -218,8 +351,23 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
           {greeting(now)}
         </h1>
         <AskBox />
-        {!online ? <OfflineBanner kind="offline" detail="Showing saved timetables. No live times." /> : null}
-        {items == null ? null : items.length ? (
+        {/* A card built from offline copies keeps the banner until its own network answer (R6-B1), and so does a page
+            served from the device's copy until a card has one (R7-T1). */}
+        {!online || unconfirmed || qs.some((q) => q.data?.offline) ? (
+          <OfflineBanner
+            kind="offline"
+            detail={
+              items?.length === 0
+                ? 'Nothing is saved on this device yet. Live times return once you are back online.'
+                : 'Showing saved timetables. No live times.'
+            }
+          />
+        ) : null}
+        {items == null ? (
+          <p data-loading="" className="text-sm text-sched-text dark:text-night-text/70">
+            Loading your saved stops…
+          </p>
+        ) : items.length ? (
           <SavedList items={items} qs={qs} nowMs={now} online={online} />
         ) : (
           <EmptyState title="Nothing saved yet">

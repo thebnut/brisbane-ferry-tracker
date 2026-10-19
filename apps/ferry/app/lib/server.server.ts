@@ -1,4 +1,5 @@
 /** Server-only helpers for loaders: bindings, fixture mode and the API fetcher. */
+import { fixtureNow } from '@bft/core/fixture-clock'
 import type { RouterContextProvider } from 'react-router'
 import type { ApiFetcher } from './api.ts'
 import { cloudflareContext } from './context.ts'
@@ -24,6 +25,13 @@ export function getEnv(context: Readonly<RouterContextProvider>): Env | null {
   }
 }
 
+/**
+ * FIXTURE_FALLBACK (answer with fixtures when the API fails) is a development switch: it counts only where demo data is
+ * allowed at all (ALLOW_FIXTURES), so a stray value can never put demo data on a production page (R7-B1).
+ */
+export const fixtureFallbackOn = (env: Pick<Env, 'ALLOW_FIXTURES' | 'FIXTURE_FALLBACK'> | null | undefined) =>
+  env?.ALLOW_FIXTURES === '1' && env?.FIXTURE_FALLBACK === '1'
+
 export function isFixtureMode(request: Request, env: Env | null): boolean {
   if (!env) return false
   if (env.FIXTURES === '1') return true
@@ -38,10 +46,12 @@ export function loaderEnv(request: Request, context: Readonly<RouterContextProvi
   const env = getEnv(context)
   const fixtures = isFixtureMode(request, env)
   const rt = fixtures ? new URL(request.url).searchParams.get('rt') : null
+  // Fixture mode only: ?fixtureNow= pins the fixtures' clock (deterministic budget tests).
+  const now = () => (fixtures ? fixtureNow(new URL(request.url)) : Date.now())
   const fixtureFetcher: ApiFetcher = (path) => {
     const url = new URL(`http://fixtures/__fixtures${path}`)
     if (rt) url.searchParams.set('rt', rt)
-    return handleFixtureApi(url, Date.now())
+    return handleFixtureApi(url, now())
   }
   const fallback = { used: false }
   let fetcher: ApiFetcher
@@ -54,15 +64,18 @@ export function loaderEnv(request: Request, context: Readonly<RouterContextProvi
       api
         ? api.fetch(new Request(`https://bft-api${path}`, { signal: init?.signal }))
         : fetch(`${base}${path}`, { signal: init?.signal })
-    fetcher =
-      env?.FIXTURE_FALLBACK === '1'
-        ? async (path, init) => {
-            const res = await live(path, init).catch(() => null)
-            if (res && res.status < 500) return res
-            fallback.used = true
-            return fixtureFetcher(path, init)
-          }
-        : live
+    // Development only (fixtureFallbackOn), and never for a call cut off by its time budget (settle, R7-B1).
+    fetcher = fixtureFallbackOn(env)
+      ? async (path, init) => {
+          const res = await live(path, init).catch((error: unknown) => {
+            if (init?.signal?.aborted) throw error
+            return null
+          })
+          if (res && res.status < 500) return res
+          fallback.used = true
+          return fixtureFetcher(path, init)
+        }
+      : live
   }
   return { env, fixtures, rt, fetcher, fallback }
 }

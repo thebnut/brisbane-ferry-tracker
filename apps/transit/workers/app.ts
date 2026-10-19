@@ -5,20 +5,29 @@
  *  - POST /v1/ask         Ask box → bft-api /v1/ask with the visitor's IP (per-IP quota) and Turnstile token
  *  - /__fixtures/*        recorded responses for fixture mode (only when ALLOW_FIXTURES or FIXTURES is "1")
  *  - /robots.txt          disallow: the mode pages' canonical copies are the standalone apps
+ *  - www.<SITE_URL host>  301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
  *  - everything else      React Router SSR, with a per-request CSP nonce (workers/security.ts). The mounted mode pages are the standalone apps' route modules, so their
  *                         loaders read their own app's context: each gets this Env with its own canonical SITE_URL.
  */
 import { cloudflareContext as busContext } from '@bft/bus/app/lib/context.ts'
+import { withBuild } from '@bft/core/build'
 import { cloudflareContext as ferryContext } from '@bft/ferry/app/lib/context.ts'
 import { handleLegacy } from '@bft/ferry/workers/legacy.ts'
 import { cloudflareContext as trainContext } from '@bft/train/app/lib/context.ts'
+import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
 import { validateProxied } from '../app/lib/contract.server.ts'
 import { fixtureAsk, handleFixtureApi } from '../app/lib/fixtures.server.ts'
-import { apiFetch } from '../app/lib/server.server.ts'
-import { newNonce, withSecurityHeaders } from './security.ts'
-import { API_TIMEOUT_MS, ASK_TIMEOUT_MS, withTimeout } from './timeouts.ts'
+import { apiFetch, isFixtureMode } from '../app/lib/server.server.ts'
+import {
+  canonicalRedirect,
+  newNonce,
+  withRobotsTag,
+  withSecurityHeaders,
+  wwwRedirectLocation,
+} from './security.ts'
+import { ASK_TIMEOUT_MS, proxied, withTimeout } from './timeouts.ts'
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
@@ -31,14 +40,15 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
   try {
     // The deadline covers the body read and validation too, not just the response headers (Codex review).
-    return await withTimeout(
-      Promise.resolve(
-        apiFetch(env, `${url.pathname}${url.search}`, {
+    // The visitor's abort and the deadline both reach the API (R8-F1).
+    return await proxied(request, async (signal) =>
+      validateProxied(
+        url.pathname,
+        await apiFetch(env, `${url.pathname}${url.search}`, {
           headers: { accept: 'application/json' },
-          signal: AbortSignal.timeout(API_TIMEOUT_MS),
+          signal,
         }),
-      ).then((res) => validateProxied(url.pathname, res)),
-      API_TIMEOUT_MS,
+      ),
     )
   } catch (error) {
     return Response.json(
@@ -125,14 +135,29 @@ export default {
   async fetch(request, env, ctx) {
     // One nonce per request: the CSP header and every context (transit's root and the mounted apps) share it.
     const nonce = newNonce()
-    return withSecurityHeaders(await route(request, env, ctx, nonce), nonce)
+    const www = wwwRedirectLocation(request.url, env.SITE_URL)
+    const res = www ? canonicalRedirect(www) : await guarded(() => route(request, env, ctx, nonce))
+    return withBuild(withRobotsTag(withSecurityHeaders(res, nonce), env.INDEXABLE === '1'), env.BUILD_SHA)
   },
 } satisfies ExportedHandler<Env>
+
+async function guarded(handle: () => Promise<Response>): Promise<Response> {
+  try {
+    return await handle()
+  } catch (error) {
+    // A throw would become Cloudflare's own error page, without the security headers or the build marker.
+    console.error('worker error', error instanceof Error ? error.message : String(error))
+    return new Response('Internal error', {
+      status: 500,
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+    })
+  }
+}
 
 async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
   const url = new URL(request.url)
   // The mounted Ferry screens include the feedback sheet, which posts to /api/feedback on this origin.
-  const legacy = await handleLegacy(request, env)
+  const legacy = await handleLegacy(request, env, { app: 'transit' })
   if (legacy) return legacy
   if (url.pathname === '/v1/ask' && request.method === 'POST') return proxyAsk(request, env)
   if (request.method === 'GET' && (url.pathname.startsWith('/v1/') || url.pathname.startsWith('/data/')))
@@ -154,5 +179,11 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
   context.set(ferryContext, { env: { ...env, SITE_URL: env.FERRY_SITE_URL ?? env.SITE_URL }, ctx, nonce })
   context.set(trainContext, { env: { ...env, SITE_URL: env.TRAIN_SITE_URL ?? env.SITE_URL }, ctx, nonce })
   context.set(busContext, { env: { ...env, SITE_URL: env.BUS_SITE_URL ?? env.SITE_URL }, ctx, nonce })
-  return requestHandler(request, context)
+  const res = await requestHandler(request, context)
+  // A visitor's demo session (not FIXTURES=1 for everyone): marked so no cache keeps it (R7-B1).
+  if (env.FIXTURES === '1' || !isFixtureMode(request, env)) return res
+  const marked = new Response(res.body, res)
+  marked.headers.set(DEMO_HEADER, '1')
+  marked.headers.set('cache-control', 'private, no-store')
+  return marked
 }

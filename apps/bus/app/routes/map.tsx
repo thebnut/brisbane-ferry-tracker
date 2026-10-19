@@ -3,7 +3,8 @@
  * stops layer is GeoJSON built from the geohash-5 tiles covering the visible area (zoom 14+, at most 16 tiles).
  * Scope toggle: around you (or `?lat=&lon=`) or your saved stops. Tap a stop for its board.
  */
-import { Icon, SegmentedControl, useGeolocation } from '@bft/ui'
+import { Icon, useGeolocation } from '@bft/ui'
+import { SegmentedControl } from '@bft/ui/bus'
 import type { ViewBounds } from '@bft/ui/map'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'

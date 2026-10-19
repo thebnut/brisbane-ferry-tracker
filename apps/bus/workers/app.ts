@@ -4,9 +4,14 @@
  *  - /v1/*, /data/bus/*  same-origin proxy to the API Worker (service binding in staging, HTTP in dev), contract-checked
  *  - /__fixtures/*       recorded responses for fixture mode (only when ALLOW_FIXTURES or FIXTURES is "1")
  *  - /sitemap.xml        sitemap index; /sitemaps/{pages,routes,stops-n}.xml from the client data
- *  - /robots.txt
+ *  - /robots.txt        disallows everything unless INDEXABLE is "1"
+ *  - www.<SITE_URL host> 301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
  *  - everything else     React Router SSR
  */
+
+import { withBuild } from '@bft/core/build'
+import { DEMO_HEADER } from '@bft/ui/connectivity'
+import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
 import { validateProxied } from '../app/lib/contract.server.ts'
@@ -19,16 +24,23 @@ import {
   stopKeysFromIndexText,
   urlsetXml,
 } from '../app/lib/seo.ts'
+import { fixtureFallbackOn, isFixtureMode } from '../app/lib/server.server.ts'
 import { routePath, stopPath } from '../app/lib/stops.ts'
-import { newNonce, withSecurityHeaders } from './security.ts'
+import {
+  canonicalRedirect,
+  newNonce,
+  withRobotsTag,
+  withSecurityHeaders,
+  wwwRedirectLocation,
+} from './security.ts'
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
   import.meta.env.MODE,
 )
 
-async function upstream(env: Env, target: string): Promise<Response> {
-  const init: RequestInit = { method: 'GET', headers: { accept: 'application/json' } }
+async function upstream(env: Env, target: string, signal?: AbortSignal): Promise<Response> {
+  const init: RequestInit = { method: 'GET', headers: { accept: 'application/json' }, signal }
   return env.API
     ? env.API.fetch(new Request(`https://bft-api${target}`, init))
     : fetch(`${env.API_BASE}${target}`, init)
@@ -37,12 +49,15 @@ async function upstream(env: Env, target: string): Promise<Response> {
 export async function proxyApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
   try {
-    const res = await upstream(env, `${url.pathname}${url.search}`)
-    if (res.status >= 500 && env.FIXTURE_FALLBACK === '1') return handleFixtureApi(url, Date.now(), env)
-    // Contract check at the edge, so the browser can trust the shape without shipping zod.
-    return await validateProxied(url.pathname, res)
+    // One deadline for headers, body and contract check, and the visitor's abort reaches the API (R8-F1).
+    return await proxied(request, async (signal) => {
+      const res = await upstream(env, `${url.pathname}${url.search}`, signal)
+      if (res.status >= 500 && fixtureFallbackOn(env)) return handleFixtureApi(url, Date.now(), env)
+      // Contract check at the edge, so the browser can trust the shape without shipping zod.
+      return validateProxied(url.pathname, res)
+    })
   } catch (error) {
-    if (env.FIXTURE_FALLBACK === '1') return handleFixtureApi(url, Date.now(), env)
+    if (fixtureFallbackOn(env)) return handleFixtureApi(url, Date.now(), env)
     return Response.json(
       { error: 'upstream_unavailable', detail: error instanceof Error ? error.message : String(error) },
       { status: 502, headers: { 'cache-control': 'no-store' } },
@@ -57,7 +72,7 @@ async function dataText(env: Env, path: string): Promise<string | null> {
   const local = await env.ASSETS.fetch(new Request(`https://assets${path}`))
   if (local.ok) return local.text()
   const res =
-    env.FIXTURES === '1' || env.FIXTURE_FALLBACK === '1'
+    env.FIXTURES === '1' || fixtureFallbackOn(env)
       ? await handleFixtureApi(new URL(`https://fixtures/__fixtures${path}`), Date.now(), env)
       : await upstream(env, path).catch(() => null)
   return res?.ok ? res.text() : null
@@ -106,9 +121,24 @@ async function sitemap(url: URL, env: Env): Promise<Response | null> {
 export default {
   async fetch(request, env, ctx) {
     const nonce = newNonce()
-    return withSecurityHeaders(await route(request, env, ctx, nonce), nonce)
+    const www = wwwRedirectLocation(request.url, env.SITE_URL)
+    const res = www ? canonicalRedirect(www) : await guarded(() => route(request, env, ctx, nonce))
+    return withBuild(withRobotsTag(withSecurityHeaders(res, nonce), env.INDEXABLE === '1'), env.BUILD_SHA)
   },
 } satisfies ExportedHandler<Env>
+
+async function guarded(handle: () => Promise<Response>): Promise<Response> {
+  try {
+    return await handle()
+  } catch (error) {
+    // A throw would become Cloudflare's own error page, without the security headers or the build marker.
+    console.error('worker error', error instanceof Error ? error.message : String(error))
+    return new Response('Internal error', {
+      status: 500,
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+    })
+  }
+}
 
 async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
   const url = new URL(request.url)
@@ -119,7 +149,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
     return handleFixtureApi(url, Date.now(), env)
   }
   if (url.pathname === '/robots.txt')
-    return new Response(robotsTxt(env.SITE_URL), {
+    return new Response(robotsTxt(env.SITE_URL, env.INDEXABLE === '1'), {
       headers: { 'content-type': 'text/plain; charset=utf-8' },
     })
   if (url.pathname === '/sitemap.xml' || url.pathname.startsWith('/sitemaps/')) {
@@ -128,5 +158,11 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
   }
   const context = new RouterContextProvider()
   context.set(cloudflareContext, { env, ctx, nonce })
-  return requestHandler(request, context)
+  const res = await requestHandler(request, context)
+  // A visitor's demo session (not FIXTURES=1 for everyone): marked so no cache keeps it (R7-B1).
+  if (env.FIXTURES === '1' || !isFixtureMode(request, env)) return res
+  const marked = new Response(res.body, res)
+  marked.headers.set(DEMO_HEADER, '1')
+  marked.headers.set('cache-control', 'private, no-store')
+  return marked
 }

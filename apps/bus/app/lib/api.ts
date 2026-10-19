@@ -4,7 +4,7 @@
  * which answers 502 when the API drifts from the contract. The browser bundle carries only the types, not zod.
  */
 import type { AlertsResponse, DeparturesResponse, TripResponse, VehiclesResponse } from '@bft/core/contract'
-import { trackedFetch } from '@bft/ui/connectivity'
+import { noteCacheCopy, trackedFetch } from '@bft/ui/connectivity'
 import type { GeoTileFile, LinesFile, RouteFile, StopIndexFile } from './data-contract.ts'
 
 export type ApiErrorKind = 'network' | 'http' | 'contract'
@@ -54,7 +54,7 @@ export async function getJson<T>(
   if (!res.ok) throw new ApiError('http', `HTTP ${res.status} for ${path}`, res.status)
   let body: unknown
   try {
-    body = await res.json()
+    body = noteCacheCopy(res, await res.json())
   } catch {
     throw new ApiError('contract', `Invalid JSON from ${path}`)
   }

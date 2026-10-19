@@ -5,6 +5,8 @@
 import {
   type AlertsResponse,
   addDays,
+  BUILD_HEADER,
+  buildId,
   currentServiceDate,
   type Departure,
   type DeparturesResponse,
@@ -53,6 +55,8 @@ export interface AppDeps {
   polledModes: Mode[]
   /** AI kill switch and month-to-date spend for /v1/health (wired in index.ts from env + the Budget DO). */
   aiStatus?: () => Promise<{ enabled: boolean; budgetUsedUsd: number | null }>
+  /** Deployed short sha (buildId of BUILD_SHA): the x-bft-build header on every response and health.build. */
+  build?: string
 }
 
 type Env = { Variables: { rid: string; log: Logger } }
@@ -68,8 +72,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
   const app = new Hono<Env>()
   const now = deps.now ?? Date.now
   const baseLog = deps.log ?? createLogger({ svc: 'bft-api' })
+  const build = buildId(deps.build)
 
-  // Request id, structured access log, CORS (legacy parity) on every response.
+  // Request id, build marker, structured access log, CORS (legacy parity) on every response.
   app.use('*', async (c, next) => {
     const rid = c.req.header('cf-ray') ?? crypto.randomUUID()
     const log = baseLog.child({ rid })
@@ -78,11 +83,15 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const t0 = now()
     const cors = corsHeaders(c.req.header('origin'), deps.corsAllowAll ?? false, log, c.req.path)
     if (c.req.method === 'OPTIONS') {
-      return new Response(null, { status: 200, headers: { ...cors, 'x-request-id': rid } })
+      return new Response(null, {
+        status: 200,
+        headers: { ...cors, 'x-request-id': rid, [BUILD_HEADER]: build },
+      })
     }
     await next()
     for (const [k, v] of Object.entries(cors)) c.res.headers.set(k, v)
     c.res.headers.set('x-request-id', rid)
+    c.res.headers.set(BUILD_HEADER, build)
     log.info('request', { method: c.req.method, path: c.req.path, status: c.res.status, ms: now() - t0 })
   })
 
@@ -119,7 +128,10 @@ export function createApp(deps: AppDeps): Hono<Env> {
       st.fetchedAt != null
     const sourceTs = snap ? (fresh ? (st?.sourceTimestamp as number) : snap.header.sourceTimestamp) : null
     const fetchedAt = snap ? (fresh ? (st?.fetchedAt as number) : snap.header.fetchedAt) : null
-    const rtState: RtState = rtStateFor(indexed ? sourceTs : null, Math.floor(nowMs / 1000), genOk)
+    let rtState: RtState = rtStateFor(indexed ? sourceTs : null, Math.floor(nowMs / 1000), genOk)
+    // A copy no refresh has confirmed for maxStaleMs (this request's wait for the refresh ran out, or the refresh
+    // failed) is served, but never as live.
+    if (rtState === 'live' && client.expired) rtState = 'stale'
     const ageS = fetchedAt != null ? Math.max(0, (nowMs - fetchedAt) / 1000) : 0
     return {
       cur,
@@ -465,6 +477,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
       ai: deps.aiStatus
         ? await deps.aiStatus().catch(() => ({ enabled: false, budgetUsedUsd: null }))
         : { enabled: false, budgetUsedUsd: null },
+      build,
     }
     return c.json(body, body.ok ? 200 : 503, { 'cache-control': 'no-store' })
   })

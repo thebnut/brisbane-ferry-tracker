@@ -1,24 +1,39 @@
+import { DEMO_ALLOWED_SPECS, demoAllowedProject, demoAllowedServer } from '@bft/ui/e2e/demo-allowed.ts'
 import { defineConfig, devices } from '@playwright/test'
 
 const PORT = 8788
+/** The demo-allowed server (R9, @bft/ui/e2e/demo-allowed.ts). */
+const DEMO_PORT = 8798
 
 /**
  * Smoke tests against the production build running in workerd (`wrangler dev`), in fixture mode so no live API is
- * needed. `pnpm test:e2e` builds first.
+ * needed. `pnpm test:e2e` builds first. Turnstile uses Cloudflare's always-pass test sitekey here only (its script is
+ * stubbed in tests/turnstile-stub.ts); deployed config has the real one.
  */
 export default defineConfig({
   testDir: 'tests',
+  testIgnore: [DEMO_ALLOWED_SPECS],
   fullyParallel: true,
   reporter: process.env.CI ? 'github' : 'list',
   use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure' },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'phone', use: { ...devices['Pixel 7'] } },
+    demoAllowedProject(DEMO_PORT),
   ],
-  webServer: {
-    command: `pnpm build && wrangler dev --port ${PORT} --var FIXTURES:1 --var ALLOW_FIXTURES:1`,
-    url: `http://localhost:${PORT}/privacy`,
-    timeout: 120_000,
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: `pnpm build && wrangler dev --port ${PORT} --var FIXTURES:1 --var ALLOW_FIXTURES:1 --var TURNSTILE_SITEKEY:1x00000000000000000000AA`,
+      url: `http://localhost:${PORT}/privacy`,
+      timeout: 120_000,
+      reuseExistingServer: !process.env.CI,
+    },
+    demoAllowedServer({
+      port: PORT,
+      demoPort: DEMO_PORT,
+      reuseExistingServer: !process.env.CI,
+      readyPath: '/privacy',
+      vars: ['TURNSTILE_SITEKEY:1x00000000000000000000AA'],
+    }),
+  ],
 })

@@ -113,17 +113,17 @@ describe('per-board confirmation after a cached page (R2-T7, Codex review rounds
     expect(renderHook(() => useUnconfirmedBefore()).result.current).toBe(RENDERED + RENDER_MARGIN_MS)
   })
 
-  it("a 20-second-old cached board isn't live, whatever other calls answer; its own fresh data is", () => {
+  it('a 20-second-old cached board is an offline copy, whatever other calls answer; its own fresh data is live', () => {
     cachedPage()
     const cutoff = renderHook(() => useUnconfirmedBefore()).result.current
     // Both boards came with the cached HTML (one generated a few seconds after the root's clock read).
     const a = board(RENDERED - 300)
     const b = board(RENDERED + 3_000)
-    expect(liveState(a, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('stale')
-    expect(liveState(b, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('stale')
+    expect(liveState(a, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('offline')
+    expect(liveState(b, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('offline')
     // Board A's own answer arrives (generated now); board B is still the cached copy.
     expect(liveState(board(NOW - 200), { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBeNull()
-    expect(liveState(b, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('stale')
+    expect(liveState(b, { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe('offline')
     // On a fresh page the same 20-second-old data is live (the usual one-minute rule).
     expect(liveState(a, { offline: false, nowMs: NOW, unconfirmedBefore: null })).toBeNull()
   })
@@ -132,6 +132,26 @@ describe('per-board confirmation after a cached page (R2-T7, Codex review rounds
     html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
     resetUnconfirmedBefore()
     expect(renderHook(() => useUnconfirmedBefore()).result.current).toBe(Number.POSITIVE_INFINITY)
+  })
+})
+
+describe('bestOfflineCopy: a copy built on the device never displaces a server copy (release review)', () => {
+  const copy = (generatedAt: number, schedDeps: number[], deviceStamped?: true) => ({
+    generatedAt,
+    departures: schedDeps.map((schedDep) => ({ schedDep })),
+    ...(deviceStamped ? { deviceStamped } : {}),
+  })
+  it('the server copy is the base; the device day only extends it', () => {
+    const server = copy(1_000, [2_000, 2_100])
+    const day = copy(9_000_000, [2_000, 2_100, 2_200], true)
+    const out = bestOfflineCopy([day, server], 1_000_000)
+    expect(out?.generatedAt).toBe(1_000)
+    expect(out?.departures.map((d) => d.schedDep)).toEqual([2_000, 2_100, 2_200])
+    expect(out?.deviceStamped).toBeUndefined()
+  })
+  it('a device copy is the base only with no server copy', () => {
+    const day = copy(9_000_000, [2_000], true)
+    expect(bestOfflineCopy([null, day], 1_000_000)).toBe(day)
   })
 })
 
@@ -146,14 +166,29 @@ describe('bestOfflineCopy (R2-B6)', () => {
     const sw = copy(NOW - 94 * 60_000, [-5000, -4000, -3000, -2000])
     expect(bestOfflineCopy([shown, sw], NOW)).toBe(shown)
   })
-  it('prefers the copy with more departures to come, then the newest', () => {
+  it('never goes back to an older body; a longer older copy only extends it (R6-B1)', () => {
     const short = copy(NOW - 60_000, [120])
     const saved = copy(NOW - 3 * 3600_000, [120, 600, 1200, 1800])
-    expect(bestOfflineCopy([short, saved], NOW)).toBe(saved)
+    const merged = bestOfflineCopy([short, saved], NOW)
+    expect(merged?.generatedAt).toBe(short.generatedAt)
+    expect(merged?.departures.map((d) => d.schedDep - nowS)).toEqual([120, 600, 1200, 1800])
+    // Codex review: an hour-old answer with more rows must not replace a newer one-row board.
+    const board = copy(NOW - 30_000, [300])
+    const old = copy(NOW - 3600_000, [120, 300])
+    expect(bestOfflineCopy([old, board], NOW)).toBe(board)
     const older = copy(NOW - 120_000, [120, 600])
     const newer = copy(NOW - 60_000, [120, 600])
     expect(bestOfflineCopy([older, newer], NOW)).toBe(newer)
     expect(bestOfflineCopy([newer, older], NOW)).toBe(newer)
+  })
+  it('a newer board whose rows ran out keeps its body and Updated time; an older timetable only adds rows (Codex review)', () => {
+    const gone = copy(NOW - 30_000, [-120])
+    const saved = copy(NOW - 3600_000, [-600, 120, 600])
+    const out = bestOfflineCopy([saved, gone], NOW)
+    expect(out?.generatedAt).toBe(gone.generatedAt)
+    expect(out?.departures.map((d) => d.schedDep - nowS)).toEqual([-120, 120, 600])
+    const empty = copy(NOW - 30_000, [])
+    expect(bestOfflineCopy([saved, empty], NOW)?.generatedAt).toBe(empty.generatedAt)
   })
   it('returns an empty copy rather than nothing, and null with no copies', () => {
     const gone = copy(NOW - 60_000, [-60])

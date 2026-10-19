@@ -1,3 +1,4 @@
+import { isDemoSession } from '@bft/ui/demo'
 /**
  * Stop selection persistence. Uses the legacy app's localStorage/sessionStorage keys and shapes so visitors keep
  * their saved pair when brisbaneferry.com moves to this app, plus a small cookie so the server can render the
@@ -112,6 +113,8 @@ export function pairFromCookie(cookieHeader: string | null): StopPair | null {
 /** Offline copy of the last good response per pair (shown as scheduled times when offline). */
 const offlineKey = (from: string, to: string) => `bft-ferry-v1:${from}:${to}`
 export function writeOffline(from: string, to: string, body: unknown): void {
+  // A visitor's demo session keeps nothing on the device (R7-B1).
+  if (isDemoSession()) return
   safe(() => localStorage.setItem(offlineKey(from, to), JSON.stringify(body)), undefined)
 }
 export function readOffline(from: string, to: string): unknown {

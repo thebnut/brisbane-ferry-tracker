@@ -3,7 +3,13 @@
  * full-day timetable of a favourite ("Offline · scheduled").
  */
 import type { DeparturesResponse } from '@bft/core/contract'
-import { bestOfflineCopy, isOnline } from '@bft/ui/connectivity'
+import {
+  asOfflineCopy,
+  bestOfflineCopy,
+  isOnline,
+  type OfflineCopy,
+  replacesBoard,
+} from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import {
@@ -57,7 +63,7 @@ export function departuresOptions(
   initial: DeparturesResponse | null,
 ) {
   const queryKey = ['train', 'departures', mode.fixtures, mode.rt, from, to, limit] as const
-  type Board = DeparturesResponse & { offline?: boolean }
+  type Board = DeparturesResponse & OfflineCopy
   /** The saved full-day timetable as a board of scheduled times. */
   const savedDay = (nowMs: number): Board | null => {
     const day = readOfflineDay(from, to)
@@ -74,6 +80,7 @@ export function departuresOptions(
       to: to ? { key: to, name: to } : null,
       departures: offlineRows(day.departures, Math.floor(nowMs / 1000), limit),
       offline: true,
+      deviceStamped: true,
     }
   }
   return {
@@ -85,14 +92,18 @@ export function departuresOptions(
         const nowMs = Date.now()
         return bestOfflineCopy([client.getQueryData<Board>(queryKey), ...more, savedDay(nowMs)], nowMs)
       }
+      const shown = client.getQueryData<Board>(queryKey)
       try {
         const res = await fetchDepartures(fetcher, from, to, { limit, signal })
-        return isOffline() ? (offlineCopy(res) ?? res) : res
+        // Judged on this response, not only on the connection flag another request may have just cleared, and never
+        // older than the server board on screen (R6-B1). A board built from the saved day carries no server time (its
+        // `generatedAt` is the device's savedAt), so it never holds a network answer back (release review).
+        return replacesBoard(res, shown) ? res : asOfflineCopy(offlineCopy(res) ?? res, shown)
       } catch (error) {
         // Offline: the board on screen, or the saved full-day timetable as scheduled times.
         const copy = isOffline() ? offlineCopy() : null
         if (!copy) throw error
-        return copy
+        return asOfflineCopy(copy, shown)
       }
     },
     initialData: initial ?? undefined,

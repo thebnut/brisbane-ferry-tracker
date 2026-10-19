@@ -4,7 +4,15 @@
  */
 import { type BudgetConfig, DEFAULT_BUDGET, emptyBudgetState, reconcile, reserve } from '@bft/core'
 import { describe, expect, it, vi } from 'vitest'
-import { budgetConfig, ipKey, ipv6Prefix48, registerAi } from '../src/ai/routes.ts'
+import { type AiDeps, budgetConfig, ipKey, ipv6Prefix48, registerAi, siteverify } from '../src/ai/routes.ts'
+import {
+  admitInWindow,
+  admitStored,
+  VERIFY_BUDGET,
+  VERIFY_BUDGET_NAME,
+  type VerifyWindow,
+  type WindowStore,
+} from '../src/ai/verify-window.ts'
 import { createApp } from '../src/app.ts'
 import { silentLogger } from '../src/log.ts'
 import { SnapshotClient } from '../src/snapshot-client.ts'
@@ -16,7 +24,10 @@ const NAMES: Record<string, string> = {
   '317586': 'Hawthorne ferry terminal',
 }
 
-function setup(env: Record<string, unknown> = {}, extra: { verifyTurnstile?: () => Promise<boolean> } = {}) {
+function setup(
+  env: Record<string, unknown> = {},
+  extra: { verifyTurnstile?: () => Promise<boolean>; siteverify?: AiDeps['siteverify'] } = {},
+) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   vi.setSystemTime(clock.t)
   const tree = buildTree()
@@ -632,5 +643,217 @@ describe('aiHealthStatus (Codex review)', () => {
       }),
     ).toEqual({ enabled: true, budgetUsedUsd: null })
     expect(await aiHealthStatus({})).toEqual({ enabled: false, budgetUsedUsd: null })
+  })
+})
+
+describe('POST /v1/turnstile/verify (for the feedback relays)', () => {
+  const verifyReq = (
+    app: { request: (p: string, i: RequestInit) => Response | Promise<Response> },
+    body: unknown,
+  ) =>
+    app.request('/v1/turnstile/verify', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+    })
+
+  it('verifies with the Worker secret and returns only success, hostname and action', async () => {
+    const calls: unknown[][] = []
+    const s = setup(
+      { TURNSTILE_SECRET: 'sek' },
+      {
+        siteverify: async (...args) => {
+          calls.push(args)
+          return { success: true, hostname: 'www.brisbaneferry.com', action: 'feedback' }
+        },
+      },
+    )
+    const r = await verifyReq(s.app, { token: 'tok', remoteip: '203.0.113.1' })
+    expect(r.status).toBe(200)
+    expect(r.headers.get('cache-control')).toBe('no-store')
+    const text = await r.text()
+    expect(JSON.parse(text)).toEqual({ success: true, hostname: 'www.brisbaneferry.com', action: 'feedback' })
+    expect(text).not.toContain('sek')
+    expect(calls).toEqual([['sek', 'tok', '203.0.113.1']])
+  })
+
+  it('no secret → 503, bad body → 400, siteverify unreachable → 502 (callers fail closed)', async () => {
+    const never = vi.fn()
+    expect((await verifyReq(setup({}, { siteverify: never }).app, { token: 't' })).status).toBe(503)
+    const s = setup({ TURNSTILE_SECRET: 'sek' }, { siteverify: never })
+    for (const bad of [
+      {},
+      { token: '' },
+      { token: 'x'.repeat(2049) },
+      { token: 't', remoteip: 'x'.repeat(65) },
+    ])
+      expect((await verifyReq(s.app, bad)).status).toBe(400)
+    expect(never).not.toHaveBeenCalled()
+    const down = setup(
+      { TURNSTILE_SECRET: 'sek' },
+      {
+        siteverify: async () => {
+          throw new TypeError('fetch failed')
+        },
+      },
+    )
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const r = await verifyReq(down.app, { token: 't' })
+    expect(r.status).toBe(502)
+    expect(await r.json()).toEqual({ error: 'siteverify_unavailable' })
+  })
+
+  /** A Budget DO namespace whose 'turnstile-verify' instance is one real counter (what a singleton DO gives us). */
+  function verifyBudget(limit = VERIFY_BUDGET.limit) {
+    let w: Parameters<typeof admitInWindow>[0] = null
+    const names: string[] = []
+    const stub = {
+      admitVerify: vi.fn(async (_l: number, windowMs: number) => {
+        const r = admitInWindow(w, Date.now(), limit, windowMs)
+        w = r.window
+        return r.ok
+      }),
+    }
+    const ns = {
+      idFromName: (n: string) => {
+        names.push(n)
+        return n
+      },
+      get: () => stub,
+    }
+    return { ns, stub, names }
+  }
+
+  it('is limited per CF-Connecting-IP (never the body remoteip) before the budget and siteverify', async () => {
+    const sv = vi.fn(async () => ({ success: true, hostname: 'h', action: 'feedback' }))
+    const perIp = { limit: vi.fn(async ({ key }: { key: string }) => ({ success: key !== '198.51.100.66' })) }
+    const b = verifyBudget()
+    const s = setup({ TURNSTILE_SECRET: 'sek', VERIFY_LIMITER: perIp, BUDGET: b.ns }, { siteverify: sv })
+    const req = (ip: string, remoteip?: string) =>
+      s.app.request('/v1/turnstile/verify', {
+        method: 'POST',
+        body: JSON.stringify({ token: 'junk', remoteip }),
+        headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip },
+      })
+    // A spoofed body remoteip doesn't change the key.
+    const limited = await req('198.51.100.66', '203.0.113.1')
+    expect(limited.status).toBe(429)
+    expect(limited.headers.get('retry-after')).toBe('60')
+    expect(sv).not.toHaveBeenCalled()
+    expect(b.stub.admitVerify).not.toHaveBeenCalled()
+    expect((await req('203.0.113.2')).status).toBe(200)
+    expect(perIp.limit.mock.calls.map(([o]) => o.key)).toEqual(['198.51.100.66', '203.0.113.2'])
+    expect(b.names).toEqual([VERIFY_BUDGET_NAME])
+    expect(b.stub.admitVerify).toHaveBeenCalledWith(VERIFY_BUDGET.limit, VERIFY_BUDGET.windowMs)
+  })
+
+  it('the aggregate budget is one counter across locations: two edge isolates share it', async () => {
+    const sv = vi.fn(async () => ({ success: true, hostname: 'h', action: 'feedback' }))
+    const b = verifyBudget(3)
+    // Two isolates in different Cloudflare locations: separate apps (and per-location limiters), one DO.
+    const sydney = setup({ TURNSTILE_SECRET: 'sek', BUDGET: b.ns }, { siteverify: sv })
+    const tokyo = setup({ TURNSTILE_SECRET: 'sek', BUDGET: b.ns }, { siteverify: sv })
+    const statuses: number[] = []
+    for (const app of [sydney.app, tokyo.app, sydney.app, tokyo.app, sydney.app])
+      statuses.push((await verifyReq(app, { token: 't' })).status)
+    expect(statuses).toEqual([200, 200, 200, 429, 429])
+    expect(sv).toHaveBeenCalledTimes(3)
+  })
+
+  it('the persisted window survives an eviction mid-minute (Codex review round 3)', async () => {
+    const data = new Map<string, unknown>()
+    const writes: unknown[] = []
+    const store: WindowStore = {
+      get: async <T>(k: string) => data.get(k) as T | undefined,
+      put: async <T>(k: string, v: T) => {
+        writes.push(v)
+        data.set(k, v)
+      },
+    }
+    let cached: VerifyWindow | null = null
+    const admit = async (t: number) => {
+      const r = await admitStored(store, cached, t, 3, 60_000)
+      cached = r.window
+      return r.ok
+    }
+    expect([await admit(0), await admit(1000), await admit(2000), await admit(3000)]).toEqual([
+      true,
+      true,
+      true,
+      false,
+    ])
+    expect(writes).toHaveLength(3) // rejections write nothing
+    // Evicted after ~10 s idle: memory is gone, storage isn't. Still the same window, still full.
+    cached = null
+    expect(await admit(11_000)).toBe(false)
+    cached = null
+    expect(await admit(60_001)).toBe(true) // the window has passed
+  })
+
+  it('a storage failure throws (the route then answers 503)', async () => {
+    const store: WindowStore = {
+      get: async () => undefined,
+      put: async () => {
+        throw new Error('storage down')
+      },
+    }
+    await expect(admitStored(store, null, 0, 3, 60_000)).rejects.toThrow('storage down')
+  })
+
+  it('admitInWindow: a fixed window of `limit`, then a fresh one', () => {
+    let w: Parameters<typeof admitInWindow>[0] = null
+    const at = (t: number) => {
+      const r = admitInWindow(w, t, 2, 1000)
+      w = r.window
+      return r.ok
+    }
+    expect([at(0), at(10), at(20), at(999), at(1000), at(1001)]).toEqual([
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+    ])
+    expect(at(1002)).toBe(false)
+  })
+
+  it('a limiter or budget DO that errors fails closed (503, no siteverify)', async () => {
+    const sv = vi.fn()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const broken = { limit: async () => Promise.reject(new Error('down')) }
+    const s = setup({ TURNSTILE_SECRET: 'sek', VERIFY_LIMITER: broken }, { siteverify: sv })
+    expect((await verifyReq(s.app, { token: 't' })).status).toBe(503)
+    const deadDo = {
+      idFromName: () => 'x',
+      get: () => ({ admitVerify: async () => Promise.reject(new Error('DO down')) }),
+    }
+    const s2 = setup({ TURNSTILE_SECRET: 'sek', BUDGET: deadDo }, { siteverify: sv })
+    expect((await verifyReq(s2.app, { token: 't' })).status).toBe(503)
+    expect(sv).not.toHaveBeenCalled()
+  })
+
+  it('siteverify(): posts secret, token and IP as a form; throws on a non-2xx answer', async () => {
+    const f = vi.fn(async (_u: string | URL | Request, init?: RequestInit) => {
+      const form = init?.body as FormData
+      expect([form.get('secret'), form.get('response'), form.get('remoteip')]).toEqual([
+        'sek',
+        'tok',
+        '192.0.2.1',
+      ])
+      return Response.json({ success: true, hostname: 'h', action: 'feedback', 'error-codes': [] })
+    })
+    expect(await siteverify('sek', 'tok', '192.0.2.1', f as typeof fetch)).toEqual({
+      success: true,
+      hostname: 'h',
+      action: 'feedback',
+    })
+    expect(String(f.mock.calls[0]?.[0])).toBe('https://challenges.cloudflare.com/turnstile/v0/siteverify')
+    await expect(
+      siteverify('sek', 'tok', null, (async () => new Response('', { status: 500 })) as typeof fetch),
+    ).rejects.toThrow()
+    expect(
+      await siteverify('sek', 'tok', null, (async () => Response.json({ success: 'yes' })) as typeof fetch),
+    ).toEqual({ success: false, hostname: null, action: null })
   })
 })

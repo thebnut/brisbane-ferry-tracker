@@ -8,11 +8,14 @@
     ".": "./src/index.ts",
     "./format": "./src/format.ts",
     "./connectivity": "./src/connectivity.ts",
+    "./demo": "./src/demo.tsx",
+    "./bus": "./src/bus.tsx",
     "./map": "./src/map/MapView.tsx",
     "./stop-search": "./src/StopSearch.tsx",
     "./theme.css": "./src/theme.css",
     "./assets/*": "./assets/*",
     "./sw": "./src/sw.ts",
+    "./upstream": "./src/upstream.ts",
     "./e2e/*": "./e2e/*"
   },
   "sideEffects": [

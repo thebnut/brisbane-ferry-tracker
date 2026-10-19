@@ -3,7 +3,7 @@
  * sees them (the Worker's same-origin proxy, contract.server.ts), so the browser bundle carries only types, not zod.
  */
 import type { AlertsResponse, DeparturesResponse, GeoTileFile, Mode, StopIndexFile } from '@bft/core/contract'
-import { trackedFetch } from '@bft/ui/connectivity'
+import { noteCacheCopy, trackedFetch } from '@bft/ui/connectivity'
 
 export type ApiErrorKind = 'network' | 'http' | 'contract'
 
@@ -49,7 +49,7 @@ export async function getJson<T>(
   if (!res.ok) throw new ApiError('http', `HTTP ${res.status} for ${path}`, res.status)
   let body: unknown
   try {
-    body = await res.json()
+    body = noteCacheCopy(res, await res.json())
   } catch {
     throw new ApiError('contract', `Invalid JSON from ${path}`)
   }

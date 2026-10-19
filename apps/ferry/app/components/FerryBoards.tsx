@@ -6,6 +6,7 @@
 
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import {
+  DemoExitLink,
   FilterPills,
   formatAge,
   formatClock,
@@ -13,12 +14,14 @@ import {
   PillButton,
   StatusStrip,
   StopSelect,
+  useFixtureCookie,
 } from '@bft/ui'
-import { useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { bestOfflineCopy, useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   applyFilter,
   asScheduled,
+  bannerState,
   boardState,
   hasExpress,
   type ServiceFilter,
@@ -30,6 +33,7 @@ import {
   FIXTURE_COOKIE,
   markSelectorSeen,
   readDepartAt,
+  readOffline,
   readSavedPair,
   savePair,
   shouldShowSelector,
@@ -113,9 +117,10 @@ export function FerryBoards({
       }
     }
     setDepartAt(readDepartAt())
-    // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is not in Safari; this is a plain preference cookie.
-    document.cookie = `${FIXTURE_COOKIE}=${mode.fixtures ? '1' : '0'}; path=/; samesite=lax`
-  }, [terminalPage, deepLink, serverPair, mode.fixtures])
+  }, [terminalPage, deepLink, serverPair])
+  // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0. Never from the data mode alone: an API
+  // failure that fell back to fixtures (FIXTURE_FALLBACK) used to make demo mode stick for the session (R7-B1).
+  useFixtureCookie(FIXTURE_COOKIE, mode.fixtures, mode.forced === true, mode.allowed === true)
 
   const same = (a: StopPair, b: StopPair) => a.outbound.id === b.outbound.id && a.inbound.id === b.inbound.id
   const useInitial = same(pair, serverPair) && departAt == null
@@ -140,19 +145,30 @@ export function FerryBoards({
   // Data that came with a cached page isn't live until its board's own fresh answer arrives (R2-T7).
   const unconfirmedBefore = useUnconfirmedBefore()
   const stateOf = (q: typeof out) => boardState(q.data, offline, now, unconfirmedBefore)
-  const view = (q: typeof out) =>
-    q.data ? applyFilter(visibleRows(q.data.departures, stateOf(q), now), filter) : null
-  const outList = view(out)
-  const backList = view(back)
-  const express = hasExpress(out.data?.departures, back.data?.departures)
-  const latest = out.data ?? back.data
-  const state = stateOf(out.data ? out : back)
+  // Offline, a board shows the best copy on hand: its data, or the copy kept on this device. After an offline reload
+  // its data is the cached page's (maybe last night's, every row gone) until the first poll (R6-B1). Read only once
+  // the board is offline, after hydration, so the first render still matches the HTML.
+  const shown = (q: typeof out, from: string, to: string) =>
+    q.data && departAt == null && stateOf(q) === 'offline'
+      ? (bestOfflineCopy([q.data, readOffline(from, to) as DeparturesResponse | null], now) ?? q.data)
+      : q.data
+  const outData = shown(out, pair.outbound.id, pair.inbound.id)
+  const backData = shown(back, pair.inbound.id, pair.outbound.id)
+  const view = (q: typeof out, data: typeof outData) =>
+    data ? applyFilter(visibleRows(data.departures, stateOf(q), now), filter) : null
+  const outList = view(out, outData)
+  const backList = view(back, backData)
+  const express = hasExpress(outData?.departures, backData?.departures)
+  const latest = outData ?? backData
+  const outState = stateOf(out)
+  const backState = stateOf(back)
+  const state = bannerState(out.data ? [outState, back.data ? backState : null] : [backState])
   // Every board with data is live (after a cached page each board confirms itself with its own data, R2-T7): the
   // header's LIVE and the map, which shows both directions.
   const boardsLive = [out, back].every((q) => !q.data || stateOf(q) == null)
   const live = latest?.rtState === 'live' && boardsLive
   // The time of the data shown (a service-worker copy keeps its own time), not when it was fetched.
-  const updatedAt = Math.max(out.data?.generatedAt ?? 0, back.data?.generatedAt ?? 0)
+  const updatedAt = Math.max(outData?.generatedAt ?? 0, backData?.generatedAt ?? 0)
   const fetching = out.isFetching || back.isFetching
 
   const refresh = useCallback(() => {
@@ -263,7 +279,7 @@ export function FerryBoards({
             className="mb-4 rounded-card border border-aqua-text/30 bg-ferry-light-blue px-3.5 py-2.5 text-sm text-charcoal"
           >
             <strong className="font-bold">Demo data.</strong> A recorded weekday timetable with simulated live
-            times, not today's real departures.
+            times, not today's real departures. <DemoExitLink />
           </p>
         ) : null}
 
@@ -337,7 +353,7 @@ export function FerryBoards({
             loading={out.isPending}
             error={out.isError}
             onRetry={() => void out.refetch()}
-            offline={offline}
+            offline={outState === 'offline'}
             onSelect={(d) => setSelected({ d, direction: 'outbound' })}
           />
           <div className="hidden md:block">
@@ -367,7 +383,7 @@ export function FerryBoards({
               loading={back.isPending}
               error={back.isError}
               onRetry={() => void back.refetch()}
-              offline={offline}
+              offline={backState === 'offline'}
               onSelect={(d) => setSelected({ d, direction: 'inbound' })}
             />
           </div>

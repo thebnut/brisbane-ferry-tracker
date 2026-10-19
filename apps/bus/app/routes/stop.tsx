@@ -5,7 +5,8 @@
  */
 
 import type { Alert } from '@bft/core/contract'
-import { FilterPills, NoticeStrip, PillButton, SaveButton } from '@bft/ui'
+import { FilterPills, PillButton } from '@bft/ui'
+import { NoticeStrip, SaveButton } from '@bft/ui/bus'
 import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { data, redirect } from 'react-router'
@@ -16,11 +17,11 @@ import { at } from '../lib/base.ts'
 import { validateAlerts, validateDepartures } from '../lib/contract.server.ts'
 import { isActive, routesIn } from '../lib/departures.ts'
 import { useApi } from '../lib/mode.ts'
-import { liveView, useAlerts, useDepartures } from '../lib/queries.ts'
+import { liveView, refreshOfflineCopy, useAlerts, useDepartures } from '../lib/queries.ts'
 import { pageMeta, SITE_URL, stopJsonLd, stopMetaTags } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
 import { canonicalStopId, routeHref, routeShortOf, stopHref, stopMeta } from '../lib/stops.ts'
-import { pushRecent, toggleSaved, useSavedStops } from '../lib/storage.ts'
+import { hasTimetableCopy, pushRecent, toggleSaved, useSavedStops } from '../lib/storage.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/stop'
 
@@ -95,6 +96,11 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
   const here = stopAlerts(alerts, stopId, routes, Math.floor(now / 1000))
   const isSaved = saved.some((s) => s.id === stopId)
 
+  // Keep this stop's longer timetable on the device at once, not only from the first poll (R6-B1).
+  useEffect(() => {
+    void refreshOfflineCopy(fetcher, stopId)
+  }, [fetcher, stopId])
+
   useEffect(() => {
     if (res?.stop.name) pushRecent({ id: stopId, name: res.stop.name })
   }, [res?.stop.name, stopId])
@@ -144,6 +150,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
           <SaveButton saved={isSaved} name={name} onToggle={() => toggleSaved({ id: stopId, name })} />
         </div>
         <DataBanner
+          offline={state === 'offline'}
           rtState={res?.rtState}
           hasData={!!res?.departures.length}
           generation={res?.staticGeneration}
@@ -168,6 +175,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
           routes={route === 'all' ? null : new Set([route])}
           offline={state === 'offline'}
           saved={isSaved}
+          copyRanOut={state === 'offline' && hasTimetableCopy(stopId)}
         />
         {routes.length ? (
           <section className="mt-4" aria-labelledby="routes-here">

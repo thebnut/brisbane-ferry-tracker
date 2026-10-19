@@ -6,7 +6,9 @@
   "description": "Shared transit core: /v1 contract (zod), GTFS time and calendars, stop-event codec, RT state machine, trip matching, departures merge.",
   "exports": {
     ".": "./src/index.ts",
+    "./build": "./src/util/build.ts",
     "./contract": "./src/contract/index.ts",
+    "./fixture-clock": "./src/util/fixture-clock.ts",
     "./fixtures/*": "./fixtures/*",
     "./geo": "./src/geo/index.ts"
   },

@@ -132,6 +132,9 @@ ${paths
 `
 }
 
-export function robotsTxt(siteUrl: string): string {
-  return `User-agent: *\nAllow: /\nDisallow: /__fixtures/\n\nSitemap: ${siteUrl}/sitemap.xml\n`
+/** Staging and a production soft launch (INDEXABLE not "1") disallow everything, like train. */
+export function robotsTxt(siteUrl: string, indexable: boolean): string {
+  return indexable
+    ? `User-agent: *\nAllow: /\nDisallow: /__fixtures/\n\nSitemap: ${siteUrl}/sitemap.xml\n`
+    : 'User-agent: *\nDisallow: /\n'
 }

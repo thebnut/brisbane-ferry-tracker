@@ -522,6 +522,8 @@ export const HealthResponse = z.object({
     stats: z.record(z.string(), MatchStats).nullable(),
   }),
   ai: z.object({ enabled: z.boolean(), budgetUsedUsd: z.number().nullable() }),
+  /** Short git sha of the deployed bft-api ("dev" locally); optional so older deploys still parse. */
+  build: z.string().optional(),
 })
 export type HealthResponse = z.infer<typeof HealthResponse>
 

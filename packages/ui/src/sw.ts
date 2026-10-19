@@ -12,13 +12,55 @@
  *    tiles are stale-while-revalidate.
  */
 import { clientsClaim } from 'workbox-core'
-import { ExpirationPlugin } from 'workbox-expiration'
+import { CacheExpiration, ExpirationPlugin } from 'workbox-expiration'
 import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
-import { markCachedPages, markCacheHits } from './connectivity.ts'
+import {
+  DEMO_HEADER,
+  holdCacheLock,
+  markCachedPages,
+  markCacheHits,
+  RESAVE_PAGES,
+  whileNoCleanup,
+} from './connectivity.ts'
 
-interface CacheSpec {
+/**
+ * Workbox plugin for the page and loader-data caches: demo responses are never stored. A cacheWillUpdate plugin
+ * replaces Workbox's own "only 200" filter, so it keeps that rule too: an error must never replace a good copy
+ * (Codex review).
+ */
+export const skipDemoResponses = {
+  cacheWillUpdate: async ({ response }: { response: Response }) =>
+    response.status === 200 && !response.headers.has(DEMO_HEADER) ? response : null,
+}
+
+/**
+ * Workbox plugin for every runtime cache, last in its list: the put waits while the one-off demo clean-up runs and
+ * holds CACHE_WRITE_LOCK (shared) until it has settled (R9): released at cacheDidUpdate, or at handlerDidComplete
+ * when the put failed (Workbox calls it once everything the handler waited on has settled). As a cacheWillUpdate
+ * plugin it replaces Workbox's own "only 200" filter (NetworkFirst's, and StaleWhileRevalidate's 200-or-opaque), so
+ * it keeps that rule: only a 200 is stored, never an error over a good copy.
+ */
+type PluginState = { state?: Record<string, unknown> }
+const releaseWrite = async ({ state }: PluginState) => {
+  const release = state?.release as (() => void) | null | undefined
+  if (state) state.release = undefined
+  release?.()
+}
+export const waitForCleanup = {
+  cacheWillUpdate: async ({ response, state }: PluginState & { response: Response }) => {
+    if (response.status !== 200) return null
+    const release = await holdCacheLock('shared')
+    if (state) state.release = release
+    else release?.()
+    return response
+  },
+  cacheDidUpdate: releaseWrite,
+  handlerDidComplete: releaseWrite,
+}
+
+export interface CacheSpec {
   cacheName: string
   maxEntries: number
   maxAgeSeconds: number
@@ -32,6 +74,11 @@ export interface ServiceWorkerConfig {
   /** Brand colour for the offline page's heading rule. */
   themeColor: string
   pages: CacheSpec
+  /**
+   * Pages saved into the page cache when this worker installs (R8-T1: the transit home), so they open offline even
+   * if the visitor went offline before the first page view was saved, or only ever opened another page.
+   */
+  installPages?: string[]
   /** React Router client-navigation loader data (`<path>.data`), cached like the pages. */
   routeData?: CacheSpec
   /** Live /v1 departures and trips. */
@@ -44,9 +91,43 @@ export interface ServiceWorkerConfig {
 interface ExtendableEventLike extends Event {
   waitUntil(p: Promise<unknown>): void
 }
+interface ExtendableMessageEventLike extends ExtendableEventLike {
+  data: unknown
+  source: { url?: string } | null
+}
 interface SwScope {
   skipWaiting(): Promise<void>
-  addEventListener(type: 'activate', fn: (e: ExtendableEventLike) => void): void
+  location: { origin: string }
+  addEventListener(type: 'install' | 'activate', fn: (e: ExtendableEventLike) => void): void
+  addEventListener(type: 'message', fn: (e: ExtendableMessageEventLike) => void): void
+}
+
+/** Demo and test switches: a page with one is never re-saved (the apps' copy writers skip them too). */
+const NO_RESAVE_PARAMS = ['fixtures', 'rt']
+
+/**
+ * The pages a RESAVE_PAGES message asks for: the install-time pages and the sending page, if it is an ordinary page
+ * of this origin. Only the sender's own URL is used, never one carried in the message.
+ */
+export function pagesToResave(
+  installPages: string[],
+  senderUrl: string | undefined,
+  origin: string,
+): string[] {
+  const pages = new Set(installPages)
+  try {
+    const url = senderUrl ? new URL(senderUrl) : undefined
+    if (
+      url &&
+      url.origin === origin &&
+      !url.pathname.startsWith('/__') &&
+      !NO_RESAVE_PARAMS.some((k) => url.searchParams.has(k))
+    )
+      pages.add(url.href)
+  } catch {
+    // Not a URL: only the install-time pages.
+  }
+  return [...pages]
 }
 
 /** Same-origin stylesheet and script URLs a page's HTML references (links, modulepreloads, the entry import). */
@@ -140,7 +221,13 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
     cacheName: config.pages.cacheName,
     networkTimeoutSeconds: 4,
     // Order matters: a copy from another build is dropped before it's marked as a cached page (R2-T7).
-    plugins: [expire(config.pages), usablePageCopy(isPrecached), markCachedPages],
+    plugins: [
+      expire(config.pages),
+      skipDemoResponses,
+      usablePageCopy(isPrecached),
+      markCachedPages,
+      waitForCleanup,
+    ],
   })
   const stylesheets = config.manifest
     .map((e) => (typeof e === 'string' ? e : e.url))
@@ -177,7 +264,11 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
     const spec = config.routeData
     registerRoute(
       ({ url }) => url.pathname.endsWith('.data') && !url.pathname.startsWith('/__'),
-      new NetworkFirst({ cacheName: spec.cacheName, networkTimeoutSeconds: 4, plugins: [expire(spec)] }),
+      new NetworkFirst({
+        cacheName: spec.cacheName,
+        networkTimeoutSeconds: 4,
+        plugins: [expire(spec), skipDemoResponses, waitForCleanup],
+      }),
     )
   }
   registerRoute(
@@ -186,35 +277,109 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
       cacheName: config.live.cacheName,
       networkTimeoutSeconds: 4,
       // Responses served from this cache are marked so the page shows them as offline, not live.
-      plugins: [expire(config.live), markCacheHits],
+      plugins: [expire(config.live), markCacheHits, waitForCleanup],
     }),
   )
   for (const spec of config.staticData ?? []) {
     registerRoute(
       ({ url }) => spec.match.test(url.pathname),
-      new StaleWhileRevalidate({ cacheName: spec.cacheName, plugins: [expire(spec)] }),
+      new StaleWhileRevalidate({ cacheName: spec.cacheName, plugins: [expire(spec), waitForCleanup] }),
     )
   }
 
-  // A new build: re-fetch the saved pages so their copies reference this build's assets (best effort, ≤ 10 s).
+  // Best effort and bounded: a page that can't be fetched never fails the install.
+  const installPages = config.installPages ?? []
+  if (installPages.length)
+    sw.addEventListener('install', (event) => {
+      event.waitUntil(
+        Promise.race([
+          savePages(config.pages.cacheName, installPages),
+          new Promise((resolve) => setTimeout(resolve, 10_000)),
+        ]).catch(() => {}),
+      )
+    })
+
+  // The one-off demo clean-up dropped the page cache, maybe just after this worker saved its pages at install or the
+  // page saved its own copy: save them again (R9). Best effort and bounded, like the install.
+  sw.addEventListener('message', (event) => {
+    if ((event.data as { type?: unknown } | null)?.type !== RESAVE_PAGES) return
+    const urls = pagesToResave(installPages, event.source?.url, sw.location.origin)
+    event.waitUntil(
+      Promise.race([
+        savePages(config.pages.cacheName, urls),
+        new Promise((resolve) => setTimeout(resolve, 10_000)),
+      ]).catch(() => {}),
+    )
+  })
+
+  // A new build: drop caches it doesn't own and expired entries (R6-B1), then re-fetch the saved pages so their
+  // copies reference this build's assets (best effort, ≤ 10 s).
   sw.addEventListener('activate', (event) => {
     event.waitUntil(
       Promise.race([
-        refreshPages(config.pages.cacheName),
+        cleanUpCaches(runtimeCaches(config)).then(() => refreshPages(config.pages.cacheName)),
         new Promise((resolve) => setTimeout(resolve, 10_000)),
       ]).catch(() => {}),
     )
   })
 }
 
+/** The runtime caches this build uses. */
+export function runtimeCaches(config: ServiceWorkerConfig): CacheSpec[] {
+  return [config.pages, config.routeData, config.live, ...(config.staticData ?? [])].filter(
+    (c): c is CacheSpec => c != null,
+  )
+}
+
+/**
+ * Caches an older build left behind (another name, a runtime it no longer has) still hold old bodies that nothing
+ * expires: delete every cache that isn't one of this build's runtime caches or a workbox precache (whose old versions
+ * cleanupOutdatedCaches handles), and expire this build's own entries past their age now rather than on next use.
+ */
+export async function cleanUpCaches(specs: CacheSpec[], storage: CacheStorage = caches): Promise<string[]> {
+  const own = new Set(specs.map((c) => c.cacheName))
+  const removed: string[] = []
+  for (const name of await storage.keys()) {
+    if (own.has(name) || name.startsWith('workbox-precache')) continue
+    if (await storage.delete(name)) removed.push(name)
+  }
+  await Promise.allSettled(
+    specs.map((c) =>
+      new CacheExpiration(c.cacheName, {
+        maxEntries: c.maxEntries,
+        maxAgeSeconds: c.maxAgeSeconds,
+      }).expireEntries(),
+    ),
+  )
+  return removed
+}
+
 async function refreshPages(cacheName: string): Promise<void> {
   const cache = await caches.open(cacheName)
-  const requests = await cache.keys()
-  await Promise.allSettled(
-    requests.map(async (req) => {
-      const res = await fetch(req.url, { credentials: 'same-origin', cache: 'no-store' })
-      if (res.ok && (res.headers.get('content-type') ?? '').includes('text/html'))
-        await cache.put(req.url, res)
+  await savePages(
+    cacheName,
+    (await cache.keys()).map((req) => req.url),
+  )
+}
+
+/**
+ * Fetches each page from the network and keeps it in the page cache if it is an ordinary HTML page (not an error, not
+ * demo). Whether a kept copy is used is still up to usablePageCopy (its assets must be precached, #61).
+ */
+export async function savePages(cacheName: string, urls: string[], storage: CacheStorage = caches) {
+  const cache = await storage.open(cacheName)
+  const saved = await Promise.allSettled(
+    urls.map(async (url) => {
+      const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+      if (
+        !res.ok ||
+        res.headers.has(DEMO_HEADER) ||
+        !(res.headers.get('content-type') ?? '').includes('text/html')
+      )
+        return false
+      await whileNoCleanup(() => cache.put(url, res))
+      return true
     }),
   )
+  return saved.map((r) => r.status === 'fulfilled' && r.value)
 }
