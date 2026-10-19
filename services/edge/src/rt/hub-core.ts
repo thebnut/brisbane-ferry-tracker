@@ -840,7 +840,7 @@ export class HubCore {
   private async restoreFromDocuments(
     files: NonNullable<R2Pointer['files']>,
     r: Restored,
-  ): Promise<string | null> {
+  ): Promise<RtSnapshot | null> {
     const r2 = this.d.r2 as R2Like
     const read = async (e: { key: string; seq: number } | undefined): Promise<RtSnapshot | null> => {
       if (!e || !r2.get) return null
@@ -854,7 +854,8 @@ export class HubCore {
       const overwritten = e.key.endsWith('/latest.json')
       if (overwritten ? seq < e.seq : seq !== e.seq) return null
       if (seq > r.seq) r.seq = seq
-      return JSON.parse(text) as RtSnapshot
+      // A malformed document counts as missing (the fallbacks below apply), not as a restore that fails forever.
+      return parseSnapshot(text)
     }
     const load = async (f: NonNullable<R2Pointer['files']>) => {
       const docs: Array<[Mode, RtSnapshot]> = []
@@ -891,11 +892,10 @@ export class HubCore {
     const seen = new Map<string, Mode | null>()
     for (const [m, d] of got.docs) for (const k of Object.keys(d.trips)) seen.set(k, seen.has(k) ? null : m)
     for (const [k, m] of seen) if (m) r.tripModes.set(k, m)
-    const merged = mergeDocuments(
+    return mergeDocuments(
       got.docs.map(([, d]) => d),
       got.alerts,
     )
-    return merged ? JSON.stringify(merged) : null
   }
 
   /**
@@ -906,24 +906,30 @@ export class HubCore {
    */
   private restore(): Promise<void> {
     if (this.restored) return Promise.resolve()
-    this.restoring ??= this.readRestore().then(
-      (r) => {
+    this.restoring ??= this.readRestore()
+      .then((r) => {
         this.applyRestore(r)
         this.restored = true
+      })
+      .finally(() => {
         this.restoring = null
-      },
-      (e: unknown) => {
-        this.restoring = null
-        throw e
-      },
-    )
+      })
     return this.restoring
   }
 
-  /** The reads of a restore, into a local result (nothing on `this` changes until applyRestore). */
+  /**
+   * The reads of a restore, into a local result (nothing on `this` changes until applyRestore). Everything is parsed
+   * here, so applying cannot throw (Codex r1).
+   */
   private async readRestore(): Promise<Restored> {
     const meta = await this.d.storage.get<Meta>('meta')
-    const r: Restored = { meta, seq: meta?.seq ?? 0, json: null, tripModes: new Map(), alertsStale: false }
+    const r: Restored = {
+      meta,
+      seq: meta?.seq ?? 0,
+      snapshot: null,
+      tripModes: new Map(),
+      alertsStale: false,
+    }
     if (meta && meta.snapChunks > 0) {
       const parts: string[] = []
       for (let i = 0; i < meta.snapChunks; i++) {
@@ -931,7 +937,8 @@ export class HubCore {
         if (p == null) break
         parts.push(p)
       }
-      if (parts.length === meta.snapChunks) r.json = parts.join('')
+      // A malformed stored copy counts as missing: R2 (when bound) is tried instead.
+      if (parts.length === meta.snapChunks) r.snapshot = parseSnapshot(parts.join(''))
     }
     if (this.d.r2?.get) {
       const ptr = await this.d.r2.get(R2_LATEST_KEY)
@@ -939,13 +946,13 @@ export class HubCore {
       // Never reuse a published seq (Codex review #1): continue after whatever R2 already holds, even when this
       // object's own storage is empty or behind.
       if (pointer && pointer.seq > r.seq) r.seq = pointer.seq
-      if (!r.json && pointer?.files) {
-        r.json = await this.restoreFromDocuments(pointer.files, r)
-      } else if (!r.json && pointer?.key) {
+      if (!r.snapshot && pointer?.files) {
+        r.snapshot = await this.restoreFromDocuments(pointer.files, r)
+      } else if (!r.snapshot && pointer?.key) {
         const obj = await this.d.r2.get(pointer.key)
         const text = obj ? await obj.text() : null
         // A ring slot may already hold a newer snapshot than the pointer names: only adopt the matching one.
-        r.json = text != null && snapshotSeq(text) === pointer.seq ? text : null
+        r.snapshot = text != null && snapshotSeq(text) === pointer.seq ? parseSnapshot(text) : null
       }
     }
     return r
@@ -961,10 +968,10 @@ export class HubCore {
     if (r.meta) this.meta = { ...this.meta, ...r.meta }
     this.meta.seq = Math.max(held, r.seq)
     if (r.alertsStale) this.meta.alertsAt = 0
-    if (!r.json) return
-    const snapshot = JSON.parse(r.json) as RtSnapshot
+    const snapshot = r.snapshot
+    if (!snapshot) return
     if (this.snapshot && this.snapshot.header.seq >= snapshot.header.seq) return
-    this.snapshotJson = r.json
+    this.snapshotJson = null // serialised on demand (fullJson)
     this.snapshot = snapshot
     this.alerts = snapshot.alerts
     for (const [k, m] of r.tripModes) this.tripModes.set(k, m)
@@ -976,7 +983,7 @@ interface Restored {
   meta: Meta | undefined
   /** The highest seq seen in DO storage or R2: the next build goes past it. */
   seq: number
-  json: string | null
+  snapshot: RtSnapshot | null
   /** Trip ownership from the per-scope documents. */
   tripModes: Map<string, Mode>
   /** The alerts document failed its seq check: refetch alerts on the next cycle. */
@@ -987,6 +994,16 @@ interface Restored {
 interface DayRead {
   date: string
   bytes: Promise<Uint8Array | Error> | null
+}
+
+/** A snapshot document, or null when it is not JSON with a header seq. */
+function parseSnapshot(text: string): RtSnapshot | null {
+  try {
+    const s = JSON.parse(text) as RtSnapshot
+    return typeof s?.header?.seq === 'number' ? s : null
+  } catch {
+    return null
+  }
 }
 
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])

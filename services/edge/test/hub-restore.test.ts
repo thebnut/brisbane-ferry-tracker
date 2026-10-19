@@ -231,4 +231,30 @@ describe('RtHub restore: one shared in-flight restore (Codex r1/r2 on #96)', () 
     expect(docSeq(r2)).toBe(published + 1)
     expect(hub.status().lastError).toBeNull()
   })
+
+  it('a malformed stored snapshot counts as missing: the restore completes and seq continues (Codex r1)', async () => {
+    const h = setup()
+    h.storage.data.set('meta', { seq: 12, lastCycleAt: 0, lastError: null, alertsAt: 0, snapChunks: 1 })
+    h.storage.data.set('snap:0', '{invalid')
+    const hub = new HubCore({
+      storage: h.storage,
+      fetch: h.up.fetch,
+      now: h.clock.now,
+      store: storeFor(buildTree(), h.clock.now),
+      config: parseRtModes('ferry'),
+      upstream: 'https://up.test/api/realtime/SEQ',
+      fetchTimeoutMs: 50,
+    })
+    expect((await hub.pull(null)).seq).toBeNull()
+    await hub.alarm()
+    expect((await hub.pull(null)).seq).toBe(13)
+  })
+
+  it('a malformed R2 document counts as missing: the restore completes and publishes past the pointer', async () => {
+    const { r2, hub, published } = await restarted()
+    r2.files.set(modeLatestKey('ferry'), `{"header":{"schemaVersion":1,"seq":${published},`)
+    expect((await hub.pull(null)).seq).toBeNull()
+    await hub.alarm()
+    expect(docSeq(r2)).toBe(published + 1)
+  })
 })
