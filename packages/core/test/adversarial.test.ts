@@ -189,6 +189,18 @@ describe('frequent route with 6-minute headways', () => {
     })
     expect(matcher.match({ tripId: 'H7', startTime: '08:12:00' }, [])).toEqual({ kind: 'unmatched' })
   })
+  it('tiers 3 and 4 reject a candidate whose start disagrees with a stated start_time (Codex latefix r2 #4)', () => {
+    // H2 (08:12) is the only candidate by time at stop A, but the descriptor says the run starts 08:13 (no run does,
+    // so tier 2 finds nothing and tier 4 must not take H2).
+    const obs = [{ seq: 1, stopId: 'A', dep: t(D, '08:12:30') }]
+    expect(matcher.match({ routeId: 'B200-9', directionId: 0, startDate: D }, obs)).toMatchObject({
+      kind: 'matched',
+      key: `H2@${D}`,
+    })
+    expect(
+      matcher.match({ routeId: 'B200-9', directionId: 0, startDate: D, startTime: '08:13:00' }, obs),
+    ).toEqual({ kind: 'unmatched' })
+  })
   it('tier 1 is exact', () => {
     expect(matcher.match({ tripId: 'H7', startDate: D }, [])).toMatchObject({
       kind: 'matched',

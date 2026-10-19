@@ -9,8 +9,10 @@
  */
 import {
   type Alert,
+  gtfsTimeToSeconds,
   gtfsToEpoch,
   isRecordLive,
+  MAX_UNSTATED_DELAY_S,
   type MatchStats,
   type Mode,
   type RouteRef,
@@ -254,7 +256,10 @@ function resolveAdded(
     }
   }
   const stops: NonNullable<RtTrip['added']>['stops'] = []
-  for (const u of stus) {
+  // The trip's origin: the original's first stop_sequence for a duplicate, else the first update of an ADDED trip
+  // (whose updates are its whole stop list).
+  const originSeq = original ? Math.min(...original.stops.keys()) : undefined
+  for (const [n, u] of stus.entries()) {
     if (u.scheduleRelationship === PbStopRel.SKIPPED) continue
     const stopId =
       u.stopId || (original && has(u, 'stopSequence') ? original.stops.get(u.stopSequence)?.stopId : '')
@@ -264,12 +269,17 @@ function resolveAdded(
     if ((arr == null || dep == null) && original && has(u, 'stopSequence')) {
       const st = original.stops.get(u.stopSequence)
       if (st) {
-        arr ??= st.arrEpoch + shift + (evDelay(u.arrival) ?? evDelay(u.departure) ?? 0)
-        dep ??= st.depEpoch + shift + (evDelay(u.departure) ?? evDelay(u.arrival) ?? 0)
+        // Same trust rule as predictStop: an hour-plus departure delay must be stated, not taken from the arrival.
+        const arrDelay = evDelay(u.arrival)
+        if (dep == null && evDelay(u.departure) == null && Math.abs(arrDelay ?? 0) > MAX_UNSTATED_DELAY_S)
+          return null
+        arr ??= st.arrEpoch + shift + (arrDelay ?? evDelay(u.departure) ?? 0)
+        dep ??= st.depEpoch + shift + (evDelay(u.departure) ?? arrDelay ?? 0)
       }
     }
-    // Same origin rule as normaliseUpdates: the first stop's arrival is the inbound vehicle, not this trip.
-    if (stops.length === 0 && dep != null) arr = dep
+    // Same origin rule as normaliseUpdates: the origin's arrival is the inbound vehicle, not this trip.
+    const atOrigin = originSeq != null ? has(u, 'stopSequence') && u.stopSequence === originSeq : n === 0
+    if (atOrigin && dep != null) arr = dep
     arr ??= dep
     dep ??= arr
     if (arr == null || dep == null) return null
@@ -370,7 +380,11 @@ export function buildSnapshot(input: BuildInput): BuildResult {
               : desc.tripId
                 ? `${desc.tripId}|${desc.startDate ?? ''}`
                 : null
-          if (vehicleKey) keyByDescriptor.set(vehicleKey, r.key)
+          if (vehicleKey) {
+            keyByDescriptor.set(vehicleKey, r.key)
+            const start = rel === 'DUPLICATED' ? props?.startTime || desc.startTime : desc.startTime
+            if (start) startByDescriptor.set(vehicleKey, start)
+          }
           done = true
           break
         }
@@ -475,8 +489,14 @@ export function buildSnapshot(input: BuildInput): BuildResult {
       let tripKey: string | undefined
       if (desc.tripId) {
         const k = `${desc.tripId}|${desc.startDate ?? ''}`
-        const start = startByDescriptor.get(k)
-        if (!desc.startTime || !start || start === desc.startTime) tripKey = keyByDescriptor.get(k)
+        const key = keyByDescriptor.get(k)
+        // A vehicle naming another run (its start_time disagrees with the instance the update resolved to) goes
+        // through the matcher instead, which rejects the conflict.
+        if (
+          key &&
+          (!desc.startTime || startAgrees(desc.startTime, startByDescriptor.get(k), input.indexes, key))
+        )
+          tripKey = key
       }
       if (!tripKey && (desc.tripId || desc.routeId)) {
         const obs: RtStopObservation[] =
@@ -545,6 +565,24 @@ export function buildSnapshot(input: BuildInput): BuildResult {
       alerts: input.alerts,
     },
   }
+}
+
+/** Does a vehicle's start_time agree with the run its trip key names (the TU's start, else the static start)? */
+function startAgrees(
+  start: string,
+  tuStart: string | undefined,
+  indexes: BuildInput['indexes'],
+  key: string,
+): boolean {
+  if (tuStart) return tuStart === start
+  const s = gtfsTimeToSeconds(start)
+  if (s == null) return true
+  for (const idx of Object.values(indexes)) {
+    const t = idx?.matcher.trip(key)
+    // 00:18 on the calendar date is 24:18 of the previous service day (the matcher's tier-1 convention).
+    if (t) return t.startS === s || t.startS === s + 24 * 3600
+  }
+  return true
 }
 
 function tripRouteId(indexes: BuildInput['indexes'], key: string): string | undefined {

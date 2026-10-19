@@ -188,4 +188,100 @@ describe('79-min-late ferry row (smoke round 9)', () => {
     const snap = snapshotFor(D0, [{ seq: 1, stopId: UQ, depDelay: 120 }], now, { startTime: '16:15:00' })
     expect(Object.keys(snap.trips)).toEqual([])
   })
+
+  describe('Codex r2', () => {
+    const dupTrip = { tripId: 'F1-1415', rel: 6 }
+    const dupProps = { tripId: 'DUP', startDate: D0, startTime: '15:15:00' }
+    const dupSnap = (stus: Stu, vehicles?: Parameters<typeof feed>[1]) => {
+      const index = new ModeIndex('ferry', [tripIndex(D0, TRIPS[D0] ?? [])])
+      const ent = tripUpdate(
+        'd',
+        { tripId: dupTrip.tripId, startDate: D0, startTime: '14:15:00', scheduleRelationship: dupTrip.rel },
+        stus,
+      )
+      ;(ent.tripUpdate as { tripProperties?: unknown }).tripProperties = dupProps
+      return buildSnapshot({
+        seq: 1,
+        nowMs: now * 1000,
+        indexes: { ferry: index },
+        tripUpdates: [{ mode: 'ferry', feed: fromBinary(FeedMessageSchema, feed(now, [ent])) }],
+        vehiclePositions: [{ mode: 'ferry', feed: fromBinary(FeedMessageSchema, feed(now, vehicles ?? [])) }],
+        alerts: [],
+      }).snapshot
+    }
+
+    it("a duplicate's origin is the original's first stop, not its first update (#2)", () => {
+      const snap = dupSnap([
+        { seq: 2, stopId: WEST_END, arrTime: epoch(D0, '15:25:00'), depTime: epoch(D0, '15:20:00') },
+        { seq: 3, stopId: GUYATT, arrTime: epoch(D0, '15:30:00'), depTime: epoch(D0, '15:30:00') },
+      ])
+      const stops = snap.trips[`rt:DUP@${D0}`]?.added?.stops
+      // seq 2 is intermediate: the departure is still clamped to the arrival.
+      expect(stops?.[0]).toMatchObject({ seq: 2, arr: epoch(D0, '15:25:00'), dep: epoch(D0, '15:25:00') })
+    })
+
+    it("a duplicate's origin arrival is the inbound vessel's (#2)", () => {
+      const snap = dupSnap([
+        { seq: 1, stopId: UQ, arrTime: epoch(D0, '16:34:00'), depTime: epoch(D0, '15:15:00') },
+        { seq: 2, stopId: WEST_END, arrTime: epoch(D0, '15:20:00'), depTime: epoch(D0, '15:20:00') },
+      ])
+      expect(snap.trips[`rt:DUP@${D0}`]?.added?.stops[0]).toMatchObject({ dep: epoch(D0, '15:15:00') })
+    })
+
+    it('a duplicate with an hour-plus departure taken only from an arrival delay is dropped (#1)', () => {
+      const snap = dupSnap([
+        { seq: 1, stopId: UQ, depDelay: 0 },
+        { seq: 2, stopId: WEST_END, arrDelay: 79 * 60 },
+      ])
+      expect(snap.trips[`rt:DUP@${D0}`]).toBeUndefined()
+      expect(snap.header.stats?.ferry?.addedDropped).toBe(1)
+    })
+
+    it("a vehicle whose start_time isn't the duplicate's is not attached to it (#3)", () => {
+      const v = (startTime: string) => ({
+        id: `V${startTime}`,
+        vehicle: {
+          trip: { tripId: 'DUP', startDate: D0, startTime },
+          vehicle: { id: `V${startTime}` },
+          position: { latitude: -27.5, longitude: 153 },
+        },
+      })
+      const snap = dupSnap(
+        [
+          { seq: 1, stopId: UQ, depDelay: 0 },
+          { seq: 2, stopId: WEST_END, depDelay: 0 },
+        ],
+        [v('15:15:00'), v('18:15:00')],
+      )
+      expect(snap.vehicles.map((x) => [x.id, x.tripKey])).toEqual([
+        ['V15:15:00', `rt:DUP@${D0}`],
+        ['V18:15:00', undefined],
+      ])
+    })
+
+    it("a vehicle's start_time is checked against the static run when the update gave none (#3)", () => {
+      const index = new ModeIndex('ferry', [tripIndex(D0, TRIPS[D0] ?? [])])
+      const tu = tripUpdate('e', { tripId: 'F1-1415', startDate: D0, routeId: 'F1-4055' }, [
+        { seq: 1, stopId: UQ, depDelay: 0 },
+      ])
+      const vp = {
+        id: 'V',
+        vehicle: {
+          trip: { tripId: 'F1-1415', startDate: D0, startTime: '18:15:00' },
+          vehicle: { id: 'V' },
+          position: { latitude: -27.5, longitude: 153 },
+        },
+      }
+      const snap = buildSnapshot({
+        seq: 1,
+        nowMs: now * 1000,
+        indexes: { ferry: index },
+        tripUpdates: [{ mode: 'ferry', feed: fromBinary(FeedMessageSchema, feed(now, [tu])) }],
+        vehiclePositions: [{ mode: 'ferry', feed: fromBinary(FeedMessageSchema, feed(now, [vp])) }],
+        alerts: [],
+      }).snapshot
+      expect(Object.keys(snap.trips)).toEqual([`F1-1415@${D0}`])
+      expect(snap.vehicles[0]?.tripKey).not.toBe(`F1-1415@${D0}`)
+    })
+  })
 })
