@@ -1,5 +1,6 @@
 import { gzipSync } from 'node:zlib'
 import { expect, type Page, test } from '@playwright/test'
+import { stableInline } from './first-load.ts'
 import { pinUpcoming } from './upcoming.ts'
 
 const watchErrors = (page: Page) => {
@@ -214,26 +215,6 @@ const BUDGET_KB: Record<string, number> = {
  */
 const DAY_START_MS = Date.UTC(2026, 9, 19, 14) // 00:00 AEST, Tuesday 20 October 2026
 const HOURS = Array.from({ length: 24 }, (_, h) => DAY_START_MS + h * 3_600_000)
-/** Stand-in for the per-request CSP nonce: same length and entropy as a real one, so it compresses alike. */
-const FIXED_NONCE = 'q3Zt8LwKpB1xYc7RfN2mVg=='
-
-/**
- * Inline scripts with the per-request noise made constant: the nonce (random) and the server's real-clock render
- * time (`renderedAt`, 13 digits, plus anything within 5 s of it), replaced by values of the same length.
- */
-function stableInline(html: string, nonce: string | undefined, pinned: number): string {
-  let inline = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)]
-    .map((m) => m[1])
-    .join('')
-  if (nonce) inline = inline.split(nonce).join(FIXED_NONCE)
-  const rendered = Number(/__bftRenderedAt=(\d{13})/.exec(inline)?.[1])
-  if (rendered)
-    inline = inline.replace(/\b\d{13}\b/g, (n) =>
-      Math.abs(Number(n) - rendered) <= 5_000 ? String(pinned) : n,
-    )
-  return inline
-}
-
 test('first-load JS within budget on every top-level page; MapLibre is never on it', async ({ request }) => {
   // First load = the scripts the server HTML itself references (entry, modulepreloads, inline); chunks a page imports
   // lazily after hydration (maps, the ferry stop selector, the Ask answer) are not on it. Hashed assets are measured

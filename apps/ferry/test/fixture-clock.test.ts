@@ -28,6 +28,25 @@ describe('fixtureNow', () => {
     expect(s.api).not.toHaveBeenCalled()
   })
 
+  it('pins it however fixture mode is on: FIXTURES="1", or ALLOW_FIXTURES with the cookie', async () => {
+    for (const s of [
+      setup({ FIXTURES: '1' }, `?fixtureNow=${PINNED}`),
+      setup({ ALLOW_FIXTURES: '1', FIXTURES: '0' }, `?fixtureNow=${PINNED}`, 'bft_fixtures=1'),
+    ]) {
+      expect(s.fixtures).toBe(true)
+      expect(((await (await s.fetcher('/v1/alerts')).json()) as { generatedAt: number }).generatedAt).toBe(
+        PINNED,
+      )
+    }
+  })
+
+  it('a malformed value is the real clock', async () => {
+    const before = Date.now()
+    const s = setup({ FIXTURES: '1' }, '?fixtureNow=1e12')
+    const at = ((await (await s.fetcher('/v1/alerts')).json()) as { generatedAt: number }).generatedAt
+    expect(at).toBeGreaterThanOrEqual(before)
+  })
+
   it('is ignored when fixture mode is off: the API answers, and the parameter never reaches it', async () => {
     for (const vars of [{ ALLOW_FIXTURES: '0', FIXTURES: '0' }, {}]) {
       const s = setup(vars, `?fixtures=1&fixtureNow=${PINNED}`, 'bft_fixtures=1')
