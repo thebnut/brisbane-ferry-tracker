@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import type { DeparturesResponse } from '@bft/core/contract'
 import { bestOfflineCopy } from '@bft/ui/connectivity'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { act, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useShownData } from '../app/lib/queries.ts'
+import type { ApiFetcher } from '../app/lib/api.ts'
+import { makeQueryClient, POLL_MS, useDepartures, useShownData } from '../app/lib/queries.ts'
 import * as storage from '../app/lib/storage.ts'
 import { useNow } from '../app/lib/useNow.ts'
 
@@ -68,7 +70,10 @@ beforeEach(() => {
   renders = 0
   picked = undefined
 })
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
 
 describe('the kept offline copy is read once per change, not per tick (L8)', () => {
   it('a board held offline for a minute of countdown ticks reads storage once', async () => {
@@ -124,5 +129,39 @@ describe('the kept offline copy is read once per change, not per tick (L8)', () 
     expect(picked?.generatedAt).toBe(shown.generatedAt)
     expect(picked?.departures).toHaveLength(2)
     expect(read).toHaveBeenCalledTimes(1)
+  })
+
+  it("another tab's newer kept copy shows by the next offline poll (Codex review r1)", async () => {
+    // The kept-copy memo keys on the board's data, so a write it can't see (another tab, same inputs) relies on the
+    // poll: offline it still runs (networkMode offlineFirst), its queryFn reads the kept copy itself and a changed
+    // answer is new data, which the memo then reads again.
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    const fetcher = vi.fn<ApiFetcher>(async () => {
+      throw new TypeError('Failed to fetch')
+    })
+    const spent = body(NOW - 3_600_000, [NOW - 60_000])
+    function Live() {
+      const now = useNow(NOW, 1_000)
+      const q = useDepartures(fetcher, { fixtures: false, rt: null }, '317584', '317590', null, spent)
+      picked = useShownData(q.data, '317584', '317590', true, now)
+      return null
+    }
+    render(
+      <QueryClientProvider client={makeQueryClient()}>
+        <Live />
+      </QueryClientProvider>,
+    )
+    await tick(2)
+    expect(picked?.departures.filter((d) => d.schedDep >= Date.now() / 1000)).toHaveLength(0)
+    const other = body(NOW - 60_000, [NOW + 120_000, NOW + 600_000])
+    storage.writeOffline('317584', '317590', other)
+    // Between polls the clock ticks don't read storage again: at most one poll late.
+    await tick(1)
+    expect(picked?.generatedAt).toBe(spent.generatedAt)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_MS)
+    })
+    expect(picked?.generatedAt).toBe(other.generatedAt)
+    expect(picked?.departures.filter((d) => d.schedDep >= Date.now() / 1000)).toHaveLength(2)
   })
 })

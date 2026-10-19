@@ -120,7 +120,8 @@ export function useVehicles(fetcher: ApiFetcher, mode: DataMode, enabled: boolea
 /**
  * The data a board shows: offline (`hold`), the best of its data and the copy kept on this device (bestOfflineCopy,
  * by the time `now`). The kept copy is read once per change of the data, pair or hold, not on every clock tick:
- * offline, the board re-renders with the countdown (L8).
+ * offline, the board re-renders with the countdown (L8). A copy another tab keeps meanwhile shows by the next poll:
+ * offline the poll still runs (offlineFirst) and its queryFn reads the kept copy, so a changed answer is new data.
  */
 export function useShownData(
   data: DeparturesResponse | undefined,
