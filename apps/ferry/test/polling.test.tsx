@@ -45,7 +45,7 @@ function Board({
   return <Probe fetcher={fetcher} initial={initial} />
 }
 
-/** When each call was made (ms of fake time since the start). */
+/** When each call was made (ms of fake time since the start), and how long since the start it is now. */
 function timedFetcher(answer: (call: number) => Response) {
   const start = Date.now()
   const at: number[] = []
@@ -53,7 +53,7 @@ function timedFetcher(answer: (call: number) => Response) {
     at.push(Date.now() - start)
     return answer(at.length)
   })
-  return { fetcher, at }
+  return { fetcher, at, elapsed: () => Date.now() - start }
 }
 
 const advance = (ms: number) =>
@@ -186,7 +186,7 @@ describe('offline backoff (smoke round 9, Codex r1)', () => {
 
   it("starts the HTTP-error backoff over at the browser's online event, even when its own attempt fails (Codex r2)", async () => {
     vi.useFakeTimers()
-    const { fetcher, at } = timedFetcher(() => new Response('busy', { status: 503 }))
+    const { fetcher, at, elapsed } = timedFetcher(() => new Response('busy', { status: 503 }))
     render(
       <QueryClientProvider client={makeQueryClient()}>
         <Board fetcher={fetcher} tick={600_000} />
@@ -194,6 +194,11 @@ describe('offline backoff (smoke round 9, Codex r1)', () => {
     )
     await advance(200_000)
     expect(Math.max(...pollGaps(at))).toBeGreaterThan(45_000)
+    // The event comes between polls: a board already fetching keeps its request (useRefetchOnReconnect), so a failed
+    // poll's retry still due (a second later) would stand in for the attempt. Where the polls fall depends on the
+    // backoff's jitter, which comes from the fake clock's start (the real time), so wait out any retry.
+    for (let i = 0; i < 30 && elapsed() - (at.at(-1) as number) <= 1_100; i++) await advance(100)
+    expect(elapsed() - (at.at(-1) as number)).toBeGreaterThan(1_100)
     const n = at.length
     await act(async () => {
       window.dispatchEvent(new Event('online'))

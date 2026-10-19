@@ -9,7 +9,7 @@
  * - `ensureRunning()` (called by the Worker's 1-minute cron) re-arms the chain when the last completed cycle is
  *   more than 45 s old or no alarm is set.
  */
-import { type Alert, addDays, brisbaneDate, type Mode, type RtSnapshot } from '@bft/core'
+import { type Alert, addDays, brisbaneDate, type Manifest, type Mode, type RtSnapshot } from '@bft/core'
 import { fromBinary } from '@bufbuild/protobuf'
 import type { StaticStore } from '../data/static-store.ts'
 import { type FeedMessage, FeedMessageSchema } from '../gen/gtfs-realtime_pb.js'
@@ -194,7 +194,7 @@ export class HubCore {
   private readonly raw = new Map<string, RawFeed>()
   private readonly decoded = new Map<string, FeedMessage>()
   private readonly modes = new Map<Mode, LoadedMode>()
-  /** One-day-per-cycle trip index loading, so a reload never blows one invocation's CPU budget. */
+  /** One-day-per-cycle reload of an already indexed mode (stepReload), so steady state stays light. */
   private pending: {
     mode: Mode
     generation: string
@@ -435,7 +435,7 @@ export class HubCore {
     const now = this.d.now()
     const errors: string[] = []
 
-    const indexesChanged = await this.stepIndexes(now).catch((e) => {
+    const indexesChanged = await this.stepIndexes(now, errors).catch((e) => {
       errors.push(`static: ${errorMessage(e)}`)
       return false
     })
@@ -663,13 +663,122 @@ export class HubCore {
 
   /**
    * Keep yesterday's and today's trip indexes loaded for each polled mode, reloading when the manifest's
-   * generation changes. Fetches, parses and indexes at most one TripIndexDay per cycle (see the Phase 0
-   * measurements for the CPU cost) and swaps a mode in only when complete, so the
-   * snapshot never mixes generations. Returns true when a mode's index was swapped.
+   * generation changes. A mode swaps in only when all its days are indexed, so the snapshot never mixes
+   * generations. Returns true when a mode's index was swapped in.
+   *
+   * - A mode with no index at all (a fresh hub after a deploy or eviction, or one whose load failed) is loaded
+   *   whole in this cycle, together with every other such mode: see loadUnindexed.
+   * - A loaded mode whose generation or dates moved on reloads one TripIndexDay per cycle while the old index keeps
+   *   serving (the Phase 0 limit, set for Workers Free's 10 ms CPU, still bounds steady-state work and memory).
+   *
+   * Per-mode failures go to `errors`; the other modes still load, and a failed mode is retried next cycle.
    */
-  private async stepIndexes(now: number): Promise<boolean> {
+  private async stepIndexes(now: number, errors: string[]): Promise<boolean> {
     const today = brisbaneDate(now)
     const want = [addDays(today, -1), today]
+    const manifest = await this.d.store.getManifest()
+    if (!manifest) throw new Error('no manifest.json')
+    const unindexed = this.d.config.indexModes.filter(
+      (m) => !this.modes.has(m) && this.pending?.mode !== m && manifest.modes[m]?.current,
+    )
+    const loaded = unindexed.length > 0 ? await this.loadUnindexed(unindexed, manifest, want, errors) : false
+    try {
+      return (await this.stepReload(manifest, want)) || loaded
+    } catch (e) {
+      errors.push(`static: ${errorMessage(e)}`)
+      return loaded
+    }
+  }
+
+  /**
+   * Load every given mode's days in this one cycle (cold-start review, 20 Oct: one day per cycle left the last
+   * mode, bus, without RT for ~90 s after every deploy). All the blobs are fetched at once (the wall time is R2
+   * round trips); decoding, parsing and indexing run one day at a time, so at most one parsed day is alive at once.
+   * Local evidence only (scripts/coldload.ts in Node: real data, restored snapshot, combined feeds): the whole first
+   * cycle, all four modes, ~390-500 ms CPU and a live peak of ~72-79 MB for the whole process, against eight cycles
+   * of up to ~240 ms and 70-88 MB for one day per cycle. That leaves room under cpu_ms 2000 and the 128 MB isolate,
+   * but the Durable Object's own CPU and memory are confirmed on staging (wrangler tail), not here.
+   */
+  private async loadUnindexed(
+    modes: Mode[],
+    manifest: Manifest,
+    want: string[],
+    errors: string[],
+  ): Promise<boolean> {
+    const jobs = modes.map((mode) => {
+      const generation = manifest.modes[mode]?.current as string
+      // Started together. Each day's read settles to its bytes or its error, so none rejects unobserved while an
+      // earlier day is being indexed.
+      const days = this.d.store.getIndex(generation, mode).then((index) => {
+        if (!index) throw new Error(`index ${generation}/${mode} missing`)
+        return want
+          .filter((d) => index.tripIndex?.[d])
+          .map(
+            (date): DayRead => ({
+              date,
+              bytes: this.d.store.tripIndexDayBytes(index, date).then(
+                (b) => b ?? new Error(`trip index ${mode} ${generation} ${date} missing`),
+                (e: unknown) => (e instanceof Error ? e : new Error(String(e))),
+              ),
+            }),
+          )
+      })
+      return {
+        mode,
+        generation,
+        days: days as typeof days | null,
+        index: new ModeIndex(mode, []),
+        dates: [] as string[],
+        failed: false,
+      }
+    })
+    const fail = (j: (typeof jobs)[number], e: unknown): null => {
+      if (!j.failed) errors.push(`static ${j.mode}: ${errorMessage(e)}`)
+      j.failed = true
+      return null
+    }
+    const listed = await Promise.all(jobs.map((j) => (j.days as Promise<DayRead[]>).catch((e) => fail(j, e))))
+    // Drop the settled promises: from here each day's bytes are reachable only from its step (r1 review), so a
+    // consumed buffer is released once indexed.
+    for (const j of jobs) j.days = null
+    // In date order, as stepReload adds them (all in this invocation, so no mode waits on another's yesterday).
+    const steps = want.flatMap((date) =>
+      jobs.flatMap((job, i) => {
+        const day = listed[i]?.find((d) => d.date === date)
+        return day ? [{ job, day }] : []
+      }),
+    )
+    const hasDays = listed.map((l) => (l?.length ?? 0) > 0)
+    listed.length = 0
+    for (const s of steps) {
+      const bytes = await s.day.bytes
+      s.day.bytes = null
+      if (s.job.failed) continue
+      try {
+        if (bytes instanceof Error) throw bytes
+        s.job.index.addDay(await this.d.store.decodeTripIndexDay(bytes as Uint8Array))
+        s.job.dates.push(s.day.date)
+      } catch (e) {
+        fail(s.job, e)
+      }
+    }
+    let changed = false
+    for (const [i, j] of jobs.entries()) {
+      // A mode with no day to load (its generation doesn't cover these dates) stays unindexed, as before.
+      if (j.failed || !hasDays[i]) continue
+      const dates = want.filter((d) => j.dates.includes(d))
+      this.modes.set(j.mode, { generation: j.generation, dates, index: j.index })
+      this.log.info('rt trip index loaded', { mode: j.mode, generation: j.generation, dates, cold: true })
+      changed = true
+    }
+    return changed
+  }
+
+  /**
+   * Steady state, for modes already indexed: reload one TripIndexDay per cycle (see the Phase 0 measurements for
+   * the CPU cost) and swap the mode in when complete. Returns true when a mode's index was swapped.
+   */
+  private async stepReload(manifest: Manifest, want: string[]): Promise<boolean> {
     if (this.pending) {
       const p = this.pending
       const index = await this.d.store.getIndex(p.generation, p.mode)
@@ -686,19 +795,18 @@ export class HubCore {
       }
       return false
     }
-    const manifest = await this.d.store.getManifest()
-    if (!manifest) throw new Error('no manifest.json')
     for (const mode of this.d.config.indexModes) {
       const generation = manifest.modes[mode]?.current
       if (!generation) continue
       const loaded = this.modes.get(mode)
+      if (!loaded) continue
       const index = await this.d.store.getIndex(generation, mode)
       if (!index) throw new Error(`index ${generation}/${mode} missing`)
       const dates = want.filter((d) => index.tripIndex?.[d])
       if (dates.length === 0) continue
-      if (loaded && loaded.generation === generation && same(loaded.dates, dates)) continue
+      if (loaded.generation === generation && same(loaded.dates, dates)) continue
       this.pending = { mode, generation, dates, index: new ModeIndex(mode, []), loaded: 0 }
-      return this.stepIndexes(now)
+      return this.stepReload(manifest, want)
     }
     return false
   }
@@ -819,6 +927,12 @@ export class HubCore {
       this.alerts = this.snapshot.alerts
     }
   }
+}
+
+/** One trip-index day being read by loadUnindexed: its bytes (or why not), cleared once consumed. */
+interface DayRead {
+  date: string
+  bytes: Promise<Uint8Array | Error> | null
 }
 
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])
