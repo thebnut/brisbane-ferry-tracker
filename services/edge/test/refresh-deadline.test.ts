@@ -11,7 +11,12 @@ import { StaticStore } from '../src/data/static-store.ts'
 import { DeadlineError } from '../src/deadline.ts'
 import { silentLogger } from '../src/log.ts'
 import type { PullResult } from '../src/rt/hub-core.ts'
-import { type HubClient, SNAPSHOT_REFRESH_MS, SnapshotClient } from '../src/snapshot-client.ts'
+import {
+  type HubClient,
+  SNAPSHOT_MAX_STALE_MS,
+  SNAPSHOT_REFRESH_MS,
+  SnapshotClient,
+} from '../src/snapshot-client.ts'
 import { stationsFor } from '../src/stations.ts'
 import { buildTree, Clock, D, epoch, storeFor } from './fixtures.ts'
 
@@ -87,9 +92,29 @@ describe('SnapshotClient refresh deadline', () => {
     expect(value).toBeNull()
     expect(ms).toBeLessThan(DEADLINE + SLACK)
     expect(client.abandoned).toBe(1)
-    // A lost refresh isn't a hub failure, so it isn't throttled: the very next request retries (Codex r1 #1).
+    // Its own timer fired, so its request was alive: the hub is slow, not lost, and the 10 s throttle stands (r3 P2).
+    const next = await timed(client.get())
+    expect(next.value).toBeNull()
+    expect(next.ms).toBeLessThan(SLACK)
+    expect(hub.pulls).toBe(1)
+    clock.advance(SNAPSHOT_REFRESH_MS)
     expect((await client.get())?.seq).toBe(7)
     expect(hub.pulls).toBe(2)
+  })
+
+  it('a lost refresh (past its deadline before its own timer could fire) is retried at once, not throttled', async () => {
+    const clock = new Clock(0)
+    const hub = scriptedHub([async () => result(1), never], async () => result(2))
+    const client = new SnapshotClient(hub, clock.now, () => {}, null, 'ferry', undefined, timing)
+    await client.get()
+    clock.advance(SNAPSHOT_REFRESH_MS)
+    const bg: Promise<unknown>[] = []
+    expect((await client.get((p) => bg.push(p)))?.seq).toBe(1) // background refresh, which never settles
+    // Its request ended: its timer never fires. The next request, past the deadline, presumes it lost (Codex r1 #1).
+    clock.advance(DEADLINE)
+    expect((await client.get())?.seq).toBe(1) // SWR: serves the copy and starts a new refresh at once
+    expect(client.abandoned).toBe(1)
+    expect(hub.pulls).toBe(3)
   })
 
   it('an expired copy is served (flagged expired) after the short wait, not after the refresh deadline', async () => {
@@ -126,6 +151,152 @@ describe('SnapshotClient refresh deadline', () => {
     await new Promise((r) => setTimeout(r, 0))
     expect((await client.get())?.seq).toBe(3)
     expect(client.status?.seq).toBe(3)
+  })
+
+  describe('a hub slower than the refresh deadline (release review r3 P2)', () => {
+    const SLOW = DEADLINE + 40
+    const slowTiming = { ...timing, lateCommitMs: SLOW * 4 }
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+    /** Every pull answers, but only after SLOW real ms (above the deadline), with the next seq. */
+    function slowHub() {
+      let seq = 0
+      return scriptedHub([], async () => {
+        const s = ++seq
+        await sleep(SLOW)
+        return result(s)
+      })
+    }
+
+    it('cold: the request fails fast, and the late answer still commits', async () => {
+      const clock = new Clock(0)
+      const hub = slowHub()
+      const bg: Promise<unknown>[] = []
+      const client = new SnapshotClient(hub, clock.now, () => {}, null, 'ferry', undefined, slowTiming)
+      const { value, ms } = await timed(client.get((p) => bg.push(p)))
+      expect(value).toBeNull()
+      expect(ms).toBeLessThan(DEADLINE + SLACK)
+      expect(client.abandoned).toBe(1)
+      await Promise.all(bg) // the request's waitUntil holds the refresh itself, so its late answer lands
+      expect((await client.get())?.seq).toBe(1)
+      expect(client.status?.seq).toBe(1)
+      expect(client.expired).toBe(false)
+      expect(hub.pulls).toBe(1)
+    })
+
+    it('warm: every refresh commits late, the copy never expires, and the hub is asked once per 10 s', async () => {
+      const clock = new Clock(0)
+      const hub = slowHub()
+      const client = new SnapshotClient(hub, clock.now, () => {}, null, 'ferry', undefined, slowTiming)
+      const bg: Promise<unknown>[] = []
+      await client.get((p) => bg.push(p))
+      await Promise.all(bg.splice(0))
+      expect((await client.get())?.seq).toBe(1)
+      // Two minutes of one request a second. Before the fix the throttle was reset at every deadline and the late
+      // answers dropped: a pull on nearly every request, and the copy expired at 60 s.
+      for (let i = 0; i < 120; i++) {
+        clock.advance(1_000)
+        const r = await client.get((p) => bg.push(p))
+        expect(r).toBeTruthy()
+        expect(client.expired).toBe(false)
+        await Promise.all(bg.splice(0))
+      }
+      expect(hub.pulls).toBeLessThanOrEqual(1 + 120 / (SNAPSHOT_REFRESH_MS / 1000) + 1)
+      expect(hub.pulls).toBeGreaterThanOrEqual(1 + 120 / (SNAPSHOT_REFRESH_MS / 1000) - 1)
+      expect((await client.get())?.seq).toBe(hub.pulls) // each pull committed
+    })
+
+    it('expired copy: the waiter is still served within its short wait, and the late answer commits', async () => {
+      const clock = new Clock(0)
+      const hub = slowHub()
+      const bg: Promise<unknown>[] = []
+      const client = new SnapshotClient(hub, clock.now, () => {}, null, 'ferry', undefined, slowTiming)
+      await client.get((p) => bg.push(p))
+      await Promise.all(bg.splice(0))
+      clock.advance(61_000)
+      const { value, ms } = await timed(client.get((p) => bg.push(p)))
+      expect(value?.seq).toBe(1)
+      expect(ms).toBeLessThan(STALE_WAIT + SLACK)
+      expect(client.expired).toBe(true)
+      await Promise.all(bg.splice(0))
+      expect((await client.get())?.seq).toBe(2)
+      expect(client.expired).toBe(false)
+    })
+
+    it('a late older answer with no commit in between does not renew an expired copy (Codex r1)', async () => {
+      const clock = new Clock(0)
+      const late = deferred<PullResult>()
+      const hub = scriptedHub([async () => result(6), () => late.promise], async () => result(7))
+      const bg: Promise<unknown>[] = []
+      const client = new SnapshotClient(hub, clock.now, () => {}, null, 'ferry', undefined, slowTiming)
+      expect((await client.get())?.seq).toBe(6)
+      clock.advance(61_000)
+      expect((await client.get((p) => bg.push(p)))?.seq).toBe(6)
+      expect(client.expired).toBe(true)
+      await sleep(DEADLINE + 20)
+      expect(client.abandoned).toBe(1)
+      late.resolve(result(5))
+      await Promise.all(bg)
+      expect((await client.get())?.seq).toBe(6)
+      expect(client.expired).toBe(true)
+      expect(client.status?.seq).toBe(6)
+    })
+
+    it('a late answer without a seq (e.g. a missing R2 pointer) does not renew an expired copy (Codex r2)', async () => {
+      const clock = new Clock(0)
+      const late = deferred<PullResult>()
+      const hub = scriptedHub([async () => result(6), () => late.promise], async () => result(7))
+      const bg: Promise<unknown>[] = []
+      const client = new SnapshotClient(hub, clock.now, () => {}, null, 'ferry', undefined, slowTiming)
+      expect((await client.get())?.seq).toBe(6)
+      clock.advance(61_000)
+      expect((await client.get((p) => bg.push(p)))?.seq).toBe(6)
+      await sleep(DEADLINE + 20)
+      expect(client.abandoned).toBe(1)
+      late.resolve({ seq: null, json: null, status: status(null) })
+      await Promise.all(bg)
+      expect((await client.get())?.seq).toBe(6)
+      expect(client.expired).toBe(true)
+      expect(client.status?.seq).toBe(6)
+    })
+
+    it('a late answer with the same seq and nothing committed since confirms the copy, dated from its start', async () => {
+      const clock = new Clock(0)
+      const late = deferred<PullResult>()
+      const hub = scriptedHub([async () => result(6), () => late.promise], async () => result(7))
+      const bg: Promise<unknown>[] = []
+      const client = new SnapshotClient(hub, clock.now, () => {}, null, 'ferry', undefined, slowTiming)
+      expect((await client.get())?.seq).toBe(6)
+      clock.advance(61_000)
+      await client.get((p) => bg.push(p))
+      await sleep(DEADLINE + 20)
+      clock.advance(5_000) // lands 5 s after it started
+      late.resolve({ seq: 6, json: null, status: status(6) })
+      await Promise.all(bg)
+      expect(client.expired).toBe(false)
+      clock.advance(SNAPSHOT_MAX_STALE_MS - 5_000) // maxStale after the refresh *started*: expired again
+      expect(client.expired).toBe(true)
+    })
+
+    it('a late answer older than the current copy is ignored (snapshot and status)', async () => {
+      const clock = new Clock(0)
+      const late = deferred<PullResult>()
+      const hub = scriptedHub([async () => result(4), () => late.promise], async () => result(6))
+      const bg: Promise<unknown>[] = []
+      const client = new SnapshotClient(hub, clock.now, () => {}, null, 'ferry', undefined, slowTiming)
+      expect((await client.get())?.seq).toBe(4)
+      clock.advance(SNAPSHOT_REFRESH_MS)
+      await client.get((p) => bg.push(p)) // background refresh: slow, abandoned at its deadline
+      await sleep(DEADLINE + 20)
+      expect(client.abandoned).toBe(1)
+      clock.advance(SNAPSHOT_REFRESH_MS)
+      await client.get((p) => bg.push(p)) // the next one commits seq 6 on time
+      await bg.at(-1)
+      expect(client.status?.seq).toBe(6)
+      late.resolve(result(5))
+      await Promise.all(bg)
+      expect((await client.get())?.seq).toBe(6)
+      expect(client.status?.seq).toBe(6)
+    })
   })
 
   it('a rejecting refresh: cold fails fast, a copy is served, and the next refresh succeeds', async () => {
