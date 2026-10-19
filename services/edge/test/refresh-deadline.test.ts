@@ -217,6 +217,25 @@ describe('SnapshotClient refresh deadline', () => {
       expect(client.expired).toBe(false)
     })
 
+    it('a late older answer with no commit in between does not renew an expired copy (Codex r1)', async () => {
+      const clock = new Clock(0)
+      const late = deferred<PullResult>()
+      const hub = scriptedHub([async () => result(6), () => late.promise], async () => result(7))
+      const bg: Promise<unknown>[] = []
+      const client = new SnapshotClient(hub, clock.now, () => {}, null, 'ferry', undefined, slowTiming)
+      expect((await client.get())?.seq).toBe(6)
+      clock.advance(61_000)
+      expect((await client.get((p) => bg.push(p)))?.seq).toBe(6)
+      expect(client.expired).toBe(true)
+      await sleep(DEADLINE + 20)
+      expect(client.abandoned).toBe(1)
+      late.resolve(result(5))
+      await Promise.all(bg)
+      expect((await client.get())?.seq).toBe(6)
+      expect(client.expired).toBe(true)
+      expect(client.status?.seq).toBe(6)
+    })
+
     it('a late answer older than the current copy is ignored (snapshot and status)', async () => {
       const clock = new Clock(0)
       const late = deferred<PullResult>()
