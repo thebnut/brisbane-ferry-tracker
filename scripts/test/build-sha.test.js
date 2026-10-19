@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
@@ -141,5 +141,24 @@ test('public/data guard: files outside apps/*/public/data do not trip it (they o
     assert.match(res.stdout, /^[0-9a-f]{7}-dirty\n$/)
   } finally {
     r.done()
+  }
+})
+
+test('public/data guard: a symlink at or below apps/<app>/public/data, or at public, stops it even when committed', () => {
+  for (const link of ['apps/x/public/data/bus', 'apps/x/public/data', 'apps/x/public']) {
+    const r = dataRepo()
+    const outside = mkdtempSync(join(tmpdir(), 'build-sha-target-'))
+    try {
+      writeFileSync(join(outside, 'routes.json'), '{}')
+      mkdirSync(dirname(join(r.dir, link)), { recursive: true })
+      symlinkSync(outside, join(r.dir, link))
+      r.commit(link)
+      assert.equal(r.git('status', '--porcelain', '--ignored', '--untracked-files=all'), '')
+      assert.deepEqual(strayPublicData(r.dir), [link], link)
+      assert.equal(run(r.dir).status, 1)
+    } finally {
+      r.done()
+      rmSync(outside, { recursive: true, force: true })
+    }
   }
 })

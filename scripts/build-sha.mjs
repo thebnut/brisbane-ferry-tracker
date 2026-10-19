@@ -6,12 +6,14 @@
  * stops the deploy script before anything is built or uploaded. Prints nothing but the sha.
  *
  * It also refuses (non-zero, files named on stderr) when `apps/<app>/public/data` holds anything a commit doesn't:
- * an untracked or git-ignored file (left by `pnpm data`), or a tracked file that is modified, staged or hidden from
- * `git status`. `react-router build` copies all of `public/` into the bundle, and the Workers serve that copy ahead of
- * the live R2 data until the next deploy. `git status --porcelain` alone hides ignored files, so the marker can't
- * catch this.
+ * an untracked or git-ignored file (left by `pnpm data`), a tracked file that is modified, staged or hidden from
+ * `git status`, or a symlink there or at apps/<app>/public (the build follows it to files git can't see).
+ * `react-router build` copies all of `public/` into the bundle, and the Workers serve that copy ahead of the live R2
+ * data until the next deploy. `git status --porcelain` alone hides ignored files, so the marker can't catch this.
  */
 import { execFileSync } from 'node:child_process'
+import { lstatSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 // Anchored at the repo root (`top`), since the deploy scripts run from apps/<app> or services/edge. `glob` keeps `*`
@@ -52,7 +54,36 @@ export function strayPublicData(cwd = process.cwd()) {
     .split('\0')
     .filter((entry) => /^([a-z]|S) /.test(entry))
     .map((entry) => entry.slice(2))
-  return [...new Set([...changed, ...hidden])].sort()
+  return [...new Set([...changed, ...hidden, ...symlinks(git('rev-parse', '--show-toplevel').trim())])].sort()
+}
+
+/** Symlinks at apps/<app>, its public, public/data, or anywhere below it: Vite's public copy follows them. */
+function symlinks(root) {
+  const found = []
+  const stat = (rel) => {
+    try {
+      return lstatSync(join(root, rel))
+    } catch {
+      return null
+    }
+  }
+  const walk = (rel) => {
+    for (const entry of readdirSync(join(root, rel), { withFileTypes: true })) {
+      const child = `${rel}/${entry.name}`
+      if (entry.isSymbolicLink()) found.push(child)
+      else if (entry.isDirectory()) walk(child)
+    }
+  }
+  if (!stat('apps')?.isDirectory()) return stat('apps')?.isSymbolicLink() ? ['apps'] : found
+  for (const app of readdirSync(join(root, 'apps'))) {
+    for (const rel of [`apps/${app}`, `apps/${app}/public`, `apps/${app}/public/data`]) {
+      const s = stat(rel)
+      if (s?.isSymbolicLink()) found.push(rel)
+      if (!s?.isDirectory()) break
+      if (rel.endsWith('/public/data')) walk(rel)
+    }
+  }
+  return found
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -61,11 +92,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (stray.length) {
     process.stderr.write(
       [
-        'build-sha: refusing to deploy: apps/*/public/data holds files that are not in the commit, and the build would',
-        'bundle them and serve them ahead of the live data:',
+        'build-sha: refusing to deploy: apps/*/public/data holds files (or symlinks) that are not in the commit, and the',
+        'build would bundle them and serve them ahead of the live data:',
         ...stray.map((path) => `  ${path}`),
         'Fix: delete the generated folder (e.g. `rm -rf apps/bus/public/data`), or restore or commit tracked files',
-        '(`git restore apps/train/public/data`), then run the deploy again.',
+        '(`git restore apps/train/public/data`, clearing any assume-unchanged/skip-worktree flag), replace a symlink with',
+        'the real folder, then run the deploy again.',
         '',
       ].join('\n'),
     )
