@@ -27,26 +27,44 @@ const uq = (id: string, start: string, west: string, guyatt: string): SynthTrip 
 })
 // The same trip_id runs on both days (TransLink reuses trip ids across dates of one service pattern).
 const TRIPS: Record<string, SynthTrip[]> = {
-  [D0]: [uq('F1-1415', '14:15:00', '14:20:00', '14:25:00')],
+  [D0]: [
+    uq('F1-1415', '14:15:00', '14:20:00', '14:25:00'),
+    uq('F1-1815', '18:15:00', '18:20:00', '18:25:00'),
+  ],
   [D]: [uq('F1-1415', '14:15:00', '14:20:00', '14:25:00')],
 }
 
 type Stu = Parameters<typeof tripUpdate>[2]
 
-function snapshotFor(startDate: string, stus: Stu, nowS: number): RtSnapshot {
+function snapshotFor(
+  startDate: string,
+  stus: Stu,
+  nowS: number,
+  opts: {
+    tripId?: string
+    startTime?: string
+    directionId?: number
+    rel?: number
+    vehicles?: Parameters<typeof feed>[1]
+  } = {},
+): RtSnapshot {
   const index = new ModeIndex('ferry', [tripIndex(D0, TRIPS[D0] ?? []), tripIndex(D, TRIPS[D] ?? [])])
-  const fm = fromBinary(
-    FeedMessageSchema,
-    feed(nowS, [
-      tripUpdate('e', { tripId: 'F1-1415', startDate, startTime: '14:15:00', routeId: 'F1-4055' }, stus),
-    ]),
-  )
+  const trip = {
+    tripId: opts.tripId ?? 'F1-1415',
+    startDate,
+    startTime: opts.startTime ?? '14:15:00',
+    routeId: 'F1-4055',
+    ...(opts.rel != null ? { scheduleRelationship: opts.rel } : {}),
+    ...(opts.directionId != null ? { directionId: opts.directionId } : {}),
+  }
+  const fm = fromBinary(FeedMessageSchema, feed(nowS, [tripUpdate('e', trip, stus, 'Kuluwin')]))
+  const vp = fromBinary(FeedMessageSchema, feed(nowS, opts.vehicles ?? []))
   return buildSnapshot({
     seq: 1,
     nowMs: nowS * 1000,
     indexes: { ferry: index },
     tripUpdates: [{ mode: 'ferry', feed: fm }],
-    vehiclePositions: [],
+    vehiclePositions: [{ mode: 'ferry', feed: vp }],
     alerts: [],
   }).snapshot
 }
@@ -107,5 +125,67 @@ describe('79-min-late ferry row (smoke round 9)', () => {
     const snap = snapshotFor(D0, [{ seq: 2, stopId: WEST_END, arrDelay: 79 * 60, depDelay: 0 }], now)
     const [row] = board(D0, WEST_END, snap, now)
     expect(row).toMatchObject({ status: 'scheduled', estDep: null })
+  })
+
+  it('trusts an hour-plus arrival-only delay as an arrival, but not as a departure (Codex r1 #1)', () => {
+    const snap = snapshotFor(D0, [{ seq: 2, stopId: WEST_END, arrDelay: 79 * 60 }], now)
+    const [boarding] = board(D0, WEST_END, snap, now)
+    expect(boarding).toMatchObject({ status: 'scheduled', estDep: null })
+    const [toWestEnd] = mergeDepartures([stopDay(D0, UQ, TRIPS[D0] ?? [])], snap, {
+      nowS: now,
+      rtState: 'live',
+      toStopIds: new Set([WEST_END]),
+    })
+    expect(toWestEnd).toMatchObject({ schedArrTo: epoch(D0, '14:20:00'), estArrTo: epoch(D0, '15:39:00') })
+  })
+
+  it("applies the origin rule to an ADDED trip's first stop (Codex r1 #2)", () => {
+    const snap = snapshotFor(
+      D0,
+      [
+        { stopId: UQ, arrTime: epoch(D0, '15:34:00'), depTime: epoch(D0, '14:15:00') },
+        { stopId: WEST_END, arrTime: epoch(D0, '14:20:00'), depTime: epoch(D0, '14:20:00') },
+      ],
+      now,
+      { tripId: 'EXTRA', rel: 1 },
+    )
+    const added = snap.trips[`rt:EXTRA@${D0}`]?.added
+    expect(added?.stops[0]).toMatchObject({
+      stopId: UQ,
+      arr: epoch(D0, '14:15:00'),
+      dep: epoch(D0, '14:15:00'),
+    })
+  })
+
+  it("matches a conflicting start_time to the run it names, never to the trip_id's other run (Codex r1 #3)", () => {
+    // F1-1415's id with the 18:15 start: tier 2 finds the 18:15 run by (route, direction, start_time).
+    const at = (tripId: string, startTime: string) => ({
+      id: 'Kuluwin',
+      vehicle: {
+        trip: { tripId, startDate: D0, startTime },
+        vehicle: { id: 'Kuluwin' },
+        position: { latitude: -27.5, longitude: 153 },
+      },
+    })
+    const snap = snapshotFor(D0, [{ seq: 1, stopId: UQ, depDelay: 120 }], now, {
+      startTime: '18:15:00',
+      directionId: 0,
+      vehicles: [at('F1-1415', '14:15:00')],
+    })
+    expect(Object.keys(snap.trips)).toEqual([`F1-1815@${D0}`])
+    // A vehicle naming the 14:15 run is not attached to the 18:15 one through the descriptor shortcut.
+    expect(snap.vehicles[0]?.tripKey).toBe(`F1-1415@${D0}`)
+    const [row] = board(D0, UQ, snap, now)
+    expect(row).toMatchObject({ tripInstance: `F1-1415@${D0}`, status: 'scheduled', gps: true })
+  })
+
+  it('without a direction to narrow it, a conflicting start_time stays unmatched', () => {
+    const snap = snapshotFor(D0, [{ seq: 1, stopId: UQ, depDelay: 120 }], now, { startTime: '18:15:00' })
+    expect(Object.keys(snap.trips)).toEqual([])
+  })
+
+  it('leaves a start_time that matches no run unmatched', () => {
+    const snap = snapshotFor(D0, [{ seq: 1, stopId: UQ, depDelay: 120 }], now, { startTime: '16:15:00' })
+    expect(Object.keys(snap.trips)).toEqual([])
   })
 })

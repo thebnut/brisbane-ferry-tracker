@@ -171,6 +171,24 @@ describe('frequent route with 6-minute headways', () => {
     ])
     expect(r).toMatchObject({ kind: 'matched', tier: 4, key: `H2@${D}` })
   })
+  it('tier 1 rejects a start_time that disagrees with the instance (Codex latefix r1 #3)', () => {
+    expect(matcher.match({ tripId: 'H7', startDate: D, startTime: '08:42:00' }, [])).toMatchObject({
+      kind: 'matched',
+      tier: 1,
+      key: `H7@${D}`,
+    })
+    // H7 starts 08:42; an 08:12 start names H2's run, found by tier 2 when route and direction are given.
+    expect(
+      matcher.match(
+        { tripId: 'H7', startDate: D, startTime: '08:12:00', routeId: 'B200-1', directionId: 0 },
+        [],
+      ),
+    ).toMatchObject({ kind: 'matched', tier: 2, key: `H2@${D}` })
+    expect(matcher.match({ tripId: 'H7', startDate: D, startTime: '08:12:00' }, [])).toEqual({
+      kind: 'unmatched',
+    })
+    expect(matcher.match({ tripId: 'H7', startTime: '08:12:00' }, [])).toEqual({ kind: 'unmatched' })
+  })
   it('tier 1 is exact', () => {
     expect(matcher.match({ tripId: 'H7', startDate: D }, [])).toMatchObject({
       kind: 'matched',
@@ -615,6 +633,13 @@ describe('Codex PR38 review regressions', () => {
       status: 'live',
     })
     expect(predictStop(trip, 2, 2000, 2000, 'live').status).toBe('scheduled')
+    const arrOnly: RtTrip = { ...trip, updates: [{ seq: 2, rel: 'SCHEDULED', arrDelay: 79 * 60 }] }
+    // An arrival-only update states the arrival, not the departure (Codex latefix r1 #1).
+    expect(predictStop(arrOnly, 2, 1000, 1000, 'live').status).toBe('scheduled')
+    expect(predictStop(arrOnly, 2, 1000, 1000, 'live', 'arr')).toMatchObject({
+      estArr: 1000 + 79 * 60,
+      status: 'live',
+    })
     const hour: RtTrip = { ...trip, updates: [{ seq: 1, rel: 'SCHEDULED', depDelay: -3600 }] }
     expect(predictStop(hour, 2, 9000, 9000, 'live')).toMatchObject({ estDep: 5400, status: 'live' })
   })

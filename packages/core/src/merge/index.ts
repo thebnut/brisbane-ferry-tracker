@@ -112,7 +112,7 @@ export function mergeDepartures(
       let estArrTo: number | null = null
       if (toArrOffset != null && toSeq != null) {
         schedArrTo = schedDep + toArrOffset
-        const pTo = predictStop(rtTrip, toSeq, schedArrTo, schedArrTo, opts.rtState)
+        const pTo = predictStop(rtTrip, toSeq, schedArrTo, schedArrTo, opts.rtState, 'arr')
         estArrTo = pTo.status === 'live' ? pTo.estArr : null
         // A service that skips the destination doesn't get you there.
         if (pTo.status === 'skipped') continue

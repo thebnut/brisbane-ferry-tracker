@@ -268,6 +268,8 @@ function resolveAdded(
         dep ??= st.depEpoch + shift + (evDelay(u.departure) ?? evDelay(u.arrival) ?? 0)
       }
     }
+    // Same origin rule as normaliseUpdates: the first stop's arrival is the inbound vehicle, not this trip.
+    if (stops.length === 0 && dep != null) arr = dep
     arr ??= dep
     dep ??= arr
     if (arr == null || dep == null) return null
@@ -330,6 +332,8 @@ export function buildSnapshot(input: BuildInput): BuildResult {
   for (const m of modes) stats[m] = emptyStats()
   const trips: Record<string, RtTrip> = {}
   const keyByDescriptor = new Map<string, string>()
+  /** The start_time each keyByDescriptor entry was matched with, so a vehicle naming another run isn't attached. */
+  const startByDescriptor = new Map<string, string>()
   const tripModes = new Map<string, Mode>()
   let sourceTimestamp = Number.POSITIVE_INFINITY
 
@@ -416,7 +420,11 @@ export function buildSnapshot(input: BuildInput): BuildResult {
         }
         trips[res.key] = rec
         tripModes.set(res.key, m)
-        if (desc.tripId) keyByDescriptor.set(`${desc.tripId}|${desc.startDate ?? ''}`, res.key)
+        if (desc.tripId) {
+          const k = `${desc.tripId}|${desc.startDate ?? ''}`
+          keyByDescriptor.set(k, res.key)
+          if (desc.startTime) startByDescriptor.set(k, desc.startTime)
+        }
         break
       }
       if (!counted && known) {
@@ -465,7 +473,11 @@ export function buildSnapshot(input: BuildInput): BuildResult {
       if (!vp?.position || ent.isDeleted) continue
       const desc = descriptor(vp.trip)
       let tripKey: string | undefined
-      if (desc.tripId) tripKey = keyByDescriptor.get(`${desc.tripId}|${desc.startDate ?? ''}`)
+      if (desc.tripId) {
+        const k = `${desc.tripId}|${desc.startDate ?? ''}`
+        const start = startByDescriptor.get(k)
+        if (!desc.startTime || !start || start === desc.startTime) tripKey = keyByDescriptor.get(k)
+      }
       if (!tripKey && (desc.tripId || desc.routeId)) {
         const obs: RtStopObservation[] =
           has(vp, 'currentStopSequence') || vp.stopId

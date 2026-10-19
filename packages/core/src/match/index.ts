@@ -231,13 +231,20 @@ export class TripMatcher {
   match(desc: RtDescriptor, obs: RtStopObservation[]): MatchResult {
     // Tier 1
     if (desc.tripId) {
+      const rtStart = gtfsTimeToSeconds(desc.startTime)
+      // A stated start_time must agree with the instance (another run of a reused trip_id must not take this update);
+      // a conflict falls through to tier 2, which matches on (route, direction, start_time, start_date).
+      const startsOk = (g: number) => {
+        if (rtStart == null) return true
+        const [d, i] = this.locate(g)
+        return startOf(d, i) === rtStart
+      }
       if (desc.startDate) {
         const g = this.lookupId(desc.tripId, desc.startDate)
-        if (g != null) return this.matched(g, 1)
+        if (g != null && startsOk(g)) return this.matched(g, 1)
         // TransLink sends an after-midnight trip's start_date as the calendar date (start_time 00:18) while GTFS
         // files it under the previous service date (24:18). Accept that instance only when the start times agree.
         const prev = this.lookupId(desc.tripId, addDays(desc.startDate, -1))
-        const rtStart = gtfsTimeToSeconds(desc.startTime)
         if (prev != null && rtStart != null && rtStart < DAY_S) {
           const [d, i] = this.locate(prev)
           if (startOf(d, i) === rtStart + DAY_S) return this.matched(prev, 1)
@@ -246,7 +253,8 @@ export class TripMatcher {
         const compatible: number[] = []
         for (const d of this.days) {
           const i = d.byId.get(desc.tripId)
-          if (i != null && this.compatible(d.base + i, obs)) compatible.push(d.base + i)
+          if (i != null && startsOk(d.base + i) && this.compatible(d.base + i, obs))
+            compatible.push(d.base + i)
         }
         if (compatible.length === 1) return this.matched(compatible[0] as number, 1)
       }

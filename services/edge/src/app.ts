@@ -344,7 +344,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
         const [si, seq, arrS, depS, pickup, dropOff] = trip.st.slice(i, i + 6) as number[]
         const schedArr = gtfsToEpoch(serviceDate, arrS as number)
         const schedDep = gtfsToEpoch(serviceDate, depS as number)
-        const p = predictStop(live, seq as number, schedArr, schedDep, r.rtState)
+        // The last stop shows its arrival (nobody departs there); every other stop shows the departure.
+        const last = i + 6 + 5 >= trip.st.length
+        const p = predictStop(live, seq as number, schedArr, schedDep, r.rtState, last ? 'arr' : 'dep')
         const stopId = day.stops[si as number] ?? ''
         stops.push({
           // platform / scheduledPlatform / stationKey: optional TripStop fields from bft-train #42.

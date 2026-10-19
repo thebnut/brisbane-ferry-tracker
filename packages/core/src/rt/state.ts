@@ -48,6 +48,8 @@ function governingUpdate(updates: RtStopUpdate[], seq: number): RtStopUpdate | u
 /**
  * Predict arrival and departure at one stop occurrence of a trip.
  * `updates` must be sorted by seq and carry delays (the hub normalises absolute times to delays).
+ * `use` says which time the caller shows: 'dep' (a boarding row, the default) trusts an hour-plus delay only when the
+ * feed states this stop's departure; 'arr' (a destination, a trip's last stop) trusts this stop's own arrival.
  */
 export function predictStop(
   trip: RtTrip | undefined,
@@ -55,6 +57,7 @@ export function predictStop(
   schedArr: number,
   schedDep: number,
   rtState: RtState,
+  use: 'dep' | 'arr' = 'dep',
 ): StopPrediction {
   const scheduled: StopPrediction = { estArr: null, estDep: null, status: 'scheduled' }
   if (!trip || rtState === 'unavailable' || rtState === 'reloading') return scheduled
@@ -77,8 +80,10 @@ export function predictStop(
     const stated = u.dep ?? schedDep + (depDelay ?? 0)
     // A vehicle can't leave before it arrives: clamp the departure to at least the predicted arrival.
     const estDep = Math.max(stated, estArr)
-    // Every time here comes from this stop's own update, except a departure the clamp pushed past the stated one.
-    if (estDep !== stated && Math.abs(estDep - schedDep) > MAX_UNSTATED_DELAY_S) return scheduled
+    // A departure is stated only by the feed's own departure at this stop, not derived from the arrival (or pushed
+    // past the stated one by the clamp). The arrival always comes from this stop's own update.
+    const depStated = (u.dep != null || u.depDelay != null) && estDep === stated
+    if (use === 'dep' && !depStated && Math.abs(estDep - schedDep) > MAX_UNSTATED_DELAY_S) return scheduled
     return { estArr, estDep, status: 'live' }
   }
   // Propagate the upstream stop's departure delay (falling back to its arrival delay).
