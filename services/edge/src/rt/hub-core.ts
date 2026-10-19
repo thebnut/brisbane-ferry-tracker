@@ -631,9 +631,10 @@ export class HubCore {
    * Load every given mode's days in this one cycle (cold-start review, 20 Oct: one day per cycle left the last
    * mode, bus, without RT for ~90 s after every deploy). All the blobs are fetched at once (the wall time is R2
    * round trips); decoding, parsing and indexing run one day at a time, so at most one parsed day is alive at once.
-   * Measured (scripts/coldload.ts: real data, restored snapshot, combined feeds, Node): the whole first cycle, all
-   * four modes, ~390-470 ms CPU, live peak ~76-79 MB for the whole process (one day per cycle: eight cycles of up to
-   * ~240 ms, 70-88 MB), inside cpu_ms 2000 and the 128 MB isolate.
+   * Local evidence only (scripts/coldload.ts in Node: real data, restored snapshot, combined feeds): the whole first
+   * cycle, all four modes, ~390-500 ms CPU and a live peak of ~72-79 MB for the whole process, against eight cycles
+   * of up to ~240 ms and 70-88 MB for one day per cycle. That leaves room under cpu_ms 2000 and the 128 MB isolate,
+   * but the Durable Object's own CPU and memory are confirmed on staging (wrangler tail), not here.
    */
   private async loadUnindexed(
     modes: Mode[],
