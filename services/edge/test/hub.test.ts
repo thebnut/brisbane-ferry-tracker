@@ -1103,6 +1103,49 @@ describe('R2 PUT budget: unchanged documents and the pointer are not rewritten',
     expect(health.rt.sourceTimestamp).toBe(source)
   })
 
+  it('a partial failure keeps what was written (Codex review A r1): no stale skip on reversion, no redundant PUT', async () => {
+    const { r2, h } = await warmed()
+    const ferryKey = modeLatestKey('ferry')
+    const trainKey = modeLatestKey('train')
+    await poll(h, { ferry: 1, train: 1 }) // content A for ferry
+    const realPut = r2.put.bind(r2)
+    r2.put = async (key: string, value: Uint8Array | string) => {
+      if (key === trainKey) throw new Error('r2 down')
+      return realPut(key, value)
+    }
+    await poll(h, { ferry: 2, train: 2 }) // ferry B lands, train fails
+    expect(h.hub.status().lastError).toMatch(/r2 down/)
+    const ferryB = docSeq(r2, ferryKey)
+    r2.put = realPut
+    r2.ops.length = 0
+    // Unchanged content: ferry (written) is not PUT again; train (failed, state unknown) is.
+    await poll(h, { ferry: 2, train: 2 })
+    expect(r2.ops.filter((o) => o !== 'put:rt/latest.json')).toEqual([`put:${trainKey}`])
+    expect(docSeq(r2, ferryKey)).toBe(ferryB)
+    // Reversion to content A: R2 holds B, so ferry is rewritten.
+    r2.ops.length = 0
+    await poll(h, { ferry: 1, train: 2 })
+    expect(r2.ops).toContain(`put:${ferryKey}`)
+    expect(JSON.parse(text(r2, ferryKey)).vehicles[0].lon).toBeCloseTo(153.05 + 1 / 1e4, 4)
+  })
+
+  it('a new alerts slot written in a failed publish still moves the pointer at once on the retry', async () => {
+    const { r2, h } = await warmed('ferry,train')
+    const realPut = r2.put.bind(r2)
+    r2.put = async (key: string, value: Uint8Array | string) => {
+      if (key === modeLatestKey('train')) throw new Error('r2 down')
+      return realPut(key, value)
+    }
+    h.clock.advance(ALERTS_EVERY_MS)
+    h.up.set('alerts', feed(h.nowS(), [alert('a3', 'New closure', 'F1-4055')]))
+    await poll(h, { train: 1 })
+    r2.put = realPut
+    const slot = [...r2.ops].reverse().find((o) => o.includes('/alerts/'))?.slice(4)
+    expect(slot).toBeDefined()
+    await poll(h, { train: 1 }) // alerts unchanged now; the pointer is still owed for the new slot
+    expect(JSON.parse(text(r2, 'rt/latest.json')).files.alerts.key).toBe(slot)
+  })
+
   it('restore after a restart merges documents of different ages (newest header, every scope)', async () => {
     const { r2, h } = await warmed()
     for (let i = 1; i <= 4; i++) await poll(h, { train: i })

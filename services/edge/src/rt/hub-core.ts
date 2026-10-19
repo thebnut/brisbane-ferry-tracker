@@ -216,6 +216,8 @@ export class HubCore {
   private pointerAt = 0
   /** A publish skipped the pointer, so it lags the snapshot: write it once POINTER_HEARTBEAT_MS has passed. */
   private pointerOwed = false
+  /** An alerts document moved to a new ring slot that no pointer names yet. */
+  private alertsMoved = false
   private drillDead = false
   /** The current snapshot still needs publishing to R2 (a publish failed, or it was just rebuilt). */
   private r2Pending = false
@@ -560,7 +562,6 @@ export class HubCore {
     const r2 = this.d.r2 as R2Like
     const snap = this.snapshot as RtSnapshot
     const seq = this.meta.seq
-    let alertsMoved = false
     if (this.r2Pending) {
       const json = { httpMetadata: { contentType: 'application/json' } }
       // Per-mode documents (§3.3 split): an edge isolate reads only the mode it serves. One overwritten object per
@@ -573,25 +574,35 @@ export class HubCore {
         modeLatestKey(m),
       ])
       scopes.push(['alerts', alertsDocument(snap), scopeKey('alerts', seq)])
-      const next = new Map(this.published)
+      const writes: Array<[SnapshotScope, Published]> = []
       const puts: Promise<unknown>[] = []
       for (const [scope, doc, key] of scopes) {
         const body = documentBody(doc)
         const content = documentContent(doc.header, body)
         if (this.published.get(scope)?.content === content) continue
         puts.push(this.put(r2, key, documentJson(doc.header, body), json))
-        next.set(scope, { content, key, seq })
-        if (scope === 'alerts') alertsMoved = true
+        writes.push([scope, { content, key, seq }])
       }
       // Every PUT settles before the publish (and so the poll) ends: a failed sibling must not leave another PUT
-      // running that could land after the next poll's and roll its document back (Codex r1). Then the first failure.
-      const failed = (await Promise.allSettled(puts)).find((r) => r.status === 'rejected')
+      // running that could land after the next poll's and roll its document back (Codex r1).
+      const settled = await Promise.allSettled(puts)
+      // Record each scope as it now stands, failures included (Codex review A r1): a written document is what R2
+      // holds even if a sibling failed, and a failed one may or may not have landed, so it is forgotten and rewritten
+      // with the next publish whatever its content then.
+      settled.forEach((r, i) => {
+        const [scope, p] = writes[i] as [SnapshotScope, Published]
+        if (r.status === 'fulfilled') this.published.set(scope, p)
+        else this.published.delete(scope)
+        // A new alerts slot needs the pointer at once, even if this publish fails and the next finds nothing changed.
+        if (scope === 'alerts' && r.status === 'fulfilled') this.alertsMoved = true
+      })
+      const failed = settled.find((r) => r.status === 'rejected')
       if (failed) throw failed.reason
-      // Only once every document is written: a failed PUT is retried, whole, with the next publish.
-      this.published = next
     }
     const due =
-      this.pointerAt === 0 || alertsMoved || now - this.pointerAt >= POINTER_HEARTBEAT_MS - POLL_SLACK_MS
+      this.pointerAt === 0 ||
+      this.alertsMoved ||
+      now - this.pointerAt >= POINTER_HEARTBEAT_MS - POLL_SLACK_MS
     if (!due) {
       this.pointerOwed = true
       return
@@ -606,6 +617,7 @@ export class HubCore {
     })
     this.pointerAt = now
     this.pointerOwed = false
+    this.alertsMoved = false
   }
 
   /** One R2 PUT, counted for the poll's timings. */
