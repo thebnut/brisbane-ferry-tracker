@@ -171,6 +171,36 @@ describe('frequent route with 6-minute headways', () => {
     ])
     expect(r).toMatchObject({ kind: 'matched', tier: 4, key: `H2@${D}` })
   })
+  it('tier 1 rejects a start_time that disagrees with the instance (Codex latefix r1 #3)', () => {
+    expect(matcher.match({ tripId: 'H7', startDate: D, startTime: '08:42:00' }, [])).toMatchObject({
+      kind: 'matched',
+      tier: 1,
+      key: `H7@${D}`,
+    })
+    // H7 starts 08:42; an 08:12 start names H2's run, found by tier 2 when route and direction are given.
+    expect(
+      matcher.match(
+        { tripId: 'H7', startDate: D, startTime: '08:12:00', routeId: 'B200-1', directionId: 0 },
+        [],
+      ),
+    ).toMatchObject({ kind: 'matched', tier: 2, key: `H2@${D}` })
+    expect(matcher.match({ tripId: 'H7', startDate: D, startTime: '08:12:00' }, [])).toEqual({
+      kind: 'unmatched',
+    })
+    expect(matcher.match({ tripId: 'H7', startTime: '08:12:00' }, [])).toEqual({ kind: 'unmatched' })
+  })
+  it('tiers 3 and 4 reject a candidate whose start disagrees with a stated start_time (Codex latefix r2 #4)', () => {
+    // H2 (08:12) is the only candidate by time at stop A, but the descriptor says the run starts 08:13 (no run does,
+    // so tier 2 finds nothing and tier 4 must not take H2).
+    const obs = [{ seq: 1, stopId: 'A', dep: t(D, '08:12:30') }]
+    expect(matcher.match({ routeId: 'B200-9', directionId: 0, startDate: D }, obs)).toMatchObject({
+      kind: 'matched',
+      key: `H2@${D}`,
+    })
+    expect(
+      matcher.match({ routeId: 'B200-9', directionId: 0, startDate: D, startTime: '08:13:00' }, obs),
+    ).toEqual({ kind: 'unmatched' })
+  })
   it('tier 1 is exact', () => {
     expect(matcher.match({ tripId: 'H7', startDate: D }, [])).toMatchObject({
       kind: 'matched',
@@ -587,6 +617,43 @@ describe('Codex PR38 review regressions', () => {
       updates: [{ seq: 1, rel: 'SCHEDULED', arrDelay: 300, depDelay: 0 }],
     }
     expect(predictStop(trip, 1, 1000, 1060, 'live')).toEqual({ estArr: 1300, estDep: 1300, status: 'live' })
+  })
+
+  it('a clamped departure over an hour off the timetable is untrusted (smoke round 9)', () => {
+    const trip: RtTrip = {
+      key: 'k',
+      rel: 'SCHEDULED',
+      ts: 0,
+      updates: [{ seq: 2, rel: 'SCHEDULED', arrDelay: 79 * 60, depDelay: 0 }],
+    }
+    expect(predictStop(trip, 2, 1000, 1000, 'live')).toEqual({
+      estArr: null,
+      estDep: null,
+      status: 'scheduled',
+    })
+  })
+
+  it('a delay stated at the stop is shown at any size; propagated, it is capped at an hour', () => {
+    const trip: RtTrip = {
+      key: 'k',
+      rel: 'SCHEDULED',
+      ts: 0,
+      updates: [{ seq: 1, rel: 'SCHEDULED', depDelay: 3 * 3600 }],
+    }
+    expect(predictStop(trip, 1, 1000, 1000, 'live')).toMatchObject({
+      estDep: 1000 + 3 * 3600,
+      status: 'live',
+    })
+    expect(predictStop(trip, 2, 2000, 2000, 'live').status).toBe('scheduled')
+    const arrOnly: RtTrip = { ...trip, updates: [{ seq: 2, rel: 'SCHEDULED', arrDelay: 79 * 60 }] }
+    // An arrival-only update states the arrival, not the departure (Codex latefix r1 #1).
+    expect(predictStop(arrOnly, 2, 1000, 1000, 'live').status).toBe('scheduled')
+    expect(predictStop(arrOnly, 2, 1000, 1000, 'live', 'arr')).toMatchObject({
+      estArr: 1000 + 79 * 60,
+      status: 'live',
+    })
+    const hour: RtTrip = { ...trip, updates: [{ seq: 1, rel: 'SCHEDULED', depDelay: -3600 }] }
+    expect(predictStop(hour, 2, 9000, 9000, 'live')).toMatchObject({ estDep: 5400, status: 'live' })
   })
 })
 

@@ -9,11 +9,13 @@ import { StructuralError } from '../src/feed/load.ts'
 import {
   checkFeedEndDate,
   checkGoldenFacts,
+  feedCoverage,
   quarantineReasons,
   StructuralFailure,
+  uncoveredDates,
 } from '../src/validate/validators.ts'
 import { readJsonFile } from './helpers.ts'
-import { baseFeed, NOW, type SynthFeed, setCell, writeFeed } from './synth.ts'
+import { baseFeed, D, NOW, type SynthFeed, setCell, writeFeed } from './synth.ts'
 
 const tmp = () => mkdtemp(join(tmpdir(), 'bft-val-'))
 const build = async (feed: SynthFeed, outDir?: string, accept?: string[]) =>
@@ -201,6 +203,220 @@ describe('plausible service changes are quarantined', () => {
       "train 20261020: bowen-hills has no service and calendar_dates doesn't explain it",
     )
     expect(train?.quarantined.some((x) => x.includes('trip count'))).toBe(false)
+  })
+})
+
+describe('dates outside the new feed (issue #93)', () => {
+  /** TransLink's 20 Oct feed: feed_info and calendar both start on D, so D−1 (19 Oct) has no service in it. */
+  const startingOn = (start: string, f = baseFeed()) => {
+    setCell(f, 'feed_info.txt', 1, 3, start)
+    for (const row of [1, 2]) setCell(f, 'calendar.txt', row, 8, start)
+    return f
+  }
+  const withoutTrips = (f: SynthFeed, drop: (r: string[]) => boolean) => {
+    const ids = new Set(
+      (f['trips.txt'] as string[][])
+        .slice(1)
+        .filter(drop)
+        .map((r) => r[2]),
+    )
+    f['trips.txt'] = (f['trips.txt'] as string[][]).filter((r) => !ids.has(r[2] as string))
+    f['stop_times.txt'] = (f['stop_times.txt'] as string[][]).filter((r) => !ids.has(r[0] as string))
+    return f
+  }
+
+  it('a new feed starting on D with the previous generation covering D−1: no quarantine, D−1 reported', async () => {
+    const out = await tmp()
+    const first = await build(baseFeed(), out)
+    expect(first.uncoveredDates).toEqual([])
+    expect(first.serviceDates[0]).toBe('20261019')
+    const r = await build(startingOn(D), out)
+    expect(r.modes.map((m) => [m.mode, m.quarantined])).toEqual([
+      ['ferry', []],
+      ['train', []],
+      ['tram', []],
+      ['bus', []],
+    ])
+    expect(r.coverage.start).toBe(D)
+    expect(r.uncoveredDates).toEqual(['20261019'])
+    // D−1 is left out of the generation, not published as an empty day.
+    expect(r.serviceDates).toEqual([
+      '20261020',
+      '20261021',
+      '20261022',
+      '20261023',
+      '20261024',
+      '20261025',
+      '20261026',
+    ])
+    const live = await readJsonFile<Manifest>(out, 'manifest.json')
+    expect(live.quarantined).toEqual([])
+    expect(live.modes.ferry?.current).toBe(r.modes[0]?.generation)
+    expect(live.modes.ferry?.serviceDates).toEqual(r.serviceDates)
+    const idx = await readJsonFile<GenerationIndex>(out, `static/${r.modes[0]?.generation}/ferry/index.json`)
+    expect(Object.keys(idx.blobs)).toEqual(r.serviceDates)
+    expect(Object.keys(idx.tripIndex ?? {})).toEqual(r.serviceDates)
+    expect(idx.stats?.['20261019']).toBeUndefined()
+  })
+
+  it('without feed_start_date, the earliest calendar date with service is the start', async () => {
+    const f = startingOn(D)
+    setCell(f, 'feed_info.txt', 1, 3, '')
+    const r = await build(f)
+    expect(r.coverage).toEqual({ start: D, end: '20261231' })
+    expect(r.uncoveredDates).toEqual(['20261019'])
+    expect(
+      feedCoverage(
+        null,
+        [
+          {
+            service_id: 'none',
+            monday: '0',
+            tuesday: '0',
+            wednesday: '0',
+            thursday: '0',
+            friday: '0',
+            saturday: '0',
+            sunday: '0',
+            start_date: '20261001',
+            end_date: '20261231',
+          },
+          {
+            service_id: 'a',
+            monday: '1',
+            tuesday: '0',
+            wednesday: '0',
+            thursday: '0',
+            friday: '0',
+            saturday: '0',
+            sunday: '0',
+            start_date: '20261020',
+            end_date: '20261130',
+          },
+        ],
+        [
+          { service_id: 'b', date: '20261018', exception_type: '2' },
+          { service_id: 'b', date: '20261205', exception_type: '1' },
+        ],
+      ),
+    ).toEqual({ start: '20261020', end: '20261205' })
+  })
+
+  it('a real −100% drop on a date inside the new feed still quarantines', async () => {
+    const out = await tmp()
+    await build(baseFeed(), out)
+    // The weekend ferry is gone from the new feed: Sat 24 and Sun 25 Oct lose their only ferry trip.
+    const r = await build(
+      withoutTrips(startingOn(D), (t) => t[2] === 'F1-we'),
+      out,
+    )
+    const ferry = r.modes.find((m) => m.mode === 'ferry')
+    expect(ferry?.quarantined).toContain('ferry 20261024: trip count 1 → 0 (-100%, limit ±20%)')
+    expect(ferry?.quarantined).toContain('ferry 20261025: trip count 1 → 0 (-100%, limit ±20%)')
+    expect(ferry?.quarantined.some((x) => x.includes('20261019'))).toBe(false)
+    expect(r.uncoveredDates).toEqual(['20261019'])
+    expect((await readJsonFile<Manifest>(out, 'manifest.json')).quarantined.map((q) => q.mode)).toEqual([
+      'ferry',
+    ])
+  })
+
+  it('a station losing service inside the new feed still quarantines', async () => {
+    const out = await tmp()
+    await build(baseFeed(), out)
+    const f = startingOn(D)
+    f['stop_times.txt'] = (f['stop_times.txt'] as string[][]).filter(
+      (r) => r[3] !== '600100' && r[3] !== '600101',
+    )
+    const train = (await build(f, out)).modes.find((m) => m.mode === 'train')
+    expect(train?.quarantined).toContain(
+      "train 20261020: bowen-hills has no service and calendar_dates doesn't explain it",
+    )
+    expect(train?.quarantined.some((x) => x.includes('20261019'))).toBe(false)
+  })
+
+  it('a feed ending before D+6: dates after the end are skipped by the quarantine and reported', () => {
+    const dates = [
+      '20261019',
+      '20261020',
+      '20261021',
+      '20261022',
+      '20261023',
+      '20261024',
+      '20261025',
+      '20261026',
+    ]
+    const coverage = { start: '20261001', end: '20261024' }
+    expect(uncoveredDates(dates, coverage)).toEqual(['20261025', '20261026'])
+    /** A generation with `inside` trips a day up to 24 Oct and `after` trips on 25 and 26 Oct (station a when > 0). */
+    const mk = (inside: number, after: number): GenerationIndex => {
+      const trips = (d: string) => (d > coverage.end ? after : inside)
+      return {
+        schemaVersion: 1,
+        generation: 'g',
+        mode: 'train',
+        feedVersion: 'f',
+        builtAt: '',
+        serviceDates: dates,
+        blobs: Object.fromEntries(
+          dates.map((d) => [d, trips(d) ? { a: 'x' } : ({} as Record<string, string>)]),
+        ),
+        stats: Object.fromEntries(
+          dates.map((d) => [d, { trips: trips(d), events: 0, stops: trips(d) ? 1 : 0 }]),
+        ),
+      }
+    }
+    const args = {
+      mode: 'train' as const,
+      previous: mk(10, 10),
+      stationKeys: new Set(['a']),
+      closureExplained: () => false,
+    }
+    // Without coverage the end looks like a total loss of service on 25 and 26 Oct.
+    expect(quarantineReasons({ ...args, index: mk(10, 0) })).toHaveLength(4)
+    expect(quarantineReasons({ ...args, index: mk(10, 0), coverage })).toEqual([])
+    // A drop inside the validity still counts.
+    expect(quarantineReasons({ ...args, index: mk(5, 0), coverage }).join('\n')).toMatch(
+      /20261024: trip count 10 → 5/,
+    )
+    // The build itself still fails closed on such a feed: feed_end_date must be at least D+7.
+    expect(checkFeedEndDate('20261024', '20261020')).toHaveLength(1)
+  })
+
+  it('a feed entirely outside the window fails closed', async () => {
+    // Starts after the window (a wrong or future feed).
+    expect((await structural(startingOn('20261028'))).join()).toMatch(
+      /feed starts 20261028, after service date 20261020/,
+    )
+    // Starts tomorrow: today's boards would be empty, so this fails closed too.
+    expect((await structural(startingOn('20261021'))).join()).toMatch(/doesn't cover today/)
+    // Ended before the window (stale feed).
+    const stale = baseFeed()
+    setCell(stale, 'feed_info.txt', 1, 4, '20261015')
+    expect((await structural(stale)).join()).toMatch(/feed_end_date 20261015 is before today\+7/)
+  })
+
+  it('golden facts still hold over the 7 covered days when D−1 is uncovered', async () => {
+    // Synthetic trains run on weekdays only: 20–23 and 26 Oct, exactly the 5 days the facts need.
+    const r = await runBuild({
+      feedDir: await writeFeed(startingOn(D)),
+      outDir: await tmp(),
+      nowMs: NOW,
+      modes: ['train'],
+      golden: true,
+    })
+    expect(r.serviceDates).toHaveLength(7)
+    // One more lost weekday on top of the uncovered D−1 trips the gate.
+    const f = startingOn(D)
+    f['calendar_dates.txt']?.push(['WK', '20261022', '2'])
+    await expect(
+      runBuild({
+        feedDir: await writeFeed(f),
+        outDir: await tmp(),
+        nowMs: NOW,
+        modes: ['train'],
+        golden: true,
+      }),
+    ).rejects.toThrow(/golden: Central station \(train central\) has service on 4 days, expected ≥ 5/)
   })
 })
 
