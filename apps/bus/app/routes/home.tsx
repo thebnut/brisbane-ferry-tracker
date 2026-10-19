@@ -124,7 +124,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </Link>
         }
       >
-        <main className="mx-auto flex max-w-6xl flex-col gap-3 px-4 pt-3.5 pb-64 md:pb-6">
+        <main className="mx-auto flex max-w-6xl flex-col gap-3 px-4 pt-3.5 pb-6">
           <h1 className="text-xl font-extrabold md:sr-only">My stops</h1>
           {first ? (
             <DataBanner
@@ -200,7 +200,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             </>
           )}
         </main>
-        <Footer />
+        {/* The footer, not the content, clears the fixed sheet: it comes last. */}
+        <Footer aboveSheet />
       </SearchPanel>
       <BusNav active="home" alertCount={activeAlerts || undefined} />
     </>
