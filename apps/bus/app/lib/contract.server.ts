@@ -8,7 +8,7 @@ import {
 } from '@bft/core/contract'
 import { z } from 'zod'
 import { ApiError, type Validate } from './api.ts'
-import { dataSchemaForPath, LinesFile, RouteFile, StopIndexFile } from './data-contract.ts'
+import { dataSchemaForPath, LinesFile, RouteFile, RouteIndexFile, StopIndexFile } from './data-contract.ts'
 
 export function validator<S extends z.ZodType>(schema: S, what: string): Validate<z.infer<S>> {
   return (body) => {
@@ -23,6 +23,7 @@ export const validateTrip = validator(TripResponse, 'trip')
 export const validateAlerts = validator(AlertsResponse, 'alerts')
 export const validateLines = validator(LinesFile, 'lines')
 export const validateRoute = validator(RouteFile, 'route')
+export const validateRouteIndex = validator(RouteIndexFile, 'route index')
 
 const isStr = (v: unknown): v is string => typeof v === 'string'
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)

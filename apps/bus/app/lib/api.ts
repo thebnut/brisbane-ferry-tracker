@@ -5,7 +5,7 @@
  */
 import type { AlertsResponse, DeparturesResponse, TripResponse, VehiclesResponse } from '@bft/core/contract'
 import { noteCacheCopy, trackedFetch } from '@bft/ui/connectivity'
-import type { GeoTileFile, LinesFile, RouteFile, StopIndexFile } from './data-contract.ts'
+import type { GeoTileFile, LinesFile, RouteFile, RouteIndexFile, StopIndexFile } from './data-contract.ts'
 
 export type ApiErrorKind = 'network' | 'http' | 'contract'
 
@@ -116,3 +116,9 @@ export const fetchRoute = (
   short: string,
   opts: { signal?: AbortSignal; validate?: Validate<RouteFile> } = {},
 ) => getJson(fetcher, `/data/bus/routes/${encodeURIComponent(short)}.json`, opts.validate, opts.signal)
+
+/** The short names of the current routes: a route file whose name is not here is left over from an older feed. */
+export const fetchRouteIndex = (
+  fetcher: ApiFetcher,
+  opts: { signal?: AbortSignal; validate?: Validate<RouteIndexFile> } = {},
+) => getJson(fetcher, '/data/bus/routes.json', opts.validate, opts.signal)

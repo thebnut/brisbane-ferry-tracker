@@ -10,7 +10,7 @@
  */
 
 import { withBuild } from '@bft/core/build'
-import { ROUTE_SHORT_RE } from '@bft/core/contract'
+import { ROUTE_SHORT_RE, RouteIndexFile } from '@bft/core/contract'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
@@ -19,7 +19,6 @@ import { validateProxied } from '../app/lib/contract.server.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import {
   robotsTxt,
-  routeShortsFromLinesText,
   STOPS_PER_SITEMAP,
   sitemapIndexXml,
   stopKeysFromIndexText,
@@ -87,6 +86,19 @@ const xml = (body: string, maxAge = 86400) =>
     },
   })
 
+/** The safe short names in a route index's text, or null when there is no valid index. */
+function routeIndexShorts(text: string | null): string[] | null {
+  if (!text) return null
+  let body: unknown
+  try {
+    body = JSON.parse(text)
+  } catch {
+    return null
+  }
+  const parsed = RouteIndexFile.safeParse(body)
+  return parsed.success ? parsed.data.routes.filter((s) => ROUTE_SHORT_RE.test(s)) : null
+}
+
 export async function sitemap(url: URL, env: Env): Promise<Response | null> {
   const site = env.SITE_URL
   if (url.pathname === '/sitemap.xml') {
@@ -102,14 +114,11 @@ export async function sitemap(url: URL, env: Env): Promise<Response | null> {
       }),
     )
   if (url.pathname === '/sitemaps/routes.xml') {
-    const text = await dataText(env, '/data/bus/lines.json')
-    if (!text) return new Response('Unavailable', { status: 503 })
-    // Only routes whose page renders: the page needs data/bus/routes/{short}.json, which the pipeline writes for
-    // every such line in the same publish as lines.json. Data published before route files existed has none, so
-    // probe one first rather than list routes that all 404 (a 503 tells crawlers to come back later).
-    const shorts = routeShortsFromLinesText(text).filter((s) => ROUTE_SHORT_RE.test(s))
-    if (shorts.length > 0 && !(await dataText(env, `/data/bus/routes/${shorts[0]}.json`)))
-      return new Response('Unavailable', { status: 503 })
+    // Only routes whose page renders: data/bus/routes.json names the route files of the current publish (uploaded
+    // after them) and the route page is a 404 for any other name. Without it (data published before route files
+    // existed, or unreadable), a 503 tells crawlers to come back later rather than a list of 404 pages.
+    const shorts = routeIndexShorts(await dataText(env, '/data/bus/routes.json'))
+    if (!shorts) return new Response('Unavailable', { status: 503 })
     const paths = shorts.map(routePath)
     return xml(urlsetXml(site, paths, { changefreq: 'weekly', priority: '0.5' }))
   }

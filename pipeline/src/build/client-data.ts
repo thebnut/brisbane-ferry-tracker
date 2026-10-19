@@ -9,6 +9,7 @@ import type {
   LinesFile,
   Mode,
   RouteFile,
+  RouteIndexFile,
   StopIndexEntry,
   StopIndexFile,
   StopPattern,
@@ -29,6 +30,8 @@ export interface ClientData {
   lines: LinesFile
   /** Bus only (the route pages, /route/{short}): one per line that gets a file (routeFileFor). Empty otherwise. */
   routes: RouteFile[]
+  /** Bus only: the short names in `routes` (data/bus/routes.json). Null otherwise. */
+  routeIndex: RouteIndexFile | null
 }
 
 /** `tripIdxs` = every trip of the mode active on at least one date in the window. */
@@ -161,5 +164,7 @@ export function buildClientData(
       .map(([geohash, stops]) => ({ schemaVersion: SCHEMA_VERSION, mode, generation, geohash, stops })),
     lines: { schemaVersion: SCHEMA_VERSION, mode, generation, lines: lineList },
     routes,
+    routeIndex:
+      mode === 'bus' ? { schemaVersion: SCHEMA_VERSION, mode, generation, routes: routes.map((r) => r.short) } : null,
   }
 }

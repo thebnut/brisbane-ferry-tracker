@@ -7,6 +7,7 @@ import type {
   LinesFile,
   Manifest,
   RouteFile,
+  RouteIndexFile,
   StaticStopDay,
   StopIndexFile,
   TripIndexDay,
@@ -58,6 +59,7 @@ describe('build window and outputs', () => {
     expect(counts.stops).toBe(4)
     expect(counts.lines).toBe(4)
     expect(counts.route).toBe(2)
+    expect(counts.routeIndex).toBe(1)
     expect(counts.legacy).toBe(1)
     expect(counts.shard).toBeGreaterThan(0)
   })
@@ -243,6 +245,10 @@ describe('client data', () => {
   it('bus route files: one per line, the busiest patterns with stop names and positions (route pages)', async () => {
     const files = (await listFiles(out)).filter((f) => /^data\/[^/]+\/routes\//.test(f)).sort()
     expect(files).toEqual(['data/bus/routes/400.json', 'data/bus/routes/66.json'])
+    // The index names exactly the route files, and no other mode has one.
+    const ri = await readJsonFile<RouteIndexFile>(out, 'data/bus/routes.json')
+    expect(ri.routes.sort()).toEqual(['400', '66'])
+    expect((await listFiles(out)).filter((f) => f.endsWith('/routes.json'))).toEqual(['data/bus/routes.json'])
     const lines = await readJsonFile<LinesFile>(out, 'data/bus/lines.json')
     const stops = new Map(
       (await readJsonFile<StopIndexFile>(out, 'data/bus/stops.json')).stops.map((s) => [s.key, s]),

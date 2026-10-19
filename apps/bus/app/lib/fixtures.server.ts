@@ -293,6 +293,11 @@ async function handleFixtureData(path: string, env: Env | null): Promise<Respons
   const base = { schemaVersion: SCHEMA_VERSION, mode: 'bus' as const, generation: day.generation }
   if (path === '/data/bus/stops.json') return json({ ...base, stops: day.stops })
   if (path === '/data/bus/lines.json') return json({ ...base, lines: day.lines })
+  if (path === '/data/bus/routes.json') {
+    const stops = new Map(day.stops.map((s) => [s.key, s]))
+    const routes = day.lines.filter((l) => routeFileFor(l, stops, day.generation)).map((l) => l.short)
+    return json({ ...base, routes })
+  }
   const r = /^\/data\/bus\/routes\/([^/]+)\.json$/.exec(path)
   if (r) {
     const line = day.lines.find((l) => l.short === decodeURIComponent(r[1] as string))

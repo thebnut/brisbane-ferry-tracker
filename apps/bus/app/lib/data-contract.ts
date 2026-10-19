@@ -6,7 +6,7 @@
  * pipeline's output unchanged. They live here until that branch lands in this stack; then this file becomes a
  * re-export of `@bft/core/contract`. Zod stays server-side (Worker + tests); the browser imports only the types.
  */
-import { RouteFile, RouteStop } from '@bft/core/contract'
+import { RouteFile, RouteIndexFile, RouteStop } from '@bft/core/contract'
 import { z } from 'zod'
 
 const Mode = z.enum(['ferry', 'train', 'bus', 'tram'])
@@ -77,13 +77,17 @@ export const LinesFile = z.object({
 })
 export type LinesFile = z.infer<typeof LinesFile>
 
-/** data/bus/routes/{short}.json: written by the pipeline (and `pnpm data`); the contract lives in @bft/core. */
-export { RouteFile, RouteStop }
+/**
+ * data/bus/routes/{short}.json and the index of current routes data/bus/routes.json: written by the pipeline (and
+ * `pnpm data`); the contract lives in @bft/core.
+ */
+export { RouteFile, RouteIndexFile, RouteStop }
 
 /** Schema for a `/data/bus/...` path, or null when the path has no contract. */
 export function dataSchemaForPath(pathname: string): z.ZodType | null {
   if (/\/data\/bus\/stops\.json$/.test(pathname)) return StopIndexFile
   if (/\/data\/bus\/lines\.json$/.test(pathname)) return LinesFile
+  if (/\/data\/bus\/routes\.json$/.test(pathname)) return RouteIndexFile
   if (/\/data\/bus\/routes\/[^/]+\.json$/.test(pathname)) return RouteFile
   if (/\/data\/bus\/geo\/[0-9b-hjkmnp-z]{5}\.json$/.test(pathname)) return GeoTileFile
   return null

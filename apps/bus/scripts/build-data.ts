@@ -9,6 +9,7 @@
  *                                      API's /data/bus/*.
  *  - public/data/bus/geo/{gh5}.json    GeoTileFile per geohash-5 cell
  *  - public/data/bus/lines.json        LinesFile: route colours and stopping patterns
+ *  - public/data/bus/routes/{short}.json, routes.json   RouteFile per line and the RouteIndexFile naming them
  *  - fixtures/bus-day.json             one weekday of real StaticStopDay files for a curated set of stops (busway
  *                                      stations and the CBD), a TripIndexDay for the curated routes, and the stops
  *                                      they touch. Fixture mode rebases it onto today. Committed (server-only).
@@ -38,6 +39,7 @@ import type {
   Line,
   LinesFile,
   RouteFile,
+  RouteIndexFile,
   StopIndexEntry,
   StopIndexFile,
 } from '../app/lib/data-contract.ts'
@@ -264,10 +266,19 @@ const linesJson = JSON.stringify(linesFile)
 writeFileSync(join(outDir, 'lines.json'), linesJson)
 mkdirSync(join(outDir, 'routes'), { recursive: true })
 const entryByKey = new Map(entries.map((e) => [e.key, e]))
+const routeShorts: string[] = []
 for (const line of linesFile.lines) {
   const rf: RouteFile | null = routeFileFor(line, entryByKey, generation)
+  if (rf) routeShorts.push(rf.short)
   if (rf) writeFileSync(join(outDir, 'routes', `${encodeURIComponent(line.short)}.json`), JSON.stringify(rf))
 }
+const routeIndex: RouteIndexFile = {
+  schemaVersion: SCHEMA_VERSION,
+  mode: 'bus',
+  generation,
+  routes: routeShorts,
+}
+writeFileSync(join(outDir, 'routes.json'), JSON.stringify(routeIndex))
 const gz = (s: string | Buffer) => gzipSync(s, { level: 9 }).length
 const br = (s: string | Buffer) =>
   brotliCompressSync(s, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length

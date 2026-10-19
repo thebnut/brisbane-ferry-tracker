@@ -7,6 +7,7 @@ import {
   LinesFile,
   Manifest,
   RouteFile,
+  RouteIndexFile,
   StaticShard,
   StaticStopDay,
   StopIndexFile,
@@ -62,6 +63,9 @@ export async function parseAll(dir: string): Promise<Record<string, number>> {
       const r = RouteFile.parse(await readJsonFile(dir, f))
       if (!f.endsWith(`/routes/${r.short}.json`)) throw new Error(`${f} holds route ${r.short}`)
       bump('route')
+    } else if (/(^|\/)data\/bus\/routes\.json$/.test(f)) {
+      RouteIndexFile.parse(await readJsonFile(dir, f))
+      bump('routeIndex')
     } else if (/(^|\/)legacy\/latest\.json$/.test(f)) {
       await readJsonFile(dir, f)
       bump('legacy')

@@ -308,6 +308,19 @@ export const RouteFile = z.object({
 })
 export type RouteFile = z.infer<typeof RouteFile>
 
+/**
+ * data/{mode}/routes.json: the short names that have a route file in the current publish, uploaded after the route
+ * files themselves. Route files are never deleted (data/ is not garbage-collected), so this index, not the presence
+ * of a file, says which routes are current: the sitemap lists it and the route page is a 404 for a name not in it.
+ */
+export const RouteIndexFile = z.object({
+  schemaVersion: z.literal(SCHEMA_VERSION),
+  mode: Mode,
+  generation: z.string(),
+  routes: z.array(z.string()),
+})
+export type RouteIndexFile = z.infer<typeof RouteIndexFile>
+
 /** Route short names that get a route file and a route page (/route/{short}): safe as a URL and an object key. */
 export const ROUTE_SHORT_RE = /^[\w-]{1,12}$/
 
