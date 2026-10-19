@@ -131,11 +131,10 @@ export function demoCleanupSuite({
       }, MARKER)
       await page.reload()
       await cleanedUp(page)
-      await expect
-        .poll(() => page.evaluate(() => caches.keys()), { timeout: 15_000 })
-        .not.toContain('bft-old-demo')
+      await expect.poll(() => savedPaths(page, 'bft-old-demo'), { timeout: 15_000 }).toEqual([])
       expect(await page.evaluate(() => localStorage.getItem('bft-train-offline:old:'))).toBeNull()
-      // The page cache was there when the page started, so it went too: the service worker saves its pages again.
+      // The page cache's entries were there when the page started, so they went too: the service worker saves its
+      // pages again.
       await expect
         .poll(() => savedPaths(page, pagesCache), { timeout: 15_000 })
         .toEqual(expect.arrayContaining(mustOpen))

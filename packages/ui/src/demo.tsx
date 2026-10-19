@@ -19,10 +19,36 @@ export function fixtureCookie(name: string, on: boolean): string {
 /** The apps' offline timetable copies (bus, train, transit Saved, ferry), kept per stop whatever the data mode. */
 export const OFFLINE_COPY_PREFIXES = ['bft-bus-v1:', 'bft-train-offline:', 'bft-transit-v1:', 'bft-ferry-v1:']
 
-/** What the device held when this page started: its offline copies (key → value) and Cache Storage names. */
+/** A copy made from demo data, under any key: fixture responses and data files carry a `fixture-…` generation. */
+export const FIXTURE_COPY = /"(?:staticGeneration|generation)":"fixture-/
+
+/** Identifies one stored response: a copy saved again later has another `date` (the Workers' responses carry one). */
+export const responseStamp = (res: Response) =>
+  ['date', 'etag', 'content-length'].map((h) => res.headers.get(h) ?? '').join('|')
+
+/**
+ * What the device held when this page started: its offline copies and copies made from demo data (key → value),
+ * and each runtime cache's entries (cache name → URL → responseStamp).
+ */
 export interface DeviceStart {
   copies: ReadonlyMap<string, string>
-  caches: readonly string[]
+  caches: ReadonlyMap<string, ReadonlyMap<string, string>>
+}
+
+async function cacheEntries(): Promise<DeviceStart['caches']> {
+  const held = new Map<string, Map<string, string>>()
+  if (typeof caches === 'undefined') return held
+  for (const name of await caches.keys()) {
+    if (name.startsWith('workbox-precache')) continue
+    const cache = await caches.open(name)
+    const entries = new Map<string, string>()
+    for (const req of await cache.keys()) {
+      const res = await cache.match(req)
+      if (res) entries.set(req.url, responseStamp(res))
+    }
+    held.set(name, entries)
+  }
+  return held
 }
 
 let deviceStart: Promise<DeviceStart> | undefined
@@ -37,14 +63,17 @@ function noteDeviceStart(): Promise<DeviceStart> {
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key != null && OFFLINE_COPY_PREFIXES.some((p) => key.startsWith(p)))
-        copies.set(key, localStorage.getItem(key) ?? '')
+      if (key == null) continue
+      const value = localStorage.getItem(key) ?? ''
+      if (OFFLINE_COPY_PREFIXES.some((p) => key.startsWith(p)) || FIXTURE_COPY.test(value))
+        copies.set(key, value)
     }
   } catch {
     // Storage blocked: nothing kept there either.
   }
-  const names = typeof caches === 'undefined' ? Promise.resolve([]) : caches.keys().catch(() => [])
-  deviceStart = names.then((c) => ({ copies, caches: c }))
+  deviceStart = cacheEntries()
+    .catch(() => new Map())
+    .then((c) => ({ copies, caches: c }))
   return deviceStart
 }
 
