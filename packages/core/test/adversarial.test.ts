@@ -588,6 +588,36 @@ describe('Codex PR38 review regressions', () => {
     }
     expect(predictStop(trip, 1, 1000, 1060, 'live')).toEqual({ estArr: 1300, estDep: 1300, status: 'live' })
   })
+
+  it('a clamped departure over an hour off the timetable is untrusted (smoke round 9)', () => {
+    const trip: RtTrip = {
+      key: 'k',
+      rel: 'SCHEDULED',
+      ts: 0,
+      updates: [{ seq: 2, rel: 'SCHEDULED', arrDelay: 79 * 60, depDelay: 0 }],
+    }
+    expect(predictStop(trip, 2, 1000, 1000, 'live')).toEqual({
+      estArr: null,
+      estDep: null,
+      status: 'scheduled',
+    })
+  })
+
+  it('a delay stated at the stop is shown at any size; propagated, it is capped at an hour', () => {
+    const trip: RtTrip = {
+      key: 'k',
+      rel: 'SCHEDULED',
+      ts: 0,
+      updates: [{ seq: 1, rel: 'SCHEDULED', depDelay: 3 * 3600 }],
+    }
+    expect(predictStop(trip, 1, 1000, 1000, 'live')).toMatchObject({
+      estDep: 1000 + 3 * 3600,
+      status: 'live',
+    })
+    expect(predictStop(trip, 2, 2000, 2000, 'live').status).toBe('scheduled')
+    const hour: RtTrip = { ...trip, updates: [{ seq: 1, rel: 'SCHEDULED', depDelay: -3600 }] }
+    expect(predictStop(hour, 2, 9000, 9000, 'live')).toMatchObject({ estDep: 5400, status: 'live' })
+  })
 })
 
 describe('serviceDayStartEpoch memo', () => {

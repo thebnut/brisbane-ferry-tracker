@@ -173,6 +173,8 @@ function stopRel(r: PbStopRel): RtStopUpdate['rel'] {
 export function normaliseUpdates(stus: TripUpdate_StopTimeUpdate[], trip: IndexedTrip): RtStopUpdate[] {
   const out: RtStopUpdate[] = []
   let last = Number.NEGATIVE_INFINITY
+  let origin = Number.POSITIVE_INFINITY
+  for (const seq of trip.stops.keys()) if (seq < origin) origin = seq
   for (const u of stus) {
     const seq = has(u, 'stopSequence')
       ? u.stopSequence
@@ -186,9 +188,16 @@ export function normaliseUpdates(stus: TripUpdate_StopTimeUpdate[], trip: Indexe
     const sid = u.stopId || st?.stopId
     if (sid) rec.stopId = sid
     if (rec.rel === 'SCHEDULED') {
-      const arr = evTime(u.arrival)
       const dep = evTime(u.departure)
-      const arrDelay = evDelay(u.arrival) ?? (arr != null && st ? arr - st.arrEpoch : undefined)
+      const depGiven = dep != null || evDelay(u.departure) != null
+      // At the trip's origin TransLink's arrival is the inbound vessel's ETA from its previous run, while the
+      // departure is stated separately. Nobody alights there, and clamping the stated departure to that ETA turned
+      // a wrong block assignment into "79 min late" (smoke round 9): keep the departure, drop the arrival.
+      const inbound = seq === origin && depGiven
+      const arr = inbound ? undefined : evTime(u.arrival)
+      const arrDelay = inbound
+        ? undefined
+        : (evDelay(u.arrival) ?? (arr != null && st ? arr - st.arrEpoch : undefined))
       const depDelay = evDelay(u.departure) ?? (dep != null && st ? dep - st.depEpoch : undefined)
       if (arr != null) rec.arr = arr
       if (arrDelay != null) rec.arrDelay = arrDelay

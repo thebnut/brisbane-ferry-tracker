@@ -7,10 +7,15 @@
  * - CANCELED trips stay cancelled until their scheduled end; when RT is stale a cancellation shows "unknown",
  *   never a silent return to scheduled.
  * - When RT is stale (older than STALE_AFTER_S), ordinary rows fall back to scheduled.
+ * - An estimate more than MAX_UNSTATED_DELAY_S off the timetable is untrusted (shown as scheduled, never LIVE)
+ *   unless the feed states that time at that stop: a propagated delay, or a departure pushed back by the arrival
+ *   clamp, of that size is far more likely a wrong vehicle/block assignment than a real ferry an hour late.
  */
 import type { DepartureStatus, RtState, RtStopUpdate, RtTrip } from '../contract/index.ts'
 
 export const STALE_AFTER_S = 300
+/** Largest delay (either way) we show without the feed stating it at the stop itself. */
+export const MAX_UNSTATED_DELAY_S = 3600
 
 export interface StopPrediction {
   estArr: number | null
@@ -69,13 +74,16 @@ export function predictStop(
     const depDelay = u.depDelay ?? u.arrDelay
     if (arrDelay == null && depDelay == null) return scheduled
     const estArr = u.arr ?? schedArr + (arrDelay ?? 0)
+    const stated = u.dep ?? schedDep + (depDelay ?? 0)
     // A vehicle can't leave before it arrives: clamp the departure to at least the predicted arrival.
-    const estDep = Math.max(u.dep ?? schedDep + (depDelay ?? 0), estArr)
+    const estDep = Math.max(stated, estArr)
+    // Every time here comes from this stop's own update, except a departure the clamp pushed past the stated one.
+    if (estDep !== stated && Math.abs(estDep - schedDep) > MAX_UNSTATED_DELAY_S) return scheduled
     return { estArr, estDep, status: 'live' }
   }
   // Propagate the upstream stop's departure delay (falling back to its arrival delay).
   const delay = u.depDelay ?? u.arrDelay
-  if (delay == null) return scheduled
+  if (delay == null || Math.abs(delay) > MAX_UNSTATED_DELAY_S) return scheduled
   return { estArr: schedArr + delay, estDep: schedDep + delay, status: 'live' }
 }
 
