@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { FastStopIndex, validateProxied } from '../app/lib/contract.server.ts'
-import {
-  robotsTxt,
-  routeShortsFromLinesText,
-  sitemapIndexXml,
-  stopKeysFromIndexText,
-  stopMetaTags,
-  urlsetXml,
-} from '../app/lib/seo.ts'
+import { robotsTxt, sitemapIndexXml, stopKeysFromIndexText, stopMetaTags, urlsetXml } from '../app/lib/seo.ts'
 import { canonicalStopId, normaliseCode, stopCode, tripPath } from '../app/lib/stops.ts'
 import { savedFromCookie, themeFromCookie } from '../app/lib/storage.ts'
 
@@ -39,10 +32,6 @@ describe('seo', () => {
       ],
     })
     expect(stopKeysFromIndexText(text)).toEqual(['10802', 'place_x'])
-    expect(routeShortsFromLinesText(JSON.stringify({ lines: [{ short: 'M1' }, { short: '66' }] }))).toEqual([
-      'M1',
-      '66',
-    ])
   })
 })
 

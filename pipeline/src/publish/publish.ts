@@ -154,7 +154,16 @@ export async function publish(
   const mutable = (await listFiles(fromDir)).filter(
     (f) => f.startsWith('data/') || f.startsWith('legacy/') || f.startsWith('staging/'),
   )
-  await pool(mutable, concurrency, async (f) => put(f, new Uint8Array(await readFile(join(fromDir, f)))))
+  // A route index (data/{mode}/routes.json) names route files, so it goes up only after all of them: an interrupted
+  // publish leaves the previous index, which names only files that exist.
+  const isRouteIndex = (f: string) => /(^|\/)data\/[^/]+\/routes\.json$/.test(f)
+  const upload = async (f: string) => put(f, new Uint8Array(await readFile(join(fromDir, f))))
+  await pool(
+    mutable.filter((f) => !isRouteIndex(f)),
+    concurrency,
+    upload,
+  )
+  await pool(mutable.filter(isRouteIndex), concurrency, upload)
   if (manifests[1])
     await put('manifest.staging.json', new Uint8Array(await readFile(join(fromDir, 'manifest.staging.json'))))
   await put('manifest.json', new Uint8Array(await readFile(join(fromDir, 'manifest.json'))))

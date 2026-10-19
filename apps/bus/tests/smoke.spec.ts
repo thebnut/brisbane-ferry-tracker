@@ -138,6 +138,33 @@ test('route page lists stops and live buses', async ({ page }, testInfo) => {
   expect(errors).toEqual([])
 })
 
+test('route page server-renders its stop list from the route file; a missing route is the 404 page', async ({
+  page,
+  request,
+}) => {
+  // The stop list is in the server HTML (no client fetch needed): data/bus/routes/M2.json.
+  const html = await (await request.get('/route/M2')).text()
+  expect(html).toContain('Stops towards')
+  await page.goto('/route/M2')
+  await expect(page.getByRole('heading', { name: 'Route M2', exact: true })).toBeVisible()
+  const stops = page.getByRole('region', { name: /Stops towards/ }).getByRole('listitem')
+  expect(await stops.count()).toBeGreaterThan(5)
+  await expect(stops.first().getByRole('link')).toHaveAttribute('href', /\/stop\//)
+  for (const path of ['/route/9999', '/route/a%2Fb']) {
+    const res = await page.goto(path)
+    expect(res?.status()).toBe(404)
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible()
+    await expect(page.locator('meta[name=robots]').first()).toHaveAttribute('content', 'noindex')
+  }
+})
+
+test('the routes sitemap lists route pages that render', async ({ request }) => {
+  const xml = await (await request.get('/sitemaps/routes.xml')).text()
+  const paths = [...xml.matchAll(/<loc>[^<]*?(\/route\/[^<]+)<\/loc>/g)].map((m) => m[1] as string)
+  expect(paths).toContain('/route/M2')
+  for (const p of [paths[0], paths.at(-1)]) expect((await request.get(p as string)).status()).toBe(200)
+})
+
 test('map page hydrates cleanly and shows stops', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('/map?lat=-27.4732&lon=153.0195')

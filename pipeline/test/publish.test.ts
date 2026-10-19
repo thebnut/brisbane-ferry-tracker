@@ -43,6 +43,25 @@ describe('dir target', () => {
   })
 })
 
+describe('route index order', () => {
+  it('uploads data/bus/routes.json only after every route file it names', async () => {
+    const order: string[] = []
+    class Recording extends DirTarget {
+      override async put(key: string, body: Uint8Array) {
+        order.push(key)
+        return super.put(key, body)
+      }
+    }
+    await publish(out, new Recording(await tmp()))
+    const idx = order.indexOf('data/bus/routes.json')
+    const routeFiles = order.flatMap((k, i) => (k.startsWith('data/bus/routes/') ? [i] : []))
+    expect(idx).toBeGreaterThan(-1)
+    expect(routeFiles.length).toBe(2)
+    expect(Math.max(...routeFiles)).toBeLessThan(idx)
+    expect(idx).toBeLessThan(order.indexOf('manifest.json'))
+  })
+})
+
 describe('assets target', () => {
   it('lays out shards instead of per-stop bus blobs, with _headers', async () => {
     const to = await tmp()

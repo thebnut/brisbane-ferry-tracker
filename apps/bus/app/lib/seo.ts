@@ -98,12 +98,6 @@ export function stopKeysFromIndexText(text: string): string[] {
   return out
 }
 
-export function routeShortsFromLinesText(text: string): string[] {
-  const out: string[] = []
-  for (const m of text.matchAll(/\{"short":"((?:[^"\\]|\\.)*)"/g)) out.push(JSON.parse(`"${m[1]}"`) as string)
-  return out
-}
-
 export function sitemapIndexXml(siteUrl: string, stopCount: number, nowMs: number): string {
   const today = dateKey.format(nowMs)
   const files = ['/sitemaps/pages.xml', '/sitemaps/routes.xml']

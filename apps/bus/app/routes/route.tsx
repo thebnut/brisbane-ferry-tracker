@@ -1,6 +1,6 @@
 /**
  * /route/:route: route detail and per-route map (B-Map). The route's main stopping pattern per direction comes from
- * data/bus/routes/{route}.json (server-rendered stop list); the map (lazy) draws the line, the stops as bus diamonds
+ * data/bus/routes/{route}.json (server-rendered stop list), for a route data/bus/routes.json lists as current; the map (lazy) draws the line, the stops as bus diamonds
  * and the live buses; the sheet lists the buses with where they are. `?trip=` highlights one bus ("Track on map").
  */
 import { RouteTile, routeTileVariant } from '@bft/ui'
@@ -9,8 +9,8 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { data, Link, useSearchParams } from 'react-router'
 import { ClientOnly } from '../components/ClientOnly.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
-import { ApiError, fetchRoute } from '../lib/api.ts'
-import { validateRoute } from '../lib/contract.server.ts'
+import { ApiError, fetchRoute, fetchRouteIndex } from '../lib/api.ts'
+import { validateRoute, validateRouteIndex } from '../lib/contract.server.ts'
 import type { RouteFile } from '../lib/data-contract.ts'
 import { haversine } from '../lib/geo.ts'
 import { useApi } from '../lib/mode.ts'
@@ -28,14 +28,20 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   if (!/^[\w-]{1,12}$/.test(short)) throw data(null, { status: 404 })
   const { fetcher, env } = loaderEnv(request, context)
   let unknown = false
-  const route = await settle(async (signal) => {
-    try {
-      return await fetchRoute(fetcher, short, { signal, validate: validateRoute })
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 404) unknown = true
-      throw error
-    }
-  })
+  // Route files are never deleted, so the index says which are current. Without it (unreadable right now), the file
+  // alone decides: a page from the last feed beats a 503.
+  const [route, index] = await Promise.all([
+    settle(async (signal) => {
+      try {
+        return await fetchRoute(fetcher, short, { signal, validate: validateRoute })
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) unknown = true
+        throw error
+      }
+    }),
+    settle((signal) => fetchRouteIndex(fetcher, { signal, validate: validateRouteIndex })),
+  ])
+  if (index && !index.routes.includes(short)) unknown = true
   if (unknown || (route && route.patterns.length === 0)) throw data(null, { status: 404 })
   if (!route) throw data(null, { status: 503 })
   return { route, renderedAt: Date.now(), siteUrl: env?.SITE_URL ?? SITE_URL }
