@@ -2,7 +2,7 @@ import type { Mode } from '@bft/core'
 import { describe, expect, it } from 'vitest'
 import { COMBINED_KEY, decodeCombined, encodeCombined, parseIndex } from '../src/rt/combined.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
-import { CYCLE_MS, HubCore, modeLatestKey, R2_LATEST_KEY, snapshotSeq } from '../src/rt/hub-core.ts'
+import { CYCLE_MS, HubCore, modeLatestKey, R2_LATEST_KEY, scopeKey, snapshotSeq } from '../src/rt/hub-core.ts'
 import {
   alert,
   buildTree,
@@ -99,7 +99,7 @@ function setup(modes = 'ferry', layout: 'documents' | 'combined' = 'documents') 
   }
   change(0)
   up.set('alerts', feed(nowS(), [alert('a1', 'Bulimba works', 'F1-4055')]))
-  return { clock, up, storage, r2, mk, change }
+  return { clock, up, storage, r2, mk, change, nowS }
 }
 
 /**
@@ -546,6 +546,33 @@ describe('RtHub restore across a layout switch whose pointer PUT failed (Codex r
       await fresh.alarm()
       const next = to === 'combined' ? combinedSeqOf(r2) : docSeq(r2)
       expect(next).toBe(published + 2)
+    })
+  }
+})
+
+describe('RtHub restore after DO storage loss: an alerts slot only it records (Codex r12)', () => {
+  for (const layout of ['documents', 'combined'] as const) {
+    it(`${layout}: an alerts PUT that landed while the mode PUT failed keeps its seq`, async () => {
+      const { r2, mk, up, storage, clock, change, nowS, published } = await restarted('ferry', layout)
+      // New alerts, and the mode PUT fails: only the alerts slot lands, at published + 1, and no pointer follows.
+      const modeKey = layout === 'combined' ? COMBINED_KEY : modeLatestKey('ferry')
+      r2.failPuts.add(modeKey)
+      const hub = mk()
+      clock.advance(CYCLE_MS)
+      up.set('alerts', feed(nowS(), [alert('a2', 'Riverside closed', 'F1-4055')]))
+      await hub.alarm()
+      const slot = scopeKey('alerts', published + 1)
+      expect(snapshotSeq(r2.files.get(slot) as string)).toBe(published + 1)
+      expect(JSON.parse(r2.files.get(R2_LATEST_KEY) as string).seq).toBeLessThan(published + 1)
+      // Storage lost; the next build must go past the alerts slot's seq, not reuse it.
+      r2.failPuts.clear()
+      storage.data.clear()
+      const fresh = mk()
+      clock.advance(CYCLE_MS)
+      change(40)
+      await fresh.alarm()
+      expect((await fresh.pull(null)).seq).toBe(published + 2)
+      expect(snapshotSeq(r2.files.get(slot) as string)).toBe(published + 1)
     })
   }
 })

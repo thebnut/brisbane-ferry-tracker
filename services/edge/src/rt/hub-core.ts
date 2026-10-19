@@ -1083,8 +1083,40 @@ export class HubCore {
       // other layout's objects record: take the seqs of whatever this restore did not read too (Codex r11 on #100).
       if (readLayout !== 'combined') await this.combinedSeqInto(r)
       if (readLayout !== 'documents') await this.documentSeqsInto(r)
+      // Each cycle persists meta (with its new seq) before publishing, so while meta exists it already reserves every
+      // published seq. Without it (DO storage lost), an alerts slot can hold a seq nothing else records: one written
+      // in a publish whose mode PUT and pointer failed. Scan the whole alerts ring then (Codex r12 on #100).
+      if (!meta) await this.alertsRingSeqsInto(r)
     }
     return r
+  }
+
+  /** Watermark only: the header seq of every alerts ring slot. I/O errors propagate; bad content is ignored. */
+  private async alertsRingSeqsInto(r: Restored): Promise<void> {
+    const r2 = this.d.r2 as R2Like
+    const BATCH = 24
+    for (let from = 0; from < R2_KEEP_SNAPSHOTS; from += BATCH) {
+      const slots = Array.from({ length: Math.min(BATCH, R2_KEEP_SNAPSHOTS - from) }, (_, i) => from + i)
+      const texts = await Promise.all(
+        slots.map(async (n) => {
+          const obj = await r2.get?.(scopeKey('alerts', n))
+          return obj ? obj.text() : null
+        }),
+      )
+      for (const text of texts) this.seqInto(r, text)
+    }
+  }
+
+  /** Move the watermark past a document's header seq, if it has a valid one. */
+  private seqInto(r: Restored, text: string | null): void {
+    if (text == null) return
+    let seq: unknown = null
+    try {
+      seq = snapshotSeq(text)
+    } catch {
+      seq = null
+    }
+    if (Number.isSafeInteger(seq) && (seq as number) > r.seq) r.seq = seq as number
   }
 
   /** Watermark only: the combined object's index seqs. I/O errors propagate (retry); bad content is ignored. */
@@ -1103,15 +1135,7 @@ export class HubCore {
     const r2 = this.d.r2 as R2Like
     for (const m of this.d.config.modes) {
       const obj = await r2.get?.(modeLatestKey(m))
-      const text = obj ? await obj.text() : null
-      if (text == null) continue
-      let seq: unknown = null
-      try {
-        seq = snapshotSeq(text)
-      } catch {
-        seq = null
-      }
-      if (Number.isSafeInteger(seq) && (seq as number) > r.seq) r.seq = seq as number
+      this.seqInto(r, obj ? await obj.text() : null)
     }
   }
 
