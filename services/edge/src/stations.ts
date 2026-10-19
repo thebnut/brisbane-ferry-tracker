@@ -6,6 +6,7 @@
 import type { Mode, RtStopUpdate, StopIndexFile } from '@bft/core'
 import { readJson } from './data/source.ts'
 import type { StaticStore } from './data/static-store.ts'
+import { awaitFlight, DeadlineError, type Flight, flight, isDead } from './deadline.ts'
 
 export interface Stations {
   /** stop key → display name (StopRef.name is optional on downstream stops, so names come from here) */
@@ -18,20 +19,33 @@ export interface Stations {
   boardAt: Map<string, Array<{ key: string; name: string }>>
 }
 
-const cache = new Map<string, Promise<Stations | null>>()
+const cache = new Map<string, Flight<Stations | null>>()
 
+/** A read still pending at the store's load deadline is replaced, and its waiters fail instead of hanging. */
 export function stationsFor(store: StaticStore, mode: Mode, generation: string): Promise<Stations | null> {
+  const now = store.now
+  const deadlineMs = store.loadDeadlineMs
   const k = `${mode}/${generation}`
-  let p = cache.get(k)
-  if (!p) {
-    p = readJson(store.source, `data/${mode}/stops.json`).then((raw) =>
-      raw ? buildStations(raw as StopIndexFile) : null,
+  let f = cache.get(k)
+  if (!f || isDead(f, now(), deadlineMs)) {
+    const load = flight(
+      readJson(store.source, `data/${mode}/stops.json`).then((raw) =>
+        raw ? buildStations(raw as StopIndexFile) : null,
+      ),
+      now(),
     )
-    p.catch(() => cache.delete(k))
+    load.p.catch(() => {
+      if (cache.get(k) === load) cache.delete(k)
+    })
     if (cache.size > 8) cache.clear()
-    cache.set(k, p)
+    cache.set(k, load)
+    f = load
   }
-  return p
+  const shared = f
+  return awaitFlight(shared, now(), deadlineMs, `data/${mode}/stops.json`).catch((e: unknown) => {
+    if (e instanceof DeadlineError && cache.get(k) === shared) cache.delete(k)
+    throw e
+  })
 }
 
 export function buildStations(file: StopIndexFile): Stations {

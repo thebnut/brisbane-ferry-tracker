@@ -3,10 +3,20 @@
  * Indexes and blobs are immutable, so they're cached in isolate memory (bounded LRU); only the manifest is refreshed.
  */
 import { GenerationIndex, Manifest, type Mode, StaticStopDay, shardOf, TripIndexDay } from '@bft/core'
+import { awaitFlight, DeadlineError, type Flight, flight, isDead } from '../deadline.ts'
 import { type DataSource, decodeJson, readBytes, readJson } from './source.ts'
 
 /** Trip-index blobs above this (gzipped) are not cached: bus. */
 export const TRIP_INDEX_CACHE_MAX_BYTES = 1 << 20
+
+/**
+ * A shared read (manifest, index, stop-day blob or shard) still pending after this is presumed lost and replaced,
+ * and its waiters fail instead of hanging (see ../deadline.ts). These are small R2 reads (~400 ms from BNE on
+ * staging); a cold departures request makes at most three in a row, so the worst case stays under the 10 s proxy.
+ */
+export const STATIC_LOAD_DEADLINE_MS = 3_000
+/** Trip-index days are large (bus ~3-4 MB gzipped) and only on the trip-detail path, so they get longer. */
+export const TRIP_INDEX_LOAD_DEADLINE_MS = 6_000
 
 export const MANIFEST_KEY = 'manifest.json'
 export const indexKey = (generation: string, mode: Mode) => `static/${generation}/${mode}/index.json`
@@ -32,6 +42,10 @@ class Lru<V> {
   delete(k: string): void {
     this.m.delete(k)
   }
+  /** Delete `k` only while it still holds `v` (a newer entry must not be dropped by an older load's failure). */
+  deleteIf(k: string, v: V): void {
+    if (this.m.get(k) === v) this.m.delete(k)
+  }
 }
 
 export interface StaticStoreOptions {
@@ -39,6 +53,8 @@ export interface StaticStoreOptions {
   /** Parse with zod. On for tests and scripts; the hot path trusts the pipeline's validated output. */
   validate?: boolean
   now?: () => number
+  /** Override STATIC_LOAD_DEADLINE_MS (tests). */
+  loadDeadlineMs?: number
 }
 
 /** The shard holding a stop's StaticStopDay on a date (bus on the assets backend), or null. */
@@ -56,14 +72,16 @@ export function mayHaveStop(index: GenerationIndex, stopKey: string): boolean {
 export class StaticStore {
   private manifestValue: Manifest | null = null
   private manifestAt = Number.NEGATIVE_INFINITY
-  private manifestLoad: Promise<Manifest | null> | null = null
+  private manifestLoad: Flight<Manifest | null> | null = null
   private readonly manifestMaxAgeMs: number
-  private readonly now: () => number
-  private readonly indexes = new Lru<Promise<GenerationIndex | null>>(16)
-  private readonly blobs = new Lru<Promise<unknown | null>>(256)
+  readonly now: () => number
+  /** How long a shared read may stay pending before it is replaced (STATIC_LOAD_DEADLINE_MS). */
+  readonly loadDeadlineMs: number
+  private readonly indexes = new Lru<Flight<GenerationIndex | null>>(16)
+  private readonly blobs = new Lru<Flight<unknown | null>>(256)
   /** Trip indexes are large (a whole mode-day), so only a few are kept. */
   private readonly tripIndexes = new Lru<Promise<unknown | null>>(4)
-  private readonly tripIndexLoads = new Map<string, Promise<unknown | null>>()
+  private readonly tripIndexLoads = new Map<string, Flight<unknown | null>>()
   private readonly validate: boolean
 
   constructor(
@@ -73,24 +91,45 @@ export class StaticStore {
     this.validate = opts.validate ?? false
     this.manifestMaxAgeMs = opts.manifestMaxAgeMs ?? 60_000
     this.now = opts.now ?? Date.now
+    this.loadDeadlineMs = opts.loadDeadlineMs ?? STATIC_LOAD_DEADLINE_MS
   }
 
-  private loadManifest(): Promise<Manifest | null> {
+  /** The manifest read in flight (or a new one). A read past its deadline is replaced, and it commits nothing. */
+  private loadManifest(): Flight<Manifest | null> {
+    const now = this.now()
+    if (this.manifestLoad && isDead(this.manifestLoad, now, this.loadDeadlineMs)) this.manifestLoad = null
     if (!this.manifestLoad) {
-      this.manifestLoad = readJson(this.source, MANIFEST_KEY)
-        .then((raw) => {
-          // A missing manifest isn't cached as null, so one that appears later is picked up on the next read.
-          if (raw == null) return this.manifestValue
-          this.manifestValue = Manifest.parse(raw)
-          this.manifestAt = this.now()
-          return this.manifestValue
-        })
-        .catch(() => this.manifestValue)
-        .finally(() => {
-          this.manifestLoad = null
-        })
+      const load: Flight<Manifest | null> = flight(
+        readJson(this.source, MANIFEST_KEY)
+          .then((raw) => {
+            // A missing manifest isn't cached as null, so one that appears later is picked up on the next read.
+            if (raw == null || this.manifestLoad !== load) return this.manifestValue
+            this.manifestValue = Manifest.parse(raw)
+            this.manifestAt = this.now()
+            return this.manifestValue
+          })
+          .catch(() => this.manifestValue)
+          .finally(() => {
+            if (this.manifestLoad === load) this.manifestLoad = null
+          }),
+        now,
+      )
+      this.manifestLoad = load
     }
     return this.manifestLoad
+  }
+
+  /** Wait for a shared load for at most what is left of its deadline; on timeout drop it from `drop`. */
+  private bounded<T>(
+    f: Flight<T>,
+    what: string,
+    drop: () => void,
+    deadlineMs = this.loadDeadlineMs,
+  ): Promise<T> {
+    return awaitFlight(f, this.now(), deadlineMs, what).catch((e: unknown) => {
+      if (e instanceof DeadlineError) drop()
+      throw e
+    })
   }
 
   /**
@@ -103,10 +142,13 @@ export class StaticStore {
     const fresh = this.now() - this.manifestAt < this.manifestMaxAgeMs
     if (this.manifestValue && fresh) return Promise.resolve(this.manifestValue)
     if (this.manifestValue && waitUntil) {
-      waitUntil(this.loadManifest())
+      waitUntil(this.loadManifest().p)
       return Promise.resolve(this.manifestValue)
     }
-    return this.loadManifest()
+    const load = this.loadManifest()
+    return this.bounded(load, 'manifest', () => {
+      if (this.manifestLoad === load) this.manifestLoad = null
+    }).catch(() => this.manifestValue)
   }
 
   async currentGeneration(mode: Mode, waitUntil?: (p: Promise<unknown>) => void): Promise<string | null> {
@@ -115,25 +157,32 @@ export class StaticStore {
 
   getIndex(generation: string, mode: Mode): Promise<GenerationIndex | null> {
     const k = `${generation}/${mode}`
-    let p = this.indexes.get(k)
-    if (!p) {
-      p = readJson(this.source, indexKey(generation, mode)).then((raw) =>
-        raw == null ? null : GenerationIndex.parse(raw),
+    let f = this.indexes.get(k)
+    if (!f || isDead(f, this.now(), this.loadDeadlineMs)) {
+      const load = flight(
+        readJson(this.source, indexKey(generation, mode)).then((raw) =>
+          raw == null ? null : GenerationIndex.parse(raw),
+        ),
+        this.now(),
       )
-      p.catch(() => this.indexes.delete(k))
-      this.indexes.set(k, p)
+      load.p.catch(() => this.indexes.deleteIf(k, load))
+      this.indexes.set(k, load)
+      f = load
     }
-    return p
+    const shared = f
+    return this.bounded(shared, indexKey(generation, mode), () => this.indexes.deleteIf(k, shared))
   }
 
   private blob(key: string, cache = this.blobs): Promise<unknown | null> {
-    let p = cache.get(key)
-    if (!p) {
-      p = readJson(this.source, key)
-      p.catch(() => cache.delete(key))
-      cache.set(key, p)
+    let f = cache.get(key)
+    if (!f || isDead(f, this.now(), this.loadDeadlineMs)) {
+      const load = flight(readJson(this.source, key), this.now())
+      load.p.catch(() => cache.deleteIf(key, load))
+      cache.set(key, load)
+      f = load
     }
-    return p
+    const shared = f
+    return this.bounded(shared, key, () => cache.deleteIf(key, shared))
   }
 
   /** The stop-day file for a stop key on a service date, from a per-stop blob or a shard. */
@@ -161,19 +210,43 @@ export class StaticStore {
     if (!sha) return null
     const key = blobKey(sha)
     // Completed small results are cached; concurrent loads of any size share one in-flight read and parse.
-    let p = this.tripIndexes.get(key) ?? this.tripIndexLoads.get(key)
-    if (!p) {
-      p = (async () => {
-        const bytes = await readBytes(this.source, key)
-        if (!bytes) return null
-        const raw = await decodeJson(bytes)
-        if (bytes.byteLength <= TRIP_INDEX_CACHE_MAX_BYTES) this.tripIndexes.set(key, Promise.resolve(raw))
-        return raw
-      })()
-      this.tripIndexLoads.set(key, p)
-      void p.finally(() => this.tripIndexLoads.delete(key)).catch(() => {})
+    let raw: unknown | null
+    const done = this.tripIndexes.get(key)
+    if (done) {
+      raw = await done
+    } else {
+      let f = this.tripIndexLoads.get(key)
+      if (!f || isDead(f, this.now(), TRIP_INDEX_LOAD_DEADLINE_MS)) {
+        // Content-addressed and immutable, so even a late (abandoned) load may fill the cache.
+        const load: Flight<unknown | null> = flight(
+          (async () => {
+            const bytes = await readBytes(this.source, key)
+            if (!bytes) return null
+            const raw = await decodeJson(bytes)
+            if (bytes.byteLength <= TRIP_INDEX_CACHE_MAX_BYTES)
+              this.tripIndexes.set(key, Promise.resolve(raw))
+            return raw
+          })(),
+          this.now(),
+        )
+        this.tripIndexLoads.set(key, load)
+        void load.p
+          .finally(() => {
+            if (this.tripIndexLoads.get(key) === load) this.tripIndexLoads.delete(key)
+          })
+          .catch(() => {})
+        f = load
+      }
+      const shared = f
+      raw = await this.bounded(
+        shared,
+        key,
+        () => {
+          if (this.tripIndexLoads.get(key) === shared) this.tripIndexLoads.delete(key)
+        },
+        TRIP_INDEX_LOAD_DEADLINE_MS,
+      )
     }
-    const raw = await p
     if (raw == null) return null
     return this.validate ? TripIndexDay.parse(raw) : (raw as TripIndexDay)
   }
