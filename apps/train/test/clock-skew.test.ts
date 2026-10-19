@@ -6,7 +6,7 @@
  * answer against the device clock (a known follow-up), so a fast clock shows "Live times delayed", never a false LIVE.
  */
 import type { DeparturesResponse } from '@bft/core/contract'
-import { liveState } from '@bft/ui/connectivity'
+import { liveState, reportOnline } from '@bft/ui/connectivity'
 import { QueryClient } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { departuresOptions } from '../app/lib/queries.ts'
@@ -26,8 +26,13 @@ const body = (generatedAt: number): DeparturesResponse => ({
   departures: [],
 })
 
+const setOnLine = (value: boolean) =>
+  Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => value })
+
 afterEach(() => {
   vi.useRealTimers()
+  setOnLine(true)
+  reportOnline()
   localStorage.clear()
 })
 
@@ -44,27 +49,48 @@ describe.each([
       to: null,
       departures: [],
     })
-    let answer: Response
-    const fetcher = async () => answer
+    let answer: () => Response
+    const fetcher = async () => answer()
     const opts = departuresOptions(fetcher, { fixtures: false, rt: null }, 'central', null, 20, null)
     const client = new QueryClient()
     const run = () =>
       opts.queryFn({ signal: new AbortController().signal, client, queryKey: opts.queryKey, meta: undefined })
 
-    // Offline: the service worker's hour-old copy, so the board is built from the saved day (device stamp).
-    answer = new Response(JSON.stringify(body(SERVER_NOW - 3600_000)), { headers: { 'x-bft-cache': 'sw' } })
+    // Offline with nothing cached: the board is built from the saved day (device stamp).
+    setOnLine(false)
+    answer = () => {
+      throw new TypeError('Failed to fetch')
+    }
     const offline = await run()
     expect(offline.offline).toBe(true)
     expect(offline.generatedAt).toBe(SERVER_NOW + skew)
     client.setQueryData(opts.queryKey, offline)
 
     // Back online: an edge-cached answer a few seconds old by server time.
-    answer = Response.json(body(SERVER_NOW - 5_000))
+    setOnLine(true)
+    answer = () => Response.json(body(SERVER_NOW - 5_000))
     const back = await run()
     expect(back.offline).toBeUndefined()
     expect(back.generatedAt).toBe(SERVER_NOW - 5_000)
     expect(liveState(back, { offline: false, nowMs: Date.now() })).toBe(state)
   })
+})
+
+it('offline, a server copy is the base even when the saved day is stamped later by a fast device clock', async () => {
+  vi.useFakeTimers({ now: SERVER_NOW + 5 * 60_000, toFake: ['Date'] })
+  writeOfflineDay({ savedAt: Date.now(), serviceDate: '20261020', from: 'central', to: null, departures: [] })
+  const cached = body(SERVER_NOW - 60_000)
+  const fetcher = async () => new Response(JSON.stringify(cached), { headers: { 'x-bft-cache': 'sw' } })
+  const opts = departuresOptions(fetcher, { fixtures: false, rt: null }, 'central', null, 20, null)
+  const out = await opts.queryFn({
+    signal: new AbortController().signal,
+    client: new QueryClient(),
+    queryKey: opts.queryKey,
+    meta: undefined,
+  })
+  expect(out.offline).toBe(true)
+  expect(out.generatedAt).toBe(SERVER_NOW - 60_000)
+  expect(out.deviceStamped).toBeUndefined()
 })
 
 describe('R6-B1 still holds between server times', () => {

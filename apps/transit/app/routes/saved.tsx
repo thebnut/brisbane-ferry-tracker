@@ -16,7 +16,13 @@ import {
   SavedTripCard,
   vesselName,
 } from '@bft/ui'
-import { isNetworkAnswer, type OfflineCopy, retryWhenBack, useUnconfirmedBefore } from '@bft/ui/connectivity'
+import {
+  isNetworkAnswer,
+  type OfflineCopy,
+  retryWhenBack,
+  useDisconnects,
+  useUnconfirmedBefore,
+} from '@bft/ui/connectivity'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { AskBox } from '../components/AskBox.tsx'
@@ -279,12 +285,11 @@ function SavedList({
  */
 export function useReachedNetwork(needed: boolean): boolean {
   const { fetcher } = useApi()
-  const online = useOnline()
-  const [reached, setReached] = useState(false)
-  // A confirmation lasts only while the connection does: after a disconnect, LIVE needs a new answer (Codex review).
-  useEffect(() => {
-    if (!online) setReached(false)
-  }, [online])
+  // A confirmation lasts only while the connection does: after any disconnect, LIVE needs a new answer (Codex
+  // reviews), counted by @bft/ui so a disconnect React never rendered (a failure and a success in one batch) counts.
+  const disconnects = useDisconnects()
+  const [reachedAt, setReachedAt] = useState<number | null>(null)
+  const reached = reachedAt === disconnects
   useEffect(() => {
     if (!needed || reached) return
     const ctrl = new AbortController()
@@ -294,7 +299,7 @@ export function useReachedNetwork(needed: boolean): boolean {
       busy = true
       fetchAlerts(fetcher, { signal: ctrl.signal })
         .then((body) => {
-          if (isNetworkAnswer(body)) setReached(true)
+          if (isNetworkAnswer(body)) setReachedAt(disconnects)
         })
         .catch(() => {})
         .finally(() => {
@@ -307,7 +312,7 @@ export function useReachedNetwork(needed: boolean): boolean {
       off()
       ctrl.abort()
     }
-  }, [needed, reached, fetcher])
+  }, [needed, reached, fetcher, disconnects])
   return reached
 }
 

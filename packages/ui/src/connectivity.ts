@@ -28,10 +28,13 @@ export const LIVE_REFRESH_MAX_AGE_MS = 60_000
 
 let unreachable = false
 const listeners = new Set<() => void>()
+/** Disconnects so far (a failed API call or the browser going offline), however quickly the connection came back. */
+let disconnects = 0
 
 function setUnreachable(value: boolean) {
   if (unreachable === value) return
   unreachable = value
+  if (value) disconnects++
   for (const l of listeners) l()
 }
 
@@ -150,18 +153,41 @@ export function isOnline(): boolean {
 
 /** The browser says it is back online: trust it until a request fails again (the next poll checks at once). */
 const onBrowserOnline = () => setUnreachable(false)
+const onBrowserOffline = () => {
+  disconnects++
+}
 
 function subscribe(onChange: () => void) {
-  if (listeners.size === 0) window.addEventListener('online', onBrowserOnline)
+  // Registered before any listener's own, so the count is up to date when they run.
+  if (listeners.size === 0) {
+    window.addEventListener('online', onBrowserOnline)
+    window.addEventListener('offline', onBrowserOffline)
+  }
   listeners.add(onChange)
   window.addEventListener('online', onChange)
   window.addEventListener('offline', onChange)
   return () => {
     listeners.delete(onChange)
-    if (listeners.size === 0) window.removeEventListener('online', onBrowserOnline)
+    if (listeners.size === 0) {
+      window.removeEventListener('online', onBrowserOnline)
+      window.removeEventListener('offline', onBrowserOffline)
+    }
     window.removeEventListener('online', onChange)
     window.removeEventListener('offline', onChange)
   }
+}
+
+/**
+ * The number of disconnects so far, as React state (0 during SSR and hydration). It only goes up, so something
+ * confirmed by a network answer can require a new one after any disconnect, even one React never rendered: a failed
+ * call and the next success in the same batch leave `useOnline()` true throughout (Codex review).
+ */
+export function useDisconnects(): number {
+  return useSyncExternalStore(
+    subscribe,
+    () => disconnects,
+    () => 0,
+  )
 }
 
 /**
@@ -403,6 +429,8 @@ export interface OfflineCopy {
    * `generatedAt` may be a device-clock stamp (a timetable saved on the device) or an older saved answer.
    */
   serverGeneratedAt?: number | null
+  /** Built on the device: its `generatedAt` is the device clock's, never compared with a server time. */
+  deviceStamped?: boolean
 }
 
 /** The server time a board on screen was generated at: a response's own `generatedAt`, an offline copy's kept one. */
@@ -509,20 +537,22 @@ export function tripAsTimetable<
 
 /**
  * Offline, the copy of a board worth showing, from the copies on hand (the data already on screen, the service
- * worker's cached response, a timetable saved on the device). The base is always the newest copy, even if its rows
- * have run out, so a board never goes back to an older body or "Updated" time (R6-B1), and an hours-old
- * service-worker copy never replaces a fresher board (R2-B6). Older copies only extend it: the departures still to
- * come after the base's last row, from the copy with the most of them (a saved timetable), are appended, so the rows
- * last as long as the device has timetable for. Null with no copy at all.
+ * worker's cached response, a timetable saved on the device). The base is always the newest copy from the server, even
+ * if its rows have run out, so a board never goes back to an older body or "Updated" time (R6-B1), and an hours-old
+ * service-worker copy never replaces a fresher board (R2-B6). A copy built on the device (`deviceStamped`, stamped by
+ * the device clock) is the base only when there is no server copy: its time can't be compared with a server's
+ * (release review). Older copies only extend the base: the departures still to come after its last row, from the copy
+ * with the most of them (a saved timetable), are appended, so the rows last as long as the device has timetable for.
+ * Null with no copy at all.
  */
 export function bestOfflineCopy<
   D extends { schedDep: number },
-  T extends { generatedAt: number; departures: D[] },
+  T extends { generatedAt: number; departures: D[] } & OfflineCopy,
 >(copies: ReadonlyArray<T | null | undefined>, nowMs: number): T | null {
   const cutoff = nowMs / 1000
   const usable = copies
     .filter((c): c is T => !!c && Array.isArray(c.departures))
-    .sort((x, y) => y.generatedAt - x.generatedAt)
+    .sort((x, y) => Number(!!x.deviceStamped) - Number(!!y.deviceStamped) || y.generatedAt - x.generatedAt)
   const base = usable[0]
   if (!base) return null
   const last = base.departures.reduce((m, d) => Math.max(m, d.schedDep), Number.NEGATIVE_INFINITY)

@@ -94,7 +94,8 @@ export function asOffline(
   const own = res ? asScheduled(res.departures, Date.now()) : []
   const kept = copy ?? offlineRows(item, Date.now())
   const rows = kept && kept.length >= own.length ? kept : own
-  const base: DeparturesResponse = res ?? {
+  const base: DeparturesResponse & OfflineCopy = res ?? {
+    deviceStamped: true,
     schemaVersion: 1,
     staticGeneration: 'offline',
     serviceDates: [],

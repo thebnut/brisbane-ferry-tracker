@@ -135,6 +135,26 @@ describe('per-board confirmation after a cached page (R2-T7, Codex review rounds
   })
 })
 
+describe('bestOfflineCopy: a copy built on the device never displaces a server copy (release review)', () => {
+  const copy = (generatedAt: number, schedDeps: number[], deviceStamped?: true) => ({
+    generatedAt,
+    departures: schedDeps.map((schedDep) => ({ schedDep })),
+    ...(deviceStamped ? { deviceStamped } : {}),
+  })
+  it('the server copy is the base; the device day only extends it', () => {
+    const server = copy(1_000, [2_000, 2_100])
+    const day = copy(9_000_000, [2_000, 2_100, 2_200], true)
+    const out = bestOfflineCopy([day, server], 1_000_000)
+    expect(out?.generatedAt).toBe(1_000)
+    expect(out?.departures.map((d) => d.schedDep)).toEqual([2_000, 2_100, 2_200])
+    expect(out?.deviceStamped).toBeUndefined()
+  })
+  it('a device copy is the base only with no server copy', () => {
+    const day = copy(9_000_000, [2_000], true)
+    expect(bestOfflineCopy([null, day], 1_000_000)).toBe(day)
+  })
+})
+
 describe('bestOfflineCopy (R2-B6)', () => {
   const nowS = NOW / 1000
   const copy = (generatedAt: number, offsets: number[]) => ({

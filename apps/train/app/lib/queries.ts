@@ -3,7 +3,13 @@
  * full-day timetable of a favourite ("Offline · scheduled").
  */
 import type { DeparturesResponse } from '@bft/core/contract'
-import { asOfflineCopy, bestOfflineCopy, isOnline, replacesBoard } from '@bft/ui/connectivity'
+import {
+  asOfflineCopy,
+  bestOfflineCopy,
+  isOnline,
+  type OfflineCopy,
+  replacesBoard,
+} from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import {
@@ -57,7 +63,7 @@ export function departuresOptions(
   initial: DeparturesResponse | null,
 ) {
   const queryKey = ['train', 'departures', mode.fixtures, mode.rt, from, to, limit] as const
-  type Board = DeparturesResponse & { offline?: boolean }
+  type Board = DeparturesResponse & OfflineCopy
   /** The saved full-day timetable as a board of scheduled times. */
   const savedDay = (nowMs: number): Board | null => {
     const day = readOfflineDay(from, to)
@@ -74,6 +80,7 @@ export function departuresOptions(
       to: to ? { key: to, name: to } : null,
       departures: offlineRows(day.departures, Math.floor(nowMs / 1000), limit),
       offline: true,
+      deviceStamped: true,
     }
   }
   return {
