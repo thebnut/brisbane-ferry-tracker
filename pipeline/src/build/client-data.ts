@@ -1,9 +1,20 @@
 /**
- * Static client data (transit-architecture.md §3.2, ADR-0004): search index, geohash5 nearby tiles, and lines with
- * colours and stopping patterns. Built from the trips active anywhere in the build window.
+ * Static client data (transit-architecture.md §3.2, ADR-0004): search index, geohash5 nearby tiles, lines with
+ * colours and stopping patterns, and (bus) one route file per line. Built from the trips active anywhere in the build
+ * window.
  */
-import type { GeoTileFile, Line, LinesFile, Mode, StopIndexEntry, StopIndexFile, StopPattern } from '@bft/core'
-import { SCHEMA_VERSION } from '@bft/core'
+import type {
+  GeoTileFile,
+  Line,
+  LinesFile,
+  Mode,
+  RouteFile,
+  RouteIndexFile,
+  StopIndexEntry,
+  StopIndexFile,
+  StopPattern,
+} from '@bft/core'
+import { routeFileFor, SCHEMA_VERSION } from '@bft/core'
 import type { Feed, RouteRow, StopRow, TripRow } from '../feed/load.ts'
 import { geohashEncode } from './geohash.ts'
 import type { StopKeys } from './keys.ts'
@@ -17,6 +28,10 @@ export interface ClientData {
   stops: StopIndexFile
   geo: GeoTileFile[]
   lines: LinesFile
+  /** Bus only (the route pages, /route/{short}): one per line that gets a file (routeFileFor). Empty otherwise. */
+  routes: RouteFile[]
+  /** Bus only: the short names in `routes` (data/bus/routes.json). Null otherwise. */
+  routeIndex: RouteIndexFile | null
 }
 
 /** `tripIdxs` = every trip of the mode active on at least one date in the window. */
@@ -136,11 +151,20 @@ export function buildClientData(
       return line
     })
 
+  const byKey = new Map(entries.map((e) => [e.key, e]))
+  const routes =
+    mode === 'bus'
+      ? lineList.map((l) => routeFileFor(l, byKey, generation, mode)).filter((r): r is RouteFile => r !== null)
+      : []
+
   return {
     stops: { schemaVersion: SCHEMA_VERSION, mode, generation, stops: entries },
     geo: [...tiles.entries()]
       .sort((a, b) => cmp(a[0], b[0]))
       .map(([geohash, stops]) => ({ schemaVersion: SCHEMA_VERSION, mode, generation, geohash, stops })),
     lines: { schemaVersion: SCHEMA_VERSION, mode, generation, lines: lineList },
+    routes,
+    routeIndex:
+      mode === 'bus' ? { schemaVersion: SCHEMA_VERSION, mode, generation, routes: routes.map((r) => r.short) } : null,
   }
 }

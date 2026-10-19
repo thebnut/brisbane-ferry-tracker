@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { AlertsResponse, DeparturesResponse, TripResponse, VehiclesResponse } from '@bft/core/contract'
 import { describe, expect, it } from 'vitest'
-import { GeoTileFile, LinesFile, RouteFile, StopIndexFile } from '../app/lib/data-contract.ts'
+import { GeoTileFile, LinesFile, RouteFile, RouteIndexFile, StopIndexFile } from '../app/lib/data-contract.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
 
 // Tuesday 20 Oct 2026, 8:15 am Brisbane (UTC+10): peak hour.
@@ -78,6 +78,8 @@ describe('fixture /v1 API', () => {
     LinesFile.parse((await get('/data/bus/lines.json')).body)
     const r = RouteFile.parse((await get('/data/bus/routes/M2.json')).body)
     expect(r.patterns[0]?.stops.length).toBeGreaterThan(5)
+    const ri = RouteIndexFile.parse((await get('/data/bus/routes.json')).body)
+    expect(ri.routes).toContain('M2')
     GeoTileFile.parse((await get('/data/bus/geo/r7hgd.json')).body)
     // An empty cell is an empty tile, as the API answers it (X2).
     expect(GeoTileFile.parse((await get('/data/bus/geo/zzzzz.json')).body).stops).toEqual([])

@@ -19,7 +19,10 @@ curl -s https://<api host>/v1/health | jq -r .build   # bft-api only: the same s
 ```
 A mismatch, `dev`, or a `-dirty` suffix on a production host means the wrong code went out: stop, find out why, and redeploy from a clean checkout of the release commit before continuing. Record the sha per host in the report.
 
+**Before step 1 and before every deploy:** in the deploy checkout, `git status --porcelain` must print nothing. Any stray file, even an untracked editor temp file or an unignored local `.env`, makes every marker `-dirty` and so fails the check above. Remove or commit it first; never deploy from a dirty tree.
+
 ## 0. Preconditions (staging, end to end)
+- [ ] The deploy checkout is clean: `git status --porcelain` prints nothing (see the build marker above).
 - [ ] All transit PRs merged to develop: #44, #45, #48, #49, #47, #51, #46, #50, and this one.
 - [ ] Staging is healthy for 24 h: `https://bft-api.brisbanetransit.workers.dev/v1/health` shows `ok: true` and RT age < 60 s. The nightly shadow diff shows 0 differences. `/v1/ask/status` shows the ledger within its cap.
 - [ ] Staging apps (`bft-ferry`, `bft-train`, `bft-bus`, `bft-transit`) render live data, and their Playwright smokes pass against staging.

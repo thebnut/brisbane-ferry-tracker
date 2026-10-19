@@ -3,7 +3,8 @@
  *
  * Output layout (common.md "Shared storage layout"), written into `outDir`:
  *   static/blobs/{sha}.json.gz, static/shards/{sha}.json.gz, static/{generation}/{mode}/index.json,
- *   data/{mode}/{stops,lines}.json, data/{mode}/geo/{geohash5}.json, legacy/latest.json,
+ *   data/{mode}/{stops,lines}.json, data/{mode}/geo/{geohash5}.json, data/bus/routes/{short}.json + data/bus/routes.json,
+ *   legacy/latest.json,
  *   manifest.staging.json (only when something is quarantined), manifest.json (always last).
  * A quarantined mode's client data goes under staging/ so live readers never see it.
  */
@@ -18,6 +19,8 @@ import {
   GeoTileFile,
   LinesFile,
   Manifest,
+  RouteFile,
+  RouteIndexFile,
   SCHEMA_VERSION,
   StaticStopDay,
   StopIndexFile,
@@ -293,6 +296,8 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     await writeOut(`${prefix}data/${r.mode}/stops.json`, JSON.stringify(checked(StopIndexFile, cd.stops, `${r.mode} stops.json`)))
     await writeOut(`${prefix}data/${r.mode}/lines.json`, JSON.stringify(checked(LinesFile, cd.lines, `${r.mode} lines.json`)))
     for (const tile of cd.geo) await writeOut(`${prefix}data/${r.mode}/geo/${tile.geohash}.json`, JSON.stringify(checked(GeoTileFile, tile, `${r.mode} geo ${tile.geohash}`)))
+    for (const rf of cd.routes) await writeOut(`${prefix}data/${r.mode}/routes/${rf.short}.json`, JSON.stringify(checked(RouteFile, rf, `${r.mode} route ${rf.short}`)))
+    if (cd.routeIndex) await writeOut(`${prefix}data/${r.mode}/routes.json`, JSON.stringify(checked(RouteIndexFile, cd.routeIndex, `${r.mode} routes.json`)))
     if (r.mode === 'ferry' && opts.legacy !== false)
       await writeOut(`${prefix}legacy/latest.json`, buildLegacyLatest(feed, opts.nowMs))
   }

@@ -32,7 +32,7 @@ import { pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
 import { routeHref, stopHref } from '../lib/stops.ts'
 import { toggleSaved, useSavedStops } from '../lib/storage.ts'
-import { at, schedAt, stopNamesFor, timeline } from '../lib/trip.ts'
+import { at, needsStopNames, schedAt, stopNamesFor, timeline } from '../lib/trip.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/trip'
 
@@ -51,9 +51,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     }
   })
   if (unknown) throw data(null, { status: 404 })
-  // The trip endpoint names no bus stops: take the names from this route's stop file (small, cached), so the
-  // timeline says "Adelaide St Stop 12", not "Stop 6298" (smoke test B1). Only this trip's stops go in the page.
-  const route = trip
+  // The trip endpoint names stops from the stop index. Only if it left some unnamed (an older API, or a stop the index
+  // lacks) take the names from this route's stop file, where one is published. Only this trip's stops go in the page.
+  const route = needsStopNames(trip)
     ? await settle((signal) => fetchRoute(fetcher, trip.route.short, { signal, validate: validateRoute }))
     : null
   const stopNames = stopNamesFor(trip, route)

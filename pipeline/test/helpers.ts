@@ -6,6 +6,8 @@ import {
   GeoTileFile,
   LinesFile,
   Manifest,
+  RouteFile,
+  RouteIndexFile,
   StaticShard,
   StaticStopDay,
   StopIndexFile,
@@ -57,6 +59,13 @@ export async function parseAll(dir: string): Promise<Record<string, number>> {
     } else if (/(^|\/)data\/[^/]+\/geo\/[0-9a-z]{5}\.json$/.test(f)) {
       GeoTileFile.parse(await readJsonFile(dir, f))
       bump('geo')
+    } else if (/(^|\/)data\/bus\/routes\/[\w-]{1,12}\.json$/.test(f)) {
+      const r = RouteFile.parse(await readJsonFile(dir, f))
+      if (!f.endsWith(`/routes/${r.short}.json`)) throw new Error(`${f} holds route ${r.short}`)
+      bump('route')
+    } else if (/(^|\/)data\/bus\/routes\.json$/.test(f)) {
+      RouteIndexFile.parse(await readJsonFile(dir, f))
+      bump('routeIndex')
     } else if (/(^|\/)legacy\/latest\.json$/.test(f)) {
       await readJsonFile(dir, f)
       bump('legacy')

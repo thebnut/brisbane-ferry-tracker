@@ -4,7 +4,15 @@
  */
 import { type BudgetConfig, DEFAULT_BUDGET, emptyBudgetState, reconcile, reserve } from '@bft/core'
 import { describe, expect, it, vi } from 'vitest'
-import { type AiDeps, budgetConfig, ipKey, ipv6Prefix48, registerAi, siteverify } from '../src/ai/routes.ts'
+import {
+  type AiDeps,
+  budgetConfig,
+  ipKey,
+  ipv6Prefix48,
+  quotedTerm,
+  registerAi,
+  siteverify,
+} from '../src/ai/routes.ts'
 import {
   admitInWindow,
   admitStored,
@@ -24,21 +32,25 @@ const NAMES: Record<string, string> = {
   '317586': 'Hawthorne ferry terminal',
 }
 
+let extraGen = 0
+
 function setup(
   env: Record<string, unknown> = {},
-  extra: { verifyTurnstile?: () => Promise<boolean>; siteverify?: AiDeps['siteverify'] } = {},
+  extra: {
+    verifyTurnstile?: () => Promise<boolean>
+    siteverify?: AiDeps['siteverify']
+    /** More ferry stop-index entries as [key, name] (no trips). */
+    stops?: Array<[string, string]>
+  } = {},
 ) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   vi.setSystemTime(clock.t)
   const tree = buildTree()
   // Real-looking names so the fuzzy resolver has something to match.
-  const stops = ['317584', '317590', '317586', 'QUIET'].map((key) => ({
-    key,
-    name: NAMES[key] ?? key,
-    lat: -27.4,
-    lon: 153,
-    routes: [],
-  }))
+  const stops = [
+    ...['317584', '317590', '317586', 'QUIET'].map((key) => [key, NAMES[key] ?? key]),
+    ...(extra.stops ?? []),
+  ].map(([key, name]) => ({ key, name, lat: -27.4, lon: 153, routes: [] }))
   tree.source.files.set(
     'data/ferry/stops.json',
     new TextEncoder().encode(JSON.stringify({ schemaVersion: 1, mode: 'ferry', generation: 'g1', stops })),
@@ -58,7 +70,10 @@ function setup(
     combinedFeeds: false,
     polledModes: ['ferry'],
   })
-  registerAi(app, { store, generationKey: async () => 'g1', ...extra }, () => env)
+  // The stop-index cache is keyed by generation: extra stops need their own key.
+  const { stops: extraStops, ...deps } = extra
+  const gen = extraStops ? `g1-${++extraGen}` : 'g1'
+  registerAi(app, { store, generationKey: async () => gen, ...deps }, () => env)
   const ask = (question: string, headers: Record<string, string> = {}) =>
     app.request('/v1/ask', {
       method: 'POST',
@@ -139,6 +154,90 @@ describe('POST /v1/ask', () => {
   it('the rate limiter answers 429', async () => {
     const s = setup({ ASK_LIMITER: { limit: async () => ({ success: false }) } })
     expect((await s.ask('departures at bulimba')).status).toBe(429)
+  })
+})
+
+describe('stop names the parser cannot place (AI off unless stated)', () => {
+  type Body = {
+    source: string
+    answer: string
+    intent?: { from: { key: string } }
+    ai?: { enabled: boolean }
+  }
+  const ask = async (s: ReturnType<typeof setup>, q: string) => (await (await s.ask(q)).json()) as Body
+
+  it('a missing space still resolves: "next ferry from southbank to bulimba"', async () => {
+    const s = setup({}, { stops: [['321666', 'South Bank ferry terminal']] })
+    const body = await ask(s, 'next ferry from southbank to bulimba')
+    expect(body.source).toBe('deterministic')
+    expect(body.intent?.from.key).toBe('321666')
+  })
+
+  it('an ambiguous stop gets its specific message with AI off (it used to get the generic hint)', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    const s = setup(
+      {},
+      {
+        stops: [
+          ['QS1', 'Queen Street 1'],
+          ['QS2', 'Queen Street 2'],
+        ],
+      },
+    )
+    const body = await ask(s, 'departures at queen street ferry')
+    expect(body.source).toBe('fallback')
+    expect(body.answer).toMatch(/^That name matches more than one stop\./)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
+  })
+
+  it('names the stop it could not find', async () => {
+    const s = setup()
+    const body = await ask(s, 'next ferry from zzyzx to bulimba')
+    expect(body.source).toBe('fallback')
+    expect(body.ai?.enabled).toBe(false)
+    expect(body.answer).toBe(
+      "I couldn't find a stop called 'zzyzx'. Try its full name or the stop number on the sign.",
+    )
+  })
+
+  it('echoes the term as plain text only, trimmed and capped', async () => {
+    const s = setup()
+    const xss = await ask(s, 'departures at <img src=x onerror="prompt(x)"> ferry terminal')
+    expect(xss.answer).toBe(
+      "I couldn't find a stop called 'img src=x onerror= prompt(x)'. Try its full name or the stop number on the sign.",
+    )
+    const long = await ask(s, `next ferry from ${'qwxz '.repeat(30)}to bulimba`)
+    expect(long.answer).toBe(
+      `I couldn't find a stop called '${'qwxz '.repeat(8).trimEnd()}…'. Try its full name or the stop number on the sign.`,
+    )
+  })
+
+  it('an unparseable question keeps the generic hint', async () => {
+    const body = await ask(setup(), 'can I take my bike on the ferry')
+    expect(body.answer).toMatch(/^Try: /)
+  })
+
+  it('with AI on, an unresolved stop still goes to the LLM path; its fallback names the stop', async () => {
+    const s = setup(
+      { AI_ENABLED: 'true', ANTHROPIC_API_KEY: 'x', AI_MONTHLY_BUDGET_USD: '10', BUDGET: {} },
+      { stops: [] },
+    )
+    const body = (await (await s.ask('next ferry from zzyzx to bulimba')).json()) as Body & {
+      ai: { reason: string }
+    }
+    expect(body.ai.reason).toBe('turnstile_not_configured')
+    expect(body.answer).toMatch(/^I couldn't find a stop called 'zzyzx'\./)
+  })
+})
+
+describe('quotedTerm', () => {
+  it('strips markup characters and control characters, collapses whitespace, caps length', () => {
+    expect(quotedTerm("  st peter's  ")).toBe("'st peters'")
+    expect(quotedTerm('a<b>"c"`d\\e\u0000f\u202eg')).toBe("'a b c d e f g'")
+    expect(quotedTerm('x'.repeat(50))).toBe(`'${'x'.repeat(40)}…'`)
+    expect(quotedTerm('<>')).toBeNull()
+    expect(quotedTerm(undefined)).toBeNull()
   })
 })
 

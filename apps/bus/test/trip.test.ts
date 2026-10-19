@@ -1,7 +1,7 @@
 import type { TripResponse, TripStop } from '@bft/core/contract'
 import { describe, expect, it } from 'vitest'
 import type { RouteFile } from '../app/lib/data-contract.ts'
-import { stopNamesFor, timeline } from '../app/lib/trip.ts'
+import { needsStopNames, stopNamesFor, timeline, unnamedStop } from '../app/lib/trip.ts'
 
 const T0 = 1_792_300_000
 const stop = (id: string, i: number): TripStop => ({
@@ -76,5 +76,32 @@ describe('trip timeline', () => {
       'Cultural Centre',
       'Stop d',
     ])
+  })
+  it('asks for the route file only when the API left a stop unnamed', () => {
+    expect(needsStopNames(null)).toBe(false)
+    expect(needsStopNames(trip(null))).toBe(false)
+    const t = trip(null)
+    t.stops = t.stops.map((s, i) => (i === 1 ? { ...s, name: undefined } : s))
+    expect(needsStopNames(t)).toBe(true)
+  })
+  it('an unnamed numeric stop shows its stop number once, not "Stop 142 · Stop 000142"', () => {
+    expect(unnamedStop('142')).toBe('Stop 000142')
+    expect(unnamedStop('place_cannon')).toBe('Stop place_cannon')
+    const t = trip(null)
+    t.stops = ['142', '64', '1850', '4521'].map((id, i) => {
+      const { name: _name, ...rest } = stop(id, i)
+      return id === '64' ? { ...rest, name: 'Adelaide Street Stop 64 near Albert St' } : rest
+    })
+    const rows = timeline(t, null, (T0 - 60) * 1000)
+    expect(rows.map((r) => r.name)).toEqual([
+      'Stop 000142',
+      'Adelaide Street Stop 64 near Albert St',
+      'Stop 001850',
+      'Stop 004521',
+    ])
+    // A named stop still shows its stop number in the meta line; an unnamed one already has it as its name.
+    expect(rows[0]?.meta).toBeUndefined()
+    expect(rows[1]?.meta).toBe('Stop 000064')
+    expect(rows[2]?.meta).toBeUndefined()
   })
 })
