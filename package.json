@@ -15,7 +15,8 @@
     "mono:build": "pnpm -r --if-present run build",
     "mono:test": "pnpm -r --if-present run test",
     "mono:typecheck": "pnpm -r --if-present run typecheck",
-    "mono:lint": "pnpm -r --if-present run lint"
+    "mono:lint": "pnpm -r --if-present run lint",
+    "mono:deploy-check": "pnpm -r --workspace-concurrency=1 --if-present run check:deploy"
   },
   "dependencies": {
     "@capacitor/core": "^8.3.1",

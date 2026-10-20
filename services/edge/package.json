@@ -14,6 +14,7 @@
     "coldload": "node --expose-gc --experimental-transform-types --no-warnings scripts/coldload.ts",
     "shadow-diff": "node --experimental-transform-types --no-warnings scripts/shadow-diff.ts",
     "freshness": "node --experimental-transform-types --no-warnings scripts/freshness.ts",
+    "check:deploy": "BUILD_SHA=$(node ../../scripts/build-sha.mjs) && wrangler deploy --dry-run --env staging --outdir .wrangler/dry-run --var BUILD_SHA:$BUILD_SHA",
     "deploy:staging": "BUILD_SHA=$(node ../../scripts/build-sha.mjs) && wrangler deploy --env staging --var BUILD_SHA:$BUILD_SHA",
     "deploy:data-staging": "pnpm --filter @bft/data deploy:staging",
     "deploy:production": "BUILD_SHA=$(node ../../scripts/build-sha.mjs) && wrangler deploy --env production --var BUILD_SHA:$BUILD_SHA"

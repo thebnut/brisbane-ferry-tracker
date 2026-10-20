@@ -2,28 +2,9 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 import { reactRouter } from '@react-router/dev/vite'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, type Plugin, type ResolveModulePreloadDependenciesFn, type Rolldown } from 'vite'
+import { noMapOnServer } from '../../packages/ui/vite/no-map-on-server.ts'
 import { modeBases, navSlots } from './modes.config.ts'
 import { pwa } from './pwa.config.ts'
-
-/**
- * MapLibre only ever renders in the browser (behind React.lazy), so the Worker bundle gets a stub instead of ~1 MB of
- * map code and its web-worker asset (same as the standalone apps).
- */
-function noMapOnServer(): Plugin {
-  const stub = '\0bft-map-stub'
-  return {
-    name: 'bft:no-map-on-server',
-    enforce: 'pre',
-    applyToEnvironment: (env) => env.name === 'ssr',
-    resolveId: (id) => (id === '@bft/ui/map' || id === '@bft/ui/stop-picker-map' ? stub : null),
-    load: (id) =>
-      id === stub
-        ? 'export default function MapView() { return null }\nexport const BASEMAP_STYLE_URL = ""\n' +
-          // The map stop picker (@bft/ui/stop-picker-map) imports MapView by path, so it is stubbed whole.
-          'export const toCardDepartures = () => []\nexport const useWide = () => false'
-        : null,
-  }
-}
 
 /**
  * A lazy import's preload list sits in the importing chunk, so on its page's first load. Leave out the chunks the
