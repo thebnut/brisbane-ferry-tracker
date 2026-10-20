@@ -3,7 +3,6 @@
  * headless combobox); To = only stations with a direct train from there, grouped by line. Without a origin, the page is
  * the A–Z station index (every station page linked, for people and crawlers).
  */
-import type { StopIndexFile } from '@bft/core/contract'
 import { Icon, LineChip, PrimaryButton } from '@bft/ui'
 import { MapToggle } from '@bft/ui/map-toggle'
 import type { StopOption } from '@bft/ui/stop-search'
@@ -25,6 +24,7 @@ import {
 import { searchStations } from '../lib/search.ts'
 import { pageMeta } from '../lib/seo.ts'
 import { getEnv, siteInfo } from '../lib/server.server.ts'
+import { fetchStationIndex } from '../lib/stop-index.ts'
 import { useMounted } from '../lib/useNow.ts'
 import type { Route } from './+types/stations'
 
@@ -63,11 +63,14 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   })
 }
 
-/** The station index file (pipeline output, served as a static asset; cached by the service worker). */
+/**
+ * The station index file (pipeline output, served as a static asset; cached by the service worker). If it can't load,
+ * the search uses the stations bundled with the app (network.ts).
+ */
 function useStopIndex() {
   return useQuery({
     queryKey: ['train', 'stops.json'],
-    queryFn: async () => (await (await fetch('/data/train/stops.json')).json()) as StopIndexFile,
+    queryFn: ({ signal }) => fetchStationIndex(signal),
     staleTime: Number.POSITIVE_INFINITY,
   })
 }
@@ -185,6 +188,18 @@ export default function Stations({ loaderData }: Route.ComponentProps) {
                   onChange={(k) => set(from.key, k)}
                 />
               </Suspense>
+            ) : null}
+            {index.isError ? (
+              <p role="status" className="flex flex-wrap items-center gap-x-2 text-[13px] text-sched-text">
+                Couldn't load the station list, so search uses the built-in one.
+                <button
+                  type="button"
+                  onClick={() => index.refetch()}
+                  className="font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
+                >
+                  Try again
+                </button>
+              </p>
             ) : null}
           </div>
 
