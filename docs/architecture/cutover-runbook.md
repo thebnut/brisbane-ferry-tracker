@@ -96,7 +96,7 @@ The hub publishes realtime to R2 in one of two layouts: `documents` (one object 
      - **Readers really consume it, per mode (the step that proves it):** an advancing pointer proves publishing, not reading. A reader whose mode section is missing returns normally and can keep its previous snapshot with fresh status, so `live` and health can look fine. For each of ferry, train, tram and bus, read `GET /v1/<mode>/vehicles` twice ~2 minutes apart, during service. **Pass** when the vehicles' `ts` values advance or positions change. **No change is inconclusive** (stationary vehicles or an unchanged upstream feed look the same, and a section's `seq` also moves for trips, alerts and static metadata), so compare against what was published. The combined object starts with a 1 KiB JSON index whose `sections[<mode>]` is `[offset, length, seq]`. Extract the mode's section and its newest vehicle `ts`:
        ```sh
        npx wrangler r2 object get bft-transit-data/rt/modes/combined.dat --remote --pipe > /tmp/combined.dat   # staging: bft-transit-data/rt-staging/modes/combined.dat
-       python3 -c 'import json,sys;b=open("/tmp/combined.dat","rb").read();o,l,s=json.loads(b[:1024])["sections"][sys.argv[1]];d=json.loads(b[o:o+l]);print("seq",s,"max vehicle ts",max((v.get("ts") or 0 for v in d["vehicles"]),default=None))' <mode>
+       python3 -c 'import json,sys,gzip;b=open("/tmp/combined.dat","rb").read();o,l,s=json.loads(b[:1024])["sections"][sys.argv[1]];raw=b[o:o+l];print("first bytes",raw[:2].hex());raw=gzip.decompress(raw) if raw[:2]==b"\x1f\x8b" else raw;d=json.loads(raw);print("seq",s,"max vehicle ts",max((v.get("ts") or 0 for v in d["vehicles"]),default=None))' <mode>
        ```
        `None` (no vehicles in the section) is inconclusive: retry during visible activity. **Fail** only if the published section's newest vehicle `ts` is more than ~60 s newer than the newest `ts` in `GET /v1/<mode>/vehicles`, still so on a read ~1 minute later (after the API's refresh and cache): then readers aren't consuming it, so switch back to `documents`. Otherwise it's still inconclusive: retry later during visible activity.
      - `npx wrangler tail --env <staging|production>` shows hub cycles completing with no errors.
@@ -110,21 +110,33 @@ The hub publishes realtime to R2 in one of two layouts: `documents` (one object 
 - **Report entry:** the layout switch (env, time, version id), the PUT rate before and after, and any rollback.
 
 ### 2b. RT document compression: `RT_R2_COMPRESS` (from #104)
-With `RT_R2_COMPRESS=gzip` the hub stores each per-mode and alerts document as gzip (`contentEncoding: gzip`, its seq in `customMetadata`), and in the `combined` layout each mode section as its own gzip stream (the 1 KiB index stays plain, so ranged reads still work). The pointer `rt/latest.json` is always plain. Readers from #104 on detect gzip by its first two bytes (`1f 8b`) and read plain, gzip and mixed objects alike. **Readers from releases before #104 can't read gzip documents.** Measured on a real snapshot: about 7.8× smaller (a cold bus read 2.6 MB → 334 KB), for ~6–7 ms of reader CPU and ~50 ms of hub CPU per poll at peak.
+With `RT_R2_COMPRESS=gzip` the hub stores each per-mode and alerts document as gzip (`contentEncoding: gzip`, its seq in `customMetadata`), and in the `combined` layout each mode section as its own gzip stream (the 1 KiB index stays plain, so ranged reads still work). The pointer `rt/latest.json` is always plain.
+- **Who can read what:**
+  - Readers from #104 on read plain, gzip and mixed objects in both layouts (gzip is detected by its first two bytes, `1f 8b`).
+  - **Before #104:** API readers already decode gzip *per-mode and alerts documents*, but **not gzip `combined` sections**. There, a cold isolate has no realtime, and a warm one keeps its last snapshot until it's marked stale. **The pre-#104 hub restore decodes neither compressed layout.** So the hub must publish plain before any rollback past #104 in either layout.
+- **Sizes and cost** (PR #104, measured in Node 22 on a Saturday snapshot): about 7.8× smaller; a cold bus read fetches 334 KB instead of 2,607 KB.
+  - Reader cost: +6–7 ms to gunzip, on top of the ~6 ms JSON parse it already did.
+  - Hub cost: about +50 ms per poll at weekday peak. That's **extrapolated** extra compression CPU, not a measured total.
 - **Independent of `RT_R2_LAYOUT`:** either, both or neither can be on. Switch one at a time, and verify between.
 - **Rollout (staging first, then production, each only after the release containing #104 is deployed and verified there):**
   1. Deploy with `RT_R2_COMPRESS` unset (plain documents, as before).
-  2. Switch: the same command as 2a with `--var RT_R2_COMPRESS:gzip` (keep `--var RT_R2_LAYOUT:combined` too if that is on, since each deploy sets only the vars it's given). The watchdog restarts the hub on the new version within about a minute. A restarted hub has nothing published yet, so its first cycle rewrites every document in the new encoding.
+  2. Switch: the same command as 2a with `--var RT_R2_COMPRESS:gzip`. Wrangler applies the env's configured `vars` plus *this deploy's* `--var` overrides only; a value set with `--var` on an earlier deploy isn't kept. Neither flag is in `wrangler.jsonc`, so repeat `--var RT_R2_LAYOUT:combined` if that layout is on. The watchdog restarts the hub on the new version within about a minute. A restarted hub has nothing published yet, so its first publish rewrites every active document in the new encoding.
   3. **Check:**
-     - as in 2a (health, departures `live` per mode, `/v1/<mode>/vehicles` `ts` advancing per mode, hub cycles completing in `npx wrangler tail --env <env>`);
-     - a mode document is gzip: `npx wrangler r2 object get bft-transit-data/rt/ferry/latest.json --remote --pipe | head -c 2 | xxd` prints `1f8b` (staging: `bft-transit-data/rt-staging/ferry/latest.json`; in the `combined` layout, check a section with the 2a extraction command, which then needs a gunzip step);
-     - hub CPU per cycle in the tail stays well under the limit.
+     - as in 2a: health, departures `live` per mode, `/v1/<mode>/vehicles` `ts` advancing per mode, hub cycles completing in `npx wrangler tail --env <env>`, with CPU well under the limit;
+     - **the active objects are gzip:** follow the pointer (2a's read-only `wrangler r2 object get` of `rt/latest.json`).
+       - `documents` layout: for each mode, `npx wrangler r2 object get bft-transit-data/rt/<mode>/latest.json --remote --pipe | head -c 2 | xxd` prints `1f8b` (staging prefix `rt-staging/`).
+       - `combined` layout: run 2a's section extraction (it gunzips a gzip section first), and its first bytes, also printed, are `1f8b`.
+       - The pointer-named alerts document can be checked the same way.
   - **A `--var` lasts one deploy**, as in 2a: the next normal deploy returns the hub to plain documents, which is safe from #104 on. To keep it, set it in `wrangler.jsonc` `vars` with a reviewed PR.
 - **Rollback order:**
-  - **Before any `wrangler rollback` or deploy of a version older than #104**, redeploy the current version without `RT_R2_COMPRESS` (keeping `RT_R2_LAYOUT` as it was if you aren't also going back past #99; otherwise do 2a's rollback steps too).
-  - Wait for the hub to restart on that version and complete a publish. The restart republishes every document plain.
-  - Confirm with the same `head -c 2 | xxd` check that every mode's document (`rt/<mode>/latest.json` for ferry, train, tram and bus) starts with `7b` (`{`), not `1f8b`, and that each mode's vehicles `ts` advance.
-  - Only then roll back. A pre-#104 reader facing a gzip document fails to parse it: a cold isolate has no realtime, and a warm one keeps its last snapshot.
+  - **Before any `wrangler rollback` or deploy of a version older than #104**, redeploy the current version without `RT_R2_COMPRESS`. Repeat `--var RT_R2_LAYOUT:combined` only if you keep that layout and aren't also going back past #99; otherwise leave it off and also do 2a's rollback steps, including its `documents`-pointer check.
+  - Wait for the hub to restart on that version and complete a publish. Its first publish rewrites every active document plain.
+  - **Confirm the active objects are plain:** follow the current pointer.
+    - `documents`: every mode's `rt/<mode>/latest.json` starts with `7b` (`{`).
+    - `combined`: every active section starts with `7b`; per-mode objects are abandoned in that layout, so don't check them.
+    - The pointer-named alerts document starts with `7b` too.
+    - Each mode's vehicles `ts` advance.
+  - Only then roll back.
 - **Report entry:** the switch (env, time, version id), bytes and hub CPU before and after, the bus cold-read result, and any rollback.
 
 ## 3. Phase 2: the legacy ferry app reads `/v1` (flagged, 10% → 50% → 100%)
