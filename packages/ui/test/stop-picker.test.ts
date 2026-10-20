@@ -8,6 +8,7 @@ import {
   type PickerStop,
   readMapPref,
   selectionReducer,
+  viewAround,
   visibleStops,
   worldPixel,
   writeMapPref,
@@ -35,6 +36,18 @@ describe('worldPixel', () => {
     const [x, y] = worldPixel(0, 0, 10.5)
     expect(x).toBeCloseTo(256 * 2 ** 10.5)
     expect(y).toBeCloseTo(256 * 2 ** 10.5)
+  })
+})
+
+describe('viewAround (the view before the basemap loads)', () => {
+  it('is centred on the point and spans the box in screen pixels at that zoom', () => {
+    const b = viewAround([153.0235, -27.4705], 15, 400, 800)
+    expect((b.west + b.east) / 2).toBeCloseTo(153.0235, 6)
+    expect((b.south + b.north) / 2).toBeCloseTo(-27.4705, 3)
+    const [x0, y0] = worldPixel(b.north, b.west, 15)
+    const [x1, y1] = worldPixel(b.south, b.east, 15)
+    expect(x1 - x0).toBeCloseTo(400, 6)
+    expect(y1 - y0).toBeCloseTo(800, 6)
   })
 })
 

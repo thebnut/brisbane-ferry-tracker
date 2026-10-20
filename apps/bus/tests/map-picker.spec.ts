@@ -238,9 +238,35 @@ test.describe(() => {
       }
       await r.continue().catch(() => {})
     })
-    const aborted: string[] = []
+    // What the page did with each card request, recorded in the page itself: Playwright's requestfailed event is not
+    // reliable for a request still held in a page.route handler when the page aborts it (1 in 12 missed, R13 flake).
+    await page.addInitScript(() => {
+      const log: Array<{ url: string; outcome: string }> = []
+      ;(window as unknown as { __cardFetches: typeof log }).__cardFetches = log
+      const realFetch = window.fetch.bind(window)
+      window.fetch = (input, init) => {
+        const url = String(input instanceof Request ? input.url : input)
+        if (!/departures\?limit=3$/.test(url)) return realFetch(input, init)
+        const entry = { url, outcome: 'pending' }
+        log.push(entry)
+        init?.signal?.addEventListener('abort', () => {
+          if (entry.outcome === 'pending') entry.outcome = 'aborted'
+        })
+        return realFetch(input, init).then(
+          (res) => {
+            if (entry.outcome === 'pending') entry.outcome = 'completed'
+            return res
+          },
+          (error) => {
+            if (entry.outcome === 'pending') entry.outcome = init?.signal?.aborted ? 'aborted' : 'failed'
+            throw error
+          },
+        )
+      }
+    })
+    const requestFailed: string[] = []
     page.on('requestfailed', (r) => {
-      if (/departures\?limit=3$/.test(r.url())) aborted.push(r.url())
+      if (/departures\?limit=3$/.test(r.url())) requestFailed.push(r.url())
     })
     await page.goto('/')
     await page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true').click()
@@ -263,7 +289,21 @@ test.describe(() => {
     await expect(card).toHaveAttribute('data-stop-card', second)
     expect(await card.getByRole('list').textContent()).toBe(rowsBefore)
     expect(slow).toHaveLength(1)
-    expect(aborted.some((u) => u.includes(`/stops/${slowId}/`))).toBe(true)
+    // The previous stop's request was aborted by the page (its signal fired before any answer), and only the current
+    // stop's request completed.
+    const fetches = await page.evaluate(
+      () => (window as unknown as { __cardFetches: Array<{ url: string; outcome: string }> }).__cardFetches,
+    )
+    expect(fetches.filter((f) => f.url.includes(`/stops/${slowId}/`)).map((f) => f.outcome)).toEqual([
+      'aborted',
+    ])
+    expect(fetches.filter((f) => f.url.includes(`/stops/${second}/`)).map((f) => f.outcome)).toEqual([
+      'completed',
+    ])
+    test.info().annotations.push({
+      type: 'requestfailed seen for the aborted request',
+      description: String(requestFailed.some((u) => u.includes(`/stops/${slowId}/`))),
+    })
   })
 
   test('a search chunk that cannot load is an error, not an endless "Loading stops…"', async ({
