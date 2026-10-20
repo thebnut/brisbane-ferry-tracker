@@ -490,14 +490,14 @@ export default function StopPickerMap({
         {notice ? (
           <p
             role="status"
-            className="absolute inset-x-0 bottom-4 z-10 mx-auto flex w-fit items-center gap-3 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-charcoal shadow-card dark:bg-night-card dark:text-night-text"
+            className="absolute inset-x-2 bottom-4 z-10 mx-auto flex w-fit items-center gap-3 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-charcoal shadow-card dark:bg-night-card dark:text-night-text"
           >
             {notice}
             {onRetry ? (
               <button
                 type="button"
                 onClick={onRetry}
-                className="text-ferry-orange-deep underline dark:text-ferry-sunset"
+                className="shrink-0 whitespace-nowrap text-ferry-orange-deep underline dark:text-ferry-sunset"
               >
                 Try again
               </button>

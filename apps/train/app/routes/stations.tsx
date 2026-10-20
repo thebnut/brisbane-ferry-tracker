@@ -28,6 +28,13 @@ import { fetchStationIndex } from '../lib/stop-index.ts'
 import { useMounted } from '../lib/useNow.ts'
 import type { Route } from './+types/stations'
 
+type StationPickerProps = {
+  slot: string
+  onClose: () => void
+  notice?: string | null
+  onRetry?: (() => void) | null
+}
+
 // Client-only (Ark UI): the server renders the plain fallback field, then the combobox loads after hydration.
 const StopSearch = lazy(() =>
   import.meta.env.SSR
@@ -41,7 +48,7 @@ const StationPicker = lazy(() =>
   import.meta.env.SSR
     ? new Promise<never>(() => {})
     : import('../components/StationPicker.tsx').catch(() => ({
-        default: (_: { slot: string; onClose: () => void }) => null,
+        default: (_: StationPickerProps) => null,
       })),
 )
 
@@ -62,6 +69,8 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
     site,
   })
 }
+
+const INDEX_FAILED = "Couldn't load the station list, so search uses the built-in one."
 
 /**
  * The station index file (pipeline output, served as a static asset; cached by the service worker). If it can't load,
@@ -128,10 +137,17 @@ export default function Stations({ loaderData }: Route.ComponentProps) {
   }
   const lines = from && to ? linesBetween(from.key, to.key) : []
   const [map, setMap] = useState(false)
+  // On phones the map sheet covers the page's notice below, so the sheet shows it too: one query, so Try again from
+  // either place clears both.
   const picker = (slot: 'wide' | 'narrow') =>
     map ? (
       <Suspense fallback={null}>
-        <StationPicker slot={slot} onClose={() => setMap(false)} />
+        <StationPicker
+          slot={slot}
+          onClose={() => setMap(false)}
+          notice={index.isError ? INDEX_FAILED : null}
+          onRetry={index.isError ? () => index.refetch() : null}
+        />
       </Suspense>
     ) : null
 
@@ -191,7 +207,7 @@ export default function Stations({ loaderData }: Route.ComponentProps) {
             ) : null}
             {index.isError ? (
               <p role="status" className="flex flex-wrap items-center gap-x-2 text-[13px] text-sched-text">
-                Couldn't load the station list, so search uses the built-in one.
+                {INDEX_FAILED}
                 <button
                   type="button"
                   onClick={() => index.refetch()}
