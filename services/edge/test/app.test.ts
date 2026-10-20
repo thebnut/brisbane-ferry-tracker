@@ -141,6 +141,37 @@ describe('GET /v1/{mode}/stops/{key}/departures', () => {
     expect(body.departures.map((d) => d.tripInstance)).not.toContain(`T3@${D}`)
   })
 
+  it("`to` may list one place's stops, comma-separated: the destination is any of them (R11-A1)", async () => {
+    const s = await setup()
+    const single = DeparturesResponse.parse(
+      await (await s.get('/v1/ferry/stops/317584/departures?to=317590')).json(),
+    )
+    const res = await s.get('/v1/ferry/stops/317584/departures?to=317590,NOWHERE')
+    expect(res.status).toBe(200)
+    const body = DeparturesResponse.parse(await res.json())
+    expect(body.departures.map((d) => d.tripInstance)).toEqual(single.departures.map((d) => d.tripInstance))
+    expect(body.to).toEqual({ key: '317590,NOWHERE', name: '317590 ferry terminal' })
+    // Listing a stop no trip reaches adds nothing; listing only such stops filters to nothing (not to everything).
+    const none = DeparturesResponse.parse(
+      await (await s.get('/v1/ferry/stops/317584/departures?to=NOWHERE,ALSO_NOT')).json(),
+    )
+    expect(none.departures).toEqual([])
+  })
+
+  it('a comma-separated `to` is validated: at most 8 keys, each a plain stop key', async () => {
+    const s = await setup()
+    const nine = Array.from({ length: 9 }, (_, i) => `S${i}`).join(',')
+    for (const to of [nine, '317590,', '317590,a b', '317590,../x', `317590,${'x'.repeat(65)}`]) {
+      const res = await s.get(`/v1/ferry/stops/317584/departures?to=${encodeURIComponent(to)}`)
+      expect(res.status, to).toBe(400)
+      expect(await res.json()).toMatchObject({ error: 'bad to' })
+    }
+    const eight = Array.from({ length: 7 }, (_, i) => `S${i}`)
+      .concat('317590')
+      .join(',')
+    expect((await s.get(`/v1/ferry/stops/317584/departures?to=${eight}`)).status).toBe(200)
+  })
+
   it('caps max-age by snapshot age', async () => {
     const s = await setup()
     // The last cycle ran 1 s ago; snapshot fetchedAt is that cycle's start.

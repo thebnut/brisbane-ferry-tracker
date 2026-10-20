@@ -21,7 +21,7 @@ const STOPS: Array<[Mode, string, string, string[]?]> = [
   ['train', 'roma-street', 'Roma Street', ['roma st']],
   ['train', 'fortitude-valley', 'Fortitude Valley', ['the valley', 'valley']],
   ['train', 'domestic-airport', 'Domestic Airport', ['airport', 'the airport', 'domestic']],
-  ['train', 'international-airport', 'International Airport', ['international']],
+  ['train', 'international-airport', 'International Airport', ['airport', 'the airport', 'international']],
   ['train', 'ferny-grove', 'Ferny Grove'],
   ['train', 'indooroopilly', 'Indooroopilly', ['indro']],
   ['train', 'south-brisbane', 'South Brisbane'],
