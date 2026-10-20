@@ -33,6 +33,7 @@ import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { corsHeaders } from './cors.ts'
 import { mayHaveStop, type StaticStore } from './data/static-store.ts'
+import { errorLogFields } from './error-log.ts'
 import { createLogger, errorMessage, type Logger } from './log.ts'
 import { FEED_MODE_SUFFIX, MODES } from './rt/feeds.ts'
 import type { SnapshotScope } from './rt/split.ts'
@@ -92,7 +93,10 @@ export function createApp(deps: AppDeps): Hono<Env> {
     for (const [k, v] of Object.entries(cors)) c.res.headers.set(k, v)
     c.res.headers.set('x-request-id', rid)
     c.res.headers.set(BUILD_HEADER, build)
-    log.info('request', { method: c.req.method, path: c.req.path, status: c.res.status, ms: now() - t0 })
+    const fields = { method: c.req.method, path: c.req.path, status: c.res.status, ms: now() - t0 }
+    // A server error names its cause (the JSON body's error code, and a safe detail): read only for 5xx.
+    if (c.res.status >= 500) Object.assign(fields, await errorLogFields(c.res))
+    log.info('request', fields)
   })
 
   app.onError((err, c) => {
