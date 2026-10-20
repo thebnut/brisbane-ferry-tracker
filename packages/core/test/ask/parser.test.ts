@@ -263,6 +263,19 @@ describe('a named platform or stop is passed to the resolver, not stripped (Code
   ])('%s → %s + platform %s', (q, text, platform) => {
     expect(seen(q)[0]).toEqual([text, platform])
   })
+  it.each([
+    ['departures at cultural centre platform 2 bus', 'cultural centre', '2'],
+    ['departures at strathpine stop a bus', 'strathpine', 'a'],
+    ['next bus from cultural centre bus platform 2', 'cultural centre', '2'],
+  ])('a mode word after the identifier keeps it (Codex r4): %s', (q, text, platform) => {
+    expect(seen(q)[0]).toEqual([text, platform])
+  })
+  it('anything else after the identifier leaves the stop unresolved, never broadened (Codex r4)', () => {
+    const r = parseQuestion('departures at cultural centre platform 2 opposite bus', (t, m, o) => {
+      throw new Error(`resolver called with ${t} ${m} ${o?.platform}`)
+    })
+    expect(r.ok ? r.intent : r.reason).toBe('unresolved_stop')
+  })
   it('"stop 1234" alone is a stop number: no platform', () => {
     expect(seen('next bus from stop 1234')[0]).toEqual(['1234', undefined])
   })

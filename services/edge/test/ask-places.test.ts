@@ -201,6 +201,37 @@ describe('the Ask resolver groups one place (bus)', () => {
     expect(r.ok && r.intent).toMatchObject({ kind: 'departures_at', at: { key: '1001' } })
   })
 
+  it('a trailing mode word keeps the named platform, numeric or lettered, in both roles (Codex r4)', () => {
+    for (const [q, key] of [
+      ['departures at cultural centre platform 2 bus', '11168'],
+      ['departures at strathpine stop a bus', 'SP-A'],
+    ] as const) {
+      const r = parseQuestion(q, resolver)
+      expect(r.ok && r.intent, q).toMatchObject({ kind: 'departures_at', at: { key } })
+      if (r.ok && r.intent.kind === 'departures_at') expect(r.intent.at.stopKeys, q).toBeUndefined()
+    }
+    for (const [dest, key] of [
+      ['cultural centre platform 2 bus', '11168'],
+      ['strathpine stop a bus', 'SP-A'],
+    ] as const) {
+      const q = `next bus from brisbane domestic airport to ${dest}`
+      const r = parseQuestion(q, resolver)
+      expect(r.ok && r.intent, q).toMatchObject({ kind: 'next_departure', to: { key } })
+      if (r.ok && r.intent.kind === 'next_departure') expect(r.intent.to.stopKeys, q).toBeUndefined()
+    }
+  })
+
+  it('a platform named for a train station or ferry terminal is refused, not dropped (Codex r4)', () => {
+    for (const q of [
+      'next train from bowen hills platform 2',
+      'next train from ferny grove to bowen hills platform 2',
+      'next ferry from bulimba platform 9',
+    ]) {
+      const r = parseQuestion(q, resolver)
+      expect(r.ok ? r.intent : r.reason, q).toBe('unresolved_stop')
+    }
+  })
+
   it('a platform the station does not have is never answered with the whole station', () => {
     const r = parseQuestion('next bus from cultural centre platform 9', resolver)
     expect(r.ok ? r.intent : r.reason).toBe('unresolved_stop')

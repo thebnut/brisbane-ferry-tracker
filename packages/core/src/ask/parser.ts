@@ -117,11 +117,25 @@ const AIRPORT = /^(?:brisbane )?airports?$/
 const AIRPORT_STATIONS = ['international-airport', 'domestic-airport'] as const
 
 /**
- * "cultural centre platform 2", "strathpine bus station stop a", "queen street station platform 1 (southport)": a
+ * "cultural centre platform 2", "strathpine bus station stop a", "queen street station platform 1 (southport) bus": a
  * platform or stop identifier after a name, taken out before filler words are stripped (the "a" of "stop a" is also an
  * article). With no name before it, "stop 123" is a stop number and stays.
  */
-const PLATFORM = /^(.+?)\s*\b(?:platform|stop|bay)\s+(\d{1,3}[a-z]?|[a-z])\b\s*(\([^)]*\))?\s*$/
+const PLATFORM = /^(.+?)\s*\b(?:platform|stop|bay)\s+(\d{1,3}[a-z]?|[a-z])\b(.*)$/
+
+/**
+ * The stop text and any platform it names. Only filler (mode words, articles) and a parenthesised locality may follow
+ * the identifier; anything else makes the constraint unclear, and an unclear constraint is never dropped (that would
+ * answer for the whole station): `null`, so the stop is unresolved.
+ */
+function splitPlatform(raw: string): { text: string; platform?: string } | null {
+  const m = PLATFORM.exec(raw.trim())
+  if (!m || !stripModeWords(m[1] as string)) return { text: stripModeWords(raw) }
+  const tail = m[3] as string
+  const locality = /\([^)]*\)/.exec(tail)?.[0]
+  if (stripModeWords(tail.replace(/\([^)]*\)/, ' '))) return null
+  return { text: stripModeWords(`${m[1]}${locality ? ` ${locality}` : ''}`), platform: m[2] as string }
+}
 
 function resolve(
   resolver: StopResolver,
@@ -130,11 +144,9 @@ function resolve(
   role: 'from' | 'to' = 'from',
   fromKey?: string,
 ): StopCandidate | 'unresolved' | Ambiguous {
-  const pm = PLATFORM.exec(raw.trim())
-  const named = pm && stripModeWords(pm[1] as string) ? pm : null
-  const platform = named?.[2]
-  const text = stripModeWords(named ? `${named[1]}${named[3] ? ` ${named[3]}` : ''}` : raw)
-  if (!text) return 'unresolved'
+  const split = splitPlatform(raw)
+  if (!split?.text) return 'unresolved'
+  const { text, platform } = split
   // Same place twice (a resolver may list a station once per platform): collapse before the ambiguity test.
   const seen = new Set<string>()
   const c = resolver(text, mode, platform ? { platform } : undefined).filter((x) => {

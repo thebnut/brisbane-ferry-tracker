@@ -157,9 +157,9 @@ const single = (mode: Mode, s: StopIndexEntry, score: number): StopCandidate => 
 /**
  * Search one or all modes; best-first candidates with a 0..1 score. With `places`, stops that are one place come back
  * as one candidate (its name, every stop key), scored by its best stop or by the place name itself. With `platform`
- * (the question named one, e.g. "cultural centre platform 2"), bus candidates are only the stops carrying it: never a
- * whole station, and none when no match has it. Train and ferry ignore it (a train answer covers the station's
- * platforms and names each row's platform).
+ * (the question named one, e.g. "cultural centre platform 2"), candidates are only the stops carrying it: never a
+ * whole station, and none when no match has it. Train stations and ferry terminals have no platform suffix, so a named
+ * platform there resolves to nothing (their answers cover the whole station, and the question asked for less).
  */
 export function searchStops(
   indexes: ModeIndex[],
@@ -175,7 +175,7 @@ export function searchStops(
   const out: StopCandidate[] = []
   for (const idx of indexes) {
     if (mode && idx.mode !== mode) continue
-    const strict = !!platform && idx.mode === 'bus'
+    const strict = !!platform
     const digits = q.replace(/^(stop\s*)?0*/, '')
     if (/^\d{1,6}$/.test(digits)) {
       // A stop number names one stop, never its whole station.
