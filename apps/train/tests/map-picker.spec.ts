@@ -75,6 +75,16 @@ test('favourites saved on either side of the 768 px breakpoint are all kept; a t
     ).toBeVisible()
   }
   await save(/^Central/, 'Central')
+  // The card and its controls sit inside the tablet panel (none clipped by its overflow).
+  const panel = (await picker.boundingBox()) as { x: number; width: number }
+  for (const el of [
+    picker.getByRole('dialog', { name: 'Central' }),
+    picker.getByRole('button', { name: 'Close Central' }),
+  ]) {
+    const b = (await el.boundingBox()) as { x: number; width: number }
+    expect(b.x).toBeGreaterThanOrEqual(panel.x)
+    expect(b.x + b.width).toBeLessThanOrEqual(panel.x + panel.width)
+  }
   // Across the breakpoint: the phone layout's picker takes over.
   await page.setViewportSize({ width: 500, height: 900 })
   await expect(picker).toHaveAttribute('aria-modal', 'true')

@@ -472,7 +472,7 @@ export default function StopPickerMap({
             role="dialog"
             aria-label={active.name}
             data-stop-card={active.id}
-            className="absolute inset-x-2 bottom-2 z-20 flex flex-col gap-2.5 rounded-card bg-white p-3.5 shadow-header md:right-auto md:w-96 dark:bg-night-card"
+            className="absolute inset-x-2 bottom-2 z-20 flex flex-col gap-2.5 rounded-card bg-white p-3.5 shadow-header md:right-auto md:w-[min(24rem,calc(100%-1rem))] dark:bg-night-card"
           >
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
