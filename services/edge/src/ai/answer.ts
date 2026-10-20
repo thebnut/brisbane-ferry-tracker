@@ -59,12 +59,28 @@ function describe(d: Departure, nowS: number): string {
 export const PLATFORM_GRACE_MS = 1_500
 
 /**
+ * The most a place's fan-out waits in all, from its start (Codex r1): failed platforms plus one that never answers
+ * still end in a reply. Under the apps' 8 s client deadline.
+ */
+export const PLATFORM_DEADLINE_MS = 5_000
+
+const sleep = (ms: number) => {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const p = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ms)
+  })
+  return { p, cancel: () => clearTimeout(timer) }
+}
+
+/**
  * Departures for every stop of a place, in parallel. Waits for the first good answer, then up to `graceMs` for the
- * rest; anything that fails or is still out is null. With one stop this is just that read.
+ * rest, and never past `deadlineMs` from the start; anything that fails or is still out is null. With one stop this
+ * is just that read, as before.
  */
 async function fanOut(
   reads: Array<() => Promise<Response>>,
   graceMs: number,
+  deadlineMs: number,
 ): Promise<Array<DeparturesResponse | null>> {
   const out: Array<DeparturesResponse | null> = reads.map(() => null)
   const settled = reads.map((read, i) =>
@@ -78,20 +94,18 @@ async function fanOut(
     await settled[0]
     return out
   }
-  // The first good answer starts the grace period; if none comes, everything has settled anyway.
+  const deadline = sleep(deadlineMs)
+  const all = Promise.all(settled)
+  // The first good answer starts the grace period; if none comes, wait for everything, up to the deadline.
   const firstGood = new Promise<void>((resolve) => {
     for (const p of settled) p.then(() => out.some((b) => b != null) && resolve())
-    Promise.all(settled).then(() => resolve())
+    all.then(() => resolve())
   })
-  await firstGood
-  let timer: ReturnType<typeof setTimeout> | undefined
-  await Promise.race([
-    Promise.all(settled),
-    new Promise<void>((resolve) => {
-      timer = setTimeout(resolve, graceMs)
-    }),
-  ])
-  clearTimeout(timer)
+  await Promise.race([firstGood, deadline.p])
+  const grace = sleep(graceMs)
+  if (out.some((b) => b != null)) await Promise.race([all, grace.p, deadline.p])
+  grace.cancel()
+  deadline.cancel()
   // A late answer must not change the result after it's returned.
   return [...out]
 }
@@ -100,7 +114,7 @@ export async function answerIntent(
   intent: Intent,
   fetchApi: InternalFetch,
   nowS: number,
-  opts: { platformGraceMs?: number } = {},
+  opts: { platformGraceMs?: number; platformDeadlineMs?: number } = {},
 ): Promise<AskAnswer> {
   switch (intent.kind) {
     case 'trip_plan_unsupported':
@@ -122,6 +136,7 @@ export async function answerIntent(
       const loaded = await fanOut(
         fromKeys.map((k) => () => fetchApi(`/v1/${mode}/stops/${encodeURIComponent(k)}/departures?${q}`)),
         opts.platformGraceMs ?? PLATFORM_GRACE_MS,
+        opts.platformDeadlineMs ?? PLATFORM_DEADLINE_MS,
       )
       const bodies = loaded.filter((b): b is DeparturesResponse => b != null)
       const first = bodies[0]

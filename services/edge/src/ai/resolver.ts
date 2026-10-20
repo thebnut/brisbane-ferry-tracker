@@ -37,6 +37,8 @@ interface Place {
   name: string
   /** Stop indexes, in display order; the first is the place's key. */
   members: number[]
+  /** Platform or stop suffix (lowercase, "2", "1e", "d") → the stops carrying it, so a question can name one. */
+  platforms: Map<string, number[]>
 }
 
 /** Stops further apart than this are never one place, whatever their names. */
@@ -46,13 +48,15 @@ export const PLACE_RADIUS_M = 400
  * A platform or stop suffix: "Cultural Centre station, platform 2", "King George Square, 1a", "Strathpine bus
  * station, stop D", "Sandgate Rd at Nundah, stop 3". Compound ones ("stop 28/1") are kept whole.
  */
-const STATION_PART = /^(.+?),\s*(?:(?:platform|stop|bay)\s+)?(?:\d{1,3}[a-z]?|[a-z])(\s*\([^)]*\))?$/i
+const STATION_PART = /^(.+?),\s*(?:(?:platform|stop|bay)\s+)?(\d{1,3}[a-z]?|[a-z])(\s*\([^)]*\))?$/i
 
 /** The place a stop name belongs to: the name without its platform or stop suffix. */
 export const placeName = (name: string): string => {
   const m = STATION_PART.exec(name.trim())
-  return m ? `${m[1]}${m[2] ?? ''}` : name.trim()
+  return m ? `${m[1]}${m[3] ?? ''}` : name.trim()
 }
+
+const platformOf = (name: string): string | undefined => STATION_PART.exec(name.trim())?.[2]?.toLowerCase()
 
 const natural = new Intl.Collator('en', { numeric: true, sensitivity: 'base' }).compare
 
@@ -67,14 +71,17 @@ function buildPlaces(stops: StopIndexEntry[]): Map<number, Place> {
   const out = new Map<number, Place>()
   for (const list of byName.values()) {
     if (list.length < 2) continue
-    // Clusters around an anchor stop, so two same-named places across town stay apart.
+    // A stop joins a cluster only within PLACE_RADIUS_M of every stop already in it, so no two stops of a place are
+    // further apart than that (whatever the input order), and same-named places across town stay apart.
     const clusters: number[][] = []
     for (const i of list) {
       const s = stops[i] as StopIndexEntry
-      const home = clusters.find((c) => {
-        const a = stops[c[0] as number] as StopIndexEntry
-        return haversine(a.lat, a.lon, s.lat, s.lon) <= PLACE_RADIUS_M
-      })
+      const home = clusters.find((c) =>
+        c.every((j) => {
+          const a = stops[j] as StopIndexEntry
+          return haversine(a.lat, a.lon, s.lat, s.lon) <= PLACE_RADIUS_M
+        }),
+      )
       if (home) home.push(i)
       else clusters.push([i])
     }
@@ -85,7 +92,16 @@ function buildPlaces(stops: StopIndexEntry[]): Map<number, Place> {
           natural((stops[a] as StopIndexEntry).name, (stops[b] as StopIndexEntry).name) ||
           natural((stops[a] as StopIndexEntry).key, (stops[b] as StopIndexEntry).key),
       )
-      const place: Place = { name: placeName((stops[members[0] as number] as StopIndexEntry).name), members }
+      const platforms = new Map<string, number[]>()
+      for (const i of members) {
+        const code = platformOf((stops[i] as StopIndexEntry).name)
+        if (code) platforms.set(code, [...(platforms.get(code) ?? []), i])
+      }
+      const place: Place = {
+        name: placeName((stops[members[0] as number] as StopIndexEntry).name),
+        members,
+        platforms,
+      }
       for (const i of members) out.set(i, place)
     }
   }
@@ -172,19 +188,33 @@ export function searchStops(
         out.push(single(idx.mode, s, score))
         return
       }
-      const placeScore = clean(place.name) === q ? 1 : score
+      // A question naming one platform ("cultural centre platform 2", which reaches here as "cultural centre 2") gets
+      // that platform only, never the whole station.
+      const words = q.split(' ')
+      const rest = words.slice(0, -1).join(' ')
+      const named =
+        words.length > 1 && clean(place.name).startsWith(rest)
+          ? place.platforms.get(words.at(-1) as string)
+          : undefined
+      const placeScore = clean(place.name) === (named ? rest : q) ? 1 : score
       const had = taken.get(place)
       if (had) {
         had.score = Math.max(had.score, placeScore)
         return
       }
-      const keys = place.members.map((m) => (idx.stops[m] as StopIndexEntry).key)
-      const c: StopCandidate = {
-        mode: idx.mode,
-        key: keys[0] as string,
-        name: place.name,
-        score: placeScore,
-        stopKeys: keys,
+      const members = named ?? place.members
+      let c: StopCandidate
+      if (members.length === 1)
+        c = single(idx.mode, idx.stops[members[0] as number] as StopIndexEntry, placeScore)
+      else {
+        const keys = members.map((m) => (idx.stops[m] as StopIndexEntry).key)
+        c = {
+          mode: idx.mode,
+          key: keys[0] as string,
+          name: named ? (idx.stops[members[0] as number] as StopIndexEntry).name : place.name,
+          score: placeScore,
+          stopKeys: keys,
+        }
       }
       taken.set(place, c)
       out.push(c)

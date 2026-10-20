@@ -129,6 +129,48 @@ describe('the Ask resolver groups one place (bus)', () => {
     expect(r.ok ? r.intent : r.reason).toBe('ambiguous_stop')
   })
 
+  it('no two stops of a place are more than 400 m apart, in any input order (Codex r1)', () => {
+    // Synthetic: one name, stops ~389 m north and south of a middle one (~778 m apart end to end).
+    const line: StopIndexEntry[] = [
+      stop('N', 'Long Rd at Park', -27.4965, 153.0),
+      stop('M', 'Long Rd at Park', -27.5, 153.0),
+      stop('S', 'Long Rd at Park', -27.5035, 153.0),
+    ]
+    const orders = [
+      [0, 1, 2],
+      [0, 2, 1],
+      [1, 0, 2],
+      [1, 2, 0],
+      [2, 0, 1],
+      [2, 1, 0],
+    ]
+    for (const o of orders) {
+      const idx = buildIndex(
+        'bus',
+        o.map((i) => line[i] as StopIndexEntry),
+      )
+      for (const c of searchStops([idx], 'long rd at park', 'bus', 5, true)) {
+        const keys = c.stopKeys ?? [c.key]
+        expect(keys.includes('N') && keys.includes('S'), `order ${o}`).toBe(false)
+      }
+    }
+  })
+
+  it('a question naming one platform gets that platform, as origin or destination (Codex r1)', () => {
+    const from = parseQuestion('next bus from cultural centre platform 2', resolver)
+    expect(from.ok && from.intent).toMatchObject({
+      kind: 'departures_at',
+      at: { key: '11168', name: 'Cultural Centre station, platform 2' },
+    })
+    if (from.ok && from.intent.kind === 'departures_at') expect(from.intent.at.stopKeys).toBeUndefined()
+    const to = parseQuestion(
+      'next bus from brisbane domestic airport to cultural centre platform 3',
+      resolver,
+    )
+    expect(to.ok && to.intent).toMatchObject({ kind: 'next_departure', to: { key: '12111' } })
+    if (to.ok && to.intent.kind === 'next_departure') expect(to.intent.to.stopKeys).toBeUndefined()
+  })
+
   it('Queen Street (Brisbane) and Queen Street (Southport) are different places', () => {
     const c = resolver('queen street station', 'bus')
     const brisbane = c.find((x) => x.name === 'Queen Street station')
@@ -287,6 +329,32 @@ describe('answerIntent for a place: every platform, in parallel', () => {
     expect(some.answer).toContain("didn't answer in time")
     const none = await answerIntent(intent, async () => new Response('x', { status: 503 }), NOW)
     expect(none.answer).toBe("Sorry, I couldn't load departures for Cultural Centre station right now.")
+  })
+
+  it('failed platforms plus one that never answers still reply by the deadline (Codex r1)', async () => {
+    const intent: Intent = { kind: 'departures_at', mode: 'bus', at: place(['P1', 'P2']) }
+    const hang = (p: string) =>
+      p.includes('/P1/')
+        ? Promise.resolve(new Response('x', { status: 503 }))
+        : new Promise<Response>(() => {})
+    const t0 = Date.now()
+    const none = await answerIntent(intent, hang, NOW, { platformGraceMs: 10, platformDeadlineMs: 50 })
+    expect(Date.now() - t0).toBeLessThan(1_000)
+    expect(none.answer).toBe("Sorry, I couldn't load departures for Cultural Centre station right now.")
+
+    // A good answer arriving after the deadline isn't waited for either.
+    let release: () => void = () => {}
+    const late = (p: string) =>
+      p.includes('/P1/')
+        ? new Promise<Response>(
+            (r) => (release = () => r(Response.json(body('P1', [['60-late', NOW + 60]])))),
+          )
+        : new Promise<Response>(() => {})
+    const t1 = Date.now()
+    const still = await answerIntent(intent, late, NOW, { platformGraceMs: 10, platformDeadlineMs: 50 })
+    expect(Date.now() - t1).toBeLessThan(1_000)
+    expect(still.answer).toMatch(/^Sorry/)
+    release()
   })
 
   it('a place as the destination is one comma-separated `to`; the note is in the answer', async () => {
