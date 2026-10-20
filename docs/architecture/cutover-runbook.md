@@ -109,6 +109,24 @@ The hub publishes realtime to R2 in one of two layouts: `documents` (one object 
   - Only then roll back. A pre-#99 reader facing a `combined` pointer can't load new mode snapshots: a cold isolate has no realtime, and **a warm one can keep serving its last snapshot labelled `live`**. That's why the pointer must be back on `documents` first.
 - **Report entry:** the layout switch (env, time, version id), the PUT rate before and after, and any rollback.
 
+### 2b. RT document compression: `RT_R2_COMPRESS` (from #104)
+With `RT_R2_COMPRESS=gzip` the hub stores each per-mode and alerts document as gzip (`contentEncoding: gzip`, its seq in `customMetadata`), and in the `combined` layout each mode section as its own gzip stream (the 1 KiB index stays plain, so ranged reads still work). The pointer `rt/latest.json` is always plain. Readers from #104 on detect gzip by its first two bytes (`1f 8b`) and read plain, gzip and mixed objects alike. **Readers from releases before #104 can't read gzip documents.** Measured on a real snapshot: about 7.8× smaller (a cold bus read 2.6 MB → 334 KB), for ~6–7 ms of reader CPU and ~50 ms of hub CPU per poll at peak.
+- **Independent of `RT_R2_LAYOUT`:** either, both or neither can be on. Switch one at a time, and verify between.
+- **Rollout (staging first, then production, each only after the release containing #104 is deployed and verified there):**
+  1. Deploy with `RT_R2_COMPRESS` unset (plain documents, as before).
+  2. Switch: the same command as 2a with `--var RT_R2_COMPRESS:gzip` (keep `--var RT_R2_LAYOUT:combined` too if that is on, since each deploy sets only the vars it's given). The watchdog restarts the hub on the new version within about a minute. A restarted hub has nothing published yet, so its first cycle rewrites every document in the new encoding.
+  3. **Check:**
+     - as in 2a (health, departures `live` per mode, `/v1/<mode>/vehicles` `ts` advancing per mode, hub cycles completing in `npx wrangler tail --env <env>`);
+     - a mode document is gzip: `npx wrangler r2 object get bft-transit-data/rt/ferry/latest.json --remote --pipe | head -c 2 | xxd` prints `1f8b` (staging: `bft-transit-data/rt-staging/ferry/latest.json`; in the `combined` layout, check a section with the 2a extraction command, which then needs a gunzip step);
+     - hub CPU per cycle in the tail stays well under the limit.
+  - **A `--var` lasts one deploy**, as in 2a: the next normal deploy returns the hub to plain documents, which is safe from #104 on. To keep it, set it in `wrangler.jsonc` `vars` with a reviewed PR.
+- **Rollback order:**
+  - **Before any `wrangler rollback` or deploy of a version older than #104**, redeploy the current version without `RT_R2_COMPRESS` (keeping `RT_R2_LAYOUT` as it was if you aren't also going back past #99; otherwise do 2a's rollback steps too).
+  - Wait for the hub to restart on that version and complete a publish. The restart republishes every document plain.
+  - Confirm with the same `head -c 2 | xxd` check that every mode's document (`rt/<mode>/latest.json` for ferry, train, tram and bus) starts with `7b` (`{`), not `1f8b`, and that each mode's vehicles `ts` advance.
+  - Only then roll back. A pre-#104 reader facing a gzip document fails to parse it: a cold isolate has no realtime, and a warm one keeps its last snapshot.
+- **Report entry:** the switch (env, time, version id), bytes and hub CPU before and after, the bus cold-read result, and any rollback.
+
 ## 3. Phase 2: the legacy ferry app reads `/v1` (flagged, 10% → 50% → 100%)
 - The legacy app's CSP (`vercel.json` and the iOS `index.html` meta) already allows `https://api.brisbaneferry.com` in `connect-src`. **Check** in a real browser that `/v1` requests succeed with no CSP violations in the console before raising the percentage.
 - Vercel production env: `VITE_TRANSIT_API_BASE=https://api.brisbaneferry.com`, then `VITE_FERRY_V1_PERCENT=10`, and redeploy.
