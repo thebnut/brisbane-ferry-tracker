@@ -42,9 +42,9 @@ export const CLUSTER_CELL_PX = 56
 export const inBounds = (s: { lat: number; lon: number }, b: PickerBounds) =>
   s.lat >= b.south && s.lat <= b.north && s.lon >= b.west && s.lon <= b.east
 
-/** Web Mercator world pixel coordinates at a zoom (256 px tiles), as MapLibre draws them. */
+/** Web Mercator world pixel coordinates at a (fractional) zoom, as MapLibre draws them: 512 px tiles. */
 export function worldPixel(lat: number, lon: number, zoom: number): [number, number] {
-  const scale = 256 * 2 ** zoom
+  const scale = 512 * 2 ** zoom
   const sin = Math.min(Math.max(Math.sin((lat * Math.PI) / 180), -0.9999), 0.9999)
   return [((lon + 180) / 360) * scale, (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale]
 }
@@ -52,7 +52,7 @@ export function worldPixel(lat: number, lon: number, zoom: number): [number, num
 /**
  * The stops in view, grouped on a screen-pixel grid: a cell with one stop shows the stop, a cell with more shows a
  * cluster at their average position. From `CLUSTER_MAX_ZOOM` every stop shows on its own. Cells are anchored to the
- * world grid (not the view), so panning doesn't reshuffle the clusters.
+ * world grid (not the view), so panning at one zoom doesn't reshuffle the clusters.
  */
 export function clusterStops(
   stops: readonly PickerStop[],
@@ -62,7 +62,8 @@ export function clusterStops(
 ): { stops: PickerStop[]; clusters: PickerCluster[] } {
   const visible = stops.filter((s) => inBounds(s, bounds))
   if (zoom >= CLUSTER_MAX_ZOOM) return { stops: visible, clusters: [] }
-  const z = Math.floor(zoom)
+  // The view's own (fractional) zoom, so a cell is `cellPx` screen pixels (Codex review).
+  const z = zoom
   const cells = new Map<string, PickerStop[]>()
   for (const s of visible) {
     const [x, y] = worldPixel(s.lat, s.lon, z)

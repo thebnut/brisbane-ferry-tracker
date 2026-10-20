@@ -235,9 +235,25 @@ export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsRe
  */
 export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boolean) {
   const [search, setSearch] = useState<typeof import('./search.ts') | null>(null)
+  // A search chunk that can't load (offline before it was cached) is an error, retried when the browser is back
+  // online, never an endless "Loading stops…" (Codex review).
+  const [searchFailed, setSearchFailed] = useState(false)
   useEffect(() => {
-    if (enabled && !search) void import('./search.ts').then(setSearch)
-  }, [enabled, search])
+    if (!enabled || search) return
+    if (searchFailed) {
+      const retry = () => setSearchFailed(false)
+      window.addEventListener('online', retry)
+      return () => window.removeEventListener('online', retry)
+    }
+    let live = true
+    import('./search.ts').then(
+      (m) => live && setSearch(m),
+      () => live && setSearchFailed(true),
+    )
+    return () => {
+      live = false
+    }
+  }, [enabled, search, searchFailed])
   const q = useQuery({
     queryKey: ['bus', 'stop-index', mode.fixtures],
     queryFn: ({ signal }) => fetchStopIndex(fetcher, signal),
@@ -251,7 +267,7 @@ export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boole
     [q.data, search],
   )
   const byKey = useMemo(() => new Map((q.data?.stops ?? []).map((s) => [s.key, s])), [q.data])
-  return { ...q, index, byKey, searchStops: search?.searchStops }
+  return { ...q, isError: q.isError || searchFailed, index, byKey, searchStops: search?.searchStops }
 }
 
 export function useLines(fetcher: ApiFetcher, mode: DataMode, enabled = true) {

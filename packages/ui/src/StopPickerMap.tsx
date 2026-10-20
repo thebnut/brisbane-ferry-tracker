@@ -254,7 +254,14 @@ export default function StopPickerMap({
       clusterData(grouped.clusters),
     )
   }, [grouped])
-  useEffect(() => closeRef.current?.focus(), [])
+  // Focus moves into the picker, and back to what opened it (the Map button) when it closes.
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    closeRef.current?.focus()
+    return () => {
+      if (opener?.isConnected) opener.focus()
+    }
+  }, [])
   // Focus follows the card: the keyboard list (whose button it came from) closes, and Escape must reach the picker.
   const activeId = active?.id
   useEffect(() => {
@@ -318,8 +325,11 @@ export default function StopPickerMap({
         // Inside a modal sheet (ferry), Escape steps back in the picker instead of closing the sheet.
         e.preventDefault()
         e.stopPropagation()
-        if (listOpen) setListOpen(false)
-        else if (active) closeCard()
+        if (listOpen) {
+          // The focused stop button goes with the list: keep focus in the picker (Codex review).
+          setListOpen(false)
+          listRef.current?.focus()
+        } else if (active) closeCard()
         else onClose()
       }}
       className={

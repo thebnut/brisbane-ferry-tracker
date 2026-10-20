@@ -133,7 +133,11 @@ test('without WebGL the picker says the map is unavailable and the search keeps 
   page.on('pageerror', (e) => errors.push(e.message))
   await page.addInitScript(() => {
     const getContext = HTMLCanvasElement.prototype.getContext
-    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, id: string, ...rest: unknown[]) {
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      id: string,
+      ...rest: unknown[]
+    ) {
       return /webgl/.test(id) ? null : getContext.call(this, id as '2d', ...(rest as []))
     } as typeof getContext
   })
@@ -149,4 +153,100 @@ test('without WebGL the picker says the map is unavailable and the search keeps 
     'Cultural Centre',
   )
   expect(errors).toEqual([])
+})
+
+test('keyboard: focus moves into the picker, Escape steps back through list, card and map, then returns to the Map button', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['geolocation'])
+  await context.setGeolocation({ latitude: -27.4732, longitude: 153.0195 })
+  await page.goto('/')
+  const toggle = page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true')
+  await toggle.focus()
+  await page.keyboard.press('Enter')
+  const picker = page.getByRole('region', { name: 'Bus stops map' })
+  await expect(picker.getByRole('button', { name: 'Close the stop map' })).toBeFocused()
+  const listButton = picker.getByRole('button', { name: /Stops in view \([1-9]\d*\)/ })
+  await expect(listButton).toBeVisible({ timeout: 20_000 })
+  await listButton.focus()
+  await page.keyboard.press('Enter')
+  const first = picker.getByRole('list', { name: 'Bus stops in view' }).getByRole('button').first()
+  await first.focus()
+  // Escape on a stop in the list closes the list and keeps focus in the picker.
+  await page.keyboard.press('Escape')
+  await expect(listButton).toBeFocused()
+  await page.keyboard.press('Enter')
+  await first.focus()
+  await page.keyboard.press('Enter')
+  const card = picker.locator('[data-stop-card]')
+  await expect(card).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(card).toHaveCount(0)
+  await expect(listButton).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(picker).toHaveCount(0)
+  await expect(toggle).toBeFocused()
+})
+
+test.describe(() => {
+  // Requests go straight to the network here, so page.route can slow one down.
+  test.use({ serviceWorkers: 'block' })
+  test("a slow card answer for the previous stop is cancelled, never shown on the next stop's card", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['geolocation'])
+    await context.setGeolocation({ latitude: -27.4732, longitude: 153.0195 })
+    const slow: string[] = []
+    let slowId = ''
+    await page.route(/\/v1\/bus\/stops\/[^/]+\/departures\?limit=3$/, async (r) => {
+      if (!slowId) slowId = /stops\/([^/]+)\//.exec(r.request().url())?.[1] ?? ''
+      if (r.request().url().includes(`/stops/${slowId}/`)) {
+        slow.push(r.request().url())
+        await new Promise((ok) => setTimeout(ok, 3_000))
+      }
+      await r.continue().catch(() => {})
+    })
+    const aborted: string[] = []
+    page.on('requestfailed', (r) => {
+      if (/departures\?limit=3$/.test(r.url())) aborted.push(r.url())
+    })
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true').click()
+    const picker = page.getByRole('region', { name: 'Bus stops map' })
+    const listButton = picker.getByRole('button', { name: /Stops in view \([1-9]\d*\)/ })
+    const stops = picker
+      .getByRole('list', { name: 'Bus stops in view' })
+      .getByRole('button', { name: /Cultural Centre/ })
+    await listButton.click({ timeout: 20_000 })
+    await stops.nth(0).click()
+    await expect(picker.getByText('Loading departures…')).toBeVisible()
+    await listButton.click()
+    await stops.nth(1).click()
+    const card = picker.locator('[data-stop-card]')
+    const second = (await card.getAttribute('data-stop-card')) as string
+    expect(second).not.toBe(slowId)
+    await expect(card.getByRole('listitem').first()).toBeVisible({ timeout: 10_000 })
+    const rowsBefore = await card.getByRole('list').textContent()
+    await page.waitForTimeout(3_500)
+    await expect(card).toHaveAttribute('data-stop-card', second)
+    expect(await card.getByRole('list').textContent()).toBe(rowsBefore)
+    expect(slow).toHaveLength(1)
+    expect(aborted.some((u) => u.includes(`/stops/${slowId}/`))).toBe(true)
+  })
+
+  test('a search chunk that cannot load is an error, not an endless "Loading stops…"', async ({
+    page,
+    isMobile,
+  }) => {
+    await page.route(/\/assets\/search-[\w-]+\.js$/, (r) => r.abort())
+    await page.goto('/')
+    await page.locator(isMobile ? '#stop-search' : '#stop-search-desktop').fill('cultural')
+    await expect(
+      page.getByRole('status').filter({ hasText: "Couldn't load the stop list" }).locator('visible=true'),
+    ).toBeVisible({
+      timeout: 15_000,
+    })
+  })
 })
