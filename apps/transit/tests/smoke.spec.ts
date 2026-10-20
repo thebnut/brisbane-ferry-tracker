@@ -27,11 +27,22 @@ test('My Transit home: transit lockup, Ask box, Mode Tabs with My Transit first'
   await expect(page.getByText('Nothing in My Transit yet')).toBeVisible()
   const tabs = page.getByRole('navigation', { name: 'Modes' }).filter({ visible: true })
   const labels = (await tabs.getByRole('link').allInnerTexts()).map((t) => t.trim())
-  expect(labels.slice(0, 5)).toEqual(
+  // Phone and desktop share one order; desktop adds Alerts last, on the right.
+  expect(labels).toEqual(
     isMobile
       ? ['My Transit', 'Nearby', 'Ferry', 'Train', 'Bus']
-      : ['My Transit', 'Ferry', 'Train', 'Bus', 'Nearby'],
+      : ['My Transit', 'Nearby', 'Ferry', 'Train', 'Bus', 'Alerts'],
   )
+  if (!isMobile) {
+    const box = async (l: ReturnType<typeof tabs.getByRole>) =>
+      (await l.boundingBox()) as { x: number; width: number }
+    const bus = await box(tabs.getByRole('link', { name: 'Bus', exact: true }))
+    const alerts = await box(tabs.getByRole('link', { name: 'Alerts', exact: true }))
+    const list = await box(tabs.getByRole('list'))
+    expect(alerts.x).toBeGreaterThan(bus.x + bus.width + 100)
+    // Right-aligned: its right edge at the row's right edge, less the row's 16 px padding.
+    expect(Math.abs(list.x + list.width - 16 - (alerts.x + alerts.width))).toBeLessThan(2)
+  }
   expect(errors).toEqual([])
 })
 
