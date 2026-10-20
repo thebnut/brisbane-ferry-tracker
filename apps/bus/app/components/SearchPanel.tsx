@@ -29,9 +29,16 @@ const RouteResults = lazy(() =>
   import('./RouteResults.tsx').catch(() => ({ default: (_: { query: string; slot: string }) => null })),
 )
 
-/** The map stop picker (P3): MapLibre and the geo tiles load only when the Map button is pressed, never on the server. */
+/**
+ * The map stop picker (P3): MapLibre and the geo tiles load only when the Map button is pressed, never on the server.
+ * If its chunk can't load (offline), the button does nothing and the search is unchanged.
+ */
 const BusStopPicker = lazy(() =>
-  import.meta.env.SSR ? new Promise<never>(() => {}) : import('./BusStopPicker.tsx'),
+  import.meta.env.SSR
+    ? new Promise<never>(() => {})
+    : import('./BusStopPicker.tsx').catch(() => ({
+        default: (_: { slot: string; onClose: () => void }) => null,
+      })),
 )
 
 function timedSearch(search: typeof searchStops, index: SearchIndex, q: string): SearchResult {

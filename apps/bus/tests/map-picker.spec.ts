@@ -125,3 +125,28 @@ test.describe(() => {
     await expect(picker.locator('canvas')).toBeVisible()
   })
 })
+
+test('without WebGL the picker says the map is unavailable and the search keeps working (R13-R1)', async ({
+  page,
+}) => {
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.addInitScript(() => {
+    const getContext = HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, id: string, ...rest: unknown[]) {
+      return /webgl/.test(id) ? null : getContext.call(this, id as '2d', ...(rest as []))
+    } as typeof getContext
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true').click()
+  const picker = page.getByRole('region', { name: 'Bus stops map' })
+  await expect(picker.getByRole('status')).toContainText('Map unavailable on this device')
+  await picker.getByRole('button', { name: 'Close the stop map' }).click()
+  await expect(picker).toHaveCount(0)
+  const field = page.locator('#stop-search, #stop-search-desktop').locator('visible=true')
+  await field.fill('cultural centre')
+  await expect(page.getByRole('list', { name: 'Matching stops' }).locator('visible=true')).toContainText(
+    'Cultural Centre',
+  )
+  expect(errors).toEqual([])
+})

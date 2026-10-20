@@ -8,7 +8,16 @@
  * keyboard and screen-reader path. Single-select only: P4's multi-select tray extends `PickerSelection`.
  */
 import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl'
-import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import {
+  Component,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react'
 import { formatClock, minutesUntil } from './format.ts'
 import { useGeolocation } from './geolocation.ts'
 import { Icon } from './icons.tsx'
@@ -63,6 +72,32 @@ export interface StopPickerMapProps {
   onClose: () => void
   zoom?: number
   className?: string
+}
+
+/** WebGL 2, which MapLibre 6 needs; without it the map can't start (R13-R1). */
+export function supportsWebGL(): boolean {
+  try {
+    return !!document.createElement('canvas').getContext('webgl2')
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Catches a map that fails anyway (a lost or blocked WebGL context), so the picker shows its fallback instead of the
+ * error taking down the page. To be reconciled with the shared map boundary from fix/map-no-webgl when it lands.
+ */
+export class MapBoundary extends Component<
+  { fallback: ReactNode; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children
+  }
 }
 
 const CLUSTER_SOURCE = 'bft-picker-clusters'
@@ -195,6 +230,7 @@ export default function StopPickerMap({
   const [selection, dispatch] = useReducer(selectionReducer, undefined, initialSelection)
   const [view, setView] = useState<{ bounds: ViewBounds; zoom: number } | null>(null)
   const [listOpen, setListOpen] = useState(false)
+  const [webgl] = useState(supportsWebGL)
   const map = useRef<MlMap | null>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -262,6 +298,17 @@ export default function StopPickerMap({
         .join(' · ')
     : ''
 
+  // The list and search stay usable: the picker is only ever an addition to them.
+  const unavailable = (
+    <div
+      role="status"
+      className="flex h-full flex-col items-center justify-center gap-1.5 bg-map-ground p-6 text-center"
+    >
+      <p className="font-bold">Map unavailable on this device</p>
+      <p className="text-sm text-sched-text">Close the map and search for a {noun} by name instead.</p>
+    </div>
+  )
+
   return (
     <section
       aria-label={`${title} map`}
@@ -304,23 +351,29 @@ export default function StopPickerMap({
         </button>
       </div>
       <div className="relative min-h-0 flex-1">
-        <MapView
-          markers={markers}
-          fitTo={[]}
-          stops={grouped.stops}
-          stopShape={shape}
-          onStopClick={(id) => {
-            const s = byId.get(id)
-            if (s) pick(s, false)
-          }}
-          onViewChange={onView}
-          onReady={onReady}
-          center={center}
-          zoom={zoom}
-          key={geo.state === 'ok' ? 'located' : 'default'}
-          label={`Map of ${inView.length} ${noun}s in view. Use “${noun[0]?.toUpperCase()}${noun.slice(1)}s in view” for a list.`}
-          className="h-full w-full bg-map-ground"
-        />
+        {webgl ? (
+          <MapBoundary fallback={unavailable}>
+            <MapView
+              markers={markers}
+              fitTo={[]}
+              stops={grouped.stops}
+              stopShape={shape}
+              onStopClick={(id) => {
+                const s = byId.get(id)
+                if (s) pick(s, false)
+              }}
+              onViewChange={onView}
+              onReady={onReady}
+              center={center}
+              zoom={zoom}
+              key={geo.state === 'ok' ? 'located' : 'default'}
+              label={`Map of ${inView.length} ${noun}s in view. Use “${noun[0]?.toUpperCase()}${noun.slice(1)}s in view” for a list.`}
+              className="h-full w-full bg-map-ground"
+            />
+          </MapBoundary>
+        ) : (
+          unavailable
+        )}
         {listOpen ? (
           <div
             id="bft-picker-list"
