@@ -216,6 +216,91 @@ describe('mergeHandoff', () => {
   })
 })
 
+describe('failures never lose or resurrect a favourite (Codex r2)', () => {
+  it('the ledger is never trimmed: after 301 imported stops, a removed first stop stays removed', async () => {
+    const all = Array.from({ length: 301 }, (_, i) => ({ id: `${30000 + i}`, name: `Stop ${i}` }))
+    const { imp } = await modules()
+    for (let i = 0; i < all.length; i += 50) imp.mergeHandoff({ v: 1, bus: all.slice(i, i + 50) })
+    expect(ledger()).toHaveLength(301)
+    localStorage.setItem('bft-bus-saved', JSON.stringify(all.slice(1)))
+    expect(imp.mergeHandoff({ v: 1, bus: all.slice(0, 50) })).toEqual(none)
+    expect(
+      JSON.parse(localStorage.getItem('bft-bus-saved') ?? '').map((s: { id: string }) => s.id),
+    ).not.toContain('30000')
+  })
+
+  it('a ledger write that fails puts the store back: nothing stored unrecorded, retried next time', async () => {
+    localStorage.setItem('bft-bus-saved', JSON.stringify([BUS_B]))
+    const { imp, bus } = await modules()
+    const real = Storage.prototype.setItem
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k, v) {
+      if (k === 'bft-handoff-imported') throw new Error('QuotaExceededError')
+      real.call(this, k, v)
+    })
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toEqual({ ...none, left: 1 })
+    set.mockRestore()
+    expect(JSON.parse(localStorage.getItem('bft-bus-saved') ?? '')).toEqual([BUS_B])
+    // As before the merge: there was no cookie.
+    expect(cookies().bft_bus_saved).toBeUndefined()
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toEqual({ ...none, added: 1 })
+    expect(bus.readSaved()).toEqual([BUS_B, BUS_A])
+  })
+
+  it('"Use it" that can’t be saved keeps the current pair (written before the old one is removed, rolled back)', async () => {
+    const mine = { outbound: { id: '317590', name: 'Riverside' }, inbound: { id: '317584', name: 'Bulimba' } }
+    localStorage.setItem('brisbane-ferry-selected-stops', JSON.stringify(mine))
+    localStorage.setItem('brisbane-ferry-remember-selection', 'true')
+    const { imp, ferry } = await modules()
+    const real = Storage.prototype.setItem
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k, v) {
+      if (this === sessionStorage) throw new Error('QuotaExceededError')
+      real.call(this, k, v)
+    })
+    expect(imp.useHandedPair({ pair: PAIR, remember: false })).toBe(false)
+    set.mockRestore()
+    expect(ferry.readSavedPair()).toEqual(mine)
+    expect(localStorage.getItem('brisbane-ferry-remember-selection')).toBe('true')
+    expect(ledger()).toEqual([])
+    // A late failure (the ledger) is rolled back too.
+    const set2 = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k, v) {
+      if (k === 'bft-handoff-imported') throw new Error('QuotaExceededError')
+      real.call(this, k, v)
+    })
+    expect(imp.useHandedPair({ pair: PAIR, remember: true })).toBe(false)
+    set2.mockRestore()
+    expect(ferry.readSavedPair()).toEqual(mine)
+    expect(imp.useHandedPair({ pair: PAIR, remember: true })).toBe(true)
+    expect(ferry.readSavedPair()).toEqual(PAIR)
+  })
+
+  it('"Use it" failing in the notice: no reload, and it says the current trip is unchanged', async () => {
+    vi.useFakeTimers()
+    const mine = { outbound: { id: '317590', name: 'Riverside' }, inbound: { id: '317584', name: 'Bulimba' } }
+    localStorage.setItem('brisbane-ferry-selected-stops', JSON.stringify(mine))
+    history.replaceState(
+      null,
+      '',
+      `/ferry${encodeHandoff({ v: 1, ferry: { pair: PAIR, remember: true } }) ?? ''}`,
+    )
+    const { imp } = await modules()
+    imp.run(() => {})
+    vi.advanceTimersByTime(300)
+    const notice = document.querySelector('[data-handoff-notice]')
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+    const reload = vi.fn()
+    vi.stubGlobal('location', { ...location, reload, pathname: '/ferry' })
+    ;[...(notice?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Use it')?.click()
+    vi.unstubAllGlobals()
+    set.mockRestore()
+    expect(reload).not.toHaveBeenCalled()
+    expect(notice?.textContent).toContain(
+      "Couldn't save that trip on this device. Your current ferry trip is unchanged.",
+    )
+  })
+})
+
 describe('noticeText', () => {
   it('says what moved, what was left and why, and asks about a ferry conflict', async () => {
     const { imp } = await modules()
@@ -227,7 +312,7 @@ describe('noticeText', () => {
     )
     expect(imp.noticeText(none)).toBe('')
     expect(imp.noticeText({ added: 2, left: 1, ferryConflict: null })).toBe(
-      "Your 2 stops moved to My Transit. 1 stop couldn't be added here (My Transit is full, or this browser blocked saving). They're still on the old site and move next time you open it.",
+      "Your 2 stops moved to My Transit. 1 stop couldn't be added here (My Transit is full, or this browser blocked saving). They're still on the old site and will be tried again next time you open it.",
     )
     expect(imp.noticeText({ added: 0, left: 1, ferryConflict: { pair: PAIR, remember: true } })).toBe(
       'You already have a ferry trip here. Use Bulimba → Riverside from the old site instead?',

@@ -32,18 +32,37 @@ class FakeStorage {
 }
 
 /** Runs a mode's handoff script with this storage; where it went and the cookie it set. */
+/** document.cookie for one origin: what the script sets, and what it reads back. */
+class Jar {
+  readonly values = new Map<string, string>()
+  readonly writes: string[] = []
+  get cookie() {
+    return [...this.values].map(([k, v]) => `${k}=${v}`).join('; ')
+  }
+  set cookie(v: string) {
+    this.writes.push(v)
+    const [pair = ''] = v.split(';')
+    const at = pair.indexOf('=')
+    this.values.set(pair.slice(0, at), pair.slice(at + 1))
+  }
+}
+
+/** Runs a mode's handoff script with this storage; where it went and the handed-off cookie it set ('' if none). */
 function run(
   mode: RedirectMode,
   local: Record<string, string> | FakeStorage | 'blocked',
-  session: Record<string, string> = {},
+  session: Record<string, string> | 'blocked' = {},
+  jar = new Jar(),
 ) {
   const href = `${BASE}/${mode}?x=1`
   let went: string | null = null
-  let cookie = ''
   const document = {
     getElementById: (id: string) => (id === 'bft-go' ? { href } : null),
+    get cookie() {
+      return jar.cookie
+    },
     set cookie(v: string) {
-      cookie = v
+      jar.cookie = v
     },
   }
   const window = {
@@ -53,11 +72,19 @@ function run(
     },
   }
   const location = { replace: (u: string) => (went = u) }
+  const sessionStorage =
+    session === 'blocked'
+      ? {
+          getItem: () => {
+            throw new Error('SecurityError')
+          },
+        }
+      : new FakeStorage(session)
   new Function('document', 'window', 'location', 'sessionStorage', handoffScript(mode))(
     document,
     window,
     location,
-    new FakeStorage(session),
+    sessionStorage,
   )
   if (went === null) throw new Error('did not navigate')
   const url = went as string
@@ -66,7 +93,7 @@ function run(
     url,
     base: at < 0 ? url : url.slice(0, at),
     payload: at < 0 ? null : decodeHandoff(url.slice(at)),
-    cookie,
+    cookie: jar.writes.find((w) => w.startsWith(`${HANDOFF_COOKIE}=`)) ?? '',
   }
 }
 
@@ -154,10 +181,18 @@ describe('handoff script', () => {
     expect(r.cookie).toBe(COOKIE)
   })
 
-  it('storage blocked: the plain link, cookie still set', () => {
-    const r = run('bus', 'blocked')
-    expect(r.url).toBe(`${BASE}/bus?x=1`)
-    expect(r.cookie).toBe(COOKIE)
+  it('storage that can’t be read: the plain link but no cookie, so a later visit tries again', () => {
+    for (const r of [run('bus', 'blocked'), run('ferry', {}, 'blocked')]) {
+      expect(r.payload).toBeNull()
+      expect(r.cookie).toBe('')
+    }
+    const throwing = new FakeStorage()
+    throwing.getItem = () => {
+      throw new Error('SecurityError')
+    }
+    const r = run('train', throwing)
+    expect(r.url).toBe(`${BASE}/train?x=1`)
+    expect(r.cookie).toBe('')
   })
 
   it('a list too long for one fragment goes over in turns until every stop has moved', () => {
@@ -166,10 +201,11 @@ describe('handoff script', () => {
       name: `${'Stop name '.repeat(11)}${i}`,
     }))
     const local = new FakeStorage({ 'bft-bus-saved': JSON.stringify(saved) })
+    const jar = new Jar()
     const seen = new Set<string>()
     let turns = 0
     while (seen.size < saved.length && turns < 10) {
-      const r = run('bus', local)
+      const r = run('bus', local, {}, jar)
       const got = r.payload?.bus ?? []
       expect(got.length).toBeGreaterThan(20)
       expect(new TextEncoder().encode(JSON.stringify(r.payload)).length).toBeLessThanOrEqual(
@@ -186,21 +222,30 @@ describe('handoff script', () => {
 
   it('more than 50 short stops also go over in turns (50 a time), wrapping round', () => {
     const saved = Array.from({ length: 60 }, (_, i) => ({ id: `${i}`, name: 'a' }))
+    // localStorage full: the turn marker is a cookie, so the turns still advance.
     const local = new FakeStorage({ 'bft-bus-saved': JSON.stringify(saved) })
-    expect(run('bus', local).payload?.bus?.map((s) => s.id)).toEqual(saved.slice(0, 50).map((s) => s.id))
-    expect(local.items['bft-handoff-next']).toBe('50')
-    expect(run('bus', local).payload?.bus?.map((s) => s.id)).toEqual(
+    local.setItem = () => {
+      throw new Error('QuotaExceededError')
+    }
+    const jar = new Jar()
+    expect(run('bus', local, {}, jar).payload?.bus?.map((s) => s.id)).toEqual(
+      saved.slice(0, 50).map((s) => s.id),
+    )
+    expect(jar.values.get('bft-handoff-next')).toBe('50')
+    expect(run('bus', local, {}, jar).payload?.bus?.map((s) => s.id)).toEqual(
       [...saved.slice(50), ...saved.slice(0, 40)].map((s) => s.id),
     )
-    expect(local.items['bft-handoff-next']).toBe('40')
+    expect(jar.values.get('bft-handoff-next')).toBe('40')
+    expect(jar.writes.find((w) => w.startsWith('bft-handoff-next='))).toBe(
+      'bft-handoff-next=50; Max-Age=31536000; Path=/; Secure; SameSite=Lax',
+    )
   })
 
   it('a stale turn marker (the list shrank) starts again from the top', () => {
-    const local = new FakeStorage({
-      'bft-bus-saved': JSON.stringify([{ id: '1', name: 'a' }]),
-      'bft-handoff-next': '57',
-    })
-    expect(run('bus', local).payload?.bus).toEqual([{ id: '1', name: 'a' }])
+    const jar = new Jar()
+    jar.cookie = 'bft-handoff-next=57'
+    const local = new FakeStorage({ 'bft-bus-saved': JSON.stringify([{ id: '1', name: 'a' }]) })
+    expect(run('bus', local, {}, jar).payload?.bus).toEqual([{ id: '1', name: 'a' }])
   })
 
   it('is static: no request data in it', () => {

@@ -120,8 +120,11 @@ export function redirectStatus(env: RedirectEnv): 301 | 302 {
  * a ledger of what it has stored, so a stop removed there isn't added back).
  */
 export const HANDOFF_COOKIE = 'bft-handoff'
-/** The bus handoff page's place in a list too long for one fragment (this origin's localStorage). */
-export const HANDOFF_NEXT_KEY = 'bft-handoff-next'
+/**
+ * The bus handoff page's place in a list too long for one fragment: a cookie on this origin, so it is kept even when
+ * localStorage is full.
+ */
+export const HANDOFF_NEXT_COOKIE = 'bft-handoff-next'
 
 /** Known crawlers and link unfurlers: they get the plain redirect (they hold no favourites). */
 const BOT_RE =
@@ -156,34 +159,35 @@ const BRAND: Record<RedirectMode, string> = {
  * handoff-codec.ts accepts, sets `d.<mode>` and `n`. Uses `g` (JSON from storage), `t` (text check) and `ls`.
  */
 const READERS: Record<RedirectMode, string> = {
-  ferry: `var p=g(ls,"brisbane-ferry-selected-stops"),r=!!p;if(!p){try{p=g(sessionStorage,"brisbane-ferry-selected-stops-session")}catch(e){}}
+  ferry: `var p=g(ls,"brisbane-ferry-selected-stops"),r=!!p;if(!p){try{p=g(sessionStorage,"brisbane-ferry-selected-stops-session")}catch(e){bad=1}}
 function s(x){return x&&(typeof x.id==="string"||typeof x.id==="number")&&${FERRY_ID_RE}.test(String(x.id))?{id:String(x.id),name:t(x.name,${FERRY_NAME_MAX})?x.name:""}:null}
 var o=p&&s(p.outbound),i=p&&s(p.inbound);if(o&&i&&o.id!==i.id){d.ferry={pair:{outbound:o,inbound:i},remember:r};n=1}`,
   train: `var f=g(ls,"bft-train-favourites"),o=[],K=${TRAIN_KEY_RE};
 if(Array.isArray(f))for(var j=0;j<f.length&&o.length<${MAX_TRAIN};j++){var x=f[j];if(x&&typeof x.from==="string"&&K.test(x.from)&&(x.to==null||(typeof x.to==="string"&&K.test(x.to))))o.push({from:x.from,to:x.to==null?null:x.to})}
 if(o.length){d.train=o;n=o.length}`,
   // The bus app has no cap on saved stops: a list too long for one fragment goes over in turns, starting where the
-  // last handoff stopped (bft-handoff-next, on this origin), so every stop moves across visits.
+  // last handoff stopped (the bft-handoff-next cookie), so every stop moves across visits.
   bus: `var b=g(ls,"bft-bus-saved"),o=[],F=0,T=0;
 if(Array.isArray(b))for(var j=0;j<b.length;j++){var x=b[j];if(x&&typeof x.id==="string"&&${BUS_ID_RE}.test(x.id)&&t(x.name,${BUS_NAME_MAX})&&x.name)o.push({id:x.id,name:x.name})}
-T=o.length;F=Number(ls.getItem("${HANDOFF_NEXT_KEY}"))||0;if(F<0||F>=T)F=0;o=o.slice(F).concat(o.slice(0,F)).slice(0,${MAX_BUS});
+T=o.length;F=Number((document.cookie.match(/(?:^|; )${HANDOFF_NEXT_COOKIE}=(\\d+)/)||[])[1])||0;if(F>=T)F=0;o=o.slice(F).concat(o.slice(0,F)).slice(0,${MAX_BUS});
 if(o.length){d.bus=o;n=o.length}`,
 }
 
 /**
  * The handoff page's script, static per mode (nothing from the request): read this origin's favourites, put them in
  * the fragment of the link the server rendered (a bus list longer than the size cap goes over in turns), and go. Only
- * when there is nothing to hand over does it set the handed-off cookie. Any failure still goes to the plain link.
+ * when it has read this origin's storage without error and found nothing to hand over does it set the handed-off
+ * cookie. Any failure still goes to the plain link.
  */
 export function handoffScript(mode: RedirectMode): string {
-  return `(function(){var a=document.getElementById("bft-go"),u=a.href,d={v:1},n=0;
+  return `(function(){var a=document.getElementById("bft-go"),u=a.href,d={v:1},n=0,ok=0,bad=0;
 try{var ls=window.localStorage,C=${CONTROL_CHARS_RE};
-function g(st,k){try{return JSON.parse(st.getItem(k)||"null")}catch(e){return null}}
+function g(st,k){var v;try{v=st.getItem(k)}catch(e){bad=1;return null}try{return JSON.parse(v||"null")}catch(e){return null}}
 function t(x,m){return typeof x==="string"&&x.length<=m&&!C.test(x)}
 function enc(v){var y=new TextEncoder().encode(JSON.stringify(v));if(y.length>${MAX_HANDOFF_BYTES})return null;var z="";for(var q=0;q<y.length;q++)z+=String.fromCharCode(y[q]);return btoa(z).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"")}
 ${READERS[mode]}
-if(n){var l=d.bus||d.train,e=enc(d);while(e===null&&l&&l.length>1){l.pop();e=enc(d)}if(e){u+="${HANDOFF_PREFIX}"+e;if(d.bus)try{ls.setItem("${HANDOFF_NEXT_KEY}",String((F+d.bus.length)%T))}catch(e){}}}}catch(e){}
-if(!n)try{document.cookie="${HANDOFF_COOKIE}=1; Max-Age=31536000; Path=/; Secure; SameSite=Lax"}catch(e){}
+ok=1;if(n){var l=d.bus||d.train,e=enc(d);while(e===null&&l&&l.length>1){l.pop();e=enc(d)}if(e){u+="${HANDOFF_PREFIX}"+e;if(d.bus)document.cookie="${HANDOFF_NEXT_COOKIE}="+(F+d.bus.length)%T+"; Max-Age=31536000; Path=/; Secure; SameSite=Lax"}}}catch(e){}
+if(ok&&!bad&&!n)try{document.cookie="${HANDOFF_COOKIE}=1; Max-Age=31536000; Path=/; Secure; SameSite=Lax"}catch(e){}
 location.replace(u)})()`
 }
 

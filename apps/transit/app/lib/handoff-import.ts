@@ -112,14 +112,15 @@ export function saveFerryPair(p: FerryHandoff): void {
   const pair = ferryPair(p)
   if (!pair) return
   const f = STORES.ferry
+  // The new pair is written before the old one is removed, so a failed write leaves a pair (see withRollback).
   if (p.remember) {
-    localStorage.setItem(f.remember, 'true')
     localStorage.setItem(f.pair, JSON.stringify(pair))
+    localStorage.setItem(f.remember, 'true')
     sessionStorage.removeItem(f.session)
   } else {
+    sessionStorage.setItem(f.session, JSON.stringify(pair))
     localStorage.removeItem(f.remember)
     localStorage.removeItem(f.pair)
-    sessionStorage.setItem(f.session, JSON.stringify(pair))
   }
   setCookie(
     `${f.cookie}=${pair.outbound.id}.${pair.inbound.id}; path=/; samesite=lax${p.remember ? `; ${YEAR}` : ''}`,
@@ -136,20 +137,69 @@ export function saveFerryPair(p: FerryHandoff): void {
  * not stored (no room, a different ferry pair, storage errors) stays out of it and is tried again next time.
  */
 export const LEDGER_KEY = 'bft-handoff-imported'
-const LEDGER_MAX = 300
 const readLedger = (): string[] => {
   const v = readJson(localStorage, LEDGER_KEY)
   return Array.isArray(v) ? v.filter((k): k is string => typeof k === 'string') : []
 }
+/**
+ * Records keys; throws when it can't. Never trimmed: an entry is what keeps a stop removed here from coming back while
+ * the old site still hands it over, and it only grows with the visitor's own favourites (a few bytes each).
+ */
 function addToLedger(keys: string[]): void {
   if (keys.length === 0) return
-  try {
-    const all = [...readLedger().filter((k) => !keys.includes(k)), ...keys]
-    localStorage.setItem(LEDGER_KEY, JSON.stringify(all.slice(-LEDGER_MAX)))
-  } catch {
-    // Not recorded: those items are offered again next time and found already saved then.
+  const had = readLedger()
+  localStorage.setItem(LEDGER_KEY, JSON.stringify([...had, ...keys.filter((k) => !had.includes(k))]))
+}
+
+/** The current values of some storage keys and cookies, and a function that puts them back. */
+function snapshot(keys: [Storage, string][], cookies: string[]): () => void {
+  const values = keys.map(([store, key]) => store.getItem(key))
+  const jar = cookies.map((name) => document.cookie.split('; ').find((c) => c.startsWith(`${name}=`)) ?? null)
+  return () => {
+    keys.forEach(([store, key], i) => {
+      const v = values[i]
+      if (v == null) store.removeItem(key)
+      else store.setItem(key, v)
+    })
+    for (const [i, name] of cookies.entries()) {
+      const was = jar[i]
+      setCookie(was ? `${was}; path=/; samesite=lax; ${YEAR}` : `${name}=; path=/; max-age=0`)
+    }
   }
 }
+
+/**
+ * Writes a store and records `keys` in the ledger as one step: if either throws, the store is put back as it was, so
+ * nothing is stored without its record (a stop stored but unrecorded would come back after a removal).
+ */
+function withRollback(
+  keys: [Storage, string][],
+  cookies: string[],
+  write: () => void,
+  record: string[],
+): boolean {
+  let restore: (() => void) | null = null
+  try {
+    restore = snapshot(keys, cookies)
+    write()
+    addToLedger(record)
+    return true
+  } catch {
+    try {
+      restore?.()
+    } catch {
+      // Storage refuses even the old values: nothing more can be done here.
+    }
+    return false
+  }
+}
+
+const FERRY_KEYS = (): [Storage, string][] => [
+  [localStorage, STORES.ferry.pair],
+  [localStorage, STORES.ferry.remember],
+  [localStorage, STORES.ferry.seen],
+  [sessionStorage, STORES.ferry.session],
+]
 
 export interface MergeResult {
   /** Stored here now. */
@@ -168,54 +218,61 @@ const busKey = (s: HandoffStop) => `bus:${s.id}`
 export function mergeHandoff(p: HandoffPayload): MergeResult {
   const result: MergeResult = { added: 0, left: 0, ferryConflict: null }
   const ledger = new Set(readLedger())
-  const stored: string[] = []
-  const attempt = (n: number, write: () => void) => {
+  // Already saved here: just recorded (best effort; unrecorded, they are found saved again next time).
+  const known = (keys: string[]) => {
     try {
-      write()
-      result.added += n
-      return true
+      addToLedger(keys)
     } catch {
-      result.left += n
-      return false
+      // Unrecorded: found already saved again next time.
     }
+  }
+  const store = (items: string[], keys: [Storage, string][], cookies: string[], write: () => void) => {
+    if (items.length === 0) return
+    if (withRollback(keys, cookies, write, items)) result.added += items.length
+    else result.left += items.length
   }
 
   if (p.ferry && !ledger.has(ferryKey(p.ferry))) {
+    const ferry = p.ferry
     const here = ferryPairKey()
-    const pair = ferryPair(p.ferry)
-    const mine = pair && `${pair.outbound.id}>${pair.inbound.id}`
-    if (!pair || here === mine) stored.push(ferryKey(p.ferry))
+    const pair = ferryPair(ferry)
+    // Not a real route: nothing to store or offer.
+    if (!pair || here === `${pair.outbound.id}>${pair.inbound.id}`) known([ferryKey(ferry)])
     else if (here) {
-      // A real route (pair is set): ask rather than replace.
+      // Ask rather than replace.
       result.left += 1
-      result.ferryConflict = p.ferry
-    } else if (attempt(1, () => saveFerryPair(p.ferry as FerryHandoff))) stored.push(ferryKey(p.ferry))
+      result.ferryConflict = ferry
+    } else store([ferryKey(ferry)], FERRY_KEYS(), [STORES.ferry.cookie], () => saveFerryPair(ferry))
   }
 
   if (p.train) {
     const had = readTrain()
     const incoming = p.train.filter((f, i) => p.train?.findIndex((x) => sameFavourite(x, f)) === i)
-    const present = incoming.filter((f) => had.some((x) => sameFavourite(x, f)))
+    known(incoming.filter((f) => had.some((x) => sameFavourite(x, f))).map(trainKey))
     const fresh = incoming.filter((f) => !ledger.has(trainKey(f)) && !had.some((x) => sameFavourite(x, f)))
-    stored.push(...present.map(trainKey))
     // The cap (MAX_FAVOURITES) holds: this device's own favourites stay; what doesn't fit is left for next time.
     const fits = fresh.slice(0, Math.max(0, STORES.train.max - had.length))
     result.left += fresh.length - fits.length
-    if (fits.length && attempt(fits.length, () => writeTrain([...had, ...fits])))
-      stored.push(...fits.map(trainKey))
+    store(fits.map(trainKey), [[localStorage, STORES.train.key]], [STORES.train.cookie], () =>
+      writeTrain([...had, ...fits]),
+    )
   }
 
   if (p.bus) {
     const had = readBusSaved()
     const incoming = p.bus.filter((s, i) => p.bus?.findIndex((x) => x.id === s.id) === i)
-    stored.push(...incoming.filter((s) => had.some((x) => x.id === s.id)).map(busKey))
+    known(incoming.filter((s) => had.some((x) => x.id === s.id)).map(busKey))
     const fresh = incoming.filter((s) => !ledger.has(busKey(s)) && !had.some((x) => x.id === s.id))
-    if (fresh.length && attempt(fresh.length, () => writeBusSaved([...had, ...fresh])))
-      stored.push(...fresh.map(busKey))
+    store(fresh.map(busKey), [[localStorage, STORES.bus.key]], [STORES.bus.cookie], () =>
+      writeBusSaved([...had, ...fresh]),
+    )
   }
-
-  addToLedger(stored)
   return result
+}
+
+/** The notice's "Use it": the old site's ferry pair replaces this one, or nothing changes (false). */
+export function useHandedPair(ferry: FerryHandoff): boolean {
+  return withRollback(FERRY_KEYS(), [STORES.ferry.cookie], () => saveFerryPair(ferry), [ferryKey(ferry)])
 }
 
 // ---- the notice ----
@@ -229,7 +286,7 @@ export function noticeText(r: MergeResult): string {
   const left = r.left - (r.ferryConflict ? 1 : 0)
   if (left > 0)
     parts.push(
-      `${stops(left)} couldn't be added here (My Transit is full, or this browser blocked saving). They're still on the old site and move next time you open it.`,
+      `${stops(left)} couldn't be added here (My Transit is full, or this browser blocked saving). They're still on the old site and will be tried again next time you open it.`,
     )
   const pair = r.ferryConflict && ferryPair(r.ferryConflict)
   if (pair)
@@ -259,13 +316,8 @@ export function showMovedNotice(r: MergeResult): void {
     use.className = 'min-h-11 font-semibold text-ferry-orange-deep'
     use.textContent = 'Use it'
     use.addEventListener('click', () => {
-      try {
-        saveFerryPair(conflict)
-        addToLedger([ferryKey(conflict)])
-      } catch {
-        // Storage blocked: nothing changes.
-      }
-      location.reload()
+      if (useHandedPair(conflict)) location.reload()
+      else text.textContent = "Couldn't save that trip on this device. Your current ferry trip is unchanged."
     })
     box.appendChild(use)
   } else if (location.pathname !== '/' && r.added > 0) {
