@@ -16,7 +16,7 @@ import {
   StopSelect,
   useFixtureCookie,
 } from '@bft/ui'
-import { useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   applyFilter,
@@ -135,8 +135,8 @@ export function FerryBoards({
 
   const offline = !online
   // Data that came with a cached page isn't live until its board's own fresh answer arrives (R2-T7).
-  const unconfirmedBefore = useUnconfirmedBefore()
-  const stateOf = (q: typeof out) => boardState(q.data, offline, now, unconfirmedBefore)
+  const page = usePageCheck()
+  const stateOf = (q: typeof out) => boardState(q.data, offline, now, page)
   // Offline, a board shows the best copy on hand: its data, or the copy kept on this device. After an offline reload
   // its data is the cached page's (maybe last night's, every row gone) until the first poll (R6-B1). Read only once
   // the board is offline, after hydration, so the first render still matches the HTML, and once per change, not per
@@ -233,7 +233,7 @@ export function FerryBoards({
       <SiteHeader onSettings={() => setShowSelector(true)} live={live} />
       <StatusStrip
         updated={`Last updated ${updatedAt ? formatClock(Math.floor(updatedAt / 1000)) : formatClock(Math.floor(renderedAt / 1000))}`}
-        detail={formatAge(latest?.rtSourceTimestamp ?? null, now)}
+        detail={formatAge(sourceTimeS(latest, { nowMs: now, ...page }), now)}
       >
         {express || filter === 'express' ? (
           <FilterPills

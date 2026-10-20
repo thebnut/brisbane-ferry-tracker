@@ -123,7 +123,7 @@ export default function AlertsPage({ loaderData }: Route.ComponentProps) {
       <SiteHeader live={q.data?.rtState === 'live'} />
       <UpdatedStrip
         updatedAt={q.data?.generatedAt ?? null}
-        sourceS={q.data?.rtSourceTimestamp ?? null}
+        source={q.data}
         nowMs={now}
         onRefresh={() => q.refetch()}
         refreshing={q.isFetching}

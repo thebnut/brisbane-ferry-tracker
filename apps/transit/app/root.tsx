@@ -7,6 +7,7 @@ import {
   liveGuardScript,
   NO_SCRIPT_LIVE_CSS,
   savePageCopy,
+  stampNavigation,
   useLiveGuardRelease,
   useRefetchOnReconnect,
 } from '@bft/ui/connectivity'
@@ -31,6 +32,9 @@ import { getEnv, getNonce, isFixtureMode } from './lib/server.server.ts'
 import { FIXTURE_COOKIE, getCookie, THEME_COOKIE } from './lib/storage.ts'
 
 // No web-font request (as in the standalone apps): Inter and Poppins are used when installed, else system-ui.
+/** Client navigations' live data is stamped with its arrival, or kept as an offline copy (R15-S1). */
+export const clientMiddleware: Route.ClientMiddlewareFunction[] = [stampNavigation]
+
 export const links: Route.LinksFunction = () => [
   { rel: 'icon', type: 'image/svg+xml', href: emblem },
   { rel: 'icon', type: 'image/png', href: '/favicon-32.png', sizes: '32x32' },

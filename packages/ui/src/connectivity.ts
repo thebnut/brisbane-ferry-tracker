@@ -83,9 +83,37 @@ export function useUnconfirmedBefore(): number | null {
   return useSyncExternalStore(noSubscribe, getUnconfirmedBefore, () => null)
 }
 
+/**
+ * What liveState needs to know about this page once it has hydrated (R15-S1). `arrivedAt` is when this page was
+ * requested, on the device clock (navigation start: the device clock now, less the monotonic time since then). Its
+ * HTML, and the data in it, was rendered after that, so data without its own arrival time (Received) is at most
+ * `now - arrivedAt` old, whatever the device clock's offset from the server's. Never younger than it is: an upper
+ * bound, so it can't make old data look live.
+ */
+export interface PageCheck {
+  unconfirmedBefore: number | null
+  arrivedAt: number
+}
+let pageCheck: PageCheck | undefined
+const getPageCheck = (): PageCheck =>
+  (pageCheck ??= {
+    unconfirmedBefore: getUnconfirmedBefore(),
+    arrivedAt: Date.now() - performance.now(),
+  })
+if (typeof document !== 'undefined') getPageCheck()
+
+/**
+ * The PageCheck for liveState (spread into its options), as React state: null during SSR and hydration, so the first
+ * client render judges the data exactly as the server did (no hydration mismatch); the page's own after mount.
+ */
+export function usePageCheck(): PageCheck | null {
+  return useSyncExternalStore(noSubscribe, getPageCheck, () => null)
+}
+
 /** Tests: forget the cutoff read at load. */
 export function resetUnconfirmedBefore(): void {
   unconfirmedBefore = undefined
+  pageCheck = undefined
 }
 
 /**
@@ -134,17 +162,19 @@ export const markCachedPages = {
 /**
  * Inline <head> script for the root layout (R2-T7): a cached render must never claim LIVE before freshness is known.
  * The service worker serves a page's last HTML when the network is down, with the LIVE markup it had when rendered,
- * and it paints before the app hydrates and judges the data. Before first paint this compares the render time with
- * the device clock (the same minute as LIVE_REFRESH_MAX_AGE_MS) and checks navigator.onLine; if the HTML is old or the
- * device is offline it sets LIVE_UNCONFIRMED_ATTR, which hides the live claims until the app has rendered its own
- * judgement (useLiveGuardRelease); then data that came with this HTML still can't claim LIVE (useUnconfirmedBefore).
- * Pages the service worker serves from its cache arrive already marked (markCachedPages). It also records the
- * render time for that cutoff. A fresh online page is untouched, and
- * React never sees a difference (an attribute on <html>, which the layouts render with suppressHydrationWarning).
+ * and it paints before the app hydrates and judges the data. Pages the service worker serves from its cache arrive
+ * already marked (markCachedPages); before first paint this also marks any page loaded while the browser says it is
+ * offline. Either way LIVE_UNCONFIRMED_ATTR hides the live claims until the app has rendered its own judgement
+ * (useLiveGuardRelease); then data that came with this HTML still can't claim LIVE (usePageCheck). It also records
+ * the render time for that cutoff. Never the device clock (R15-S1): a clock minutes fast made every fresh page
+ * "unconfirmed", so it showed OFFLINE until the first poll. Pages are `no-store`, so no other cache hands back an old
+ * copy, and the app ages this page's data from when it was requested (PageCheck.arrivedAt). A fresh online page is
+ * untouched, and React never sees a difference (an attribute on <html>, which the layouts render with
+ * suppressHydrationWarning).
  */
 export function liveGuardScript(renderedAt: number): string {
   const at = Math.floor(renderedAt)
-  return `try{window.__bftRenderedAt=${at};if(navigator.onLine===false||Date.now()-${at}>${LIVE_REFRESH_MAX_AGE_MS})document.documentElement.setAttribute('${LIVE_UNCONFIRMED_ATTR}','')}catch(e){}`
+  return `try{window.__bftRenderedAt=${at};if(navigator.onLine===false)document.documentElement.setAttribute('${LIVE_UNCONFIRMED_ATTR}','')}catch(e){}`
 }
 
 /** Current answer, outside React (false only in a browser that is offline or whose API calls are failing). */
@@ -444,7 +474,11 @@ export function noteCacheCopy<T>(res: Response, body: T): T {
     if (res.headers.get(SW_CACHE_HEADER)) cacheCopies.add(body)
     // A network answer in the browser is stamped with the device time it arrived (see Received). Never on the server:
     // a server-rendered board has no device arrival time.
-    else if (typeof window !== 'undefined') (body as Received).receivedAt = Date.now()
+    else if (typeof window !== 'undefined') {
+      ;(body as Received).receivedAt = Date.now()
+      const at = (body as { generatedAt?: unknown }).generatedAt
+      if (typeof at === 'number') seeServerTime(at)
+    }
   }
   return body
 }
@@ -531,23 +565,65 @@ export const markCacheHits = {
 
 export type LiveState = 'offline' | 'stale' | 'reloading' | 'unavailable' | null
 
+/** The parts of a response its age is measured from. */
+type AgedResponse = { rtSourceTimestamp: number | null; generatedAt: number } & Received
+/** The parts of a response liveState reads. */
+type LiveResponse = AgedResponse & { rtState: string } & OfflineCopy
+
+/** The clock options liveState and sourceAgeS share. */
+interface AgeClock {
+  nowMs: number
+  /**
+   * PageCheck.arrivedAt (usePageCheck), null during SSR and hydration: device time by which data without its own
+   * arrival time had reached this page.
+   */
+  arrivedAt?: number | null
+}
+
+/**
+ * How old a response's TransLink source is now, in seconds, skew-free (R13-B1, R15-S1): its age when the server
+ * answered (server clock only), plus the time since the answer reached this device (device clock only). A board
+ * without its own arrival time came with this page's HTML: it is aged from when the page was requested
+ * (`arrivedAt`), an upper bound. Server times are never compared with device times, except during SSR and hydration
+ * (`arrivedAt` null), where `nowMs` is the server's render time and the result matches the HTML. Once hydrated, "now"
+ * is read at every call (never older than `nowMs`, a useNow tick that can be 15 s old): a render after a reconnect
+ * judges age as of that render (R15, the useNow false LIVE). Infinity without a source time.
+ */
+export function sourceAgeS(res: AgedResponse, clock: AgeClock): number {
+  return res.rtSourceTimestamp == null
+    ? Infinity
+    : res.generatedAt / 1000 - res.rtSourceTimestamp + elapsedMs(res, clock) / 1000
+}
+
+/** Time since the response reached the device (or its server time, during SSR and hydration). See sourceAgeS. */
+function elapsedMs(res: AgedResponse, { nowMs, arrivedAt = null }: AgeClock): number {
+  if (arrivedAt == null) return nowMs - (res.receivedAt ?? res.generatedAt)
+  // Both device times: the arrival time (Received, or this page's) and now.
+  return Math.max(nowMs, Date.now()) - (res.receivedAt ?? arrivedAt)
+}
+
+/**
+ * The source time to show as "updated 12 s ago" (formatAge, against `clock.nowMs`): the skew-free source age
+ * (sourceAgeS) back from now, so a device clock minutes off doesn't add minutes to it (R15-S1). Null without one.
+ */
+export function sourceTimeS(res: AgedResponse | null | undefined, clock: AgeClock): number | null {
+  return res?.rtSourceTimestamp == null ? null : clock.nowMs / 1000 - sourceAgeS(res, clock)
+}
+
 /**
  * What a board can honestly claim. null = live. Otherwise the banner to show, and the rows fall back to timetable
- * times: offline, the API's own rtState, or 'stale' when the TransLink source is over 5 min old or the response was
- * generated over a minute ago (both judged on the data's own timestamps).
+ * times: offline, the API's own rtState, or 'stale' when the TransLink source is over 5 min old or the response
+ * reached the device over a minute ago (sourceAgeS: never by the device clock against a server time).
  */
 export function liveState(
-  res:
-    | ({ rtState: string; rtSourceTimestamp: number | null; generatedAt: number } & OfflineCopy & Received)
-    | undefined,
+  res: LiveResponse | undefined,
   {
     offline,
-    nowMs,
     unconfirmedBefore = null,
-  }: {
+    ...clock
+  }: AgeClock & {
     offline: boolean
-    nowMs: number
-    /** useUnconfirmedBefore(): data generated up to then came with an unconfirmed (cached) page. */
+    /** usePageCheck(): data generated up to then came with an unconfirmed (cached) page. */
     unconfirmedBefore?: number | null
   },
 ): LiveState {
@@ -555,27 +631,95 @@ export function liveState(
   // otherwise meanwhile (another request got through): it is a cached copy, never live or "delayed" (R6-B1).
   if (offline || res?.offline === true) return 'offline'
   if (!res) return null
-  // Came with a cached page (the service worker's copy, or HTML old by the device clock): a copy kept on the device,
-  // shown as the offline timetable until this board's own network answer arrives (R2-T7). Never 'stale': an offline
-  // reload can start with navigator.onLine true, and then "Live times delayed" with that copy's departed rows gone
-  // ("No buses due") and its old "Updated" time showed before the first poll failed (R6-B1).
+  // Came with a cached page (the service worker's copy, or one loaded offline): a copy kept on the device, shown as
+  // the offline timetable until this board's own network answer arrives (R2-T7). Never 'stale': an offline reload can
+  // start with navigator.onLine true, and then "Live times delayed" with that copy's departed rows gone ("No buses
+  // due") and its old "Updated" time showed before the first poll failed (R6-B1).
   if (unconfirmedBefore != null && res.generatedAt <= unconfirmedBefore) return 'offline'
   if (res.rtState !== 'live') {
     return res.rtState === 'stale' || res.rtState === 'reloading' || res.rtState === 'unavailable'
       ? res.rtState
       : 'unavailable'
   }
-  // Skew-free (R13-B1): the source's age when the server answered (server clock), plus the time since the answer
-  // arrived (device clock). A board without an arrival time (data in the page's HTML or a route loader's) falls back
-  // to the device clock against its generatedAt, the rule before. That copy lasts only until the board's first
-  // successful poll (every 15 s from mount; longer while requests fail or the tab is hidden), which is stamped. Moving
-  // it onto the device clock by the page's render time was tried and dropped (Codex r2): during hydration the clock is
-  // the server's, and cached HTML gives no usable offset.
-  const elapsed = nowMs - (res.receivedAt ?? res.generatedAt)
-  const sourceAge =
-    res.rtSourceTimestamp == null ? Infinity : res.generatedAt / 1000 - res.rtSourceTimestamp + elapsed / 1000
-  if (sourceAge > LIVE_SOURCE_MAX_AGE_S || elapsed > LIVE_REFRESH_MAX_AGE_MS) return 'stale'
+  if (sourceAgeS(res, clock) > LIVE_SOURCE_MAX_AGE_S || elapsedMs(res, clock) > LIVE_REFRESH_MAX_AGE_MS)
+    return 'stale'
   return null
+}
+
+/**
+ * Newest server time this page has seen from the network (stampNavigation): its own HTML's render, each client
+ * navigation's, and every /v1 network answer's `generatedAt` (noteCacheCopy). Whatever reached the page before a
+ * navigation was sent was generated before that navigation's loader ran, so its `renderedAt` is newer. A /v1 answer
+ * from the edge cache is older than it says nothing against that: it only lowers this bound.
+ */
+let newestRender: number | undefined
+const seeServerTime = (at: number) => {
+  newestRender = Math.max(newestRender ?? at, at)
+}
+
+/** Tests: forget the renders seen. */
+export function resetNavigationStamps(): void {
+  newestRender = undefined
+}
+
+/** The route results of a client navigation, as React Router's client middleware gets them from `next()`. */
+type NavigationResults = Record<string, { type: string; result?: unknown }> | undefined
+
+/**
+ * Root `clientMiddleware` for every app (R15-S1): data from a client navigation (`<path>.data`) has no arrival time,
+ * and judging it by the device clock against its server `generatedAt` made it "delayed" with a fast clock and, with a
+ * slow one, let an old copy look live. Each live response (anything with a `generatedAt`) in a route's loader data
+ * is stamped as Received at the device time before the request was sent: an upper bound on its age.
+ *
+ * The service worker answers `.data` from its cache when the network fails, and that copy must never be stamped. A
+ * copy is recognised server time against server time: every loader with live data returns `renderedAt`, read on the
+ * server for that request (`no-store`, never cached on the way), so a network answer's is newer than any render this
+ * page has seen; a stored copy's is not (it was seen when it was fetched, or it is older than this page). Its live
+ * data is then an offline copy (OfflineCopy.offline, shown as the offline timetable until a network answer replaces
+ * it), and the connection is reported down, as for a /v1 answer from the cache. Also when the connection is already
+ * known to be down, or this page is itself a stored copy (unconfirmed) whose render is no guide. Not a header from
+ * the service worker (markCacheHits for /v1): React Router reads the response, and a service worker from an older
+ * build would not add it.
+ */
+export async function stampNavigation<R extends NavigationResults>(
+  _args: unknown,
+  next: () => Promise<R>,
+): Promise<R> {
+  const sentBy = Date.now()
+  // A page that is itself a stored copy has seen no server time yet: until a network answer, nothing is fresh.
+  const seen =
+    newestRender ??
+    (getPageCheck().unconfirmedBefore == null
+      ? (window as { __bftRenderedAt?: number }).__bftRenderedAt
+      : undefined) ??
+    Infinity
+  const results = await next()
+  let copy = false
+  for (const r of Object.values((results ?? {}) as NonNullable<NavigationResults>)) {
+    const data = r.type === 'data' ? (r.result as Record<string, unknown> | null) : null
+    if (typeof data !== 'object' || data === null) continue
+    const at = data.renderedAt
+    const fresh = typeof at === 'number' && at > seen && isOnline()
+    if (fresh) seeServerTime(at)
+    for (const live of liveParts(data)) {
+      if (fresh) live.receivedAt = sentBy
+      else copy = live.offline = true
+    }
+  }
+  if (copy) reportOffline()
+  return results
+}
+
+/** The live responses in a route's loader data: values with a `generatedAt`, and in records of them (saved cards). */
+function liveParts(data: Record<string, unknown>): Array<Received & OfflineCopy> {
+  const out: Array<Received & OfflineCopy> = []
+  const add = (v: unknown, depth: number) => {
+    if (typeof v !== 'object' || v === null || Array.isArray(v)) return
+    if (typeof (v as { generatedAt?: unknown }).generatedAt === 'number') out.push(v)
+    else if (depth) for (const w of Object.values(v)) add(w, depth - 1)
+  }
+  for (const v of Object.values(data)) add(v, 1)
+  return out
 }
 
 /**

@@ -14,6 +14,7 @@ import {
 } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import { SegmentedControl } from '@bft/ui/bus'
+import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
 import { type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { at } from '../lib/base.ts'
@@ -85,19 +86,21 @@ function SettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }
 /** "Updated 2:41 pm · updated 12 s ago" strip with optional pills (Refresh, route filters, Map). */
 export function UpdatedStrip({
   updatedAt,
-  sourceS,
+  source,
   nowMs,
   onRefresh,
   refreshing,
   children,
 }: {
   updatedAt: number | null
-  sourceS: number | null
+  /** The response whose TransLink source age is shown ("updated 12 s ago", skew-free: @bft/ui sourceTimeS). */
+  source: { rtSourceTimestamp: number | null; generatedAt: number } | null | undefined
   nowMs: number
   onRefresh?: () => void
   refreshing?: boolean
   children?: ReactNode
 }) {
+  const page = usePageCheck()
   return (
     <StatusStrip
       updated={
@@ -110,7 +113,7 @@ export function UpdatedStrip({
           </>
         ) : null
       }
-      detail={formatAge(sourceS, nowMs)}
+      detail={formatAge(sourceTimeS(source, { nowMs, ...page }), nowMs)}
     >
       {children}
       {onRefresh ? (

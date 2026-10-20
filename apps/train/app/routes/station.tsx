@@ -6,7 +6,7 @@
 
 import type { DeparturesResponse } from '@bft/core/contract'
 import { FilterPills, formatAge, formatClock, Icon, StatusStrip } from '@bft/ui'
-import { useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
 import { useCallback, useEffect, useState } from 'react'
 import { data, Link } from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
@@ -146,7 +146,8 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   const [latest, setLatest] = useState<DeparturesResponse | undefined>(outbound ?? undefined)
   const onData = useCallback((r: DeparturesResponse | undefined) => r && setLatest(r), [])
   const fav = useFavourite({ from: station.key, to: to?.key ?? null })
-  const src = latest?.rtSourceTimestamp ?? null
+  const page = usePageCheck()
+  const src = sourceTimeS(latest, { nowMs, ...page })
   // Reset the filter when moving between stations.
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the trip.
   useEffect(() => setFilter('all'), [station.key, to?.key])
@@ -191,10 +192,7 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   )
 
   // The header pill follows the boards: from the loader data until each StationBoard reports (useReportLive).
-  const unconfirmedBefore = useUnconfirmedBefore()
-  const seeded = [outbound, to ? inbound : null].every(
-    (r) => !r || boardState(r, false, nowMs, unconfirmedBefore) == null,
-  )
+  const seeded = [outbound, to ? inbound : null].every((r) => !r || boardState(r, false, nowMs, page) == null)
   return (
     <Shell active="stations" strip={strip} live={seeded}>
       <div className={to && inbound ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : 'mx-auto max-w-2xl'}>

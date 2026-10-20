@@ -21,7 +21,7 @@ import {
   tripAsTimetable,
 } from '@bft/ui'
 import { BigCountdown, OccupancyMeter, SaveButton, SkeletonRows, TripTimeline } from '@bft/ui/bus'
-import { useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { usePageCheck } from '@bft/ui/connectivity'
 import { data, Link, useNavigate } from 'react-router'
 import { BusNav, DataBanner, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute } from '../lib/api.ts'
@@ -93,15 +93,15 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const saved = useSavedStops()
   const online = useOnline()
   // Offline, or data too old to call live: the timetable only (no LIVE/GPS badge, estimates or position).
-  const unconfirmedBefore = useUnconfirmedBefore()
-  const state = liveState(q.data, { offline: !online, nowMs: now, unconfirmedBefore })
+  const page = usePageCheck()
+  const state = liveState(q.data, { offline: !online, nowMs: now, ...page })
   const trip = q.data && state != null ? tripAsTimetable(q.data) : q.data
   return (
     <>
       <SiteHeader live={state == null} />
       <UpdatedStrip
         updatedAt={trip?.generatedAt ?? null}
-        sourceS={trip?.rtSourceTimestamp ?? null}
+        source={trip}
         nowMs={now}
         onRefresh={() => q.refetch()}
         refreshing={q.isFetching}

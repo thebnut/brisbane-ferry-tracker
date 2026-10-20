@@ -106,11 +106,7 @@ export default function RoutePage({ loaderData }: Route.ComponentProps) {
   return (
     <>
       <SiteHeader live={vehiclesQ.data?.rtState === 'live'} />
-      <UpdatedStrip
-        updatedAt={vehiclesQ.data?.generatedAt ?? null}
-        sourceS={vehiclesQ.data?.rtSourceTimestamp ?? null}
-        nowMs={now}
-      >
+      <UpdatedStrip updatedAt={vehiclesQ.data?.generatedAt ?? null} source={vehiclesQ.data} nowMs={now}>
         <DesktopNav active="" />
       </UpdatedStrip>
       <main className="mx-auto flex max-w-3xl flex-col gap-3 px-4 pt-3.5 pb-28">

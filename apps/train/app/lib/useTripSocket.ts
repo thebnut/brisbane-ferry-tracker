@@ -52,12 +52,21 @@ export function useTripSocket(base: string | null, tripInstance: string, mode: D
           setConnected(false)
           return
         }
+        // A socket frame is a network answer: stamped with its arrival (@bft/ui Received, R15-S1).
+        const receivedAt = Date.now()
         if ('type' in body && body.type === 'tick') {
           client.setQueryData<TripResponse>(queryKey, (old) =>
-            old ? { ...old, rtSourceTimestamp: body.rtSourceTimestamp, generatedAt: body.generatedAt } : old,
+            old
+              ? {
+                  ...old,
+                  rtSourceTimestamp: body.rtSourceTimestamp,
+                  generatedAt: body.generatedAt,
+                  receivedAt,
+                }
+              : old,
           )
         } else {
-          client.setQueryData(queryKey, body)
+          client.setQueryData(queryKey, { ...body, receivedAt })
         }
         attempts = 0
         healthy()

@@ -19,7 +19,7 @@ import {
   StatusBadge,
   tripAsTimetable,
 } from '@bft/ui'
-import { useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { usePageCheck } from '@bft/ui/connectivity'
 import { useMemo } from 'react'
 import { data, Link, useRouteLoaderData } from 'react-router'
 import { Shell } from '../components/Chrome.tsx'
@@ -78,8 +78,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const online = useOnline()
   // Offline, or data too old to call live: the timetable only (no LIVE/GPS badge, estimates or position).
   const raw = q.data ?? loaderData.trip
-  const unconfirmedBefore = useUnconfirmedBefore()
-  const state = liveState(raw ?? undefined, { offline: !online, nowMs, unconfirmedBefore })
+  const page = usePageCheck()
+  const state = liveState(raw ?? undefined, { offline: !online, nowMs, ...page })
   const trip = raw && state != null ? tripAsTimetable(raw) : raw
   const nowS = Math.floor(nowMs / 1000)
   const view = useMemo(() => (trip ? buildTimeline(trip, nowS, from, to) : null), [trip, nowS, from, to])
