@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * A late /v1 failure must not undo a reconnect (#121's follow-up; staging R6-B1 saw LIVE take 17 s to return): a
- * reconnect inside onReconnect's 1 s window runs at its end instead of being dropped, at most once per 15 s.
+ * reconnect inside onReconnect's 1 s window runs at its end instead of being dropped, backing off if it keeps recurring.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -75,37 +75,76 @@ describe('onReconnect: a reconnect inside the 1 s window runs at its end (coales
     off()
   })
 
-  it('no refetch storm: a board failing at every attempt while another call gets through, for a minute (Codex r1)', () => {
-    const back = vi.fn(() => {
-      // Each refetch: the board fails 30 ms in, another call reaches the network 60 ms in.
+  /** Times (ms after the online event) of the refetches in a minute where every refetch fails and then recovers. */
+  const loop = (recoverMs: (n: number) => number) => {
+    const times: number[] = []
+    const from = Date.now()
+    let n = 0
+    const off = onReconnect(() => {
+      times.push(Date.now() - from)
+      // The board fails 30 ms in; another call reaches the network (cancelling the probe) after `recoverMs`.
       setTimeout(reportOffline, 30)
-      setTimeout(reportOnline, 60)
+      setTimeout(reportOnline, recoverMs(n++))
     })
+    window.dispatchEvent(new Event('online'))
+    vi.advanceTimersByTime(59_000)
+    off()
+    return times
+  }
+
+  it('no refetch storm: a board failing at every attempt backs off to its poll rate (Codex r1)', () => {
+    // Was a refetch every second; now 1, 2, 4, 8 s apart, then every 15 s (the board's own poll).
+    expect(loop(() => 60)).toEqual([0, 1_000, 3_000, 7_000, 15_000, 30_000, 45_000])
+  })
+
+  it('no refetch storm with alternating latency either (Codex r2: it was 58 a minute)', () => {
+    // The answers after 1.1 s are plain reconnects (as before this fix); the trailing ones back off between them.
+    expect(loop((n) => (n % 2 ? 1_100 : 60))).toEqual([
+      0, 1_000, 2_100, 4_100, 5_200, 9_200, 10_300, 18_300, 19_400, 34_400, 35_500, 50_500, 51_600,
+    ])
+  })
+
+  it('a second race soon after the first is still recovered, in 2 s (Codex r3)', () => {
+    const back = vi.fn()
     const off = onReconnect(back)
     window.dispatchEvent(new Event('online'))
-    vi.advanceTimersByTime(60_000)
-    // The online event's refetch and one trailing refetch; then the board waits for its own poll.
-    expect(back).toHaveBeenCalledTimes(2)
-    // A reconnect a second after that trailing refetch's window starts the next episode (and its one trailing).
+    vi.advanceTimersByTime(100)
     reportOffline()
+    vi.advanceTimersByTime(200)
     reportOnline()
-    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(700)
+    expect(back).toHaveBeenCalledTimes(2) // the trailing refetch at 1 s
+    vi.advanceTimersByTime(2_000)
+    reportOffline()
+    reportOnline() // a reconnect at 3 s: refetch at once
+    expect(back).toHaveBeenCalledTimes(3)
+    vi.advanceTimersByTime(100)
+    reportOffline()
+    vi.advanceTimersByTime(200)
+    reportOnline() // the same race again: the trailing refetch now waits 2 s from the 3 s refetch
+    vi.advanceTimersByTime(1_699)
+    expect(back).toHaveBeenCalledTimes(3)
+    vi.advanceTimersByTime(1)
     expect(back).toHaveBeenCalledTimes(4)
     off()
   })
 
-  it('no refetch storm with alternating latency either: one trailing refetch per 15 s (Codex r2)', () => {
-    let n = 0
-    const back = vi.fn(() => {
-      // Each refetch: the board fails 30 ms in; another call answers 60 ms or 1.1 s in, alternately.
-      setTimeout(reportOffline, 30)
-      setTimeout(reportOnline, n++ % 2 ? 1_100 : 60)
-    })
+  it('the backoff starts over after 15 s without a trailing refetch', () => {
+    const back = vi.fn()
     const off = onReconnect(back)
     window.dispatchEvent(new Event('online'))
-    vi.advanceTimersByTime(60_000)
-    // The online event's refetch, one trailing, the next reconnect after its window; then one inside the window, dropped.
+    reportOffline()
+    reportOnline()
+    vi.advanceTimersByTime(1_000)
+    expect(back).toHaveBeenCalledTimes(2)
+    vi.advanceTimersByTime(20_000)
+    reportOffline()
+    reportOnline()
     expect(back).toHaveBeenCalledTimes(3)
+    reportOffline()
+    reportOnline()
+    vi.advanceTimersByTime(1_000)
+    expect(back).toHaveBeenCalledTimes(4)
     off()
   })
 

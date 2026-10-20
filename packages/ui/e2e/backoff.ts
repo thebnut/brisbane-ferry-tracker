@@ -52,7 +52,7 @@ const EVERY_BOARD_MS = LIVE_REQUEST_TIMEOUT_MS + RECONNECT_PROBE_MS + ANSWER_MAR
  * offline copy (R6-B1), so it waits for the boards' answers, not the first one. One probe more is allowed: a call cut
  * off before the network returned can report its failure late and turn a board back into its offline copy. The probe
  * then asks again within RECONNECT_PROBE_MS, and if another call's answer cancels the probe, onReconnect's trailing
- * refetch asks within a second (late-failure fix; #121 had to allow a board's whole 15 s poll for it).
+ * refetch asks within a second, the first time in 15 s, as here (late-failure fix; #121 allowed a whole 15 s poll).
  */
 const BANNER_AFTER_ANSWERS_MS = RECONNECT_PROBE_MS + ANSWER_MARGIN_MS
 

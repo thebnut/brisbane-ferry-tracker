@@ -200,22 +200,33 @@ export function onReconnect(onBack: () => void): () => void {
   // The online event and the store change it causes arrive together: refetch once. A second reconnect within that
   // second runs at its end, instead of never: a board whose request failed in between was otherwise left offline until
   // its own 15 s poll, because another call's answer had cancelled the probe (staging R6-B1: LIVE back after 17 s).
-  // One pending at most, dropped if the connection goes down first, and one per 15 s: a board failing at every attempt
-  // while other calls get through then waits for its poll, as before, instead of refetching every board (Codex).
+  // One pending at most, dropped if the connection goes down first. Each one within 15 s of the last waits twice as
+  // long (1, 2, 4, 8, then 15 s, the board's own poll): a board failing at every attempt while other calls get through
+  // can't refetch every board each second, and a failed board is still asked again in time (Codex r2, r3).
   let last = 0
+  let streak = 0
   let trailedAt = Number.NEGATIVE_INFINITY
   let later: ReturnType<typeof setTimeout> | undefined
   const refetch = () => {
-    const wait = last + 1_000 - Date.now()
-    if (wait <= 0) {
-      last = Date.now()
+    const now = Date.now()
+    if (now - last >= 1_000) {
+      clearTimeout(later)
+      later = undefined
+      last = now
       onBack()
-    } else if (Date.now() - trailedAt >= 15_000)
-      later ??= setTimeout(() => {
+      return
+    }
+    if (now - trailedAt > 15_000) streak = 0
+    later ??= setTimeout(
+      () => {
         later = undefined
         trailedAt = Date.now()
+        streak++
+        last = 0
         refetch()
-      }, wait)
+      },
+      last + Math.min(15_000, 1_000 * 2 ** streak) - now,
+    )
   }
   // Store changes and the browser's events (`e`): online, refetch even if nothing had failed; shown again, refetch if
   // the connection was or is down.

@@ -50,9 +50,14 @@ export function lateFailureSuite({
     await page.waitForTimeout(LIVE_REFRESH_MAX_AGE_MS + 20_000)
 
     // Back online: one board's requests made in the first 500 ms fail 100 ms in (every one, so a second request for
-    // it at the reconnect can't cover for the first); every other live call is answered from 300 ms in, after them, and
+    // it at the reconnect can't cover for the first); every other live call is answered 100 ms after that failure, and
     // (checked below) inside onReconnect's 1 s window, where the old throttle dropped the reconnect it caused.
     let failed: string | null = null
+    let failedAt = Number.POSITIVE_INFINITY
+    let boardFailed = () => {}
+    const failure = new Promise<void>((r) => {
+      boardFailed = r
+    })
     let others = 0
     let otherAnswered = Number.POSITIVE_INFINITY
     let back = Number.POSITIVE_INFINITY
@@ -66,11 +71,15 @@ export function lateFailureSuite({
       ) {
         failed = url.pathname
         await new Promise((r) => setTimeout(r, 100))
-        return route.abort('internetdisconnected')
+        await route.abort('internetdisconnected')
+        failedAt = Math.min(failedAt, Date.now())
+        boardFailed()
+        return
       }
       // Another call: not a retry of the board that failed (train's page has no other one, and recovers by the probe).
       if (Date.now() >= back && url.pathname !== failed) others++
-      await new Promise((r) => setTimeout(r, 300))
+      await Promise.race([failure, new Promise((r) => setTimeout(r, 800))])
+      await new Promise((r) => setTimeout(r, 100))
       return route.fallback()
     }
     page.on('response', (r) => {
@@ -99,8 +108,10 @@ export function lateFailureSuite({
     )
     // The case under test: another call's answer came inside the 1 s window (it cancels the probe). A page with no other
     // live call relies on the probe instead (train's station page).
-    if (others)
+    if (others) {
+      expect(otherAnswered, 'another call answered after the board failed').toBeGreaterThan(failedAt)
       expect(otherAnswered - back, 'another call answered inside the 1 s window').toBeLessThan(1_000)
+    }
     await expect(page.locator('[data-banner=offline]')).toHaveCount(0, { timeout: bound })
     await expect.poll(() => visibleLiveClaims(page), { timeout: bound, intervals: [100] }).not.toEqual([])
     console.log(`${path}: LIVE ${Date.now() - back} ms after coming back online (failed first: ${failed})`)
