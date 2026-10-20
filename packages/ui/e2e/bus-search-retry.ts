@@ -66,6 +66,36 @@ export function busSearchRetryTests(base: string): void {
         })
       }
 
+      test('the long names failed, then the query changed: Try again still retries them', async ({
+        page,
+        context,
+      }, testInfo) => {
+        if (testInfo.project.name === 'phone') await page.setViewportSize({ width: 390, height: 844 })
+        const errors = pageErrors(page)
+        // Only lines.json fails (the route index loads): its query turns off for a short query, notice still showing.
+        const { restore } = await failData(context, how)
+        await context.route(/\/data\/bus\/(stops|routes)\.json/, (route) => route.continue())
+        const search = page
+          .getByRole('searchbox', { name: /Stop name or number|Find a stop/ })
+          .locator('visible=true')
+        await page.goto(`${base}/`)
+        await search.fill('cultural')
+        const routesNotice = page
+          .getByRole('status')
+          .filter({ hasText: "Couldn't load routes" })
+          .locator('visible=true')
+        await expect(routesNotice).toBeVisible({ timeout: 20_000 })
+        await search.fill('zz')
+        await expect(routesNotice).toBeVisible()
+        restore()
+        const seen = await watchData(context, /\/data\/bus\/lines\.json/)
+        await routesNotice.getByRole('button', { name: 'Try again' }).click()
+        await expect.poll(() => seen.length, { timeout: 20_000 }).toBeGreaterThan(0)
+        await expect(routesNotice).toHaveCount(0, { timeout: 20_000 })
+        await expectNoErrorPage(page)
+        expect(errors).toEqual([])
+      })
+
       test('map picker beside a failed search: its Try again retries the search lists too', async ({
         page,
         context,

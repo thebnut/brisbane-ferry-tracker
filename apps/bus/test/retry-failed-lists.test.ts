@@ -16,7 +16,7 @@ afterEach(() => {
 })
 
 /** An active (observed) query whose fetches all fail, counting them. */
-async function failing(queryKey: readonly unknown[], active = true) {
+async function failing(queryKey: readonly unknown[], active = true, enabled = true) {
   const calls = { n: 0 }
   const queryFn = async () => {
     calls.n++
@@ -26,6 +26,8 @@ async function failing(queryKey: readonly unknown[], active = true) {
     const observer = new QueryObserver(client, { queryKey, queryFn })
     stops.push(observer.subscribe(() => {}))
     await expect.poll(() => client.getQueryState(queryKey)?.status).toBe('error')
+    // Still on screen with its notice, but disabled now (the route search's long names after the query changed).
+    if (!enabled) observer.setOptions({ queryKey, queryFn, enabled: false })
   } else {
     await client.prefetchQuery({ queryKey, queryFn })
   }
@@ -44,6 +46,12 @@ describe('retryFailedLists', () => {
     )
     await retryFailedLists(client)
     expect(lists.map((c) => c.n)).toEqual([2, 2, 2, 2])
+  })
+
+  it('refetches a failed list that is on screen but disabled by now', async () => {
+    const lines = await failing(['bus', 'lines', false], true, false)
+    await retryFailedLists(client)
+    expect(lines.n).toBe(2)
   })
 
   it('never refetches a failed /v1 live query (departures, alerts, vehicles)', async () => {

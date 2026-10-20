@@ -279,19 +279,21 @@ export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boole
 const LISTS = new Set(['stop-index', 'route-index', 'lines', 'geo'])
 
 /**
- * Refetches every failed bus /data list on screen that isn't already loading, so one Try again brings back all of
- * them; a list that fails again keeps its own notice. The stop index's search code is retried by useStopIndex's own
- * `retry`, so call that first.
+ * Refetches every failed bus /data list on screen (still observed) that isn't already loading, so one Try again brings
+ * back all of them; a list that fails again keeps its own notice. Through an observer, like the list's own retry: a
+ * list whose notice still shows may be disabled by now (the route search's long names after the query changed), which
+ * `refetchQueries` would skip (Codex review). Never the /v1 live queries, which keep their own backoff. The stop
+ * index's search code is retried by useStopIndex's own `retry`, so call that first.
  */
-export function retryFailedLists(client: QueryClient): Promise<void> {
-  return client.refetchQueries({
-    type: 'active',
+export async function retryFailedLists(client: QueryClient): Promise<void> {
+  const failed = client.getQueryCache().findAll({
     predicate: (q) =>
       q.queryKey[0] === 'bus' &&
       LISTS.has(String(q.queryKey[1])) &&
       q.state.status === 'error' &&
       q.state.fetchStatus === 'idle',
   })
+  await Promise.all(failed.map((q) => q.observers[0]?.refetch()))
 }
 
 export function useLines(fetcher: ApiFetcher, mode: DataMode, enabled = true) {
