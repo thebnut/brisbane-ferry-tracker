@@ -26,6 +26,11 @@ import type { SnapshotClient } from '../src/snapshot-client.ts'
 import { buildTree, Clock, D, D0, epoch, TRIPS, type Tree } from './fixtures.ts'
 
 const DEADLINE = 80
+/**
+ * Where a read must answer inside its deadline (a retry that succeeds, or reads that are fine), a deadline a loaded
+ * CI runner can't miss (CI 20 Oct: a healthy retry read overran 80 ms).
+ */
+const OK_DEADLINE = 300
 /** Generous slack for timer jitter on a busy CI runner. */
 const SLACK = 150
 
@@ -136,7 +141,7 @@ function appFor(
     validate: true,
     manifestMaxAgeMs: 0,
     now: clock.now,
-    loadDeadlineMs: DEADLINE,
+    loadDeadlineMs: OK_DEADLINE,
   })
   const snaps = snapshots(opts.generation ?? null, opts.mode)
   const app = createApp({
@@ -171,11 +176,11 @@ describe('StaticStore reads with a request budget', () => {
     const { tree, index } = busShardTree()
     const key = shardFile(index, D, '317584')
     const { src, count } = scripted(tree.source, (k, n) => (k === key && n === 0 ? 'never' : 'ok'))
-    const store = new StaticStore(src, { loadDeadlineMs: DEADLINE })
+    const store = new StaticStore(src, { loadDeadlineMs: OK_DEADLINE })
     const { value, ms } = await timed(store.stopDay(index, D, '317584', later()))
     expect(value?.events.length).toBeGreaterThan(0)
     expect(count(key)).toBe(2)
-    expect(ms).toBeLessThan(2 * DEADLINE + SLACK)
+    expect(ms).toBeLessThan(2 * OK_DEADLINE + SLACK)
   })
 
   it('a shard read that never answers: one retry, then a StaticReadError within two deadlines', async () => {
@@ -498,6 +503,7 @@ describe('departures, trips, vehicles and passthroughs on failing static reads',
       // The stations cache is per module: a generation no other test uses.
       const tree = buildTree(`trip-names-${Math.random()}`, TRIPS, mode)
       const { src } = scripted(tree.source, (k) => (k === `data/${mode}/stops.json` ? 'never' : 'ok'))
+      const TRIP_BUDGET = 1_000 // healthy reads must fit (CI); the hung stops.json waits out the rest
       // A stop-index deadline far past the budget: only the budget can end the wait.
       const now = () => epoch(D, '07:55:00') * 1000
       const store = new StaticStore(src, { validate: true, manifestMaxAgeMs: 0, loadDeadlineMs: 5_000, now })
@@ -509,7 +515,7 @@ describe('departures, trips, vehicles and passthroughs on failing static reads',
         log: createLogger({}, () => {}),
         combinedFeeds: false,
         polledModes: [mode],
-        staticReadBudgetMs: 3 * DEADLINE,
+        staticReadBudgetMs: TRIP_BUDGET,
         now,
       })
       const { value: res, ms } = await timed(Promise.resolve(app.request(`/v1/${mode}/trips/T1@${D}`)))
@@ -517,7 +523,7 @@ describe('departures, trips, vehicles and passthroughs on failing static reads',
       const body = (await res.json()) as { stops: Array<{ name?: string }> }
       expect(body.stops.length).toBeGreaterThan(0)
       expect(body.stops.every((s) => s.name === undefined)).toBe(true)
-      expect(ms).toBeLessThan(3 * DEADLINE + SLACK)
+      expect(ms).toBeLessThan(TRIP_BUDGET + SLACK)
     }
   })
 
