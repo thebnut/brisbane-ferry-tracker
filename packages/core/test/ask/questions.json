@@ -3,19 +3,19 @@
     "q": "When's the next train from Bowen Hills to the airport",
     "kind": "next_departure",
     "from": "bowen-hills",
-    "to": "domestic-airport"
+    "to": "international-airport"
   },
   {
     "q": "when is the next train from Bowen Hills to the airport?",
     "kind": "next_departure",
     "from": "bowen-hills",
-    "to": "domestic-airport"
+    "to": "international-airport"
   },
   {
     "q": "Bowen Hills to the airport next train",
     "kind": "next_departure",
     "from": "bowen-hills",
-    "to": "domestic-airport"
+    "to": "international-airport"
   },
   {
     "q": "trains from Central to Ferny Grove",
@@ -435,7 +435,7 @@
     "q": "next train from bowen hils to the airport",
     "kind": "next_departure",
     "from": "bowen-hills",
-    "to": "domestic-airport"
+    "to": "international-airport"
   },
   {
     "q": "next train from indro to central",
@@ -772,7 +772,7 @@
     "q": "next train to the airport from bowen hills",
     "kind": "next_departure",
     "from": "bowen-hills",
-    "to": "domestic-airport"
+    "to": "international-airport"
   },
   {
     "q": "trains to Caboolture from Central",

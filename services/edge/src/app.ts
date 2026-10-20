@@ -13,6 +13,7 @@ import {
   type GeoTileFile,
   gtfsToEpoch,
   type HealthResponse,
+  MAX_PLACE_STOPS,
   type MergeOptions,
   Mode,
   mergeDepartures,
@@ -85,6 +86,8 @@ const DEFAULT_LIMIT = 20
 /** `at` within this of now is treated as a live query for caching. */
 const AT_LIVE_WINDOW_MS = 2 * 60_000
 const MAX_LIMIT = 100
+/** A stop key in a comma-separated `to` (stop ids and station slugs). */
+const STOP_KEY = /^[A-Za-z0-9_-]{1,64}$/
 /** bbox queries snap outward to this grid (degrees) so cache keys stay bounded. */
 export const BBOX_GRID = 0.05
 
@@ -179,6 +182,11 @@ export function createApp(deps: AppDeps): Hono<Env> {
     if (!mode) return c.json({ error: 'unknown mode' }, 400)
     const key = c.req.param('key')
     const toKey = c.req.query('to') || null
+    // `to` may list the stops of one place, comma-separated (/v1/ask's grouped busway platforms, R11-A1): a few
+    // well-formed keys only. A single key is used as given, as before.
+    const toKeys = toKey?.includes(',') ? toKey.split(',') : null
+    if (toKeys && (toKeys.length > MAX_PLACE_STOPS || !toKeys.every((k) => STOP_KEY.test(k))))
+      return c.json({ error: 'bad to', detail: `up to ${MAX_PLACE_STOPS} comma-separated stop keys` }, 400)
     const limitQ = Number(c.req.query('limit') ?? DEFAULT_LIMIT)
     const limit = Number.isFinite(limitQ)
       ? Math.min(MAX_LIMIT, Math.max(1, Math.floor(limitQ)))
@@ -244,9 +252,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
       let to: DeparturesResponse['to'] = null
       let toStopIds: Set<string> | undefined
       if (toKey) {
-        const t = destinationStops(ds, toKey, stations)
-        toStopIds = t.ids
-        to = { key: toKey, name: t.name ?? toKey }
+        const ts = (toKeys ?? [toKey]).map((k) => destinationStops(ds, k, stations))
+        toStopIds = new Set(ts.flatMap((t) => [...t.ids]))
+        to = { key: toKey, name: ts.find((t) => t.name)?.name ?? toKey }
       }
       const mergeOptions: MergeOptions & { stationPlatforms?: ReadonlyMap<string, string | undefined> } = {
         nowS: Math.floor(fromMs / 1000),
