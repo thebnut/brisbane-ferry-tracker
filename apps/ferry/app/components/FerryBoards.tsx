@@ -29,14 +29,7 @@ import {
 } from '../lib/departures.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useDepartures, useFetcher, useShownData } from '../lib/queries.ts'
-import {
-  FIXTURE_COOKIE,
-  markSelectorSeen,
-  readDepartAt,
-  readSavedPair,
-  shouldShowSelector,
-  writeDepartAt,
-} from '../lib/storage.ts'
+import { FIXTURE_COOKIE, readDepartAt, readSavedPair, writeDepartAt } from '../lib/storage.ts'
 import {
   type StopPair,
   swapPair,
@@ -101,7 +94,8 @@ export function FerryBoards({
   const online = useOnline()
   const fetcher = useFetcher(mode)
 
-  // After hydration: saved pair (home only), first-visit selector, session "Depart from", fixture cookie.
+  // After hydration: saved pair (home only), session "Depart from", fixture cookie. A first visit gets the onboarding
+  // prompt (P4, its own lazy slot), which replaced the stop selector opening by itself here.
   useEffect(() => {
     if (!terminalPage && !deepLink) {
       const saved = readSavedPair()
@@ -110,10 +104,6 @@ export function FerryBoards({
         (saved.outbound.id !== serverPair.outbound.id || saved.inbound.id !== serverPair.inbound.id)
       ) {
         setPair(saved)
-      }
-      if (shouldShowSelector()) {
-        setShowSelector(true)
-        markSelectorSeen()
       }
     }
     setDepartAt(readDepartAt())
