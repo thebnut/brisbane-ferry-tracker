@@ -16,7 +16,7 @@ const watchErrors = (page: Page) => {
 
 const CBD = '/nearby?lat=-27.4717&lon=153.0206'
 
-test('My Transit home: transit lockup, Ask box, Mode Tabs in Brett's order (phones: My Transit first)', async ({
+test('My Transit home: transit lockup, Ask box, Mode Tabs with My Transit first', async ({
   page,
   isMobile,
 }) => {
