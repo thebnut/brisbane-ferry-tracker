@@ -7,6 +7,19 @@
  * built here from a fixed prefix and the matched route segments, so a request can't steer it to another host.
  */
 
+import {
+  BUS_ID_RE,
+  BUS_NAME_MAX,
+  CONTROL_CHARS_RE,
+  FERRY_ID_RE,
+  FERRY_NAME_MAX,
+  HANDOFF_PREFIX,
+  MAX_BUS,
+  MAX_HANDOFF_BYTES,
+  MAX_TRAIN,
+  TRAIN_KEY_RE,
+} from './handoff-codec.ts'
+
 export type RedirectMode = 'ferry' | 'train' | 'bus'
 
 export interface RedirectEnv {
@@ -100,13 +113,111 @@ export function redirectStatus(env: RedirectEnv): 301 | 302 {
   return env.REDIRECT_STATUS === '301' ? 301 : 302
 }
 
-/** The redirect for this request, or null to serve it as before (flag off, not a page navigation, or excluded). */
-export function transitRedirect(request: Request, mode: RedirectMode, env: RedirectEnv): Response | null {
+/** Set by the handoff page once it has run, so later navigations get the plain redirect. Per mode host. */
+export const HANDOFF_COOKIE = 'bft-handoff'
+
+/** Known crawlers and link unfurlers: they get the plain redirect (they hold no favourites). */
+const BOT_RE =
+  /googlebot|bingbot|yandex|baiduspider|duckduckbot|slurp|applebot|petalbot|ahrefs|semrush|gptbot|claudebot|bytespider|facebookexternalhit|twitterbot|linkedinbot|discordbot|slackbot|telegrambot|whatsapp|crawler|spider/i
+
+export function hasHandoffCookie(header: string | null): boolean {
+  return (header ?? '').split(';').some((c) => c.trim() === `${HANDOFF_COOKIE}=1`)
+}
+
+/**
+ * P6b: whether this navigation gets the handoff page (it may hold favourites on this origin) rather than the plain
+ * redirect: a browser's GET page load (Fetch Metadata navigate, or no Fetch Metadata but asking for HTML), not yet
+ * handed off, not a known crawler. curl, HEAD and bots get the redirect status.
+ */
+export function wantsHandoff(request: Request): boolean {
+  if (request.method !== 'GET' || hasHandoffCookie(request.headers.get('cookie'))) return false
+  const ua = request.headers.get('user-agent') ?? ''
+  if (!ua || BOT_RE.test(ua)) return false
+  const fetchMode = request.headers.get('sec-fetch-mode')
+  if (fetchMode === 'navigate') return true
+  return fetchMode === null && (request.headers.get('accept') ?? '').includes('text/html')
+}
+
+const BRAND: Record<RedirectMode, string> = {
+  ferry: 'Brisbane Ferry',
+  train: 'BrisbaneTrain',
+  bus: 'BrisbaneBus',
+}
+
+/**
+ * Each mode's favourites reader, as plain browser JS: reads only that store's key(s), keeps only items in the shapes
+ * handoff-codec.ts accepts, sets `d.<mode>` and `n`. Uses `g` (JSON from storage), `t` (text check) and `ls`.
+ */
+const READERS: Record<RedirectMode, string> = {
+  ferry: `var p=g(ls,"brisbane-ferry-selected-stops"),r=!!p;if(!p){try{p=g(sessionStorage,"brisbane-ferry-selected-stops-session")}catch(e){}}
+function s(x){return x&&(typeof x.id==="string"||typeof x.id==="number")&&${FERRY_ID_RE}.test(String(x.id))?{id:String(x.id),name:t(x.name,${FERRY_NAME_MAX})?x.name:""}:null}
+var o=p&&s(p.outbound),i=p&&s(p.inbound);if(o&&i&&o.id!==i.id){d.ferry={pair:{outbound:o,inbound:i},remember:r};n=1}`,
+  train: `var f=g(ls,"bft-train-favourites"),o=[],K=${TRAIN_KEY_RE};
+if(Array.isArray(f))for(var j=0;j<f.length&&o.length<${MAX_TRAIN};j++){var x=f[j];if(x&&typeof x.from==="string"&&K.test(x.from)&&(x.to==null||(typeof x.to==="string"&&K.test(x.to))))o.push({from:x.from,to:x.to==null?null:x.to})}
+if(o.length){d.train=o;n=o.length}`,
+  bus: `var b=g(ls,"bft-bus-saved"),o=[];
+if(Array.isArray(b))for(var j=0;j<b.length&&o.length<${MAX_BUS};j++){var x=b[j];if(x&&typeof x.id==="string"&&${BUS_ID_RE}.test(x.id)&&t(x.name,${BUS_NAME_MAX})&&x.name)o.push({id:x.id,name:x.name})}
+if(o.length){d.bus=o;n=o.length}`,
+}
+
+/**
+ * The handoff page's script, static per mode (nothing from the request): read this origin's favourites, put them in
+ * the fragment of the link the server rendered (trimming lists to the size cap), set the handed-off cookie and go.
+ * Any failure still goes to the plain link.
+ */
+export function handoffScript(mode: RedirectMode): string {
+  return `(function(){var a=document.getElementById("bft-go"),u=a.href,d={v:1},n=0;
+try{var ls=window.localStorage,C=${CONTROL_CHARS_RE};
+function g(st,k){try{return JSON.parse(st.getItem(k)||"null")}catch(e){return null}}
+function t(x,m){return typeof x==="string"&&x.length<=m&&!C.test(x)}
+function enc(v){var y=new TextEncoder().encode(JSON.stringify(v));if(y.length>${MAX_HANDOFF_BYTES})return null;var z="";for(var q=0;q<y.length;q++)z+=String.fromCharCode(y[q]);return btoa(z).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"")}
+${READERS[mode]}
+if(n){var l=d.bus||d.train,e=enc(d);while(e===null&&l&&l.length>1){l.pop();e=enc(d)}if(e)u+="${HANDOFF_PREFIX}"+e}}catch(e){}
+try{document.cookie="${HANDOFF_COOKIE}=1; Max-Age=31536000; Path=/; Secure; SameSite=Lax"}catch(e){}
+location.replace(u)})()`
+}
+
+const escapeHtml = (s: string) =>
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/'/g, '&#39;')
+
+/**
+ * The tiny page a browser gets instead of the redirect on its first visit after the move: its script hands the
+ * favourites over. Without JavaScript, the noscript refresh and the link still reach the transit page.
+ */
+export function handoffPage(location: string, mode: RedirectMode, nonce: string): Response {
+  const href = escapeHtml(location)
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${BRAND[mode]} is now part of BrisbaneTransit</title><noscript><meta http-equiv="refresh" content="0;url=${href}"></noscript></head><body><p>${BRAND[mode]} is now part of BrisbaneTransit. <a id="bft-go" href="${href}">Continue to BrisbaneTransit</a></p><script nonce="${escapeHtml(nonce)}">${handoffScript(mode)}</script></body></html>`
+  return new Response(html, {
+    status: 200,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'private, no-store',
+      'x-robots-tag': 'noindex',
+    },
+  })
+}
+
+/**
+ * The response for this request, or null to serve it as before (flag off, not a page navigation, or excluded): the
+ * handoff page for a browser's first visit (P6b, needs the page's CSP nonce), else the redirect.
+ */
+export function transitRedirect(
+  request: Request,
+  mode: RedirectMode,
+  env: RedirectEnv,
+  nonce?: string,
+): Response | null {
   if (env.REDIRECT_TO_TRANSIT !== '1' || !isPageNavigation(request)) return null
   const origin = transitOrigin(env.TRANSIT_SITE_URL)
   if (!origin) return null
   const location = transitLocation(mode, new URL(request.url), origin)
   if (!location) return null
+  if (nonce && wantsHandoff(request)) return handoffPage(location, mode, nonce)
   const status = redirectStatus(env)
   return new Response(null, {
     status,

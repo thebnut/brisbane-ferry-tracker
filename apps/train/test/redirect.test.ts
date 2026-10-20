@@ -69,6 +69,29 @@ describe('redirect to transit (P6)', () => {
     expect(res.headers.get('x-bft-build')).toBe('1a2b3c4')
   })
 
+  it('a browser’s first visit gets the handoff page, its script allowed by this response’s CSP nonce (P6b)', async () => {
+    const browser = {
+      'sec-fetch-mode': 'navigate',
+      'user-agent': 'Mozilla/5.0 Chrome/141.0',
+      accept: 'text/html',
+    }
+    const res = await get('/station/central', envWith(ON), { headers: browser })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('x-robots-tag')).toBe('noindex')
+    expect(res.headers.get('cache-control')).toBe('private, no-store')
+    const nonce = /'nonce-([^']+)'/.exec(res.headers.get('content-security-policy') ?? '')?.[1]
+    const html = await res.text()
+    expect(nonce).toBeTruthy()
+    expect(html).toContain(`<script nonce="${nonce}">`)
+    expect(html).toContain(`href="${TRANSIT}/train/station/central"`)
+    // Handed off already: the plain redirect.
+    const again = await get('/station/central', envWith(ON), {
+      headers: { ...browser, cookie: 'bft-handoff=1' },
+    })
+    expect(again.status).toBe(302)
+    expect(again.headers.get('location')).toBe(`${TRANSIT}/train/station/central`)
+  })
+
   it('301 only when REDIRECT_STATUS is "301"', async () => {
     expect((await get('/', envWith({ ...ON, REDIRECT_STATUS: '301' }))).status).toBe(301)
   })
@@ -104,7 +127,12 @@ describe('wrangler.jsonc', () => {
       expect(vars.REDIRECT_STATUS, env).toBeUndefined()
     }
   })
-  it('staging redirects to the staging transit host', () => {
-    expect(read('staging').vars.TRANSIT_SITE_URL).toBe(TRANSIT)
+  it('staging redirects (302) to the staging transit host; local dev and the e2e suites do not', () => {
+    expect(read('staging').vars).toMatchObject({
+      TRANSIT_SITE_URL: TRANSIT,
+      REDIRECT_TO_TRANSIT: '1',
+      REDIRECT_STATUS: '302',
+    })
+    expect(read().vars.REDIRECT_TO_TRANSIT).toBeUndefined()
   })
 })
