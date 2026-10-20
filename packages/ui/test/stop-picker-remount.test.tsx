@@ -46,7 +46,9 @@ function renderPicker() {
   // jsdom lays nothing out: give the map box a size so the picker can seed its view.
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400)
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(800)
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as RenderingContext)
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+    getExtension: () => null,
+  } as unknown as RenderingContext)
   return render(
     <StopPickerMap
       title="Bus stops"

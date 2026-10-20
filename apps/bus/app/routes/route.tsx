@@ -23,7 +23,9 @@ import { useNow } from '../lib/useNow.ts'
 import { useVehicles } from '../lib/vehicles.ts'
 import type { Route } from './+types/route'
 
-const RouteMap = lazy(() => import('../components/RouteMap.tsx'))
+// If this small chunk can't load, the page goes on without its map (SafeMap inside covers MapLibre itself).
+const NoMap = (() => null) as never // renders nothing, whatever the props
+const RouteMap = lazy(() => import('../components/RouteMap.tsx').catch(() => ({ default: NoMap })))
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const short = params.route

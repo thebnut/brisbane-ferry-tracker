@@ -22,7 +22,10 @@ import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useTrip } from '../lib/queries.ts'
 import { terminalById, tripStopName } from '../lib/terminals.ts'
 
-const MapView = lazy(() => import('@bft/ui/map'))
+// Lazy: SafeMap is MapView behind a WebGL check and an error boundary, and loads MapLibre itself. If its own chunk
+// can't load, the sheet goes on without the map.
+const NoMap = (() => null) as never // renders nothing, whatever the props
+const SafeMap = lazy(() => import('@bft/ui/safe-map').catch(() => ({ default: NoMap })))
 
 const VEHICLE_STATUS: Record<string, string> = {
   INCOMING_AT: 'Approaching stop',
@@ -178,7 +181,7 @@ export function DetailsSheet({
         <>
           <h3 className="mt-5 mb-2 text-base font-semibold text-aqua-text">Live position</h3>
           <Suspense fallback={<div className="h-72 rounded-card bg-map-ground" />}>
-            <MapView
+            <SafeMap
               markers={markers}
               label={`Map showing ${vessel ?? 'the ferry'} between ${fromName} and ${toName}`}
               className="h-72 w-full overflow-hidden rounded-card bg-map-ground"

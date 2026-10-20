@@ -28,8 +28,9 @@ function noMapOnServer(): Plugin {
 /**
  * A lazy import's preload list sits in the importing chunk, so on its page's first load. Leave out the chunks the
  * importer already imports statically, directly or not: they have loaded before the import can run, so preloading
- * them again does nothing. The bus search's Routes group (RouteResults, loaded on a keystroke) and map picker (BusStopPicker, on
- * the Map button) get no list at all.
+ * them again does nothing. The bus search's Routes group (RouteResults, loaded on a keystroke), the map picker
+ * (BusStopPicker, on the Map button) and the favourites import (handoff-import, only for an #import= page) get no list
+ * at all.
  * Vite calls resolveDependencies from its own generateBundle, after this plugin's (enforce: 'pre') has kept the bundle.
  */
 let clientBundle: Rolldown.OutputBundle | null = null
@@ -58,7 +59,7 @@ function loadedWith(host: string, bundle: Rolldown.OutputBundle): Set<string> {
   return seen
 }
 const resolveDependencies: ResolveModulePreloadDependenciesFn = (file, deps, { hostId }) => {
-  if (/(RouteResults|BusStopPicker)-[\w-]+\.js$/.test(file)) return []
+  if (/(RouteResults|BusStopPicker|handoff-import)-[\w-]+\.js$/.test(file)) return []
   // The ferry stop selector: its map (MapLibre, ~280 KB gz) loads on its Map button, not whenever the selector opens,
   // and the Map button loads with it. Off the list, which is on the boards' first load (~0 B to spare there).
   if (/StopSelector-[\w-]+\.js$/.test(file))
@@ -103,9 +104,9 @@ export default defineConfig({
                 },
                 {
                   name: 'ui',
-                  // demo-cleanup is loaded on demand: off every page's first load. The map stop picker (P3) is lazy, and
-                  // its Map button is only on the stop searches (below).
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|bus\.tsx)/,
+                  // demo-cleanup and handoff-codec (P6b's import) are loaded on demand: off every page's first load. The
+                  // map stop picker (P3) is lazy, and its Map button is only on the stop searches (below).
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx)/,
                 },
                 // The bus boards' elements (@bft/ui/bus) that only the Bus pages load. After 'ui', so the modules they
                 // share stay there.
