@@ -95,8 +95,9 @@ let clock: { at: number; monotonic: number; wall: number } | undefined
 export function deviceNow(): number {
   const monotonic = performance.timeOrigin + performance.now()
   const wall = Date.now()
-  // The first reading: any wall-clock gap since the navigation started counts as time passed (Codex r5).
-  const last = clock ?? { at: Math.max(monotonic, wall), monotonic, wall }
+  // The first reading is the monotonic clock's own: the wall clock's distance from it says nothing (Chrome's
+  // timeOrigin + now() can drift minutes from Date.now(); a page with a skewed clock is fresh, R15-S1). Only steps count.
+  const last = clock ?? { at: monotonic, monotonic, wall }
   const step = Math.max(monotonic - last.monotonic, wall - last.wall, 0)
   clock = { at: last.at + step, monotonic, wall }
   return clock.at

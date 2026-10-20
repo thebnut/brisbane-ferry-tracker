@@ -388,8 +388,8 @@ describe('sleep and the back/forward cache (Codex r2)', () => {
     const fresh = noteCacheCopy(new Response('{}'), board())
     expect(liveState(fresh, { offline: false, nowMs: Date.now(), ...page })).toBeNull()
     expect(sourceAgeS(fresh, { nowMs: Date.now(), ...page })).toBeCloseTo(20, 0)
-    // The page's own data is that much older: the gap counts as time passed.
-    expect(liveState(board(), { offline: false, nowMs: Date.now(), ...page })).toBe('stale')
+    // The page's own data isn't aged by the wall clock's distance from the monotonic one (Chrome's can drift).
+    expect(liveState(board(), { offline: false, nowMs: Date.now(), ...page })).toBeNull()
   })
 
   it('a page put away hides its live claims before it can be restored', () => {
