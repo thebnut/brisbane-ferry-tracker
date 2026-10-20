@@ -15,6 +15,7 @@ import {
   blobKey,
   indexKey,
   MIN_RETRY_MS,
+  readBudget,
   StaticReadError,
   StaticStore,
   shardKey,
@@ -163,8 +164,8 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('StaticStore reads with a request budget (until)', () => {
-  const later = () => Date.now() + 5_000
+describe('StaticStore reads with a request budget', () => {
+  const later = () => readBudget(5_000, Date.now())
 
   it('a shard read that times out is retried at once and succeeds', async () => {
     const { tree, index } = busShardTree()
@@ -207,7 +208,7 @@ describe('StaticStore reads with a request budget (until)', () => {
     const key = indexKey('g1', 'ferry')
     const { src, count } = scripted(tree.source, (k) => (k === key ? 'reject' : 'ok'))
     const err = await new StaticStore(src)
-      .getIndex('g1', 'ferry', Date.now() + MIN_RETRY_MS - 100)
+      .getIndex('g1', 'ferry', readBudget(MIN_RETRY_MS - 100, Date.now()))
       .catch((e: unknown) => e)
     expect(err).toBeInstanceOf(StaticReadError)
     expect(count(key)).toBe(1)
@@ -219,8 +220,10 @@ describe('StaticStore reads with a request budget (until)', () => {
     const { src, count } = scripted(tree.source, (k, n) => (k === key && n === 0 ? 'never' : 'ok'))
     const store = new StaticStore(src, { loadDeadlineMs: 1_000 })
     // Request A starts the read and has plenty of budget; request B joins it with only 300 ms left.
-    const a = timed(store.stopDay(index, D, '317584', Date.now() + 5_000))
-    const b = await timed(store.stopDay(index, D, '317584', Date.now() + 300).catch((e: unknown) => e))
+    const a = timed(store.stopDay(index, D, '317584', readBudget(5_000, Date.now())))
+    const b = await timed(
+      store.stopDay(index, D, '317584', readBudget(300, Date.now())).catch((e: unknown) => e),
+    )
     expect(b.value).toMatchObject({ name: 'StaticReadError', what: 'shard', why: 'deadline' })
     expect(b.ms).toBeLessThan(300 + SLACK)
     expect(count(key)).toBe(1) // B left the shared read alone (and didn't retry without budget)
@@ -229,6 +232,50 @@ describe('StaticStore reads with a request budget (until)', () => {
     expect(value?.events.length).toBeGreaterThan(0)
     expect(count(key)).toBe(2)
     expect(ms).toBeLessThan(1_000 + SLACK)
+  })
+
+  describe('a frozen clock (workerd moves Date.now only with I/O; Codex r1)', () => {
+    it('a retry still ends at the budget: own deadline equal to the budget takes one budget, not two', async () => {
+      const { tree, index } = busShardTree()
+      const key = shardFile(index, D, '317584')
+      const { src, count } = scripted(tree.source, (k) => (k === key ? 'never' : 'ok'))
+      const store = new StaticStore(src, { now: () => 0, loadDeadlineMs: 200 })
+      const { value: err, ms } = await timed(
+        store.stopDay(index, D, '317584', readBudget(200, 0)).catch((e: unknown) => e),
+      )
+      expect(err).toMatchObject({ name: 'StaticReadError', what: 'shard', why: 'deadline' })
+      expect(ms).toBeLessThan(200 + SLACK)
+      expect(count(key)).toBeLessThanOrEqual(2)
+    })
+
+    it('a retry that would overrun a frozen budget is cut at the budget', async () => {
+      const { tree, index } = busShardTree()
+      const key = shardFile(index, D, '317584')
+      const { src, count } = scripted(tree.source, (k) => (k === key ? 'never' : 'ok'))
+      // 400 ms reads in a 600 ms budget: the clock says 600 ms are always left, so it retries; the timer ends it.
+      const store = new StaticStore(src, { now: () => 0, loadDeadlineMs: 400 })
+      const { value: err, ms } = await timed(
+        store.stopDay(index, D, '317584', readBudget(600, 0)).catch((e: unknown) => e),
+      )
+      expect(err).toMatchObject({ name: 'StaticReadError', why: 'deadline' })
+      expect(count(key)).toBe(2)
+      expect(ms).toBeGreaterThanOrEqual(590)
+      expect(ms).toBeLessThan(600 + SLACK)
+    })
+
+    it('a budget already spent starts no wait', async () => {
+      const { tree, index } = busShardTree()
+      const key = shardFile(index, D, '317584')
+      const { src } = scripted(tree.source, (k) => (k === key ? 'never' : 'ok'))
+      const store = new StaticStore(src, { now: () => 0, loadDeadlineMs: 1_000 })
+      const spent = readBudget(0, 0)
+      await new Promise((r) => setTimeout(r, 5))
+      const { value: err, ms } = await timed(
+        store.stopDay(index, D, '317584', spent).catch((e: unknown) => e),
+      )
+      expect(err).toBeInstanceOf(StaticReadError)
+      expect(ms).toBeLessThan(SLACK)
+    })
   })
 
   it('cold manifest: a rejected read is retried; two failures are a StaticReadError, logged once a minute', async () => {
@@ -393,6 +440,33 @@ describe('departures, trips, vehicles and passthroughs on failing static reads',
       const { src } = failing()
       const res = await appFor(src, { generation: 'g-gone' }).app.request('/v1/ferry/stops/317584/departures')
       await expectUnavailable(res, 'manifest error')
+    })
+
+    it('a spent budget answers the 503 without waiting on the snapshot fallback (Codex r1)', async () => {
+      const { src } = failing()
+      const store = new StaticStore(src, { validate: true, manifestMaxAgeMs: 0, loadDeadlineMs: DEADLINE })
+      // A snapshot client that, like the real one, waits until its signal aborts and then has nothing.
+      const slow = {
+        get: (_wu: unknown, signal?: AbortSignal) =>
+          new Promise((resolve) => signal?.addEventListener('abort', () => resolve(null), { once: true })),
+        status: null,
+        expired: false,
+        raw: async () => null,
+      } as unknown as SnapshotClient
+      const app = createApp({
+        store,
+        snapshots: slow,
+        snapshotsFor: () => slow,
+        log: createLogger({}, () => {}),
+        combinedFeeds: false,
+        polledModes: ['ferry'],
+        staticReadBudgetMs: 3 * DEADLINE,
+      })
+      const { value: res, ms } = await timed(
+        Promise.resolve(app.request('/v1/ferry/stops/317584/departures')),
+      )
+      await expectUnavailable(res, 'manifest error')
+      expect(ms).toBeLessThan(3 * DEADLINE + SLACK)
     })
 
     it('vehicles degrade to none rather than fail', async () => {

@@ -34,7 +34,13 @@ import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { corsHeaders } from './cors.ts'
 import type { DataObject } from './data/source.ts'
-import { mayHaveStop, StaticReadError, type StaticStore } from './data/static-store.ts'
+import {
+  mayHaveStop,
+  type ReadBudget,
+  readBudget,
+  StaticReadError,
+  type StaticStore,
+} from './data/static-store.ts'
 import { within } from './deadline.ts'
 import { createLogger, errorMessage, type Logger } from './log.ts'
 import { REQUEST_DEADLINE_MS } from './request-deadline.ts'
@@ -63,6 +69,8 @@ export interface AppDeps {
   build?: string
   /** Override PASSTHROUGH_DEADLINE_MS (tests). */
   passthroughDeadlineMs?: number
+  /** Override STATIC_READ_BUDGET_MS (tests). */
+  staticReadBudgetMs?: number
 }
 
 /** A server error's code and a trusted id (a mode or generation, never user input), for the request log line. */
@@ -75,7 +83,7 @@ type Failure = { error: string; detail?: string; retryable?: true }
 type Degraded = 'generation-from-rt' | 'next-day-skipped'
 
 type Env = {
-  Variables: { rid: string; log: Logger; failure?: Failure; until: number; degraded?: Degraded[] }
+  Variables: { rid: string; log: Logger; failure?: Failure; budget: ReadBudget; degraded?: Degraded[] }
 }
 
 /**
@@ -145,7 +153,6 @@ export function createApp(deps: AppDeps): Hono<Env> {
     c.set('rid', rid)
     c.set('log', log)
     const t0 = now()
-    c.set('until', t0 + STATIC_READ_BUDGET_MS)
     const cors = corsHeaders(c.req.header('origin'), deps.corsAllowAll ?? false, log, c.req.path)
     if (c.req.method === 'OPTIONS') {
       return new Response(null, {
@@ -153,6 +160,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
         headers: { ...cors, 'x-request-id': rid, [BUILD_HEADER]: build },
       })
     }
+    c.set('budget', readBudget(deps.staticReadBudgetMs ?? STATIC_READ_BUDGET_MS, t0))
     await next()
     for (const [k, v] of Object.entries(cors)) c.res.headers.set(k, v)
     c.res.headers.set('x-request-id', rid)
@@ -189,7 +197,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
   /** Snapshot plus the rtState for one mode's static generation. */
   async function rt(c: Context<Env>, mode: Mode | null, generation: string | null) {
     const client = deps.snapshotsFor?.(mode ?? 'alerts') ?? deps.snapshots
-    const cur = await client.get(waitUntilOf(c), c.req.raw.signal)
+    // Past the request's static-read budget the RT wait ends too, so the answer (scheduled rows, or a 503 for a
+    // failed static read) still beats the backstop.
+    const cur = await client.get(waitUntilOf(c), waitSignal(c))
     const nowMs = now()
     const snap = cur?.snapshot ?? null
     const hubGen = mode == null ? undefined : snap?.header.staticGeneration[mode]
@@ -230,16 +240,18 @@ export function createApp(deps: AppDeps): Hono<Env> {
    * once that generation's index loads. Bus has none (the hub doesn't index it), so it answers 503.
    */
   async function generationOf(c: Context<Env>, mode: Mode): Promise<string | null> {
-    const until = c.get('until')
+    const budget = c.get('budget')
     try {
-      return await deps.store.currentGeneration(mode, waitUntilOf(c), until)
+      return await deps.store.currentGeneration(mode, waitUntilOf(c), budget)
     } catch (e) {
       if (!(e instanceof StaticReadError)) throw e
+      // Within what is left of the budget only (Codex r1): with none left, the original error answers at once.
+      if (budget.signal.aborted) throw e
       const client = deps.snapshotsFor?.(mode) ?? deps.snapshots
-      const cur = await client.get(waitUntilOf(c), c.req.raw.signal)
+      const cur = await client.get(waitUntilOf(c), waitSignal(c))
       const generation = cur?.snapshot.header.staticGeneration[mode]
-      if (!generation) throw e
-      const index = await deps.store.getIndex(generation, mode, until).catch(() => null)
+      if (!generation || budget.signal.aborted) throw e
+      const index = await deps.store.getIndex(generation, mode, budget).catch(() => null)
       if (!index) throw e
       const last = deps.store.lastManifest?.modes[mode]?.current ?? null
       c.get('log').warn('static generation from the rt snapshot', {
@@ -300,15 +312,15 @@ export function createApp(deps: AppDeps): Hono<Env> {
     if (at != null && (!Number.isInteger(at) || at < 0))
       return c.json({ error: 'bad at', detail: 'epoch seconds' }, 400)
 
-    const until = c.get('until')
+    const budget = c.get('budget')
     const generation = await generationOf(c, mode)
     if (!generation) return serverError(c, 503, 'no static data for mode', mode)
-    const index = await deps.store.getIndex(generation, mode, until)
+    const index = await deps.store.getIndex(generation, mode, budget)
     if (!index) return serverError(c, 503, 'static index missing', generation)
 
     const datesFor = (ms: number) => overlappingServiceDates(ms).filter((d) => index.serviceDates.includes(d))
     const load = async (ds: string[]) =>
-      (await Promise.all(ds.map((d) => deps.store.stopDay(index, d, key, until)))).filter(
+      (await Promise.all(ds.map((d) => deps.store.stopDay(index, d, key, budget)))).filter(
         (d): d is StaticStopDay => d != null,
       )
     // Snapshot, stop index and stop-day files load in parallel (on a cold isolate they were sequential R2 reads).
@@ -317,7 +329,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const early = datesFor(at != null ? at * 1000 : now())
     const [r, stations, speculative] = await Promise.all([
       rt(c, mode, generation),
-      stationsFor(deps.store, mode, generation).catch(() => null),
+      stationsFor(deps.store, mode, generation, c.get('budget').signal).catch(() => null),
       load(early).then(
         (days) => ({ days, error: null as unknown }),
         (error: unknown) => ({ days: [] as StaticStopDay[], error }),
@@ -420,7 +432,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     if (!mode) return c.json({ error: 'unknown mode' }, 400)
     const tripInstance = c.req.param('tripInstance')
     if (!/^.+@\d{8}$/.test(tripInstance)) return c.json({ error: 'bad trip instance' }, 400)
-    const until = c.get('until')
+    const budget = c.get('budget')
     const generation = await generationOf(c, mode)
     if (!generation) return serverError(c, 503, 'no static data for mode', mode)
     const r = await rt(c, mode, generation)
@@ -469,9 +481,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
         ),
       }
     } else {
-      const index = await deps.store.getIndex(generation, mode, until)
+      const index = await deps.store.getIndex(generation, mode, budget)
       if (!index) return serverError(c, 503, 'static index missing', generation)
-      const day = await deps.store.tripIndexDay(index, serviceDate, until)
+      const day = await deps.store.tripIndexDay(index, serviceDate, budget)
       const { tripId } = parseTripInstanceKey(tripInstance)
       const trip = day ? findTrip(day, tripId) : undefined
       if (!day || !trip) return c.json({ error: 'unknown trip', detail: tripInstance }, 404)
@@ -718,6 +730,13 @@ export function createApp(deps: AppDeps): Hono<Env> {
 }
 
 // ------------------------------------------------------------------ helpers
+
+/** The caller's abort, or the end of the request's static-read budget, whichever comes first. */
+function waitSignal(c: Context<Env>): AbortSignal {
+  const budget = c.get('budget').signal
+  const caller = c.req.raw.signal
+  return caller ? AbortSignal.any([caller, budget]) : budget
+}
 
 /** The request's waitUntil, when running in a Worker (tests and scripts have no execution context). */
 function waitUntilOf(c: Context<Env>): ((p: Promise<unknown>) => void) | undefined {

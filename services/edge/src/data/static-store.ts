@@ -3,7 +3,7 @@
  * Indexes and blobs are immutable, so they're cached in isolate memory (bounded LRU); only the manifest is refreshed.
  */
 import { GenerationIndex, Manifest, type Mode, StaticStopDay, shardOf, TripIndexDay } from '@bft/core'
-import { DeadlineError, type Flight, flight, isDead, within } from '../deadline.ts'
+import { AbandonedError, DeadlineError, type Flight, flight, isDead, within } from '../deadline.ts'
 import { errorMessage } from '../log.ts'
 import { type DataSource, decodeJson, readBytes, readJson } from './source.ts'
 
@@ -16,7 +16,7 @@ export const TRIP_INDEX_CACHE_MAX_BYTES = 1 << 20
  * staging). A cold departures request can chain up to four bounded waits (manifest, index, then snapshot, stations
  * and stop-day reads in parallel, then the next-day top-up), so ~12 s at worst: over the 10 s proxy, whose own
  * timeout and fallback then answer. Bounded, never a hang. On a /v1 request the whole chain is also capped by the
- * request's budget (`until`, STATIC_READ_BUDGET_MS in ../app.ts), which leaves room for one retry of a failed read.
+ * request's budget (ReadBudget, STATIC_READ_BUDGET_MS in ../app.ts), which leaves room for one retry of a failed read.
  * Measured on staging 20 Oct: a static object's first byte arrives in 0.4-0.9 s and bus shards are 15-36 KB gzipped,
  * so a 3 s miss is an R2 latency outlier, not a size problem: the deadline stays, and the retry takes the outlier.
  */
@@ -29,6 +29,20 @@ export const TRIP_INDEX_LOAD_DEADLINE_MS = 6_000
  * BNE is ~400 ms); with less, the request answers 503 at once rather than start a read it can't wait for.
  */
 export const MIN_RETRY_MS = 500
+
+/**
+ * A request's time for static reads: `until` (epoch ms) for arithmetic, and `signal`, aborted by the request's own
+ * timer at the same moment, which ends any wait still running (a clock alone can't be trusted to advance).
+ */
+export interface ReadBudget {
+  until: number
+  signal: AbortSignal
+}
+
+/** A budget of `ms` from now, timed by this request's own timer. */
+export function readBudget(ms: number, now: number): ReadBudget {
+  return { until: now + ms, signal: AbortSignal.timeout(Math.max(0, ms)) }
+}
 
 /** Which static read failed, for the 503's `detail` and the log (never a key or user input). */
 export type StaticReadKind = 'manifest' | 'index' | 'stop-day' | 'shard' | 'trip-index'
@@ -179,33 +193,38 @@ export class StaticStore {
 
   /**
    * One shared read for a caller: join or start a flight (`get`) and wait for it for at most what is left of its
-   * deadline, and of `until` (the request's budget, epoch ms). A flight that fails, or runs out its own deadline, is
-   * dropped (`drop`, identity-checked) so the next read starts afresh; a wait cut short only by `until` leaves it for
-   * other waiters. With `until`, a failure is retried once at once if the budget leaves MIN_RETRY_MS (concurrent
-   * retries join one new flight), and then rejects with a StaticReadError. Without it (the hub, scripts) there is no
-   * retry and the error passes through as before.
+   * deadline, and of the request's `budget`. A flight that fails, or runs out its own deadline, is dropped (`drop`,
+   * identity-checked) so the next read starts afresh; a wait cut short only by the budget leaves it for other
+   * waiters. With a budget, a failure is retried once at once if the budget leaves MIN_RETRY_MS (concurrent retries
+   * join one new flight), and then rejects with a StaticReadError. Without one (the hub, scripts) there is no retry
+   * and the error passes through as before.
    */
   private async read<T>(
     what: StaticReadKind,
     label: string,
     get: () => Flight<T>,
     drop: (f: Flight<T>) => void,
-    until?: number,
+    budget?: ReadBudget,
     deadlineMs = this.loadDeadlineMs,
   ): Promise<T> {
     for (let attempt = 0; ; attempt++) {
       const f = get()
       const now = this.now()
       const own = f.at + deadlineMs - now
-      const byBudget = until !== undefined && until - now < own
+      const byBudget = budget !== undefined && budget.until - now < own
       try {
-        return f.settled ? await f.p : await within(f.p, byBudget ? (until as number) - now : own, label)
+        if (f.settled) return await f.p
+        // The budget's own timer (its signal) ends the wait too, so the budget holds even if the clock doesn't
+        // advance between attempts (workerd's clock moves only with I/O; Codex r1).
+        return await within(f.p, byBudget ? (budget as ReadBudget).until - now : own, label, budget?.signal)
       } catch (e) {
-        const lost = !(e instanceof DeadlineError) || !byBudget
-        if (lost) drop(f)
-        if (until === undefined) throw e
-        if (attempt === 0 && lost && until - this.now() >= MIN_RETRY_MS) continue
-        throw new StaticReadError(what, e instanceof DeadlineError ? 'deadline' : 'error', e)
+        const cut = e instanceof AbandonedError || (e instanceof DeadlineError && byBudget)
+        if (!cut) drop(f)
+        if (!budget) throw e
+        const left = budget.until - this.now()
+        if (attempt === 0 && !cut && !budget.signal.aborted && left >= MIN_RETRY_MS) continue
+        const timedOut = e instanceof DeadlineError || e instanceof AbandonedError
+        throw new StaticReadError(what, timedOut ? 'deadline' : 'error', e)
       }
     }
   }
@@ -216,14 +235,14 @@ export class StaticStore {
    * blocking 60 s refresh put an R2 round trip (~380 ms) on every fourth or fifth request. Without it (the hub,
    * tests), a stale manifest is refreshed before returning.
    */
-  getManifest(waitUntil?: (p: Promise<unknown>) => void, until?: number): Promise<Manifest | null> {
+  getManifest(waitUntil?: (p: Promise<unknown>) => void, budget?: ReadBudget): Promise<Manifest | null> {
     const fresh = this.now() - this.manifestAt < this.manifestMaxAgeMs
     if (this.manifestValue && fresh) return Promise.resolve(this.manifestValue)
     if (this.manifestValue && waitUntil) {
       waitUntil(this.loadManifest().p.catch(() => null))
       return Promise.resolve(this.manifestValue)
     }
-    // A request (`until`) on an isolate with no good manifest gets the StaticReadError after its retry, rather than
+    // A request (`budget`) on an isolate with no good manifest gets the StaticReadError after its retry, rather than
     // a null that reads as "no static data" (staging 20 Oct: a fresh isolate's failed read answered 503 with the
     // cause thrown away).
     return this.read(
@@ -233,9 +252,9 @@ export class StaticStore {
       (f) => {
         if (this.manifestLoad === f) this.manifestLoad = null
       },
-      until,
+      budget,
     ).catch((e: unknown) => {
-      if (this.manifestValue || until === undefined) return this.manifestValue
+      if (this.manifestValue || !budget) return this.manifestValue
       throw e
     })
   }
@@ -248,12 +267,12 @@ export class StaticStore {
   async currentGeneration(
     mode: Mode,
     waitUntil?: (p: Promise<unknown>) => void,
-    until?: number,
+    budget?: ReadBudget,
   ): Promise<string | null> {
-    return (await this.getManifest(waitUntil, until))?.modes[mode]?.current ?? null
+    return (await this.getManifest(waitUntil, budget))?.modes[mode]?.current ?? null
   }
 
-  getIndex(generation: string, mode: Mode, until?: number): Promise<GenerationIndex | null> {
+  getIndex(generation: string, mode: Mode, budget?: ReadBudget): Promise<GenerationIndex | null> {
     const k = `${generation}/${mode}`
     const get = () => {
       const f = this.indexes.get(k)
@@ -273,13 +292,13 @@ export class StaticStore {
       this.indexes.set(k, load)
       return load
     }
-    return this.read('index', indexKey(generation, mode), get, (f) => this.indexes.deleteIf(k, f), until)
+    return this.read('index', indexKey(generation, mode), get, (f) => this.indexes.deleteIf(k, f), budget)
   }
 
   private blob(
     key: string,
     what: StaticReadKind,
-    until?: number,
+    budget?: ReadBudget,
     cache = this.blobs,
   ): Promise<unknown | null> {
     const get = () => {
@@ -290,7 +309,7 @@ export class StaticStore {
       cache.set(key, load)
       return load
     }
-    return this.read(what, key, get, (f) => cache.deleteIf(key, f), until)
+    return this.read(what, key, get, (f) => cache.deleteIf(key, f), budget)
   }
 
   /** The stop-day file for a stop key on a service date, from a per-stop blob or a shard. */
@@ -298,15 +317,15 @@ export class StaticStore {
     index: GenerationIndex,
     serviceDate: string,
     stopKey: string,
-    until?: number,
+    budget?: ReadBudget,
   ): Promise<StaticStopDay | null> {
     const sha = index.blobs[serviceDate]?.[stopKey]
     let raw: unknown | null = null
-    if (sha) raw = await this.blob(blobKey(sha), 'stop-day', until)
+    if (sha) raw = await this.blob(blobKey(sha), 'stop-day', budget)
     if (raw == null) {
       const shard = shardFor(index, serviceDate, stopKey)
       if (!shard) return null
-      const all = (await this.blob(shardKey(shard), 'shard', until)) as Record<string, unknown> | null
+      const all = (await this.blob(shardKey(shard), 'shard', budget)) as Record<string, unknown> | null
       raw = all?.[stopKey] ?? null
     }
     if (raw == null) return null
@@ -321,7 +340,7 @@ export class StaticStore {
   async tripIndexDay(
     index: GenerationIndex,
     serviceDate: string,
-    until?: number,
+    budget?: ReadBudget,
   ): Promise<TripIndexDay | null> {
     const sha = index.tripIndex?.[serviceDate]
     if (!sha) return null
@@ -362,7 +381,7 @@ export class StaticStore {
         (f) => {
           if (this.tripIndexLoads.get(key) === f) this.tripIndexLoads.delete(key)
         },
-        until,
+        budget,
         TRIP_INDEX_LOAD_DEADLINE_MS,
       )
     }
