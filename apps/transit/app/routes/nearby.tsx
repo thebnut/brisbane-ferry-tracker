@@ -35,8 +35,8 @@ import {
   walkMinutes,
 } from '../lib/nearby.ts'
 import { useGeoTiles, useStopDepartures } from '../lib/nearby-queries.ts'
+import { type Place, readPlace, writePlace } from '../lib/place.ts'
 import { useApi } from '../lib/queries.ts'
-import { type Place, readPlace, writePlace } from '../lib/storage.ts'
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/nearby'
 

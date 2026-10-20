@@ -73,8 +73,9 @@ async function guarded(handle: () => Promise<Response>): Promise<Response> {
 }
 
 async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
-  // P6: page navigations move to BrisbaneTransit when REDIRECT_TO_TRANSIT is "1" (APIs, data and static files never).
-  const moved = env.REDIRECT_TO_TRANSIT === '1' ? transitRedirect(request, 'ferry', env) : null
+  // P6: page navigations move to BrisbaneTransit when REDIRECT_TO_TRANSIT is "1" (APIs, data and static files never);
+  // a browser's first visit gets the favourites handoff page instead (P6b).
+  const moved = env.REDIRECT_TO_TRANSIT === '1' ? transitRedirect(request, 'ferry', env, nonce) : null
   if (moved) return moved
   const url = new URL(request.url)
   const legacy = await handleLegacy(request, env)

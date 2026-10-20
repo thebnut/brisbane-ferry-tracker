@@ -21,6 +21,7 @@
     "./sw": "./src/sw.ts",
     "./upstream": "./src/upstream.ts",
     "./redirect": "./src/redirect.ts",
+    "./handoff-codec": "./src/handoff-codec.ts",
     "./e2e/*": "./e2e/*"
   },
   "sideEffects": [
