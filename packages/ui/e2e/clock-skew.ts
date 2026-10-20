@@ -125,6 +125,8 @@ export function clockSkewSuite({
 
     /** After `ms` more device time with the API failing, the browser says it is online (a reconnect): boards render. */
     const reconnectAfter = async (page: Page, context: BrowserContext, ms: number) => {
+      // No request in flight: one that started before the outage would bring genuinely fresh data after it.
+      await page.waitForLoadState('networkidle')
       await apiErrors(context)
       await advanceDeviceClock(page, ms)
       const failed = page.waitForResponse(
@@ -161,8 +163,9 @@ export function clockSkewSuite({
       // 62 s pass between two useNow ticks (every 15 s, 5 s on ferry): the reconnect's render judges the data as of
       // now, not as of the last tick.
       await reconnectAfter(page, context, 62_000)
-      await page.waitForTimeout(300)
-      expect(await visibleLiveClaims(page)).toEqual([])
+      // Well within one tick of the 15 s boards (the train boards tick every second and only render then; a loaded
+      // test machine can take a while).
+      await expect.poll(() => visibleLiveClaims(page), { timeout: 3_000 }).toEqual([])
     })
   })
 }
