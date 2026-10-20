@@ -141,15 +141,17 @@ export function departuresOptions(
   mode: DataMode,
   stopId: string,
   initial: DeparturesResponse | null,
+  /** Only this route's departures (the stop page's ?route=). */
+  route?: string,
 ) {
-  const queryKey = ['bus', 'departures', mode.fixtures, mode.rt, stopId] as const
+  const queryKey = ['bus', 'departures', mode.fixtures, mode.rt, stopId, route] as const
   return {
     queryKey,
     queryFn: async ({ signal, client }: QueryFunctionContext<typeof queryKey>): Promise<Board> => {
       // The board on screen: offline, it may be fresher than any cached copy.
       const shown = client.getQueryData<Board>(queryKey)
       try {
-        const res = await fetchDepartures(fetcher, stopId, { signal })
+        const res = await fetchDepartures(fetcher, stopId, { signal, route })
         // A network answer, judged on this response (not on the connection flag, which another request may have just
         // cleared) and never older than the server board on screen (R6-B1). Not against the kept timetable: a network
         // answer from the edge cache can be a little older than it (release review).
@@ -200,8 +202,9 @@ export function useDepartures(
   mode: DataMode,
   stopId: string,
   initial: DeparturesResponse | null,
+  route?: string,
 ) {
-  return useQuery(departuresOptions(fetcher, mode, stopId, initial))
+  return useQuery(departuresOptions(fetcher, mode, stopId, initial, route))
 }
 
 export function useManyDepartures(

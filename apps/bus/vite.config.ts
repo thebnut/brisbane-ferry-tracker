@@ -34,7 +34,14 @@ export default defineConfig({
     reactRouter(),
     pwa(),
   ],
-  build: { assetsInlineLimit: 0 },
+  build: {
+    assetsInlineLimit: 0,
+    // The search's Routes group (RouteResults) loads only on a keystroke and needs nothing that isn't already on the
+    // page, so it gets no preload list: that list would sit in SearchPanel's chunk, on the home page's first load.
+    modulePreload: {
+      resolveDependencies: (file, deps) => (/RouteResults-[\w-]+\.js$/.test(file) ? [] : deps),
+    },
+  },
   // Don't pick up the legacy root app's postcss.config.js (Tailwind 3); Tailwind 4 runs as a Vite plugin here.
   css: { postcss: { plugins: [] } },
   // Pre-bundle lazily imported deps so the dev server doesn't reload the page when they're first used.
