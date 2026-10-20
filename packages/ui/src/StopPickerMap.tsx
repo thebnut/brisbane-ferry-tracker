@@ -5,7 +5,8 @@
  * A full-screen sheet on phones and a panel beside the list at md+ (the caller sizes it). The mode's stops show as
  * pins, grouped into clusters until zoom 16 (stop-picker.ts); a tap opens the stop's card with its next departures
  * (loaded only then) and the mode's own Open and Save actions. "Stops in view" lists the same stops as buttons, the
- * keyboard and screen-reader path. Single-select only: P4's multi-select tray extends `PickerSelection`.
+ * keyboard and screen-reader path. In `mode: 'multi'` (P4 onboarding) a tap adds the stop to the caller's tray
+ * instead (no card), and the map stays open for the next one.
  */
 import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl'
 import {
@@ -55,18 +56,27 @@ export interface StopPickerMapProps {
   noun: string
   stops: PickerStop[]
   shape: PinShape
-  /** P3 is single-select; P4 adds 'multi'. */
-  mode?: 'single'
+  /** 'single' (P3): a tap opens the stop's card. 'multi' (P4): a tap calls `multi.onPick`, the caller's tray. */
+  mode?: 'single' | 'multi'
+  multi?: {
+    /** Ids in the tray: drawn as selected pins, and pressed in the list. */
+    pickedIds: readonly string[]
+    onPick: (stop: PickerStop) => void
+  }
+  /** Extra controls in the header, e.g. onboarding's mode switch. */
+  toolbar?: ReactNode
+  /** What "Map unavailable" suggests instead (default: close the map and search by name). */
+  unavailableHint?: ReactNode
   /** The map's view after each move, for callers that load stops by area (bus geo tiles). */
   onViewChange?: (bounds: ViewBounds, zoom: number) => void
   /** A line over the map, e.g. "Zoom in to see bus stops" or "Map data unavailable". */
   notice?: string | null
-  /** Next departures for the card, fetched when a stop is tapped (never prefetched). */
-  loadDepartures: (stop: PickerStop, signal: AbortSignal) => Promise<CardDeparture[]>
-  /** The "Open" link to the stop's page, in the app's router (className styles it as a button). */
-  renderOpen: (stop: PickerStop, className: string) => ReactNode
-  /** The second action: Save (toggle in the mode's store) or the ferry's "Use as From". */
-  save: {
+  /** Next departures for the card, fetched when a stop is tapped (never prefetched). Single mode only. */
+  loadDepartures?: (stop: PickerStop, signal: AbortSignal) => Promise<CardDeparture[]>
+  /** The "Open" link to the stop's page, in the app's router (className styles it as a button). Single mode only. */
+  renderOpen?: (stop: PickerStop, className: string) => ReactNode
+  /** The second action: Save (toggle in the mode's store) or the ferry's "Use as From". Single mode only. */
+  save?: {
     label: (stop: PickerStop) => string
     pressed?: (stop: PickerStop) => boolean
     onClick: (stop: PickerStop) => void
@@ -159,7 +169,13 @@ function addClusterLayers(m: MlMap) {
 const countdown = (m: number) =>
   m < 1 ? 'now' : m < 60 ? `${m} min` : `${Math.floor(m / 60)} hr ${m % 60} min`
 
-function Departures({ stop, load }: { stop: PickerStop; load: StopPickerMapProps['loadDepartures'] }) {
+function Departures({
+  stop,
+  load,
+}: {
+  stop: PickerStop
+  load: NonNullable<StopPickerMapProps['loadDepartures']>
+}) {
   const [state, setState] = useState<{ id: string; rows: CardDeparture[] | null; error: boolean }>({
     id: stop.id,
     rows: null,
@@ -215,6 +231,10 @@ export default function StopPickerMap({
   noun,
   stops,
   shape,
+  mode = 'single',
+  multi,
+  toolbar,
+  unavailableHint,
   onViewChange,
   notice,
   loadDepartures,
@@ -307,6 +327,8 @@ export default function StopPickerMap({
     onViewChange?.(bounds, z)
   }
   const pick = (s: PickerStop, fly: boolean) => {
+    // Multi-select: into the tray, and the list and map stay as they are for the next pick.
+    if (multi) return multi.onPick(s)
     dispatch({ type: 'tap', id: s.id })
     setListOpen(false)
     if (!fly) return
@@ -315,10 +337,15 @@ export default function StopPickerMap({
     else pendingFly.current = { center: [s.lon, s.lat], zoom: CLUSTER_MAX_ZOOM }
   }
 
+  const pickedIds = multi?.pickedIds
   const markers = useMemo<MapMarker[]>(() => {
     const out: MapMarker[] = []
     if (geo.state === 'ok')
       out.push({ id: 'me', lat: geo.lat, lon: geo.lon, tone: 'you', pulse: true, label: 'You are here' })
+    for (const id of pickedIds ?? []) {
+      const s = byId.get(id)
+      if (s) out.push({ id: `sel:${s.id}`, lat: s.lat, lon: s.lon, shape, tone: 'selected', label: s.name })
+    }
     if (active)
       out.push({
         id: `sel:${active.id}`,
@@ -329,7 +356,7 @@ export default function StopPickerMap({
         label: active.name,
       })
     return out
-  }, [geo, active, shape])
+  }, [geo, active, shape, pickedIds, byId])
   const center: [number, number] = geo.state === 'ok' ? [geo.lon, geo.lat] : CBD_CENTRE
   // The view the map opens on, from its box, until MapLibre reports its own (after the basemap loads, which can take a
   // while on a busy device): the stops list, clusters and bus tiles don't wait for the basemap.
@@ -350,7 +377,7 @@ export default function StopPickerMap({
 
   // The list and search stay usable: the picker is only ever an addition to them. Without WebGL2, or if the map
   // fails to start, the shared MapBoundary shows "Map unavailable on this device" with this hint (R13-R1).
-  const unavailable = (
+  const unavailable = unavailableHint ?? (
     <span className="text-sm text-sched-text">Close the map and search for a {noun} by name instead.</span>
   )
 
@@ -381,6 +408,7 @@ export default function StopPickerMap({
     >
       <div className="flex items-center gap-2 px-3 py-2">
         <h2 className="min-w-0 flex-1 truncate text-base font-extrabold">{title}</h2>
+        {toolbar}
         <button
           ref={listRef}
           type="button"
@@ -437,6 +465,7 @@ export default function StopPickerMap({
                   <li key={s.id}>
                     <button
                       type="button"
+                      aria-pressed={pickedIds ? pickedIds.includes(s.id) : undefined}
                       onClick={() => pick(s, true)}
                       className="flex min-h-11 w-full items-center justify-between gap-2 rounded-button px-2.5 text-left text-sm hover:bg-ferry-orange-light dark:hover:bg-night-2"
                     >
@@ -457,7 +486,7 @@ export default function StopPickerMap({
             {notice}
           </p>
         ) : null}
-        {active ? (
+        {active && mode === 'single' && loadDepartures && renderOpen && save ? (
           <div
             ref={cardRef}
             tabIndex={-1}
