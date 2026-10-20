@@ -53,6 +53,13 @@ for (const how of DATA_FAILURES) {
     const inSheet = picker.getByRole('status').filter({ hasText: "Couldn't load the station list" })
     const retry = inSheet.getByRole('button', { name: 'Try again' })
     await expectUnobscured(retry)
+    // A station's card opens above the map's bottom edge too: the notice moves up, never under it (Codex review).
+    await picker.getByRole('button', { name: /Stations in view/ }).click()
+    await picker.getByRole('list', { name: 'Train stations in view' }).getByRole('button').first().click()
+    const card = picker.locator('[data-stop-card]')
+    await expect(card).toBeVisible()
+    await expectUnobscured(retry)
+    await expectUnobscured(card.getByRole('button', { name: /^Close / }))
 
     restore()
     await retry.click()
