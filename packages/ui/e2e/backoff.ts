@@ -47,22 +47,14 @@ export function probeDueByMs(elapsedMs: number): number {
  */
 const EVERY_BOARD_MS = LIVE_REQUEST_TIMEOUT_MS + RECONNECT_PROBE_MS + ANSWER_MARGIN_MS
 
-/** Every app's own board poll while API calls get through (each app's POLL_MS in app/lib/queries.ts). */
-const BOARD_POLL_MS = 15_000
-
 /**
  * After the last board's answer, by when the offline banner has gone: the banner stays while any board still shows an
  * offline copy (R6-B1), so it waits for the boards' answers, not the first one, and then goes as the page renders.
+ * Also when a call cut off before the network returned reports its failure late: that no longer marks the connection
+ * down (trackedFetch), so it no longer undoes the boards' answers (#121 allowed one board poll for it; late-failure.ts
+ * covers the case).
  */
 const BANNER_AFTER_ANSWERS_MS = ANSWER_MARGIN_MS
-
-/**
- * The same when a /v1 call failed after a board's answer: a call cut off before the network returned can report its
- * failure late (trackedFetch's reportOffline), so a board judging its answer just then (isNetworkAnswer) keeps its
- * offline copy; another board's answer can then cancel the probe, and the board asks again at its own poll (an app
- * quirk, PR #121 "Possible app follow-up"). Allowed only when such a failure was seen.
- */
-const LATE_FAILURE_BANNER_MS = BOARD_POLL_MS + ANSWER_MARGIN_MS
 
 /** Live API calls, the fixture copies included. */
 const LIVE = /\/v1\//
@@ -138,7 +130,7 @@ export function backoffSuite({
 
   /**
    * Each board's first network answer from now on (by pathname + search, as countCalls keys them), to a request made
-   * by `madeBy`, and the live calls that failed. The banner and LIVE are timed from the last board's answer: the
+   * by `madeBy`. The banner and LIVE are timed from the last board's answer: the
    * fixture server answers the boards one by one, slowly under a parallel run, and its latency doesn't count (timed
    * from the first answer, the banner wait was flaky).
    */
@@ -146,7 +138,6 @@ export function backoffSuite({
     /** When the page last made each board's request (one at a time per board: a refetch joins the one in flight). */
     const madeAt = new Map<string, number>()
     const at = new Map<string, number>()
-    const failedAt: number[] = []
     const state = { madeBy: Number.POSITIVE_INFINITY }
     // When the page made each board request: from a route (the newest runs first, before the outage's and the pinned
     // fixtures'), since Playwright reports a routed request only once its handlers are done, so after the fixture
@@ -172,14 +163,9 @@ export function backoffSuite({
       )
         at.set(key, Date.now())
     }
-    const onFailed = (r: Request) => {
-      if (LIVE.test(new URL(r.url()).pathname)) failedAt.push(Date.now())
-    }
     page.on('response', onResponse)
-    page.on('requestfailed', onFailed)
     return {
       at,
-      failedAt,
       state,
       /** The time of the first answer: an attempt made by `madeBy` that the network answered. */
       first: (timeout: number) =>
@@ -190,7 +176,6 @@ export function backoffSuite({
       async stop() {
         await context.unroute(isBoard, made)
         page.off('response', onResponse)
-        page.off('requestfailed', onFailed)
       },
     }
   }
@@ -213,15 +198,12 @@ export function backoffSuite({
     }
     const times = [...answers.at.values()]
     const lastAt = Math.max(...times)
-    // A failure reported after (or just before, events arriving out of step) a board's answer: the late-failure quirk.
-    const late = answers.failedAt.some((t) => t >= Math.min(...times) - 1_000)
     console.log(
       `${path}: board answers (ms after the network returned)`,
       Object.fromEntries([...answers.at].map(([b, t]) => [b, t - back])),
-      late ? 'with a late /v1 failure' : '',
     )
     await expect(page.locator('[data-banner=offline]')).toHaveCount(0, {
-      timeout: late ? LATE_FAILURE_BANNER_MS : BANNER_AFTER_ANSWERS_MS,
+      timeout: BANNER_AFTER_ANSWERS_MS,
     })
     await expect.poll(() => visibleLiveClaims(page), { timeout: 5_000, intervals: [100] }).not.toEqual([])
     return lastAt
