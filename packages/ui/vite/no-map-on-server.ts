@@ -12,8 +12,13 @@
  * dependency (this package); the apps' `plugins` arrays check its shape.
  */
 const STUB = '\0bft-map-stub'
+/**
+ * A file path in one spelling: forward slashes, and no leading slash before a Windows drive ("/C:/x" from a file URL,
+ * "C:\\x" from a resolver both become "C:/x") (Codex review).
+ */
+export const normalisePath = (p: string) => p.replace(/\\/g, '/').replace(/^\/([A-Za-z]:\/)/, '$1')
 /** This package's src/ on disk (a plain file URL decoded: `node:url` types aren't a dependency here). */
-const SRC = decodeURIComponent(new URL('../src/', import.meta.url).pathname)
+const SRC = normalisePath(decodeURIComponent(new URL('../src/', import.meta.url).pathname))
 const STUBBED = new Set([`${SRC}map/MapView.tsx`, `${SRC}StopPickerMap.tsx`])
 /** Imports that may point at a stubbed file: the two package entry points, or a path ending in either name. */
 const CANDIDATE = /^@bft\/ui\/(map|stop-picker-map)$|(^|\/)(MapView|StopPickerMap)(\.tsx)?$/
@@ -43,9 +48,10 @@ export function noMapOnServer() {
       importer: string | undefined,
       options: Record<string, unknown>,
     ) {
-      if (!CANDIDATE.test(id)) return null
+      // A query (`?v=1`) doesn't change which file is meant (Codex review).
+      if (!CANDIDATE.test(id.split('?')[0] as string)) return null
       const r = await this.resolve(id, importer, { ...options, skipSelf: true })
-      return r && STUBBED.has(r.id.split('?')[0] as string) ? STUB : null
+      return r && STUBBED.has(normalisePath(r.id.split('?')[0] as string)) ? STUB : null
     },
     load(this: ResolveContext, id: string) {
       if (id === STUB) return STUB_CODE

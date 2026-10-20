@@ -4,7 +4,7 @@
  * stops the build.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { noMapOnServer } from '../vite/no-map-on-server.ts'
+import { noMapOnServer, normalisePath } from '../vite/no-map-on-server.ts'
 
 const SRC = decodeURIComponent(new URL('../src/', import.meta.url).pathname)
 const FILES: Record<string, string> = {
@@ -13,6 +13,8 @@ const FILES: Record<string, string> = {
   './StopPickerMap.tsx': `${SRC}StopPickerMap.tsx`,
   './map/MapView.tsx': `${SRC}map/MapView.tsx`,
   '../map/MapView': `${SRC}map/MapView.tsx`,
+  './StopPickerMap.tsx?v=1': `${SRC}StopPickerMap.tsx?v=1`,
+  '@bft/ui/stop-picker-map?x': `${SRC}StopPickerMap.tsx?x`,
   './other/MapView.tsx': '/somewhere/else/MapView.tsx',
 }
 const ctx = {
@@ -51,6 +53,21 @@ describe('noMapOnServer', () => {
     expect(ctx.resolve).not.toHaveBeenCalled()
     expect(await resolve('./other/MapView.tsx')).toBeNull()
     expect(plugin.load.call(ctx, `${SRC}OnboardingPicker.tsx`)).toBeNull()
+  })
+
+  it('a query on the import is still the same file (Codex review)', async () => {
+    for (const id of ['./StopPickerMap.tsx?v=1', '@bft/ui/stop-picker-map?x'])
+      expect(await resolve(id), id).toBe('\0bft-map-stub')
+  })
+
+  it('compares Windows paths in one spelling (file URL vs resolver)', () => {
+    expect(normalisePath('/C:/repo/packages/ui/src/StopPickerMap.tsx')).toBe(
+      'C:/repo/packages/ui/src/StopPickerMap.tsx',
+    )
+    expect(normalisePath('C:\\repo\\packages\\ui\\src\\StopPickerMap.tsx')).toBe(
+      'C:/repo/packages/ui/src/StopPickerMap.tsx',
+    )
+    expect(normalisePath('/Users/x/repo/src/a.tsx')).toBe('/Users/x/repo/src/a.tsx')
   })
 
   it('fails the build if maplibre-gl is loaded for the server anyway', () => {
