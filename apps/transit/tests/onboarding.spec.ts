@@ -119,7 +119,9 @@ test('no prompt for an older Ferry-tab visitor (selector seen)', async ({ page }
   await expectNoPrompt(page)
 })
 
-test('no prompt after favourites are handed over (P6b import), during or after its notice', async ({ page }) => {
+test('no prompt after favourites are handed over (P6b import), during or after its notice', async ({
+  page,
+}) => {
   const hash = encodeHandoff({ v: 1, bus: [{ id: '10802', name: 'Cultural Centre station, platform 1' }] })
   await page.goto(`/${hash}`)
   await expect(page.locator('[data-handoff-notice]')).toBeVisible()
@@ -128,7 +130,9 @@ test('no prompt after favourites are handed over (P6b import), during or after i
   await expectNoPrompt(page)
 })
 
-test('without WebGL: Map unavailable, and the list and search still fill the tray and save', async ({ page }) => {
+test('without WebGL: Map unavailable, and the list and search still fill the tray and save', async ({
+  page,
+}) => {
   await disableWebGL(page)
   await page.goto('/train')
   await expectPrompt(page)
@@ -145,10 +149,14 @@ test('without WebGL: Map unavailable, and the list and search still fill the tra
   await expect(tray(page).locator('[data-tray-items] > li')).toHaveCount(2)
   await tray(page).getByRole('button', { name: 'Save 2 stops' }).click()
   await expect(page).toHaveURL(/\/$/)
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('bft-train-favourites') ?? '[]'))).toHaveLength(2)
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('bft-train-favourites') ?? '[]')),
+  ).toHaveLength(2)
 })
 
-test('keyboard: the prompt never takes focus, and the picker traps it and closes on Escape', async ({ page }) => {
+test('keyboard: the prompt never takes focus, and the picker traps it and closes on Escape', async ({
+  page,
+}) => {
   await page.goto('/')
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Yes' }).focus()
@@ -157,7 +165,9 @@ test('keyboard: the prompt never takes focus, and the picker traps it and closes
   // Focus starts inside the dialog and Tab stays there.
   for (let i = 0; i < 25; i++) {
     await page.keyboard.press('Tab')
-    expect(await page.evaluate(() => !!document.activeElement?.closest('[data-onboarding-picker]'))).toBe(true)
+    expect(await page.evaluate(() => !!document.activeElement?.closest('[data-onboarding-picker]'))).toBe(
+      true,
+    )
   }
   await tray(page).getByLabel('Find a stop by name').focus()
   await page.keyboard.press('Escape')

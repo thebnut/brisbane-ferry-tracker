@@ -22,7 +22,9 @@ export const prompt = (page: Page) => page.locator('[data-onboarding-prompt]')
 export async function expectPrompt(page: Page): Promise<void> {
   await expect(prompt(page)).toBeVisible({ timeout: 15_000 })
   await expect(prompt(page).getByRole('heading', { name: 'Set up your favourite stops?' })).toBeVisible()
-  expect(await page.evaluate(() => document.activeElement?.closest('[data-onboarding-prompt]') == null)).toBe(true)
+  expect(await page.evaluate(() => document.activeElement?.closest('[data-onboarding-prompt]') == null)).toBe(
+    true,
+  )
 }
 
 /** Long enough for the prompt to have come up, had it been going to. */

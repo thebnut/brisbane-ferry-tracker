@@ -48,7 +48,10 @@ test('Yes → tap a terminal (From) → a reachable To → Save: the boards show
   await picker(page)
     .getByRole('button', { name: /Terminals in view \([1-9]\d*\)/ })
     .click({ timeout: 20_000 })
-  await picker(page).getByRole('list', { name: 'Ferry terminals in view' }).getByRole('button', { name: /^Riverside/ }).click()
+  await picker(page)
+    .getByRole('list', { name: 'Ferry terminals in view' })
+    .getByRole('button', { name: /^Riverside/ })
+    .click()
   await expect(tray(page).locator('[data-tray-items] > li')).toHaveText([/From Riverside/])
   await expect(tray(page).getByRole('status')).toHaveText(/From Riverside\. Now choose where you're going\./)
   const save = tray(page).getByRole('button', { name: 'Save' })
@@ -60,9 +63,9 @@ test('Yes → tap a terminal (From) → a reachable To → Save: the boards show
   await save.click()
   await expect(page).toHaveURL(/\/$/)
   await expect(board(page)).toHaveAttribute('aria-label', 'Riverside to Bulimba')
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('brisbane-ferry-selected-stops') ?? 'null'))).toEqual(
-    { outbound: { id: '317590', name: 'Riverside' }, inbound: { id: '317584', name: 'Bulimba' } },
-  )
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('brisbane-ferry-selected-stops') ?? 'null')),
+  ).toEqual({ outbound: { id: '317590', name: 'Riverside' }, inbound: { id: '317584', name: 'Bulimba' } })
   // The server renders the pair from its cookie too.
   expect(await (await page.request.get('/')).text()).toContain('Riverside to Bulimba')
   await expectNoPrompt(page)
@@ -77,7 +80,10 @@ test('no prompt over a deep link or a terminal page, or once a pair is saved', a
   await page.evaluate(() =>
     localStorage.setItem(
       'brisbane-ferry-selected-stops',
-      JSON.stringify({ outbound: { id: '317584', name: 'Bulimba' }, inbound: { id: '317590', name: 'Riverside' } }),
+      JSON.stringify({
+        outbound: { id: '317584', name: 'Bulimba' },
+        inbound: { id: '317590', name: 'Riverside' },
+      }),
     ),
   )
   await page.evaluate(() => localStorage.setItem('brisbane-ferry-remember-selection', 'true'))
@@ -91,14 +97,19 @@ test('no prompt for a device the stop selector already opened on', async ({ page
   await expectNoPrompt(page)
 })
 
-test('without WebGL: Map unavailable, and the search still picks From and saves the pair', async ({ page }) => {
+test('without WebGL: Map unavailable, and the search still picks From and saves the pair', async ({
+  page,
+}) => {
   await disableWebGL(page)
   await page.goto('/')
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Yes' }).click()
   await expect(picker(page).getByText('Map unavailable on this device')).toBeVisible()
   await tray(page).getByLabel('Find a terminal by name').fill('new farm')
-  await tray(page).getByRole('button', { name: /New Farm/ }).first().click()
+  await tray(page)
+    .getByRole('button', { name: /New Farm/ })
+    .first()
+    .click()
   const to = tray(page).getByRole('combobox', { name: 'To' })
   await to.selectOption({ index: 1 })
   await tray(page).getByRole('button', { name: 'Save' }).click()
