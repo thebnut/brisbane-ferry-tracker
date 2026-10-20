@@ -251,7 +251,7 @@ export interface BottomNavProps {
   renderLink?: (item: NavItem, className: string, children: ReactNode) => ReactNode
 }
 
-/** One-handed bottom navigation; also the Mode Tabs shell (Ferry | Train | Bus | Nearby | My Transit). */
+/** One-handed bottom navigation; also the Mode Tabs shell (My Transit | Nearby | Ferry | Train | Bus). */
 export function BottomNav({ items, active, label = 'Main', renderLink }: BottomNavProps) {
   return (
     <nav
@@ -301,11 +301,11 @@ export function BottomNav({ items, active, label = 'Main', renderLink }: BottomN
 }
 
 export const MODE_TABS: NavItem[] = [
+  { key: 'saved', label: 'My Transit', icon: 'saved', href: '/saved' },
+  { key: 'nearby', label: 'Nearby', icon: 'nearby', href: '/nearby' },
   { key: 'ferry', label: 'Ferry', icon: 'ferry', href: '/ferry' },
   { key: 'train', label: 'Train', icon: 'train', href: '/train' },
   { key: 'bus', label: 'Bus', icon: 'bus', href: '/bus' },
-  { key: 'nearby', label: 'Nearby', icon: 'nearby', href: '/nearby' },
-  { key: 'saved', label: 'My Transit', icon: 'saved', href: '/saved' },
 ]
 
 /** The transit app's Mode Tabs shell: BottomNav preset with the five mode tabs. */
