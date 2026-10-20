@@ -16,7 +16,10 @@ export async function fetchGeoTile(fetcher: ApiFetcher, geohash: string, signal?
   }
 }
 
-/** Geohash tiles (own + neighbours) for nearby. Missing tiles (no stops) resolve to null. */
+/**
+ * Geohash tiles (own + neighbours) for nearby. Missing tiles (no stops) resolve to null. A tile that failed to load
+ * counts as empty, so the rest still show; `error` says some failed and `retry` refetches just those.
+ */
 export function useGeoTiles(fetcher: ApiFetcher, mode: DataMode, geohashes: string[]) {
   const results = useQueries({
     queries: geohashes.map((gh) => ({
@@ -28,5 +31,8 @@ export function useGeoTiles(fetcher: ApiFetcher, mode: DataMode, geohashes: stri
   const loading = results.some((r) => r.isPending)
   const error = results.find((r) => r.error)?.error ?? null
   const tiles = results.map((r) => r.data).filter((t): t is GeoTileFile => !!t)
-  return { tiles, loading, error }
+  const retry = () => {
+    for (const r of results) if (r.isError) r.refetch()
+  }
+  return { tiles, loading, error, retry }
 }

@@ -82,7 +82,13 @@ export function useStopSearch(query: string) {
       window.__bftSearch.ready = true
     }
   }, [idx.index])
-  return { result, loading: enabled && !idx.isError && !idx.index, error: idx.isError, index: idx }
+  return {
+    result,
+    loading: enabled && !idx.isError && !idx.index,
+    error: idx.isError,
+    retry: idx.retry,
+    index: idx,
+  }
 }
 
 function Results({
@@ -90,12 +96,14 @@ function Results({
   result,
   loading,
   error,
+  onRetry,
   upward,
 }: {
   query: string
   result: SearchResult | null
   loading: boolean
   error: boolean
+  onRetry: () => void
   upward: boolean
 }) {
   if (!query.trim()) return null
@@ -116,6 +124,15 @@ function Results({
                 ? `No stops match “${query.trim()}”`
                 : `${result.total > result.hits.length ? `${result.hits.length} of ${result.total}` : result.hits.length} stop${result.hits.length === 1 ? '' : 's'} match “${query.trim()}”`}
       </span>
+      {error && !loading ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="shrink-0 text-ferry-orange-deep underline dark:text-ferry-sunset"
+        >
+          Try again
+        </button>
+      ) : null}
       {upward && result?.hits.length ? (
         <span className="hidden font-medium text-sched-text sm:inline">Best match nearest your thumb</span>
       ) : null}
@@ -156,7 +173,7 @@ function Results({
 
 export function SearchPanel({ children, quick }: { children: ReactNode; quick?: ReactNode }) {
   const [query, setQuery] = useState('')
-  const { result, loading, error } = useStopSearch(query)
+  const { result, loading, error, retry } = useStopSearch(query)
   const [recent, setRecent] = useState<SavedStop[]>([])
   const scroller = useRef<HTMLDivElement>(null)
   useEffect(() => setRecent(readRecent().slice(0, 2)), [])
@@ -196,7 +213,14 @@ export function SearchPanel({ children, quick }: { children: ReactNode; quick?: 
           <div className="mt-3 flex items-start gap-4">
             {searching ? (
               <div className="max-w-2xl flex-1">
-                <Results query={query} result={result} loading={loading} error={error} upward={false} />
+                <Results
+                  query={query}
+                  result={result}
+                  loading={loading}
+                  error={error}
+                  onRetry={retry}
+                  upward={false}
+                />
               </div>
             ) : null}
             {picker('wide')}
@@ -211,7 +235,7 @@ export function SearchPanel({ children, quick }: { children: ReactNode; quick?: 
           className="bg-page fixed inset-x-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+var(--bft-bottom-bar,58px)+166px)] z-30 overflow-y-auto px-4 pt-20 pb-3 md:hidden"
         >
           <div className="flex min-h-full flex-col justify-end">
-            <Results query={query} result={result} loading={loading} error={error} upward />
+            <Results query={query} result={result} loading={loading} error={error} onRetry={retry} upward />
           </div>
         </div>
       ) : null}

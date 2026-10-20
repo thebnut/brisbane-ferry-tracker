@@ -60,9 +60,8 @@ export default function BusStopPicker({
       shape="diamond"
       stops={stops}
       onViewChange={onView}
-      notice={
-        zoomedOut ? 'Zoom in to see bus stops' : tiles.error ? 'Map data unavailable. Try again later.' : null
-      }
+      notice={zoomedOut ? 'Zoom in to see bus stops' : tiles.error ? "Couldn't load stops" : null}
+      onRetry={!zoomedOut && tiles.error ? tiles.retry : null}
       loadDepartures={loadDepartures}
       renderOpen={(s, className) => (
         <Link to={stopHref(s.id)} className={className}>

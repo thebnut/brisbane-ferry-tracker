@@ -116,12 +116,12 @@ test('a tap on a stop pin opens its card; Escape and Close step back; closing fo
 test.describe(() => {
   // The service worker would answer the tile requests before page.route sees them.
   test.use({ serviceWorkers: 'block' })
-  test('a failed geo tile says map data is unavailable, never a broken map', async ({ page }) => {
+  test("a failed geo tile says stops couldn't load, never a broken map", async ({ page }) => {
     await page.route(/\/data\/bus\/geo\//, (r) => r.abort())
     await page.goto('/')
     await page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true').click()
     const picker = page.getByLabel('Bus stops map', { exact: true })
-    await expect(picker.getByRole('status')).toHaveText(/Map data unavailable/, { timeout: 20_000 })
+    await expect(picker.getByRole('status')).toHaveText(/Couldn't load stops/, { timeout: 20_000 })
     await expect(picker.locator('canvas')).toBeVisible()
   })
 })

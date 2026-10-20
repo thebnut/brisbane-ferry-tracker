@@ -3,10 +3,10 @@
  * data/bus/routes/{route}.json (server-rendered stop list), for a route data/bus/routes.json lists as current; the map (lazy) draws the line, the stops as bus diamonds
  * and the live buses; the sheet lists the buses with where they are. `?trip=` highlights one bus ("Track on map").
  */
-import { RouteTile, routeTileVariant, useGeolocation } from '@bft/ui'
+import { ErrorState, RouteTile, routeTileVariant, useGeolocation } from '@bft/ui'
 import { occupancyText, SaveButton, SegmentedControl } from '@bft/ui/bus'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { data, Link, useSearchParams } from 'react-router'
+import { data, isRouteErrorResponse, Link, useRevalidator, useSearchParams } from 'react-router'
 import { ClientOnly } from '../components/ClientOnly.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute, fetchRouteIndex } from '../lib/api.ts'
@@ -53,6 +53,27 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   if (unknown || (route && route.patterns.length === 0)) throw data(null, { status: 404 })
   if (!route) throw data(null, { status: 503 })
   return { route, renderedAt: Date.now(), siteUrl: env?.SITE_URL ?? SITE_URL }
+}
+
+/**
+ * The route file couldn't be read (the loader's 503: R2 slow, or the API down): say so on the page, with a Try again
+ * that reruns the loader, never the app's "Something went wrong". Any other error goes on to the parent boundary.
+ */
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  const revalidator = useRevalidator()
+  if (!isRouteErrorResponse(error) || error.status !== 503) throw error
+  return (
+    <>
+      <SiteHeader live={false} />
+      <main className="mx-auto flex max-w-3xl flex-col gap-3 px-4 pt-3.5 pb-28">
+        <ErrorState title="Couldn't load this route" onRetry={() => revalidator.revalidate()}>
+          Route details are slow to load right now. Check your connection and try again.
+        </ErrorState>
+      </main>
+      <Footer />
+      <BusNav active="" />
+    </>
+  )
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {

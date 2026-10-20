@@ -3,7 +3,7 @@
  * neighbours are fetched from data/bus/geo/ and sorted by haversine distance, so stops just across a tile edge
  * still appear. The position never leaves the browser. `?lat=&lon=` sets a position (links, tests).
  */
-import { EmptyState, Icon, PrimaryButton, useGeolocation } from '@bft/ui'
+import { EmptyState, ErrorState, Icon, PrimaryButton, useGeolocation } from '@bft/ui'
 import { SkeletonRows, StopResultCard } from '@bft/ui/bus'
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router'
@@ -123,7 +123,9 @@ export default function Nearby() {
           tiles.loading && stops.length === 0 ? (
             <SkeletonRows count={4} label="Finding stops…" />
           ) : tiles.error && stops.length === 0 ? (
-            <EmptyState title="Couldn't load nearby stops">Check your connection and try again.</EmptyState>
+            <ErrorState title="Couldn't load nearby stops" onRetry={tiles.retry}>
+              Check your connection and try again.
+            </ErrorState>
           ) : stops.length === 0 ? (
             <EmptyState title="No bus stops within 2 km">
               <Link to={at('/')} className="font-semibold underline">
@@ -132,24 +134,38 @@ export default function Nearby() {
               instead.
             </EmptyState>
           ) : (
-            <ul className="flex flex-col gap-2.5" aria-label="Nearby stops">
-              {stops.map((s, i) => {
-                const full = byKey.get(s.key)
-                return (
-                  <StopResultCard
-                    key={s.key}
-                    name={s.name}
-                    meta={resultMeta(full ?? { ...s, routes: [] })}
-                    platform={full?.platforms?.[0]?.code}
-                    routes={full?.routes ?? []}
-                    distance={formatDistance(s.metres)}
-                    best={i === 0}
-                    href={stopHref(s.key)}
-                    renderLink={linkRenderer}
-                  />
-                )
-              })}
-            </ul>
+            <>
+              {tiles.error ? (
+                <p role="status" className="flex flex-wrap items-center gap-x-2 text-[13px] text-sched-text">
+                  Couldn't load some stops nearby.
+                  <button
+                    type="button"
+                    onClick={tiles.retry}
+                    className="font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
+                  >
+                    Try again
+                  </button>
+                </p>
+              ) : null}
+              <ul className="flex flex-col gap-2.5" aria-label="Nearby stops">
+                {stops.map((s, i) => {
+                  const full = byKey.get(s.key)
+                  return (
+                    <StopResultCard
+                      key={s.key}
+                      name={s.name}
+                      meta={resultMeta(full ?? { ...s, routes: [] })}
+                      platform={full?.platforms?.[0]?.code}
+                      routes={full?.routes ?? []}
+                      distance={formatDistance(s.metres)}
+                      best={i === 0}
+                      href={stopHref(s.key)}
+                      renderLink={linkRenderer}
+                    />
+                  )
+                })}
+              </ul>
+            </>
           )
         ) : null}
       </main>

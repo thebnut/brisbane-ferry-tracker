@@ -130,9 +130,25 @@ export default function MapPage() {
             />
           )}
         </ClientOnly>
-        {scope === 'near' && zoomedOut ? (
-          <p className="absolute inset-x-0 bottom-24 z-10 mx-auto w-fit rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-charcoal shadow-card md:bottom-6 dark:bg-night-card dark:text-night-text">
-            Zoom in to see bus stops
+        {(scope === 'near' && (zoomedOut || tiles.error)) || (scope === 'saved' && index.isError) ? (
+          <p
+            role="status"
+            className="absolute inset-x-0 bottom-24 z-10 mx-auto flex w-fit items-center gap-3 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-charcoal shadow-card md:bottom-6 dark:bg-night-card dark:text-night-text"
+          >
+            {scope === 'near' && zoomedOut ? (
+              'Zoom in to see bus stops'
+            ) : (
+              <>
+                Couldn't load stops
+                <button
+                  type="button"
+                  onClick={scope === 'near' ? tiles.retry : index.retry}
+                  className="text-ferry-orange-deep underline dark:text-ferry-sunset"
+                >
+                  Try again
+                </button>
+              </>
+            )}
           </p>
         ) : null}
       </main>

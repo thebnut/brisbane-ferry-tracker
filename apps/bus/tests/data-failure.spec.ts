@@ -1,0 +1,106 @@
+/**
+ * A failed /data read (R2 slow: the edge's 503, or a request that never completes) degrades in place: the stop
+ * search, the map picker, /map and /nearby say "Couldn't load" with a Try again that brings the data back, and the
+ * page never goes to "Something went wrong".
+ */
+import { DATA_FAILURES, expectNoErrorPage, failData, pageErrors } from '@bft/ui/e2e/data-failure.ts'
+import { expect, test } from '@playwright/test'
+
+test.beforeEach(async ({ context }) => {
+  await context.grantPermissions(['geolocation'])
+  await context.setGeolocation({ latitude: -27.4732, longitude: 153.0195 })
+})
+
+for (const how of DATA_FAILURES) {
+  test.describe(`/data ${how}`, () => {
+    test('stop search: says the list failed, Try again finds the stop', async ({ page, context }) => {
+      const errors = pageErrors(page)
+      const { restore } = await failData(context, how)
+      await page.goto('/')
+      await page
+        .getByRole('searchbox', { name: /Stop name or number|Find a stop/ })
+        .locator('visible=true')
+        .fill('cultural')
+      const status = page
+        .getByRole('status')
+        .filter({ hasText: "Couldn't load the stop list" })
+        .locator('visible=true')
+      await expect(status).toBeVisible({ timeout: 20_000 })
+      await expectNoErrorPage(page)
+      restore()
+      await status.getByRole('button', { name: 'Try again' }).click()
+      await expect(
+        page
+          .getByRole('list', { name: 'Matching stops' })
+          .locator('visible=true')
+          .getByText(/Cultural Centre/)
+          .first(),
+      ).toBeVisible({ timeout: 20_000 })
+      expect(errors).toEqual([])
+    })
+
+    test('map picker: "Couldn\'t load stops" over the map, Try again shows them', async ({
+      page,
+      context,
+    }) => {
+      const errors = pageErrors(page)
+      const { restore } = await failData(context, how)
+      await page.goto('/')
+      await page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true').click()
+      const picker = page.getByLabel('Bus stops map', { exact: true })
+      const notice = picker.getByRole('status').filter({ hasText: "Couldn't load stops" })
+      await expect(notice).toBeVisible({ timeout: 20_000 })
+      await expect(picker.getByRole('button', { name: 'Stops in view (0)' })).toBeVisible()
+      await expectNoErrorPage(page)
+      restore()
+      await notice.getByRole('button', { name: 'Try again' }).click()
+      await expect(picker.getByRole('button', { name: /Stops in view \([1-9]\d*\)/ })).toBeVisible({
+        timeout: 20_000,
+      })
+      await expect(notice).toHaveCount(0)
+      expect(errors).toEqual([])
+    })
+
+    test('/map: says stops failed, Try again draws them', async ({ page, context }) => {
+      const errors = pageErrors(page)
+      const { restore } = await failData(context, how)
+      await page.goto('/map')
+      const notice = page.getByRole('status').filter({ hasText: "Couldn't load stops" })
+      await expect(notice).toBeVisible({ timeout: 20_000 })
+      await expectNoErrorPage(page)
+      restore()
+      await notice.getByRole('button', { name: 'Try again' }).click()
+      await expect(page.getByLabel(/^Map of [1-9]\d* bus stops$/)).toBeVisible({ timeout: 20_000 })
+      await expect(notice).toHaveCount(0)
+      expect(errors).toEqual([])
+    })
+
+    test('/nearby: "Couldn\'t load nearby stops", never "No bus stops"; Try again lists them', async ({
+      page,
+      context,
+    }) => {
+      const errors = pageErrors(page)
+      const { restore } = await failData(context, how)
+      await page.goto('/nearby')
+      await page
+        .getByRole('button', { name: 'Use my location' })
+        .click({ timeout: 3_000 })
+        .catch(() => {})
+      const alert = page.getByRole('alert').filter({ hasText: "Couldn't load nearby stops" })
+      await expect(alert).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByText('No bus stops within 2 km')).toHaveCount(0)
+      await expectNoErrorPage(page)
+      restore()
+      await alert.getByRole('button', { name: 'Try again' }).click()
+      await expect(
+        page
+          .getByRole('list', { name: 'Nearby stops' })
+          .getByText(/Cultural Centre/)
+          .first(),
+      ).toBeVisible({
+        timeout: 20_000,
+      })
+      expect(errors).toEqual([])
+    })
+  })
+}

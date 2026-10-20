@@ -72,13 +72,11 @@ export function useBusSource(): ModeSource {
     shape: 'diamond',
     stops,
     onViewChange,
-    notice: zoomedOut
-      ? 'Zoom in to see bus stops'
-      : tiles.error
-        ? 'Map data unavailable. Try again later.'
-        : null,
+    notice: zoomedOut ? 'Zoom in to see bus stops' : tiles.error ? "Couldn't load stops" : null,
+    retry: !zoomedOut && tiles.error ? tiles.retry : null,
     prepareSearch: () => setWantIndex(true),
     searching: wantIndex && !idx && !isError,
+    retrySearch: wantIndex && isError ? index.retry : null,
     search: (q) =>
       idx && searchStops
         ? searchStops(idx, q, 8).hits.map((e) => ({
