@@ -22,6 +22,7 @@ import {
   retryWhenBack,
   useDisconnects,
   usePageCheck,
+  VIA_NETWORK,
 } from '@bft/ui/connectivity'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
@@ -35,7 +36,7 @@ import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/saved'
 
 export function loader() {
-  return { renderedAt: Date.now() }
+  return { renderedAt: Date.now(), via: VIA_NETWORK }
 }
 
 export const meta: Route.MetaFunction = () => [

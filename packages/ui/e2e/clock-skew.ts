@@ -18,13 +18,15 @@ const SKEWS_MIN = [2, 5, 30, -2, -5, -30]
 const LIVE_API = /^(?:\/__fixtures)?\/v1\//
 
 /**
- * The device clock `offsetMs` off the real one, from the first script on (as Dev's smoke script did). The offset can
- * move later (advanceDeviceClock): device time passes without the test waiting for it, and timers stay real.
+ * The device clock `offsetMs` off the real one, from the first script on (as Dev's smoke script did). Time can pass
+ * at once later (advanceDeviceClock) without the test waiting for it: both the wall clock (Date) and the monotonic
+ * clock (performance.now, which the app's arrival times use) move; timers stay real.
  */
 const skewClock = (page: Page, offsetMs: number) =>
   page.addInitScript((off) => {
-    const w = window as unknown as { __skew: number }
+    const w = window as unknown as { __skew: number; __passed: number }
     w.__skew = off
+    w.__passed = 0
     const D = Date
     class Skewed extends D {
       constructor(...a: ConstructorParameters<DateConstructor> | []) {
@@ -35,12 +37,16 @@ const skewClock = (page: Page, offsetMs: number) =>
       }
     }
     window.Date = Skewed as DateConstructor
+    const now = performance.now.bind(performance)
+    performance.now = () => now() + w.__passed
   }, offsetMs)
 
-/** `ms` of device time pass at once (the monotonic clock doesn't move: an upper bound on age only grows). */
+/** `ms` of time pass on the device at once: its wall clock and its monotonic clock both move. */
 const advanceDeviceClock = (page: Page, ms: number) =>
   page.evaluate((d) => {
-    ;(window as unknown as { __skew: number }).__skew += d
+    const w = window as unknown as { __skew: number; __passed: number }
+    w.__skew += d
+    w.__passed += d
   }, ms)
 
 /** Records, from the first paint on, whether offline text or a LIVE claim showed (and when, in ms since navigation). */

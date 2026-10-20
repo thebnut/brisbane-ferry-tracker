@@ -11,6 +11,7 @@
  * loader passes null when the request's data mode (per-visitor fixtures, forced rtState) differs from the DO's.
  */
 import type { TripResponse } from '@bft/core/contract'
+import { deviceNow } from '@bft/ui/connectivity'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import type { DataMode } from './queries.ts'
@@ -53,7 +54,7 @@ export function useTripSocket(base: string | null, tripInstance: string, mode: D
           return
         }
         // A socket frame is a network answer: stamped with its arrival (@bft/ui Received, R15-S1).
-        const receivedAt = Date.now()
+        const receivedAt = deviceNow()
         if ('type' in body && body.type === 'tick') {
           client.setQueryData<TripResponse>(queryKey, (old) =>
             old

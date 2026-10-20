@@ -6,7 +6,7 @@
 
 import type { DeparturesResponse } from '@bft/core/contract'
 import { FilterPills, formatAge, formatClock, Icon, StatusStrip } from '@bft/ui'
-import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
+import { sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { useCallback, useEffect, useState } from 'react'
 import { data, Link } from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
@@ -53,6 +53,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     outbound,
     inbound,
     renderedAt: Date.now(),
+    via: VIA_NETWORK,
     mode: { fixtures, rt },
     site: siteInfo(env),
   }

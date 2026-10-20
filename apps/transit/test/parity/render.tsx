@@ -54,7 +54,7 @@ export function withFixtureFetch(fixtures: PageSpec['fixtures']) {
 }
 
 export async function renderPage(spec: PageSpec): Promise<string> {
-  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.useFakeTimers({ toFake: ['Date', 'performance'] })
   vi.setSystemTime(NOW_MS)
   withFixtureFetch(spec.fixtures)
   const context = new RouterContextProvider() as unknown as Ctx

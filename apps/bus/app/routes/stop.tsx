@@ -7,7 +7,7 @@
 import type { Alert } from '@bft/core/contract'
 import { FilterPills, PillButton } from '@bft/ui'
 import { NoticeStrip, SaveButton } from '@bft/ui/bus'
-import { usePageCheck } from '@bft/ui/connectivity'
+import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { data, redirect, useNavigate } from 'react-router'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
@@ -72,6 +72,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     departures,
     alerts,
     renderedAt: Date.now(),
+    via: VIA_NETWORK,
     siteUrl: env?.SITE_URL ?? SITE_URL,
     ...(route ? { route } : {}),
   }

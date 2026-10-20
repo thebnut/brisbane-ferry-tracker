@@ -21,7 +21,7 @@ import {
   tripAsTimetable,
 } from '@bft/ui'
 import { BigCountdown, OccupancyMeter, SaveButton, SkeletonRows, TripTimeline } from '@bft/ui/bus'
-import { usePageCheck } from '@bft/ui/connectivity'
+import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { data, Link, useNavigate } from 'react-router'
 import { BusNav, DataBanner, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute } from '../lib/api.ts'
@@ -63,6 +63,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     trip,
     stopNames,
     renderedAt: Date.now(),
+    via: VIA_NETWORK,
     siteUrl: env?.SITE_URL ?? SITE_URL,
   }
 }

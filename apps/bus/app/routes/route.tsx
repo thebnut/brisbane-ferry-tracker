@@ -3,8 +3,10 @@
  * data/bus/routes/{route}.json (server-rendered stop list), for a route data/bus/routes.json lists as current; the map (lazy) draws the line, the stops as bus diamonds
  * and the live buses; the sheet lists the buses with where they are. `?trip=` highlights one bus ("Track on map").
  */
+
 import { RouteTile, routeTileVariant, useGeolocation } from '@bft/ui'
 import { occupancyText, SaveButton, SegmentedControl } from '@bft/ui/bus'
+import { VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { data, Link, useSearchParams } from 'react-router'
 import { ClientOnly } from '../components/ClientOnly.tsx'
@@ -52,7 +54,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   if (index && !index.routes.includes(short)) unknown = true
   if (unknown || (route && route.patterns.length === 0)) throw data(null, { status: 404 })
   if (!route) throw data(null, { status: 503 })
-  return { route, renderedAt: Date.now(), siteUrl: env?.SITE_URL ?? SITE_URL }
+  return { route, renderedAt: Date.now(), via: VIA_NETWORK, siteUrl: env?.SITE_URL ?? SITE_URL }
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {

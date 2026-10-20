@@ -19,7 +19,7 @@ import {
   SecondaryButton,
   useGeolocation,
 } from '@bft/ui'
-import { liveState, usePageCheck } from '@bft/ui/connectivity'
+import { liveState, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { TransitFooter, TransitHeader, TransitStrip } from '../components/Chrome.tsx'
@@ -60,7 +60,7 @@ function Pulse({ rows }: { rows: number }) {
 }
 
 export function loader() {
-  return { renderedAt: Date.now() }
+  return { renderedAt: Date.now(), via: VIA_NETWORK }
 }
 
 export const meta: Route.MetaFunction = () => [

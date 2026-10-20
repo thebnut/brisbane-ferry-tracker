@@ -19,7 +19,7 @@ import {
   StatusBadge,
   tripAsTimetable,
 } from '@bft/ui'
-import { usePageCheck } from '@bft/ui/connectivity'
+import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { useMemo } from 'react'
 import { data, Link, useRouteLoaderData } from 'react-router'
 import { Shell } from '../components/Chrome.tsx'
@@ -52,7 +52,16 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     const probe = await settle((signal) => fetcher(`/v1/train/trips/${encodeURIComponent(key)}`, { signal }))
     if (probe?.status === 404) throw data(null, { status: 404 })
   }
-  return { key, trip, from, to, renderedAt: Date.now(), mode: { fixtures, rt }, site: siteInfo(env) }
+  return {
+    key,
+    trip,
+    from,
+    to,
+    renderedAt: Date.now(),
+    via: VIA_NETWORK,
+    mode: { fixtures, rt },
+    site: siteInfo(env),
+  }
 }
 
 export function headers() {

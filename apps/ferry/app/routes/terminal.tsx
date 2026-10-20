@@ -3,8 +3,10 @@
  * JSON-LD (scripts/postbuild.mjs), with live departure rows in the HTML from the loader instead of a build-time
  * timetable.
  */
+
 import type { Departure } from '@bft/core/contract'
 import { formatClock } from '@bft/ui'
+import { VIA_NETWORK } from '@bft/ui/connectivity'
 import { data } from 'react-router'
 import { Footer, SECTION } from '../components/Chrome.tsx'
 import { FerryBoards } from '../components/FerryBoards.tsx'
@@ -47,6 +49,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     inbound,
     upcoming: all?.departures ?? [],
     renderedAt: Date.now(),
+    via: VIA_NETWORK,
     // After an API failure with FIXTURE_FALLBACK the browser polls the fixture API too (and shows the demo notice).
     // FIXTURES=1 or a fallback answer: demo data without a visitor's demo session (useFixtureCookie).
     mode: {

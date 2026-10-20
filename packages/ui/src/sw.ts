@@ -19,6 +19,7 @@ import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
 import {
   DEMO_HEADER,
   holdCacheLock,
+  markCachedData,
   markCachedPages,
   markCacheHits,
   RESAVE_PAGES,
@@ -267,7 +268,8 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
       new NetworkFirst({
         cacheName: spec.cacheName,
         networkTimeoutSeconds: 4,
-        plugins: [expire(spec), skipDemoResponses, waitForCleanup],
+        // A copy from the cache says so in its body (markCachedData, R15-S1).
+        plugins: [expire(spec), skipDemoResponses, markCachedData, waitForCleanup],
       }),
     )
   }

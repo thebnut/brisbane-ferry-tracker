@@ -16,7 +16,7 @@ import {
   StatusBadge,
   StoppingPattern,
 } from '@bft/ui'
-import { usePageCheck } from '@bft/ui/connectivity'
+import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { SECTION, Shell, useReportLive } from '../components/Chrome.tsx'
@@ -58,6 +58,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     favourites,
     boards: Object.fromEntries(favourites.map((f, i) => [favouriteId(f), boards[i] ?? null])),
     renderedAt: Date.now(),
+    via: VIA_NETWORK,
     mode: { fixtures, rt },
     site: siteInfo(env),
   }

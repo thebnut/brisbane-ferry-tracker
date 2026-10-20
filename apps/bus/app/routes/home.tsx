@@ -7,7 +7,7 @@
 import type { DeparturesResponse } from '@bft/core/contract'
 import { formatClock, Icon, minutesUntil } from '@bft/ui'
 import { type MiniDeparture, MyStopCard } from '@bft/ui/bus'
-import { usePageCheck } from '@bft/ui/connectivity'
+import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { Link } from 'react-router'
 import { SearchPanel } from '../components/SearchPanel.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
@@ -45,7 +45,13 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     initial[id] = results[i] ?? null
   })
   const serverSaved: SavedStop[] = ids.map((id) => ({ id, name: initial[id]?.stop.name ?? '' }))
-  return { serverSaved, initial, renderedAt: Date.now(), siteUrl: env?.SITE_URL ?? SITE_URL }
+  return {
+    serverSaved,
+    initial,
+    renderedAt: Date.now(),
+    via: VIA_NETWORK,
+    siteUrl: env?.SITE_URL ?? SITE_URL,
+  }
 }
 
 export function headers() {
