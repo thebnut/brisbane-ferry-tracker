@@ -83,12 +83,55 @@ export function useUnconfirmedBefore(): number | null {
   return useSyncExternalStore(noSubscribe, getUnconfirmedBefore, () => null)
 }
 
+/** How far the device's wall clock has got ahead of its monotonic one since the page loaded (deviceNow). */
+let ahead = 0
 /**
- * The device's own clock for arrival times (Received, PageCheck.arrivedAt, stampNavigation): epoch milliseconds that
- * only move forwards, at the rate time passes (the navigation start plus the monotonic time since). A device clock
- * corrected backwards while the page is open can't make data look younger than it is (Codex r1).
+ * The device's own clock for arrival times and ages (Received, PageCheck.arrivedAt, stampNavigation, liveState):
+ * epoch milliseconds that never go back. The navigation start plus the monotonic time since, moved forward by however
+ * far the wall clock gets ahead of that: a sleep the monotonic clock didn't count (Codex r2) moves it forward once,
+ * and arrivals stamped after it are on the same clock, so they are fresh (Codex r3). A wall clock corrected
+ * backwards never moves it back, so data can't look younger than it is (Codex r1).
  */
-export const deviceNow = (): number => performance.timeOrigin + performance.now()
+export function deviceNow(): number {
+  const monotonic = performance.timeOrigin + performance.now()
+  ahead = Math.max(ahead, Date.now() - monotonic)
+  return monotonic + ahead
+}
+
+/** The question a page asks its service worker, and its answer: a worker from an older build doesn't answer. */
+export const MARKS_DATA = 'bft-marks-data'
+/** A service worker that hasn't answered this long after being asked is taken not to mark its copies. */
+export const MARKS_DATA_WAIT_MS = 1_000
+const marking = new WeakMap<ServiceWorker, { answer: Promise<boolean>; marks: boolean }>()
+/**
+ * Does this service worker mark the `.data` copies it serves (markCachedData)? Asked once per worker (at load, on a
+ * new controller, or at the first navigation), and answered within MARKS_DATA_WAIT_MS: no answer by then means no.
+ * An answer that comes later still counts for the navigations after it.
+ */
+export function marksCopies(worker: ServiceWorker): Promise<boolean> {
+  let known = marking.get(worker)
+  if (!known) {
+    const entry = { answer: Promise.resolve(false), marks: false }
+    entry.answer = new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => resolve(false), MARKS_DATA_WAIT_MS)
+      const channel = new MessageChannel()
+      channel.port1.onmessage = (e) => {
+        clearTimeout(timer)
+        entry.marks = e.data === MARKS_DATA
+        resolve(entry.marks)
+      }
+      worker.postMessage({ type: MARKS_DATA }, [channel.port2])
+    })
+    marking.set(worker, entry)
+    known = entry
+  }
+  return known.marks ? Promise.resolve(true) : known.answer
+}
+/** Asks the page's current service worker (marksCopies) ahead of the first navigation. */
+const askServiceWorker = () => {
+  const worker = navigator.serviceWorker?.controller
+  if (worker) void marksCopies(worker)
+}
 
 /**
  * What liveState needs to know about this page once it has hydrated (R15-S1). `arrivedAt` is when this page was
@@ -120,6 +163,7 @@ export function usePageCheck(): PageCheck | null {
 export function resetUnconfirmedBefore(): void {
   unconfirmedBefore = undefined
   pageCheck = undefined
+  ahead = 0
 }
 
 /**
@@ -708,27 +752,12 @@ export async function stampNavigation<R extends NavigationResults>(
   // Both read before the request is sent.
   const sentBy = deviceNow()
   const worker = navigator.serviceWorker?.controller ?? null
-  const results = await next()
   // Without a service worker a `.data` answer (`no-store`) can only come from the network; under one, only if it is
-  // a worker that marks the copies it serves (it said so, MARKS_DATA).
-  stampResults(results, sentBy, worker == null || markingWorkers.has(worker))
+  // a worker that marks the copies it serves (marksCopies, asked alongside the request).
+  const trusted = worker == null ? true : marksCopies(worker)
+  const results = await next()
+  stampResults(results, sentBy, await trusted)
   return results
-}
-
-/** Service workers that said they mark the `.data` copies they serve (markCachedData), by the page's ask. */
-const markingWorkers = new WeakSet<ServiceWorker>()
-/** The question and its answer: a service worker from an older build doesn't answer. */
-export const MARKS_DATA = 'bft-marks-data'
-
-/** Asks the page's service worker whether it marks its `.data` copies (at load, on each new controller; tests). */
-export function askServiceWorker(): void {
-  const worker = navigator.serviceWorker?.controller
-  if (!worker) return
-  const channel = new MessageChannel()
-  channel.port1.onmessage = (e) => {
-    if (e.data === MARKS_DATA) markingWorkers.add(worker)
-  }
-  worker.postMessage({ type: MARKS_DATA }, [channel.port2])
 }
 
 /**

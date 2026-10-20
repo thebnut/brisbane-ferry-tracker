@@ -11,7 +11,6 @@ import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  askServiceWorker,
   deviceNow,
   isOnline,
   LIVE_REFRESH_MAX_AGE_MS,
@@ -19,6 +18,7 @@ import {
   liveState,
   MARKS_DATA,
   markCachedData,
+  marksCopies,
   noteCacheCopy,
   RENDER_MARGIN_MS,
   reportOffline,
@@ -215,18 +215,18 @@ describe('client navigations (stampNavigation)', () => {
     departures: board({ generatedAt: NOW + 30_000 }),
     ...o,
   })
-  /** The page is controlled by a service worker; `marks`: one of this build, which says it marks its copies. */
-  const controlledBy = async (marks: boolean) => {
+  /**
+   * The page is controlled by a service worker: one of this build answers that it marks its copies (after
+   * `replyMs`), one of an older build never answers.
+   */
+  const controlledBy = (marks: boolean, replyMs = 0) => {
     const worker = {
       postMessage: (message: { type?: string }, [port]: MessagePort[]) => {
-        if (marks && message.type === MARKS_DATA) port?.postMessage(MARKS_DATA)
+        if (marks && message.type === MARKS_DATA) setTimeout(() => port?.postMessage(MARKS_DATA), replyMs)
       },
     }
     Object.defineProperty(navigator, 'serviceWorker', { value: { controller: worker }, configurable: true })
-    askServiceWorker()
-    // The answer arrives as a message.
-    await vi.waitFor(() => new Promise((r) => setTimeout(r, 0)))
-    await new Promise((r) => setTimeout(r, 0))
+    return worker as unknown as ServiceWorker
   }
   afterEach(() => {
     Reflect.deleteProperty(navigator, 'serviceWorker')
@@ -253,7 +253,7 @@ describe('client navigations (stampNavigation)', () => {
     // Codex r1: tab B stored this .data at T+30 s; tab A navigates at T+150 s and the service worker falls back to it.
     loadPage()
     vi.useRealTimers()
-    await controlledBy(true)
+    controlledBy(true)
     const copy = answer({ via: VIA_CACHE })
     await stampNavigation({}, nav(copy))
     expect(copy.departures).toMatchObject({ offline: true })
@@ -273,10 +273,36 @@ describe('client navigations (stampNavigation)', () => {
     // Codex r2: such a worker serves a copy with the network token unchanged.
     loadPage()
     vi.useRealTimers()
-    await controlledBy(false)
+    const worker = controlledBy(false)
     const copy = answer()
     await stampNavigation({}, nav(copy))
     expect(copy.departures).toMatchObject({ offline: true })
+    // Asked once: it isn't asked again, so later navigations don't wait for it.
+    expect(await marksCopies(worker)).toBe(false)
+  })
+
+  it("a worker's answer arriving after the navigation's own still counts for it (Codex r3)", async () => {
+    loadPage()
+    vi.useRealTimers()
+    controlledBy(true, 50)
+    const fresh = answer()
+    await stampNavigation({}, nav(fresh))
+    expect(fresh.departures).toHaveProperty('receivedAt')
+    expect(fresh.departures).not.toHaveProperty('offline')
+  })
+
+  it('the module loads, and asks, in a page a service worker already controls (Codex r3)', async () => {
+    const asked: unknown[] = []
+    Object.defineProperty(navigator, 'serviceWorker', {
+      value: {
+        controller: { postMessage: (m: unknown) => asked.push(m) },
+        addEventListener: () => {},
+      },
+      configurable: true,
+    })
+    vi.resetModules()
+    await expect(import('../src/connectivity.ts')).resolves.toHaveProperty('stampNavigation')
+    expect(asked).toEqual([{ type: MARKS_DATA }])
   })
 
   it('a network answer after a copy is fresh and brings the connection back (no /v1 call between)', async () => {
@@ -335,6 +361,13 @@ describe('sleep and the back/forward cache (Codex r2)', () => {
     vi.setSystemTime(Date.now() + 10 * 60_000)
     mono += 200
     expect(liveState(polled, { offline: false, nowMs: Date.now(), ...page })).toBe('stale')
+    // An answer after the sleep is fresh: stamped and aged on the same clock (Codex r3).
+    const after = noteCacheCopy(
+      new Response('{}'),
+      board({ generatedAt: NOW + 10 * 60_000, rtSourceTimestamp: (NOW + 10 * 60_000) / 1000 - 10 }),
+    )
+    expect(liveState(after, { offline: false, nowMs: Date.now(), ...page })).toBeNull()
+    expect(sourceAgeS(after, { nowMs: Date.now(), ...page })).toBeCloseTo(10, 0)
   })
 
   it('a page put away hides its live claims before it can be restored', () => {
