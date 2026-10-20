@@ -2,7 +2,15 @@ import type { Mode } from '@bft/core'
 import { describe, expect, it } from 'vitest'
 import { COMBINED_KEY, decodeCombined, encodeCombined, parseIndex } from '../src/rt/combined.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
-import { CYCLE_MS, HubCore, modeLatestKey, R2_LATEST_KEY, scopeKey, snapshotSeq } from '../src/rt/hub-core.ts'
+import {
+  CYCLE_MS,
+  HEAD_BYTES,
+  HubCore,
+  modeLatestKey,
+  R2_LATEST_KEY,
+  scopeKey,
+  snapshotSeq,
+} from '../src/rt/hub-core.ts'
 import {
   alert,
   buildTree,
@@ -48,15 +56,26 @@ class GatedR2 {
     )
     this.files.set(key, text)
   }
-  async get(key: string) {
+  /** Every read, as `key` (whole) or `key@offset+length` (ranged). */
+  readonly reads: string[] = []
+  async get(key: string, opts?: { range: { offset: number; length: number } }) {
     this.gets.set(key, (this.gets.get(key) ?? 0) + 1)
+    const range = opts?.range
+    this.reads.push(range ? `${key}@${range.offset}+${range.length}` : key)
     if (this.gate?.key === key) await this.gate.open
     if (this.failGets > 0) {
       this.failGets--
       throw new Error('r2 get failed')
     }
     const t = this.files.get(key)
-    return t != null ? { text: async () => t } : null
+    if (t == null) return null
+    // Like R2: a range past the end of the object is clamped.
+    const part = range
+      ? new TextDecoder().decode(
+          new TextEncoder().encode(t).subarray(range.offset, range.offset + range.length),
+        )
+      : t
+    return { text: async () => part }
   }
 }
 
@@ -609,5 +628,44 @@ describe('RtHub restore after DO storage loss: a mode document the pointer does 
     up.set('alerts', feed(nowS(), [alert('a3', 'Changed', 'F1-4055')]))
     await fresh.alarm()
     expect((await fresh.pull(null)).seq).toBe(published + 2)
+  })
+})
+
+describe('RtHub restore sweep: ranged header reads (lead P3 on #100)', () => {
+  it('with DO storage lost, the sweep reads only header prefixes and the combined index', async () => {
+    const { r2, hub, storage, published } = await restarted('ferry')
+    storage.data.clear()
+    r2.reads.length = 0
+    await hub.pull(null)
+    const sweep = r2.reads.filter((k) => k.includes('@'))
+    // All 240 alerts slots, every supported mode's latest document and the combined object: ranged.
+    expect(sweep.filter((k) => k.startsWith('rt/alerts/')).length).toBe(240)
+    for (const m of ['ferry', 'train', 'bus', 'tram'])
+      expect(sweep).toContain(`${modeLatestKey(m as Mode)}@0+${HEAD_BYTES}`)
+    expect(sweep).toContain(`${COMBINED_KEY}@0+1024`)
+    for (const k of sweep) if (k.startsWith('rt/alerts/')) expect(k.endsWith(`@0+${HEAD_BYTES}`)).toBe(true)
+    // No alerts slot is read whole by the sweep (the restore itself reads only the one the pointer names).
+    const pointer = JSON.parse(r2.files.get(R2_LATEST_KEY) as string)
+    const whole = r2.reads.filter((k) => !k.includes('@') && k.startsWith('rt/alerts/'))
+    expect(whole).toEqual([pointer.files.alerts.key])
+    // And the restore still comes out right.
+    expect((await hub.pull(null)).seq).toBe(published)
+  })
+
+  it('a prefix without a complete seq falls back to reading that document whole', async () => {
+    const { r2, hub, storage, published } = await restarted('ferry')
+    // A slot whose header puts its seq past the first HEAD_BYTES (not what the hub writes, but valid JSON).
+    const key = scopeKey('alerts', published + 7)
+    const pad = 'p'.repeat(HEAD_BYTES)
+    r2.files.set(
+      key,
+      `{"header":{"schemaVersion":1,"pad":"${pad}","seq":${published + 7}},"trips":{},"vehicles":[],"alerts":[]}`,
+    )
+    storage.data.clear()
+    r2.reads.length = 0
+    await hub.alarm()
+    expect(r2.reads).toContain(`${key}@0+${HEAD_BYTES}`)
+    expect(r2.reads).toContain(key)
+    expect((await hub.pull(null)).seq).toBe(published + 8)
   })
 })

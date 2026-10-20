@@ -104,7 +104,11 @@ export const scopeKey = (scope: SnapshotScope, seq: number) =>
   `rt/${scope}/snapshot-${seq % R2_KEEP_SNAPSHOTS}.json`
 
 export interface R2Like {
-  get?(key: string): Promise<{ text(): Promise<string>; arrayBuffer?(): Promise<ArrayBuffer> } | null>
+  /** `range`: only those bytes (R2 clamps a length past the end of the object). */
+  get?(
+    key: string,
+    opts?: { range: { offset: number; length: number } },
+  ): Promise<{ text(): Promise<string>; arrayBuffer?(): Promise<ArrayBuffer> } | null>
   put(
     key: string,
     value: Uint8Array | string,
@@ -1104,31 +1108,29 @@ export class HubCore {
     const BATCH = 24
     for (let from = 0; from < R2_KEEP_SNAPSHOTS; from += BATCH) {
       const slots = Array.from({ length: Math.min(BATCH, R2_KEEP_SNAPSHOTS - from) }, (_, i) => from + i)
-      const texts = await Promise.all(
-        slots.map(async (n) => {
-          const obj = await r2.get?.(scopeKey('alerts', n))
-          return obj ? obj.text() : null
-        }),
-      )
-      for (const text of texts) this.seqInto(r, text)
+      const seqs = await Promise.all(slots.map((n) => this.headSeq(r2, scopeKey('alerts', n))))
+      for (const seq of seqs) if (seq != null && seq > r.seq) r.seq = seq
     }
   }
 
-  /** Move the watermark past a document's header seq, if it has a valid one. */
-  private seqInto(r: Restored, text: string | null): void {
-    if (text == null) return
-    let seq: unknown = null
-    try {
-      seq = snapshotSeq(text)
-    } catch {
-      seq = null
-    }
-    if (Number.isSafeInteger(seq) && (seq as number) > r.seq) r.seq = seq as number
+  /**
+   * A document's header seq from its first HEAD_BYTES (a ranged GET: the header is serialised first, see
+   * documentJson), or from the whole object when that prefix holds no complete seq. Null when there is no object or
+   * no valid seq. I/O errors propagate (the restore is retried).
+   */
+  private async headSeq(r2: R2Like, key: string): Promise<number | null> {
+    const head = await r2.get?.(key, { range: { offset: 0, length: HEAD_BYTES } })
+    if (!head) return null
+    const seq = prefixSeq(await head.text())
+    if (seq != null) return seq
+    const whole = await r2.get?.(key)
+    return whole ? textSeq(await whole.text()) : null
   }
 
   /** Watermark only: the combined object's index seqs. I/O errors propagate (retry); bad content is ignored. */
   private async combinedSeqInto(r: Restored): Promise<void> {
-    const obj = await (this.d.r2 as R2Like).get?.(COMBINED_KEY)
+    // Only the index (the first INDEX_BYTES, by the format): reading more could not add a seq.
+    const obj = await (this.d.r2 as R2Like).get?.(COMBINED_KEY, { range: { offset: 0, length: INDEX_BYTES } })
     if (!obj) return
     const bytes = obj.arrayBuffer
       ? new Uint8Array(await obj.arrayBuffer())
@@ -1141,8 +1143,8 @@ export class HubCore {
   private async documentSeqsInto(r: Restored, modes: readonly Mode[]): Promise<void> {
     const r2 = this.d.r2 as R2Like
     for (const m of modes) {
-      const obj = await r2.get?.(modeLatestKey(m))
-      this.seqInto(r, obj ? await obj.text() : null)
+      const seq = await this.headSeq(r2, modeLatestKey(m))
+      if (seq != null && seq > r.seq) r.seq = seq
     }
   }
 
@@ -1187,6 +1189,27 @@ interface DayRead {
 }
 
 const MODES: ReadonlySet<unknown> = new Set(Mode.options)
+
+/** The header of a document fits well inside this (schemaVersion, then seq, are its first fields). */
+export const HEAD_BYTES = 512
+
+/** The seq of a document prefix, only when the prefix holds the whole field (the number is followed by , or }). */
+function prefixSeq(prefix: string): number | null {
+  const m = /^\{"header":\{"schemaVersion":\d+,"seq":(\d+)[,}]/.exec(prefix)
+  if (!m) return null
+  const n = Number(m[1])
+  return Number.isSafeInteger(n) ? n : null
+}
+
+/** A whole document's header seq, if valid (bad content counts as none). */
+function textSeq(text: string): number | null {
+  try {
+    const seq = snapshotSeq(text)
+    return Number.isSafeInteger(seq) ? (seq as number) : null
+  } catch {
+    return null
+  }
+}
 
 /** A trip record as buildSnapshot's carry path reads it: a string key, `until` a number if present. */
 const isTripRecord = (t: unknown): boolean => {
