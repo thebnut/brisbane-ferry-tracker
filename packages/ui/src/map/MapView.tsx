@@ -69,6 +69,8 @@ export interface MapViewProps {
   zoom?: number
   /** Fit to the line or markers only once (default), or every time they change. */
   refit?: boolean
+  /** Once the style and the built-in layers are loaded, for callers that add their own (the stop picker's clusters). */
+  onReady?: (map: MlMap) => void
 }
 
 const TONE_COLOUR: Record<MarkerTone, string> = {
@@ -214,14 +216,15 @@ export default function MapView({
   center = [153.03, -27.47],
   zoom = 12,
   refit = false,
+  onReady,
 }: MapViewProps) {
   const container = useRef<HTMLElement>(null)
   const map = useRef<MlMap | null>(null)
   const placed = useRef<Marker[]>([])
   const fitted = useRef(false)
   const [ready, setReady] = useState(false)
-  const handlers = useRef({ onStopClick, onViewChange })
-  handlers.current = { onStopClick, onViewChange }
+  const handlers = useRef({ onStopClick, onViewChange, onReady })
+  handlers.current = { onStopClick, onViewChange, onReady }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the map is created once; later props flow through effects.
   useEffect(() => {
@@ -285,6 +288,7 @@ export default function MapView({
       m.on('mouseleave', 'bft-stops', () => {
         m.getCanvas().style.cursor = ''
       })
+      handlers.current.onReady?.(m)
       setReady(true)
       report()
     })

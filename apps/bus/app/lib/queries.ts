@@ -14,7 +14,7 @@ import {
   timetableStatus,
 } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQueries, useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   type ApiFetcher,
   browserFetcher,
@@ -24,7 +24,6 @@ import {
   fetchStopIndex,
   OFFLINE_LIMIT,
 } from './api.ts'
-import { buildSearchIndex } from './search.ts'
 import { readOffline, writeOffline } from './storage.ts'
 
 export const POLL_MS = 15_000
@@ -231,9 +230,14 @@ export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsRe
 
 /**
  * The stop search index (data/bus/stops.json, ~300 KB gz), fetched lazily after first paint (`enabled` turns on
- * after hydration) and kept for the session; the service worker keeps it across visits.
+ * after hydration) and kept for the session; the service worker keeps it across visits. The fuzzy search code
+ * (search.ts with uFuzzy) loads alongside it, so it isn't on any page's first load either.
  */
 export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boolean) {
+  const [search, setSearch] = useState<typeof import('./search.ts') | null>(null)
+  useEffect(() => {
+    if (enabled && !search) void import('./search.ts').then(setSearch)
+  }, [enabled, search])
   const q = useQuery({
     queryKey: ['bus', 'stop-index', mode.fixtures],
     queryFn: ({ signal }) => fetchStopIndex(fetcher, signal),
@@ -242,9 +246,12 @@ export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boole
     gcTime: Number.POSITIVE_INFINITY,
     retry: 2,
   })
-  const index = useMemo(() => (q.data ? buildSearchIndex(q.data.stops) : null), [q.data])
+  const index = useMemo(
+    () => (q.data && search ? search.buildSearchIndex(q.data.stops) : null),
+    [q.data, search],
+  )
   const byKey = useMemo(() => new Map((q.data?.stops ?? []).map((s) => [s.key, s])), [q.data])
-  return { ...q, index, byKey }
+  return { ...q, index, byKey, searchStops: search?.searchStops }
 }
 
 export function useLines(fetcher: ApiFetcher, mode: DataMode, enabled = true) {
