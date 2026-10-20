@@ -10,4 +10,5 @@ backoffSuite({
   pagesCache: 'train-pages',
   departures: /\/v1\/train\/stops\/[^/]+\/departures/,
   pin: (context) => pinUpcoming(context),
+  boards: 1, // Central
 })

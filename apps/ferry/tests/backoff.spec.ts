@@ -10,6 +10,7 @@ backoffSuite({
   pagesCache: 'ferry-pages',
   departures: /\/v1\/ferry\/stops\/[^/]+\/departures/,
   pin: (context) => pinUpcoming(context),
+  boards: 2, // outbound and inbound
   prepare: (page) =>
     page.addInitScript(() => {
       localStorage.setItem('brisbane-ferry-remember-selection', 'true')
