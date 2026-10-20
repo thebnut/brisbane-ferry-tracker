@@ -99,6 +99,12 @@ test('a tap on a stop pin opens its card; Escape and Close step back; closing fo
   // The list choice centres the map on the stop (zoom 16, no clusters); close the card, then tap the pin there.
   await card.getByRole('button', { name: /^Close / }).click()
   await expect(card).toHaveCount(0)
+  // Only once the ease to the stop has finished (idle at zoom 16+, MapView's data-map-idle): a press on the canvas
+  // stops a camera animation, so a tap mid-ease on a busy machine left the map short of the stop, clustered, and
+  // every later tap at the centre missed (R16-D1).
+  await expect(picker.locator('[data-map-idle]')).toHaveAttribute('data-map-idle', /^z(1[6-9]|2\d)\b/, {
+    timeout: 20_000,
+  })
   const canvas = picker.locator('canvas')
   await expect(async () => {
     const b = await canvas.boundingBox()
