@@ -60,7 +60,7 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
   /** Set by an answer: only then does focus move. A prompt that goes by itself leaves focus alone (Codex r2). */
   const restore = useRef(false)
   const box = useRef<HTMLElement>(null)
-  const [lift, setLift] = useState<Lift | null>(null)
+  const spacer = useRef<HTMLDivElement>(null)
   // biome-ignore lint/correctness/useExhaustiveDependencies: decided once per page view.
   useEffect(() => {
     if (!offerRef.current()) return setStep('done')
@@ -86,19 +86,26 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
     }
   }, [step])
   // It never covers the page's fixed controls (R15: bus search's field and Map button sat under it on phones).
-  // Placed before paint, then kept in place as the page or width changes under it.
+  // Placed before paint, and again before the paint after any change to the page under it: the prompt outlives client
+  // navigations, so a dock that mounts with the next route (the Bus tab's search sheet) moves it at once (Codex r1).
+  // Set on the elements directly, not through state, so a re-render can't lag a frame behind.
   useLayoutEffect(() => {
     if (step !== 'prompt') return
     const place = () => {
       const el = box.current
       if (!el) return
-      const next = measureLift(el)
-      setLift((l) => (l?.bottom === next.bottom && l.spacer === next.spacer ? l : next))
+      const { bottom, spacer: h } = measureLift(el)
+      el.style.bottom = `${bottom}px`
+      if (spacer.current) spacer.current.style.height = `${h}px`
     }
     place()
+    // Mutation callbacks run before the next paint; the timer is a fallback for changes no mutation shows.
+    const seen = new MutationObserver(place)
+    seen.observe(document.body, { childList: true, subtree: true })
     const id = setInterval(place, 1_000)
     addEventListener('resize', place)
     return () => {
+      seen.disconnect()
       clearInterval(id)
       removeEventListener('resize', place)
     }
@@ -147,7 +154,7 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
   if (step !== 'prompt') return null
   return (
     <>
-      {lift ? <div aria-hidden="true" data-onboarding-spacer="" style={{ height: lift.spacer }} /> : null}
+      <div ref={spacer} aria-hidden="true" data-onboarding-spacer="" />
       <section
         ref={box}
         aria-labelledby="bft-onboarding-title"
@@ -155,7 +162,6 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
         onKeyDown={(e) => {
           if (e.key === 'Escape') notNow()
         }}
-        style={lift ? { bottom: lift.bottom } : undefined}
         className="fixed inset-x-3 bottom-24 z-40 mx-auto flex max-w-md flex-col gap-3 rounded-card border border-ferry-orange/30 bg-white p-4 text-charcoal shadow-header md:inset-x-auto md:right-6 md:bottom-6 dark:bg-night-card dark:text-night-text"
       >
         {/* Announced when it appears, without moving focus away from whatever the visitor is doing. */}

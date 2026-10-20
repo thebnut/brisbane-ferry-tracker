@@ -353,4 +353,20 @@ describe('onboarding prompt placement (R15)', () => {
     dock(800)
     expect(measureLift(promptBox()).bottom).toBe(44 + 12)
   })
+
+  it('moves at once when a dock mounts under it (a client navigation), not on the next timer tick (Codex r1)', async () => {
+    vi.useFakeTimers()
+    phone()
+    dock(780)
+    render(<OnboardingPrompt offer={() => true} renderPicker={() => null} />)
+    act(() => vi.advanceTimersByTime(2000))
+    const box = document.querySelector<HTMLElement>('[data-onboarding-prompt]') as HTMLElement
+    expect(box.style.bottom).toBe('96px')
+    dock(574)
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(box.style.bottom).toBe(`${270 + 12}px`)
+    vi.useRealTimers()
+  })
 })

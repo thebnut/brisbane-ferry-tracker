@@ -213,3 +213,40 @@ for (const size of PHONE_WIDTHS) {
     }
   })
 }
+
+test('client navigation to the Bus tab: the prompt clears the search sheet from its first frame (R15, Codex r1)', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'phone', 'the search sheet is phone-only')
+  await page.setViewportSize(PHONE_WIDTHS[0] as { width: number; height: number })
+  await page.goto('/')
+  await expectPrompt(page)
+  // The prompt stays mounted across the client navigation; check the first frame the sheet is in.
+  const firstFrame = page.evaluate(
+    () =>
+      new Promise<string[]>((resolve) => {
+        const hits = () => {
+          const out: string[] = []
+          for (const sel of ['#stop-search', 'button[aria-label="Show stops on a map"]']) {
+            const el = [...document.querySelectorAll<HTMLElement>(sel)].find((e) => e.offsetParent)
+            if (!el) return null
+            const r = el.getBoundingClientRect()
+            const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+            out.push(
+              at && (at === el || el.contains(at)) ? 'self' : (at?.outerHTML.slice(0, 80) ?? 'nothing'),
+            )
+          }
+          return out
+        }
+        new MutationObserver((_, o) => {
+          if (!document.querySelector('#stop-search')) return
+          o.disconnect()
+          requestAnimationFrame(() => resolve(hits() ?? ['not rendered']))
+        }).observe(document.body, { childList: true, subtree: true })
+      }),
+  )
+  await page.locator('[data-bft-dock] a[href="/bus"]').click()
+  expect(await firstFrame).toEqual(['self', 'self'])
+  await expect(prompt(page)).toBeVisible()
+  await expectPromptClearOfDocks(page)
+})
