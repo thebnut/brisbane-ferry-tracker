@@ -62,7 +62,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [
       'Live boards for every ferry terminal, train station and bus stop in South East Queensland.',
       'BrisbaneTransit brings your saved ferry, train and bus stops together, with Nearby and service alerts for every mode.',
-      'Ask for your next service in plain words, like “next train from Bowen Hills to the airport”.',
+      'Ask for your next service in plain words, like “next ferry from Bulimba to Riverside”.',
       'Saved stops keep their timetables on your device, so you still see scheduled times offline.',
     ],
   },
