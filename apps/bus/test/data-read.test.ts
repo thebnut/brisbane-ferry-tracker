@@ -4,7 +4,14 @@
  * the pages show as "Couldn't load" with a Try again; a geo tile's 404 alone means "no stops here".
  */
 import { describe, expect, it } from 'vitest'
-import { ApiError, type ApiFetcher, fetchRouteIndex, fetchStopIndex } from '../app/lib/api.ts'
+import {
+  ApiError,
+  type ApiFetcher,
+  fetchLines,
+  fetchRoute,
+  fetchRouteIndex,
+  fetchStopIndex,
+} from '../app/lib/api.ts'
 import { fetchGeoTile } from '../app/lib/geo-queries.ts'
 
 const EDGE_503 = { error: 'static data unavailable', detail: 'passthrough', retryable: true }
@@ -50,5 +57,16 @@ describe('/data reads', () => {
 
   it('route index: a 503 body is never data', async () => {
     await expect(fetchRouteIndex(serve(503, EDGE_503))).rejects.toMatchObject({ kind: 'http', status: 503 })
+  })
+
+  it('a 200 without its list is a contract error, never data', async () => {
+    for (const body of [{ error: 'x' }, { stops: {}, routes: 'x', lines: {}, patterns: null }, null]) {
+      const fetcher = serve(200, body)
+      await expect(fetchStopIndex(fetcher)).rejects.toMatchObject({ kind: 'contract' })
+      await expect(fetchGeoTile(fetcher, 'r7hgd')).rejects.toMatchObject({ kind: 'contract' })
+      await expect(fetchRouteIndex(fetcher)).rejects.toMatchObject({ kind: 'contract' })
+      await expect(fetchLines(fetcher)).rejects.toMatchObject({ kind: 'contract' })
+      await expect(fetchRoute(fetcher, '333')).rejects.toMatchObject({ kind: 'contract' })
+    }
   })
 })

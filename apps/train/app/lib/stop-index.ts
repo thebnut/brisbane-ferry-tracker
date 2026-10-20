@@ -14,7 +14,12 @@ export async function fetchStationIndex(
 ): Promise<StopIndexFile> {
   const res = await fetchFn(STOP_INDEX_PATH, { signal, headers: { accept: 'application/json' } })
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${STOP_INDEX_PATH}`)
-  const body = (await res.json()) as Partial<StopIndexFile> | null
-  if (!Array.isArray(body?.stops)) throw new Error(`No stop list in ${STOP_INDEX_PATH}`)
+  const body = (await res.json()) as { stops?: unknown } | null
+  // Each entry too (~150 stations): the page reads key and name off every one.
+  const ok = (s: unknown) =>
+    typeof (s as { key?: unknown } | null)?.key === 'string' &&
+    typeof (s as { name?: unknown }).name === 'string'
+  if (!Array.isArray(body?.stops) || !body.stops.every(ok))
+    throw new Error(`No stop list in ${STOP_INDEX_PATH}`)
   return body as StopIndexFile
 }

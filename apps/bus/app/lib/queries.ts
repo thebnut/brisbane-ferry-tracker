@@ -260,7 +260,7 @@ export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boole
     enabled,
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
-    retry: 2,
+    retry: 1,
   })
   const index = useMemo(
     () => (q.data && search ? search.buildSearchIndex(q.data.stops) : null),

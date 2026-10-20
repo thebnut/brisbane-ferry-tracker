@@ -4,7 +4,8 @@
  * the pages show as "Couldn't load" with a Try again; a geo tile's 404 alone means "no stops here".
  */
 import { describe, expect, it } from 'vitest'
-import { ApiError, type ApiFetcher, fetchGeoTile, fetchStopIndex } from '../app/lib/api.ts'
+import { ApiError, type ApiFetcher } from '../app/lib/api.ts'
+import { fetchGeoTile, fetchStopIndex } from '../app/lib/data-files.ts'
 
 const EDGE_503 = { error: 'static data unavailable', detail: 'passthrough', retryable: true }
 
@@ -45,5 +46,13 @@ describe('/data reads', () => {
   it.each([503, 500])('geo tile: HTTP %i throws, never returns the body', async (status) => {
     const fetcher = serve(status, EDGE_503)
     await expect(fetchGeoTile(fetcher, 'bus', 'r7hgd')).rejects.toMatchObject({ kind: 'http', status })
+  })
+
+  it('a 200 without a stops list is a contract error, never data', async () => {
+    for (const body of [{ error: 'x' }, { stops: {} }, null]) {
+      const fetcher = serve(200, body)
+      await expect(fetchStopIndex(fetcher, 'bus')).rejects.toMatchObject({ kind: 'contract' })
+      await expect(fetchGeoTile(fetcher, 'bus', 'r7hgd')).rejects.toMatchObject({ kind: 'contract' })
+    }
   })
 })

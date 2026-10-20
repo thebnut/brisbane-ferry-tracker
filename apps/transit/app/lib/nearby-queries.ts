@@ -2,7 +2,8 @@
 import type { GeoTileFile, Mode } from '@bft/core/contract'
 import { useQueries } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { type ApiFetcher, fetchDepartures, fetchGeoTile } from './api.ts'
+import { type ApiFetcher, fetchDepartures } from './api.ts'
+import { fetchGeoTile } from './data-files.ts'
 import { NEARBY_MODES, type NearbyMode } from './nearby.ts'
 import { type DataMode, poll } from './queries.ts'
 

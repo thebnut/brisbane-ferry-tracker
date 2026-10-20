@@ -2,14 +2,14 @@
  * Nearby geohash tiles, for the map and nearby pages only, so the boards don't load them.
  */
 import { useQueries } from '@tanstack/react-query'
-import { ApiError, type ApiFetcher, getJson } from './api.ts'
+import { ApiError, type ApiFetcher, getJson, listOf } from './api.ts'
 import type { GeoTileFile } from './data-contract.ts'
 import type { DataMode } from './queries.ts'
 
 /** A geohash-5 tile; a cell with no stops has no file (404), which is an empty tile, not an error. */
 export async function fetchGeoTile(fetcher: ApiFetcher, geohash: string, signal?: AbortSignal) {
   try {
-    return await getJson<GeoTileFile>(fetcher, `/data/bus/geo/${geohash}.json`, undefined, signal)
+    return await getJson(fetcher, `/data/bus/geo/${geohash}.json`, listOf<GeoTileFile>('stops'), signal)
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return null
     throw error

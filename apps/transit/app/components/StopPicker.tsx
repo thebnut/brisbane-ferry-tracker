@@ -2,7 +2,7 @@
 import { ModePin } from '@bft/ui'
 import { useQueries } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
-import { fetchStopIndex } from '../lib/api.ts'
+import { fetchStopIndex } from '../lib/data-files.ts'
 import { NEARBY_MODES, type NearbyMode } from '../lib/nearby.ts'
 import { useApi } from '../lib/queries.ts'
 import { matchStops, type PickStop } from '../lib/stop-pick.ts'

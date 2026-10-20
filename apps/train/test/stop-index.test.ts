@@ -33,7 +33,15 @@ describe('fetchStationIndex', () => {
   })
 
   it('throws on a 200 without a stop list', async () => {
-    for (const body of [{ error: 'x' }, null, { stops: 'nope' }])
+    for (const body of [
+      { error: 'x' },
+      null,
+      { stops: 'nope' },
+      { stops: {} },
+      { stops: [null] },
+      { stops: [{ key: 'central', name: 42 }] },
+      { stops: [{ name: 'Central' }] },
+    ])
       await expect(
         fetchStationIndex(undefined, respond(200, body) as unknown as typeof fetch),
       ).rejects.toThrow('No stop list')

@@ -24,13 +24,21 @@ export const pickHref = (short: string) => `${routeHref(short)}?pick=1`
  * A plain fetch, not the app's tracked fetcher: these files are optional, so a failure must not mark the whole app
  * offline (that would take LIVE off every board). Same fixture routing as browserFetcher.
  */
-async function optionalJson<T>(path: string, fixtures: boolean, signal: AbortSignal): Promise<T> {
+async function optionalJson<T>(
+  path: string,
+  list: string,
+  fixtures: boolean,
+  signal: AbortSignal,
+): Promise<T> {
   const res = await fetch(fixtures ? `/__fixtures${path}` : path, {
     signal,
     headers: { accept: 'application/json' },
   })
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`)
-  return (await res.json()) as T
+  const body = (await res.json()) as Record<string, unknown> | null
+  // A file without its list is a failure too (no group), never data the search index would choke on.
+  if (!Array.isArray(body?.[list])) throw new Error(`No ${list} list in ${path}`)
+  return body as T
 }
 
 export default function RouteResults({ query, slot }: { query: string; slot: 'above' | 'below' }) {
@@ -39,14 +47,15 @@ export default function RouteResults({ query, slot }: { query: string; slot: 'ab
   const q = query.trim()
   const idx = useQuery({
     queryKey: ['bus', 'route-index', mode.fixtures],
-    queryFn: ({ signal }) => optionalJson<RouteIndexFile>('/data/bus/routes.json', mode.fixtures, signal),
+    queryFn: ({ signal }) =>
+      optionalJson<RouteIndexFile>('/data/bus/routes.json', 'routes', mode.fixtures, signal),
     staleTime: 300_000,
     retry: 1,
   })
   const shortOnly = useMemo(() => (idx.data ? buildRouteSearchIndex(idx.data.routes) : null), [idx.data])
   const lines = useQuery({
     queryKey: ['bus', 'lines', mode.fixtures],
-    queryFn: ({ signal }) => optionalJson<LinesFile>('/data/bus/lines.json', mode.fixtures, signal),
+    queryFn: ({ signal }) => optionalJson<LinesFile>('/data/bus/lines.json', 'lines', mode.fixtures, signal),
     enabled:
       !!shortOnly && (q.replace(/[^a-z]/gi, '').length >= 3 || searchRoutes(shortOnly, q, 1).hits.length > 0),
     staleTime: Number.POSITIVE_INFINITY,

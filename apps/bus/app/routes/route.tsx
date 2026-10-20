@@ -6,11 +6,12 @@
 import { ErrorState, RouteTile, routeTileVariant, useGeolocation } from '@bft/ui'
 import { occupancyText, SaveButton, SegmentedControl } from '@bft/ui/bus'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { data, isRouteErrorResponse, Link, useRevalidator, useSearchParams } from 'react-router'
+import { data, Link, useRevalidator, useSearchParams } from 'react-router'
 import { ClientOnly } from '../components/ClientOnly.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute, fetchRouteIndex } from '../lib/api.ts'
 import { validateRoute, validateRouteIndex } from '../lib/contract.server.ts'
+import type { RouteFile } from '../lib/data-contract.ts'
 import { haversine } from '../lib/geo.ts'
 import { useApi } from '../lib/mode.ts'
 import { cachedRouteIndex } from '../lib/route-index.server.ts'
@@ -51,17 +52,34 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   ])
   if (index && !index.routes.includes(short)) unknown = true
   if (unknown || (route && route.patterns.length === 0)) throw data(null, { status: 404 })
-  if (!route) throw data(null, { status: 503 })
+  // The file couldn't be read (R2 slow, or the API down): the page says so with a Try again (RouteUnavailable), never
+  // the app's "Something went wrong". 503, so it isn't indexed or cached as the route's page.
+  if (!route)
+    return data(
+      { route: null, renderedAt: Date.now(), siteUrl: env?.SITE_URL ?? SITE_URL },
+      { status: 503, headers: { 'cache-control': 'no-store' } },
+    )
   return { route, renderedAt: Date.now(), siteUrl: env?.SITE_URL ?? SITE_URL }
 }
 
-/**
- * The route file couldn't be read (the loader's 503: R2 slow, or the API down): say so on the page, with a Try again
- * that reruns the loader, never the app's "Something went wrong". Any other error goes on to the parent boundary.
- */
-export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+export const meta: Route.MetaFunction = ({ loaderData }) => {
+  if (!loaderData) return [{ title: 'Route not found | BrisbaneBus' }, { name: 'robots', content: 'noindex' }]
+  if (!loaderData.route)
+    return [{ title: 'Route unavailable | BrisbaneBus' }, { name: 'robots', content: 'noindex' }]
+  const m = routeMetaTags(loaderData.route.short, loaderData.route.long, loaderData.siteUrl)
+  return pageMeta({ ...m, siteUrl: loaderData.siteUrl })
+}
+
+export default function RoutePage({ loaderData }: Route.ComponentProps) {
+  return loaderData.route ? (
+    <RouteDetail route={loaderData.route} renderedAt={loaderData.renderedAt} />
+  ) : (
+    <RouteUnavailable />
+  )
+}
+
+function RouteUnavailable() {
   const revalidator = useRevalidator()
-  if (!isRouteErrorResponse(error) || error.status !== 503) throw error
   return (
     <>
       <SiteHeader live={false} />
@@ -76,14 +94,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   )
 }
 
-export const meta: Route.MetaFunction = ({ loaderData }) => {
-  if (!loaderData) return [{ title: 'Route not found | BrisbaneBus' }, { name: 'robots', content: 'noindex' }]
-  const m = routeMetaTags(loaderData.route.short, loaderData.route.long, loaderData.siteUrl)
-  return pageMeta({ ...m, siteUrl: loaderData.siteUrl })
-}
-
-export default function RoutePage({ loaderData }: Route.ComponentProps) {
-  const { route } = loaderData
+function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: number }) {
   const [params] = useSearchParams()
   const trip = params.get('trip')
   const pick = params.get('pick') === '1'
@@ -92,7 +103,7 @@ export default function RoutePage({ loaderData }: Route.ComponentProps) {
   const pattern = dirs.find((p) => String(p.directionId) === dir) ?? dirs[0]
   const { mode, fetcher } = useApi()
   const vehiclesQ = useVehicles(fetcher, mode, route.short)
-  const now = useNow(loaderData.renderedAt)
+  const now = useNow(renderedAt)
   const variant = routeTileVariant(route.short, route.long)
   const vehicles = vehiclesQ.data?.vehicles ?? []
   const buses = useMemo(() => {
