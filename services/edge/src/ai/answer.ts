@@ -165,7 +165,7 @@ export async function answerIntent(
           : ''
       if (rows.length === 0)
         return {
-          answer: `No upcoming ${head} found.${partial}`,
+          answer: `No upcoming ${head} found.${note}${partial}`,
           stop: { mode, key: from.key, name: stopName },
           to: toRef,
         }

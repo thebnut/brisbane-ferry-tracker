@@ -245,3 +245,25 @@ describe('one place, several stops (R11-A1)', () => {
     })
   })
 })
+
+describe('a named platform or stop is passed to the resolver, not stripped (Codex r3)', () => {
+  const seen = (q: string) => {
+    const calls: Array<[string, string | undefined]> = []
+    parseQuestion(q, (text, mode, opts) => {
+      calls.push([text, opts?.platform])
+      return testResolver(text, mode)
+    })
+    return calls
+  }
+  it.each([
+    ['next bus from cultural centre platform 2', 'cultural centre', '2'],
+    ['next bus from strathpine bus station stop a', 'strathpine', 'a'],
+    ['next bus from carindale bay 3', 'carindale', '3'],
+    ['next bus from queen street station platform 1 (southport)', 'queen street (southport)', '1'],
+  ])('%s → %s + platform %s', (q, text, platform) => {
+    expect(seen(q)[0]).toEqual([text, platform])
+  })
+  it('"stop 1234" alone is a stop number: no platform', () => {
+    expect(seen('next bus from stop 1234')[0]).toEqual(['1234', undefined])
+  })
+})

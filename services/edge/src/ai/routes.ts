@@ -219,7 +219,7 @@ export function ambiguityReply(p: {
   const term = quotedTerm(p.detail) ?? 'That name'
   if (p.station) {
     const name = quotedTerm(p.station.name, 60) ?? 'that station'
-    return `${name} has ${p.station.stops} stops, too many to answer for at once. Ask with the stop number from the sign at your platform.`
+    return `${name} has ${p.station.stops} stops, too many to answer for at once. Add your platform from the sign (e.g. platform 2) or the stop number.`
   }
   const names = (p.options ?? []).map((o) => quotedTerm(o, 60)).filter((o): o is string => !!o)
   const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names.at(-1)}` : (names[0] ?? null)

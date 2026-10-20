@@ -59,6 +59,9 @@ const STOPS: Record<Mode, StopIndexEntry[]> = {
     ...QUEEN_ST_BUSWAY.map(([k, n, lat, lon]) => stop(k, n, lat, lon, k.padStart(6, '0'))),
     stop('319473', 'Queen Street station (Southport)', -27.970092, 153.394337, '319473'),
     stop('600827', 'Queen Street station, platform 1 (Southport)', -27.970174, 153.394395, '600827'),
+    // Real names; synthetic coordinates a few metres apart.
+    stop('SP-A', 'Strathpine bus station, stop A', -27.3049, 152.9897, '310001'),
+    stop('SP-D', 'Strathpine bus station, stop D', -27.305, 152.9898, '310004'),
     // Synthetic: one name at two places ~5 km apart (must stay two candidates).
     stop('FAR-A', 'Main Rd at Shops', -27.5, 153.0),
     stop('FAR-B', 'Main Rd at Shops', -27.545, 153.0),
@@ -149,7 +152,7 @@ describe('the Ask resolver groups one place (bus)', () => {
         'bus',
         o.map((i) => line[i] as StopIndexEntry),
       )
-      for (const c of searchStops([idx], 'long rd at park', 'bus', 5, true)) {
+      for (const c of searchStops([idx], 'long rd at park', 'bus', 5, { places: true })) {
         const keys = c.stopKeys ?? [c.key]
         expect(keys.includes('N') && keys.includes('S'), `order ${o}`).toBe(false)
       }
@@ -169,6 +172,43 @@ describe('the Ask resolver groups one place (bus)', () => {
     )
     expect(to.ok && to.intent).toMatchObject({ kind: 'next_departure', to: { key: '12111' } })
     if (to.ok && to.intent.kind === 'next_departure') expect(to.intent.to.stopKeys).toBeUndefined()
+  })
+
+  it('a named platform survives a fuzzy station name, and a lettered "stop A" (Codex r3)', () => {
+    const cases: Array<[string, string]> = [
+      ['next bus from cultural center platform 2', '11168'],
+      ['next bus from strathpine bus station stop a', 'SP-A'],
+      ['next bus from strathpine bus station stop d', 'SP-D'],
+    ]
+    for (const [q, key] of cases) {
+      const r = parseQuestion(q, resolver)
+      expect(r.ok && r.intent, q).toMatchObject({ kind: 'departures_at', at: { key } })
+      if (r.ok && r.intent.kind === 'departures_at') expect(r.intent.at.stopKeys, q).toBeUndefined()
+    }
+    for (const [dest, key] of [
+      ['cultural center platform 2', '11168'],
+      ['strathpine bus station stop a', 'SP-A'],
+    ] as const) {
+      const q = `next bus from brisbane domestic airport to ${dest}`
+      const r = parseQuestion(q, resolver)
+      expect(r.ok && r.intent, q).toMatchObject({ kind: 'next_departure', to: { key } })
+      if (r.ok && r.intent.kind === 'next_departure') expect(r.intent.to.stopKeys, q).toBeUndefined()
+    }
+  })
+
+  it('a capped station still answers for one named platform ("queen street station platform 1e")', () => {
+    const r = parseQuestion('next bus from queen street station platform 1e', resolver)
+    expect(r.ok && r.intent).toMatchObject({ kind: 'departures_at', at: { key: '1001' } })
+  })
+
+  it('a platform the station does not have is never answered with the whole station', () => {
+    const r = parseQuestion('next bus from cultural centre platform 9', resolver)
+    expect(r.ok ? r.intent : r.reason).toBe('unresolved_stop')
+  })
+
+  it('"stop 12" with no name before it is still a stop number, not a platform', () => {
+    const r = parseQuestion('next bus from stop 310004', resolver)
+    expect(r.ok && r.intent.kind === 'departures_at' && r.intent.at.key).toBe('SP-D')
   })
 
   it('a named platform before a locality suffix is still that one platform (Codex r2)', () => {
@@ -203,7 +243,7 @@ describe('the Ask resolver groups one place (bus)', () => {
     })
     if (!r.ok)
       expect(ambiguityReply(r)).toBe(
-        "'Queen Street station' has 15 stops, too many to answer for at once. Ask with the stop number from the sign at your platform.",
+        "'Queen Street station' has 15 stops, too many to answer for at once. Add your platform from the sign (e.g. platform 2) or the stop number.",
       )
   })
 })
@@ -265,11 +305,11 @@ const NOW = 1_760_900_000
 function body(
   key: string,
   rows: Array<[string, number]>,
-  rtState: 'live' | 'stale' = 'live',
+  name = `Cultural Centre station, platform ${key}`,
 ): DeparturesResponse {
   return {
-    rtState,
-    stop: { key, name: `Cultural Centre station, platform ${key}`, stopIds: [key] },
+    rtState: 'live',
+    stop: { key, name, stopIds: [key] },
     to: null,
     departures: rows.map(([trip, dep]) => ({
       tripInstance: trip,
@@ -374,7 +414,7 @@ describe('answerIntent for a place: every platform, in parallel', () => {
     const fetchApi = async (path: string) => {
       calls.push(path)
       return Response.json({
-        ...body('bowen-hills', [['BNBD-1', NOW + 240]]),
+        ...body('bowen-hills', [['BNBD-1', NOW + 240]], 'Bowen Hills station'),
         to: { key: 'international-airport', name: 'International Airport station' },
       })
     }
@@ -389,6 +429,20 @@ describe('answerIntent for a place: every platform, in parallel', () => {
     expect(calls).toEqual(['/v1/train/stops/bowen-hills/departures?limit=5&to=international-airport'])
     expect(a.answer).toMatch(
       /to International Airport station: .*\. Airport trains stop at International Airport, then continue to Domestic Airport\.$/,
+    )
+
+    // The note holds for an empty board too (Codex r3).
+    const empty = await answerIntent(
+      intent,
+      async () =>
+        Response.json({
+          ...body('bowen-hills', [], 'Bowen Hills station'),
+          to: { key: 'international-airport', name: 'International Airport station' },
+        }),
+      NOW,
+    )
+    expect(empty.answer).toBe(
+      'No upcoming trains from Bowen Hills station to International Airport station found. Airport trains stop at International Airport, then continue to Domestic Airport.',
     )
 
     calls.length = 0

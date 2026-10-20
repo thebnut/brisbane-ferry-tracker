@@ -24,8 +24,12 @@ export interface StopCandidate {
 /** The most stops one place may fan out to when answering (each is a departures read). */
 export const MAX_PLACE_STOPS = 8
 
-/** Fuzzy stop lookup (uFuzzy over the stop index in apps/edge). Returns best-first candidates. */
-export type StopResolver = (text: string, mode?: Mode) => StopCandidate[]
+/**
+ * Fuzzy stop lookup (uFuzzy over the stop index in apps/edge). Returns best-first candidates. With `platform` (a
+ * platform or stop identifier the question named, lowercase: "2", "1e", "a"), only stops carrying it may come back:
+ * never a whole station, and nothing when no candidate has it.
+ */
+export type StopResolver = (text: string, mode?: Mode, opts?: { platform?: string }) => StopCandidate[]
 
 export type Intent =
   | {
@@ -112,6 +116,13 @@ const AIRPORT = /^(?:brisbane )?airports?$/
  */
 const AIRPORT_STATIONS = ['international-airport', 'domestic-airport'] as const
 
+/**
+ * "cultural centre platform 2", "strathpine bus station stop a", "queen street station platform 1 (southport)": a
+ * platform or stop identifier after a name, taken out before filler words are stripped (the "a" of "stop a" is also an
+ * article). With no name before it, "stop 123" is a stop number and stays.
+ */
+const PLATFORM = /^(.+?)\s*\b(?:platform|stop|bay)\s+(\d{1,3}[a-z]?|[a-z])\b\s*(\([^)]*\))?\s*$/
+
 function resolve(
   resolver: StopResolver,
   raw: string,
@@ -119,11 +130,14 @@ function resolve(
   role: 'from' | 'to' = 'from',
   fromKey?: string,
 ): StopCandidate | 'unresolved' | Ambiguous {
-  const text = stripModeWords(raw)
+  const pm = PLATFORM.exec(raw.trim())
+  const named = pm && stripModeWords(pm[1] as string) ? pm : null
+  const platform = named?.[2]
+  const text = stripModeWords(named ? `${named[1]}${named[3] ? ` ${named[3]}` : ''}` : raw)
   if (!text) return 'unresolved'
   // Same place twice (a resolver may list a station once per platform): collapse before the ambiguity test.
   const seen = new Set<string>()
-  const c = resolver(text, mode).filter((x) => {
+  const c = resolver(text, mode, platform ? { platform } : undefined).filter((x) => {
     const k = `${x.mode}:${x.key}`
     if (seen.has(k)) return false
     seen.add(k)
@@ -289,7 +303,7 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
   // Any other bare number we can't place (not a stop number, not the route) would be silently dropped: refuse instead.
   const strayNumber = [...s.matchAll(/\b\d{1,4}[a-z]?\b/g)].some((m) => {
     const before = s.slice(0, m.index).trimEnd()
-    return m[0].toUpperCase() !== routeInQuery && !/\b(stop|platform|number|no)$/.test(before)
+    return m[0].toUpperCase() !== routeInQuery && !/\b(stop|platform|bay|number|no)$/.test(before)
   })
   if (strayNumber) return fail('no_match', 'unplaced number')
 

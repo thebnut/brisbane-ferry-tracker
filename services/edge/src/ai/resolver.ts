@@ -156,20 +156,26 @@ const single = (mode: Mode, s: StopIndexEntry, score: number): StopCandidate => 
 
 /**
  * Search one or all modes; best-first candidates with a 0..1 score. With `places`, stops that are one place come back
- * as one candidate (its name, every stop key), scored by its best stop or by the place name itself.
+ * as one candidate (its name, every stop key), scored by its best stop or by the place name itself. With `platform`
+ * (the question named one, e.g. "cultural centre platform 2"), bus candidates are only the stops carrying it: never a
+ * whole station, and none when no match has it. Train and ferry ignore it (a train answer covers the station's
+ * platforms and names each row's platform).
  */
 export function searchStops(
   indexes: ModeIndex[],
   text: string,
   mode?: Mode,
   limit = 5,
-  places = false,
+  opts: { places?: boolean; platform?: string } = {},
 ): StopCandidate[] {
   const q = clean(text)
   if (!q) return []
+  const places = opts.places ?? false
+  const platform = opts.platform?.toLowerCase() ?? ''
   const out: StopCandidate[] = []
   for (const idx of indexes) {
     if (mode && idx.mode !== mode) continue
+    const strict = !!platform && idx.mode === 'bus'
     const digits = q.replace(/^(stop\s*)?0*/, '')
     if (/^\d{1,6}$/.test(digits)) {
       // A stop number names one stop, never its whole station.
@@ -185,24 +191,15 @@ export function searchStops(
       if (!s) return
       const place = places ? idx.placeOf.get(hi) : undefined
       if (!place) {
+        // A named platform must be this stop's own suffix ("…, platform 2"), or it isn't the stop asked for.
+        if (strict && platformOf(s.name) !== platform) return
         out.push(single(idx.mode, s, score))
         return
       }
-      // A question naming one platform ("cultural centre platform 2", which reaches here as "cultural centre 2") gets
-      // that platform only, never the whole station. The platform may come before a locality ("queen street 1
-      // (southport)"), so each word after the first is tried.
-      const words = q.split(' ')
-      let named: number[] | undefined
-      let rest = q
-      for (let w = 1; w < words.length && !named; w++) {
-        const without = [...words.slice(0, w), ...words.slice(w + 1)].join(' ')
-        const hit = place.platforms.get(words[w] as string)
-        if (hit && clean(place.name).startsWith(without)) {
-          named = hit
-          rest = without
-        }
-      }
-      const placeScore = clean(place.name) === rest ? 1 : score
+      // A named platform picks those stops of the place, never the whole station; a place without it is dropped.
+      const named = strict ? place.platforms.get(platform) : undefined
+      if (strict && !named) return
+      const placeScore = clean(place.name) === q ? 1 : score
       const had = taken.get(place)
       if (had) {
         had.score = Math.max(had.score, placeScore)
@@ -266,5 +263,8 @@ export function searchStops(
 
 export const resolverFor =
   (indexes: ModeIndex[]): StopResolver =>
-  (text, mode) =>
-    searchStops(indexes, text, mode, 5, true)
+  (text, mode, opts) =>
+    searchStops(indexes, text, mode, 5, {
+      places: true,
+      ...(opts?.platform ? { platform: opts.platform } : {}),
+    })
