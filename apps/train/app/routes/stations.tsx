@@ -35,9 +35,14 @@ const StopSearch = lazy(() =>
     : import('@bft/ui/stop-search').then((m) => ({ default: m.StopSearch })),
 )
 
-// The map station picker (P3): MapLibre loads only when the Map button is pressed.
+// The map station picker (P3): MapLibre loads only when the Map button is pressed. If its chunk can't load (offline),
+// the button does nothing and the search is unchanged.
 const StationPicker = lazy(() =>
-  import.meta.env.SSR ? new Promise<never>(() => {}) : import('../components/StationPicker.tsx'),
+  import.meta.env.SSR
+    ? new Promise<never>(() => {})
+    : import('../components/StationPicker.tsx').catch(() => ({
+        default: (_: { slot: string; onClose: () => void }) => null,
+      })),
 )
 
 export function loader({ request, context }: Route.LoaderArgs) {

@@ -24,7 +24,12 @@ import {
   validDestinations,
 } from '../lib/terminals.ts'
 
-const StopPickerMap = lazy(() => import('@bft/ui/stop-picker-map'))
+// If the map's chunk can't load (offline), the selector says so and the fields still work.
+const StopPickerMap = lazy(() =>
+  import('@bft/ui/stop-picker-map').catch(() => ({
+    default: () => <p className="text-sm text-sched-text">Map unavailable right now.</p>,
+  })),
+)
 
 export interface StopSelectorProps {
   initial: StopPair
