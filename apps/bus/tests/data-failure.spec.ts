@@ -62,6 +62,32 @@ for (const how of DATA_FAILURES) {
       expect(errors).toEqual([])
     })
 
+    test('alerts, My stops: says route alerts may be missing, never "No alerts"; Try again', async ({
+      page,
+      context,
+    }) => {
+      const errors = pageErrors(page)
+      await page.addInitScript(() =>
+        localStorage.setItem(
+          'bft-bus-saved',
+          JSON.stringify([{ id: '10802', name: 'Cultural Centre, platform 1' }]),
+        ),
+      )
+      const { restore } = await failData(context, how)
+      await page.goto('/alerts')
+      const status = page.getByRole('status').filter({ hasText: "Couldn't load your stops' routes" })
+      await expect(status).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByText('No alerts for your saved stops.')).toHaveCount(0)
+      await expectNoErrorPage(page)
+      restore()
+      await status.getByRole('button', { name: 'Try again' }).click()
+      await expect(page.getByText(/Showing alerts for your 1 saved stop and [1-9]\d* route/)).toBeVisible({
+        timeout: 20_000,
+      })
+      await expect(status).toHaveCount(0)
+      expect(errors).toEqual([])
+    })
+
     test('map picker: "Couldn\'t load stops" over the map, Try again shows them', async ({
       page,
       context,

@@ -118,6 +118,8 @@ export default function AlertsPage({ loaderData }: Route.ComponentProps) {
     myRoutes,
   )
   const shown = scope === 'mine' ? mine : all
+  // Without the stop index there are no routes for the saved stops: route alerts may be missing, so never "No alerts".
+  const routesFailed = scope === 'mine' && index.isError
   return (
     <>
       <SiteHeader live={q.data?.rtState === 'live'} />
@@ -153,16 +155,32 @@ export default function AlertsPage({ loaderData }: Route.ComponentProps) {
               ? 'Loading alerts…'
               : q.isError && !q.data
                 ? "Couldn't load alerts."
-                : scope === 'mine'
-                  ? 'No alerts for your saved stops.'
-                  : 'No bus alerts right now.'}
+                : routesFailed
+                  ? "Couldn't check the routes at your saved stops."
+                  : scope === 'mine'
+                    ? 'No alerts for your saved stops.'
+                    : 'No bus alerts right now.'}
           </p>
         ) : (
           shown.map((a, i) => (
             <AlertItem key={a.id} a={a} nowS={nowS} hot={i === 0 && alertKind(a, nowS) === 'detour'} />
           ))
         )}
-        {scope === 'mine' ? (
+        {routesFailed ? (
+          <p
+            role="status"
+            className="flex flex-wrap items-center justify-center gap-x-2 text-xs text-sched-text"
+          >
+            Couldn't load your stops' routes, so route alerts may be missing.
+            <button
+              type="button"
+              onClick={index.retry}
+              className="font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
+            >
+              Try again
+            </button>
+          </p>
+        ) : scope === 'mine' ? (
           <p className="text-center text-xs text-sched-text">
             Showing alerts for your {saved.length} saved stop{saved.length === 1 ? '' : 's'} and{' '}
             {myRoutes.size} route{myRoutes.size === 1 ? '' : 's'}
