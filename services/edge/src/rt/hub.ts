@@ -7,7 +7,7 @@ import { StaticStore } from '../data/static-store.ts'
 import type { WorkerEnv } from '../env.ts'
 import { createLogger } from '../log.ts'
 import { parseRtModes } from './feeds.ts'
-import { HubCore, type PullResult, type RawFeed } from './hub-core.ts'
+import { HubCore, type PullResult, type RawFeed, type WatchdogResult } from './hub-core.ts'
 import type { SnapshotScope } from './split.ts'
 
 export class RtHub extends DurableObject<WorkerEnv> {
@@ -42,9 +42,7 @@ export class RtHub extends DurableObject<WorkerEnv> {
    * Cloudflare doesn't restart it on deploy (seen on staging). When the calling Worker's version differs from the one
    * this instance runs, abort; the stored alarm then fires in a fresh instance on the new code.
    */
-  async ensureRunning(
-    callerVersion?: string,
-  ): Promise<{ rearmed: boolean; lastCycleAt: number; alarm: number | null; restarted?: boolean }> {
+  async ensureRunning(callerVersion?: string): Promise<WatchdogResult & { restarted?: boolean }> {
     const r = await this.core.ensureRunning()
     const mine = this.env.CF_VERSION?.id
     if (callerVersion && mine && callerVersion !== mine) {

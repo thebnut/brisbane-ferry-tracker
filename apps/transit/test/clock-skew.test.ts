@@ -2,8 +2,8 @@
 /**
  * Release review C2: a saved card built offline with no response on hand is stamped with the device clock. Five
  * minutes fast, that stamp used to hold every network answer back ("Offline · scheduled") until server time caught
- * up. Now the answer replaces the card at the first poll back online. liveState still judges against the device clock
- * (a known follow-up), so a fast clock shows the card as delayed, never a false LIVE.
+ * up. Now the answer replaces the card at the first poll back online, and (R13-B1) liveState measures its age from
+ * when it reached the device, so either clock shows it LIVE.
  */
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import { liveState, reportOnline } from '@bft/ui/connectivity'
@@ -61,7 +61,7 @@ afterEach(() => {
 })
 
 describe.each([
-  ['+5 min', 5 * 60_000, 'stale'],
+  ['+5 min', 5 * 60_000, null],
   ['−5 min', -5 * 60_000, null],
 ] as const)('device clock %s, then reconnect', (_, skew, state) => {
   it('the network answer replaces the offline card at the first poll', async () => {

@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import { createApp } from '../src/app.ts'
 import { FetcherDataSource } from '../src/data/source.ts'
 import { AbandonedError, within } from '../src/deadline.ts'
+import { HEALTH_MAX_AGE_S } from '../src/health.ts'
 import { silentLogger } from '../src/log.ts'
 import { ABANDONED_STATUS, isBounded, withRequestDeadline } from '../src/request-deadline.ts'
 import { COMBINED_KEY } from '../src/rt/combined.ts'
@@ -169,7 +170,8 @@ describe('departures with a slow hub (peak stall)', () => {
     // Warm the static caches first, so the timing below is the realtime wait alone.
     await a.request('/v1/ferry/stops/317584/departures')
     await sleep(350)
-    clock.advance(61_000)
+    // Past maxStale with a source older than health allows (a 61 s source stays live, R13-B1: see below).
+    clock.advance(HEALTH_MAX_AGE_S * 1000 + 1_000)
     hub.pull = async () => {
       hub.pulls++
       await sleep(300)
@@ -178,7 +180,7 @@ describe('departures with a slow hub (peak stall)', () => {
     const { value: res, ms } = await timed(Promise.resolve(a.request('/v1/ferry/stops/317584/departures')))
     expect(res.status).toBe(200)
     const body = DeparturesResponse.parse(await res.json())
-    // An expired copy is never live: stale, scheduled rows.
+    // An expired copy whose source is past health's age is never live: stale, scheduled rows.
     expect(body.rtState).toBe('stale')
     expect(body.departures.length).toBeGreaterThan(0)
     expect(body.departures.every((d) => d.status === 'scheduled')).toBe(true)
@@ -188,6 +190,27 @@ describe('departures with a slow hub (peak stall)', () => {
       await (await a.request('/v1/ferry/stops/317584/departures')).json(),
     )
     expect(later.rtState).toBe('live')
+  })
+
+  it('expired copy with a fresh source, slow hub: live within the cap, not "delayed" (R13-B1)', async () => {
+    const clock = new Clock(nowMs)
+    const hub = slowHub(
+      () => 300,
+      () => ({ seq: 1, json: snap(1, Math.floor(clock.t / 1000), clock.t), status: status(1) }),
+    )
+    const a = app(hub, clock)
+    await a.request('/v1/ferry/stops/317584/departures')
+    await sleep(350)
+    clock.advance(61_000)
+    hub.pull = async () => {
+      hub.pulls++
+      await sleep(300)
+      return { seq: 2, json: snap(2, Math.floor(clock.t / 1000), clock.t), status: status(2) }
+    }
+    const { value: res, ms } = await timed(Promise.resolve(a.request('/v1/ferry/stops/317584/departures')))
+    const body = DeparturesResponse.parse(await res.json())
+    expect(body.rtState).toBe('live')
+    expect(ms).toBeLessThan(CAP + SLACK)
   })
 
   it('first request of a cold isolate: unavailable within the cap (static reads are fast)', async () => {
