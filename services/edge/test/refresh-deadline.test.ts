@@ -3,12 +3,13 @@
  * started it) held every later ferry request in that isolate until the caller's 10 s deadline. These tests use
  * hubs, caches and data sources that never answer, or answer late, and check that nobody waits past a deadline.
  */
-import { DeparturesResponse } from '@bft/core'
+import { DeparturesResponse, STALE_AFTER_S } from '@bft/core'
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../src/app.ts'
 import { MemoryDataSource } from '../src/data/source.ts'
 import { StaticStore } from '../src/data/static-store.ts'
 import { DeadlineError } from '../src/deadline.ts'
+import { HEALTH_MAX_AGE_S } from '../src/health.ts'
 import { silentLogger } from '../src/log.ts'
 import type { PullResult } from '../src/rt/hub-core.ts'
 import {
@@ -428,20 +429,44 @@ describe('departures with a stalled snapshot', () => {
     expect(ms).toBeLessThan(DEADLINE + SLACK)
   })
 
-  it('expired copy, hub stalled: served promptly and reported stale, never live', async () => {
+  it('expired copy, hub stalled: served promptly; live while its source is fresh, then stale (R13-B1)', async () => {
     const clock = new Clock(nowMs)
     const fresh = async () => result(1, snap(1, Math.floor(clock.t / 1000), clock.t))
     const a = app(scriptedHub([fresh], never), clock)
+    const get = async () => {
+      const { value: res, ms } = await timed(Promise.resolve(a.request('/v1/ferry/stops/317584/departures')))
+      return { body: DeparturesResponse.parse(await res.json()), ms }
+    }
+    const first = (await get()).body
+    expect(first.rtState).toBe('live')
+    // Past maxStale, with a source 61 s old: what a quiet isolate's copy looks like before its refresh lands. The
+    // copy's own source is as fresh as health allows, so not "delayed".
+    clock.advance(61_000)
+    const quiet = await get()
+    expect(quiet.body.rtState).toBe('live')
+    expect(quiet.body.rtSourceTimestamp).toBe(first.rtSourceTimestamp)
+    expect(quiet.ms).toBeLessThan(STALE_WAIT + SLACK)
+    // Still unconfirmed and its source past health's 120 s: stale, never live.
+    clock.advance(HEALTH_MAX_AGE_S * 1000 - 61_000)
+    const stalled = await get()
+    expect(stalled.body.rtState).toBe('stale')
+    expect(stalled.ms).toBeLessThan(STALE_WAIT + SLACK)
+    // And past the contract's STALE_AFTER_S: stale as any reader would judge it.
+    clock.advance((STALE_AFTER_S + 1) * 1000)
+    expect((await get()).body.rtState).toBe('stale')
+  })
+
+  it('an expired copy whose source is already past STALE_AFTER_S is stale', async () => {
+    const clock = new Clock(nowMs)
+    const old = async () => result(1, snap(1, Math.floor(clock.t / 1000) - STALE_AFTER_S - 5, clock.t))
+    const a = app(scriptedHub([old], never), clock)
     const first = DeparturesResponse.parse(
       await (await a.request('/v1/ferry/stops/317584/departures')).json(),
     )
-    expect(first.rtState).toBe('live')
-    clock.advance(61_000) // past maxStale, but its source time (61 s) alone would still read as live
-    const { value: res, ms } = await timed(Promise.resolve(a.request('/v1/ferry/stops/317584/departures')))
-    const body = DeparturesResponse.parse(await res.json())
+    expect(first.rtState).toBe('stale')
+    clock.advance(61_000)
+    const body = DeparturesResponse.parse(await (await a.request('/v1/ferry/stops/317584/departures')).json())
     expect(body.rtState).toBe('stale')
-    expect(body.rtSourceTimestamp).toBe(first.rtSourceTimestamp)
-    expect(ms).toBeLessThan(STALE_WAIT + SLACK)
   })
 })
 

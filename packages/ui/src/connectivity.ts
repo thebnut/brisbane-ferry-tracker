@@ -21,9 +21,9 @@ export const LIVE_REQUEST_TIMEOUT_MS = 8_000
 /** Live data whose TransLink source is older than this is shown as timetable times. */
 export const LIVE_SOURCE_MAX_AGE_S = 300
 /**
- * Live data generated longer ago than this is shown as timetable. Judged on the response's own `generatedAt`, never
- * on when it was fetched: a copy from the service worker's cache (or a page reloaded from it) is fetched "now" but
- * generated minutes ago. Polling is every 15 s, so this is four missed refreshes.
+ * Live data older than this is shown as timetable: four missed 15 s refreshes. Measured from when the answer reached
+ * the device (Received), or from its `generatedAt` when it has no arrival time. A copy from the service worker's
+ * cache, or a page reloaded from it, is flagged as such (noteCacheCopy, unconfirmedBefore) and never stamped.
  */
 export const LIVE_REFRESH_MAX_AGE_MS = 60_000
 
@@ -440,8 +440,23 @@ const cacheCopies = new WeakSet<object>()
  * live data: "Live times delayed", its old "Updated" time, and its departed rows gone (R6-B1).
  */
 export function noteCacheCopy<T>(res: Response, body: T): T {
-  if (res.headers.get(SW_CACHE_HEADER) && typeof body === 'object' && body !== null) cacheCopies.add(body)
+  if (typeof body === 'object' && body !== null) {
+    if (res.headers.get(SW_CACHE_HEADER)) cacheCopies.add(body)
+    // A network answer in the browser is stamped with the device time it arrived (see Received). Never on the server:
+    // a server-rendered board has no device arrival time.
+    else if (typeof window !== 'undefined') (body as Received).receivedAt = Date.now()
+  }
   return body
+}
+
+/**
+ * When a network answer reached this device, by the device clock (noteCacheCopy). liveState measures a board's age
+ * from it, so a device clock that is minutes off never makes live data read as "delayed" (R13-B1): server times are
+ * only compared with server times, device times with device times. An enumerable field, so it survives TanStack's
+ * structural sharing and a board's offline copy.
+ */
+export interface Received {
+  receivedAt?: number
 }
 
 /**
@@ -522,7 +537,9 @@ export type LiveState = 'offline' | 'stale' | 'reloading' | 'unavailable' | null
  * generated over a minute ago (both judged on the data's own timestamps).
  */
 export function liveState(
-  res: ({ rtState: string; rtSourceTimestamp: number | null; generatedAt: number } & OfflineCopy) | undefined,
+  res:
+    | ({ rtState: string; rtSourceTimestamp: number | null; generatedAt: number } & OfflineCopy & Received)
+    | undefined,
   {
     offline,
     nowMs,
@@ -548,8 +565,16 @@ export function liveState(
       ? res.rtState
       : 'unavailable'
   }
-  const sourceAge = res.rtSourceTimestamp == null ? Infinity : nowMs / 1000 - res.rtSourceTimestamp
-  if (sourceAge > LIVE_SOURCE_MAX_AGE_S || nowMs - res.generatedAt > LIVE_REFRESH_MAX_AGE_MS) return 'stale'
+  // Skew-free (R13-B1): the source's age when the server answered (server clock), plus the time since the answer
+  // arrived (device clock). A board without an arrival time (data in the page's HTML or a route loader's) falls back
+  // to the device clock against its generatedAt, the rule before. That copy lasts only until the board's first
+  // successful poll (every 15 s from mount; longer while requests fail or the tab is hidden), which is stamped. Moving
+  // it onto the device clock by the page's render time was tried and dropped (Codex r2): during hydration the clock is
+  // the server's, and cached HTML gives no usable offset.
+  const elapsed = nowMs - (res.receivedAt ?? res.generatedAt)
+  const sourceAge =
+    res.rtSourceTimestamp == null ? Infinity : res.generatedAt / 1000 - res.rtSourceTimestamp + elapsed / 1000
+  if (sourceAge > LIVE_SOURCE_MAX_AGE_S || elapsed > LIVE_REFRESH_MAX_AGE_MS) return 'stale'
   return null
 }
 

@@ -18,6 +18,7 @@ import { errorMessage, type Logger, silentLogger } from '../log.ts'
 import { buildAlerts, buildSnapshot, ModeIndex } from './build.ts'
 import { COMBINED_KEY, decodeCombined, encodeCombined, INDEX_BYTES, type SectionInput } from './combined.ts'
 import { type FeedSpec, feedsFor, type RtConfig } from './feeds.ts'
+import { SourceWatch } from './source-watch.ts'
 import {
   alertsDocument,
   documentBody,
@@ -187,6 +188,15 @@ export interface HubStatus {
   loading?: { mode: Mode; generation: string; loaded: number; of: number } | null
 }
 
+export interface WatchdogResult {
+  rearmed: boolean
+  lastCycleAt: number
+  alarm: number | null
+  /** The hub's current snapshot: TransLink's header time (s) and when it was built (ms). */
+  sourceTimestamp: number | null
+  fetchedAt: number | null
+}
+
 export interface PullResult {
   seq: number | null
   /** The snapshot JSON, or null when the caller already has `seq` (or there is none yet). */
@@ -268,6 +278,8 @@ export class HubCore {
   lastTimings: CycleTimings | null = null
   /** R2 writes of the poll in progress, for its timings. */
   private puts = { n: 0, chars: 0 }
+  /** TransLink header times per feed: logs a feed whose time stands still while its fetches succeed (R14-RT1). */
+  private readonly sources: SourceWatch
 
   constructor(private readonly d: HubDeps) {
     this.feeds = feedsFor(d.config)
@@ -277,6 +289,7 @@ export class HubCore {
     this.compress = d.compress ?? false
     this.alarmMs = Math.min(KEEPALIVE_MS, this.cycleMs)
     this.log = d.log ?? silentLogger
+    this.sources = new SourceWatch(this.log, this.cycleMs)
   }
 
   // ---------------------------------------------------------------- scheduling
@@ -306,19 +319,24 @@ export class HubCore {
     }
   }
 
-  /** Watchdog (1-minute cron). Re-arms when no alarm is set or the last completed cycle is older than 45 s. */
-  async ensureRunning(): Promise<{ rearmed: boolean; lastCycleAt: number; alarm: number | null }> {
+  /**
+   * Watchdog (1-minute cron). Re-arms when no alarm is set or the last completed cycle is older than 45 s. Also
+   * reports the hub's own source and build times, so the cron can tell a stale source from a stale published status.
+   */
+  async ensureRunning(): Promise<WatchdogResult> {
     await this.restore()
     const now = this.d.now()
     const alarm = await this.d.storage.getAlarm()
     const stale = now - this.meta.lastCycleAt > WATCHDOG_STALE_MS
+    const h = this.snapshot?.header
+    const times = { sourceTimestamp: h?.sourceTimestamp ?? null, fetchedAt: h?.fetchedAt ?? null }
     if (alarm == null || stale) {
       this.drillDead = false
       await this.d.storage.setAlarm(now)
       this.log.warn('rt watchdog re-armed alarm', { alarm, lastCycleAt: this.meta.lastCycleAt, stale })
-      return { rearmed: true, lastCycleAt: this.meta.lastCycleAt, alarm: now }
+      return { rearmed: true, lastCycleAt: this.meta.lastCycleAt, alarm: now, ...times }
     }
-    return { rearmed: false, lastCycleAt: this.meta.lastCycleAt, alarm }
+    return { rearmed: false, lastCycleAt: this.meta.lastCycleAt, alarm, ...times }
   }
 
   // ---------------------------------------------------------------- read API (RPC)
@@ -490,12 +508,17 @@ export class HubCore {
     fetched.forEach((r, i) => {
       const f = due[i] as FeedSpec
       if (r.error) errors.push(`${f.key}: ${r.error}`)
-      if (!r.raw) return
+      if (!r.raw) {
+        // 304: the same bytes, so the same header time, from a successful fetch.
+        if (!r.error) this.watchSource(f, this.decoded.get(f.key), now)
+        return
+      }
       // Decode before adopting: a corrupt body keeps the previous good bytes (and stays out of the legacy proxy).
       try {
         const msg = fromBinary(FeedMessageSchema, r.raw.bytes)
         this.raw.set(f.key, r.raw)
         this.decoded.set(f.key, msg)
+        this.watchSource(f, msg, now)
         if (f.kind === 'alerts') this.alerts = buildAlerts(msg, this.routeModes(), this.stopModes())
         changed.push(f)
       } catch (e) {
@@ -722,6 +745,17 @@ export class HubCore {
     this.pointerAt = now
     this.pointerOwed = false
     this.alertsMoved = false
+  }
+
+  /** Feed the per-feed source watch: TripUpdates and VehiclePositions (alerts headers may rightly stand still). */
+  private watchSource(f: FeedSpec, msg: FeedMessage | undefined, now: number): void {
+    if (f.kind === 'alerts' || !msg?.header) return
+    this.sources.observe(f.key, Number(msg.header.timestamp), now, this.meta.seq)
+  }
+
+  /** Feeds whose TransLink header time is currently frozen (tests). */
+  staleSources(): string[] {
+    return this.sources.stale()
   }
 
   /** One R2 PUT, counted for the poll's timings. */

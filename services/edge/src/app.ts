@@ -42,6 +42,7 @@ import {
   type StaticStore,
 } from './data/static-store.ts'
 import { within } from './deadline.ts'
+import { HEALTH_MAX_AGE_S, healthDetail, healthReasons, rtAges } from './health.ts'
 import { createLogger, errorMessage, type Logger } from './log.ts'
 import { REQUEST_DEADLINE_MS } from './request-deadline.ts'
 import { FEED_MODE_SUFFIX, MODES } from './rt/feeds.ts'
@@ -220,8 +221,17 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const fetchedAt = snap ? (fresh ? (st?.fetchedAt as number) : snap.header.fetchedAt) : null
     let rtState: RtState = rtStateFor(indexed ? sourceTs : null, Math.floor(nowMs / 1000), genOk)
     // A copy no refresh has confirmed for maxStaleMs (this request's wait for the refresh ran out, or the refresh
-    // failed) is served, but never as live.
-    if (rtState === 'live' && client.expired) rtState = 'stale'
+    // failed) is served, and is live only while its own TransLink source is as fresh as health allows. A quiet
+    // isolate's copy is often just over a minute old when the next request finds it, and the 4.6 MB bus document
+    // can't refresh inside RT_WAIT_MS, so judging the copy's age alone showed "Live times delayed" on data 44-106 s
+    // old (R13-B1, staging 20 Oct). A real stall (R14-RT1) is past this, and past STALE_AFTER_S soon after.
+    if (
+      rtState === 'live' &&
+      client.expired &&
+      (sourceTs == null || nowMs / 1000 - sourceTs >= HEALTH_MAX_AGE_S)
+    ) {
+      rtState = 'stale'
+    }
     const ageS = fetchedAt != null ? Math.max(0, (nowMs - fetchedAt) / 1000) : 0
     return {
       cur,
@@ -632,11 +642,12 @@ export function createApp(deps: AppDeps): Hono<Env> {
     for (const [m, v] of Object.entries(manifest?.modes ?? {})) if (v) generations[m] = v.current
     // Judge the source, not the build: a hub that keeps rebuilding from retained data while TripUpdates fail must
     // not look healthy (Codex review #5). ageS is the age of TransLink's header time behind the snapshot.
-    const ageS = h ? Math.round((nowMs - h.sourceTimestamp * 1000) / 100) / 10 : null
-    const buildAgeS = h ? (nowMs - h.fetchedAt) / 1000 : null
+    const ages = rtAges(h, nowMs)
+    const { ageS } = ages
+    const reasons = healthReasons(manifest != null, ages)
     const body: HealthResponse = {
       schemaVersion: SCHEMA_VERSION,
-      ok: manifest != null && ageS != null && ageS < 120 && buildAgeS != null && buildAgeS < 120,
+      ok: reasons.length === 0,
       now: nowMs,
       manifest: { updatedAt: manifest?.updatedAt ?? null, generations },
       rt: {
@@ -652,8 +663,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
         : { enabled: false, budgetUsedUsd: null },
       build,
     }
-    // The health body has no error field; its log line still says why it is a 503.
-    if (!body.ok) c.set('failure', { error: 'health not ok' })
+    // The health body has no error field; its log line still says why it is a 503 (R14-RT1: which check failed,
+    // e.g. `source-age 446s`, so an upstream freeze reads differently from a hub or pointer that stopped).
+    if (!body.ok) c.set('failure', { error: 'health not ok', detail: healthDetail(reasons, ages) })
     return c.json(body, body.ok ? 200 : 503, { 'cache-control': 'no-store' })
   })
 

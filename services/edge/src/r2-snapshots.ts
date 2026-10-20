@@ -274,6 +274,11 @@ function indexStatus(s: SectionRead): HubStatus {
   }
 }
 
+/** The hub status in the published pointer, as /v1/health and unchanged-document readers see it (watchdog). */
+export async function readPublishedStatus(src: DataSource): Promise<HubStatus | null> {
+  return (await readPointer(src))?.status ?? null
+}
+
 async function readPointer(src: DataSource): Promise<R2Pointer | null> {
   const bytes = await readBytes(src, R2_LATEST_KEY)
   return bytes ? ((await decodeJson(bytes)) as R2Pointer) : null
