@@ -9,12 +9,15 @@ import { fileURLToPath } from 'node:url'
 import { cloudflareContext as busContext } from '@bft/bus/app/lib/context.ts'
 import { meta as busStopMeta } from '@bft/bus/app/routes/stop.tsx'
 import { cloudflareContext as ferryContext } from '@bft/ferry/app/lib/context.ts'
+import { TERMINALS } from '@bft/ferry/app/lib/terminals.ts'
 import { meta as ferryHomeMeta } from '@bft/ferry/app/routes/home.tsx'
 import { cloudflareContext as trainContext } from '@bft/train/app/lib/context.ts'
+import { STATIONS } from '@bft/train/app/lib/network.ts'
 import { meta as trainHomeMeta } from '@bft/train/app/routes/home.tsx'
 import type { RouterContextProvider } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { unstable_readConfig } from 'wrangler'
+import routes from '../app/routes.ts'
 import worker from '../workers/app.ts'
 
 let seen: RouterContextProvider | undefined
@@ -102,4 +105,66 @@ describe.each([['staging'], [undefined]])('%s: mode pages link inside transit', 
       expect(existsSync(file), image).toBe(true)
     }
   })
+})
+
+interface RouteEntry {
+  path?: string
+  index?: boolean
+  file: string
+  children?: RouteEntry[]
+}
+/** Every mounted mode page in transit's routes.ts: its mode and route module file. */
+function mounted(entries: readonly RouteEntry[]): { mode: 'ferry' | 'train' | 'bus'; file: string }[] {
+  return entries.flatMap((e) => {
+    const m = /\.\.\/\.\.\/(ferry|train|bus)\/app\/routes\/(.+)$/.exec(e.file)
+    const own = m ? [{ mode: m[1] as 'ferry' | 'train' | 'bus', file: m[2] as string }] : []
+    return [...own, ...(e.children ? mounted(e.children) : [])]
+  })
+}
+const PAGES = mounted(routes as RouteEntry[])
+const MODULES = import.meta.glob<{ meta?: (args: unknown) => Meta }>(
+  '../../{ferry,train,bus}/app/routes/*.tsx',
+)
+
+/** Loader data with what each page's meta reads, for a site URL. */
+const loaderData = (siteUrl: string) => ({
+  siteUrl,
+  site: { siteUrl, indexable: false },
+  terminal: TERMINALS[0],
+  station: STATIONS[0],
+  to: null,
+  stopId: '10802',
+  departures: null,
+  route: { short: '66', long: 'RBWH to UQ Lakes' },
+  trip: null,
+})
+/** Every absolute URL a page's meta emits (canonical, og:url, og:image, JSON-LD), other than schema.org's. */
+async function urlsOf(mode: string, file: string, siteUrl: string): Promise<string[]> {
+  const load = MODULES[`../../${mode}/app/routes/${file}`]
+  if (!load) throw new Error(`no module ${mode}/${file}`)
+  const { meta } = await load()
+  if (!meta) return []
+  const out = JSON.stringify(meta({ loaderData: loaderData(siteUrl) }))
+  return (out.match(/https?:\/\/[^"\s\\]+/g) ?? []).filter((u) => !u.startsWith('https://schema.org'))
+}
+
+describe('every mounted mode page', () => {
+  it('covers all of them', () => {
+    expect(PAGES.length).toBe(18)
+  })
+
+  it.each(['production', 'production-preview', 'staging', undefined])(
+    "%s: all meta URLs on the page's site",
+    async (envName) => {
+      const urls = await siteUrls(varsOf(envName))
+      for (const { mode, file } of PAGES) {
+        const site = urls[mode]
+        const found = await urlsOf(mode, file, site)
+        for (const u of found) expect(u.startsWith(`${site}/`), `${mode}/${file}: ${u}`).toBe(true)
+        // Pages with SEO tags emit them: not vacuous.
+        if (!['trip.tsx'].includes(file) || mode === 'bus')
+          expect(found.length, `${mode}/${file}`).toBeGreaterThan(0)
+      }
+    },
+  )
 })

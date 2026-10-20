@@ -15,17 +15,24 @@ import { useGeoTiles } from '../lib/geo-queries.ts'
 import { useApi } from '../lib/mode.ts'
 import { useStopIndex } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
+import { getEnv } from '../lib/server.server.ts'
 import { stopHref } from '../lib/stops.ts'
 import { useSavedStops } from '../lib/storage.ts'
 import type { Route } from './+types/map'
 
 const MapView = lazy(() => import('@bft/ui/map'))
 
-export const meta: Route.MetaFunction = () =>
+/** The site's own URL (inside BrisbaneTransit, its page there), for the canonical and OG tags. */
+export function loader({ context }: Route.LoaderArgs) {
+  return { siteUrl: getEnv(context)?.SITE_URL ?? SITE_URL }
+}
+
+export const meta: Route.MetaFunction = ({ loaderData }) =>
   pageMeta({
     title: 'Brisbane bus stop map | BrisbaneBus',
     description: 'Every Brisbane bus stop on a map. Tap a stop for its live departures.',
-    url: `${SITE_URL}/map`,
+    url: `${loaderData?.siteUrl ?? SITE_URL}/map`,
+    siteUrl: loaderData?.siteUrl,
   })
 
 const CBD: [number, number] = [153.0235, -27.4705]

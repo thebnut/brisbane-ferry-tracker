@@ -1,13 +1,20 @@
 /** /about: data sources, attribution, privacy in brief. Prerendered at build time. */
 import { BusNav, Footer, SiteHeader } from '../components/Shell.tsx'
 import { ATTRIBUTION, pageMeta, SITE_URL } from '../lib/seo.ts'
+import { getEnv } from '../lib/server.server.ts'
 import type { Route } from './+types/about'
 
-export const meta: Route.MetaFunction = () =>
+/** The site's own URL (inside BrisbaneTransit, its page there), for the canonical and OG tags. */
+export function loader({ context }: Route.LoaderArgs) {
+  return { siteUrl: getEnv(context)?.SITE_URL ?? SITE_URL }
+}
+
+export const meta: Route.MetaFunction = ({ loaderData }) =>
   pageMeta({
     title: 'About BrisbaneBus and its data',
     description: 'Where BrisbaneBus gets its timetables and live times, and what it keeps on your device.',
-    url: `${SITE_URL}/about`,
+    url: `${loaderData?.siteUrl ?? SITE_URL}/about`,
+    siteUrl: loaderData?.siteUrl,
   })
 
 export default function About() {
