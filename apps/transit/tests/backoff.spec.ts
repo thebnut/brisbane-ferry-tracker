@@ -12,6 +12,7 @@ backoffSuite({
   pagesCache: 'transit-pages',
   departures: /\/v1\/(ferry|train|bus)\/stops\/[^/]+\/departures/,
   pin: (context) => pinUpcoming(context),
+  boards: 3, // ferry, train and bus saved cards
   prepare: (page) =>
     page.addInitScript(() => {
       localStorage.setItem('brisbane-ferry-remember-selection', 'true')

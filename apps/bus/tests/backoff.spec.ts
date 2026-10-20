@@ -11,6 +11,7 @@ backoffSuite({
   pagesCache: 'bus-pages',
   departures: /\/v1\/bus\/stops\/10802\/departures/,
   pin: (context) => pinUpcoming(context),
+  boards: 1, // the saved stop
   prepare: (page) =>
     page.addInitScript(() =>
       localStorage.setItem(
