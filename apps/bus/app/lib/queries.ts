@@ -275,6 +275,25 @@ export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boole
   return { ...q, isError: q.isError || searchFailed, retry, index, byKey, searchStops: search?.searchStops }
 }
 
+/** The bus /data lists one screen can show failing together: stop search, route search, map tiles (R16-D1). */
+const LISTS = new Set(['stop-index', 'route-index', 'lines', 'geo'])
+
+/**
+ * Refetches every failed bus /data list on screen that isn't already loading, so one Try again brings back all of
+ * them; a list that fails again keeps its own notice. The stop index's search code is retried by useStopIndex's own
+ * `retry`, so call that first.
+ */
+export function retryFailedLists(client: QueryClient): Promise<void> {
+  return client.refetchQueries({
+    type: 'active',
+    predicate: (q) =>
+      q.queryKey[0] === 'bus' &&
+      LISTS.has(String(q.queryKey[1])) &&
+      q.state.status === 'error' &&
+      q.state.fetchStatus === 'idle',
+  })
+}
+
 export function useLines(fetcher: ApiFetcher, mode: DataMode, enabled = true) {
   return useQuery({
     queryKey: ['bus', 'lines', mode.fixtures],

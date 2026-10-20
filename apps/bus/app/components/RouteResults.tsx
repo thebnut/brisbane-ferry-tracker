@@ -41,7 +41,16 @@ async function optionalJson<T>(
   return body as T
 }
 
-export default function RouteResults({ query, slot }: { query: string; slot: 'above' | 'below' }) {
+export default function RouteResults({
+  query,
+  slot,
+  onRetry,
+}: {
+  query: string
+  slot: 'above' | 'below'
+  /** Retries every failed list in the search (stops and routes), not only these. */
+  onRetry: () => void
+}) {
   const { mode } = useApi()
   const headingId = useId()
   const q = query.trim()
@@ -72,10 +81,7 @@ export default function RouteResults({ query, slot }: { query: string; slot: 'ab
         Couldn't load routes.
         <button
           type="button"
-          onClick={() => {
-            if (idx.isError) idx.refetch()
-            if (lines.isError) lines.refetch()
-          }}
+          onClick={onRetry}
           className="font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
         >
           Try again

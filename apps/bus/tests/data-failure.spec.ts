@@ -3,6 +3,7 @@
  * search, the map picker, /map and /nearby say "Couldn't load" with a Try again that brings the data back, and the
  * page never goes to "Something went wrong".
  */
+import { busOnboardingRetryTests, busSearchRetryTests } from '@bft/ui/e2e/bus-search-retry.ts'
 import { DATA_FAILURES, expectNoErrorPage, failData, pageErrors } from '@bft/ui/e2e/data-failure.ts'
 import { expect, test } from '@playwright/test'
 
@@ -169,3 +170,6 @@ for (const how of DATA_FAILURES) {
     })
   })
 }
+
+busSearchRetryTests('')
+busOnboardingRetryTests()

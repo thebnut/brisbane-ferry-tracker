@@ -23,10 +23,13 @@ const MAX_TILES = 30
 export default function BusStopPicker({
   slot,
   onClose,
+  onRetry,
 }: {
   /** SearchPanel renders a slot in each layout; only the one for this screen width shows the picker. */
   slot: 'wide' | 'narrow'
   onClose: () => void
+  /** Retries every failed list on screen (the search's too, beside the map on desktop), the tiles among them. */
+  onRetry: () => void
 }) {
   const wide = useWide()
   const { mode, fetcher } = useApi()
@@ -61,7 +64,7 @@ export default function BusStopPicker({
       stops={stops}
       onViewChange={onView}
       notice={zoomedOut ? 'Zoom in to see bus stops' : tiles.error ? "Couldn't load stops" : null}
-      onRetry={!zoomedOut && tiles.error ? tiles.retry : null}
+      onRetry={!zoomedOut && tiles.error ? onRetry : null}
       loadDepartures={loadDepartures}
       renderOpen={(s, className) => (
         <Link to={stopHref(s.id)} className={className}>

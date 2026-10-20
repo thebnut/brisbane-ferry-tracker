@@ -8,11 +8,12 @@
  */
 import { SearchField, StopResultCard, ThumbSheet } from '@bft/ui/bus'
 import { MapToggle } from '@bft/ui/map-toggle'
+import { useQueryClient } from '@tanstack/react-query'
 import { lazy, type ReactNode, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import type { StopIndexEntry } from '../lib/data-contract.ts'
 import { useApi } from '../lib/mode.ts'
-import { useStopIndex } from '../lib/queries.ts'
+import { retryFailedLists, useStopIndex } from '../lib/queries.ts'
 import type { SearchIndex, SearchResult, searchStops } from '../lib/search.ts'
 import { stopCode, stopHref } from '../lib/stops.ts'
 import { readRecent, type SavedStop } from '../lib/storage.ts'
@@ -26,7 +27,9 @@ declare global {
 
 /** The Routes group (P2): its own chunk, loaded on the first keystroke; if it can't load, stop search is unchanged. */
 const RouteResults = lazy(() =>
-  import('./RouteResults.tsx').catch(() => ({ default: (_: { query: string; slot: string }) => null })),
+  import('./RouteResults.tsx').catch(() => ({
+    default: (_: { query: string; slot: string; onRetry: () => void }) => null,
+  })),
 )
 
 /**
@@ -37,7 +40,7 @@ const BusStopPicker = lazy(() =>
   import.meta.env.SSR
     ? new Promise<never>(() => {})
     : import('./BusStopPicker.tsx').catch(() => ({
-        default: (_: { slot: string; onClose: () => void }) => null,
+        default: (_: { slot: string; onClose: () => void; onRetry: () => void }) => null,
       })),
 )
 
@@ -153,7 +156,7 @@ function Results({
   ))
   const routes = (slot: 'above' | 'below') => (
     <Suspense fallback={null}>
-      <RouteResults query={query} slot={slot} />
+      <RouteResults query={query} slot={slot} onRetry={onRetry} />
     </Suspense>
   )
   return (
@@ -174,6 +177,12 @@ function Results({
 export function SearchPanel({ children, quick }: { children: ReactNode; quick?: ReactNode }) {
   const [query, setQuery] = useState('')
   const { result, loading, error, retry } = useStopSearch(query)
+  const client = useQueryClient()
+  // Every Try again here (stop list, routes, map) retries every list that failed, so one press brings them all back.
+  const retryAll = () => {
+    retry()
+    void retryFailedLists(client)
+  }
   const [recent, setRecent] = useState<SavedStop[]>([])
   const scroller = useRef<HTMLDivElement>(null)
   useEffect(() => setRecent(readRecent().slice(0, 2)), [])
@@ -189,7 +198,7 @@ export function SearchPanel({ children, quick }: { children: ReactNode; quick?: 
   const picker = (slot: 'wide' | 'narrow') =>
     map ? (
       <Suspense fallback={null}>
-        <BusStopPicker slot={slot} onClose={() => setMap(false)} />
+        <BusStopPicker slot={slot} onClose={() => setMap(false)} onRetry={retryAll} />
       </Suspense>
     ) : null
   return (
@@ -218,7 +227,7 @@ export function SearchPanel({ children, quick }: { children: ReactNode; quick?: 
                   result={result}
                   loading={loading}
                   error={error}
-                  onRetry={retry}
+                  onRetry={retryAll}
                   upward={false}
                 />
               </div>
@@ -235,7 +244,14 @@ export function SearchPanel({ children, quick }: { children: ReactNode; quick?: 
           className="bg-page fixed inset-x-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+var(--bft-bottom-bar,58px)+166px)] z-30 overflow-y-auto px-4 pt-20 pb-3 md:hidden"
         >
           <div className="flex min-h-full flex-col justify-end">
-            <Results query={query} result={result} loading={loading} error={error} onRetry={retry} upward />
+            <Results
+              query={query}
+              result={result}
+              loading={loading}
+              error={error}
+              onRetry={retryAll}
+              upward
+            />
           </div>
         </div>
       ) : null}
