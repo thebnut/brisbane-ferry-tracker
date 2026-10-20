@@ -95,7 +95,8 @@ let clock: { at: number; monotonic: number; wall: number } | undefined
 export function deviceNow(): number {
   const monotonic = performance.timeOrigin + performance.now()
   const wall = Date.now()
-  const last = clock ?? { at: monotonic, monotonic, wall }
+  // The first reading: any wall-clock gap since the navigation started counts as time passed (Codex r5).
+  const last = clock ?? { at: Math.max(monotonic, wall), monotonic, wall }
   const step = Math.max(monotonic - last.monotonic, wall - last.wall, 0)
   clock = { at: last.at + step, monotonic, wall }
   return clock.at
@@ -692,10 +693,9 @@ export function sourceAgeS(res: AgedResponse, clock: AgeClock): number {
 function elapsedMs(res: AgedResponse, { nowMs, arrivedAt = null }: AgeClock): number {
   if (arrivedAt == null) return nowMs - (res.receivedAt ?? res.generatedAt)
   // Both device times: the arrival time (Received, or this page's) and now, read at this call. Never `nowMs`: a useNow
-  // tick can be 15 s old, and the first render after hydration still has the server's render time. The device's wall
-  // clock as well as its monotonic one, whichever has moved further: the monotonic clock may not count a sleep (Codex
-  // r2), and a wall clock corrected backwards doesn't count at all.
-  return Math.max(deviceNow(), Date.now()) - (res.receivedAt ?? arrivedAt)
+  // tick can be 15 s old, and the first render after hydration still has the server's render time. deviceNow counts a
+  // sleep and ignores a wall clock set back; arrivals are stamped on the same clock.
+  return deviceNow() - (res.receivedAt ?? arrivedAt)
 }
 
 /**

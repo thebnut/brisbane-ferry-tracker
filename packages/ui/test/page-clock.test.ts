@@ -382,6 +382,16 @@ describe('sleep and the back/forward cache (Codex r2)', () => {
     expect(liveState(polled, { offline: false, nowMs: Date.now(), ...page })).toBe('stale')
   })
 
+  it('with the wall clock already ahead when the page starts, answers stamped after are fresh (Codex r5)', () => {
+    const page = loadPage()
+    vi.setSystemTime(Date.now() + 5 * 60_000)
+    const fresh = noteCacheCopy(new Response('{}'), board())
+    expect(liveState(fresh, { offline: false, nowMs: Date.now(), ...page })).toBeNull()
+    expect(sourceAgeS(fresh, { nowMs: Date.now(), ...page })).toBeCloseTo(20, 0)
+    // The page's own data is that much older: the gap counts as time passed.
+    expect(liveState(board(), { offline: false, nowMs: Date.now(), ...page })).toBe('stale')
+  })
+
   it('a page put away hides its live claims before it can be restored', () => {
     window.dispatchEvent(new Event('pagehide'))
     expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
