@@ -4,7 +4,8 @@
  */
 import type { Departure } from '@bft/core/contract'
 import { routeTileVariant } from '@bft/ui'
-import MapView, { type MapMarker } from '@bft/ui/map'
+import type { MapMarker } from '@bft/ui/map'
+import SafeMap from '@bft/ui/safe-map'
 import { useMemo } from 'react'
 import { useApi } from '../lib/mode.ts'
 import { useStopIndex } from '../lib/queries.ts'
@@ -53,7 +54,7 @@ export default function StopMap({
   const busCount = markers.length - (stop ? 1 : 0)
   return (
     <div className="flex flex-col gap-1.5">
-      <MapView
+      <SafeMap
         markers={markers}
         fitTo={stop ? [`stop:${stopId}`] : undefined}
         label={`Map of ${name} with ${busCount} live buses heading here`}

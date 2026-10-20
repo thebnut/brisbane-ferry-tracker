@@ -11,6 +11,7 @@
     "./demo": "./src/demo.tsx",
     "./bus": "./src/bus.tsx",
     "./map": "./src/map/MapView.tsx",
+    "./safe-map": "./src/map/SafeMap.tsx",
     "./stop-picker": "./src/stop-picker.ts",
     "./stop-picker-map": "./src/StopPickerMap.tsx",
     "./map-toggle": "./src/MapToggle.tsx",

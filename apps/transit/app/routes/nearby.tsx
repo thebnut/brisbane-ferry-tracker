@@ -40,7 +40,9 @@ import { type Place, readPlace, writePlace } from '../lib/storage.ts'
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/nearby'
 
-const NearbyMap = lazy(() => import('../components/NearbyMap.tsx'))
+// If this small chunk can't load, the page goes on without its map (SafeMap inside covers MapLibre itself).
+const NoMap = (() => null) as never // renders nothing, whatever the props
+const NearbyMap = lazy(() => import('../components/NearbyMap.tsx').catch(() => ({ default: NoMap })))
 // Only for "Use a stop": its search (and the bus stop index it fetches) stays off the first load.
 const StopPicker = lazy(() => import('../components/StopPicker.tsx'))
 
