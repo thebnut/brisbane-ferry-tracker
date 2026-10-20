@@ -3,7 +3,6 @@ import type { AlertsResponse, Departure, DeparturesResponse } from '@bft/core/co
 import {
   asOfflineCopy,
   bestOfflineCopy,
-  isOnline,
   type OfflineCopy,
   pollEvery,
   replacesBoard,
@@ -11,7 +10,7 @@ import {
 import { type QueryFunctionContext, useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useRouteLoaderData } from 'react-router'
-import { type ApiFetcher, browserFetcher, fetchAlerts, fetchDepartures } from './api.ts'
+import { type ApiFetcher, browserFetcher, fetchAlerts, fetchDepartures, offlineFailure } from './api.ts'
 import { asScheduled, offlineRows, type SavedItem, writeSavedCopy } from './saved.ts'
 
 export const POLL_MS = 15_000
@@ -35,10 +34,6 @@ export function useApi(): { mode: DataMode; fetcher: ApiFetcher } {
   const fetcher = useMemo(() => browserFetcher(mode), [mode])
   return { mode, fetcher }
 }
-
-// Browser only: workerd has a `navigator` without `onLine`, which must not read as offline during SSR.
-/** Offline, or API calls failing / answered from the service worker's cache (@bft/ui connectivity). */
-export const isOffline = () => !isOnline()
 
 export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsResponse | null = null) {
   return useQuery({
@@ -72,7 +67,7 @@ export function savedOptions(fetcher: ApiFetcher, mode: DataMode, item: SavedIte
         }
         return asOffline(item, bestOfflineCopy([shown, res], Date.now()), shown)
       } catch (error) {
-        if (isOffline()) {
+        if (offlineFailure(error)) {
           if (shown) return asOffline(item, shown, shown)
           const copy = offlineRows(item, Date.now())
           if (copy) return asOffline(item, null, shown, copy)

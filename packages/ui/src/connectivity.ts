@@ -214,18 +214,23 @@ export function onReconnect(onBack: () => void): () => void {
   // The online event and the store change it causes arrive together: refetch once. A second reconnect within the
   // second runs at its end, not never (one at most, dropped if the connection goes down first): a board whose answer
   // failed in between was otherwise left offline until its own 15 s poll (another call's answer had cancelled the probe).
+  // Only one: inside that trailing refetch's own second, a reconnect is dropped again, so a board failing at every
+  // attempt while other calls get through waits for its poll instead of refetching every board each second (Codex).
   let last = 0
+  let trailed = false
   let later: ReturnType<typeof setTimeout> | undefined
-  const refetch = () => {
+  const refetch = (trailing = false) => {
     const wait = last + 1_000 - Date.now()
     if (wait > 0) {
-      later ??= setTimeout(() => {
-        later = undefined
-        refetch()
-      }, wait)
+      if (!trailed)
+        later ??= setTimeout(() => {
+          later = undefined
+          refetch(true)
+        }, wait)
       return
     }
     last = Date.now()
+    trailed = trailing
     onBack()
   }
   // Store changes and the browser's events (`e`): online, refetch even if nothing had failed; shown again, refetch if

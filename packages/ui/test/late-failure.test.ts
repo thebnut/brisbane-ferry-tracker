@@ -184,6 +184,25 @@ describe('onReconnect: a reconnect inside the 1 s window runs at its end (coales
     off()
   })
 
+  it('no refetch storm: a board failing at every attempt while another call gets through, for a minute (Codex r1)', () => {
+    const back = vi.fn(() => {
+      // Each refetch: the board fails 30 ms in, another call reaches the network 60 ms in.
+      setTimeout(reportOffline, 30)
+      setTimeout(reportOnline, 60)
+    })
+    const off = onReconnect(back)
+    window.dispatchEvent(new Event('online'))
+    vi.advanceTimersByTime(60_000)
+    // The online event's refetch and one trailing refetch; then the board waits for its own poll.
+    expect(back).toHaveBeenCalledTimes(2)
+    // A reconnect a second after that trailing refetch's window starts the next episode (and its one trailing).
+    reportOffline()
+    reportOnline()
+    vi.advanceTimersByTime(60_000)
+    expect(back).toHaveBeenCalledTimes(4)
+    off()
+  })
+
   it('leaves no timer behind once unsubscribed', () => {
     const back = vi.fn()
     const off = onReconnect(back)

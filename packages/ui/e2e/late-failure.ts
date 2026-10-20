@@ -49,9 +49,12 @@ export function lateFailureSuite({
     // Past LIVE_REFRESH_MAX_AGE_MS even by a clock that ticks only every 15 s (the transit home's useNow).
     await page.waitForTimeout(LIVE_REFRESH_MAX_AGE_MS + 20_000)
 
-    // Back online: one board's requests made in the first 500 ms fail 300 ms in (every one, so a second request for
-    // it at the reconnect can't cover for the first); every other live call answers 600 ms in, after them.
+    // Back online: one board's requests made in the first 500 ms fail 100 ms in (every one, so a second request for
+    // it at the reconnect can't cover for the first); every other live call is answered from 300 ms in, after them, and
+    // (checked below) inside onReconnect's 1 s window, where the old throttle dropped the reconnect it caused.
     let failed: string | null = null
+    let others = 0
+    let otherAnswered = Number.POSITIVE_INFINITY
     let back = Number.POSITIVE_INFINITY
     const late = async (route: Route) => {
       const url = new URL(route.request().url())
@@ -62,12 +65,18 @@ export function lateFailureSuite({
         Date.now() - back < 500
       ) {
         failed = url.pathname
-        await new Promise((r) => setTimeout(r, 300))
+        await new Promise((r) => setTimeout(r, 100))
         return route.abort('internetdisconnected')
       }
-      await new Promise((r) => setTimeout(r, 600))
+      if (Date.now() >= back) others++
+      await new Promise((r) => setTimeout(r, 300))
       return route.fallback()
     }
+    page.on('response', (r) => {
+      const url = new URL(r.url())
+      if (LIVE.test(url.pathname) && url.pathname !== failed && r.ok() && Date.now() >= back)
+        otherAnswered = Math.min(otherAnswered, Date.now())
+    })
     await context.route((url) => LIVE.test(url.pathname), late)
     // The board that failed asks again at the end of onReconnect's 1 s window (or, with no other call to cancel the
     // probe, at the 2.5 s probe), and the network answers it: not at its own 15 s poll. Its own answer, since on a page
@@ -84,7 +93,13 @@ export function lateFailureSuite({
     back = Date.now()
     await goOnline()
     await again
-    console.log(`${path}: the failed board answered ${Date.now() - back} ms after coming back online`)
+    console.log(
+      `${path}: the failed board answered ${Date.now() - back} ms after coming back online; another call ${otherAnswered - back} ms (${others} made)`,
+    )
+    // The case under test: another call's answer came inside the 1 s window (it cancels the probe). A page with no other
+    // live call relies on the probe instead (train's station page).
+    if (others)
+      expect(otherAnswered - back, 'another call answered inside the 1 s window').toBeLessThan(1_000)
     await expect(page.locator('[data-banner=offline]')).toHaveCount(0, { timeout: bound })
     await expect.poll(() => visibleLiveClaims(page), { timeout: bound, intervals: [100] }).not.toEqual([])
     console.log(`${path}: LIVE ${Date.now() - back} ms after coming back online (failed first: ${failed})`)

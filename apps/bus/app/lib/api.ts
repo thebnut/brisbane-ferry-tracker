@@ -4,7 +4,7 @@
  * which answers 502 when the API drifts from the contract. The browser bundle carries only the types, not zod.
  */
 import type { AlertsResponse, DeparturesResponse } from '@bft/core/contract'
-import { noteCacheCopy, trackedFetch } from '@bft/ui/connectivity'
+import { isOnline, noteCacheCopy, trackedFetch } from '@bft/ui/connectivity'
 import type { LinesFile, RouteFile, RouteIndexFile, StopIndexFile } from './data-contract.ts'
 
 export type ApiErrorKind = 'network' | 'http' | 'contract'
@@ -19,6 +19,14 @@ export class ApiError extends Error {
     this.status = status
   }
 }
+
+/**
+ * Did this call fail for want of a network (or is the connection down)? Then its board shows its offline copy. Its own
+ * error, not only the connection flag: a failure from a call started before the network last answered no longer sets
+ * that flag (trackedFetch), and the board must still not keep its old LIVE data (late-failure fix, Codex).
+ */
+export const offlineFailure = (error: unknown) =>
+  !isOnline() || (error instanceof ApiError && error.kind === 'network')
 
 /** Fetches a same-origin path (starting with "/v1/" or "/data/") and returns the Response. */
 export type ApiFetcher = (path: string, init?: { signal?: AbortSignal }) => Promise<Response>
