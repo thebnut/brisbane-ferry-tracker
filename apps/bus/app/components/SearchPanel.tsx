@@ -215,7 +215,10 @@ export function SearchPanel({ children, quick }: { children: ReactNode; quick?: 
           </div>
         </div>
       ) : null}
-      <div className="fixed inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),6px)+var(--bft-bottom-bar,58px))] z-30 md:hidden">
+      <div
+        data-bft-dock=""
+        className="fixed inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),6px)+var(--bft-bottom-bar,58px))] z-30 md:hidden"
+      >
         <ThumbSheet label="Find a stop" className="pb-3">
           <div className="flex flex-col gap-2.5">
             <SearchField

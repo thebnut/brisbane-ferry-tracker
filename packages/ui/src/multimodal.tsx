@@ -391,7 +391,7 @@ export function SectionTabs({
   className?: string
 }) {
   return (
-    <nav aria-label={label} className={className}>
+    <nav aria-label={label} data-bft-dock="" className={className}>
       <ul className="mx-auto flex max-w-xl gap-1.5 overflow-x-auto px-3 py-1.5">
         {items.map((i) => {
           const on = i.key === active
