@@ -11,7 +11,7 @@ import {
   useRefetchOnReconnect,
 } from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type ComponentType, type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   isRouteErrorResponse,
   Links,
@@ -135,13 +135,27 @@ export default function App() {
   // Back online: refetch the live boards at once, not at the next poll (R3-X9).
   useRefetchOnReconnect(client)
   useKeepPageCopies()
+  const [Onboarding, setOnboarding] = useState<ComponentType | null>(null)
   // Effects run only once hydration has committed: tests wait for this marker (tests/csp.ts).
   useEffect(() => {
     document.documentElement.dataset.hydrated = ''
+    // First-visit onboarding (P4), off the first load: a device that hasn't answered the prompt loads it now, and it
+    // checks the rest (nothing saved, no handoff) and waits for an idle moment. The key is @bft/ui/onboarding's
+    // ONBOARDING_KEY, spelled here so that module stays off the first load.
+    try {
+      if (!localStorage.getItem('bft-onboarding'))
+        import('./components/Onboarding.tsx').then(
+          (m) => setOnboarding(() => m.default),
+          () => {},
+        )
+    } catch {
+      // Storage blocked: never asked.
+    }
   }, [])
   return (
     <QueryClientProvider client={client}>
       <Outlet />
+      {Onboarding ? <Onboarding /> : null}
     </QueryClientProvider>
   )
 }

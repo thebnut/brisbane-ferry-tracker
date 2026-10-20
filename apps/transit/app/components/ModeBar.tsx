@@ -11,7 +11,7 @@ export function activeTab(pathname: string): string {
   return pathname === '/' ? 'saved' : ''
 }
 
-/** The Mode Tabs shell: bottom bar on phones, a pill row above the page on desktop (X-Desktop, My Transit first). */
+/** The Mode Tabs shell: bottom bar on phones, a pill row above the page on desktop, in the same order. */
 export function ModeBar() {
   const { pathname } = useLocation()
   const active = activeTab(pathname)
@@ -39,12 +39,13 @@ export function ModeBar() {
   )
 }
 
-const DESKTOP_ORDER = ['saved', 'ferry', 'train', 'bus', 'nearby']
+/** Desktop pills: the same order as the phone tabs (Brett, 20 Oct), so the two can't drift; Alerts sits on the right. */
+export const DESKTOP_TABS: NavItem[] = TABS
 
 export function DesktopModeBar() {
   const { pathname } = useLocation()
   const active = activeTab(pathname)
-  const items = DESKTOP_ORDER.map((k) => TABS.find((t) => t.key === k) as NavItem)
+  const items = DESKTOP_TABS
   return (
     <nav
       aria-label="Modes"

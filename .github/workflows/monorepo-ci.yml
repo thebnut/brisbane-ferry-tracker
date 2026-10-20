@@ -38,3 +38,6 @@ jobs:
       - run: pnpm mono:lint
       - run: pnpm mono:test
       - run: pnpm mono:build
+      # Each Worker's staging build as `wrangler deploy` would upload it (no account access: --dry-run), and no MapLibre
+      # in any app's server bundle. A dangling source map there stopped the ferry/transit staging deploys (#115).
+      - run: pnpm mono:deploy-check
