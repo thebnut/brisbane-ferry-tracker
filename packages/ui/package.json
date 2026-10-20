@@ -16,6 +16,7 @@
     "./assets/*": "./assets/*",
     "./sw": "./src/sw.ts",
     "./upstream": "./src/upstream.ts",
+    "./redirect": "./src/redirect.ts",
     "./e2e/*": "./e2e/*"
   },
   "sideEffects": [
