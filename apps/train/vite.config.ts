@@ -2,6 +2,7 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 import { reactRouter } from '@react-router/dev/vite'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
+import { noMapOnServer } from '../../packages/ui/vite/no-map-on-server.ts'
 import { pwa } from './pwa.config.ts'
 
 // Parallel builds and tests (pnpm mono:build) each opened the Worker inspector on 9229 (EADDRINUSE). Keep it for
@@ -10,6 +11,8 @@ const inspectorPort = process.argv.includes('dev') ? undefined : false
 
 export default defineConfig({
   plugins: [
+    // MapLibre only renders in the browser (behind React.lazy): the Worker bundle gets a stub (as ferry, bus, transit).
+    noMapOnServer(),
     cloudflare({ viteEnvironment: { name: 'ssr' }, inspectorPort }),
     tailwindcss(),
     reactRouter(),
