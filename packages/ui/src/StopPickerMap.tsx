@@ -22,6 +22,7 @@ import {
 import { formatClock, minutesUntil } from './format.ts'
 import { useGeolocation } from './geolocation.ts'
 import { Icon } from './icons.tsx'
+import { MAP_TEXT_FONT } from './map/fonts.ts'
 import MapView, { type MapMarker, type PinShape, type ViewBounds } from './map/MapView.tsx'
 import { MapBoundary } from './map/SafeMap.tsx'
 import {
@@ -141,7 +142,12 @@ function addClusterLayers(m: MlMap) {
     id: `${CLUSTER_SOURCE}-count`,
     type: 'symbol',
     source: CLUSTER_SOURCE,
-    layout: { 'text-field': ['to-string', ['get', 'count']], 'text-size': 12, 'text-allow-overlap': true },
+    layout: {
+      'text-field': ['to-string', ['get', 'count']],
+      'text-font': MAP_TEXT_FONT,
+      'text-size': 12,
+      'text-allow-overlap': true,
+    },
     paint: { 'text-color': '#FFFFFF' },
   })
   m.on('click', CLUSTER_SOURCE, (e) => {
