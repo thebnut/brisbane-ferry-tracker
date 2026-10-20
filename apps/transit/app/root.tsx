@@ -205,7 +205,7 @@ function ErrorPage({ error }: { error: unknown }) {
         <p className="mt-2 text-gray-700 dark:text-night-text/80">
           {notFound ? "We couldn't find that page. " : null}
           <a className="underline" href="/">
-            Back to your saved trips
+            Back to My Transit
           </a>
         </p>
       </main>
