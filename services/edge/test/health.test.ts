@@ -1,3 +1,4 @@
+import { HealthResponse } from '@bft/core'
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../src/app.ts'
 import type { StaticStore } from '../src/data/static-store.ts'
@@ -66,7 +67,7 @@ describe('health reasons (R14-RT1)', () => {
     const res = await s.a.request('/v1/health')
     expect(res.status).toBe(503)
     expect(s.requestLine()).toMatchObject({ status: 503, error: 'health not ok', detail: 'source-age 446s' })
-    // The body is unchanged: no error field.
+    // The body still has no error field.
     expect(await res.json()).not.toHaveProperty('error')
   })
 
@@ -84,6 +85,63 @@ describe('health reasons (R14-RT1)', () => {
     expect((await s.a.request('/v1/health')).status).toBe(200)
     expect(s.requestLine()).not.toHaveProperty('error')
     expect(s.requestLine()).not.toHaveProperty('detail')
+  })
+})
+
+describe('health body reasons (R15-H1)', () => {
+  async function body(st: HubStatus | null, manifest = true) {
+    const res = await app(st, manifest).a.request('/v1/health')
+    return { status: res.status, body: HealthResponse.parse(await res.json()) }
+  }
+
+  it('a 200 carries an empty reasons list and both measured ages', async () => {
+    const r = await body(status(25, 10))
+    expect(r.status).toBe(200)
+    expect(r.body.ok).toBe(true)
+    expect(r.body.reasons).toEqual([])
+    expect(r.body.rt).toMatchObject({ ageS: 25, buildAgeS: 10 })
+  })
+
+  it('names each failing check on its own', async () => {
+    const src = await body(status(446, 8))
+    expect(src).toMatchObject({ status: 503, body: { ok: false, reasons: ['source-age'] } })
+    expect(src.body.rt).toMatchObject({ ageS: 446, buildAgeS: 8 })
+
+    const build = await body(status(20, 130))
+    expect(build).toMatchObject({ status: 503, body: { ok: false, reasons: ['build-age'] } })
+    expect(build.body.rt).toMatchObject({ ageS: 20, buildAgeS: 130 })
+
+    const man = await body(status(20, 5), false)
+    expect(man).toMatchObject({ status: 503, body: { ok: false, reasons: ['manifest'] } })
+    expect(man.body.manifest).toEqual({ updatedAt: null, generations: {} })
+  })
+
+  it('lists every failing check together, in a fixed order', async () => {
+    expect((await body(status(140, 135))).body.reasons).toEqual(['source-age', 'build-age'])
+    expect((await body(status(140, 5), false)).body.reasons).toEqual(['manifest', 'source-age'])
+    expect((await body(status(20, 135), false)).body.reasons).toEqual(['manifest', 'build-age'])
+    const all = await body(null, false)
+    expect(all).toMatchObject({ status: 503, body: { reasons: ['manifest', 'source-age', 'build-age'] } })
+    // No status at all: both ages are unknown, not zero.
+    expect(all.body.rt).toMatchObject({ ageS: null, buildAgeS: null })
+  })
+
+  it('the threshold itself fails (>= HEALTH_MAX_AGE_S), as the log detail does', async () => {
+    expect((await body(status(HEALTH_MAX_AGE_S, 5))).body.reasons).toEqual(['source-age'])
+    expect((await body(status(5, HEALTH_MAX_AGE_S))).body.reasons).toEqual(['build-age'])
+  })
+
+  it('an older body without reasons or buildAgeS still parses (additive change)', () => {
+    const old = {
+      schemaVersion: 1,
+      ok: false,
+      now: NOW,
+      manifest: { updatedAt: null, generations: {} },
+      rt: { seq: null, sourceTimestamp: null, fetchedAt: null, ageS: null, lastError: null, stats: null },
+      ai: { enabled: false, budgetUsedUsd: null },
+    }
+    expect(HealthResponse.parse(old).reasons).toBeUndefined()
+    expect(HealthResponse.safeParse({ ...old, reasons: ['nope'] }).success).toBe(false)
   })
 })
 
