@@ -183,6 +183,7 @@ With `RT_R2_COMPRESS=gzip` the hub stores each per-mode and alerts document as g
 - **Rollback:** `AI_ENABLED=false` and redeploy.
 
 ## 7. Afterwards
+- Realtime freshness alerts on `bft-api-prod` (Brett, dashboard): `rt stale` (page) and `rt source stale` (notify), with the thresholds in `services/edge/README.md` ("Realtime freshness: log lines to alert on").
 - Phase 1 freshness target (p95 ≤ 40 s): enable the shared per-PoP snapshot refresh (Cache API works on the custom domain), re-measure under real traffic, consider a 10 s hub cadence.
 - Stop the daily `latest.json` commit job only after old iOS adoption allows it (open question 3: "indefinitely" for now). Publishing `latest.json` from the Actions Pages artifact is Phase 2's last step and needs Brett's OK (it changes GitHub Pages).
 - Train, bus and transit production (brisbanetrain.com, brisbanebus.com, brisbanetransit.com): see section 8. They go straight to their real domains, with no `next.` host, and don't depend on steps 3–6. The ferry Worker's security headers and nonce CSP are already in all three apps.
