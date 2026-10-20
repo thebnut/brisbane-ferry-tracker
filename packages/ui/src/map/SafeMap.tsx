@@ -62,12 +62,16 @@ export function MapUnavailable({ className, children }: { className?: string; ch
   )
 }
 
+/** Set when any map fails to start: later mounts (a reopened sheet, a re-keyed map) show the panel, no retry. */
+let failed = false
+
 class Catch extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
   static getDerivedStateFromError() {
     return { failed: true }
   }
   componentDidCatch(error: unknown) {
+    failed = true
     warnOnce('the map failed to start', error)
   }
   render() {
@@ -98,7 +102,7 @@ export function MapBoundary({ className, loading, unavailable, children }: MapBo
     if (!ok) warnOnce('WebGL2 is not available')
   }, [ok])
   const panel = <MapUnavailable className={className}>{unavailable}</MapUnavailable>
-  if (!ok) return panel
+  if (!ok || failed) return panel
   return (
     <Catch fallback={panel}>
       <Suspense fallback={loading ?? <div className={cx(className ?? DEFAULT_BOX, 'animate-pulse')} />}>

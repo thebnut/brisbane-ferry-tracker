@@ -26,7 +26,9 @@ import { hasTimetableCopy, pushRecent, toggleSaved, useSavedStops } from '../lib
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/stop'
 
-const StopMap = lazy(() => import('../components/StopMap.tsx'))
+// If this small chunk can't load, the page goes on without its map (SafeMap inside covers MapLibre itself).
+const NoMap = (() => null) as never // renders nothing, whatever the props
+const StopMap = lazy(() => import('../components/StopMap.tsx').catch(() => ({ default: NoMap })))
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const stopId = params.stopId

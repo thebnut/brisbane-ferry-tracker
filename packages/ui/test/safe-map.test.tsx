@@ -103,4 +103,30 @@ describe('SafeMap / MapBoundary', () => {
     expect(warn).toHaveBeenCalledTimes(1)
     expect(warn.mock.calls[0]?.[0]).toMatch(/failed to start/)
   })
+
+  it('no retry: once a map failed to start, a remounted map shows the panel without starting again', async () => {
+    withWebGL2(true)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { MapBoundary } = await load()
+    const starts = vi.fn()
+    const Boom = () => {
+      starts()
+      throw new Error('Failed to initialize WebGL')
+    }
+    const view = render(
+      <MapBoundary key="a">
+        <Boom />
+      </MapBoundary>,
+    )
+    expect(screen.getByText('Map unavailable on this device')).toBeInTheDocument()
+    const before = starts.mock.calls.length
+    view.rerender(
+      <MapBoundary key="b">
+        <Boom />
+      </MapBoundary>,
+    )
+    expect(screen.getByText('Map unavailable on this device')).toBeInTheDocument()
+    expect(starts).toHaveBeenCalledTimes(before)
+    expect(warn).toHaveBeenCalledTimes(1)
+  })
 })

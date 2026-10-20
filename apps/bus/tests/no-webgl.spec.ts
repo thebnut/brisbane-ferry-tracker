@@ -34,3 +34,18 @@ test('/map: the panel links to the list and search instead', async ({ page }) =>
   expect(seen.errors).toEqual([])
   expect(seen.mapChunks).toEqual([])
 })
+
+test("/route/333: if the map's own chunk can't load, the page still renders without it", async ({ page }) => {
+  const seen = watchMapFailures(page)
+  let aborted = 0
+  await page.route(/\/assets\/RouteMap-[^/]*\.js/, (r) => {
+    aborted++
+    return r.abort()
+  })
+  await page.goto('/route/333')
+  await expect(page.getByRole('heading', { name: /Stops towards/ })).toBeVisible()
+  await expect(page.getByText(/on route 333/)).toBeVisible()
+  await expect.poll(() => aborted).toBeGreaterThan(0)
+  await expect(page.getByText('Something went wrong')).toHaveCount(0)
+  expect(seen.errors).toEqual([])
+})

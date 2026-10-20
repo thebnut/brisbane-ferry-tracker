@@ -51,7 +51,9 @@ import { SiteHeader } from './Chrome.tsx'
 import { DepartureList } from './DepartureList.tsx'
 import { DetailsSheet } from './DetailsSheet.tsx'
 
-const LiveMapSheet = lazy(() => import('./LiveMapSheet.tsx'))
+// If the map sheet's chunk can't load, the board stays up (the Map button just does nothing).
+const NoMap = (() => null) as never // renders nothing, whatever the props
+const LiveMapSheet = lazy(() => import('./LiveMapSheet.tsx').catch(() => ({ default: NoMap })))
 const StopSelector = lazy(() => import('./StopSelector.tsx'))
 
 export interface FerryBoardsProps {
