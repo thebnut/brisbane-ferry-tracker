@@ -48,11 +48,13 @@ for (const path of PAGES) {
     expect(w).toEqual([])
   })
 
-  test(`${path}: HTML rendered minutes ago shows no LIVE until a live call reaches the network (R2-T7)`, async ({
+  test(`${path}: a fresh page is never held back by the device clock, five minutes fast (R15-S1)`, async ({
     page,
   }) => {
     await recordLiveClaims(page)
-    // The device clock says the HTML is five minutes old, as for a page the service worker kept.
+    // Before R15 the live guard compared the render time with the device clock, so a fast clock hid LIVE (and showed
+    // OFFLINE) on a fresh page until the first poll. Pages from the service worker's cache are marked by it instead
+    // (markCachedPages: the tests below inject that mark); @bft/ui/e2e/clock-skew.ts covers the rest.
     await page.addInitScript(() => {
       const now = Date.now
       Date.now = () => now() + 5 * 60_000
@@ -66,12 +68,8 @@ for (const path of PAGES) {
       }
       return { __liveSeen, __guardAtFirstFrame }
     })
-    expect(w.__guardAtFirstFrame).toBe(true)
-    expect(w.__liveSeen).toEqual([])
-    // A live call that reaches the network (a poll) confirms freshness; the app's own state decides from then on.
-    // (Polls run every 15 s; under a loaded test run the first can take longer, so wait for it rather than a clock.)
-    await page.waitForResponse((r) => /\/v1\//.test(new URL(r.url()).pathname) && r.ok(), { timeout: 45_000 })
-    await expect(page.locator('html')).not.toHaveAttribute('data-live-unconfirmed', '')
+    expect(w.__guardAtFirstFrame).toBe(false)
+    expect(w.__liveSeen).not.toEqual([])
   })
 }
 

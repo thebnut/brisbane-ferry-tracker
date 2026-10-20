@@ -3,7 +3,7 @@
  * Escape and the top layer for free), rendered through a portal into document.body. Tab and Shift+Tab wrap inside
  * the sheet: a native modal dialog otherwise lets focus leave the page for the browser's own UI.
  */
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './icons.tsx'
 
@@ -42,10 +42,12 @@ export function BottomSheet({ open, onClose, title, subtitle, children }: Bottom
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
+  // Layout effects: the sheet is portalled and opened before the browser paints, so a sheet that loads on demand goes
+  // straight from its fallback to the open sheet, with no blank frame between (R15-S1, the lazy ferry DetailsSheet).
+  useLayoutEffect(() => setMounted(true), [])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-run once the portal target exists.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const d = ref.current
     if (!d) return
     if (open && !d.open) {

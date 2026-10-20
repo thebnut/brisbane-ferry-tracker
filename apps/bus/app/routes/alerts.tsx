@@ -2,9 +2,11 @@
  * /alerts (B-Alerts): detours, changed stops, planned changes and notices for bus, scoped to your saved stops (and
  * the routes serving them) or all routes. Server-rendered from /v1/alerts?mode=bus.
  */
+
 import type { Alert } from '@bft/core/contract'
 import { cx, RouteTile, routeTileVariant } from '@bft/ui'
 import { SegmentedControl } from '@bft/ui/bus'
+import { VIA_NETWORK } from '@bft/ui/connectivity'
 import { useEffect, useMemo, useState } from 'react'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { alertKind, forMyStops, KIND_LABEL, sortAlerts, whenText } from '../lib/alerts.ts'
@@ -23,7 +25,7 @@ import type { Route } from './+types/alerts'
 export async function loader({ request, context }: Route.LoaderArgs) {
   const { fetcher } = loaderEnv(request, context)
   const alerts = await settle((signal) => fetchAlerts(fetcher, { signal, validate: validateAlerts }))
-  return { alerts, renderedAt: Date.now(), siteUrl: getEnv(context)?.SITE_URL ?? SITE_URL }
+  return { alerts, renderedAt: Date.now(), via: VIA_NETWORK, siteUrl: getEnv(context)?.SITE_URL ?? SITE_URL }
 }
 
 export function headers() {
@@ -123,7 +125,7 @@ export default function AlertsPage({ loaderData }: Route.ComponentProps) {
       <SiteHeader live={q.data?.rtState === 'live'} />
       <UpdatedStrip
         updatedAt={q.data?.generatedAt ?? null}
-        sourceS={q.data?.rtSourceTimestamp ?? null}
+        source={q.data}
         nowMs={now}
         onRefresh={() => q.refetch()}
         refreshing={q.isFetching}

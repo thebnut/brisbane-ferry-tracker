@@ -7,7 +7,7 @@
 import type { DeparturesResponse } from '@bft/core/contract'
 import { formatClock, Icon, minutesUntil } from '@bft/ui'
 import { type MiniDeparture, MyStopCard } from '@bft/ui/bus'
-import { useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { Link } from 'react-router'
 import { SearchPanel } from '../components/SearchPanel.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
@@ -45,7 +45,13 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     initial[id] = results[i] ?? null
   })
   const serverSaved: SavedStop[] = ids.map((id) => ({ id, name: initial[id]?.stop.name ?? '' }))
-  return { serverSaved, initial, renderedAt: Date.now(), siteUrl: env?.SITE_URL ?? SITE_URL }
+  return {
+    serverSaved,
+    initial,
+    renderedAt: Date.now(),
+    via: VIA_NETWORK,
+    siteUrl: env?.SITE_URL ?? SITE_URL,
+  }
 }
 
 export function headers() {
@@ -93,8 +99,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const now = useNow(loaderData.renderedAt)
   const online = useOnline()
   // Timetable only unless the data is live and fresh (offline, cached copy, stale).
-  const unconfirmedBefore = useUnconfirmedBefore()
-  const views = queries.map((q, i) => liveView(ids[i] as string, q.data, now, online, unconfirmedBefore))
+  const page = usePageCheck()
+  const views = queries.map((q, i) => liveView(ids[i] as string, q.data, now, online, page))
   const first = views.find((v) => v.data)?.data
   const refetchAll = () => {
     for (const q of queries) q.refetch()
@@ -109,7 +115,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       />
       <UpdatedStrip
         updatedAt={first?.generatedAt ?? null}
-        sourceS={first?.rtSourceTimestamp ?? null}
+        source={first}
         nowMs={now}
         onRefresh={ids.length ? refetchAll : undefined}
         refreshing={queries.some((q) => q.isFetching)}

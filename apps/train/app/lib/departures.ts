@@ -12,6 +12,7 @@ import {
   liveState,
   minutesBetween,
   minutesUntil,
+  type PageCheck,
   type PatternStop,
   statusNote,
   timetableStatus,
@@ -131,9 +132,10 @@ export function boardState(
   res: DeparturesResponse | undefined,
   offline: boolean,
   nowMs: number,
-  unconfirmedBefore: number | null = null,
+  /** usePageCheck() (@bft/ui): cached-page cutoff and page arrival (R2-T7, R15-S1). */
+  page: PageCheck | null = null,
 ): LiveState {
-  return liveState(res, { offline, nowMs, unconfirmedBefore })
+  return liveState(res, { offline, nowMs, ...page })
 }
 
 /**

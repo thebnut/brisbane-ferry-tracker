@@ -2,6 +2,7 @@ import {
   LIVE_GUARD_CSS,
   liveGuardScript,
   NO_SCRIPT_LIVE_CSS,
+  stampNavigation,
   useLiveGuardRelease,
   useRefetchOnReconnect,
 } from '@bft/ui/connectivity'
@@ -24,6 +25,9 @@ import { makeQueryClient } from './lib/queries.ts'
 
 // Inter is self-hosted from app.css (@fontsource-variable/inter, font-display: swap), so no third-party, render-
 // blocking font stylesheet. Ferry's wordmark is the lockup image, so Poppins isn't needed here.
+/** Client navigations' live data is stamped with its arrival, or kept as an offline copy (R15-S1). */
+export const clientMiddleware: Route.ClientMiddlewareFunction[] = [stampNavigation]
+
 export const links: Route.LinksFunction = () => [
   { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
   { rel: 'icon', type: 'image/png', href: '/bf_favicon.png', sizes: '32x32' },

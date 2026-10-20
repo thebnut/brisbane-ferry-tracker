@@ -3,6 +3,7 @@ import {
   LIVE_GUARD_CSS,
   liveGuardScript,
   NO_SCRIPT_LIVE_CSS,
+  stampNavigation,
   useLiveGuardRelease,
   useRefetchOnReconnect,
 } from '@bft/ui/connectivity'
@@ -27,6 +28,9 @@ import { FIXTURE_COOKIE, themeFromCookie } from './lib/storage.ts'
 
 // No web-font request: Inter/Poppins are used when installed, otherwise system-ui (a render-blocking font
 // stylesheet would cost LCP). The lockup's wordmark is live text in Poppins with system fallbacks.
+/** Client navigations' live data is stamped with its arrival, or kept as an offline copy (R15-S1). */
+export const clientMiddleware: Route.ClientMiddlewareFunction[] = [stampNavigation]
+
 export const links: Route.LinksFunction = () => [
   { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
   { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },

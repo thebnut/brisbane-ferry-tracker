@@ -67,7 +67,7 @@ export default function Nearby() {
   return (
     <>
       <SiteHeader />
-      <UpdatedStrip updatedAt={null} sourceS={null} nowMs={now}>
+      <UpdatedStrip updatedAt={null} source={null} nowMs={now}>
         <DesktopNav active="nearby" />
       </UpdatedStrip>
       <main className="mx-auto flex max-w-3xl flex-col gap-3 px-4 pt-3.5 pb-28">
