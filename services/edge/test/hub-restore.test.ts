@@ -1,6 +1,8 @@
+import { gunzipSync, gzipSync } from 'node:zlib'
 import type { Mode } from '@bft/core'
 import { describe, expect, it } from 'vitest'
-import { COMBINED_KEY, decodeCombined, encodeCombined, parseIndex } from '../src/rt/combined.ts'
+import { isGzip } from '../src/data/source.ts'
+import { COMBINED_KEY, encodeCombined, parseIndex } from '../src/rt/combined.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
 import {
   CYCLE_MS,
@@ -16,6 +18,7 @@ import {
   buildTree,
   Clock,
   D,
+  decodeCombinedSync,
   epoch,
   FakeStorage,
   FakeUpstream,
@@ -27,7 +30,13 @@ import {
 
 /** An R2 fake whose reads of one key can be held open, and that records the header seq of every PUT. */
 class GatedR2 {
-  readonly files = new Map<string, string>()
+  /**
+   * Text, or the bytes of an object that isn't UTF-8 (a gzip document, or a combined object with gzip sections:
+   * RT_R2_COMPRESS). Plain objects stay strings, so the plain-layout tests read them as before.
+   */
+  readonly files = new Map<string, string | Uint8Array>()
+  /** customMetadata per key, as put. */
+  readonly meta = new Map<string, Record<string, string>>()
   /** `key@seq` per PUT, in order. */
   readonly puts: string[] = []
   /** Reads per key. */
@@ -48,13 +57,29 @@ class GatedR2 {
   }
   /** PUTs of these keys fail (after nothing is written). */
   readonly failPuts = new Set<string>()
-  async put(key: string, value: Uint8Array | string) {
+  async put(key: string, value: Uint8Array | string, opts?: { customMetadata?: Record<string, string> }) {
     if (this.failPuts.has(key)) throw new Error(`r2 put ${key} failed`)
-    const text = typeof value === 'string' ? value : new TextDecoder().decode(value)
-    this.puts.push(
-      `${key}@${key === R2_LATEST_KEY ? JSON.parse(text).seq : key === COMBINED_KEY ? combinedSeq(text) : snapshotSeq(text)}`,
-    )
-    this.files.set(key, text)
+    let stored: string | Uint8Array = value
+    if (typeof value !== 'string') {
+      try {
+        stored = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(value)
+      } catch {
+        stored = new Uint8Array(value) // a copy (and never a pooled Node Buffer)
+      }
+    }
+    const text = typeof stored === 'string' ? stored : null
+    const seq =
+      key === R2_LATEST_KEY
+        ? JSON.parse(text as string).seq
+        : key === COMBINED_KEY
+          ? parseIndex(typeof stored === 'string' ? new TextEncoder().encode(stored) : stored, undefined)?.seq
+          : text != null
+            ? snapshotSeq(text)
+            : Number(opts?.customMetadata?.seq)
+    this.puts.push(`${key}@${seq}`)
+    this.files.set(key, stored)
+    if (opts?.customMetadata) this.meta.set(key, opts.customMetadata)
+    else this.meta.delete(key)
   }
   /** Every read, as `key` (whole) or `key@offset+length` (ranged). */
   readonly reads: string[] = []
@@ -69,29 +94,37 @@ class GatedR2 {
     }
     const t = this.files.get(key)
     if (t == null) return null
+    const all = typeof t === 'string' ? new TextEncoder().encode(t) : t
     // Like R2: a range past the end of the object is clamped.
-    const part = range
-      ? new TextDecoder().decode(
-          new TextEncoder().encode(t).subarray(range.offset, range.offset + range.length),
-        )
-      : t
-    return { text: async () => part }
+    const part = range ? all.slice(range.offset, range.offset + range.length) : all.slice()
+    return {
+      text: async () => new TextDecoder().decode(part),
+      arrayBuffer: async () => part.buffer as ArrayBuffer,
+      customMetadata: this.meta.get(key),
+    }
   }
 }
 
-/** The index seq of a combined object held as text (it is JSON and spaces throughout). */
-const combinedSeq = (text: string) => parseIndex(new TextEncoder().encode(text), undefined)?.seq ?? null
+/** The index seq of a combined object (its index is plain JSON, whatever its sections). */
+const combinedSeq = (v: string | Uint8Array) =>
+  parseIndex(typeof v === 'string' ? new TextEncoder().encode(v) : v, undefined)?.seq ?? null
+/** A stored document's JSON text, gunzipped when compressed. */
+const textOf = (r2: GatedR2, key: string) => {
+  const v = r2.files.get(key)
+  if (v == null || typeof v === 'string') return v
+  return isGzip(v) ? gunzipSync(v).toString('utf8') : new TextDecoder().decode(v)
+}
 
 const TU = 'TripUpdates/Ferry'
 const VP = 'VehiclePositions/Ferry'
 
-function setup(modes = 'ferry', layout: 'documents' | 'combined' = 'documents') {
+function setup(modes = 'ferry', layout: 'documents' | 'combined' = 'documents', compress = false) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   const tree = buildTree()
   const up = new FakeUpstream()
   const storage = new FakeStorage()
   const r2 = new GatedR2()
-  const mk = (l = layout) =>
+  const mk = (l = layout, c = compress) =>
     new HubCore({
       storage,
       fetch: up.fetch,
@@ -102,6 +135,7 @@ function setup(modes = 'ferry', layout: 'documents' | 'combined' = 'documents') 
       fetchTimeoutMs: 50,
       r2,
       layout: l,
+      compress: c,
     })
   const nowS = () => Math.floor(clock.t / 1000)
   /** New feed content, so the next cycle rebuilds (and publishes) a new seq. */
@@ -129,14 +163,14 @@ async function settle() {
   for (let i = 0; i < 50; i++) await new Promise((r) => setTimeout(r, 0))
 }
 
-const docSeq = (r2: GatedR2) => snapshotSeq(r2.files.get(modeLatestKey('ferry')) as string)
+const docSeq = (r2: GatedR2) => snapshotSeq(textOf(r2, modeLatestKey('ferry')) as string)
 /** The seqs of the ferry document's PUTs, in order. */
 const ferryPuts = (r2: GatedR2) =>
   r2.puts.filter((p) => p.startsWith(`${modeLatestKey('ferry')}@`)).map((p) => Number(p.split('@')[1]))
 
 /** A hub that has published a few seqs, then a fresh instance (eviction or deploy) over the same storage and R2. */
-async function restarted(modes = 'ferry', layout: 'documents' | 'combined' = 'documents') {
-  const h = setup(modes, layout)
+async function restarted(modes = 'ferry', layout: 'documents' | 'combined' = 'documents', compress = false) {
+  const h = setup(modes, layout, compress)
   const first = h.mk()
   for (let i = 1; i <= 3; i++) {
     h.change(i)
@@ -144,7 +178,7 @@ async function restarted(modes = 'ferry', layout: 'documents' | 'combined' = 'do
     h.clock.advance(CYCLE_MS)
   }
   const published = (
-    layout === 'combined' ? combinedSeq(h.r2.files.get(COMBINED_KEY) as string) : docSeq(h.r2)
+    layout === 'combined' ? combinedSeq(h.r2.files.get(COMBINED_KEY) as Uint8Array) : docSeq(h.r2)
   ) as number
   expect(published).toBeGreaterThan(0)
   h.change(10)
@@ -482,7 +516,7 @@ describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {
   it('a section with a malformed trip record counts as missing, so it cannot poison the next build (Codex r5)', async () => {
     const { r2, hub, clock, change, published } = await restarted('ferry', 'combined')
     // Re-encoded (valid offsets and seqs) with the ferry document's first trip record replaced by null.
-    const got = decodeCombined(new TextEncoder().encode(r2.files.get(COMBINED_KEY) as string))
+    const got = decodeCombinedSync(new TextEncoder().encode(r2.files.get(COMBINED_KEY) as string))
     if (!got) throw new Error('combined object did not decode')
     const sections = got.docs.map((d) => {
       const doc = JSON.parse(d.json)
@@ -503,7 +537,7 @@ describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {
   it('an index without a valid seq is rejected, and its section seqs still count (Codex r7)', async () => {
     const { r2, hub, storage, mk, published } = await restarted('ferry', 'combined')
     // Move the object past the pointer: its section is at a later seq than the pointer names.
-    const got = decodeCombined(new TextEncoder().encode(r2.files.get(COMBINED_KEY) as string))
+    const got = decodeCombinedSync(new TextEncoder().encode(r2.files.get(COMBINED_KEY) as string))
     if (!got) throw new Error('combined object did not decode')
     const ahead = published + 2
     const sections = got.docs.map((d) => ({
@@ -528,7 +562,7 @@ describe('RtHub restore, combined layout (RT_R2_LAYOUT=combined, #99)', () => {
 
   it('a section under an unknown mode name makes the object unusable (Codex r10)', async () => {
     const { r2, hub, published } = await restarted('ferry', 'combined')
-    const got = decodeCombined(new TextEncoder().encode(r2.files.get(COMBINED_KEY) as string))
+    const got = decodeCombinedSync(new TextEncoder().encode(r2.files.get(COMBINED_KEY) as string))
     if (!got) throw new Error('combined object did not decode')
     const sections = got.docs.map((d) => ({ ...d, mode: 'constructor' as Mode }))
     r2.files.set(COMBINED_KEY, new TextDecoder().decode(encodeCombined({ ...got.index }, sections)))
@@ -668,4 +702,126 @@ describe('RtHub restore sweep: ranged header reads (lead P3 on #100)', () => {
     expect(r2.reads).toContain(key)
     expect((await hub.pull(null)).seq).toBe(published + 8)
   })
+})
+
+describe('RtHub restore with compressed documents (RT_R2_COMPRESS=gzip)', () => {
+  for (const layout of ['documents', 'combined'] as const) {
+    it(`${layout}: documents are stored gzip, and a restart restores them and publishes past them`, async () => {
+      const { r2, hub, published, clock } = await restarted('ferry', layout, true)
+      const modeKey = layout === 'combined' ? COMBINED_KEY : modeLatestKey('ferry')
+      const stored = r2.files.get(modeKey) as Uint8Array
+      expect(stored).toBeInstanceOf(Uint8Array)
+      if (layout === 'documents') {
+        expect(isGzip(stored)).toBe(true)
+        expect(r2.meta.get(modeKey)).toEqual({ seq: String(published) })
+      } else {
+        // The index stays plain; the ferry section is gzip.
+        const idx = parseIndex(stored, stored.byteLength)
+        const [off] = idx?.sections.ferry ?? [0]
+        expect(isGzip(stored.subarray(off))).toBe(true)
+      }
+      const ptr = JSON.parse(r2.files.get(R2_LATEST_KEY) as string)
+      expect(isGzip(r2.files.get(ptr.files.alerts.key) as Uint8Array)).toBe(true)
+      // The restore read them (not a fresh start): the restored snapshot has the trip, at the published seq.
+      const restored = await hub.pull(null)
+      expect(restored.seq).toBe(published)
+      expect(Object.keys(JSON.parse(restored.json as string).trips)).toHaveLength(1)
+      clock.advance(CYCLE_MS)
+      await hub.alarm()
+      expect((await hub.pull(null)).seq).toBe(published + 1)
+    })
+  }
+
+  it('with DO storage lost, the sweep takes compressed documents’ seqs from metadata, in ranged reads only', async () => {
+    const { r2, hub, storage, published, clock, up, nowS, mk } = await restarted('ferry', 'documents', true)
+    // An alerts slot past everything else, as a partial publish leaves it (compressed, so its prefix is not JSON).
+    const writer = mk()
+    await writer.pull(null)
+    r2.failPuts.add(modeLatestKey('ferry'))
+    r2.failPuts.add(R2_LATEST_KEY)
+    clock.advance(CYCLE_MS)
+    up.set('alerts', feed(nowS(), [alert('a9', 'Late change', 'F1-4055')]))
+    await writer.alarm()
+    const slot = scopeKey('alerts', published + 1)
+    expect(isGzip(r2.files.get(slot) as Uint8Array)).toBe(true)
+    r2.failPuts.clear()
+    storage.data.clear()
+    r2.reads.length = 0
+    await hub.pull(null)
+    expect(r2.reads).toContain(`${slot}@0+${HEAD_BYTES}`)
+    // No whole read of any slot but the one the pointer names; no whole read of a mode document.
+    const pointer = JSON.parse(r2.files.get(R2_LATEST_KEY) as string)
+    const whole = r2.reads.filter((k) => !k.includes('@') && k.startsWith('rt/alerts/'))
+    expect(whole).toEqual([pointer.files.alerts.key])
+    clock.advance(CYCLE_MS)
+    await hub.alarm()
+    expect((await hub.pull(null)).seq).toBe(published + 2)
+  })
+
+  it('a compressed document without its seq metadata is read whole and decompressed for its seq', async () => {
+    const { r2, hub, storage, published } = await restarted('ferry', 'documents', true)
+    const key = scopeKey('alerts', published + 7)
+    const json = `{"header":{"schemaVersion":1,"seq":${published + 7}},"trips":{},"vehicles":[],"alerts":[]}`
+    await r2.put(key, gzipSync(json))
+    expect(r2.meta.has(key)).toBe(false)
+    storage.data.clear()
+    r2.reads.length = 0
+    await hub.alarm()
+    expect(r2.reads).toContain(`${key}@0+${HEAD_BYTES}`)
+    expect(r2.reads).toContain(key)
+    expect((await hub.pull(null)).seq).toBe(published + 8)
+  })
+
+  it('a truncated or corrupt gzip document counts as missing: the restore completes, past its seq', async () => {
+    for (const damage of ['truncated', 'corrupt'] as const) {
+      const { r2, hub, published } = await restarted('ferry', 'documents', true)
+      const key = modeLatestKey('ferry')
+      const good = r2.files.get(key) as Uint8Array
+      const bad = damage === 'truncated' ? good.slice(0, Math.floor(good.byteLength / 2)) : good.slice()
+      if (damage === 'corrupt') bad.fill(0x55, 20, 40)
+      r2.files.set(key, bad)
+      // No throw out of the restore; the pull serves (no snapshot restored from the bad document) and seq goes on.
+      const pulled = await hub.pull(null)
+      expect(pulled.seq == null || pulled.seq >= published).toBe(true)
+      await hub.alarm()
+      expect((await hub.pull(null)).seq).toBe(published + 1)
+      expect(textOf(r2, key)).toContain(`"seq":${published + 1}`)
+    }
+  })
+
+  it('a corrupt gzip section makes the combined object missing; its index seq still counts', async () => {
+    const { r2, hub, published } = await restarted('ferry', 'combined', true)
+    const obj = (r2.files.get(COMBINED_KEY) as Uint8Array).slice()
+    const [off, len] = parseIndex(obj, obj.byteLength)?.sections.ferry ?? [0, 0]
+    obj.fill(0x55, off + 10, off + Math.min(len, 30))
+    r2.files.set(COMBINED_KEY, obj)
+    await hub.alarm()
+    expect((await hub.pull(null)).seq).toBe(published + 1)
+  })
+
+  for (const layout of ['documents', 'combined'] as const) {
+    it(`${layout}: after RT_R2_COMPRESS changes either way, the first publish rewrites every document in the new encoding`, async () => {
+      // Plain first (an earlier release, or the flag off), then on: the restart restores the plain documents.
+      const { r2, mk, clock, published, nowS, up } = await restarted('ferry', layout, false)
+      const modeKey = layout === 'combined' ? COMBINED_KEY : modeLatestKey('ferry')
+      expect(typeof r2.files.get(modeKey)).toBe('string')
+      const on = mk(layout, true)
+      expect((await on.pull(null)).seq).toBe(published)
+      // Unchanged content (no feed change since): still rewritten, compressed (the restore leaves nothing known).
+      clock.advance(CYCLE_MS)
+      await on.alarm()
+      expect(r2.files.get(modeKey)).toBeInstanceOf(Uint8Array)
+      const alertsKey = () => JSON.parse(r2.files.get(R2_LATEST_KEY) as string).files.alerts.key
+      expect(isGzip(r2.files.get(alertsKey()) as Uint8Array)).toBe(true)
+      // And back off (a redeploy, so a new instance with the flag unset): plain again at its first publish, though
+      // the content is unchanged.
+      const off = mk(layout, false)
+      await off.pull(null)
+      clock.advance(CYCLE_MS)
+      up.set('alerts', feed(nowS(), [alert('a1', 'Bulimba works', 'F1-4055')]))
+      await off.alarm()
+      expect(typeof r2.files.get(modeKey)).toBe('string')
+      expect(typeof r2.files.get(alertsKey())).toBe('string')
+    })
+  }
 })

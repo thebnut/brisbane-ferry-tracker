@@ -18,6 +18,8 @@ export interface WorkerEnv extends AiEnv {
   RT_CYCLE_MS?: string
   /** `combined` (one R2 object for every mode, ranged reads) or `documents` (default). See HubDeps.layout. */
   RT_R2_LAYOUT?: string
+  /** `gzip`: store the realtime snapshot documents compressed (default off). See HubDeps.compress. */
+  RT_R2_COMPRESS?: string
   /** How old (ms) an isolate's snapshot copy may be before a request waits for the refresh (default 60000). */
   RT_SNAPSHOT_MAX_STALE_MS?: string
   /** Most a request waits for realtime before answering scheduled rows as stale/unavailable (ms, default 1200). */

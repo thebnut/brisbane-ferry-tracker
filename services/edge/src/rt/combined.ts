@@ -8,12 +8,18 @@
  * hub's freshness at the write (seq, source timestamp, fetchedAt, cycle), so a reader needs no pointer read while
  * the object is current.
  *
+ * Compression (RT_R2_COMPRESS): each section may be its own gzip stream (the hub compresses a section once, when its
+ * mode's content changes, and carries the bytes over unchanged after that). The index stays plain JSON, so ranged
+ * reads still find a section's compressed byte range; a reader tells a section's encoding by gzip's magic bytes, so
+ * plain and compressed sections (and objects) read the same way.
+ *
  * Integrity: the index records the whole object's size. A reader checks it against R2's own size for the version it
  * read, checks every section lies inside it, and checks the section's header seq; a second ranged GET is pinned to
  * the first one's etag. Any mismatch is a failed read (the caller retries once, then keeps its copy), never a
  * misparse.
  */
 import type { Mode } from '@bft/core'
+import { decodeText } from '../data/source.ts'
 import { snapshotSeq } from './hub-core.ts'
 
 /** Logical key (remapped by RT_R2_PREFIX like every rt/ key). */
@@ -41,13 +47,20 @@ export interface CombinedSection {
   seq: number
 }
 
+/** A section as written: its stored bytes (gzip or plain JSON), or its JSON (stored plain). */
+export type SectionInput = { mode: Mode; seq: number } & ({ bytes: Uint8Array } | { json: string })
+
 /** Build the object. Throws if the index outgrows INDEX_BYTES (it is a few hundred bytes for four modes). */
 export function encodeCombined(
   head: Pick<CombinedIndex, 'seq' | 'sourceTimestamp' | 'fetchedAt' | 'cycleMs'>,
-  sections: CombinedSection[],
+  sections: SectionInput[],
 ): Uint8Array {
   const enc = new TextEncoder()
-  const parts = sections.map((s) => ({ ...s, bytes: enc.encode(s.json) }))
+  const parts = sections.map((s) => ({
+    mode: s.mode,
+    seq: s.seq,
+    bytes: 'bytes' in s ? s.bytes : enc.encode(s.json),
+  }))
   parts.sort((a, b) => a.bytes.byteLength - b.bytes.byteLength)
   const index: CombinedIndex = { v: COMBINED_VERSION, ...head, size: 0, sections: {} }
   let at = INDEX_BYTES
@@ -86,23 +99,43 @@ export function parseIndex(bytes: Uint8Array, objectSize: number | undefined): C
   return idx
 }
 
-/** A section's JSON, checked against the seq the index names; null when it doesn't match. */
-export function decodeSection(bytes: Uint8Array, seq: number): string | null {
-  const json = new TextDecoder().decode(bytes)
+/**
+ * A section's JSON (gunzipped when it is gzip), checked against the seq the index names; null when it doesn't match
+ * or doesn't decompress (corrupt or truncated), never a throw.
+ */
+export async function decodeSection(bytes: Uint8Array, seq: number): Promise<string | null> {
+  let json: string
+  try {
+    json = await decodeText(bytes)
+  } catch {
+    return null
+  }
   return snapshotSeq(json) === seq && json.endsWith('}') ? json : null
 }
 
-/** Split a whole object into its mode documents (hub restore); null when it is inconsistent. */
-export function decodeCombined(bytes: Uint8Array): { index: CombinedIndex; docs: CombinedSection[] } | null {
+/** A whole object's index and each section's stored bytes (gzip or plain); null when the index is inconsistent. */
+export function splitCombined(
+  bytes: Uint8Array,
+): { index: CombinedIndex; parts: Array<{ mode: Mode; seq: number; bytes: Uint8Array }> } | null {
   const index = parseIndex(bytes, bytes.byteLength)
   if (!index) return null
+  const parts = (Object.entries(index.sections) as Array<[Mode, [number, number, number]]>).map(
+    ([mode, [off, len, seq]]) => ({ mode, seq, bytes: bytes.subarray(off, off + len) }),
+  )
+  return { index, parts }
+}
+
+/** Split a whole object into its mode documents (hub restore); null when it is inconsistent. */
+export async function decodeCombined(
+  bytes: Uint8Array,
+): Promise<{ index: CombinedIndex; docs: CombinedSection[] } | null> {
+  const split = splitCombined(bytes)
+  if (!split) return null
   const docs: CombinedSection[] = []
-  for (const [mode, [off, len, seq]] of Object.entries(index.sections) as Array<
-    [Mode, [number, number, number]]
-  >) {
-    const json = decodeSection(bytes.subarray(off, off + len), seq)
+  for (const p of split.parts) {
+    const json = await decodeSection(p.bytes, p.seq)
     if (json == null) return null
-    docs.push({ mode, json, seq })
+    docs.push({ mode: p.mode, json, seq: p.seq })
   }
-  return { index, docs }
+  return { index: split.index, docs }
 }

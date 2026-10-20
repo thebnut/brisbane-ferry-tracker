@@ -3,15 +3,33 @@
  * a fake upstream and fake DO storage, so the hub and the app run end to end in Node.
  */
 import { createHash } from 'node:crypto'
-import { gzipSync } from 'node:zlib'
+import { gunzipSync, gzipSync } from 'node:zlib'
 import type { GenerationIndex, Manifest, Mode } from '@bft/core'
 import { gtfsToEpoch } from '@bft/core'
 import { create, type MessageInitShape, toBinary } from '@bufbuild/protobuf'
 import { type SynthTrip, stopDay, tripIndex } from '../../../packages/core/test/helpers.ts'
-import { MemoryDataSource } from '../src/data/source.ts'
+import { isGzip, MemoryDataSource } from '../src/data/source.ts'
 import { blobKey, indexKey, StaticStore } from '../src/data/static-store.ts'
 import { type FeedEntitySchema, FeedMessageSchema } from '../src/gen/gtfs-realtime_pb.js'
+import { type CombinedIndex, type CombinedSection, splitCombined } from '../src/rt/combined.ts'
 import type { HubStorage } from '../src/rt/hub-core.ts'
+
+/**
+ * A combined object's mode documents, decoded synchronously for assertions (gzip sections through node:zlib, without
+ * the seq checks of decodeCombined); null when its index is inconsistent.
+ */
+export function decodeCombinedSync(
+  bytes: Uint8Array,
+): { index: CombinedIndex; docs: CombinedSection[] } | null {
+  const split = splitCombined(bytes)
+  if (!split) return null
+  const docs = split.parts.map((p) => ({
+    mode: p.mode,
+    seq: p.seq,
+    json: isGzip(p.bytes) ? gunzipSync(p.bytes).toString('utf8') : new TextDecoder().decode(p.bytes),
+  }))
+  return { index: split.index, docs }
+}
 
 /** Tuesday 20 Oct 2026 and the day before. */
 export const D0 = '20261019'

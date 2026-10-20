@@ -11,17 +11,12 @@
  */
 import { type Alert, addDays, brisbaneDate, type Manifest, Mode, type RtSnapshot } from '@bft/core'
 import { fromBinary } from '@bufbuild/protobuf'
+import { decodeText, gzip, isGzip } from '../data/source.ts'
 import type { StaticStore } from '../data/static-store.ts'
 import { type FeedMessage, FeedMessageSchema } from '../gen/gtfs-realtime_pb.js'
 import { errorMessage, type Logger, silentLogger } from '../log.ts'
 import { buildAlerts, buildSnapshot, ModeIndex } from './build.ts'
-import {
-  COMBINED_KEY,
-  type CombinedSection,
-  decodeCombined,
-  encodeCombined,
-  INDEX_BYTES,
-} from './combined.ts'
+import { COMBINED_KEY, decodeCombined, encodeCombined, INDEX_BYTES, type SectionInput } from './combined.ts'
 import { type FeedSpec, feedsFor, type RtConfig } from './feeds.ts'
 import {
   alertsDocument,
@@ -108,11 +103,18 @@ export interface R2Like {
   get?(
     key: string,
     opts?: { range: { offset: number; length: number } },
-  ): Promise<{ text(): Promise<string>; arrayBuffer?(): Promise<ArrayBuffer> } | null>
+  ): Promise<{
+    text(): Promise<string>
+    arrayBuffer?(): Promise<ArrayBuffer>
+    customMetadata?: Record<string, string>
+  } | null>
   put(
     key: string,
     value: Uint8Array | string,
-    opts?: { httpMetadata?: { contentType?: string; cacheControl?: string } },
+    opts?: {
+      httpMetadata?: { contentType?: string; contentEncoding?: string; cacheControl?: string }
+      customMetadata?: Record<string, string>
+    },
   ): Promise<unknown>
 }
 
@@ -137,6 +139,13 @@ export interface HubDeps {
    * read only `documents`. So: deploy with `documents`, then switch to `combined`; switch back before rolling back.
    */
   layout?: 'documents' | 'combined'
+  /**
+   * Store the snapshot documents gzip-compressed (RT_R2_COMPRESS=gzip): each per-mode and alerts document, and each
+   * section of the combined object (whose index stays plain, for ranged reads). Readers of this release read plain
+   * and compressed alike (gzip's magic bytes); readers and restores of earlier releases do not read compressed
+   * combined sections. So, like `layout`: deploy with it off, then turn it on; turn it off before rolling back.
+   */
+  compress?: boolean
 }
 
 /**
@@ -198,8 +207,8 @@ interface Published {
   content: string
   key: string
   seq: number
-  /** A mode document's JSON, carried unchanged into the next combined object. */
-  json?: string
+  /** A mode document's stored bytes (gzip or plain JSON), carried unchanged into the next combined object. */
+  section?: Uint8Array
 }
 
 interface LoadedMode {
@@ -252,6 +261,7 @@ export class HubCore {
   private readonly startedAt: number
   private readonly cycleMs: number
   private readonly layout: 'documents' | 'combined'
+  private readonly compress: boolean
   private readonly alarmMs: number
   private lastPollStart = Number.NEGATIVE_INFINITY
   /** Phase timings of the last completed poll (tests, and the log line). */
@@ -264,6 +274,7 @@ export class HubCore {
     this.startedAt = d.now()
     this.cycleMs = d.cycleMs ?? CYCLE_MS
     this.layout = d.layout ?? 'documents'
+    this.compress = d.compress ?? false
     this.alarmMs = Math.min(KEEPALIVE_MS, this.cycleMs)
     this.log = d.log ?? silentLogger
   }
@@ -573,8 +584,10 @@ export class HubCore {
 
   /**
    * Publish to R2: the per-scope documents whose content changed, then the small `rt/latest.json` pointer (a reader
-   * never sees a pointer to a missing object). Uncompressed: gzip would cost several ms of the 10 ms Free CPU budget
-   * and R2 egress is free. The ring of R2_KEEP_SNAPSHOTS alerts keys keeps the bucket bounded without deletes.
+   * never sees a pointer to a missing object). With RT_R2_COMPRESS each changed document is gzipped first (about 7.8x
+   * smaller on a real snapshot, for ~25 ms of CPU when all four modes change, under the hub's 2 s cpu_ms), so edge
+   * readers fetch far fewer bytes, a cold isolate's first bus read above all. The ring of R2_KEEP_SNAPSHOTS alerts
+   * keys keeps the bucket bounded without deletes.
    *
    * PUTs (hub R2 PUT budget, 20 Oct): a document is rewritten only when its content changed, compared without the
    * header fields that move every poll (seq, sourceTimestamp, fetchedAt, stats); an unchanged document keeps its
@@ -593,7 +606,14 @@ export class HubCore {
     const snap = this.snapshot as RtSnapshot
     const seq = this.meta.seq
     if (this.r2Pending) {
-      const json = { httpMetadata: { contentType: 'application/json' } }
+      const gz = this.compress
+      // A document as stored: gzip (RT_R2_COMPRESS) or plain JSON. Its header seq also goes in customMetadata, so the
+      // restore's seq sweep (headSeq) reads it without the body, which is not JSON when compressed.
+      const stored = (text: string): Promise<string | Uint8Array> => (gz ? gzip(text) : Promise.resolve(text))
+      const docOpts = (s: number) => ({
+        httpMetadata: { contentType: 'application/json', ...(gz ? { contentEncoding: 'gzip' } : {}) },
+        customMetadata: { seq: String(s) },
+      })
       // Per-mode documents (§3.3 split). Layout `combined`: all in one object, overwritten in place (an edge isolate
       // still reads only the mode it serves, with ranged GETs). Layout `documents`: one overwritten
       // `rt/{mode}/latest.json` per mode. R2 PUTs are atomic and readers check sizes, etags and seqs, so no deletes are
@@ -603,42 +623,57 @@ export class HubCore {
       const docs = splitSnapshot(snap, this.tripModes, this.d.config.modes)
       // One entry per PUT: the scopes it writes and what each will then hold.
       const writes: Array<Array<[SnapshotScope, Published]>> = []
-      const sections: CombinedSection[] = []
-      const changed: Array<[SnapshotScope, Published]> = []
+      const sections: SectionInput[] = []
+      // Each changed mode, with what it will hold and its JSON.
+      const changed: Array<[Mode, Published, string]> = []
       for (const m of this.d.config.modes) {
         const doc = docs[m] as RtSnapshot
         const body = documentBody(doc)
         const content = documentContent(doc.header, body)
         const prev = this.published.get(m)
-        if (prev?.content === content && prev.key === keyFor(m) && (prev.json != null || !combined)) {
-          if (prev.json != null) sections.push({ mode: m, json: prev.json, seq: prev.seq })
+        // RT_R2_COMPRESS is fixed for a hub's lifetime and a new hub starts with nothing published, so a change of
+        // encoding always rewrites every document.
+        if (prev?.content === content && prev.key === keyFor(m) && (prev.section != null || !combined)) {
+          if (prev.section != null) sections.push({ mode: m, bytes: prev.section, seq: prev.seq })
           continue
         }
-        const docJson = documentJson(doc.header, body)
-        sections.push({ mode: m, json: docJson, seq })
-        changed.push([m, { content, key: keyFor(m), seq, ...(combined ? { json: docJson } : {}) }])
-      }
-      const puts: Promise<unknown>[] = []
-      if (!combined) {
-        for (const [m, p] of changed) {
-          const docJson = sections.find((x) => x.mode === m)?.json as string
-          puts.push(this.put(r2, p.key, docJson, json))
-          writes.push([[m, p]])
-        }
-      } else if (changed.length > 0) {
-        const head = { seq, sourceTimestamp: snap.header.sourceTimestamp, fetchedAt: snap.header.fetchedAt }
-        const bytes = encodeCombined({ ...head, cycleMs: this.cycleMs }, sections)
-        puts.push(
-          this.put(r2, COMBINED_KEY, bytes, { httpMetadata: { contentType: 'application/octet-stream' } }),
-        )
-        writes.push(changed)
+        changed.push([m, { content, key: keyFor(m), seq }, documentJson(doc.header, body)])
       }
       const alerts = alertsDocument(snap)
       const alertsBody = documentBody(alerts)
       const alertsContent = documentContent(alerts.header, alertsBody)
-      if (this.published.get('alerts')?.content !== alertsContent) {
+      const alertsJson =
+        this.published.get('alerts')?.content !== alertsContent
+          ? documentJson(alerts.header, alertsBody)
+          : null
+      // Only changed documents are compressed (an unchanged combined section carries its stored bytes over), all
+      // before the first PUT starts.
+      const bodies = await Promise.all(changed.map(([, , text]) => stored(text)))
+      const alertsStored = alertsJson != null ? await stored(alertsJson) : null
+      const puts: Promise<unknown>[] = []
+      if (!combined) {
+        changed.forEach(([m, p], i) => {
+          puts.push(this.put(r2, p.key, bodies[i] as string | Uint8Array, docOpts(seq)))
+          writes.push([[m, p]])
+        })
+      } else if (changed.length > 0) {
+        const enc = new TextEncoder()
+        changed.forEach(([m, p], i) => {
+          const b = bodies[i] as string | Uint8Array
+          p.section = typeof b === 'string' ? enc.encode(b) : b
+          sections.push({ mode: m, bytes: p.section, seq })
+        })
+        const head = { seq, sourceTimestamp: snap.header.sourceTimestamp, fetchedAt: snap.header.fetchedAt }
+        const bytes = encodeCombined({ ...head, cycleMs: this.cycleMs }, sections)
+        // Not Content-Encoding gzip: the object as a whole (a plain index, then the sections) is not one gzip stream.
+        puts.push(
+          this.put(r2, COMBINED_KEY, bytes, { httpMetadata: { contentType: 'application/octet-stream' } }),
+        )
+        writes.push(changed.map(([m, p]) => [m, p]))
+      }
+      if (alertsStored != null) {
         const key = scopeKey('alerts', seq)
-        puts.push(this.put(r2, key, documentJson(alerts.header, alertsBody), json))
+        puts.push(this.put(r2, key, alertsStored, docOpts(seq)))
         writes.push([['alerts', { content: alertsContent, key, seq }]])
       }
       // Every PUT settles before the publish (and so the poll) ends: a failed sibling must not leave another PUT
@@ -925,15 +960,14 @@ export class HubCore {
       // I/O errors (the GET, the body) propagate, so the restore is retried. Everything after works on content:
       // whatever is wrong with it, the object counts as missing, never as a restore that fails forever (Codex r4
       // and r8 on #100).
-      const bytes = obj.arrayBuffer
-        ? new Uint8Array(await obj.arrayBuffer())
-        : new TextEncoder().encode(await obj.text())
+      const bytes = await objectBytes(obj)
       try {
         // The index's seq counts even when its sections, size or documents are unusable: it may be past the
         // pointer, and a seq left unread could be reused by the next build (Codex r2 and r4).
         const indexSeq = combinedIndexSeq(bytes)
         if (indexSeq != null && indexSeq > r.seq) r.seq = indexSeq
-        const got = decodeCombined(bytes)
+        // Sections may be gzip (RT_R2_COMPRESS); one that doesn't decompress makes the object missing.
+        const got = await decodeCombined(bytes)
         if (!got || !Number.isSafeInteger(got.index.seq) || got.index.seq < c.seq) return null
         const docs: Array<[Mode, RtSnapshot]> = []
         for (const d of got.docs) {
@@ -953,7 +987,8 @@ export class HubCore {
       // I/O errors propagate (the restore is retried); a problem with the content makes the document missing, so
       // the fallbacks below apply rather than a restore that fails forever (Codex r8 on #100).
       const obj = await r2.get(e.key)
-      const text = obj ? await obj.text() : null
+      // Plain or gzip (RT_R2_COMPRESS); one that doesn't decompress counts as missing.
+      const text = obj ? await documentText(obj) : null
       if (text == null) return null
       try {
         const seq = snapshotSeq(text)
@@ -1117,25 +1152,31 @@ export class HubCore {
    * A document's header seq from its first HEAD_BYTES (a ranged GET: the header is serialised first, see
    * documentJson), or from the whole object when that prefix holds no complete seq. Null when there is no object or
    * no valid seq. I/O errors propagate (the restore is retried).
+   *
+   * A compressed document (RT_R2_COMPRESS) starts with gzip bytes, not JSON, so its prefix holds no seq: the hub
+   * writes the header seq into its customMetadata too, which the same ranged GET returns. A gzip document without it
+   * is read whole and decompressed; one that doesn't decompress counts as having no seq, like any bad content.
    */
   private async headSeq(r2: R2Like, key: string): Promise<number | null> {
     const head = await r2.get?.(key, { range: { offset: 0, length: HEAD_BYTES } })
     if (!head) return null
-    const seq = prefixSeq(await head.text())
+    const meta = metadataSeq(head.customMetadata)
+    if (meta != null) return meta
+    const prefix = await objectBytes(head)
+    const seq = isGzip(prefix) ? null : prefixSeq(new TextDecoder().decode(prefix))
     if (seq != null) return seq
     const whole = await r2.get?.(key)
-    return whole ? textSeq(await whole.text()) : null
+    const text = whole ? await documentText(whole) : null
+    return text != null ? textSeq(text) : null
   }
 
   /** Watermark only: the combined object's index seqs. I/O errors propagate (retry); bad content is ignored. */
   private async combinedSeqInto(r: Restored): Promise<void> {
     // Only the index (the first INDEX_BYTES, by the format): reading more could not add a seq.
+    // The index is plain JSON whether or not the sections are compressed.
     const obj = await (this.d.r2 as R2Like).get?.(COMBINED_KEY, { range: { offset: 0, length: INDEX_BYTES } })
     if (!obj) return
-    const bytes = obj.arrayBuffer
-      ? new Uint8Array(await obj.arrayBuffer())
-      : new TextEncoder().encode(await obj.text())
-    const seq = combinedIndexSeq(bytes)
+    const seq = combinedIndexSeq(await objectBytes(obj))
     if (seq != null && seq > r.seq) r.seq = seq
   }
 
@@ -1199,6 +1240,36 @@ function prefixSeq(prefix: string): number | null {
   if (!m) return null
   const n = Number(m[1])
   return Number.isSafeInteger(n) ? n : null
+}
+
+/** The header seq a compressed document carries in its customMetadata (see publishR2), if valid. */
+function metadataSeq(meta: Record<string, string> | undefined): number | null {
+  const v = meta?.seq
+  if (v == null || !/^\d+$/.test(v)) return null
+  const n = Number(v)
+  return Number.isSafeInteger(n) ? n : null
+}
+
+type R2Got = NonNullable<Awaited<ReturnType<NonNullable<R2Like['get']>>>>
+
+/** An object's bytes (R2 gives an ArrayBuffer; a text-only test double gives text). I/O errors propagate. */
+async function objectBytes(obj: R2Got): Promise<Uint8Array> {
+  return obj.arrayBuffer
+    ? new Uint8Array(await obj.arrayBuffer())
+    : new TextEncoder().encode(await obj.text())
+}
+
+/**
+ * A document's JSON text, gunzipped when stored compressed (RT_R2_COMPRESS). I/O errors propagate (the restore is
+ * retried); a gzip stream that doesn't decompress (corrupt, truncated) is bad content: null.
+ */
+async function documentText(obj: R2Got): Promise<string | null> {
+  const bytes = await objectBytes(obj)
+  try {
+    return await decodeText(bytes)
+  } catch {
+    return null
+  }
 }
 
 /** A whole document's header seq, if valid (bad content counts as none). */

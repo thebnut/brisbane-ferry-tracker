@@ -27,6 +27,7 @@ export class RtHub extends DurableObject<WorkerEnv> {
       r2: env.DATA_BUCKET,
       cycleMs: env.RT_CYCLE_MS ? Number(env.RT_CYCLE_MS) : undefined,
       layout: env.RT_R2_LAYOUT === 'combined' ? 'combined' : 'documents',
+      compress: env.RT_R2_COMPRESS === 'gzip',
       profile: env.RT_PROFILE === '1',
       log: createLogger({ svc: 'bft-rthub' }),
     })

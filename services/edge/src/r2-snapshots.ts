@@ -12,6 +12,7 @@ import type { RtSnapshot } from '@bft/core'
 import {
   type DataSource,
   decodeJson,
+  decodeText,
   type RangeRead,
   type RangeSource,
   readBytes,
@@ -133,7 +134,9 @@ async function pullDocuments(
   let direct: { key: string; json: string } | null = null
   if (mode && !known) {
     const key = modeLatestKey(scope)
-    const json = await readSnapshot(src, key)
+    // A document that doesn't decompress counts as missing here, so the pointer decides (it may be an abandoned
+    // object of the other layout); I/O errors still propagate.
+    const json = await readSnapshot(src, key, true)
     const seq = json != null ? snapshotSeq(json) : null
     if (json != null && seq != null) {
       const status = statusOf(json, seq)
@@ -216,7 +219,7 @@ async function readCombined(src: DataSource, scope: SnapshotScope): Promise<Sect
     const index = parseIndex(all, all.byteLength)
     const sec = index?.sections[scope as keyof CombinedIndex['sections']]
     if (index && !sec) return { index, json: null, seq: index.seq }
-    const json = index && sec ? decodeSection(all.subarray(sec[0], sec[0] + sec[1]), sec[2]) : null
+    const json = index && sec ? await decodeSection(all.subarray(sec[0], sec[0] + sec[1]), sec[2]) : null
     if (index && sec && json != null) return { index, json, seq: sec[2] }
     throw new Error(`combined object ${COMBINED_KEY} inconsistent for ${scope}`)
   }
@@ -237,7 +240,7 @@ async function readCombined(src: DataSource, scope: SnapshotScope): Promise<Sect
       if (rest == null || rest === 'changed' || rest.bytes.byteLength !== len) continue
       bytes = rest.bytes
     }
-    const json = decodeSection(bytes, seq)
+    const json = await decodeSection(bytes, seq)
     if (json != null) return { index, json, seq }
   }
   throw new Error(`combined object ${COMBINED_KEY} inconsistent for ${scope}`)
@@ -298,10 +301,12 @@ function statusOf(json: string, seq: number): HubStatus {
  */
 export const DIRECT_FRESH_MS = 20_000
 
-async function readSnapshot(src: DataSource, key: string): Promise<string | null> {
+/**
+ * A document's JSON text, gunzipped when it is stored compressed (RT_R2_COMPRESS; plain documents from before it read
+ * the same way). A corrupt or truncated gzip document throws like a failed read: the caller keeps its copy (stale).
+ */
+async function readSnapshot(src: DataSource, key: string, corruptAsMissing = false): Promise<string | null> {
   const bytes = await readBytes(src, key)
   if (!bytes) return null
-  return bytes[0] === 0x1f && bytes[1] === 0x8b
-    ? JSON.stringify(await decodeJson(bytes))
-    : new TextDecoder().decode(bytes)
+  return corruptAsMissing ? decodeText(bytes).catch(() => null) : decodeText(bytes)
 }

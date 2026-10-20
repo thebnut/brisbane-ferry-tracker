@@ -1,3 +1,4 @@
+import { gzipSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
 import { MemoryDataSource, type RangeRead } from '../src/data/source.ts'
 import { pullFromR2, resetRangeHints } from '../src/r2-snapshots.ts'
@@ -55,9 +56,9 @@ const files = (object = encodeCombined(head, sections())) =>
   ])
 
 describe('combined mode object format', () => {
-  it('round trips, smallest section first, with a padded ASCII index', () => {
+  it('round trips, smallest section first, with a padded ASCII index', async () => {
     const bytes = encodeCombined(head, sections())
-    const got = decodeCombined(bytes)
+    const got = await decodeCombined(bytes)
     expect(got?.index).toMatchObject({ v: 1, seq: 7, size: bytes.byteLength, cycleMs: 15_000 })
     expect(got?.docs.map((d) => d.mode)).toEqual(['ferry', 'train', 'bus'])
     for (const s of sections()) expect(got?.docs.find((d) => d.mode === s.mode)).toEqual(s)
@@ -65,22 +66,20 @@ describe('combined mode object format', () => {
     expect(bytes[INDEX_BYTES - 1]).toBe(0x20)
   })
 
-  it('carries non-ASCII text by byte offsets', () => {
+  it('carries non-ASCII text by byte offsets', async () => {
     const s: CombinedSection[] = [
       { mode: 'ferry', json: doc(1, 2, 'é→'), seq: 1 },
       { mode: 'tram', json: doc(1, 1, '🚋'), seq: 1 },
     ]
     expect(
-      decodeCombined(encodeCombined({ ...head, seq: 1 }, s))
-        ?.docs.map((d) => d.json)
-        .sort(),
+      (await decodeCombined(encodeCombined({ ...head, seq: 1 }, s)))?.docs.map((d) => d.json).sort(),
     ).toEqual(s.map((d) => d.json).sort())
   })
 
-  it('rejects an index that disagrees with the object, and sections outside it', () => {
+  it('rejects an index that disagrees with the object, and sections outside it', async () => {
     const bytes = encodeCombined(head, sections())
     expect(parseIndex(bytes, bytes.byteLength + 1)).toBeNull()
-    expect(decodeCombined(bytes.subarray(0, bytes.byteLength - 10))).toBeNull()
+    expect(await decodeCombined(bytes.subarray(0, bytes.byteLength - 10))).toBeNull()
     const bad = JSON.parse(new TextDecoder().decode(bytes.subarray(0, INDEX_BYTES)))
     bad.sections.ferry[1] = bytes.byteLength
     const forged = bytes.slice()
@@ -90,13 +89,13 @@ describe('combined mode object format', () => {
     expect(parseIndex(new TextEncoder().encode('not json'.padEnd(INDEX_BYTES)), INDEX_BYTES)).toBeNull()
   })
 
-  it('a garbled section fails its seq check rather than parse as another document', () => {
+  it('a garbled section fails its seq check rather than parse as another document', async () => {
     const bytes = encodeCombined(head, sections())
     const index = parseIndex(bytes, bytes.byteLength)
     const [off] = index?.sections.ferry ?? [0]
     const garbled = bytes.slice()
     garbled.set(new TextEncoder().encode('{"header":{"schemaVersion":1,"seq":9'), off)
-    expect(decodeCombined(garbled)).toBeNull()
+    expect(await decodeCombined(garbled)).toBeNull()
   })
 })
 
@@ -364,5 +363,158 @@ describe('combined object reads (pullFromR2)', () => {
     )
     const back = await Promise.all(modes.map((m) => pullFromR2(d, null, m, NOW)))
     expect(back.map((r) => r.seq)).toEqual([9, 9, 9, 9, 9, 9])
+  })
+})
+
+describe('compressed sections and documents (RT_R2_COMPRESS=gzip)', () => {
+  const gz = (json: string) => new Uint8Array(gzipSync(json))
+  const gzSections = () => sections().map((x) => ({ mode: x.mode, seq: x.seq, bytes: gz(x.json) }))
+  const enc = (v: unknown) => new TextEncoder().encode(typeof v === 'string' ? v : JSON.stringify(v))
+  const docsPointer = (seq: number, files: Record<string, { key: string; seq: number }>) => ({
+    seq,
+    files,
+    fetchedAt: NOW,
+    status: { seq, sourceTimestamp: head.sourceTimestamp, fetchedAt: NOW - 1000, generations: {} },
+  })
+
+  it('round trips gzip sections, smallest (compressed) first, with the index still plain', async () => {
+    const plain = encodeCombined(head, sections())
+    const bytes = encodeCombined(head, gzSections())
+    const got = await decodeCombined(bytes)
+    for (const x of sections()) expect(got?.docs.find((d) => d.mode === x.mode)).toEqual(x)
+    expect(JSON.parse(new TextDecoder().decode(bytes.subarray(0, INDEX_BYTES))).seq).toBe(7)
+    // Sizes: the bus section and the whole object shrink several times over; ferry still comes first.
+    const idx = parseIndex(bytes, bytes.byteLength)
+    const plainIdx = parseIndex(plain, plain.byteLength)
+    expect(idx?.sections.ferry?.[0]).toBe(INDEX_BYTES)
+    expect((idx?.sections.bus?.[1] as number) * 5).toBeLessThan(plainIdx?.sections.bus?.[1] as number)
+    expect((bytes.byteLength - INDEX_BYTES) * 5).toBeLessThan(plain.byteLength - INDEX_BYTES)
+  })
+
+  it('reads an object mixing plain and gzip sections (an unchanged section carried over a switch)', async () => {
+    resetRangeHints()
+    const mixed = encodeCombined(
+      head,
+      sections().map((x) => (x.mode === 'ferry' ? x : { mode: x.mode, seq: x.seq, bytes: gz(x.json) })),
+    )
+    const src = new MemoryDataSource(files(mixed))
+    for (const x of sections()) {
+      expect(await pullFromR2(src, null, x.mode, NOW)).toMatchObject({ seq: x.seq, json: x.json })
+    }
+    // And without ranged reads.
+    const plain = { kind: 'memory' as const, get: (k: string) => src.get(k) }
+    expect(await pullFromR2(plain, null, 'bus', NOW)).toMatchObject({ seq: 7, json: doc(7, 400) })
+  })
+
+  it('a cold bus read fetches several times fewer bytes', async () => {
+    const fetched = async (object: Uint8Array) => {
+      resetRangeHints()
+      const src = new MemoryDataSource(files(object))
+      let bytes = 0
+      const realRange = src.getRange.bind(src)
+      src.getRange = async (key: string, offset: number, length: number, etag?: string) => {
+        const r = await realRange(key, offset, length, etag)
+        if (r && r !== 'changed') bytes += r.bytes.byteLength
+        return r
+      }
+      expect(await pullFromR2(src, null, 'bus', NOW)).toMatchObject({ seq: 7, json: doc(7, 400) })
+      return bytes
+    }
+    const plain = await fetched(encodeCombined(head, sections()))
+    const compressed = await fetched(encodeCombined(head, gzSections()))
+    expect(compressed * 4).toBeLessThan(plain)
+  })
+
+  for (const damage of ['corrupt', 'truncated'] as const) {
+    it(`a ${damage} gzip section fails safe: retried, then an error; the client keeps its copy, stale`, async () => {
+      resetRangeHints()
+      const good = encodeCombined(head, gzSections())
+      // The index stays consistent (sizes, ranges): only the section's gzip stream is bad.
+      const bad =
+        damage === 'truncated'
+          ? encodeCombined(
+              head,
+              gzSections().map((x) => (x.mode === 'bus' ? { ...x, bytes: x.bytes.slice(0, -12) } : x)),
+            )
+          : (() => {
+              const b = good.slice()
+              const [off, len] = parseIndex(b, b.byteLength)?.sections.bus ?? [0, 0]
+              b.fill(0x55, off + 20, off + Math.min(len - 8, 60))
+              return b
+            })()
+      expect(parseIndex(bad, bad.byteLength)).not.toBeNull()
+      await expect(pullFromR2(new MemoryDataSource(files(bad)), null, 'bus', NOW)).rejects.toThrow(
+        /inconsistent/,
+      )
+      // The other modes' sections are untouched and still read.
+      expect(await pullFromR2(new MemoryDataSource(files(bad)), null, 'ferry', NOW)).toMatchObject({ seq: 5 })
+      let t = NOW
+      const src = new MemoryDataSource(files(good))
+      const client = new SnapshotClient(
+        { pull: (q, sc) => pullFromR2(src, q, sc, t), getRaw: async () => null },
+        () => t,
+        () => {},
+        null,
+        'bus',
+        60_000,
+      )
+      expect((await client.get())?.seq).toBe(7)
+      src.files.set(COMBINED_KEY, bad)
+      src.files.set(R2_LATEST_KEY, pointer(7))
+      t += 70_000
+      const kept = await client.get()
+      expect(kept?.seq).toBe(7)
+      expect(client.expired).toBe(true)
+    })
+  }
+
+  it('per-mode documents: gzip and plain read the same; a corrupt gzip document fails safe (stale)', async () => {
+    resetRangeHints()
+    const json = doc(9, 50)
+    const key = 'rt/bus/latest.json'
+    const ptr = enc(docsPointer(9, { bus: { key, seq: 9 } }))
+    const plainSrc = new MemoryDataSource(
+      new Map([
+        [key, enc(json)],
+        [R2_LATEST_KEY, ptr],
+      ]),
+    )
+    const gzSrc = new MemoryDataSource(
+      new Map([
+        [key, gz(json)],
+        [R2_LATEST_KEY, ptr],
+      ]),
+    )
+    expect(await pullFromR2(plainSrc, null, 'bus', NOW)).toMatchObject({ seq: 9, json })
+    expect(await pullFromR2(gzSrc, null, 'bus', NOW)).toMatchObject({ seq: 9, json })
+    // One GET either way while fresh.
+    expect(gzSrc.reads).toEqual([key])
+    let t = NOW
+    const client = new SnapshotClient(
+      { pull: (q, sc) => pullFromR2(gzSrc, q, sc, t), getRaw: async () => null },
+      () => t,
+      () => {},
+      null,
+      'bus',
+      60_000,
+    )
+    expect((await client.get())?.seq).toBe(9)
+    gzSrc.files.set(key, gz(doc(10, 50)).slice(0, -20))
+    t += 70_000
+    const kept = await client.get()
+    expect(kept?.seq).toBe(9)
+    expect(client.expired).toBe(true)
+  })
+
+  it('a corrupt abandoned gzip per-mode document never blocks the combined object the pointer names', async () => {
+    resetRangeHints()
+    const src = new MemoryDataSource(
+      new Map([
+        ['rt/ferry/latest.json', gz(doc(3, 2)).slice(0, -20)],
+        [COMBINED_KEY, encodeCombined(head, gzSections())],
+        [R2_LATEST_KEY, pointer()],
+      ]),
+    )
+    expect(await pullFromR2(src, null, 'ferry', NOW)).toMatchObject({ seq: 5, json: doc(5, 3) })
   })
 })
