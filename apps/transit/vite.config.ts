@@ -15,10 +15,12 @@ function noMapOnServer(): Plugin {
     name: 'bft:no-map-on-server',
     enforce: 'pre',
     applyToEnvironment: (env) => env.name === 'ssr',
-    resolveId: (id) => (id === '@bft/ui/map' ? stub : null),
+    resolveId: (id) => (id === '@bft/ui/map' || id === '@bft/ui/stop-picker-map' ? stub : null),
     load: (id) =>
       id === stub
-        ? 'export default function MapView() { return null }\nexport const BASEMAP_STYLE_URL = ""'
+        ? 'export default function MapView() { return null }\nexport const BASEMAP_STYLE_URL = ""\n' +
+          // The map stop picker (@bft/ui/stop-picker-map) imports MapView by path, so it is stubbed whole.
+          'export const toCardDepartures = () => []\nexport const useWide = () => false'
         : null,
   }
 }
@@ -26,7 +28,8 @@ function noMapOnServer(): Plugin {
 /**
  * A lazy import's preload list sits in the importing chunk, so on its page's first load. Leave out the chunks the
  * importer already imports statically, directly or not: they have loaded before the import can run, so preloading
- * them again does nothing. The bus search's Routes group (RouteResults, loaded on a keystroke) gets no list at all.
+ * them again does nothing. The bus search's Routes group (RouteResults, loaded on a keystroke) and map picker (BusStopPicker, on
+ * the Map button) get no list at all.
  * Vite calls resolveDependencies from its own generateBundle, after this plugin's (enforce: 'pre') has kept the bundle.
  */
 let clientBundle: Rolldown.OutputBundle | null = null
@@ -55,7 +58,7 @@ function loadedWith(host: string, bundle: Rolldown.OutputBundle): Set<string> {
   return seen
 }
 const resolveDependencies: ResolveModulePreloadDependenciesFn = (file, deps, { hostId }) => {
-  if (/RouteResults-[\w-]+\.js$/.test(file)) return []
+  if (/(RouteResults|BusStopPicker)-[\w-]+\.js$/.test(file)) return []
   if (!clientBundle) return deps
   const loaded = loadedWith(hostId, clientBundle)
   return deps.filter((d) => !loaded.has(d))
@@ -96,12 +99,16 @@ export default defineConfig({
                 },
                 {
                   name: 'ui',
-                  // demo-cleanup is loaded on demand: off every page's first load.
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|demo-cleanup|bus\.tsx)/,
+                  // demo-cleanup is loaded on demand: off every page's first load. The map stop picker (P3) is lazy, and
+                  // its Map button is only on the stop searches (below).
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|bus\.tsx)/,
                 },
                 // The bus boards' elements (@bft/ui/bus) that only the Bus pages load. After 'ui', so the modules they
                 // share stay there.
                 { name: 'ui-bus', test: /packages[\\/]ui[\\/]src[\\/]bus\.tsx$/ },
+                // The Map button beside the stop searches (P3): its own small chunk, so the other modes' searches don't
+                // load the bus elements for it.
+                { name: 'ui-map-toggle', test: /packages[\\/]ui[\\/]src[\\/](MapToggle\.tsx|map-pref\.ts)$/ },
               ],
             },
           },
