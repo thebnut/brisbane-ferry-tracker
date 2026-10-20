@@ -6,10 +6,12 @@
 import { Icon, useGeolocation } from '@bft/ui'
 import { SegmentedControl } from '@bft/ui/bus'
 import type { ViewBounds } from '@bft/ui/map'
-import { lazy, Suspense, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
+import SafeMap from '@bft/ui/safe-map'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ClientOnly } from '../components/ClientOnly.tsx'
 import { BusNav, DesktopNav, SiteHeader } from '../components/Shell.tsx'
+import { at } from '../lib/base.ts'
 import { cellsCovering, positionFromParams } from '../lib/geo.ts'
 import { useGeoTiles } from '../lib/geo-queries.ts'
 import { useApi } from '../lib/mode.ts'
@@ -18,8 +20,6 @@ import { pageMeta, SITE_URL } from '../lib/seo.ts'
 import { stopHref } from '../lib/stops.ts'
 import { useSavedStops } from '../lib/storage.ts'
 import type { Route } from './+types/map'
-
-const MapView = lazy(() => import('@bft/ui/map'))
 
 export const meta: Route.MetaFunction = () =>
   pageMeta({
@@ -98,20 +98,29 @@ export default function MapPage() {
         <h1 className="sr-only">Bus stop map</h1>
         <ClientOnly fallback={<div className="h-full w-full animate-pulse bg-map-ground" />}>
           {() => (
-            <Suspense fallback={<div className="h-full w-full animate-pulse bg-map-ground" />}>
-              <MapView
-                key={geo.state === 'ok' ? 'located' : 'default'}
-                markers={me}
-                stops={stops}
-                onStopClick={(id) => navigate(stopHref(id))}
-                onViewChange={onView}
-                center={center}
-                zoom={15}
-                fitTo={[]}
-                label={`Map of ${stops.length} bus stops`}
-                className="h-full w-full bg-map-ground"
-              />
-            </Suspense>
+            <SafeMap
+              key={geo.state === 'ok' ? 'located' : 'default'}
+              markers={me}
+              stops={stops}
+              onStopClick={(id) => navigate(stopHref(id))}
+              onViewChange={onView}
+              center={center}
+              zoom={15}
+              fitTo={[]}
+              label={`Map of ${stops.length} bus stops`}
+              className="h-full w-full bg-map-ground"
+              loading={<div className="h-full w-full animate-pulse bg-map-ground" />}
+              unavailable={
+                <p className="mt-2 flex gap-4 text-sm font-semibold">
+                  <Link to={at('/nearby')} className="text-aqua-text underline">
+                    Stops near you
+                  </Link>
+                  <Link to={at('/')} className="text-aqua-text underline">
+                    Search stops
+                  </Link>
+                </p>
+              }
+            />
           )}
         </ClientOnly>
         {scope === 'near' && zoomedOut ? (

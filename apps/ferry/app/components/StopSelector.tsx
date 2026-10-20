@@ -3,8 +3,9 @@
  * "Remember selection". Loaded lazily (Ark UI combobox) on first visit or from Settings.
  */
 import { BottomSheet, PrimaryButton, SecondaryButton } from '@bft/ui'
+import SafeMap from '@bft/ui/safe-map'
 import { StopSearch } from '@bft/ui/stop-search'
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { savePair } from '../lib/save-pair.ts'
 import { readRemember } from '../lib/storage.ts'
 import {
@@ -15,8 +16,6 @@ import {
   terminalById,
   validDestinations,
 } from '../lib/terminals.ts'
-
-const MapView = lazy(() => import('@bft/ui/map'))
 
 export interface StopSelectorProps {
   initial: StopPair
@@ -112,13 +111,12 @@ export default function StopSelector({ initial, onSave, onClose }: StopSelectorP
         />
         {mapToggle('destination')}
         {mapFor ? (
-          <Suspense fallback={<div className="h-64 rounded-card bg-map-ground" />}>
-            <MapView
-              markers={mapMarkers}
-              label={`Map of ferry terminals: choose the ${mapFor}`}
-              className="h-64 w-full overflow-hidden rounded-card bg-map-ground"
-            />
-          </Suspense>
+          <SafeMap
+            markers={mapMarkers}
+            label={`Map of ferry terminals: choose the ${mapFor}`}
+            className="h-64 w-full overflow-hidden rounded-card bg-map-ground"
+            loading={<div className="h-64 rounded-card bg-map-ground" />}
+          />
         ) : null}
         {destinations.length === 0 ? (
           <p className="text-sm text-cancel-text">No direct ferries from this terminal.</p>

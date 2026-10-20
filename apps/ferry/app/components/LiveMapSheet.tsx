@@ -4,7 +4,8 @@
  */
 import type { Departure } from '@bft/core/contract'
 import { BottomSheet, vesselName } from '@bft/ui'
-import MapView, { type MapMarker } from '@bft/ui/map'
+import type { MapMarker } from '@bft/ui/map'
+import SafeMap from '@bft/ui/safe-map'
 import { useMemo } from 'react'
 import type { ApiFetcher } from '../lib/api.ts'
 import { cleanStopName } from '../lib/names.ts'
@@ -75,7 +76,7 @@ export default function LiveMapSheet({
         </p>
       }
     >
-      <MapView
+      <SafeMap
         markers={markers}
         fitTo={[pair.outbound.id, pair.inbound.id]}
         label="Map of live ferry positions"

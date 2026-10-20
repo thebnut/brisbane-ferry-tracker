@@ -6,7 +6,8 @@
 import type { Vehicle } from '@bft/core/contract'
 import { LineChip, StatusBadge } from '@bft/ui'
 import type { MapMarker } from '@bft/ui/map'
-import { lazy, Suspense, useMemo, useState } from 'react'
+import SafeMap from '@bft/ui/safe-map'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { Shell } from '../components/Chrome.tsx'
 import { at } from '../lib/base.ts'
@@ -19,9 +20,6 @@ import { getEnv, isFixtureMode, siteInfo } from '../lib/server.server.ts'
 import { vehicleStatusText } from '../lib/trip.ts'
 import { useMounted } from '../lib/useNow.ts'
 import type { Route } from './+types/map'
-
-// Client-only: the map never renders on the server, and keeping MapLibre out of the Worker bundle keeps it small.
-const MapView = lazy(() => (import.meta.env.SSR ? new Promise<never>(() => {}) : import('@bft/ui/map')))
 
 export function loader({ request, context }: Route.LoaderArgs) {
   const env = getEnv(context)
@@ -142,14 +140,21 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
     <Shell active="map">
       <div className="relative mx-auto max-w-6xl">
         {mounted ? (
-          <Suspense fallback={placeholder}>
-            <MapView
-              markers={markers}
-              fitTo={fitTo}
-              label={`Map of ${vehicles.length} live trains${station ? ` near ${centre.name}` : ''}`}
-              className="h-[70dvh] w-full overflow-hidden rounded-card bg-map-ground"
-            />
-          </Suspense>
+          <SafeMap
+            markers={markers}
+            fitTo={fitTo}
+            label={`Map of ${vehicles.length} live trains${station ? ` near ${centre.name}` : ''}`}
+            className="h-[70dvh] w-full overflow-hidden rounded-card bg-map-ground"
+            loading={placeholder}
+            unavailable={
+              <Link
+                to={at('/stations')}
+                className="mt-2 text-sm font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
+              >
+                See every station's departures
+              </Link>
+            }
+          />
         ) : (
           placeholder
         )}

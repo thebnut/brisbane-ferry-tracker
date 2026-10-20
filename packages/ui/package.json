@@ -11,6 +11,7 @@
     "./demo": "./src/demo.tsx",
     "./bus": "./src/bus.tsx",
     "./map": "./src/map/MapView.tsx",
+    "./safe-map": "./src/map/SafeMap.tsx",
     "./stop-search": "./src/StopSearch.tsx",
     "./theme.css": "./src/theme.css",
     "./assets/*": "./assets/*",
