@@ -31,7 +31,7 @@ test('Map → a stop → its card → Save → Open; the Map button is remembere
   if (!isMobile) await page.locator('#stop-search-desktop').fill('cultural centre')
   await toggle.click()
 
-  const picker = page.getByRole('region', { name: 'Bus stops map' })
+  const picker = page.getByLabel('Bus stops map', { exact: true })
   await expect(picker).toBeVisible()
   const box = await picker.boundingBox()
   const viewport = page.viewportSize()
@@ -91,7 +91,7 @@ test('a tap on a stop pin opens its card; Escape and Close step back; closing fo
 }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true').click()
-  const picker = page.getByRole('region', { name: 'Bus stops map' })
+  const picker = page.getByLabel('Bus stops map', { exact: true })
   await picker.getByRole('button', { name: /Stops in view \([1-9]\d*\)/ }).click({ timeout: 20_000 })
   await picker.getByRole('list', { name: 'Bus stops in view' }).getByRole('button').first().click()
   const card = picker.locator('[data-stop-card]')
@@ -120,7 +120,7 @@ test.describe(() => {
     await page.route(/\/data\/bus\/geo\//, (r) => r.abort())
     await page.goto('/')
     await page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true').click()
-    const picker = page.getByRole('region', { name: 'Bus stops map' })
+    const picker = page.getByLabel('Bus stops map', { exact: true })
     await expect(picker.getByRole('status')).toHaveText(/Map data unavailable/, { timeout: 20_000 })
     await expect(picker.locator('canvas')).toBeVisible()
   })
@@ -143,7 +143,7 @@ test('without WebGL the picker says the map is unavailable and the search keeps 
   })
   await page.goto('/')
   await page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true').click()
-  const picker = page.getByRole('region', { name: 'Bus stops map' })
+  const picker = page.getByLabel('Bus stops map', { exact: true })
   await expect(picker.getByRole('status')).toContainText('Map unavailable on this device')
   await picker.getByRole('button', { name: 'Close the stop map' }).click()
   await expect(picker).toHaveCount(0)
@@ -165,7 +165,7 @@ test('keyboard: focus moves into the picker, Escape steps back through list, car
   const toggle = page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true')
   await toggle.focus()
   await page.keyboard.press('Enter')
-  const picker = page.getByRole('region', { name: 'Bus stops map' })
+  const picker = page.getByLabel('Bus stops map', { exact: true })
   await expect(picker.getByRole('button', { name: 'Close the stop map' })).toBeFocused()
   const listButton = picker.getByRole('button', { name: /Stops in view \([1-9]\d*\)/ })
   await expect(listButton).toBeVisible({ timeout: 20_000 })
@@ -187,6 +187,36 @@ test('keyboard: focus moves into the picker, Escape steps back through list, car
   await page.keyboard.press('Escape')
   await expect(picker).toHaveCount(0)
   await expect(toggle).toBeFocused()
+})
+
+test('phones: the full-screen picker is a modal dialog; Tab stays inside, the page behind is inert', async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true').click()
+  const label = { name: 'Bus stops map' }
+  if (!isMobile) {
+    // Desktop: beside the list, not modal.
+    await expect(page.getByRole('region', label)).toBeVisible()
+    await expect(page.getByRole('dialog', label)).toHaveCount(0)
+    return
+  }
+  const picker = page.getByRole('dialog', label)
+  await expect(picker).toHaveAttribute('aria-modal', 'true')
+  await expect(page.locator('#stop-search')).not.toBeFocused()
+  for (let i = 0; i < 12; i++) {
+    await page.keyboard.press(i % 3 === 2 ? 'Shift+Tab' : 'Tab')
+    expect(await picker.evaluate((el) => el.contains(document.activeElement))).toBe(true)
+  }
+  await page.keyboard.press('Escape')
+  await expect(picker).toHaveCount(0)
+  // The page is usable again once it closes.
+  expect(await page.locator('[inert]').count()).toBe(0)
+  await page.locator('#stop-search').fill('cultural')
+  await expect(page.getByRole('list', { name: 'Matching stops' }).locator('visible=true')).toContainText(
+    'Cultural',
+  )
 })
 
 test.describe(() => {
@@ -214,7 +244,7 @@ test.describe(() => {
     })
     await page.goto('/')
     await page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true').click()
-    const picker = page.getByRole('region', { name: 'Bus stops map' })
+    const picker = page.getByLabel('Bus stops map', { exact: true })
     const listButton = picker.getByRole('button', { name: /Stops in view \([1-9]\d*\)/ })
     const stops = picker
       .getByRole('list', { name: 'Bus stops in view' })

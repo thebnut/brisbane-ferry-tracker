@@ -12,7 +12,7 @@ test('Bus tab: Map → Cultural Centre → Save shows in My Transit → Open sta
   await context.setGeolocation({ latitude: -27.4732, longitude: 153.0195 })
   await page.goto('/bus')
   await page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true').click()
-  const picker = page.getByRole('region', { name: 'Bus stops map' })
+  const picker = page.getByLabel('Bus stops map', { exact: true })
   await picker.getByRole('button', { name: /Stops in view \([1-9]\d*\)/ }).click({ timeout: 20_000 })
   const stop = picker
     .getByRole('list', { name: 'Bus stops in view' })

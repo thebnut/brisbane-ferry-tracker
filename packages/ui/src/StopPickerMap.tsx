@@ -10,6 +10,7 @@
 import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl'
 import {
   Component,
+  type KeyboardEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -97,6 +98,28 @@ export class MapBoundary extends Component<
   }
   render() {
     return this.state.failed ? this.props.fallback : this.props.children
+  }
+}
+
+/**
+ * Tab and Shift+Tab wrap inside the modal picker (as BottomSheet's wrapTabFocus; not imported from there, because a new
+ * export from the shared chunk would grow every page's first load).
+ */
+function wrapTab(e: KeyboardEvent<HTMLElement>) {
+  const items = [
+    ...e.currentTarget.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ].filter((el) => el.getClientRects().length > 0)
+  const first = items[0]
+  const last = items[items.length - 1]
+  if (!first || !last) return
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault()
+    first.focus()
   }
 }
 
@@ -233,6 +256,25 @@ export default function StopPickerMap({
   const [webgl] = useState(supportsWebGL)
   const map = useRef<MlMap | null>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+  const sectionRef = useRef<HTMLElement>(null)
+  // On phones the picker covers the page: a modal dialog, with the page behind it inert (Codex review). On desktop it
+  // sits beside the list, and a caller's own layout (the ferry selector's sheet) is already modal.
+  const wide = useWide()
+  const modal = !className && !wide
+  useEffect(() => {
+    const root = sectionRef.current
+    if (!modal || !root) return
+    const made: Element[] = []
+    for (let el: Element | null = root; el?.parentElement && el !== document.body; el = el.parentElement)
+      for (const sib of el.parentElement.children)
+        if (sib !== el && !sib.hasAttribute('inert')) {
+          sib.setAttribute('inert', '')
+          made.push(sib)
+        }
+    return () => {
+      for (const sib of made) sib.removeAttribute('inert')
+    }
+  }, [modal])
   const cardRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLButtonElement>(null)
   /** Closing the card keeps focus in the picker (on the list button), so Escape and Tab still work there. */
@@ -318,9 +360,13 @@ export default function StopPickerMap({
 
   return (
     <section
+      ref={sectionRef}
       aria-label={`${title} map`}
+      // A dialog on phones (covers the page), a region beside the list on desktop.
+      {...(modal ? { role: 'dialog', 'aria-modal': true } : {})}
       data-stop-picker=""
       onKeyDown={(e) => {
+        if (modal && e.key === 'Tab') return wrapTab(e)
         if (e.key !== 'Escape') return
         // Inside a modal sheet (ferry), Escape steps back in the picker instead of closing the sheet.
         e.preventDefault()
