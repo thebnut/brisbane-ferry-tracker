@@ -301,6 +301,67 @@ describe('failures never lose or resurrect a favourite (Codex r2)', () => {
   })
 })
 
+describe('Codex r3: the ledger first, cookies restored as they were', () => {
+  it('a stop already here whose record can’t be written: nothing done, counted as left, recorded next time', async () => {
+    localStorage.setItem('bft-bus-saved', JSON.stringify([BUS_A]))
+    const { imp } = await modules()
+    const real = Storage.prototype.setItem
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k, v) {
+      if (k === 'bft-handoff-imported') throw new Error('QuotaExceededError')
+      real.call(this, k, v)
+    })
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A, BUS_B] })).toEqual({ ...none, left: 2 })
+    set.mockRestore()
+    expect(JSON.parse(localStorage.getItem('bft-bus-saved') ?? '')).toEqual([BUS_A])
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A, BUS_B] })).toEqual({ ...none, added: 1 })
+    expect(ledger()).toEqual(['bus:10802', 'bus:1832'])
+  })
+
+  it('a store write that fails takes its items out of the ledger again (tried next time)', async () => {
+    const { imp, bus } = await modules()
+    const real = Storage.prototype.setItem
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k, v) {
+      if (k === 'bft-bus-saved') throw new Error('QuotaExceededError')
+      real.call(this, k, v)
+    })
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toEqual({ ...none, left: 1 })
+    set.mockRestore()
+    expect(ledger()).toEqual([])
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toEqual({ ...none, added: 1 })
+    expect(bus.readSaved()).toEqual([BUS_A])
+  })
+
+  it('a failed "Use it" restores a session-only pair’s cookie as a session cookie', async () => {
+    const mine = { outbound: { id: '317590', name: 'Riverside' }, inbound: { id: '317584', name: 'Bulimba' } }
+    sessionStorage.setItem('brisbane-ferry-selected-stops-session', JSON.stringify(mine))
+    // biome-ignore lint/suspicious/noDocumentCookie: the session-only pair cookie the ferry app sets.
+    document.cookie = 'bft_pair=317590.317584; path=/; samesite=lax'
+    const { imp, ferry } = await modules()
+    const writes: string[] = []
+    const desc = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie')
+    const cookie = vi.spyOn(Document.prototype, 'cookie', 'set').mockImplementation(function (
+      this: Document,
+      v,
+    ) {
+      writes.push(v)
+      desc?.set?.call(this, v)
+    })
+    const real = Storage.prototype.setItem
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k, v) {
+      if (k === 'brisbane-ferry-selector-seen') throw new Error('QuotaExceededError')
+      real.call(this, k, v)
+    })
+    expect(imp.useHandedPair({ pair: PAIR, remember: true })).toBe(false)
+    set.mockRestore()
+    cookie.mockRestore()
+    expect(ferry.readSavedPair()).toEqual(mine)
+    expect(localStorage.getItem('brisbane-ferry-selected-stops')).toBeNull()
+    expect(cookies().bft_pair).toBe('317590.317584')
+    expect(writes.at(-1)).toBe('bft_pair=317590.317584; path=/; samesite=lax')
+    expect(ledger()).toEqual([])
+  })
+})
+
 describe('noticeText', () => {
   it('says what moved, what was left and why, and asks about a ferry conflict', async () => {
     const { imp } = await modules()

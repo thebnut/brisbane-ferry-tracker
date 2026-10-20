@@ -112,7 +112,7 @@ export function saveFerryPair(p: FerryHandoff): void {
   const pair = ferryPair(p)
   if (!pair) return
   const f = STORES.ferry
-  // The new pair is written before the old one is removed, so a failed write leaves a pair (see withRollback).
+  // The new pair is written before the old one is removed, so a failed write leaves a pair (see storeWithRollback).
   if (p.remember) {
     localStorage.setItem(f.pair, JSON.stringify(pair))
     localStorage.setItem(f.remember, 'true')
@@ -151,30 +151,41 @@ function addToLedger(keys: string[]): void {
   localStorage.setItem(LEDGER_KEY, JSON.stringify([...had, ...keys.filter((k) => !had.includes(k))]))
 }
 
-/** The current values of some storage keys and cookies, and a function that puts them back. */
-function snapshot(keys: [Storage, string][], cookies: string[]): () => void {
+function removeFromLedger(keys: string[]): void {
+  localStorage.setItem(LEDGER_KEY, JSON.stringify(readLedger().filter((k) => !keys.includes(k))))
+}
+
+/** A cookie a store writes, and whether it outlives the session (the ferry pair's only when remembered). */
+type CookieSpec = [name: string, persistent: boolean]
+
+/** The current values of some storage keys and cookies, and a function that puts them back as they were. */
+function snapshot(keys: [Storage, string][], cookies: CookieSpec[]): () => void {
   const values = keys.map(([store, key]) => store.getItem(key))
-  const jar = cookies.map((name) => document.cookie.split('; ').find((c) => c.startsWith(`${name}=`)) ?? null)
+  const jar = cookies.map(
+    ([name]) => document.cookie.split('; ').find((c) => c.startsWith(`${name}=`)) ?? null,
+  )
   return () => {
     keys.forEach(([store, key], i) => {
       const v = values[i]
       if (v == null) store.removeItem(key)
       else store.setItem(key, v)
     })
-    for (const [i, name] of cookies.entries()) {
+    for (const [i, [name, persistent]] of cookies.entries()) {
       const was = jar[i]
-      setCookie(was ? `${was}; path=/; samesite=lax; ${YEAR}` : `${name}=; path=/; max-age=0`)
+      setCookie(
+        was ? `${was}; path=/; samesite=lax${persistent ? `; ${YEAR}` : ''}` : `${name}=; path=/; max-age=0`,
+      )
     }
   }
 }
 
 /**
- * Writes a store and records `keys` in the ledger as one step: if either throws, the store is put back as it was, so
- * nothing is stored without its record (a stop stored but unrecorded would come back after a removal).
+ * Writes a store whose items are already in the ledger. If the write throws, the store (and its cookie) is put back as
+ * it was and the items leave the ledger again, so they are tried next time.
  */
-function withRollback(
+function storeWithRollback(
   keys: [Storage, string][],
-  cookies: string[],
+  cookies: CookieSpec[],
   write: () => void,
   record: string[],
 ): boolean {
@@ -182,11 +193,11 @@ function withRollback(
   try {
     restore = snapshot(keys, cookies)
     write()
-    addToLedger(record)
     return true
   } catch {
     try {
       restore?.()
+      removeFromLedger(record)
     } catch {
       // Storage refuses even the old values: nothing more can be done here.
     }
@@ -194,6 +205,10 @@ function withRollback(
   }
 }
 
+/** The ferry pair's cookie lasts a year only while the pair is remembered (ferry save-pair.ts). */
+const FERRY_COOKIES = (): CookieSpec[] => [
+  [STORES.ferry.cookie, localStorage.getItem(STORES.ferry.remember) === 'true'],
+]
 const FERRY_KEYS = (): [Storage, string][] => [
   [localStorage, STORES.ferry.pair],
   [localStorage, STORES.ferry.remember],
@@ -214,65 +229,92 @@ const ferryKey = (p: FerryHandoff) => `ferry:${p.pair.outbound.id}>${p.pair.inbo
 const trainKey = (f: Favourite) => `train:${f.from}>${f.to ?? ''}`
 const busKey = (s: HandoffStop) => `bus:${s.id}`
 
-/** Merges a validated payload into this origin's stores, without duplicates and never replacing what is here. */
+/**
+ * Merges a validated payload into this origin's stores, without duplicates and never replacing what is here. The ledger
+ * is written first, for every incoming item that is here or about to be stored: if it can't be written, nothing is
+ * stored and everything is left for next time (an item stored or found here but unrecorded could come back after
+ * the visitor removes it).
+ */
 export function mergeHandoff(p: HandoffPayload): MergeResult {
   const result: MergeResult = { added: 0, left: 0, ferryConflict: null }
   const ledger = new Set(readLedger())
-  // Already saved here: just recorded (best effort; unrecorded, they are found saved again next time).
-  const known = (keys: string[]) => {
-    try {
-      addToLedger(keys)
-    } catch {
-      // Unrecorded: found already saved again next time.
-    }
-  }
-  const store = (items: string[], keys: [Storage, string][], cookies: string[], write: () => void) => {
-    if (items.length === 0) return
-    if (withRollback(keys, cookies, write, items)) result.added += items.length
-    else result.left += items.length
-  }
+  const present: string[] = []
+  const writes: { items: string[]; keys: [Storage, string][]; cookies: CookieSpec[]; write: () => void }[] =
+    []
 
   if (p.ferry && !ledger.has(ferryKey(p.ferry))) {
     const ferry = p.ferry
     const here = ferryPairKey()
     const pair = ferryPair(ferry)
-    // Not a real route: nothing to store or offer.
-    if (!pair || here === `${pair.outbound.id}>${pair.inbound.id}`) known([ferryKey(ferry)])
+    // Not a real route (nothing to store or offer), or already here.
+    if (!pair || here === `${pair.outbound.id}>${pair.inbound.id}`) present.push(ferryKey(ferry))
     else if (here) {
       // Ask rather than replace.
       result.left += 1
       result.ferryConflict = ferry
-    } else store([ferryKey(ferry)], FERRY_KEYS(), [STORES.ferry.cookie], () => saveFerryPair(ferry))
+    } else
+      writes.push({
+        items: [ferryKey(ferry)],
+        keys: FERRY_KEYS(),
+        cookies: FERRY_COOKIES(),
+        write: () => saveFerryPair(ferry),
+      })
   }
 
   if (p.train) {
     const had = readTrain()
     const incoming = p.train.filter((f, i) => p.train?.findIndex((x) => sameFavourite(x, f)) === i)
-    known(incoming.filter((f) => had.some((x) => sameFavourite(x, f))).map(trainKey))
+    present.push(...incoming.filter((f) => had.some((x) => sameFavourite(x, f))).map(trainKey))
     const fresh = incoming.filter((f) => !ledger.has(trainKey(f)) && !had.some((x) => sameFavourite(x, f)))
     // The cap (MAX_FAVOURITES) holds: this device's own favourites stay; what doesn't fit is left for next time.
     const fits = fresh.slice(0, Math.max(0, STORES.train.max - had.length))
     result.left += fresh.length - fits.length
-    store(fits.map(trainKey), [[localStorage, STORES.train.key]], [STORES.train.cookie], () =>
-      writeTrain([...had, ...fits]),
-    )
+    if (fits.length)
+      writes.push({
+        items: fits.map(trainKey),
+        keys: [[localStorage, STORES.train.key]],
+        cookies: [[STORES.train.cookie, true]],
+        write: () => writeTrain([...had, ...fits]),
+      })
   }
 
   if (p.bus) {
     const had = readBusSaved()
     const incoming = p.bus.filter((s, i) => p.bus?.findIndex((x) => x.id === s.id) === i)
-    known(incoming.filter((s) => had.some((x) => x.id === s.id)).map(busKey))
+    present.push(...incoming.filter((s) => had.some((x) => x.id === s.id)).map(busKey))
     const fresh = incoming.filter((s) => !ledger.has(busKey(s)) && !had.some((x) => x.id === s.id))
-    store(fresh.map(busKey), [[localStorage, STORES.bus.key]], [STORES.bus.cookie], () =>
-      writeBusSaved([...had, ...fresh]),
-    )
+    if (fresh.length)
+      writes.push({
+        items: fresh.map(busKey),
+        keys: [[localStorage, STORES.bus.key]],
+        cookies: [[STORES.bus.cookie, true]],
+        write: () => writeBusSaved([...had, ...fresh]),
+      })
+  }
+
+  const pending = writes.reduce((n, w) => n + w.items.length, 0)
+  try {
+    addToLedger([...present, ...writes.flatMap((w) => w.items)])
+  } catch {
+    result.left += pending + present.filter((k) => !ledger.has(k)).length
+    return result
+  }
+  for (const w of writes) {
+    if (storeWithRollback(w.keys, w.cookies, w.write, w.items)) result.added += w.items.length
+    else result.left += w.items.length
   }
   return result
 }
 
 /** The notice's "Use it": the old site's ferry pair replaces this one, or nothing changes (false). */
 export function useHandedPair(ferry: FerryHandoff): boolean {
-  return withRollback(FERRY_KEYS(), [STORES.ferry.cookie], () => saveFerryPair(ferry), [ferryKey(ferry)])
+  const key = ferryKey(ferry)
+  try {
+    addToLedger([key])
+  } catch {
+    return false
+  }
+  return storeWithRollback(FERRY_KEYS(), FERRY_COOKIES(), () => saveFerryPair(ferry), [key])
 }
 
 // ---- the notice ----
