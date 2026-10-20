@@ -16,16 +16,21 @@ const watchErrors = (page: Page) => {
 
 const CBD = '/nearby?lat=-27.4717&lon=153.0206'
 
-test('Saved home: transit lockup, Ask box, Mode Tabs in the X-Home order', async ({ page, isMobile }) => {
+test('My Transit home: transit lockup, Ask box, Mode Tabs in the X-Home order', async ({
+  page,
+  isMobile,
+}) => {
   const errors = watchErrors(page)
   await page.goto('/')
   await expect(page.getByRole('link', { name: 'BrisbaneTransit Departure Boards, home' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Ask' })).toBeVisible()
-  await expect(page.getByText('Nothing saved yet')).toBeVisible()
+  await expect(page.getByText('Nothing in My Transit yet')).toBeVisible()
   const tabs = page.getByRole('navigation', { name: 'Modes' }).filter({ visible: true })
   const labels = (await tabs.getByRole('link').allInnerTexts()).map((t) => t.trim())
   expect(labels.slice(0, 5)).toEqual(
-    isMobile ? ['Ferry', 'Train', 'Bus', 'Nearby', 'Saved'] : ['Saved', 'Ferry', 'Train', 'Bus', 'Nearby'],
+    isMobile
+      ? ['Ferry', 'Train', 'Bus', 'Nearby', 'My Transit']
+      : ['My Transit', 'Ferry', 'Train', 'Bus', 'Nearby'],
   )
   expect(errors).toEqual([])
 })
@@ -144,7 +149,7 @@ test('Ask box answers with shared departure cards and explains an AI limit', asy
   await expect(page.locator('[data-ask-notice]')).toContainText("month's budget")
 })
 
-test('Saved mixes every mode and works offline as "Offline · scheduled"', async ({ page, context }) => {
+test('My Transit mixes every mode and works offline as "Offline · scheduled"', async ({ page, context }) => {
   // Saved cards fetch after hydration, so every card's first service is pinned 10 minutes out (any hour).
   await pinUpcoming(context)
   await page.addInitScript(() => {

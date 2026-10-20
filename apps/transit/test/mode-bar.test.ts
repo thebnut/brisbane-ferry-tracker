@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { activeTab, TABS } from '../app/components/ModeBar.tsx'
 
 describe('Mode Tabs', () => {
-  it('X-* order and Saved is the home page', () => {
+  it('X-* order and My Transit is the home page', () => {
     expect(TABS.map((t) => `${t.label}:${t.href}`)).toEqual([
       'Ferry:/ferry',
       'Train:/train',
       'Bus:/bus',
       'Nearby:/nearby',
-      'Saved:/',
+      'My Transit:/',
     ])
   })
 

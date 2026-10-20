@@ -1,5 +1,5 @@
 /**
- * / (Saved tab, X-Home): the Ask box, then saved stops and trips from every mode as cards (next departure, countdown,
+ * / (My Transit tab, X-Home): the Ask box, then saved stops and trips from every mode as cards (next departure, countdown,
  * "Then …"), soonest highlighted. Saved items live in each app's own storage on this device (saved.ts), so the list
  * renders after hydration; offline, cards show scheduled times from the device's copies ("Offline · scheduled").
  */
@@ -39,11 +39,11 @@ export function loader() {
 }
 
 export const meta: Route.MetaFunction = () => [
-  { title: 'BrisbaneTransit | Live ferry, train and bus departures' },
+  { title: 'My Transit | BrisbaneTransit' },
   {
     name: 'description',
     content:
-      'Your saved Brisbane ferry, train and bus stops with live departures, what is leaving around you, and alerts.',
+      'Your Brisbane ferry, train and bus stops with live departures, what is leaving around you, and alerts.',
   },
   { name: 'robots', content: 'noindex' },
 ]
@@ -358,19 +358,19 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
             kind="offline"
             detail={
               items?.length === 0
-                ? 'Nothing is saved on this device yet. Live times return once you are back online.'
+                ? 'Nothing is in My Transit on this device yet. Live times return once you are back online.'
                 : 'Showing saved timetables. No live times.'
             }
           />
         ) : null}
         {items == null ? (
           <p data-loading="" className="text-sm text-sched-text dark:text-night-text/70">
-            Loading your saved stops…
+            Loading your stops…
           </p>
         ) : items.length ? (
           <SavedList items={items} qs={qs} nowMs={now} online={online} />
         ) : (
-          <EmptyState title="Nothing saved yet">
+          <EmptyState title="Nothing in My Transit yet">
             Save a ferry trip, a train station or a bus stop in its tab and it shows up here, with the next
             departures from every mode in one list.{' '}
             <span className="mt-2 flex flex-wrap justify-center gap-2">

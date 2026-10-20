@@ -33,7 +33,7 @@ test.describe('R8-T1: the home opens offline after the first visit', () => {
     const goOnline = await goOffline(context)
     await page.reload()
     await offlineHome(page)
-    await expect(page.getByText('Nothing is saved on this device yet')).toBeVisible()
+    await expect(page.getByText('Nothing is in My Transit on this device yet')).toBeVisible()
 
     // No reload: the home's own network answer confirms it.
     await goOnline()
