@@ -6,7 +6,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import OnboardingPicker, { type ModeSource } from '../src/OnboardingPicker.tsx'
-import OnboardingPrompt from '../src/OnboardingPrompt.tsx'
+import OnboardingPrompt, { measureLift } from '../src/OnboardingPrompt.tsx'
 import { markOnboardingDone, ONBOARDING_KEY, shouldOffer, type TrayState } from '../src/onboarding.ts'
 
 vi.mock('../src/geolocation.ts', () => ({ useGeolocation: () => ({ geo: { state: 'idle' } }) }))
@@ -294,5 +294,79 @@ describe('onboarding prompt', () => {
     mount()
     act(() => vi.advanceTimersByTime(10_000))
     expect(screen.queryByText('Set up your favourite stops?')).toBeNull()
+  })
+})
+
+describe('onboarding prompt placement (R15)', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+    vi.unstubAllGlobals()
+  })
+
+  /** A fixed (or in-flow) element marked as a dock whose top edge is `top` px down a 844 px viewport. */
+  function dock(top: number, position = 'fixed', height = 844 - top) {
+    const el = document.createElement('div')
+    el.setAttribute('data-bft-dock', '')
+    el.style.position = position
+    el.getBoundingClientRect = () => ({ top, height }) as DOMRect
+    document.body.append(el)
+  }
+  function promptBox(height = 150) {
+    const el = document.createElement('section')
+    Object.defineProperty(el, 'offsetHeight', { value: height })
+    return el
+  }
+  const phone = (wide = false) => {
+    vi.stubGlobal('innerHeight', 844)
+    vi.stubGlobal('matchMedia', () => ({ matches: wide }))
+  }
+
+  it('keeps its class position above a plain bottom nav', () => {
+    phone()
+    dock(780)
+    expect(measureLift(promptBox())).toEqual({ bottom: 96, spacer: 96 + 150 - 64 })
+  })
+
+  it("rises above the highest dock: transit's section pills, then bus's search sheet over them", () => {
+    phone()
+    dock(796)
+    dock(740)
+    expect(measureLift(promptBox()).bottom).toBe(104 + 12)
+    dock(574)
+    const lift = measureLift(promptBox())
+    expect(lift.bottom).toBe(270 + 12)
+    // The page's end can scroll clear of the prompt too, not only of the docks.
+    expect(lift.spacer).toBe(12 + 150)
+  })
+
+  it('ignores hidden docks and docks in the page flow (the bus trip footer on desktop)', () => {
+    phone()
+    dock(780)
+    dock(500, 'fixed', 0)
+    dock(400, 'static')
+    expect(measureLift(promptBox()).bottom).toBe(96)
+  })
+
+  it('desktop: its md:bottom-6 position unless a fixed bar sits there (transit train pills)', () => {
+    phone(true)
+    expect(measureLift(promptBox()).bottom).toBe(24)
+    dock(800)
+    expect(measureLift(promptBox()).bottom).toBe(44 + 12)
+  })
+
+  it('moves at once when a dock mounts under it (a client navigation), not on the next timer tick (Codex r1)', async () => {
+    vi.useFakeTimers()
+    phone()
+    dock(780)
+    render(<OnboardingPrompt offer={() => true} renderPicker={() => null} />)
+    act(() => vi.advanceTimersByTime(2000))
+    const box = document.querySelector<HTMLElement>('[data-onboarding-prompt]') as HTMLElement
+    expect(box.style.bottom).toBe('96px')
+    dock(574)
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(box.style.bottom).toBe(`${270 + 12}px`)
+    vi.useRealTimers()
   })
 })
