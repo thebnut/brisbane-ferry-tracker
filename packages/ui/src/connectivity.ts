@@ -649,10 +649,11 @@ export function liveState(
 /**
  * Newest server time this page has seen from the network (stampNavigation): its own HTML's render, each client
  * navigation's, and every /v1 network answer's `generatedAt` (noteCacheCopy). Whatever reached the page before a
- * navigation was sent was generated before that navigation's loader ran, so its `renderedAt` is newer. A /v1 answer
- * from the edge cache is older than it says nothing against that: it only lowers this bound.
+ * navigation was sent was generated before that navigation's loader ran, so its `renderedAt` is newer. An answer from
+ * the edge cache (generated a few seconds before it was sent) only keeps this lower than it could be.
  */
 let newestRender: number | undefined
+/** Notes a server time seen from the network (see newestRender). */
 const seeServerTime = (at: number) => {
   newestRender = Math.max(newestRender ?? at, at)
 }
@@ -668,23 +669,13 @@ type NavigationResults = Record<string, { type: string; result?: unknown }> | un
 /**
  * Root `clientMiddleware` for every app (R15-S1): data from a client navigation (`<path>.data`) has no arrival time,
  * and judging it by the device clock against its server `generatedAt` made it "delayed" with a fast clock and, with a
- * slow one, let an old copy look live. Each live response (anything with a `generatedAt`) in a route's loader data
- * is stamped as Received at the device time before the request was sent: an upper bound on its age.
- *
- * The service worker answers `.data` from its cache when the network fails, and that copy must never be stamped. A
- * copy is recognised server time against server time: every loader with live data returns `renderedAt`, read on the
- * server for that request (`no-store`, never cached on the way), so a network answer's is newer than any render this
- * page has seen; a stored copy's is not (it was seen when it was fetched, or it is older than this page). Its live
- * data is then an offline copy (OfflineCopy.offline, shown as the offline timetable until a network answer replaces
- * it), and the connection is reported down, as for a /v1 answer from the cache. Also when the connection is already
- * known to be down, or this page is itself a stored copy (unconfirmed) whose render is no guide. Not a header from
- * the service worker (markCacheHits for /v1): React Router reads the response, and a service worker from an older
- * build would not add it.
+ * slow one, let an old copy look live. Its live responses are stamped (stampResults), or kept as an offline copy.
  */
 export async function stampNavigation<R extends NavigationResults>(
   _args: unknown,
   next: () => Promise<R>,
 ): Promise<R> {
+  // Both read before the request is sent.
   const sentBy = Date.now()
   // A page that is itself a stored copy has seen no server time yet: until a network answer, nothing is fresh.
   const seen =
@@ -694,8 +685,27 @@ export async function stampNavigation<R extends NavigationResults>(
       : undefined) ??
     Infinity
   const results = await next()
+  stampResults(results, sentBy, seen)
+  return results
+}
+
+/**
+ * Each live response (anything with a `generatedAt`) in a route's loader data is stamped as Received at `sentBy`,
+ * the device time before its request was sent: an upper bound on its age, whatever the device clock's offset.
+ *
+ * The service worker answers `.data` from its cache when the network fails, and that copy must never be stamped. A
+ * copy is recognised server time against server time: every loader with live data returns `renderedAt`, read on the
+ * server for that request (`no-store`, never cached on the way), so a network answer's is newer than any server time
+ * this page had seen when the request was sent (`seen`); a stored copy's is not (it was seen when it was fetched, or
+ * it is older than this page). Its live data is then an offline copy (OfflineCopy.offline, shown as the offline
+ * timetable until a network answer replaces it), and the connection is reported down, as for a /v1 answer from the
+ * cache. Also when the connection is already known to be down, and for live data without a `renderedAt`. Not a
+ * header from the service worker (markCacheHits for /v1): React Router reads the response itself, and a service
+ * worker from an older build would not add one.
+ */
+function stampResults(results: NavigationResults, sentBy: number, seen: number): void {
   let copy = false
-  for (const r of Object.values((results ?? {}) as NonNullable<NavigationResults>)) {
+  for (const r of Object.values(results ?? {})) {
     const data = r.type === 'data' ? (r.result as Record<string, unknown> | null) : null
     if (typeof data !== 'object' || data === null) continue
     const at = data.renderedAt
@@ -707,7 +717,6 @@ export async function stampNavigation<R extends NavigationResults>(
     }
   }
   if (copy) reportOffline()
-  return results
 }
 
 /** The live responses in a route's loader data: values with a `generatedAt`, and in records of them (saved cards). */

@@ -42,12 +42,13 @@ import { generateTimeSlots } from '../lib/timeSlots.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import { SiteHeader } from './Chrome.tsx'
 import { DepartureList } from './DepartureList.tsx'
-import { DetailsSheet } from './DetailsSheet.tsx'
 
 // If the map sheet's chunk can't load, the board stays up (the Map button just does nothing).
 const NoMap = (() => null) as never // renders nothing, whatever the props
 const LiveMapSheet = lazy(() => import('./LiveMapSheet.tsx').catch(() => ({ default: NoMap })))
 const StopSelector = lazy(() => import('./StopSelector.tsx'))
+// Opened from a departure: off the first load (R15-S1 offset: the skew-free clock code is on every page's first load).
+const DetailsSheet = lazy(() => import('./DetailsSheet.tsx').then((m) => ({ default: m.DetailsSheet })))
 
 export interface FerryBoardsProps {
   /** Pair the server rendered (cookie pair, terminal page pair, or the default). */
@@ -383,17 +384,19 @@ export function FerryBoards({
       {children}
 
       {selectedNow ? (
-        <DetailsSheet
-          departure={selectedNow}
-          live={!degraded}
-          fromName={selectedFrom.name}
-          toName={selectedTo.name}
-          toId={selectedTo.id}
-          nowMs={now}
-          fetcher={fetcher}
-          mode={mode}
-          onClose={() => setSelected(null)}
-        />
+        <Suspense fallback={<SheetFallback />}>
+          <DetailsSheet
+            departure={selectedNow}
+            live={!degraded}
+            fromName={selectedFrom.name}
+            toName={selectedTo.name}
+            toId={selectedTo.id}
+            nowMs={now}
+            fetcher={fetcher}
+            mode={mode}
+            onClose={() => setSelected(null)}
+          />
+        </Suspense>
       ) : null}
       {showMap ? (
         <Suspense fallback={<SheetFallback />}>
