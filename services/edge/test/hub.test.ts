@@ -6,7 +6,7 @@ import { MemoryDataSource } from '../src/data/source.ts'
 import { FeedMessageSchema } from '../src/gen/gtfs-realtime_pb.js'
 import { silentLogger } from '../src/log.ts'
 import { pullFromR2, resetRangeHints } from '../src/r2-snapshots.ts'
-import { COMBINED_KEY, decodeCombined, encodeCombined } from '../src/rt/combined.ts'
+import { COMBINED_KEY, encodeCombined } from '../src/rt/combined.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
 import {
   ALERTS_EVERY_MS,
@@ -28,6 +28,7 @@ import {
   Clock,
   D,
   D0,
+  decodeCombinedSync,
   epoch,
   FakeStorage,
   FakeUpstream,
@@ -37,23 +38,41 @@ import {
   vehicle,
 } from './fixtures.ts'
 
+type PutOpts = {
+  httpMetadata?: { contentType?: string; contentEncoding?: string }
+  customMetadata?: Record<string, string>
+}
+
 class FakeR2 {
   readonly files = new Map<string, Uint8Array>()
+  /** The options of each key's last PUT. */
+  readonly opts = new Map<string, PutOpts | undefined>()
   readonly ops: string[] = []
   fail = false
-  async put(key: string, value: Uint8Array | string) {
+  async put(key: string, value: Uint8Array | string, opts?: PutOpts) {
     if (this.fail) throw new Error('r2 down')
     this.ops.push(`put:${key}`)
     this.files.set(key, typeof value === 'string' ? new TextEncoder().encode(value) : value)
+    this.opts.set(key, opts)
   }
-  async get(key: string) {
+  async get(key: string): Promise<{
+    text(): Promise<string>
+    arrayBuffer?(): Promise<ArrayBuffer>
+    customMetadata?: Record<string, string>
+  } | null> {
     const b = this.files.get(key)
-    return b ? { text: async () => new TextDecoder().decode(b) } : null
+    return b
+      ? {
+          text: async () => new TextDecoder().decode(b),
+          arrayBuffer: async () => b.slice().buffer as ArrayBuffer,
+          customMetadata: this.opts.get(key)?.customMetadata,
+        }
+      : null
   }
 }
 
 const dec = (b: Uint8Array | undefined) => new TextDecoder().decode(b)
-const combinedOf = (r2: FakeR2) => decodeCombined(r2.files.get(COMBINED_KEY) as Uint8Array)
+const combinedOf = (r2: FakeR2) => decodeCombinedSync(r2.files.get(COMBINED_KEY) as Uint8Array)
 /** One mode's document JSON, from the combined object. */
 const modeJson = (r2: FakeR2, m: string) => combinedOf(r2)?.docs.find((d) => d.mode === m)?.json as string
 const modeDoc = (r2: FakeR2, m: string) => JSON.parse(modeJson(r2, m))
@@ -79,7 +98,9 @@ function toLegacyLayout(r2: FakeR2) {
 const TU = 'TripUpdates/Ferry'
 const VP = 'VehiclePositions/Ferry'
 
-function setup(opts: { modes?: string; r2?: FakeR2; layout?: 'documents' | 'combined' } = {}) {
+function setup(
+  opts: { modes?: string; r2?: FakeR2; layout?: 'documents' | 'combined'; compress?: boolean } = {},
+) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   const tree = buildTree()
   const up = new FakeUpstream()
@@ -95,6 +116,7 @@ function setup(opts: { modes?: string; r2?: FakeR2; layout?: 'documents' | 'comb
       fetchTimeoutMs: 50,
       r2: opts.r2,
       layout: opts.layout ?? 'combined',
+      compress: opts.compress,
     })
   const nowS = () => Math.floor(clock.t / 1000)
   up.set(
@@ -1321,5 +1343,76 @@ describe('R2 PUT budget: unchanged documents and the pointer are not rewritten',
     r2.ops.length = 0
     await poll(h, { train: 5 }, fresh)
     expect(r2.ops).toEqual([])
+  })
+})
+
+describe('compressed documents (RT_R2_COMPRESS=gzip)', () => {
+  for (const layout of ['documents', 'combined'] as const) {
+    it(`${layout}: gzip with the right metadata; readers and a restart get the same documents as uncompressed`, async () => {
+      const read = async (compress: boolean) => {
+        resetRangeHints()
+        const r2 = new FakeR2()
+        const h = setup({ r2, layout, compress, modes: 'ferry,bus' })
+        await warm(h)
+        const src = new MemoryDataSource(r2.files)
+        const out = {
+          r2,
+          hub: await h.hub.pull(null),
+          ferry: await pullFromR2(src, null, 'ferry', h.clock.t),
+          bus: await pullFromR2(src, null, 'bus', h.clock.t),
+          alerts: await pullFromR2(src, null, 'alerts', h.clock.t),
+          restored: await h.mk().pull(null),
+        }
+        return out
+      }
+      const plain = await read(false)
+      const gz = await read(true)
+      for (const k of ['ferry', 'bus', 'alerts'] as const) {
+        expect(gz[k].seq).toBe(plain[k].seq)
+        expect(gz[k].json).toBe(plain[k].json)
+        expect(gz[k].json).not.toBeNull()
+      }
+      expect(gz.restored).toMatchObject({ seq: gz.hub.seq, json: gz.hub.json })
+      const ptr = JSON.parse(dec(gz.r2.files.get('rt/latest.json')))
+      const alertsKey = ptr.files.alerts.key as string
+      const docKeys = layout === 'documents' ? [modeLatestKey('ferry'), alertsKey] : [alertsKey]
+      for (const key of docKeys) {
+        const b = gz.r2.files.get(key) as Uint8Array
+        expect([b[0], b[1]]).toEqual([0x1f, 0x8b])
+        expect(gz.r2.opts.get(key)?.httpMetadata).toEqual({
+          contentType: 'application/json',
+          contentEncoding: 'gzip',
+        })
+        expect(gz.r2.opts.get(key)?.customMetadata?.seq).toMatch(/^\d+$/)
+      }
+      // The pointer stays plain JSON (health and alerts read it every refresh).
+      expect(gz.r2.opts.get('rt/latest.json')?.httpMetadata?.contentEncoding).toBeUndefined()
+      if (layout === 'combined') {
+        // One object of plain index and gzip sections: not Content-Encoding gzip as a whole.
+        expect(gz.r2.opts.get(COMBINED_KEY)?.httpMetadata).toEqual({
+          contentType: 'application/octet-stream',
+        })
+        expect(dec(gz.r2.files.get(COMBINED_KEY)?.subarray(0, 1))).toBe('{')
+      }
+    })
+  }
+
+  it('combined: an unchanged section is carried over compressed, not recompressed', async () => {
+    const r2 = new FakeR2()
+    const h = setup({ r2, compress: true, modes: 'ferry,bus' })
+    await warm(h)
+    const sectionOf = (m: 'ferry' | 'bus') => {
+      const b = r2.files.get(COMBINED_KEY) as Uint8Array
+      const [off, len] = combinedOf(r2)?.index.sections[m] ?? [0, 0]
+      return b.slice(off, off + len)
+    }
+    const bus = sectionOf('bus')
+    // Only the ferry vehicle moves: a new object, the bus section's bytes unchanged.
+    h.up.set(VP, feed(h.nowS(), [vehicle('V1', 'T1', D, -27.45, 153.06)]))
+    const before = r2.ops.length
+    await h.hub.alarm()
+    expect(r2.ops.slice(before)).toContain(`put:${COMBINED_KEY}`)
+    expect(sectionOf('bus')).toEqual(bus)
+    expect(JSON.parse(modeJson(r2, 'ferry')).vehicles[0].lon).toBeCloseTo(153.06, 4)
   })
 })

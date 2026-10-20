@@ -75,6 +75,8 @@
         "RT_CYCLE_MS": "30000",
         // R2 layout of the realtime mode documents: unset = per-mode objects. Set "combined" (one object, ranged reads)
         // only once this release's readers are deployed, and unset it again before rolling back (HubDeps.layout).
+        // RT_R2_COMPRESS likewise: unset = plain JSON documents. Set "gzip" only once this release's readers are deployed,
+        // and unset it again before rolling back (HubDeps.compress).
         "CORS_ALLOW_ALL": "false",
         // Kill switch, read per request. ON in staging since 18 Oct (Brett approved; ANTHROPIC_API_KEY, TURNSTILE_SECRET and
         // IP_HASH_SALT are Worker secrets). To turn AI off instantly: set "false" and redeploy, or

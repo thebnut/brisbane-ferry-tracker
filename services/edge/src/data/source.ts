@@ -150,15 +150,25 @@ export async function readBytes(src: DataSource, key: string): Promise<Uint8Arra
   return new Uint8Array(await new Response(obj.body).arrayBuffer())
 }
 
-const isGzip = (b: Uint8Array) => b.length > 2 && b[0] === 0x1f && b[1] === 0x8b
+/** gzip's magic bytes (JSON text never starts with them). */
+export const isGzip = (b: Uint8Array) => b.length > 2 && b[0] === 0x1f && b[1] === 0x8b
 
-/** Gunzip if the bytes are gzip (a transport may already have decoded them), then parse JSON. */
-export async function decodeJson(bytes: Uint8Array): Promise<unknown> {
-  if (!isGzip(bytes)) return JSON.parse(new TextDecoder().decode(bytes))
+/**
+ * The text of bytes that may be gzip (a transport may already have decoded them). A corrupt or truncated gzip stream
+ * rejects: DecompressionStream checks the trailer's CRC and length, and in workerd errors on a stream that ends early
+ * (strict_compression_checks, the default since compatibility date 2023-08-01).
+ */
+export async function decodeText(bytes: Uint8Array): Promise<string> {
+  if (!isGzip(bytes)) return new TextDecoder().decode(bytes)
   const stream = new Blob([bytes as unknown as ArrayBuffer])
     .stream()
     .pipeThrough(new DecompressionStream('gzip'))
-  return JSON.parse(await new Response(stream).text())
+  return new Response(stream).text()
+}
+
+/** Gunzip if the bytes are gzip, then parse JSON. */
+export async function decodeJson(bytes: Uint8Array): Promise<unknown> {
+  return JSON.parse(await decodeText(bytes))
 }
 
 export async function readJson(src: DataSource, key: string): Promise<unknown | null> {
