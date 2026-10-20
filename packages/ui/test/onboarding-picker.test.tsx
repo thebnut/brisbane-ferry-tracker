@@ -271,6 +271,24 @@ describe('onboarding prompt', () => {
     expect(document.activeElement).toBe(document.body)
   })
 
+  it('going by itself while one of its buttons has focus puts focus back (Codex r3)', () => {
+    let saved = false
+    render(
+      <main>
+        <h1>My stops</h1>
+        <button type="button">search</button>
+        <OnboardingPrompt offer={() => shouldOffer({ anySaved: saved })} renderPicker={() => null} />
+      </main>,
+    )
+    screen.getByRole('button', { name: 'search' }).focus()
+    act(() => vi.advanceTimersByTime(2000))
+    screen.getByRole('button', { name: 'Yes' }).focus()
+    saved = true
+    act(() => vi.advanceTimersByTime(1000))
+    expect(screen.queryByText('Set up your favourite stops?')).toBeNull()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'search' }))
+  })
+
   it('never shows once answered', () => {
     markOnboardingDone()
     mount()

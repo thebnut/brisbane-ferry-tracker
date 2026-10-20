@@ -39,7 +39,10 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
   useEffect(() => {
     if (step !== 'prompt') return
     const recheck = () => {
-      if (!offerRef.current()) setStep('done')
+      if (offerRef.current()) return
+      // Focus on one of its buttons would be lost with it: then it goes back too (Codex r3). Otherwise untouched.
+      restore.current = !!document.activeElement?.closest('[data-onboarding-prompt]')
+      setStep('done')
     }
     const id = setInterval(recheck, 1_000)
     addEventListener('storage', recheck)
