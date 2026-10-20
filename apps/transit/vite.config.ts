@@ -87,8 +87,8 @@ export default defineConfig({
                   name: 'ui',
                   // demo-cleanup and handoff-codec (P6b's import) are loaded on demand: off every page's first load. The
                   // map stop picker (P3) is lazy, and its Map button is only on the stop searches (below). Onboarding (P4)
-                  // loads after hydration.
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|[Oo]nboarding)/,
+                  // loads after hydration. What's new (WhatsNew, changelog) stays in its route's chunk.
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|[Oo]nboarding|WhatsNew|changelog)/,
                 },
                 // The bus boards' elements (@bft/ui/bus) that only the Bus pages load. After 'ui', so the modules they
                 // share stay there.

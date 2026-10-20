@@ -23,6 +23,7 @@
     "./assets/*": "./assets/*",
     "./sw": "./src/sw.ts",
     "./upstream": "./src/upstream.ts",
+    "./whats-new": "./src/WhatsNew.tsx",
     "./redirect": "./src/redirect.ts",
     "./handoff-codec": "./src/handoff-codec.ts",
     "./e2e/*": "./e2e/*"

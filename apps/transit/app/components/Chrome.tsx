@@ -115,6 +115,12 @@ export function TransitFooter() {
         <p className="mt-2">Live times refresh every 15 seconds • All times in Brisbane time</p>
         <p className="mt-3">
           <FeedbackEntry />
+          <a
+            href="/whats-new"
+            className="ml-4 inline-flex min-h-11 items-center font-semibold text-ferry-orange-deep"
+          >
+            What’s new
+          </a>
         </p>
         <p className="mt-2 text-xs text-gray-600 dark:text-night-text/70">
           BrisbaneTransit is independent and not affiliated with Translink, Queensland Rail or Brisbane City

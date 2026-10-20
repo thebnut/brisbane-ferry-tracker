@@ -12,6 +12,7 @@ export default [
     index('routes/saved.tsx'),
     route('nearby', 'routes/nearby.tsx'),
     route('alerts', 'routes/alerts.tsx'),
+    route('whats-new', 'routes/whats-new.tsx'),
     ...prefix('ferry', [
       index(app('ferry', 'home.tsx'), { id: 'ferry/home' }),
       route('terminal/:slug', app('ferry', 'terminal.tsx'), { id: 'ferry/terminal' }),

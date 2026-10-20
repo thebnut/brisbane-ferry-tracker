@@ -6,5 +6,6 @@ export default [
   route('privacy', 'routes/privacy.tsx'),
   route('terms', 'routes/terms.tsx'),
   route('feedback', 'routes/feedback.tsx'),
+  route('whats-new', 'routes/whats-new.tsx'),
   route('*', 'routes/not-found.tsx'),
 ] satisfies RouteConfig
