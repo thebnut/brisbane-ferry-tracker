@@ -9,6 +9,7 @@ import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import {
   ChipFilter,
   EmptyState,
+  ErrorState,
   formatDistance,
   Icon,
   ModePin,
@@ -152,7 +153,7 @@ export default function Nearby({ loaderData }: Route.ComponentProps) {
   const lat = pos?.lat
   const lon = pos?.lon
   const cells = useMemo(() => (lat != null && lon != null ? cellsFor(lat, lon) : []), [lat, lon])
-  const { tiles, loading, error } = useGeoTiles(fetcher, mode, cells)
+  const { tiles, loading, error, retry } = useGeoTiles(fetcher, mode, cells)
 
   // Phase 9 exit criterion: tiles loaded → sorted, grouped and on screen in < 100 ms. Measured from the render that
   // sees the last tile to the commit that shows the groups.
@@ -276,14 +277,32 @@ export default function Nearby({ loaderData }: Route.ComponentProps) {
                 <NearbyMap lat={lat} lon={lon} stops={listed} onStop={onStop} />
               </Suspense>
             ) : null}
-            {error && !result ? (
-              <EmptyState title="Stops aren't loading">Check your connection and try again.</EmptyState>
+            {error && (!result || listed.length === 0) ? (
+              // Never "No stops nearby" when tiles failed: that would be a false empty.
+              <ErrorState title="Couldn't load nearby stops" onRetry={retry}>
+                Check your connection and try again.
+              </ErrorState>
             ) : !result ? (
               <Pulse rows={4} />
             ) : listed.length === 0 ? (
               <EmptyState title="No stops nearby">Try a different place with "Use a stop".</EmptyState>
             ) : (
               <>
+                {error ? (
+                  <p
+                    role="status"
+                    className="flex flex-wrap items-center gap-x-2 text-[13px] text-sched-text"
+                  >
+                    Couldn't load some stops nearby.
+                    <button
+                      type="button"
+                      onClick={retry}
+                      className="font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
+                    >
+                      Try again
+                    </button>
+                  </p>
+                ) : null}
                 {(filter === 'all' ? NEARBY_MODES : [filter]).map((m) =>
                   result.byMode[m].length ? (
                     <section key={m} aria-labelledby={`near-${m}`} className="flex flex-col gap-2">

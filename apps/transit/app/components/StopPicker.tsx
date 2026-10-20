@@ -2,7 +2,7 @@
 import { ModePin } from '@bft/ui'
 import { useQueries } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
-import { fetchStopIndex } from '../lib/api.ts'
+import { fetchStopIndex } from '../lib/data-files.ts'
 import { NEARBY_MODES, type NearbyMode } from '../lib/nearby.ts'
 import { useApi } from '../lib/queries.ts'
 import { matchStops, type PickStop } from '../lib/stop-pick.ts'
@@ -20,7 +20,8 @@ export default function StopPicker({
 }) {
   const { mode, fetcher } = useApi()
   const [q, setQ] = useState('')
-  const { all, pending } = useQueries({
+  // A mode whose index failed to load is left out (the others still search), with a retry below.
+  const { all, pending, failed, retry } = useQueries({
     queries: NEARBY_MODES.map((m) => ({
       queryKey: ['transit', 'stop-index', mode.fixtures, m],
       queryFn: ({ signal }: { signal: AbortSignal }) => fetchStopIndex(fetcher, m, signal),
@@ -31,6 +32,10 @@ export default function StopPicker({
         (r.data?.stops ?? []).map((s) => ({ ...s, mode: NEARBY_MODES[i] as NearbyMode })),
       ),
       pending: rs.some((r) => r.isPending),
+      failed: rs.some((r) => r.isError),
+      retry: () => {
+        for (const r of rs) if (r.isError) r.refetch()
+      },
     }),
   })
   const results = useMemo(() => matchStops(q, all), [q, all])
@@ -54,6 +59,14 @@ export default function StopPicker({
         className="h-12 rounded-full border-2 border-ferry-orange/40 bg-white px-4 text-base outline-none focus:border-ferry-orange dark:bg-night-card"
       />
       {pending && q.length > 1 ? <p className="text-xs text-sched-text">Loading every stop…</p> : null}
+      {failed && !pending ? (
+        <p role="status" className="flex flex-wrap items-center gap-x-2 text-xs text-sched-text">
+          Couldn't load every stop.
+          <button type="button" onClick={retry} className="font-semibold text-ferry-orange-deep underline">
+            Try again
+          </button>
+        </p>
+      ) : null}
       <ul className="flex flex-col gap-1.5">
         {results.map((s) => (
           <li key={`${s.mode}:${s.key}`}>

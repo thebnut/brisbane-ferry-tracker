@@ -261,14 +261,18 @@ export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boole
     enabled,
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
-    retry: 2,
+    retry: 1,
   })
   const index = useMemo(
     () => (q.data && search ? search.buildSearchIndex(q.data.stops) : null),
     [q.data, search],
   )
   const byKey = useMemo(() => new Map((q.data?.stops ?? []).map((s) => [s.key, s])), [q.data])
-  return { ...q, isError: q.isError || searchFailed, index, byKey, searchStops: search?.searchStops }
+  const retry = () => {
+    setSearchFailed(false)
+    if (q.isError) q.refetch()
+  }
+  return { ...q, isError: q.isError || searchFailed, retry, index, byKey, searchStops: search?.searchStops }
 }
 
 export function useLines(fetcher: ApiFetcher, mode: DataMode, enabled = true) {

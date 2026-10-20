@@ -2,11 +2,15 @@
 import type { GeoTileFile, Mode } from '@bft/core/contract'
 import { useQueries } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { type ApiFetcher, fetchDepartures, fetchGeoTile } from './api.ts'
+import { type ApiFetcher, fetchDepartures } from './api.ts'
+import { fetchGeoTile } from './data-files.ts'
 import { NEARBY_MODES, type NearbyMode } from './nearby.ts'
 import { type DataMode, poll } from './queries.ts'
 
-/** Own cell + 8 neighbours for every mode. Missing tiles (no stops there) resolve to null. */
+/**
+ * Own cell + 8 neighbours for every mode. Missing tiles (no stops there) resolve to null. A tile that failed to load
+ * counts as empty, so the rest still show; `error` says some failed and `retry` refetches just those.
+ */
 export function useGeoTiles(fetcher: ApiFetcher, mode: DataMode, cells: string[]) {
   const pairs = NEARBY_MODES.flatMap((m) => cells.map((gh) => [m, gh] as const))
   const results = useQueries({
@@ -30,7 +34,10 @@ export function useGeoTiles(fetcher: ApiFetcher, mode: DataMode, cells: string[]
     })
     return out
   }, [key])
-  return { tiles, loading, error }
+  const retry = () => {
+    for (const r of results) if (r.isError) r.refetch()
+  }
+  return { tiles, loading, error, retry }
 }
 
 /** Next departures for a list of stops (Nearby rows): 3 each, polled. */

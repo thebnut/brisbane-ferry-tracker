@@ -70,8 +70,10 @@ export interface StopPickerMapProps {
   unavailableHint?: ReactNode
   /** The map's view after each move, for callers that load stops by area (bus geo tiles). */
   onViewChange?: (bounds: ViewBounds, zoom: number) => void
-  /** A line over the map, e.g. "Zoom in to see bus stops" or "Map data unavailable". */
+  /** A line over the map, e.g. "Zoom in to see bus stops" or "Couldn't load stops". */
   notice?: string | null
+  /** A "Try again" button in the notice (e.g. after stops failed to load). */
+  onRetry?: (() => void) | null
   /** Next departures for the card, fetched when a stop is tapped (never prefetched). Single mode only. */
   loadDepartures?: (stop: PickerStop, signal: AbortSignal) => Promise<CardDeparture[]>
   /** The "Open" link to the stop's page, in the app's router (className styles it as a button). Single mode only. */
@@ -243,6 +245,7 @@ export default function StopPickerMap({
   unavailableHint,
   onViewChange,
   notice,
+  onRetry,
   loadDepartures,
   renderOpen,
   save,
@@ -487,9 +490,18 @@ export default function StopPickerMap({
         {notice ? (
           <p
             role="status"
-            className="absolute inset-x-0 bottom-4 z-10 mx-auto w-fit rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-charcoal shadow-card dark:bg-night-card dark:text-night-text"
+            className="absolute inset-x-0 bottom-4 z-10 mx-auto flex w-fit items-center gap-3 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-charcoal shadow-card dark:bg-night-card dark:text-night-text"
           >
             {notice}
+            {onRetry ? (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="text-ferry-orange-deep underline dark:text-ferry-sunset"
+              >
+                Try again
+              </button>
+            ) : null}
           </p>
         ) : null}
         {active && mode === 'single' && loadDepartures && renderOpen && save ? (
