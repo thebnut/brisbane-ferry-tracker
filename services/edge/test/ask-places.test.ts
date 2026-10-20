@@ -171,6 +171,18 @@ describe('the Ask resolver groups one place (bus)', () => {
     if (to.ok && to.intent.kind === 'next_departure') expect(to.intent.to.stopKeys).toBeUndefined()
   })
 
+  it('a named platform before a locality suffix is still that one platform (Codex r2)', () => {
+    const from = parseQuestion('next bus from queen street station, platform 1 (southport)', resolver)
+    expect(from.ok && from.intent).toMatchObject({ kind: 'departures_at', at: { key: '600827' } })
+    if (from.ok && from.intent.kind === 'departures_at') expect(from.intent.at.stopKeys).toBeUndefined()
+    const to = parseQuestion(
+      'next bus from brisbane domestic airport to queen street station platform 1 (southport)',
+      resolver,
+    )
+    expect(to.ok && to.intent).toMatchObject({ kind: 'next_departure', to: { key: '600827' } })
+    if (to.ok && to.intent.kind === 'next_departure') expect(to.intent.to.stopKeys).toBeUndefined()
+  })
+
   it('Queen Street (Brisbane) and Queen Street (Southport) are different places', () => {
     const c = resolver('queen street station', 'bus')
     const brisbane = c.find((x) => x.name === 'Queen Street station')

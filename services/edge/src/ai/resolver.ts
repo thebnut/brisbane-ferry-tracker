@@ -189,14 +189,20 @@ export function searchStops(
         return
       }
       // A question naming one platform ("cultural centre platform 2", which reaches here as "cultural centre 2") gets
-      // that platform only, never the whole station.
+      // that platform only, never the whole station. The platform may come before a locality ("queen street 1
+      // (southport)"), so each word after the first is tried.
       const words = q.split(' ')
-      const rest = words.slice(0, -1).join(' ')
-      const named =
-        words.length > 1 && clean(place.name).startsWith(rest)
-          ? place.platforms.get(words.at(-1) as string)
-          : undefined
-      const placeScore = clean(place.name) === (named ? rest : q) ? 1 : score
+      let named: number[] | undefined
+      let rest = q
+      for (let w = 1; w < words.length && !named; w++) {
+        const without = [...words.slice(0, w), ...words.slice(w + 1)].join(' ')
+        const hit = place.platforms.get(words[w] as string)
+        if (hit && clean(place.name).startsWith(without)) {
+          named = hit
+          rest = without
+        }
+      }
+      const placeScore = clean(place.name) === rest ? 1 : score
       const had = taken.get(place)
       if (had) {
         had.score = Math.max(had.score, placeScore)
