@@ -49,12 +49,12 @@ const EVERY_BOARD_MS = LIVE_REQUEST_TIMEOUT_MS + RECONNECT_PROBE_MS + ANSWER_MAR
 
 /**
  * After the last board's answer, by when the offline banner has gone: the banner stays while any board still shows an
- * offline copy (R6-B1), so it waits for the boards' answers, not the first one, and then goes as the page renders.
- * Also when a call cut off before the network returned reports its failure late: that no longer marks the connection
- * down (trackedFetch), so it no longer undoes the boards' answers (#121 allowed one board poll for it; late-failure.ts
- * covers the case).
+ * offline copy (R6-B1), so it waits for the boards' answers, not the first one. One probe more is allowed: a call cut
+ * off before the network returned can report its failure late and turn a board back into its offline copy. The probe
+ * then asks again within RECONNECT_PROBE_MS, and if another call's answer cancels the probe, onReconnect's trailing
+ * refetch asks within a second (late-failure fix; #121 had to allow a board's whole 15 s poll for it).
  */
-const BANNER_AFTER_ANSWERS_MS = ANSWER_MARGIN_MS
+const BANNER_AFTER_ANSWERS_MS = RECONNECT_PROBE_MS + ANSWER_MARGIN_MS
 
 /** Live API calls, the fixture copies included. */
 const LIVE = /\/v1\//

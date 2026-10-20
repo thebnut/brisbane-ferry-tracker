@@ -6,6 +6,7 @@ import type { DeparturesResponse } from '@bft/core/contract'
 import {
   asOfflineCopy,
   bestOfflineCopy,
+  isOnline,
   type OfflineCopy,
   pollEvery,
   replacesBoard,
@@ -20,7 +21,6 @@ import {
   fetchDepartures,
   fetchTrip,
   fetchVehicles,
-  offlineFailure,
 } from './api.ts'
 import { offlineRows } from './departures.ts'
 import { readOfflineDay } from './storage.ts'
@@ -54,6 +54,9 @@ export interface DataMode {
 export function useFetcher(mode: DataMode): ApiFetcher {
   return useMemo(() => browserFetcher(mode), [mode])
 }
+
+/** Is the browser offline, or are API calls failing? (false during SSR). */
+const isOffline = () => !isOnline()
 
 export function departuresOptions(
   fetcher: ApiFetcher,
@@ -102,7 +105,7 @@ export function departuresOptions(
         return replacesBoard(res, shown) ? res : asOfflineCopy(offlineCopy(res) ?? res, shown)
       } catch (error) {
         // Offline: the board on screen, or the saved full-day timetable as scheduled times.
-        const copy = offlineFailure(error) ? offlineCopy() : null
+        const copy = isOffline() ? offlineCopy() : null
         if (!copy) throw error
         return asOfflineCopy(copy, shown)
       }

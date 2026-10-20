@@ -1,9 +1,9 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
 import type { DeparturesResponse } from '@bft/core/contract'
-import { asOfflineCopy, bestOfflineCopy, pollEvery, replacesBoard } from '@bft/ui/connectivity'
+import { asOfflineCopy, bestOfflineCopy, isOnline, pollEvery, replacesBoard } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { type ApiFetcher, browserFetcher, fetchDepartures, fetchTrip, offlineFailure } from './api.ts'
+import { type ApiFetcher, browserFetcher, fetchDepartures, fetchTrip } from './api.ts'
 import { readOffline, writeOffline } from './storage.ts'
 
 export const POLL_MS = 15_000
@@ -79,7 +79,7 @@ export function departuresOptions(
         return asOfflineCopy(offlineCopy(res) ?? res, shown)
       } catch (error) {
         // Offline with no cached response from the service worker: the board on screen or the last copy we kept.
-        const cached = offlineFailure(error) ? offlineCopy() : null
+        const cached = isOnline() ? null : offlineCopy()
         if (cached) return asOfflineCopy(cached, shown)
         throw error
       }

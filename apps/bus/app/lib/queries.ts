@@ -23,7 +23,6 @@ import {
   fetchLines,
   fetchStopIndex,
   OFFLINE_LIMIT,
-  offlineFailure,
 } from './api.ts'
 import { readOffline, writeOffline } from './storage.ts'
 
@@ -164,7 +163,7 @@ export function departuresOptions(
         return asOfflineTimetable(stopId, [shown, res], Date.now(), shown) ?? res
       } catch (error) {
         // Offline with no cached response: the board on screen or the saved timetable copy.
-        if (offlineFailure(error)) {
+        if (offline()) {
           const fallback = asOfflineTimetable(stopId, [shown], Date.now(), shown)
           if (fallback) return fallback
         }

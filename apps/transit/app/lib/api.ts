@@ -3,7 +3,7 @@
  * sees them (the Worker's same-origin proxy, contract.server.ts), so the browser bundle carries only types, not zod.
  */
 import type { AlertsResponse, DeparturesResponse, GeoTileFile, Mode, StopIndexFile } from '@bft/core/contract'
-import { isOnline, noteCacheCopy, trackedFetch } from '@bft/ui/connectivity'
+import { noteCacheCopy, trackedFetch } from '@bft/ui/connectivity'
 
 export type ApiErrorKind = 'network' | 'http' | 'contract'
 
@@ -17,14 +17,6 @@ export class ApiError extends Error {
     this.status = status
   }
 }
-
-/**
- * Did this call fail for want of a network (or is the connection down)? Then its board shows its offline copy. Its own
- * error, not only the connection flag: a failure from a call started before the network last answered no longer sets
- * that flag (trackedFetch), and the board must still not keep its old LIVE data (late-failure fix, Codex).
- */
-export const offlineFailure = (error: unknown) =>
-  !isOnline() || (error instanceof ApiError && error.kind === 'network')
 
 /** Fetches a same-origin path (starting with "/v1/" or "/data/"). */
 export type ApiFetcher = (path: string, init?: { signal?: AbortSignal }) => Promise<Response>

@@ -68,7 +68,8 @@ export function lateFailureSuite({
         await new Promise((r) => setTimeout(r, 100))
         return route.abort('internetdisconnected')
       }
-      if (Date.now() >= back) others++
+      // Another call: not a retry of the board that failed (train's page has no other one, and recovers by the probe).
+      if (Date.now() >= back && url.pathname !== failed) others++
       await new Promise((r) => setTimeout(r, 300))
       return route.fallback()
     }

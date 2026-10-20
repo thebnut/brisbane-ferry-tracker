@@ -41,22 +41,10 @@ function setUnreachable(value: boolean) {
   for (const l of listeners) l()
 }
 
-/** API calls started so far, and how many had started when the network last answered (or the browser said online). */
-let started = 0
-let answered = 0
 /** An API call couldn't reach the network. */
 export const reportOffline = () => setUnreachable(true)
 /** An API call reached the network. */
-export const reportOnline = () => {
-  answered = started
-  setUnreachable(false)
-}
-/**
- * Call number `n` failed: the connection is down only if it started after the network last answered. An older call's
- * failure (cut off before the network came back) says nothing new, and it undid a reconnect (#121); it still fails
- * its own query.
- */
-const failed = (n: number) => n > answered && reportOffline()
+export const reportOnline = () => setUnreachable(false)
 
 /**
  * Set on <html> while the live claims in server-rendered HTML are unconfirmed; theme.css hides every element marked
@@ -172,10 +160,8 @@ export function isOnline(): boolean {
  * hears of the event, after the state it reads is up to date.
  */
 const onBrowserEvent = (e: Event) => {
-  if (e.type === 'online') {
-    unreachable = false
-    answered = started
-  } else if (e.type === 'offline') disconnects++
+  if (e.type === 'online') unreachable = false
+  else if (e.type === 'offline') disconnects++
   // Any of them starts the boards' HTTP-error backoff over (pollEvery).
   events++
   for (const l of listeners) l(e)
@@ -211,27 +197,25 @@ export function useDisconnects(): number {
  */
 export function onReconnect(onBack: () => void): () => void {
   let wasOnline = isOnline()
-  // The online event and the store change it causes arrive together: refetch once. A second reconnect within the
-  // second runs at its end, not never (one at most, dropped if the connection goes down first): a board whose answer
-  // failed in between was otherwise left offline until its own 15 s poll (another call's answer had cancelled the probe).
-  // Only one: inside that trailing refetch's own second, a reconnect is dropped again, so a board failing at every
-  // attempt while other calls get through waits for its poll instead of refetching every board each second (Codex).
+  // The online event and the store change it causes arrive together: refetch once. A second reconnect within that
+  // second runs at its end, instead of never: a board whose request failed in between was otherwise left offline until
+  // its own 15 s poll, because another call's answer had cancelled the probe (staging R6-B1: LIVE back after 17 s).
+  // One pending at most, dropped if the connection goes down first, and one per 15 s: a board failing at every attempt
+  // while other calls get through then waits for its poll, as before, instead of refetching every board (Codex).
   let last = 0
-  let trailed = false
+  let trailedAt = Number.NEGATIVE_INFINITY
   let later: ReturnType<typeof setTimeout> | undefined
-  const refetch = (trailing = false) => {
+  const refetch = () => {
     const wait = last + 1_000 - Date.now()
-    if (wait > 0) {
-      if (!trailed)
-        later ??= setTimeout(() => {
-          later = undefined
-          refetch(true)
-        }, wait)
-      return
-    }
-    last = Date.now()
-    trailed = trailing
-    onBack()
+    if (wait <= 0) {
+      last = Date.now()
+      onBack()
+    } else if (Date.now() - trailedAt >= 15_000)
+      later ??= setTimeout(() => {
+        later = undefined
+        trailedAt = Date.now()
+        refetch()
+      }, wait)
   }
   // Store changes and the browser's events (`e`): online, refetch even if nothing had failed; shown again, refetch if
   // the connection was or is down.
@@ -423,18 +407,16 @@ export function useOnline(): boolean {
 const LIVE_PATH = /^(?:https?:\/\/[^/]+)?(?:\/__fixtures)?\/v1\//
 
 /**
- * fetch() that reports whether the network answered (see the module comment). Browser only. Any failure counts (if it
- * started after the network last answered, see `failed`), but
+ * fetch() that reports whether the network answered (see the module comment). Browser only. Any failure counts, but
  * only a live /v1 response from the network clears it: static data files (stop indexes, geo tiles) come from
  * stale-while-revalidate caches even with no connection, so they say nothing about being online.
  */
 export async function trackedFetch(input: string, init?: RequestInit): Promise<Response> {
-  const n = ++started
   if (!LIVE_PATH.test(input)) {
     try {
       return await fetch(input, init)
     } catch (error) {
-      if (!init?.signal?.aborted) failed(n)
+      if (!init?.signal?.aborted) reportOffline()
       throw error
     }
   }
@@ -446,7 +428,7 @@ export async function trackedFetch(input: string, init?: RequestInit): Promise<R
   let timedOut = false
   const timer = setTimeout(() => {
     timedOut = true
-    failed(n)
+    reportOffline()
     deadline.abort()
   }, LIVE_REQUEST_TIMEOUT_MS)
   const onAbort = () => deadline.abort(caller?.reason)
@@ -455,12 +437,12 @@ export async function trackedFetch(input: string, init?: RequestInit): Promise<R
   try {
     const res = await fetch(input, { ...init, signal: deadline.signal })
     const body = NULL_BODY_STATUS.has(res.status) ? null : await res.arrayBuffer()
-    if (res.headers.get(SW_CACHE_HEADER)) failed(n)
+    if (res.headers.get(SW_CACHE_HEADER)) reportOffline()
     else reportOnline()
     return new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers })
   } catch (error) {
     if (timedOut) throw new TypeError(`Failed to fetch: no answer within ${LIVE_REQUEST_TIMEOUT_MS} ms`)
-    if (!caller?.aborted) failed(n)
+    if (!caller?.aborted) reportOffline()
     throw error
   } finally {
     clearTimeout(timer)
