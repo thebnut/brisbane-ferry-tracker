@@ -5,7 +5,15 @@
  * My Transit lists. The Ferry tab's stop selector no longer opens by itself (the prompt replaced it).
  */
 import { disableWebGL } from '@bft/ui/e2e/no-webgl.ts'
-import { expectNoPrompt, expectPrompt, FIRST_VISIT, prompt } from '@bft/ui/e2e/onboarding.ts'
+import {
+  expectNoPrompt,
+  expectPrompt,
+  expectPromptClearOfDocks,
+  expectUnobscured,
+  FIRST_VISIT,
+  PHONE_WIDTHS,
+  prompt,
+} from '@bft/ui/e2e/onboarding.ts'
 import { encodeHandoff } from '@bft/ui/handoff-codec'
 import { expect, type Page, test } from '@playwright/test'
 
@@ -176,3 +184,32 @@ test('keyboard: the prompt never takes focus, and the picker traps it and closes
   expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('H1')
   await expect(page.locator('[inert]')).toHaveCount(0)
 })
+
+for (const size of PHONE_WIDTHS) {
+  test(`${size.width} px: the prompt leaves every tab's fixed controls usable; Bus search and Map work (R15)`, async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== 'phone', 'the search sheet and section pills are fixed on phones only')
+    await page.setViewportSize(size)
+    await page.goto('/bus')
+    await expectPrompt(page)
+    await expectPromptClearOfDocks(page)
+    const field = page.locator('#stop-search')
+    const map = page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true')
+    await expectUnobscured(field)
+    await expectUnobscured(map)
+    await expectUnobscured(page.getByRole('navigation', { name: 'Bus sections' }).getByRole('link').last())
+    await field.click()
+    await expect(field).toBeFocused()
+    await field.blur()
+    await map.click()
+    await expect(map).toHaveAttribute('aria-pressed', 'true')
+    await expect(prompt(page)).toBeVisible()
+    // The other tabs: the prompt sits clear of the Mode Tabs and section pills there too.
+    for (const path of ['/', '/train', '/ferry']) {
+      await page.goto(path)
+      await expectPrompt(page)
+      await expectPromptClearOfDocks(page)
+    }
+  })
+}

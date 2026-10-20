@@ -256,6 +256,7 @@ export function BottomNav({ items, active, label = 'Main', renderLink }: BottomN
   return (
     <nav
       aria-label={label}
+      data-bft-dock=""
       className="fixed inset-x-0 bottom-0 z-30 border-t border-ferry-orange/20 bg-white/95 pb-[max(env(safe-area-inset-bottom),6px)] backdrop-blur dark:bg-night-2/95"
     >
       <ul
