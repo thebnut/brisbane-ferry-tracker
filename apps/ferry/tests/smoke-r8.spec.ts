@@ -10,7 +10,11 @@ coldStartSuite({
   path: '/',
   departures: /\/v1\/ferry\/stops\/[^/]+\/departures/,
   pin: (context) => pinUpcoming(context),
-  firstRunDialog: 'Select ferry stops',
-  // Each load is a first visit, as after Dev's "Clear site data": the stop selector opens every time.
-  prepare: (page) => page.addInitScript(() => localStorage.removeItem('brisbane-ferry-selector-seen')),
+  // Each load is a first visit, as after Dev's "Clear site data": nothing answered, so the onboarding prompt (P4,
+  // which replaced the stop selector opening by itself) may come up over the board each time.
+  prepare: (page) =>
+    page.addInitScript(() => {
+      localStorage.removeItem('brisbane-ferry-selector-seen')
+      localStorage.removeItem('bft-onboarding')
+    }),
 })

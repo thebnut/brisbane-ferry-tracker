@@ -9,6 +9,8 @@ test('Map → a terminal → its card → Use as From → Save stores the pair',
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   await page.goto('/')
+  // The selector no longer opens by itself (P4: the first visit gets the onboarding prompt): Settings opens it.
+  await page.getByRole('button', { name: 'Settings' }).click()
   const sheet = page.getByRole('dialog', { name: 'Select ferry stops' })
   await expect(sheet).toBeVisible()
   await sheet.getByRole('button', { name: 'Show origin terminals on a map' }).click()
@@ -48,6 +50,8 @@ test('Map → a terminal → its card → Use as From → Save stores the pair',
 
 test('Open on a terminal card goes to the terminal page', async ({ page }) => {
   await page.goto('/')
+  // The selector no longer opens by itself (P4: the first visit gets the onboarding prompt): Settings opens it.
+  await page.getByRole('button', { name: 'Settings' }).click()
   const sheet = page.getByRole('dialog', { name: 'Select ferry stops' })
   await sheet.getByRole('button', { name: 'Show destination terminals on a map' }).click()
   const picker = sheet.getByRole('region', { name: 'Choose where to map' })

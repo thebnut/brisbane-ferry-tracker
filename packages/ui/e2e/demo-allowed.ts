@@ -5,6 +5,7 @@
  * the Worker's API calls go to its own recorded responses (API_BASE → /__fixtures), so no live API is needed.
  */
 import { devices } from '@playwright/test'
+import { onboardingAnswered } from './onboarding.ts'
 
 /** Specs that run only against the demo-allowed server. */
 export const DEMO_ALLOWED_SPECS = '**/*.demo.spec.ts'
@@ -39,5 +40,10 @@ export const demoAllowedProject = (demoPort: number) => ({
   testMatch: DEMO_ALLOWED_SPECS,
   // The config-wide testIgnore leaves these specs out of the other projects.
   testIgnore: [],
-  use: { ...devices['Desktop Chrome'], baseURL: `http://localhost:${demoPort}` },
+  use: {
+    ...devices['Desktop Chrome'],
+    baseURL: `http://localhost:${demoPort}`,
+    // The first-visit onboarding prompt (P4) stays out of these specs' way.
+    storageState: onboardingAnswered(`http://localhost:${demoPort}`),
+  },
 })

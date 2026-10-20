@@ -140,8 +140,8 @@ export function visibleStops(stops: readonly PickerStop[], bounds: PickerBounds,
 }
 
 /**
- * What is picked. P3 is single-select (a tap opens that stop's card); the multi-select tray (P4) adds
- * `{ mode: 'multi', ids: string[] }` with `add`/`remove` actions, and the same `active` card.
+ * What is picked in single-select (a tap opens that stop's card). Multi-select (P4 onboarding) has no card: its taps go
+ * to the caller's tray (onboarding.ts trayReducer) through StopPickerMap's `multi` prop.
  */
 export type PickerSelection = { mode: 'single'; active: string | null }
 
