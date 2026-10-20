@@ -39,6 +39,29 @@ for (const how of DATA_FAILURES) {
       expect(errors).toEqual([])
     })
 
+    test('route search: says routes failed, Try again finds the route', async ({ page, context }) => {
+      const errors = pageErrors(page)
+      const { restore } = await failData(context, how)
+      await page.goto('/')
+      await page
+        .getByRole('searchbox', { name: /Stop name or number|Find a stop/ })
+        .locator('visible=true')
+        .fill('333')
+      const status = page
+        .getByRole('status')
+        .filter({ hasText: "Couldn't load routes" })
+        .locator('visible=true')
+      await expect(status).toBeVisible({ timeout: 20_000 })
+      await expectNoErrorPage(page)
+      restore()
+      await status.getByRole('button', { name: 'Try again' }).click()
+      await expect(
+        page.getByRole('list', { name: 'Matching routes' }).locator('visible=true').getByRole('link').first(),
+      ).toBeVisible({ timeout: 20_000 })
+      await expect(status).toHaveCount(0)
+      expect(errors).toEqual([])
+    })
+
     test('map picker: "Couldn\'t load stops" over the map, Try again shows them', async ({
       page,
       context,
