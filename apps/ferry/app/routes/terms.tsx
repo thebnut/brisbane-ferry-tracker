@@ -1,12 +1,20 @@
 import { Footer, SiteHeader } from '../components/Chrome.tsx'
 import { TERMS_HTML } from '../lib/legal.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
+import { getEnv } from '../lib/server.server.ts'
+import type { Route } from './+types/terms'
 
-export const meta = () =>
+/** The site's own URL (inside BrisbaneTransit, its page there), for the canonical and OG tags. */
+export function loader({ context }: Route.LoaderArgs) {
+  return { siteUrl: getEnv(context)?.SITE_URL ?? SITE_URL }
+}
+
+export const meta: Route.MetaFunction = ({ loaderData }) =>
   pageMeta({
     title: 'Terms of Use — Brisbane Ferry',
     description: 'Terms of Use for Brisbane Ferry, the unofficial live CityCat departure boards.',
-    url: `${SITE_URL}/terms`,
+    url: `${loaderData?.siteUrl ?? SITE_URL}/terms`,
+    siteUrl: loaderData?.siteUrl,
   })
 
 /** Prerendered at build time (react-router.config.ts). */

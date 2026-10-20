@@ -7,7 +7,8 @@
  *  - /robots.txt          disallow: the mode pages' canonical copies are the standalone apps
  *  - www.<SITE_URL host>  301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
  *  - everything else      React Router SSR, with a per-request CSP nonce (workers/security.ts). The mounted mode pages are the standalone apps' route modules, so their
- *                         loaders read their own app's context: each gets this Env with its own canonical SITE_URL.
+ *                         loaders read their own app's context: each gets this Env with its own canonical SITE_URL
+ *                         (modeSiteUrl: the standalone app's, or this site's page under the mode prefix).
  */
 import { cloudflareContext as busContext } from '@bft/bus/app/lib/context.ts'
 import { withBuild } from '@bft/core/build'
@@ -19,6 +20,7 @@ import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
 import { validateProxied } from '../app/lib/contract.server.ts'
 import { fixtureAsk, handleFixtureApi } from '../app/lib/fixtures.server.ts'
+import { MODE_BASES, type MountedMode } from '../app/lib/modes.ts'
 import { apiFetch, isFixtureMode } from '../app/lib/server.server.ts'
 import {
   canonicalRedirect,
@@ -154,6 +156,16 @@ async function guarded(handle: () => Promise<Response>): Promise<Response> {
   }
 }
 
+const MODE_SITE_URL = { ferry: 'FERRY_SITE_URL', train: 'TRAIN_SITE_URL', bus: 'BUS_SITE_URL' } as const
+
+/**
+ * The canonical site of a mounted mode page: the standalone app's own (<MODE>_SITE_URL) while it is the indexable
+ * copy, else this site's page under the mode prefix (P6: the mode hosts redirect here, so links stay internal).
+ */
+export function modeSiteUrl(env: Env, mode: MountedMode): string {
+  return env[MODE_SITE_URL[mode]] ?? `${env.SITE_URL}${MODE_BASES[mode]}`
+}
+
 async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
   const url = new URL(request.url)
   // The mounted Ferry screens include the feedback sheet, which posts to /api/feedback on this origin.
@@ -176,9 +188,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
     })
   const context = new RouterContextProvider()
   context.set(cloudflareContext, { env, ctx, nonce })
-  context.set(ferryContext, { env: { ...env, SITE_URL: env.FERRY_SITE_URL ?? env.SITE_URL }, ctx, nonce })
-  context.set(trainContext, { env: { ...env, SITE_URL: env.TRAIN_SITE_URL ?? env.SITE_URL }, ctx, nonce })
-  context.set(busContext, { env: { ...env, SITE_URL: env.BUS_SITE_URL ?? env.SITE_URL }, ctx, nonce })
+  context.set(ferryContext, { env: { ...env, SITE_URL: modeSiteUrl(env, 'ferry') }, ctx, nonce })
+  context.set(trainContext, { env: { ...env, SITE_URL: modeSiteUrl(env, 'train') }, ctx, nonce })
+  context.set(busContext, { env: { ...env, SITE_URL: modeSiteUrl(env, 'bus') }, ctx, nonce })
   const res = await requestHandler(request, context)
   // A visitor's demo session (not FIXTURES=1 for everyone): marked so no cache keeps it (R7-B1).
   if (env.FIXTURES === '1' || !isFixtureMode(request, env)) return res

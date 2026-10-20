@@ -26,6 +26,8 @@
     // "1" serves fixture data to everyone (dev and Playwright without the live API).
     "FIXTURES": "0",
     "SITE_URL": "https://www.brisbaneferry.com",
+    // Where page navigations go when REDIRECT_TO_TRANSIT is "1" (P6, @bft/ui/redirect; the flag is unset here).
+    "TRANSIT_SITE_URL": "https://bft-transit.brisbanetransit.workers.dev",
     // Local dev uses the STAGING widget like staging. localhost is on neither widget, so the sheet shows the bot-check
     // error there; Playwright overrides this with the test sitekey.
     "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
@@ -39,6 +41,8 @@
         "ALLOW_FIXTURES": "1",
         "FIXTURES": "0",
         "SITE_URL": "https://www.brisbaneferry.com",
+        // Where page navigations go when REDIRECT_TO_TRANSIT is "1" (P6, @bft/ui/redirect).
+        "TRANSIT_SITE_URL": "https://bft-transit.brisbanetransit.workers.dev",
         // Invisible Turnstile widget for the feedback sheet: the STAGING widget "bft-transit-ask" (public sitekey; its
         // secret lives on bft-api, which verifies through the API binding). Production uses the PROD widget
         // (test/wrangler-config.test.ts).

@@ -52,14 +52,16 @@ test('each mode tab shows its standalone app with that app’s own lockup', asyn
   expect(errors).toEqual([])
 })
 
-test('bus stop page: server-rendered rows, links stay inside the Bus tab, canonical is the standalone app', async ({
+test("bus stop page: server-rendered rows, links stay inside the Bus tab, canonical is this site's page (P6)", async ({
   request,
 }) => {
   const res = await request.get('/bus/stop/10802')
   expect(res.status()).toBe(200)
   const html = await res.text()
   expect(html.match(/data-testid="departure"/g)?.length ?? 0).toBeGreaterThanOrEqual(10)
-  expect(html).toContain('rel="canonical" href="https://bft-bus.brisbanetransit.workers.dev/stop/10802"')
+  expect(html).toContain(
+    'rel="canonical" href="https://bft-transit.brisbanetransit.workers.dev/bus/stop/10802"',
+  )
   expect(html).toContain('href="/bus/route/')
   expect(html).not.toMatch(/href="\/route\//)
   expect(html).toContain('aria-label="Bus sections"')
