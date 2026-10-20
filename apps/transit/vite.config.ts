@@ -1,7 +1,7 @@
 import { cloudflare } from '@cloudflare/vite-plugin'
 import { reactRouter } from '@react-router/dev/vite'
 import tailwindcss from '@tailwindcss/vite'
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, type Plugin, type ResolveModulePreloadDependenciesFn, type Rolldown } from 'vite'
 import { modeBases, navSlots } from './modes.config.ts'
 import { pwa } from './pwa.config.ts'
 
@@ -23,12 +23,51 @@ function noMapOnServer(): Plugin {
   }
 }
 
+/**
+ * A lazy import's preload list sits in the importing chunk, so on its page's first load. Leave out the chunks the
+ * importer already imports statically, directly or not: they have loaded before the import can run, so preloading
+ * them again does nothing. The bus search's Routes group (RouteResults, loaded on a keystroke) gets no list at all.
+ * Vite calls resolveDependencies from its own generateBundle, after this plugin's (enforce: 'pre') has kept the bundle.
+ */
+let clientBundle: Rolldown.OutputBundle | null = null
+function keepClientBundle(): Plugin {
+  return {
+    name: 'bft:keep-client-bundle',
+    enforce: 'pre',
+    applyToEnvironment: (env) => env.name === 'client',
+    generateBundle(_, bundle) {
+      clientBundle = bundle
+    },
+  }
+}
+function loadedWith(host: string, bundle: Rolldown.OutputBundle): Set<string> {
+  const seen = new Set<string>()
+  const visit = (file: string) => {
+    const chunk = bundle[file]
+    if (chunk?.type !== 'chunk') return
+    for (const dep of chunk.imports) {
+      if (seen.has(dep)) continue
+      seen.add(dep)
+      visit(dep)
+    }
+  }
+  visit(host)
+  return seen
+}
+const resolveDependencies: ResolveModulePreloadDependenciesFn = (file, deps, { hostId }) => {
+  if (/RouteResults-[\w-]+\.js$/.test(file)) return []
+  if (!clientBundle) return deps
+  const loaded = loadedWith(hostId, clientBundle)
+  return deps.filter((d) => !loaded.has(d))
+}
+
 // Parallel builds and tests (pnpm mono:build) each opened the Worker inspector on 9229 (EADDRINUSE). Keep it for
 // `react-router dev`, where it's useful for debugging; disable it everywhere else (as apps/ferry, train, bus: #51).
 const inspectorPort = process.argv.includes('dev') ? undefined : false
 
 export default defineConfig({
   plugins: [
+    keepClientBundle(),
     modeBases(),
     navSlots(),
     noMapOnServer(),
@@ -37,7 +76,10 @@ export default defineConfig({
     reactRouter(),
     pwa(),
   ],
-  build: { assetsInlineLimit: 0 },
+  build: {
+    assetsInlineLimit: 0,
+    modulePreload: { resolveDependencies },
+  },
   environments: {
     client: {
       build: {

@@ -65,14 +65,20 @@ export const DEPARTURE_LIMIT = 20
 /** A longer list kept for saved stops so they work offline ("Offline · scheduled"). */
 export const OFFLINE_LIMIT = 100
 
-export const departuresPath = (stopId: string, limit = DEPARTURE_LIMIT) =>
-  `/v1/bus/stops/${encodeURIComponent(stopId)}/departures?limit=${limit}`
+/** `route`: only that route's departures, filtered by the API before the limit (the stop page's ?route=). */
+export const departuresPath = (stopId: string, limit = DEPARTURE_LIMIT, route?: string) =>
+  `/v1/bus/stops/${encodeURIComponent(stopId)}/departures?limit=${limit}${route ? `&route=${encodeURIComponent(route)}` : ''}`
 
 export const fetchDepartures = (
   fetcher: ApiFetcher,
   stopId: string,
-  opts: { limit?: number; signal?: AbortSignal; validate?: Validate<DeparturesResponse> } = {},
-) => getJson(fetcher, departuresPath(stopId, opts.limit), opts.validate, opts.signal)
+  opts: {
+    limit?: number
+    route?: string
+    signal?: AbortSignal
+    validate?: Validate<DeparturesResponse>
+  } = {},
+) => getJson(fetcher, departuresPath(stopId, opts.limit, opts.route), opts.validate, opts.signal)
 
 export const fetchAlerts = (
   fetcher: ApiFetcher,

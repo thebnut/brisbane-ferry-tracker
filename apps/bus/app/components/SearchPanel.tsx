@@ -7,7 +7,7 @@
  * duration is recorded on `window.__bftSearch` for the Playwright performance check.
  */
 import { SearchField, StopResultCard, ThumbSheet } from '@bft/ui/bus'
-import { type ReactNode, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, type ReactNode, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import type { StopIndexEntry } from '../lib/data-contract.ts'
 import { useApi } from '../lib/mode.ts'
@@ -22,6 +22,11 @@ declare global {
     __bftSearch?: { times: number[]; ready: boolean }
   }
 }
+
+/** The Routes group (P2): its own chunk, loaded on the first keystroke; if it can't load, stop search is unchanged. */
+const RouteResults = lazy(() =>
+  import('./RouteResults.tsx').catch(() => ({ default: (_: { query: string; slot: string }) => null })),
+)
 
 function timedSearch(index: SearchIndex, q: string): SearchResult {
   const t0 = performance.now()
@@ -116,15 +121,22 @@ function Results({
       renderLink={linkRenderer}
     />
   ))
+  const routes = (slot: 'above' | 'below') => (
+    <Suspense fallback={null}>
+      <RouteResults query={query} slot={slot} />
+    </Suspense>
+  )
   return (
     <div className="flex flex-col gap-2.5">
       {header}
+      {routes('above')}
       <ul
         aria-label="Matching stops"
         className={upward ? 'flex flex-col-reverse gap-2.5' : 'flex flex-col gap-2.5'}
       >
         {items}
       </ul>
+      {routes('below')}
     </div>
   )
 }
