@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "BrisbaneTransit: the Mode Tabs shell (Ferry | Train | Bus | Nearby | My Transit) built from the standalone apps' screens, plus \"Around you\" and the Ask box. React Router 8 framework mode on Cloudflare Workers.",
+  "description": "BrisbaneTransit: the Mode Tabs shell (My Transit | Nearby | Ferry | Train | Bus) built from the standalone apps' screens, plus \"Around you\" and the Ask box. React Router 8 framework mode on Cloudflare Workers.",
   "scripts": {
     "dev": "react-router dev",
     "build": "react-router build",

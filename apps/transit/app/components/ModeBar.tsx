@@ -2,7 +2,7 @@
 import { Icon, MODE_TABS, ModeTabs, type NavItem } from '@bft/ui'
 import { Link, useLocation } from 'react-router'
 
-/** Tab order on phones (X-* boards): Ferry | Train | Bus | Nearby | My Transit. My Transit is the home page. */
+/** Tab order on phones: My Transit | Nearby | Ferry | Train | Bus (Brett, 20 Oct). My Transit is the home page. */
 export const TABS: NavItem[] = MODE_TABS.map((t) => (t.key === 'saved' ? { ...t, href: '/' } : t))
 
 export function activeTab(pathname: string): string {

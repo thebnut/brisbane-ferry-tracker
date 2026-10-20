@@ -16,7 +16,7 @@ const watchErrors = (page: Page) => {
 
 const CBD = '/nearby?lat=-27.4717&lon=153.0206'
 
-test('My Transit home: transit lockup, Ask box, Mode Tabs in the X-Home order', async ({
+test('My Transit home: transit lockup, Ask box, Mode Tabs with My Transit first', async ({
   page,
   isMobile,
 }) => {
@@ -29,7 +29,7 @@ test('My Transit home: transit lockup, Ask box, Mode Tabs in the X-Home order', 
   const labels = (await tabs.getByRole('link').allInnerTexts()).map((t) => t.trim())
   expect(labels.slice(0, 5)).toEqual(
     isMobile
-      ? ['Ferry', 'Train', 'Bus', 'Nearby', 'My Transit']
+      ? ['My Transit', 'Nearby', 'Ferry', 'Train', 'Bus']
       : ['My Transit', 'Ferry', 'Train', 'Bus', 'Nearby'],
   )
   expect(errors).toEqual([])
