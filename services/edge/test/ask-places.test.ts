@@ -232,6 +232,21 @@ describe('the Ask resolver groups one place (bus)', () => {
     }
   })
 
+  it('a stop number with a platform must agree with it, in both roles (Codex r5)', () => {
+    const ok = parseQuestion('next bus from stop 11168 platform 2', resolver)
+    expect(ok.ok && ok.intent).toMatchObject({ kind: 'departures_at', at: { key: '11168' } })
+    for (const q of [
+      'next bus from stop 11168 platform 3',
+      'next bus from brisbane domestic airport to stop 11168 platform 3',
+      'next ferry from stop 317584 platform 9',
+    ]) {
+      const r = parseQuestion(q, resolver)
+      expect(r.ok ? r.intent : r.reason, q).toBe('unresolved_stop')
+    }
+    const to = parseQuestion('next bus from brisbane domestic airport to stop 11168 platform 2', resolver)
+    expect(to.ok && to.intent).toMatchObject({ kind: 'next_departure', to: { key: '11168' } })
+  })
+
   it('a platform the station does not have is never answered with the whole station', () => {
     const r = parseQuestion('next bus from cultural centre platform 9', resolver)
     expect(r.ok ? r.intent : r.reason).toBe('unresolved_stop')

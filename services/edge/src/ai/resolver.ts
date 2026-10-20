@@ -178,10 +178,10 @@ export function searchStops(
     const strict = !!platform
     const digits = q.replace(/^(stop\s*)?0*/, '')
     if (/^\d{1,6}$/.test(digits)) {
-      // A stop number names one stop, never its whole station.
+      // A stop number names one stop, never its whole station; a platform named with it must be that stop's own.
       const i = idx.byCode.get(digits)
       const s = i == null ? undefined : idx.stops[i]
-      if (s) out.push(single(idx.mode, s, 1))
+      if (s && (!strict || platformOf(s.name) === platform)) out.push(single(idx.mode, s, 1))
       continue
     }
     // One candidate per place: the first (best) hit of a place stands for it, later hits only raise its score.
