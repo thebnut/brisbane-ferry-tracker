@@ -172,4 +172,7 @@ test('keyboard: the prompt never takes focus, and the picker traps it and closes
   await tray(page).getByLabel('Find a stop by name').focus()
   await page.keyboard.press('Escape')
   await expect(picker(page)).toHaveCount(0)
+  // Focus comes back to the page (its heading), not lost on <body>, and nothing is left inert.
+  expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('H1')
+  await expect(page.locator('[inert]')).toHaveCount(0)
 })

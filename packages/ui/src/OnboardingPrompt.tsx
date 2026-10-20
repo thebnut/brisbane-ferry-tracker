@@ -23,14 +23,50 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
   const [step, setStep] = useState<'waiting' | 'prompt' | 'picker' | 'done'>('waiting')
   const offerRef = useRef(offer)
   offerRef.current = offer
+  /** Where focus goes back to once the prompt or picker has gone: what had it when the prompt appeared. */
+  const returnTo = useRef<Element | null>(null)
   // biome-ignore lint/correctness/useExhaustiveDependencies: decided once per page view.
   useEffect(() => {
     if (!offerRef.current()) return setStep('done')
-    return whenIdle(() => setStep(offerRef.current() ? 'prompt' : 'done'), quietMs)
+    return whenIdle(() => {
+      returnTo.current = document.activeElement
+      setStep(offerRef.current() ? 'prompt' : 'done')
+    }, quietMs)
   }, [])
+  // While it shows, the visitor may save a stop through the page itself (it isn't modal): then it goes (Codex r1).
+  useEffect(() => {
+    if (step !== 'prompt') return
+    const recheck = () => {
+      if (!offerRef.current()) setStep('done')
+    }
+    const id = setInterval(recheck, 1_000)
+    addEventListener('storage', recheck)
+    return () => {
+      clearInterval(id)
+      removeEventListener('storage', recheck)
+    }
+  }, [step])
+  // The prompt's buttons and the picker are gone: put focus back where it was, never on <body> (Codex r1).
+  useEffect(() => {
+    if (step !== 'done' || !returnTo.current) return
+    const active = document.activeElement
+    if (active && active !== document.body) return
+    const back = returnTo.current
+    const target =
+      back instanceof HTMLElement && back.isConnected && back !== document.body
+        ? back
+        : (document.querySelector<HTMLElement>('main h1') ??
+          document.querySelector<HTMLElement>('h1') ??
+          document.querySelector<HTMLElement>('main'))
+    if (!target) return
+    if (!target.matches('a[href], button, input, select, textarea, [tabindex]')) target.tabIndex = -1
+    target.focus({ preventScroll: true })
+  }, [step])
 
   // Answered either way: the prompt never comes back on this device, whatever happens in the picker.
   const answer = (next: 'picker' | 'done') => {
+    // Saved meanwhile (another tab, or the page itself): nothing to set up.
+    if (next === 'picker' && !offerRef.current()) return setStep('done')
     markOnboardingDone()
     onAnswer?.()
     setStep(next)

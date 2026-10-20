@@ -39,6 +39,24 @@ describe('bus onboarding', () => {
     expect(onb.busHasSaved()).toBe(true)
   })
 
+  it('a refused save can be retried once storage works again (Codex r1)', async () => {
+    const { onb, storage } = await modules()
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+    const tray = [
+      { mode: 'bus' as const, id: '10802', name: 'Cultural Centre' },
+      { mode: 'bus' as const, id: '600', name: 'Chermside' },
+    ]
+    expect(onb.saveBus(tray)).toBe(false)
+    set.mockRestore()
+    expect(onb.saveBus(tray)).toBe(true)
+    expect(JSON.parse(localStorage.getItem(storage.KEYS.SAVED) ?? '[]')).toEqual([
+      { id: '10802', name: 'Cultural Centre' },
+      { id: '600', name: 'Chermside' },
+    ])
+  })
+
   it('reports a save that storage refused', async () => {
     const { onb } = await modules()
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {

@@ -191,6 +191,70 @@ describe('onboarding prompt', () => {
     expect(screen.queryByRole('button', { name: 'picker' })).toBeNull()
   })
 
+  it('goes when something is saved while it shows, and Yes then opens nothing (Codex r1)', () => {
+    let saved = false
+    render(
+      <OnboardingPrompt offer={() => shouldOffer({ anySaved: saved })} renderPicker={() => <p>picker</p>} />,
+    )
+    act(() => vi.advanceTimersByTime(2000))
+    const yes = screen.getByRole('button', { name: 'Yes' })
+    saved = true
+    fireEvent.click(yes)
+    expect(screen.queryByText('picker')).toBeNull()
+    expect(screen.queryByText('Set up your favourite stops?')).toBeNull()
+  })
+
+  it('goes by itself within a second of a save elsewhere on the page', () => {
+    let saved = false
+    render(<OnboardingPrompt offer={() => shouldOffer({ anySaved: saved })} renderPicker={() => null} />)
+    act(() => vi.advanceTimersByTime(2000))
+    expect(screen.getByText('Set up your favourite stops?')).toBeTruthy()
+    saved = true
+    act(() => vi.advanceTimersByTime(1000))
+    expect(screen.queryByText('Set up your favourite stops?')).toBeNull()
+    expect(localStorage.getItem(ONBOARDING_KEY)).toBe('1')
+  })
+
+  it('focus goes back to what had it once the picker closes, never to <body> (Codex r1)', () => {
+    render(
+      <main>
+        <h1>My stops</h1>
+        <button type="button">search</button>
+        <OnboardingPrompt
+          offer={() => shouldOffer({ anySaved: false })}
+          renderPicker={(close) => (
+            <button type="button" onClick={close}>
+              close picker
+            </button>
+          )}
+        />
+      </main>,
+    )
+    screen.getByRole('button', { name: 'search' }).focus()
+    act(() => vi.advanceTimersByTime(2000))
+    // Its own keyboard path: focus moves to Yes, Enter opens the picker, which closes again.
+    screen.getByRole('button', { name: 'Yes' }).focus()
+    fireEvent.click(screen.getByRole('button', { name: 'Yes' }))
+    const close = screen.getByRole('button', { name: 'close picker' })
+    close.focus()
+    fireEvent.click(close)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'search' }))
+  })
+
+  it('without an earlier focus, the page heading takes it', () => {
+    render(
+      <main>
+        <h1>My stops</h1>
+        <OnboardingPrompt offer={() => shouldOffer({ anySaved: false })} renderPicker={() => null} />
+      </main>,
+    )
+    act(() => vi.advanceTimersByTime(2000))
+    const notNow = screen.getByRole('button', { name: 'Not now' })
+    notNow.focus()
+    fireEvent.click(notNow)
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'My stops' }))
+  })
+
   it('never shows once answered', () => {
     markOnboardingDone()
     mount()

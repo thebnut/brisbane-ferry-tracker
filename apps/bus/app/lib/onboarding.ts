@@ -19,18 +19,29 @@ const MAX_TILES = 30
 
 export const busHasSaved = (): boolean => readSaved().length > 0
 
+/** What storage itself holds (storage.ts keeps its list in memory too, also when a write was refused). */
+function persisted(): { id?: unknown }[] | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(KEYS.SAVED) ?? '[]')
+    return Array.isArray(v) ? v : []
+  } catch {
+    return null
+  }
+}
+
 /** Adds the tray's bus stops to My stops, in tray order, after any already there. False if storage refused. */
 export function saveBus(items: TrayItem[]): boolean {
   const stops = items.filter((i) => i.mode === 'bus')
-  for (const s of stops) if (!isSaved(s.id)) toggleSaved({ id: s.id, name: s.name })
-  // storage.ts keeps quiet when storage refuses, so read the store itself back.
-  let stored: { id?: unknown }[] = []
-  try {
-    stored = JSON.parse(localStorage.getItem(KEYS.SAVED) ?? '[]')
-  } catch {
-    return false
+  const before = persisted() ?? []
+  for (const s of stops) {
+    if (before.some((x) => x?.id === s.id)) continue
+    // In memory but not in storage (an earlier write was refused): toggling it off and on again writes the whole
+    // list once more, through the same helper.
+    if (isSaved(s.id)) toggleSaved({ id: s.id, name: s.name })
+    toggleSaved({ id: s.id, name: s.name })
   }
-  return stops.every((s) => stored.some((x) => x?.id === s.id))
+  const stored = persisted()
+  return stored != null && stops.every((s) => stored.some((x) => x?.id === s.id))
 }
 
 export function useBusSource(): ModeSource {
