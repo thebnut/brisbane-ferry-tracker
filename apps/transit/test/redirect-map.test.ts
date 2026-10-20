@@ -47,7 +47,7 @@ describe.each(APPS)('%s routes.ts → transit', (mode, routes) => {
     const to = transitPath(mode, sample(pattern))
     expect(to).not.toBeNull()
     expect(onTransit(to ?? ''), `${pattern} → ${to}`).toBe(true)
-    if (pattern === '/feedback') expect(to).toBe('/feedback')
+    if (pattern === '/feedback' || pattern === '/whats-new') expect(to).toBe(pattern)
     else if (pattern === '/') expect(to).toBe(`/${mode}`)
     // A page of its own on transit, not the fallback home.
     else expect(to).toBe(`/${mode}${sample(pattern)}`)

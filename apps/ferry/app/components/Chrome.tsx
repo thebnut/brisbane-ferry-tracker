@@ -73,6 +73,12 @@ export function Footer() {
         <p className="mt-2">Live times refresh every 15 seconds • All times in Brisbane time</p>
         <p className="mt-3">
           <FeedbackButton />
+          <a
+            href="/whats-new"
+            className="ml-4 inline-flex min-h-11 items-center font-semibold text-ferry-orange-deep"
+          >
+            What’s new
+          </a>
         </p>
         <p className="mt-3 text-xs text-gray-600">
           <a href={at('/privacy')} className="hover:text-ferry-orange-deep">

@@ -189,6 +189,12 @@ export function Footer() {
           >
             <span aria-hidden="true">💬&nbsp;</span>Send Feedback & Ideas
           </a>
+          <a
+            href="/whats-new"
+            className="ml-4 inline-flex min-h-11 items-center font-semibold text-ferry-orange-deep"
+          >
+            What’s new
+          </a>
         </p>
         <p className="mt-2 text-xs text-gray-600 dark:text-night-text/70">
           BrisbaneTrain is independent and not affiliated with Queensland Rail or Translink.

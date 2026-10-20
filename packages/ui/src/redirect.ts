@@ -68,14 +68,14 @@ export function isExcludedPath(pathname: string): boolean {
 }
 
 /**
- * The transit path for a mode page: its own page under the mode prefix, `/feedback` for feedback, and the mode's
- * transit home for the home page and any unknown path. Null for an excluded path (it isn't redirected).
+ * The transit path for a mode page: its own page under the mode prefix, `/feedback` and `/whats-new` as they are (shared
+ * by every mode), and the mode's transit home for the home page and any unknown path. Null for an excluded path (it isn't redirected).
  */
 export function transitPath(mode: RedirectMode, pathname: string): string | null {
   if (isExcludedPath(pathname)) return null
   // One trailing slash is the same page (`/stations/`); the home page is `/`.
   const path = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
-  if (path === '/feedback') return '/feedback'
+  if (path === '/feedback' || path === '/whats-new') return path
   const home = `/${mode}`
   return PAGES[mode].some((re) => re.test(path)) ? `${home}${path}` : home
 }

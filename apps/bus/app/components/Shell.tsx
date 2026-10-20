@@ -198,6 +198,12 @@ export function Footer({ aboveSheet = false }: { aboveSheet?: boolean }) {
           >
             <span aria-hidden="true">💬&nbsp;</span>Send Feedback & Ideas
           </a>
+          <a
+            href="/whats-new"
+            className="ml-4 inline-flex min-h-11 items-center font-semibold text-ferry-orange-deep"
+          >
+            What’s new
+          </a>
         </p>
         <p className="mt-3 text-xs">
           <Link to={at('/about')} className="underline hover:text-ferry-orange-deep">

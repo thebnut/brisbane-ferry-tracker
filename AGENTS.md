@@ -604,6 +604,8 @@ The transit platform (`docs/architecture/transit-architecture.md`) is being buil
 - Turborepo is deferred until the root moves into `apps/ferry` (hosting phase): turbo refuses a repo with both
   npm and pnpm lockfiles. Until then the `mono:*` scripts use `pnpm -r`.
 - Workspace code uses TypeScript and Biome (`biome.json`); the root ESLint config ignores the workspace dirs.
+- Each production release adds one entry to the top of `packages/ui/src/changelog.ts`, the public "What's new" page
+  (`/whats-new` in every app): plain-English, rider-facing and public-safe.
 
 ### `/v1` data-source flag (legacy app, default OFF)
 `src/utils/dataSource.js` decides per page load whether the board reads departures and vehicles from the transit
