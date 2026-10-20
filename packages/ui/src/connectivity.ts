@@ -83,19 +83,22 @@ export function useUnconfirmedBefore(): number | null {
   return useSyncExternalStore(noSubscribe, getUnconfirmedBefore, () => null)
 }
 
-/** How far the device's wall clock has got ahead of its monotonic one since the page loaded (deviceNow). */
-let ahead = 0
+/** deviceNow's last reading and the two device clocks then (monotonic, wall). */
+let clock: { at: number; monotonic: number; wall: number } | undefined
 /**
  * The device's own clock for arrival times and ages (Received, PageCheck.arrivedAt, stampNavigation, liveState):
- * epoch milliseconds that never go back. The navigation start plus the monotonic time since, moved forward by however
- * far the wall clock gets ahead of that: a sleep the monotonic clock didn't count (Codex r2) moves it forward once,
- * and arrivals stamped after it are on the same clock, so they are fresh (Codex r3). A wall clock corrected
- * backwards never moves it back, so data can't look younger than it is (Codex r1).
+ * epoch milliseconds that never go back. Each reading moves on by the time passed since the last one: the monotonic
+ * clock's step, or the wall clock's if that is larger (a sleep the monotonic clock didn't count, Codex r2), never a
+ * wall clock going back (a correction, Codex r1). Every step is measured afresh, so a sleep after a correction counts
+ * too (Codex r4), and answers stamped after a sleep are fresh on the same clock (Codex r3).
  */
 export function deviceNow(): number {
   const monotonic = performance.timeOrigin + performance.now()
-  ahead = Math.max(ahead, Date.now() - monotonic)
-  return monotonic + ahead
+  const wall = Date.now()
+  const last = clock ?? { at: monotonic, monotonic, wall }
+  const step = Math.max(monotonic - last.monotonic, wall - last.wall, 0)
+  clock = { at: last.at + step, monotonic, wall }
+  return clock.at
 }
 
 /** The question a page asks its service worker, and its answer: a worker from an older build doesn't answer. */
@@ -163,7 +166,7 @@ export function usePageCheck(): PageCheck | null {
 export function resetUnconfirmedBefore(): void {
   unconfirmedBefore = undefined
   pageCheck = undefined
-  ahead = 0
+  clock = undefined
 }
 
 /**
@@ -254,6 +257,8 @@ if (typeof window !== 'undefined') {
   window.addEventListener('pageshow', (e) => {
     if (e.persisted) location.reload()
   })
+  // deviceNow's first reading: time passed from here on counts, a sleep included.
+  deviceNow()
   // Which service worker marks the `.data` copies it serves (stampNavigation): asked once per controller.
   askServiceWorker()
   navigator.serviceWorker?.addEventListener('controllerchange', askServiceWorker)

@@ -370,6 +370,18 @@ describe('sleep and the back/forward cache (Codex r2)', () => {
     expect(sourceAgeS(after, { nowMs: Date.now(), ...page })).toBeCloseTo(10, 0)
   })
 
+  it('a sleep after the wall clock was corrected backwards still counts (Codex r4)', () => {
+    const page = loadPage()
+    deviceNow()
+    vi.setSystemTime(Date.now() - 5 * 60_000)
+    const polled = noteCacheCopy(new Response('{}'), board())
+    expect(liveState(polled, { offline: false, nowMs: Date.now(), ...page })).toBeNull()
+    // Two minutes asleep: the wall clock moves, the monotonic clock barely does.
+    vi.setSystemTime(Date.now() + 2 * 60_000)
+    mono += 200
+    expect(liveState(polled, { offline: false, nowMs: Date.now(), ...page })).toBe('stale')
+  })
+
   it('a page put away hides its live claims before it can be restored', () => {
     window.dispatchEvent(new Event('pagehide'))
     expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
