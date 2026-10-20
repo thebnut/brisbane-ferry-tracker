@@ -6,7 +6,7 @@ import { pwa } from './pwa.config.ts'
 
 /**
  * MapLibre only ever renders in the browser (behind React.lazy), so the Worker bundle gets a stub instead of ~1 MB of
- * map code and its web-worker asset.
+ * map code and its web-worker asset (also for the map stop picker, which imports it).
  */
 function noMapOnServer(): Plugin {
   const stub = '\0bft-map-stub'
@@ -14,10 +14,12 @@ function noMapOnServer(): Plugin {
     name: 'bft:no-map-on-server',
     enforce: 'pre',
     applyToEnvironment: (env) => env.name === 'ssr',
-    resolveId: (id) => (id === '@bft/ui/map' ? stub : null),
+    resolveId: (id) => (id === '@bft/ui/map' || id === '@bft/ui/stop-picker-map' ? stub : null),
     load: (id) =>
       id === stub
-        ? 'export default function MapView() { return null }\nexport const BASEMAP_STYLE_URL = ""'
+        ? 'export default function MapView() { return null }\nexport const BASEMAP_STYLE_URL = ""\n' +
+          // The map stop picker (@bft/ui/stop-picker-map) imports MapView by path, so it is stubbed whole.
+          'export const toCardDepartures = () => []\nexport const useWide = () => false'
         : null,
   }
 }

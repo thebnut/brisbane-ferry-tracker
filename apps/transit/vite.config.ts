@@ -59,6 +59,10 @@ function loadedWith(host: string, bundle: Rolldown.OutputBundle): Set<string> {
 }
 const resolveDependencies: ResolveModulePreloadDependenciesFn = (file, deps, { hostId }) => {
   if (/(RouteResults|BusStopPicker)-[\w-]+\.js$/.test(file)) return []
+  // The ferry stop selector: its map (MapLibre, ~280 KB gz) loads on its Map button, not whenever the selector opens,
+  // and the Map button loads with it. Off the list, which is on the boards' first load (~0 B to spare there).
+  if (/StopSelector-[\w-]+\.js$/.test(file))
+    deps = deps.filter((d) => !/(MapView|StopPickerMap|ui-map-toggle)-[\w-]+\.(js|css)$/.test(d))
   if (!clientBundle) return deps
   const loaded = loadedWith(hostId, clientBundle)
   return deps.filter((d) => !loaded.has(d))
@@ -106,8 +110,8 @@ export default defineConfig({
                 // The bus boards' elements (@bft/ui/bus) that only the Bus pages load. After 'ui', so the modules they
                 // share stay there.
                 { name: 'ui-bus', test: /packages[\\/]ui[\\/]src[\\/]bus\.tsx$/ },
-                // The Map button beside the stop searches (P3): its own small chunk, so the other modes' searches don't
-                // load the bus elements for it.
+                // The Map button beside the stop searches (P3): its own small chunk, so the ferry stop selector and the
+                // train station search don't load the bus elements for it.
                 { name: 'ui-map-toggle', test: /packages[\\/]ui[\\/]src[\\/](MapToggle\.tsx|map-pref\.ts)$/ },
               ],
             },

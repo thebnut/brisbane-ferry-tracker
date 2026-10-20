@@ -421,7 +421,12 @@ export function FerryBoards({
       ) : null}
       {showSelector ? (
         <Suspense fallback={<SheetFallback />}>
-          <StopSelector initial={pair} onSave={save} onClose={() => setShowSelector(false)} />
+          <StopSelector
+            initial={pair}
+            fetcher={fetcher}
+            onSave={save}
+            onClose={() => setShowSelector(false)}
+          />
         </Suspense>
       ) : null}
     </>
