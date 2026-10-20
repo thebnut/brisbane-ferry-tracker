@@ -66,8 +66,10 @@ test('opens the details sheet with the stopping pattern', async ({ page }) => {
   await expect(sheet).toBeHidden()
 })
 
-test('first visit shows the stop selector; changing stops updates the boards', async ({ page }) => {
+test('the stop selector (Settings): changing stops updates the boards', async ({ page }) => {
   await page.goto('/')
+  // The selector no longer opens by itself (P4: the first visit gets the onboarding prompt): Settings opens it.
+  await page.getByRole('button', { name: 'Settings' }).click()
   const sheet = page.getByRole('dialog', { name: 'Select ferry stops' })
   await expect(sheet).toBeVisible()
   await sheet.getByRole('combobox', { name: 'From' }).fill('hawth')
@@ -77,7 +79,7 @@ test('first visit shows the stop selector; changing stops updates the boards', a
   await expect(sheet).toBeHidden()
   await expect(page.locator('[data-board=outbound]')).toHaveAttribute('aria-label', 'Hawthorne to Riverside')
   await expect(page.locator('[data-board=outbound]').getByTestId('departure').first()).toBeVisible()
-  // Saved: the next visit renders Hawthorne in the server HTML (cookie) and skips the selector.
+  // Saved: the next visit renders Hawthorne in the server HTML (cookie), with no selector or prompt.
   await page.reload()
   await expect(page.locator('[data-board=outbound]')).toHaveAttribute('aria-label', 'Hawthorne to Riverside')
   await expect(page.getByRole('dialog', { name: 'Select ferry stops' })).toBeHidden()

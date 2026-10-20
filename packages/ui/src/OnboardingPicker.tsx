@@ -37,8 +37,10 @@ export interface ModeSource {
   stops: PickerStop[]
   onViewChange?: (bounds: ViewBounds, zoom: number) => void
   notice?: string | null
-  /** Stops matching a name (up to a handful). Bus loads its index on the first call (`searching` until then). */
+  /** Stops matching a name (up to a handful). */
   search: (query: string) => PickerStop[]
+  /** Called on the first keystroke: bus loads its stop index then (`searching` until it has). */
+  prepareSearch?: () => void
   searching?: boolean
   /** Ferry: the terminals reachable from `fromId`, for the tray's "To". */
   destinations?: (fromId: string) => { id: string; name: string }[]
@@ -46,6 +48,8 @@ export interface ModeSource {
 
 export interface OnboardingPickerProps {
   sources: ModeSource[]
+  /** The mode the picker opens on (default: the first source). */
+  initialMode?: OnboardMode
   /**
    * Writes the tray through each mode's store. Throws (or returns false) when storage refuses; the tray stays so the
    * visitor can try again. After a save the app usually reloads its home, which reads the stores.
@@ -79,9 +83,9 @@ function wrapTab(e: KeyboardEvent<HTMLElement>) {
   }
 }
 
-export default function OnboardingPicker({ sources, onSave, onClose }: OnboardingPickerProps) {
+export default function OnboardingPicker({ sources, initialMode, onSave, onClose }: OnboardingPickerProps) {
   const [tray, dispatch] = useReducer(trayReducer, undefined, emptyTray)
-  const [modeName, setMode] = useState<OnboardMode>(sources[0]?.mode ?? 'bus')
+  const [modeName, setMode] = useState<OnboardMode>(initialMode ?? sources[0]?.mode ?? 'bus')
   const source = sources.find((s) => s.mode === modeName) ?? (sources[0] as ModeSource)
   const [query, setQuery] = useState('')
   const [error, setError] = useState(false)
@@ -211,7 +215,10 @@ export default function OnboardingPicker({ sources, onSave, onClose }: Onboardin
           id={`${ids}-q`}
           type="search"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            source.prepareSearch?.()
+          }}
           autoComplete="off"
           className="min-h-11 rounded-button border border-ferry-orange/30 bg-white px-3 text-base dark:bg-night-2"
         />

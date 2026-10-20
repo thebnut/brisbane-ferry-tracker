@@ -52,6 +52,8 @@ test('Train tab: the station search has the map; Open stays under /train', async
 
 test('Ferry tab: the stop selector has the map; Use as From fills the field', async ({ page }) => {
   await page.goto('/ferry')
+  // The selector no longer opens by itself (P4: the first visit gets the onboarding prompt): Settings opens it.
+  await page.getByRole('button', { name: 'Settings' }).click()
   const sheet = page.getByRole('dialog', { name: 'Select ferry stops' })
   await sheet.getByRole('button', { name: 'Show origin terminals on a map' }).click()
   const picker = sheet.getByRole('region', { name: 'Choose where from map' })
