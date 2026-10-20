@@ -7,6 +7,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { type GeoJSONSource, Marker, Map as MlMap, setWorkerUrl } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useRef, useState } from 'react'
+import { MAP_TEXT_FONT } from './fonts.ts'
 
 // MapLibre looks for its worker next to its module URL, which does not survive bundling; ship it as an asset.
 setWorkerUrl(workerUrl)
@@ -271,6 +272,7 @@ export default function MapView({
           'icon-image': 'bft-stop',
           'icon-allow-overlap': true,
           'text-field': ['step', ['zoom'], '', 16, ['get', 'name']],
+          'text-font': MAP_TEXT_FONT,
           'text-size': 11,
           'text-offset': [0, 1.2],
           'text-anchor': 'top',
@@ -288,6 +290,14 @@ export default function MapView({
       m.on('mouseleave', 'bft-stops', () => {
         m.getCanvas().style.cursor = ''
       })
+      // Once idle (tiles, glyphs and our layers drawn): the zoom and how many features each of our symbol layers has on
+      // screen, e.g. `z16 bft-stops:4`. The R14-M1 e2e waits on it to check label fonts only after the labels rendered.
+      m.on('idle', () => {
+        const ours = m.getStyle().layers.filter((l) => l.type === 'symbol' && l.id.startsWith('bft'))
+        const counts = ours.map((l) => `${l.id}:${m.queryRenderedFeatures({ layers: [l.id] }).length}`)
+        container.current?.setAttribute('data-map-idle', [`z${Math.floor(m.getZoom())}`, ...counts].join(' '))
+      })
+      m.on('movestart', () => container.current?.removeAttribute('data-map-idle'))
       handlers.current.onReady?.(m)
       setReady(true)
       report()
