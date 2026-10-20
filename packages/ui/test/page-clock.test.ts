@@ -11,17 +11,18 @@ import { hydrateRoot } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  askServiceWorker,
   deviceNow,
   isOnline,
   LIVE_REFRESH_MAX_AGE_MS,
   LIVE_UNCONFIRMED_ATTR,
   liveState,
+  MARKS_DATA,
   markCachedData,
   noteCacheCopy,
   RENDER_MARGIN_MS,
   reportOffline,
   reportOnline,
-  resetNavigationStamps,
   resetUnconfirmedBefore,
   sourceAgeS,
   sourceTimeS,
@@ -66,7 +67,6 @@ function loadPage({ skewMin = 0, sinceRequestMs = 1_500, cached = false } = {}) 
   win.__bftRenderedAt = NOW
   if (cached) html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
   resetUnconfirmedBefore()
-  resetNavigationStamps()
   const page = renderHook(() => usePageCheck()).result.current
   if (!page) throw new Error('no page check')
   return page
@@ -76,7 +76,6 @@ afterEach(() => {
   html.removeAttribute(LIVE_UNCONFIRMED_ATTR)
   delete win.__bftRenderedAt
   resetUnconfirmedBefore()
-  resetNavigationStamps()
   reportOnline()
   vi.restoreAllMocks()
   vi.useRealTimers()
@@ -210,141 +209,99 @@ describe('client navigations (stampNavigation)', () => {
   const nav =
     (data: object, type = 'data') =>
     async () => ({ 'routes/stop': { type, result: data } })
+  const answer = <T extends object>(o: T = {} as T) => ({
+    renderedAt: NOW + 30_500,
+    via: VIA_NETWORK as string | undefined,
+    departures: board({ generatedAt: NOW + 30_000 }),
+    ...o,
+  })
+  /** The page is controlled by a service worker; `marks`: one of this build, which says it marks its copies. */
+  const controlledBy = async (marks: boolean) => {
+    const worker = {
+      postMessage: (message: { type?: string }, [port]: MessagePort[]) => {
+        if (marks && message.type === MARKS_DATA) port?.postMessage(MARKS_DATA)
+      },
+    }
+    Object.defineProperty(navigator, 'serviceWorker', { value: { controller: worker }, configurable: true })
+    askServiceWorker()
+    // The answer arrives as a message.
+    await vi.waitFor(() => new Promise((r) => setTimeout(r, 0)))
+    await new Promise((r) => setTimeout(r, 0))
+  }
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, 'serviceWorker')
+  })
 
   it.each(SKEWS)('a network answer is stamped with the time its request was sent (%i min)', async (min) => {
     loadPage({ skewMin: min })
     const sent = deviceNow()
-    const departures = board({ generatedAt: NOW + 30_000 })
-    const alerts = { generatedAt: NOW + 30_000, alerts: [] }
-    await stampNavigation(
-      {},
-      nav({
-        renderedAt: NOW + 30_500,
-        via: VIA_NETWORK,
-        departures,
-        alerts,
-        stopId: '1',
-        saved: { a: board() },
-      }),
-    )
-    expect(departures).toMatchObject({ receivedAt: sent })
-    expect(alerts).toMatchObject({ receivedAt: sent })
+    const data = answer({ alerts: { generatedAt: NOW + 30_000, alerts: [] }, saved: { a: board() } })
+    await stampNavigation({}, nav(data))
+    expect(data.departures).toMatchObject({ receivedAt: sent })
+    expect(data.alerts).toMatchObject({ receivedAt: sent })
     expect(isOnline()).toBe(true)
   })
 
   it('stamps records of live responses (saved cards) too', async () => {
     loadPage()
     const card = board({ generatedAt: NOW + 30_000 })
-    await stampNavigation(
-      {},
-      nav({ renderedAt: NOW + 30_500, via: VIA_NETWORK, initial: { a: card, b: null } }),
-    )
+    await stampNavigation({}, nav(answer({ departures: undefined, initial: { a: card, b: null } })))
     expect(card).toHaveProperty('receivedAt')
   })
 
-  it('a stored copy (rendered no later than something this page has seen) is an offline copy', async () => {
-    loadPage()
-    // Rendered before this page: a copy from an earlier visit.
-    const old = board({ generatedAt: NOW - 120_000 })
-    await stampNavigation({}, nav({ renderedAt: NOW - 119_000, via: VIA_NETWORK, departures: old }))
-    expect(old).toMatchObject({ offline: true })
-    expect(old).not.toHaveProperty('receivedAt')
-    expect(liveState(old, { offline: false, nowMs: Date.now(), ...loadPageCheck() })).toBe('offline')
-    expect(isOnline()).toBe(false)
-  })
-
-  it('a copy fetched by an earlier navigation of this page is recognised when it comes back', async () => {
-    loadPage()
-    const first = {
-      renderedAt: NOW + 20_000,
-      via: VIA_NETWORK,
-      departures: board({ generatedAt: NOW + 19_000 }),
-    }
-    await stampNavigation({}, nav(first))
-    expect(first.departures).toHaveProperty('receivedAt')
-    // The service worker hands back the very same render later.
-    const again = {
-      renderedAt: NOW + 20_000,
-      via: VIA_NETWORK,
-      departures: board({ generatedAt: NOW + 19_000 }),
-    }
-    await stampNavigation({}, nav(again))
-    expect(again.departures).toMatchObject({ offline: true })
-  })
-
-  it('a copy older than a /v1 answer this page has had is recognised', async () => {
-    loadPage()
-    noteCacheCopy(new Response('{}'), board({ generatedAt: NOW + 60_000 }))
-    reportOnline()
-    const copy = {
-      renderedAt: NOW + 30_000,
-      via: VIA_NETWORK,
-      departures: board({ generatedAt: NOW + 29_000 }),
-    }
-    await stampNavigation({}, nav(copy))
-    expect(copy.departures).toMatchObject({ offline: true })
-  })
-
-  it('in a page that is itself a stored copy, nothing is fresh until a network answer', async () => {
-    loadPage({ cached: true })
-    const copy = {
-      renderedAt: NOW + 600_000,
-      via: VIA_NETWORK,
-      departures: board({ generatedAt: NOW + 600_000 }),
-    }
-    await stampNavigation({}, nav(copy))
-    expect(copy.departures).toMatchObject({ offline: true })
-    // A network answer arrives (the connection is back): later navigations rendered after it are fresh.
-    noteCacheCopy(new Response('{}'), board({ generatedAt: NOW + 3_600_000 }))
-    reportOnline()
-    const fresh = {
-      renderedAt: NOW + 3_601_000,
-      via: VIA_NETWORK,
-      departures: board({ generatedAt: NOW + 3_601_000 }),
-    }
-    await stampNavigation({}, nav(fresh))
-    expect(fresh.departures).toHaveProperty('receivedAt')
-    expect(fresh.departures).not.toHaveProperty('offline')
-  })
-
-  it("another tab's copy, rendered after anything this page has seen, is still a copy (its body says so)", async () => {
+  it("a copy the service worker served says so: an offline copy, whoever stored it (another tab's)", async () => {
     // Codex r1: tab B stored this .data at T+30 s; tab A navigates at T+150 s and the service worker falls back to it.
     loadPage()
-    const copy = {
-      renderedAt: NOW + 30_000,
-      via: VIA_CACHE,
-      departures: board({ generatedAt: NOW + 29_000 }),
-    }
-    pass(150_000)
+    vi.useRealTimers()
+    await controlledBy(true)
+    const copy = answer({ via: VIA_CACHE })
     await stampNavigation({}, nav(copy))
     expect(copy.departures).toMatchObject({ offline: true })
     expect(copy.departures).not.toHaveProperty('receivedAt')
+    expect(liveState(copy.departures, { offline: false, nowMs: Date.now(), ...loadPageCheck() })).toBe(
+      'offline',
+    )
     expect(isOnline()).toBe(false)
+    // Its network answer under the same worker is fresh, and brings the connection back.
+    const fresh = answer()
+    await stampNavigation({}, nav(fresh))
+    expect(fresh.departures).toHaveProperty('receivedAt')
+    expect(isOnline()).toBe(true)
+  })
+
+  it('under a service worker of an older build (it never says it marks copies), nothing is stamped', async () => {
+    // Codex r2: such a worker serves a copy with the network token unchanged.
+    loadPage()
+    vi.useRealTimers()
+    await controlledBy(false)
+    const copy = answer()
+    await stampNavigation({}, nav(copy))
+    expect(copy.departures).toMatchObject({ offline: true })
   })
 
   it('a network answer after a copy is fresh and brings the connection back (no /v1 call between)', async () => {
     loadPage()
     reportOffline()
     expect(isOnline()).toBe(false)
-    const fresh = {
-      renderedAt: NOW + 40_000,
-      via: VIA_NETWORK,
-      departures: board({ generatedAt: NOW + 39_000 }),
-    }
+    const fresh = answer()
     await stampNavigation({}, nav(fresh))
     expect(fresh.departures).toHaveProperty('receivedAt')
     expect(fresh.departures).not.toHaveProperty('offline')
     expect(isOnline()).toBe(true)
   })
 
-  it('live data without `via` or without a render time is a copy', async () => {
+  it('in a page that is itself a stored copy, a network navigation is fresh at once (Codex r2)', async () => {
+    loadPage({ cached: true })
+    const fresh = answer({ renderedAt: NOW - 3_600_000 })
+    await stampNavigation({}, nav(fresh))
+    expect(fresh.departures).toHaveProperty('receivedAt')
+  })
+
+  it('live data without `via` is a copy', async () => {
     loadPage()
-    const noVia = { renderedAt: NOW + 30_000, departures: board() }
+    const noVia = answer({ via: undefined })
     await stampNavigation({}, nav(noVia))
     expect(noVia.departures).toMatchObject({ offline: true })
-    const noTime = { via: VIA_NETWORK, departures: board() }
-    await stampNavigation({}, nav(noTime))
-    expect(noTime.departures).toMatchObject({ offline: true })
   })
 
   it('the service worker plugin marks a stored copy, and only the token changes', async () => {
@@ -367,6 +324,22 @@ describe('client navigations (stampNavigation)', () => {
     expect(about).toEqual({ renderedAt: NOW - 1, siteUrl: 'x', mode: { fixtures: false, rt: null } })
     await stampNavigation({}, nav(new Error('x'), 'error'))
     expect(isOnline()).toBe(true)
+  })
+})
+
+describe('sleep and the back/forward cache (Codex r2)', () => {
+  it('a sleep the monotonic clock missed still ages the data, by the wall clock', () => {
+    const page = loadPage()
+    const polled = noteCacheCopy(new Response('{}'), board())
+    // Ten minutes asleep: the wall clock moves, the monotonic clock barely does.
+    vi.setSystemTime(Date.now() + 10 * 60_000)
+    mono += 200
+    expect(liveState(polled, { offline: false, nowMs: Date.now(), ...page })).toBe('stale')
+  })
+
+  it('a page put away hides its live claims before it can be restored', () => {
+    window.dispatchEvent(new Event('pagehide'))
+    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
   })
 })
 

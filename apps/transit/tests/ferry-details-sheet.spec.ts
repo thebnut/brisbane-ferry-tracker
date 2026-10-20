@@ -76,3 +76,26 @@ test('the first tap online shows the sheet or its fallback at once, never nothin
   expect(frames.slice(1)).not.toContain('none')
   expect(frames.at(-1)).toBe('sheet')
 })
+
+test.describe('before the service worker has the chunk', () => {
+  test.use({ serviceWorkers: 'block' })
+  test("a sheet that can't load says so, the boards stay, and the next tap tries again", async ({
+    page,
+    context,
+  }) => {
+    await rememberBulimbaRiverside(page)
+    const chunk = (url: URL) => /\/assets\/DetailsSheet-[^/]+\.js$/.test(url.pathname)
+    await context.route(chunk, (route) => route.abort('internetdisconnected'))
+    await page.goto(PATH)
+    await firstDeparture(page).click()
+    const sheet = page.getByRole('dialog')
+    await expect(sheet).toContainText("Details can't load without a connection")
+    await expect(page.locator('[data-board=outbound] [data-testid=departure]').first()).toBeVisible()
+
+    await context.unroute(chunk)
+    await page.keyboard.press('Escape')
+    await expect(sheet).toBeHidden()
+    await firstDeparture(page).click()
+    await expect(page.getByRole('dialog').getByText(/Departure from Bulimba/)).toBeVisible()
+  })
+})

@@ -204,10 +204,15 @@ const onBrowserEvent = (e: Event) => {
 }
 if (typeof window !== 'undefined') {
   // A page restored from the back/forward cache (Chrome keeps no-store pages there too) shows whatever it last
-  // rendered, LIVE claims included, with no live guard and no service worker mark: load it afresh (Codex r1, R15).
+  // rendered, with no service worker mark. Its live claims are hidden as it is put away (pagehide), so they never
+  // show on restore, and it is loaded afresh (Codex r1, r2).
+  window.addEventListener('pagehide', () => document.documentElement.setAttribute(LIVE_UNCONFIRMED_ATTR, ''))
   window.addEventListener('pageshow', (e) => {
     if (e.persisted) location.reload()
   })
+  // Which service worker marks the `.data` copies it serves (stampNavigation): asked once per controller.
+  askServiceWorker()
+  navigator.serviceWorker?.addEventListener('controllerchange', askServiceWorker)
   window.addEventListener('online', onBrowserEvent)
   window.addEventListener('offline', onBrowserEvent)
   document.addEventListener('visibilitychange', onBrowserEvent)
@@ -517,11 +522,7 @@ export function noteCacheCopy<T>(res: Response, body: T): T {
     if (res.headers.get(SW_CACHE_HEADER)) cacheCopies.add(body)
     // A network answer in the browser is stamped with the device time it arrived (see Received). Never on the server:
     // a server-rendered board has no device arrival time.
-    else if (typeof window !== 'undefined') {
-      ;(body as Received).receivedAt = deviceNow()
-      const at = (body as { generatedAt?: unknown }).generatedAt
-      if (typeof at === 'number') seeServerTime(at)
-    }
+    else if (typeof window !== 'undefined') (body as Received).receivedAt = deviceNow()
   }
   return body
 }
@@ -642,8 +643,10 @@ export function sourceAgeS(res: AgedResponse, clock: AgeClock): number {
 function elapsedMs(res: AgedResponse, { nowMs, arrivedAt = null }: AgeClock): number {
   if (arrivedAt == null) return nowMs - (res.receivedAt ?? res.generatedAt)
   // Both device times: the arrival time (Received, or this page's) and now, read at this call. Never `nowMs`: a useNow
-  // tick can be 15 s old, and the first render after hydration still has the server's render time.
-  return deviceNow() - (res.receivedAt ?? arrivedAt)
+  // tick can be 15 s old, and the first render after hydration still has the server's render time. The device's wall
+  // clock as well as its monotonic one, whichever has moved further: the monotonic clock may not count a sleep (Codex
+  // r2), and a wall clock corrected backwards doesn't count at all.
+  return Math.max(deviceNow(), Date.now()) - (res.receivedAt ?? arrivedAt)
 }
 
 /**
@@ -690,23 +693,6 @@ export function liveState(
   return null
 }
 
-/**
- * Newest server time this page has seen from the network (stampNavigation): its own HTML's render, each client
- * navigation's, and every /v1 network answer's `generatedAt` (noteCacheCopy). Whatever reached the page before a
- * navigation was sent was generated before that navigation's loader ran, so its `renderedAt` is newer. An answer from
- * the edge cache (generated a few seconds before it was sent) only keeps this lower than it could be.
- */
-let newestRender: number | undefined
-/** Notes a server time seen from the network (see newestRender). */
-const seeServerTime = (at: number) => {
-  newestRender = Math.max(newestRender ?? at, at)
-}
-
-/** Tests: forget the renders seen. */
-export function resetNavigationStamps(): void {
-  newestRender = undefined
-}
-
 /** The route results of a client navigation, as React Router's client middleware gets them from `next()`. */
 type NavigationResults = Record<string, { type: string; result?: unknown }> | undefined
 
@@ -721,26 +707,38 @@ export async function stampNavigation<R extends NavigationResults>(
 ): Promise<R> {
   // Both read before the request is sent.
   const sentBy = deviceNow()
-  // A page that is itself a stored copy has seen no server time yet: until a network answer, nothing is fresh.
-  const seen =
-    newestRender ??
-    (getPageCheck().unconfirmedBefore == null
-      ? (window as { __bftRenderedAt?: number }).__bftRenderedAt
-      : undefined) ??
-    Infinity
+  const worker = navigator.serviceWorker?.controller ?? null
   const results = await next()
-  stampResults(results, sentBy, seen)
+  // Without a service worker a `.data` answer (`no-store`) can only come from the network; under one, only if it is
+  // a worker that marks the copies it serves (it said so, MARKS_DATA).
+  stampResults(results, sentBy, worker == null || markingWorkers.has(worker))
   return results
+}
+
+/** Service workers that said they mark the `.data` copies they serve (markCachedData), by the page's ask. */
+const markingWorkers = new WeakSet<ServiceWorker>()
+/** The question and its answer: a service worker from an older build doesn't answer. */
+export const MARKS_DATA = 'bft-marks-data'
+
+/** Asks the page's service worker whether it marks its `.data` copies (at load, on each new controller; tests). */
+export function askServiceWorker(): void {
+  const worker = navigator.serviceWorker?.controller
+  if (!worker) return
+  const channel = new MessageChannel()
+  channel.port1.onmessage = (e) => {
+    if (e.data === MARKS_DATA) markingWorkers.add(worker)
+  }
+  worker.postMessage({ type: MARKS_DATA }, [channel.port2])
 }
 
 /**
  * Set by every loader with live data (`via: VIA_NETWORK`, next to its `renderedAt`). The service worker rewrites it
  * to VIA_CACHE in a `.data` response it serves from its cache (markCachedData): the page itself can't see that
  * response's headers (React Router reads it), so the body says where it came from, as markCachedPages does for HTML.
- * Same length, so nothing else in the body moves.
+ * Same length, so nothing else in the body moves, and unlike anything in transit data.
  */
-export const VIA_NETWORK = 'bft:network'
-export const VIA_CACHE = 'bft:swcache'
+export const VIA_NETWORK = 'bft-via-net-q8z'
+export const VIA_CACHE = 'bft-via-swc-q8z'
 
 /**
  * Workbox runtime-caching plugin for the `.data` (client navigation) cache: a copy served from the cache says so
@@ -763,24 +761,21 @@ export const markCachedData = {
  * Each live response (anything with a `generatedAt`) in a route's loader data is stamped as Received at `sentBy`,
  * the device time before its request was sent: an upper bound on its age, whatever the device clock's offset.
  *
- * Only a network answer: one whose body says so (`via`, which the service worker rewrites in a copy from its cache,
- * markCachedData), and, for a service worker from an older build that doesn't rewrite it, whose `renderedAt` is newer
- * than any server time this page had seen when the request was sent (`seen`). A loader reads `renderedAt` for that
- * request (`no-store`, never cached on the way), so a network answer's is newer; a stored copy's is not if this page
- * fetched it, or it is older than this page. Anything else, including live data without `via` or `renderedAt`, is an
- * offline copy (OfflineCopy.offline: the offline timetable until a network answer replaces it), and the connection is
- * reported down, as for a /v1 answer from the cache. A network answer reports it back up: the connection flag is
- * never what decides (Codex r1: after one copy, every later navigation was a copy too).
+ * Only a network answer: one whose body says so (`via`, which the service worker rewrites in a copy it serves from
+ * its cache, markCachedData), under a worker known to rewrite it (`trusted`). A worker from an older build doesn't,
+ * so under it, until the new one takes over (at once: skipWaiting, clientsClaim), nothing is stamped (Codex r2).
+ * Anything else, including live data without `via`, is an offline copy (OfflineCopy.offline: the offline timetable
+ * until a network answer replaces it), and the connection is reported down, as for a /v1 answer from the cache. A
+ * network answer reports it back up: the connection flag is never what decides (Codex r1). No server time is compared
+ * with another: a page Worker's and the API's clocks needn't agree (Codex r2).
  */
-function stampResults(results: NavigationResults, sentBy: number, seen: number): void {
+function stampResults(results: NavigationResults, sentBy: number, trusted: boolean): void {
   let copy = false
   let fresh = false
   for (const r of Object.values(results ?? {})) {
     const data = r.type === 'data' ? (r.result as Record<string, unknown> | null) : null
     if (typeof data !== 'object' || data === null) continue
-    const at = data.renderedAt
-    const network = data.via === VIA_NETWORK && typeof at === 'number' && at > seen
-    if (network) seeServerTime(at)
+    const network = trusted && data.via === VIA_NETWORK
     for (const live of liveParts(data)) {
       if (network) live.receivedAt = sentBy
       else copy = live.offline = true

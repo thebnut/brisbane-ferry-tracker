@@ -19,6 +19,7 @@ import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
 import {
   DEMO_HEADER,
   holdCacheLock,
+  MARKS_DATA,
   markCachedData,
   markCachedPages,
   markCacheHits,
@@ -95,6 +96,7 @@ interface ExtendableEventLike extends Event {
 interface ExtendableMessageEventLike extends ExtendableEventLike {
   data: unknown
   source: { url?: string } | null
+  ports: ReadonlyArray<{ postMessage(message: unknown): void }>
 }
 interface SwScope {
   skipWaiting(): Promise<void>
@@ -304,6 +306,9 @@ export function startServiceWorker(config: ServiceWorkerConfig): void {
   // The one-off demo clean-up dropped the page cache, maybe just after this worker saved its pages at install or the
   // page saved its own copy: save them again (R9). Best effort and bounded, like the install.
   sw.addEventListener('message', (event) => {
+    // A page asks whether this worker marks the `.data` copies it serves (stampNavigation, R15-S1): it does.
+    if ((event.data as { type?: unknown } | null)?.type === MARKS_DATA)
+      event.ports[0]?.postMessage(MARKS_DATA)
     if ((event.data as { type?: unknown } | null)?.type !== RESAVE_PAGES) return
     const urls = pagesToResave(installPages, event.source?.url, sw.location.origin)
     event.waitUntil(
