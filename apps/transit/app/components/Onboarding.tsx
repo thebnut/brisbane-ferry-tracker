@@ -6,7 +6,7 @@
  * Ferry's stop selector no longer opens by itself on the Ferry tab's first visit (this prompt replaced it); a device
  * it had opened on before counts as onboarded, and either answer marks it as seen, as its opening did.
  */
-import { readSaved as readBusSaved } from '@bft/bus/app/lib/storage.ts'
+import { KEYS as BUS_KEYS, readSaved as readBusSaved } from '@bft/bus/app/lib/storage.ts'
 import { markSelectorSeen, readSavedPair, STORAGE_KEYS } from '@bft/ferry/app/lib/storage.ts'
 import { readFavourites } from '@bft/train/app/lib/storage.ts'
 import { shouldOffer } from '@bft/ui/onboarding'
@@ -16,9 +16,22 @@ import { MODE_BASES } from '../lib/modes.ts'
 
 const Picker = lazy(() => import('./OnboardingPicker.tsx'))
 
+/**
+ * Bus stops in storage itself: bus storage.ts keeps its list in memory, refreshed by another tab's save only while a
+ * bus list is mounted, so a save made in another tab isn't in it on the other tabs (Codex r2).
+ */
+function busStored(): boolean {
+  try {
+    const v = JSON.parse(localStorage.getItem(BUS_KEYS.SAVED) ?? '[]')
+    return Array.isArray(v) && v.length > 0
+  } catch {
+    return false
+  }
+}
+
 /** Anything saved in any mode: what My Transit lists (saved.ts readSavedItems), read with each app's own code. */
 export const anySaved = () =>
-  readBusSaved().length > 0 || readFavourites().length > 0 || readSavedPair() != null
+  readBusSaved().length > 0 || busStored() || readFavourites().length > 0 || readSavedPair() != null
 
 /** The Ferry tab's stop selector has opened by itself before (the old first visit). Blocked storage: yes. */
 function ferrySeen(): boolean {

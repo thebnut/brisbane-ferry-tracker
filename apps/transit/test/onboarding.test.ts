@@ -45,6 +45,16 @@ describe('transit onboarding', () => {
     expect(prompt.anySaved()).toBe(true)
   })
 
+  it('anySaved sees a bus stop saved in another tab after this tab read the bus list (Codex r2)', async () => {
+    const { prompt } = await modules()
+    const bus = await import('@bft/bus/app/lib/storage.ts')
+    expect(bus.readSaved()).toEqual([])
+    localStorage.setItem('bft-bus-saved', JSON.stringify([{ id: '10802', name: 'Cultural Centre' }]))
+    window.dispatchEvent(new StorageEvent('storage', { key: 'bft-bus-saved' }))
+    expect(bus.readSaved()).toEqual([])
+    expect(prompt.anySaved()).toBe(true)
+  })
+
   it('anySaved sees each mode on its own (a session-only ferry pair too)', async () => {
     const { prompt } = await modules()
     localStorage.setItem('bft-train-favourites', JSON.stringify([{ from: 'central', to: null }]))

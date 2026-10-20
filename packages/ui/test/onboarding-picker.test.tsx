@@ -255,6 +255,22 @@ describe('onboarding prompt', () => {
     expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'My stops' }))
   })
 
+  it('going by itself (something saved) leaves focus where it is (Codex r2)', () => {
+    let saved = false
+    render(
+      <main>
+        <h1>My stops</h1>
+        <OnboardingPrompt offer={() => shouldOffer({ anySaved: saved })} renderPicker={() => null} />
+      </main>,
+    )
+    act(() => vi.advanceTimersByTime(2000))
+    expect(document.activeElement).toBe(document.body)
+    saved = true
+    act(() => vi.advanceTimersByTime(1000))
+    expect(screen.queryByText('Set up your favourite stops?')).toBeNull()
+    expect(document.activeElement).toBe(document.body)
+  })
+
   it('never shows once answered', () => {
     markOnboardingDone()
     mount()

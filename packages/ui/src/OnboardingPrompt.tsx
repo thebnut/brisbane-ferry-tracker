@@ -25,6 +25,8 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
   offerRef.current = offer
   /** Where focus goes back to once the prompt or picker has gone: what had it when the prompt appeared. */
   const returnTo = useRef<Element | null>(null)
+  /** Set by an answer: only then does focus move. A prompt that goes by itself leaves focus alone (Codex r2). */
+  const restore = useRef(false)
   // biome-ignore lint/correctness/useExhaustiveDependencies: decided once per page view.
   useEffect(() => {
     if (!offerRef.current()) return setStep('done')
@@ -48,7 +50,7 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
   }, [step])
   // The prompt's buttons and the picker are gone: put focus back where it was, never on <body> (Codex r1).
   useEffect(() => {
-    if (step !== 'done' || !returnTo.current) return
+    if (step !== 'done' || !restore.current) return
     const active = document.activeElement
     if (active && active !== document.body) return
     const back = returnTo.current
@@ -65,6 +67,7 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
 
   // Answered either way: the prompt never comes back on this device, whatever happens in the picker.
   const answer = (next: 'picker' | 'done') => {
+    restore.current = true
     // Saved meanwhile (another tab, or the page itself): nothing to set up.
     if (next === 'picker' && !offerRef.current()) return setStep('done')
     markOnboardingDone()
