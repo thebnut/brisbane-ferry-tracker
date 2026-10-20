@@ -1,14 +1,14 @@
 /**
  * The realtime freshness rule shared by /v1/health and the watchdog cron, so they agree on what "stale" means.
  */
+import type { HealthReason } from '@bft/core'
 import type { Logger } from './log.ts'
 import type { HubStatus } from './rt/hub-core.ts'
 
 /** Health is ok only while TransLink's header time (ageS) and the hub's last build (buildAgeS) are this fresh. */
 export const HEALTH_MAX_AGE_S = 120
 
-/** Why a health check fails: no manifest, TransLink's source too old, or the hub's last build too old. */
-export type HealthReason = 'manifest' | 'source-age' | 'build-age'
+export type { HealthReason }
 
 export interface RtAges {
   /** Now minus TransLink's header time behind the snapshot (s), or null when there is none. */

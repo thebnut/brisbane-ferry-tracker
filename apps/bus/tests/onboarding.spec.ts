@@ -4,7 +4,15 @@
  * Save adds the picks to My stops (`bft-bus-saved`, format unchanged).
  */
 import { disableWebGL } from '@bft/ui/e2e/no-webgl.ts'
-import { expectNoPrompt, expectPrompt, FIRST_VISIT, prompt } from '@bft/ui/e2e/onboarding.ts'
+import {
+  expectNoPrompt,
+  expectPrompt,
+  expectPromptClearOfDocks,
+  expectUnobscured,
+  FIRST_VISIT,
+  PHONE_WIDTHS,
+  prompt,
+} from '@bft/ui/e2e/onboarding.ts'
 import { expect, type Page, test } from '@playwright/test'
 
 test.use({ storageState: FIRST_VISIT })
@@ -82,3 +90,26 @@ test('without WebGL: Map unavailable, and the search still fills the tray and sa
   await expect(page).toHaveURL(/\/$/)
   expect(await saved(page)).toHaveLength(1)
 })
+
+for (const size of PHONE_WIDTHS) {
+  test(`${size.width} px: the search field and Map button stay usable while the prompt shows (R15)`, async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== 'phone', 'the search sheet is phone-only')
+    await page.setViewportSize(size)
+    await page.goto('/')
+    await expectPrompt(page)
+    await expectPromptClearOfDocks(page)
+    const field = page.locator('#stop-search')
+    const map = page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true')
+    await expectUnobscured(field)
+    await expectUnobscured(map)
+    // Both really work with the prompt up, and it stays (it isn't modal).
+    await field.click()
+    await expect(field).toBeFocused()
+    await field.blur()
+    await map.click()
+    await expect(map).toHaveAttribute('aria-pressed', 'true')
+    await expect(prompt(page)).toBeVisible()
+  })
+}

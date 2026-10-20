@@ -5,7 +5,14 @@
  * terminal is From and the tray asks for a reachable To, and Save stores the pair as the selector's Save does.
  */
 import { disableWebGL } from '@bft/ui/e2e/no-webgl.ts'
-import { expectNoPrompt, expectPrompt, FIRST_VISIT, prompt } from '@bft/ui/e2e/onboarding.ts'
+import {
+  expectNoPrompt,
+  expectPrompt,
+  expectPromptClearOfDocks,
+  FIRST_VISIT,
+  PHONE_WIDTHS,
+  prompt,
+} from '@bft/ui/e2e/onboarding.ts'
 import { expect, type Page, test } from '@playwright/test'
 
 test.use({ storageState: FIRST_VISIT })
@@ -116,3 +123,13 @@ test('without WebGL: Map unavailable, and the search still picks From and saves 
   await expect(page).toHaveURL(/\/$/)
   await expect(board(page)).toHaveAttribute('aria-label', /^New Farm/)
 })
+
+for (const size of PHONE_WIDTHS) {
+  test(`${size.width} px: the prompt sits clear of the bottom nav (R15)`, async ({ page }, info) => {
+    test.skip(info.project.name !== 'phone', 'the bottom nav is phone-only')
+    await page.setViewportSize(size)
+    await page.goto('/')
+    await expectPrompt(page)
+    await expectPromptClearOfDocks(page)
+  })
+}

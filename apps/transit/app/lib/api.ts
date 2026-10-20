@@ -2,7 +2,7 @@
  * Typed /v1 and /data client for the transit pages. Responses are contract-checked on the server before the browser
  * sees them (the Worker's same-origin proxy, contract.server.ts), so the browser bundle carries only types, not zod.
  */
-import type { AlertsResponse, DeparturesResponse, GeoTileFile, Mode, StopIndexFile } from '@bft/core/contract'
+import type { AlertsResponse, DeparturesResponse, Mode } from '@bft/core/contract'
 import { noteCacheCopy, trackedFetch } from '@bft/ui/connectivity'
 
 export type ApiErrorKind = 'network' | 'http' | 'contract'
@@ -83,16 +83,3 @@ export const fetchAlerts = (
   fetcher: ApiFetcher,
   opts: { signal?: AbortSignal; validate?: Validate<AlertsResponse> } = {},
 ) => getJson(fetcher, '/v1/alerts', opts.validate, opts.signal)
-
-/** A geohash-5 tile; a cell with no stops has no file (404), which is an empty tile, not an error. */
-export async function fetchGeoTile(fetcher: ApiFetcher, mode: Mode, geohash: string, signal?: AbortSignal) {
-  try {
-    return await getJson<GeoTileFile>(fetcher, `/data/${mode}/geo/${geohash}.json`, undefined, signal)
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return null
-    throw error
-  }
-}
-
-export const fetchStopIndex = (fetcher: ApiFetcher, mode: Mode, signal?: AbortSignal) =>
-  getJson<StopIndexFile>(fetcher, `/data/${mode}/stops.json`, undefined, signal)

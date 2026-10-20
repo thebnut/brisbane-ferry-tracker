@@ -643,11 +643,13 @@ export function createApp(deps: AppDeps): Hono<Env> {
     // Judge the source, not the build: a hub that keeps rebuilding from retained data while TripUpdates fail must
     // not look healthy (Codex review #5). ageS is the age of TransLink's header time behind the snapshot.
     const ages = rtAges(h, nowMs)
-    const { ageS } = ages
+    const { ageS, buildAgeS } = ages
     const reasons = healthReasons(manifest != null, ages)
     const body: HealthResponse = {
       schemaVersion: SCHEMA_VERSION,
       ok: reasons.length === 0,
+      // Why a 503 is one (R15-H1), always present: [] on a 200.
+      reasons,
       now: nowMs,
       manifest: { updatedAt: manifest?.updatedAt ?? null, generations },
       rt: {
@@ -655,6 +657,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
         sourceTimestamp: h?.sourceTimestamp ?? null,
         fetchedAt: h?.fetchedAt ?? null,
         ageS,
+        buildAgeS,
         lastError: status?.lastError ?? null,
         stats: h?.stats ? statsRecord(h.stats) : null,
       },
@@ -663,8 +666,8 @@ export function createApp(deps: AppDeps): Hono<Env> {
         : { enabled: false, budgetUsedUsd: null },
       build,
     }
-    // The health body has no error field; its log line still says why it is a 503 (R14-RT1: which check failed,
-    // e.g. `source-age 446s`, so an upstream freeze reads differently from a hub or pointer that stopped).
+    // The body says why in `reasons`; the log line keeps its R14-RT1 `detail` with the ages (e.g. `source-age 446s`),
+    // so an upstream freeze reads differently from a hub or pointer that stopped.
     if (!body.ok) c.set('failure', { error: 'health not ok', detail: healthDetail(reasons, ages) })
     return c.json(body, body.ok ? 200 : 503, { 'cache-control': 'no-store' })
   })

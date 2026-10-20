@@ -5,7 +5,6 @@ import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   bestOfflineCopy,
-  LIVE_REFRESH_MAX_AGE_MS,
   LIVE_UNCONFIRMED_ATTR,
   liveGuardScript,
   liveState,
@@ -37,11 +36,14 @@ describe('liveGuardScript (R2-T7)', () => {
     run(liveGuardScript(NOW - 2_000))
     expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false)
   })
-  it('marks HTML rendered over a minute ago (a service-worker copy) as unconfirmed', () => {
-    vi.useFakeTimers({ now: NOW })
-    run(liveGuardScript(NOW - LIVE_REFRESH_MAX_AGE_MS - 1))
-    expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(true)
-  })
+  it.each([-30, -5, -2, 2, 5, 30])(
+    'never judges by the device clock: a fresh page at %i min skew is untouched (R15-S1)',
+    (min) => {
+      vi.useFakeTimers({ now: NOW + min * 60_000 })
+      run(liveGuardScript(NOW - 2_000))
+      expect(html.hasAttribute(LIVE_UNCONFIRMED_ATTR)).toBe(false)
+    },
+  )
   it('marks any page loaded while the browser is offline', () => {
     vi.useFakeTimers({ now: NOW })
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
@@ -86,7 +88,8 @@ describe('liveGuardScript (R2-T7)', () => {
     expect(await fn({})).toBeUndefined()
   })
   it('is a constant expression of numbers (no injected text)', () => {
-    expect(liveGuardScript(NOW + 0.7)).toContain(`Date.now()-${NOW}>`)
+    expect(liveGuardScript(NOW + 0.7)).toContain(`__bftRenderedAt=${NOW};`)
+    expect(liveGuardScript(NOW)).not.toContain('Date')
   })
 })
 

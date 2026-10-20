@@ -99,6 +99,12 @@ test('a tap on a stop pin opens its card; Escape and Close step back; closing fo
   // The list choice centres the map on the stop (zoom 16, no clusters); close the card, then tap the pin there.
   await card.getByRole('button', { name: /^Close / }).click()
   await expect(card).toHaveCount(0)
+  // Only once the ease to the stop has finished (idle at zoom 16+, MapView's data-map-idle): a press on the canvas
+  // stops a camera animation, so a tap mid-ease on a busy machine left the map short of the stop, clustered, and
+  // every later tap at the centre missed (R16-D1).
+  await expect(picker.locator('[data-map-idle]')).toHaveAttribute('data-map-idle', /^z(1[6-9]|2\d)\b/, {
+    timeout: 20_000,
+  })
   const canvas = picker.locator('canvas')
   await expect(async () => {
     const b = await canvas.boundingBox()
@@ -116,12 +122,12 @@ test('a tap on a stop pin opens its card; Escape and Close step back; closing fo
 test.describe(() => {
   // The service worker would answer the tile requests before page.route sees them.
   test.use({ serviceWorkers: 'block' })
-  test('a failed geo tile says map data is unavailable, never a broken map', async ({ page }) => {
+  test("a failed geo tile says stops couldn't load, never a broken map", async ({ page }) => {
     await page.route(/\/data\/bus\/geo\//, (r) => r.abort())
     await page.goto('/')
     await page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true').click()
     const picker = page.getByLabel('Bus stops map', { exact: true })
-    await expect(picker.getByRole('status')).toHaveText(/Map data unavailable/, { timeout: 20_000 })
+    await expect(picker.getByRole('status')).toHaveText(/Couldn't load stops/, { timeout: 20_000 })
     await expect(picker.locator('canvas')).toBeVisible()
   })
 })

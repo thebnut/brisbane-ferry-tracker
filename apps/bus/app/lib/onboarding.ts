@@ -64,6 +64,11 @@ export function useBusSource(): ModeSource {
     if (c) setCells(c)
   }, [])
   const { index: idx, searchStops, isError } = index
+  // The map's and the name search's notices can show together: either Try again retries both lists (R16-D1).
+  const retryAll = () => {
+    tiles.retry()
+    index.retry()
+  }
   return {
     mode: 'bus',
     label: 'Bus',
@@ -72,13 +77,11 @@ export function useBusSource(): ModeSource {
     shape: 'diamond',
     stops,
     onViewChange,
-    notice: zoomedOut
-      ? 'Zoom in to see bus stops'
-      : tiles.error
-        ? 'Map data unavailable. Try again later.'
-        : null,
+    notice: zoomedOut ? 'Zoom in to see bus stops' : tiles.error ? "Couldn't load stops" : null,
+    retry: !zoomedOut && tiles.error ? retryAll : null,
     prepareSearch: () => setWantIndex(true),
     searching: wantIndex && !idx && !isError,
+    retrySearch: wantIndex && isError ? retryAll : null,
     search: (q) =>
       idx && searchStops
         ? searchStops(idx, q, 8).hits.map((e) => ({

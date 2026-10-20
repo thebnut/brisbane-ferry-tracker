@@ -8,11 +8,12 @@
  */
 import { SearchField, StopResultCard, ThumbSheet } from '@bft/ui/bus'
 import { MapToggle } from '@bft/ui/map-toggle'
+import { useQueryClient } from '@tanstack/react-query'
 import { lazy, type ReactNode, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import type { StopIndexEntry } from '../lib/data-contract.ts'
 import { useApi } from '../lib/mode.ts'
-import { useStopIndex } from '../lib/queries.ts'
+import { retryFailedLists, useStopIndex } from '../lib/queries.ts'
 import type { SearchIndex, SearchResult, searchStops } from '../lib/search.ts'
 import { stopCode, stopHref } from '../lib/stops.ts'
 import { readRecent, type SavedStop } from '../lib/storage.ts'
@@ -26,7 +27,9 @@ declare global {
 
 /** The Routes group (P2): its own chunk, loaded on the first keystroke; if it can't load, stop search is unchanged. */
 const RouteResults = lazy(() =>
-  import('./RouteResults.tsx').catch(() => ({ default: (_: { query: string; slot: string }) => null })),
+  import('./RouteResults.tsx').catch(() => ({
+    default: (_: { query: string; slot: string; onRetry: () => void }) => null,
+  })),
 )
 
 /**
@@ -37,7 +40,7 @@ const BusStopPicker = lazy(() =>
   import.meta.env.SSR
     ? new Promise<never>(() => {})
     : import('./BusStopPicker.tsx').catch(() => ({
-        default: (_: { slot: string; onClose: () => void }) => null,
+        default: (_: { slot: string; onClose: () => void; onRetry: () => void }) => null,
       })),
 )
 
@@ -82,7 +85,13 @@ export function useStopSearch(query: string) {
       window.__bftSearch.ready = true
     }
   }, [idx.index])
-  return { result, loading: enabled && !idx.isError && !idx.index, error: idx.isError, index: idx }
+  return {
+    result,
+    loading: enabled && !idx.isError && !idx.index,
+    error: idx.isError,
+    retry: idx.retry,
+    index: idx,
+  }
 }
 
 function Results({
@@ -90,12 +99,14 @@ function Results({
   result,
   loading,
   error,
+  onRetry,
   upward,
 }: {
   query: string
   result: SearchResult | null
   loading: boolean
   error: boolean
+  onRetry: () => void
   upward: boolean
 }) {
   if (!query.trim()) return null
@@ -116,6 +127,15 @@ function Results({
                 ? `No stops match “${query.trim()}”`
                 : `${result.total > result.hits.length ? `${result.hits.length} of ${result.total}` : result.hits.length} stop${result.hits.length === 1 ? '' : 's'} match “${query.trim()}”`}
       </span>
+      {error && !loading ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="shrink-0 text-ferry-orange-deep underline dark:text-ferry-sunset"
+        >
+          Try again
+        </button>
+      ) : null}
       {upward && result?.hits.length ? (
         <span className="hidden font-medium text-sched-text sm:inline">Best match nearest your thumb</span>
       ) : null}
@@ -136,7 +156,7 @@ function Results({
   ))
   const routes = (slot: 'above' | 'below') => (
     <Suspense fallback={null}>
-      <RouteResults query={query} slot={slot} />
+      <RouteResults query={query} slot={slot} onRetry={onRetry} />
     </Suspense>
   )
   return (
@@ -156,7 +176,13 @@ function Results({
 
 export function SearchPanel({ children, quick }: { children: ReactNode; quick?: ReactNode }) {
   const [query, setQuery] = useState('')
-  const { result, loading, error } = useStopSearch(query)
+  const { result, loading, error, retry } = useStopSearch(query)
+  const client = useQueryClient()
+  // Every Try again here (stop list, routes, map) retries every list that failed, so one press brings them all back.
+  const retryAll = () => {
+    retry()
+    void retryFailedLists(client)
+  }
   const [recent, setRecent] = useState<SavedStop[]>([])
   const scroller = useRef<HTMLDivElement>(null)
   useEffect(() => setRecent(readRecent().slice(0, 2)), [])
@@ -172,7 +198,7 @@ export function SearchPanel({ children, quick }: { children: ReactNode; quick?: 
   const picker = (slot: 'wide' | 'narrow') =>
     map ? (
       <Suspense fallback={null}>
-        <BusStopPicker slot={slot} onClose={() => setMap(false)} />
+        <BusStopPicker slot={slot} onClose={() => setMap(false)} onRetry={retryAll} />
       </Suspense>
     ) : null
   return (
@@ -196,7 +222,14 @@ export function SearchPanel({ children, quick }: { children: ReactNode; quick?: 
           <div className="mt-3 flex items-start gap-4">
             {searching ? (
               <div className="max-w-2xl flex-1">
-                <Results query={query} result={result} loading={loading} error={error} upward={false} />
+                <Results
+                  query={query}
+                  result={result}
+                  loading={loading}
+                  error={error}
+                  onRetry={retryAll}
+                  upward={false}
+                />
               </div>
             ) : null}
             {picker('wide')}
@@ -211,11 +244,21 @@ export function SearchPanel({ children, quick }: { children: ReactNode; quick?: 
           className="bg-page fixed inset-x-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+var(--bft-bottom-bar,58px)+166px)] z-30 overflow-y-auto px-4 pt-20 pb-3 md:hidden"
         >
           <div className="flex min-h-full flex-col justify-end">
-            <Results query={query} result={result} loading={loading} error={error} upward />
+            <Results
+              query={query}
+              result={result}
+              loading={loading}
+              error={error}
+              onRetry={retryAll}
+              upward
+            />
           </div>
         </div>
       ) : null}
-      <div className="fixed inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),6px)+var(--bft-bottom-bar,58px))] z-30 md:hidden">
+      <div
+        data-bft-dock=""
+        className="fixed inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),6px)+var(--bft-bottom-bar,58px))] z-30 md:hidden"
+      >
         <ThumbSheet label="Find a stop" className="pb-3">
           <div className="flex flex-col gap-2.5">
             <SearchField

@@ -43,6 +43,10 @@ function envServing(files: Record<string, unknown>, calls: string[] = []) {
         req.signal.addEventListener('abort', () => reject(new Error('aborted'))),
       )
     if (body === 'fail') return new Response('{"error":"boom"}', { status: 500 })
+    // The edge's answer when R2 is slow (passthrough deadline), and a 200 that isn't a route file.
+    if (body === 'unavailable')
+      return new Response('{"error":"static data unavailable","detail":"passthrough"}', { status: 503 })
+    if (body === 'hang-free-invalid') return new Response('{"patterns":{}}', { status: 200 })
     return body
       ? new Response(typeof body === 'string' ? body : JSON.stringify(body), { status: 200 })
       : new Response('{"error":"not found"}', { status: 404 })
@@ -116,10 +120,14 @@ describe('route page loader', () => {
     expect(r.ok?.route.short).toBe('M2')
   })
 
-  it('is a 503 when the route file itself cannot be read', async () => {
-    expect(
-      (await load('M2', { '/data/bus/routes.json': INDEX, '/data/bus/routes/M2.json': 'fail' })).status,
-    ).toBe(503)
+  it('when the route file itself cannot be read: a 503 page state (Try again), never a thrown error', async () => {
+    for (const file of ['fail', 'unavailable', 'hang-free-invalid']) {
+      const r = await load('M2', { '/data/bus/routes.json': INDEX, '/data/bus/routes/M2.json': file })
+      const ok = r.ok as unknown as { data: { route: unknown }; init: { status: number } }
+      expect(r.status, file).toBeUndefined()
+      expect(ok.init.status, file).toBe(503)
+      expect(ok.data.route, file).toBeNull()
+    }
   })
 })
 

@@ -28,6 +28,18 @@ export type Validate<T> = (body: unknown) => T
 
 const trusted = <T>(body: unknown) => body as T
 
+/**
+ * The browser's check on a /data file: its list field is an array, else a contract error (the page shows "Couldn't
+ * load"), never data whose `.map` would crash a render. Static files can reach the browser without the server's zod.
+ */
+export const listOf =
+  <T>(field: string): Validate<T> =>
+  (body) => {
+    if (!Array.isArray((body as Record<string, unknown> | null)?.[field]))
+      throw new ApiError('contract', `No ${field} list in the file`)
+    return body as T
+  }
+
 /** Browser fetcher: same-origin proxy, or the fixture API under /__fixtures. */
 export function browserFetcher(opts: { fixtures: boolean; rt?: string | null }): ApiFetcher {
   return (path, init) => {
@@ -86,21 +98,27 @@ export const fetchAlerts = (
 ) => getJson(fetcher, '/v1/alerts?mode=bus', opts.validate, opts.signal)
 
 export const fetchStopIndex = (fetcher: ApiFetcher, signal?: AbortSignal) =>
-  getJson<StopIndexFile>(fetcher, '/data/bus/stops.json', undefined, signal)
+  getJson(fetcher, '/data/bus/stops.json', listOf<StopIndexFile>('stops'), signal)
 
 export const fetchLines = (
   fetcher: ApiFetcher,
   opts: { signal?: AbortSignal; validate?: Validate<LinesFile> } = {},
-) => getJson(fetcher, '/data/bus/lines.json', opts.validate, opts.signal)
+) => getJson(fetcher, '/data/bus/lines.json', opts.validate ?? listOf<LinesFile>('lines'), opts.signal)
 
 export const fetchRoute = (
   fetcher: ApiFetcher,
   short: string,
   opts: { signal?: AbortSignal; validate?: Validate<RouteFile> } = {},
-) => getJson(fetcher, `/data/bus/routes/${encodeURIComponent(short)}.json`, opts.validate, opts.signal)
+) =>
+  getJson(
+    fetcher,
+    `/data/bus/routes/${encodeURIComponent(short)}.json`,
+    opts.validate ?? listOf<RouteFile>('patterns'),
+    opts.signal,
+  )
 
 /** The short names of the current routes: a route file whose name is not here is left over from an older feed. */
 export const fetchRouteIndex = (
   fetcher: ApiFetcher,
   opts: { signal?: AbortSignal; validate?: Validate<RouteIndexFile> } = {},
-) => getJson(fetcher, '/data/bus/routes.json', opts.validate, opts.signal)
+) => getJson(fetcher, '/data/bus/routes.json', opts.validate ?? listOf<RouteIndexFile>('routes'), opts.signal)

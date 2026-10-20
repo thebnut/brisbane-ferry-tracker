@@ -3,14 +3,17 @@
  * data/bus/routes/{route}.json (server-rendered stop list), for a route data/bus/routes.json lists as current; the map (lazy) draws the line, the stops as bus diamonds
  * and the live buses; the sheet lists the buses with where they are. `?trip=` highlights one bus ("Track on map").
  */
-import { RouteTile, routeTileVariant, useGeolocation } from '@bft/ui'
+
+import { ErrorState, RouteTile, routeTileVariant, useGeolocation } from '@bft/ui'
 import { occupancyText, SaveButton, SegmentedControl } from '@bft/ui/bus'
+import { VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { data, Link, useSearchParams } from 'react-router'
+import { data, Link, useRevalidator, useSearchParams } from 'react-router'
 import { ClientOnly } from '../components/ClientOnly.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute, fetchRouteIndex } from '../lib/api.ts'
 import { validateRoute, validateRouteIndex } from '../lib/contract.server.ts'
+import type { RouteFile } from '../lib/data-contract.ts'
 import { haversine } from '../lib/geo.ts'
 import { useApi } from '../lib/mode.ts'
 import { cachedRouteIndex } from '../lib/route-index.server.ts'
@@ -51,18 +54,49 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   ])
   if (index && !index.routes.includes(short)) unknown = true
   if (unknown || (route && route.patterns.length === 0)) throw data(null, { status: 404 })
-  if (!route) throw data(null, { status: 503 })
-  return { route, renderedAt: Date.now(), siteUrl: env?.SITE_URL ?? SITE_URL }
+  // The file couldn't be read (R2 slow, or the API down): the page says so with a Try again (RouteUnavailable), never
+  // the app's "Something went wrong". 503, so it isn't indexed or cached as the route's page.
+  if (!route)
+    return data(
+      { route: null, renderedAt: Date.now(), via: VIA_NETWORK, siteUrl: env?.SITE_URL ?? SITE_URL },
+      { status: 503, headers: { 'cache-control': 'no-store' } },
+    )
+  return { route, renderedAt: Date.now(), via: VIA_NETWORK, siteUrl: env?.SITE_URL ?? SITE_URL }
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {
   if (!loaderData) return [{ title: 'Route not found | BrisbaneBus' }, { name: 'robots', content: 'noindex' }]
+  if (!loaderData.route)
+    return [{ title: 'Route unavailable | BrisbaneBus' }, { name: 'robots', content: 'noindex' }]
   const m = routeMetaTags(loaderData.route.short, loaderData.route.long, loaderData.siteUrl)
   return pageMeta({ ...m, siteUrl: loaderData.siteUrl })
 }
 
 export default function RoutePage({ loaderData }: Route.ComponentProps) {
-  const { route } = loaderData
+  return loaderData.route ? (
+    <RouteDetail route={loaderData.route} renderedAt={loaderData.renderedAt} />
+  ) : (
+    <RouteUnavailable />
+  )
+}
+
+function RouteUnavailable() {
+  const revalidator = useRevalidator()
+  return (
+    <>
+      <SiteHeader live={false} />
+      <main className="mx-auto flex max-w-3xl flex-col gap-3 px-4 pt-3.5 pb-28">
+        <ErrorState title="Couldn't load this route" onRetry={() => revalidator.revalidate()}>
+          Route details are slow to load right now. Check your connection and try again.
+        </ErrorState>
+      </main>
+      <Footer />
+      <BusNav active="" />
+    </>
+  )
+}
+
+function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: number }) {
   const [params] = useSearchParams()
   const trip = params.get('trip')
   const pick = params.get('pick') === '1'
@@ -71,7 +105,7 @@ export default function RoutePage({ loaderData }: Route.ComponentProps) {
   const pattern = dirs.find((p) => String(p.directionId) === dir) ?? dirs[0]
   const { mode, fetcher } = useApi()
   const vehiclesQ = useVehicles(fetcher, mode, route.short)
-  const now = useNow(loaderData.renderedAt)
+  const now = useNow(renderedAt)
   const variant = routeTileVariant(route.short, route.long)
   const vehicles = vehiclesQ.data?.vehicles ?? []
   const buses = useMemo(() => {
@@ -106,11 +140,7 @@ export default function RoutePage({ loaderData }: Route.ComponentProps) {
   return (
     <>
       <SiteHeader live={vehiclesQ.data?.rtState === 'live'} />
-      <UpdatedStrip
-        updatedAt={vehiclesQ.data?.generatedAt ?? null}
-        sourceS={vehiclesQ.data?.rtSourceTimestamp ?? null}
-        nowMs={now}
-      >
+      <UpdatedStrip updatedAt={vehiclesQ.data?.generatedAt ?? null} source={vehiclesQ.data} nowMs={now}>
         <DesktopNav active="" />
       </UpdatedStrip>
       <main className="mx-auto flex max-w-3xl flex-col gap-3 px-4 pt-3.5 pb-28">

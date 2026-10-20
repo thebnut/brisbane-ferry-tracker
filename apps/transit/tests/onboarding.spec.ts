@@ -5,7 +5,15 @@
  * My Transit lists. The Ferry tab's stop selector no longer opens by itself (the prompt replaced it).
  */
 import { disableWebGL } from '@bft/ui/e2e/no-webgl.ts'
-import { expectNoPrompt, expectPrompt, FIRST_VISIT, prompt } from '@bft/ui/e2e/onboarding.ts'
+import {
+  expectNoPrompt,
+  expectPrompt,
+  expectPromptClearOfDocks,
+  expectUnobscured,
+  FIRST_VISIT,
+  PHONE_WIDTHS,
+  prompt,
+} from '@bft/ui/e2e/onboarding.ts'
 import { encodeHandoff } from '@bft/ui/handoff-codec'
 import { expect, type Page, test } from '@playwright/test'
 
@@ -175,4 +183,70 @@ test('keyboard: the prompt never takes focus, and the picker traps it and closes
   // Focus comes back to the page (its heading), not lost on <body>, and nothing is left inert.
   expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('H1')
   await expect(page.locator('[inert]')).toHaveCount(0)
+})
+
+for (const size of PHONE_WIDTHS) {
+  test(`${size.width} px: the prompt leaves every tab's fixed controls usable; Bus search and Map work (R15)`, async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== 'phone', 'the search sheet and section pills are fixed on phones only')
+    await page.setViewportSize(size)
+    await page.goto('/bus')
+    await expectPrompt(page)
+    await expectPromptClearOfDocks(page)
+    const field = page.locator('#stop-search')
+    const map = page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true')
+    await expectUnobscured(field)
+    await expectUnobscured(map)
+    await expectUnobscured(page.getByRole('navigation', { name: 'Bus sections' }).getByRole('link').last())
+    await field.click()
+    await expect(field).toBeFocused()
+    await field.blur()
+    await map.click()
+    await expect(map).toHaveAttribute('aria-pressed', 'true')
+    await expect(prompt(page)).toBeVisible()
+    // The other tabs: the prompt sits clear of the Mode Tabs and section pills there too.
+    for (const path of ['/', '/train', '/ferry']) {
+      await page.goto(path)
+      await expectPrompt(page)
+      await expectPromptClearOfDocks(page)
+    }
+  })
+}
+
+test('client navigation to the Bus tab: the prompt clears the search sheet from its first frame (R15, Codex r1)', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'phone', 'the search sheet is phone-only')
+  await page.setViewportSize(PHONE_WIDTHS[0] as { width: number; height: number })
+  await page.goto('/')
+  await expectPrompt(page)
+  // The prompt stays mounted across the client navigation; check the first frame the sheet is in.
+  const firstFrame = page.evaluate(
+    () =>
+      new Promise<string[]>((resolve) => {
+        const hits = () => {
+          const out: string[] = []
+          for (const sel of ['#stop-search', 'button[aria-label="Show stops on a map"]']) {
+            const el = [...document.querySelectorAll<HTMLElement>(sel)].find((e) => e.offsetParent)
+            if (!el) return null
+            const r = el.getBoundingClientRect()
+            const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+            out.push(
+              at && (at === el || el.contains(at)) ? 'self' : (at?.outerHTML.slice(0, 80) ?? 'nothing'),
+            )
+          }
+          return out
+        }
+        new MutationObserver((_, o) => {
+          if (!document.querySelector('#stop-search')) return
+          o.disconnect()
+          requestAnimationFrame(() => resolve(hits() ?? ['not rendered']))
+        }).observe(document.body, { childList: true, subtree: true })
+      }),
+  )
+  await page.locator('[data-bft-dock] a[href="/bus"]').click()
+  expect(await firstFrame).toEqual(['self', 'self'])
+  await expect(prompt(page)).toBeVisible()
+  await expectPromptClearOfDocks(page)
 })

@@ -3,7 +3,6 @@
  * headless combobox); To = only stations with a direct train from there, grouped by line. Without a origin, the page is
  * the A–Z station index (every station page linked, for people and crawlers).
  */
-import type { StopIndexFile } from '@bft/core/contract'
 import { Icon, LineChip, PrimaryButton } from '@bft/ui'
 import { MapToggle } from '@bft/ui/map-toggle'
 import type { StopOption } from '@bft/ui/stop-search'
@@ -25,8 +24,16 @@ import {
 import { searchStations } from '../lib/search.ts'
 import { pageMeta } from '../lib/seo.ts'
 import { getEnv, siteInfo } from '../lib/server.server.ts'
+import { fetchStationIndex } from '../lib/stop-index.ts'
 import { useMounted } from '../lib/useNow.ts'
 import type { Route } from './+types/stations'
+
+type StationPickerProps = {
+  slot: string
+  onClose: () => void
+  notice?: string | null
+  onRetry?: (() => void) | null
+}
 
 // Client-only (Ark UI): the server renders the plain fallback field, then the combobox loads after hydration.
 const StopSearch = lazy(() =>
@@ -41,7 +48,7 @@ const StationPicker = lazy(() =>
   import.meta.env.SSR
     ? new Promise<never>(() => {})
     : import('../components/StationPicker.tsx').catch(() => ({
-        default: (_: { slot: string; onClose: () => void }) => null,
+        default: (_: StationPickerProps) => null,
       })),
 )
 
@@ -63,11 +70,16 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   })
 }
 
-/** The station index file (pipeline output, served as a static asset; cached by the service worker). */
+const INDEX_FAILED = "Couldn't load the station list, so search uses the built-in one."
+
+/**
+ * The station index file (pipeline output, served as a static asset; cached by the service worker). If it can't load,
+ * the search uses the stations bundled with the app (network.ts).
+ */
 function useStopIndex() {
   return useQuery({
     queryKey: ['train', 'stops.json'],
-    queryFn: async () => (await (await fetch('/data/train/stops.json')).json()) as StopIndexFile,
+    queryFn: ({ signal }) => fetchStationIndex(signal),
     staleTime: Number.POSITIVE_INFINITY,
   })
 }
@@ -125,10 +137,17 @@ export default function Stations({ loaderData }: Route.ComponentProps) {
   }
   const lines = from && to ? linesBetween(from.key, to.key) : []
   const [map, setMap] = useState(false)
+  // On phones the map sheet covers the page's notice below, so the sheet shows it too: one query, so Try again from
+  // either place clears both.
   const picker = (slot: 'wide' | 'narrow') =>
     map ? (
       <Suspense fallback={null}>
-        <StationPicker slot={slot} onClose={() => setMap(false)} />
+        <StationPicker
+          slot={slot}
+          onClose={() => setMap(false)}
+          notice={index.isError ? INDEX_FAILED : null}
+          onRetry={index.isError ? () => index.refetch() : null}
+        />
       </Suspense>
     ) : null
 
@@ -185,6 +204,18 @@ export default function Stations({ loaderData }: Route.ComponentProps) {
                   onChange={(k) => set(from.key, k)}
                 />
               </Suspense>
+            ) : null}
+            {index.isError ? (
+              <p role="status" className="flex flex-wrap items-center gap-x-2 text-[13px] text-sched-text">
+                {INDEX_FAILED}
+                <button
+                  type="button"
+                  onClick={() => index.refetch()}
+                  className="font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
+                >
+                  Try again
+                </button>
+              </p>
             ) : null}
           </div>
 

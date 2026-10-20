@@ -5,10 +5,11 @@
  * the geohash-5 tiles around it (own + 8 neighbours per mode) and sorts them here (nearby.ts, < 100 ms).
  */
 import { positionFromParams } from '@bft/bus/app/lib/geo.ts'
-import type { Departure } from '@bft/core/contract'
+import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import {
   ChipFilter,
   EmptyState,
+  ErrorState,
   formatDistance,
   Icon,
   ModePin,
@@ -19,6 +20,7 @@ import {
   SecondaryButton,
   useGeolocation,
 } from '@bft/ui'
+import { liveState, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { TransitFooter, TransitHeader, TransitStrip } from '../components/Chrome.tsx'
@@ -37,7 +39,7 @@ import {
 import { useGeoTiles, useStopDepartures } from '../lib/nearby-queries.ts'
 import { type Place, readPlace, writePlace } from '../lib/place.ts'
 import { useApi } from '../lib/queries.ts'
-import { useNow } from '../lib/useNow.ts'
+import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/nearby'
 
 // If this small chunk can't load, the page goes on without its map (SafeMap inside covers MapLibre itself).
@@ -59,7 +61,7 @@ function Pulse({ rows }: { rows: number }) {
 }
 
 export function loader() {
-  return { renderedAt: Date.now() }
+  return { renderedAt: Date.now(), via: VIA_NETWORK }
 }
 
 export const meta: Route.MetaFunction = () => [
@@ -83,11 +85,14 @@ function StopBlock({
   rows,
   pending,
   nowMs,
+  live,
 }: {
   stop: NearStop
   rows: Departure[]
   pending: boolean
   nowMs: number
+  /** The stop's departures are live and fresh (liveState): otherwise timetable times, no live estimates. */
+  live: boolean
 }) {
   const walk = walkMinutes(stop.metres)
   return (
@@ -108,7 +113,7 @@ function StopBlock({
         <Pulse rows={1} />
       ) : rows.length ? (
         rows.map((d) => {
-          const mins = minutesUntil(d.estDep ?? d.schedDep, nowMs)
+          const mins = minutesUntil((live && d.estDep) || d.schedDep, nowMs)
           return (
             <NearbyDepartureRow
               key={`${d.tripInstance}:${d.stopSequence}`}
@@ -148,7 +153,7 @@ export default function Nearby({ loaderData }: Route.ComponentProps) {
   const lat = pos?.lat
   const lon = pos?.lon
   const cells = useMemo(() => (lat != null && lon != null ? cellsFor(lat, lon) : []), [lat, lon])
-  const { tiles, loading, error } = useGeoTiles(fetcher, mode, cells)
+  const { tiles, loading, error, retry } = useGeoTiles(fetcher, mode, cells)
 
   // Phase 9 exit criterion: tiles loaded → sorted, grouped and on screen in < 100 ms. Measured from the render that
   // sees the last tile to the commit that shows the groups.
@@ -187,10 +192,18 @@ export default function Nearby({ loaderData }: Route.ComponentProps) {
   const where = fromUrl ? 'the map position' : place ? place.label : 'you'
   const counts = result ? NEARBY_MODES.map((m) => ({ m, n: result.byMode[m].length })) : []
   const updatedAt = deps.find((d) => d.data)?.data?.generatedAt ?? null
+  // LIVE only once stops have answered and while every answer is live and fresh (@bft/ui liveState, as on every
+  // board; a stop still waiting is left out). The pill used to say LIVE whenever the browser was online, before any
+  // answer and however old the rows were (R15).
+  const online = useOnline()
+  const page = usePageCheck()
+  const isLive = (data: DeparturesResponse | undefined) =>
+    data != null && liveState(data, { offline: !online, nowMs: now, ...page }) == null
+  const live = deps.some((d) => d.data != null) && deps.every((d) => d.data == null || isLive(d.data))
 
   return (
     <>
-      <TransitHeader />
+      <TransitHeader live={live} />
       <TransitStrip updatedAt={updatedAt}>
         {result ? (
           <span className="text-sm font-semibold text-aqua-text dark:text-ferry-aqua-light">
@@ -264,14 +277,32 @@ export default function Nearby({ loaderData }: Route.ComponentProps) {
                 <NearbyMap lat={lat} lon={lon} stops={listed} onStop={onStop} />
               </Suspense>
             ) : null}
-            {error && !result ? (
-              <EmptyState title="Stops aren't loading">Check your connection and try again.</EmptyState>
+            {error && (!result || listed.length === 0) ? (
+              // Never "No stops nearby" when tiles failed: that would be a false empty.
+              <ErrorState title="Couldn't load nearby stops" onRetry={retry}>
+                Check your connection and try again.
+              </ErrorState>
             ) : !result ? (
               <Pulse rows={4} />
             ) : listed.length === 0 ? (
               <EmptyState title="No stops nearby">Try a different place with "Use a stop".</EmptyState>
             ) : (
               <>
+                {error ? (
+                  <p
+                    role="status"
+                    className="flex flex-wrap items-center gap-x-2 text-[13px] text-sched-text"
+                  >
+                    Couldn't load some stops nearby.
+                    <button
+                      type="button"
+                      onClick={retry}
+                      className="font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
+                    >
+                      Try again
+                    </button>
+                  </p>
+                ) : null}
                 {(filter === 'all' ? NEARBY_MODES : [filter]).map((m) =>
                   result.byMode[m].length ? (
                     <section key={m} aria-labelledby={`near-${m}`} className="flex flex-col gap-2">
@@ -292,6 +323,7 @@ export default function Nearby({ loaderData }: Route.ComponentProps) {
                               rows={upcoming(q?.data?.departures, now)}
                               pending={!!q?.isPending}
                               nowMs={now}
+                              live={isLive(q?.data)}
                             />
                           )
                         })}

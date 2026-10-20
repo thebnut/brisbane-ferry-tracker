@@ -21,7 +21,7 @@ import {
   tripAsTimetable,
 } from '@bft/ui'
 import { BigCountdown, OccupancyMeter, SaveButton, SkeletonRows, TripTimeline } from '@bft/ui/bus'
-import { useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { data, Link, useNavigate } from 'react-router'
 import { BusNav, DataBanner, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute } from '../lib/api.ts'
@@ -63,6 +63,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     trip,
     stopNames,
     renderedAt: Date.now(),
+    via: VIA_NETWORK,
     siteUrl: env?.SITE_URL ?? SITE_URL,
   }
 }
@@ -93,15 +94,15 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const saved = useSavedStops()
   const online = useOnline()
   // Offline, or data too old to call live: the timetable only (no LIVE/GPS badge, estimates or position).
-  const unconfirmedBefore = useUnconfirmedBefore()
-  const state = liveState(q.data, { offline: !online, nowMs: now, unconfirmedBefore })
+  const page = usePageCheck()
+  const state = liveState(q.data, { offline: !online, nowMs: now, ...page })
   const trip = q.data && state != null ? tripAsTimetable(q.data) : q.data
   return (
     <>
       <SiteHeader live={state == null} />
       <UpdatedStrip
         updatedAt={trip?.generatedAt ?? null}
-        sourceS={trip?.rtSourceTimestamp ?? null}
+        source={trip}
         nowMs={now}
         onRefresh={() => q.refetch()}
         refreshing={q.isFetching}
@@ -245,7 +246,10 @@ function TripBody({
         </h2>
         <TripTimeline stops={timeline(trip, from, now, stopNames)} />
       </section>
-      <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+var(--bft-bottom-bar,64px))] z-20 border-t border-ferry-orange/20 bg-white/95 px-4 py-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 dark:bg-night-2/95">
+      <div
+        data-bft-dock=""
+        className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+var(--bft-bottom-bar,64px))] z-20 border-t border-ferry-orange/20 bg-white/95 px-4 py-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 dark:bg-night-2/95"
+      >
         <div className="mx-auto flex max-w-3xl gap-2.5">
           <PrimaryButton className="flex-1" onClick={onTrack}>
             Track on map

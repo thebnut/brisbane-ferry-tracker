@@ -19,7 +19,7 @@ import {
   StatusBadge,
   tripAsTimetable,
 } from '@bft/ui'
-import { useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { useMemo } from 'react'
 import { data, Link, useRouteLoaderData } from 'react-router'
 import { Shell } from '../components/Chrome.tsx'
@@ -52,7 +52,16 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     const probe = await settle((signal) => fetcher(`/v1/train/trips/${encodeURIComponent(key)}`, { signal }))
     if (probe?.status === 404) throw data(null, { status: 404 })
   }
-  return { key, trip, from, to, renderedAt: Date.now(), mode: { fixtures, rt }, site: siteInfo(env) }
+  return {
+    key,
+    trip,
+    from,
+    to,
+    renderedAt: Date.now(),
+    via: VIA_NETWORK,
+    mode: { fixtures, rt },
+    site: siteInfo(env),
+  }
 }
 
 export function headers() {
@@ -78,8 +87,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const online = useOnline()
   // Offline, or data too old to call live: the timetable only (no LIVE/GPS badge, estimates or position).
   const raw = q.data ?? loaderData.trip
-  const unconfirmedBefore = useUnconfirmedBefore()
-  const state = liveState(raw ?? undefined, { offline: !online, nowMs, unconfirmedBefore })
+  const page = usePageCheck()
+  const state = liveState(raw ?? undefined, { offline: !online, nowMs, ...page })
   const trip = raw && state != null ? tripAsTimetable(raw) : raw
   const nowS = Math.floor(nowMs / 1000)
   const view = useMemo(() => (trip ? buildTimeline(trip, nowS, from, to) : null), [trip, nowS, from, to])

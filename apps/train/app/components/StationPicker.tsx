@@ -29,7 +29,18 @@ const STOPS: PickerStop[] = STATIONS.map((s) => ({
   detail: platformsText([...new Set(s.platforms.map((p) => p.code).filter(Boolean))]),
 }))
 
-export default function StationPicker({ slot, onClose }: { slot: 'wide' | 'narrow'; onClose: () => void }) {
+export default function StationPicker({
+  slot,
+  onClose,
+  notice,
+  onRetry,
+}: {
+  slot: 'wide' | 'narrow'
+  onClose: () => void
+  /** The page's "couldn't load the station list" line with its Try again, which the sheet covers on phones. */
+  notice?: string | null
+  onRetry?: (() => void) | null
+}) {
   const wide = useWide()
   const root = useRouteLoaderData('root') as { fixtures?: boolean } | undefined
   const [mode] = useState(() => ({ fixtures: root?.fixtures === true, rt: null }))
@@ -66,6 +77,8 @@ export default function StationPicker({ slot, onClose }: { slot: 'wide' | 'narro
       shape="square"
       stops={STOPS}
       zoom={13}
+      notice={notice}
+      onRetry={onRetry}
       loadDepartures={loadDepartures}
       renderOpen={(s, className) => (
         <Link to={stationHref(s.id)} className={className}>

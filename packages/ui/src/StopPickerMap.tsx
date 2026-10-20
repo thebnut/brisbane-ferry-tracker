@@ -70,8 +70,10 @@ export interface StopPickerMapProps {
   unavailableHint?: ReactNode
   /** The map's view after each move, for callers that load stops by area (bus geo tiles). */
   onViewChange?: (bounds: ViewBounds, zoom: number) => void
-  /** A line over the map, e.g. "Zoom in to see bus stops" or "Map data unavailable". */
+  /** A line over the map, e.g. "Zoom in to see bus stops" or "Couldn't load stops". */
   notice?: string | null
+  /** A "Try again" button in the notice (e.g. after stops failed to load). */
+  onRetry?: (() => void) | null
   /** Next departures for the card, fetched when a stop is tapped (never prefetched). Single mode only. */
   loadDepartures?: (stop: PickerStop, signal: AbortSignal) => Promise<CardDeparture[]>
   /** The "Open" link to the stop's page, in the app's router (className styles it as a button). Single mode only. */
@@ -243,6 +245,7 @@ export default function StopPickerMap({
   unavailableHint,
   onViewChange,
   notice,
+  onRetry,
   loadDepartures,
   renderOpen,
   save,
@@ -484,51 +487,63 @@ export default function StopPickerMap({
             )}
           </div>
         ) : null}
-        {notice ? (
-          <p
-            role="status"
-            className="absolute inset-x-0 bottom-4 z-10 mx-auto w-fit rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-charcoal shadow-card dark:bg-night-card dark:text-night-text"
-          >
-            {notice}
-          </p>
-        ) : null}
-        {active && mode === 'single' && loadDepartures && renderOpen && save ? (
-          <div
-            ref={cardRef}
-            tabIndex={-1}
-            role="dialog"
-            aria-label={active.name}
-            data-stop-card={active.id}
-            className="absolute inset-x-2 bottom-2 z-20 flex flex-col gap-2.5 rounded-card bg-white p-3.5 shadow-header md:right-auto md:w-[min(24rem,calc(100%-1rem))] dark:bg-night-card"
-          >
-            <div className="flex items-start gap-2">
-              <div className="min-w-0 flex-1">
-                <h3 className="text-base font-extrabold">{active.name}</h3>
-                {meta ? <p className="text-xs text-sched-text">{meta}</p> : null}
+        {/* The notice sits above the stop card, never under it: its Try again stays reachable with a card open. */}
+        <div className="pointer-events-none absolute inset-x-2 bottom-2 z-20 flex flex-col gap-2">
+          {notice ? (
+            <p
+              role="status"
+              className="pointer-events-auto mx-auto flex w-fit items-center gap-3 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-charcoal shadow-card last:mb-2 dark:bg-night-card dark:text-night-text"
+            >
+              {notice}
+              {onRetry ? (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="shrink-0 whitespace-nowrap text-ferry-orange-deep underline dark:text-ferry-sunset"
+                >
+                  Try again
+                </button>
+              ) : null}
+            </p>
+          ) : null}
+          {active && mode === 'single' && loadDepartures && renderOpen && save ? (
+            <div
+              ref={cardRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-label={active.name}
+              data-stop-card={active.id}
+              className="pointer-events-auto flex flex-col gap-2.5 rounded-card bg-white p-3.5 shadow-header md:w-[min(24rem,100%)] dark:bg-night-card"
+            >
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-extrabold">{active.name}</h3>
+                  {meta ? <p className="text-xs text-sched-text">{meta}</p> : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={closeCard}
+                  aria-label={`Close ${active.name}`}
+                  className="-mt-1 -mr-1 flex size-10 items-center justify-center rounded-full text-sched-text"
+                >
+                  <Icon name="close" size={18} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={closeCard}
-                aria-label={`Close ${active.name}`}
-                className="-mt-1 -mr-1 flex size-10 items-center justify-center rounded-full text-sched-text"
-              >
-                <Icon name="close" size={18} />
-              </button>
+              <Departures stop={active} load={loadDepartures} />
+              <div className="flex gap-2">
+                {renderOpen(active, `${ACTION} bg-ferry-orange-aa text-white hover:bg-ferry-orange-deep`)}
+                <button
+                  type="button"
+                  aria-pressed={save.pressed ? save.pressed(active) : undefined}
+                  onClick={() => save.onClick(active)}
+                  className={`${ACTION} border-2 border-ferry-orange bg-white text-ferry-orange-deep hover:bg-ferry-orange-light dark:bg-night-card dark:text-ferry-sunset`}
+                >
+                  {save.label(active)}
+                </button>
+              </div>
             </div>
-            <Departures stop={active} load={loadDepartures} />
-            <div className="flex gap-2">
-              {renderOpen(active, `${ACTION} bg-ferry-orange-aa text-white hover:bg-ferry-orange-deep`)}
-              <button
-                type="button"
-                aria-pressed={save.pressed ? save.pressed(active) : undefined}
-                onClick={() => save.onClick(active)}
-                className={`${ACTION} border-2 border-ferry-orange bg-white text-ferry-orange-deep hover:bg-ferry-orange-light dark:bg-night-card dark:text-ferry-sunset`}
-              >
-                {save.label(active)}
-              </button>
-            </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </section>
   )

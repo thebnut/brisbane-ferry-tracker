@@ -9,6 +9,7 @@ import {
   type LiveState,
   liveState,
   type OfflineCopy,
+  type PageCheck,
   pollEvery,
   replacesBoard,
   timetableStatus,
@@ -186,11 +187,11 @@ export function liveView(
   res: Board | undefined,
   nowMs: number,
   online: boolean,
-  /** useUnconfirmedBefore(): data that came with a cached page isn't live (R2-T7). */
-  unconfirmedBefore: number | null = null,
+  /** usePageCheck(): data that came with a cached page isn't live (R2-T7), and how old page data is (R15-S1). */
+  page: PageCheck | null = null,
 ): { data: DeparturesResponse | undefined; state: LiveState } {
   // A board built offline (Board.offline) stays offline in liveState until its own network answer replaces it.
-  const state = liveState(res, { offline: !online, nowMs, unconfirmedBefore })
+  const state = liveState(res, { offline: !online, nowMs, ...page })
   if (!res || state == null) return { data: res, state }
   if (state === 'offline') return { data: asOfflineTimetable(stopId, res, nowMs, res) ?? res, state }
   return { data: asTimetable(res, nowMs, state), state }
@@ -260,14 +261,39 @@ export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boole
     enabled,
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
-    retry: 2,
+    retry: 1,
   })
   const index = useMemo(
     () => (q.data && search ? search.buildSearchIndex(q.data.stops) : null),
     [q.data, search],
   )
   const byKey = useMemo(() => new Map((q.data?.stops ?? []).map((s) => [s.key, s])), [q.data])
-  return { ...q, isError: q.isError || searchFailed, index, byKey, searchStops: search?.searchStops }
+  const retry = () => {
+    setSearchFailed(false)
+    if (q.isError) q.refetch()
+  }
+  return { ...q, isError: q.isError || searchFailed, retry, index, byKey, searchStops: search?.searchStops }
+}
+
+/** The bus /data lists one screen can show failing together: stop search, route search, map tiles (R16-D1). */
+const LISTS = new Set(['stop-index', 'route-index', 'lines', 'geo'])
+
+/**
+ * Refetches every failed bus /data list on screen (still observed) that isn't already loading, so one Try again brings
+ * back all of them; a list that fails again keeps its own notice. Through an observer, like the list's own retry: a
+ * list whose notice still shows may be disabled by now (the route search's long names after the query changed), which
+ * `refetchQueries` would skip (Codex review). Never the /v1 live queries, which keep their own backoff. The stop
+ * index's search code is retried by useStopIndex's own `retry`, so call that first.
+ */
+export async function retryFailedLists(client: QueryClient): Promise<void> {
+  const failed = client.getQueryCache().findAll({
+    predicate: (q) =>
+      q.queryKey[0] === 'bus' &&
+      LISTS.has(String(q.queryKey[1])) &&
+      q.state.status === 'error' &&
+      q.state.fetchStatus === 'idle',
+  })
+  await Promise.all(failed.map((q) => q.observers[0]?.refetch()))
 }
 
 export function useLines(fetcher: ApiFetcher, mode: DataMode, enabled = true) {

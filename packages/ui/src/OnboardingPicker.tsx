@@ -37,11 +37,15 @@ export interface ModeSource {
   stops: PickerStop[]
   onViewChange?: (bounds: ViewBounds, zoom: number) => void
   notice?: string | null
+  /** With a notice: its "Try again" (stops that failed to load). */
+  retry?: (() => void) | null
   /** Stops matching a name (up to a handful). */
   search: (query: string) => PickerStop[]
   /** Called on the first keystroke: bus loads its stop index then (`searching` until it has). */
   prepareSearch?: () => void
   searching?: boolean
+  /** The name search's stops failed to load: say so (never "No stops match") and offer this retry. */
+  retrySearch?: (() => void) | null
   /** Ferry: the terminals reachable from `fromId`, for the tray's "To". */
   destinations?: (fromId: string) => { id: string; name: string }[]
 }
@@ -196,6 +200,7 @@ export default function OnboardingPicker({ sources, initialMode, onSave, onClose
           </span>
         }
         notice={source.notice}
+        onRetry={source.retry}
         onViewChange={(bounds, zoom) => {
           lastView.current = { bounds, zoom }
           source.onViewChange?.(bounds, zoom)
@@ -225,6 +230,17 @@ export default function OnboardingPicker({ sources, initialMode, onSave, onClose
         {query.trim() ? (
           source.searching ? (
             <p className="text-sm text-sched-text">Loading {source.noun}s…</p>
+          ) : source.retrySearch && results.length === 0 ? (
+            <p role="status" className="flex flex-wrap items-center gap-x-2 text-sm text-sched-text">
+              Couldn't load {source.noun}s.
+              <button
+                type="button"
+                onClick={source.retrySearch}
+                className="font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
+              >
+                Try again
+              </button>
+            </p>
           ) : results.length === 0 ? (
             <p className="text-sm text-sched-text">No {source.noun}s match.</p>
           ) : (

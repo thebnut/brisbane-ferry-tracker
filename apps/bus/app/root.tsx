@@ -4,6 +4,7 @@ import {
   LIVE_GUARD_CSS,
   liveGuardScript,
   NO_SCRIPT_LIVE_CSS,
+  stampNavigation,
   useLiveGuardRelease,
   useRefetchOnReconnect,
 } from '@bft/ui/connectivity'
@@ -28,6 +29,9 @@ import { FIXTURE_COOKIE, THEME_SCRIPT, themeFromCookie } from './lib/storage.ts'
 
 // No web-font request: Inter is first in the font stack and used when installed, otherwise system-ui (a
 // render-blocking Google Fonts stylesheet would cost LCP). The wordmark falls back the same way.
+/** Client navigations' live data is stamped with its arrival, or kept as an offline copy (R15-S1). */
+export const clientMiddleware: Route.ClientMiddlewareFunction[] = [stampNavigation]
+
 export const links: Route.LinksFunction = () => [
   { rel: 'icon', type: 'image/svg+xml', href: emblem },
   { rel: 'icon', type: 'image/png', href: '/favicon-32.png', sizes: '32x32' },

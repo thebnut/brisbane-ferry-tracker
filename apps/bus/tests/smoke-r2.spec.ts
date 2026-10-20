@@ -159,11 +159,11 @@ test('a page reloaded offline never shows LIVE, not even before hydration (R2-T7
   expect(await liveSeen(page)).toEqual([])
 })
 
-test('HTML rendered minutes ago shows no LIVE until a live call reaches the network (R2-T7)', async ({
-  page,
-}) => {
+test('a fresh page is never held back by the device clock, five minutes fast (R15-S1)', async ({ page }) => {
   await recordLiveClaims(page)
-  // The device clock says the HTML is five minutes old, as for a page the service worker kept.
+  // Before R15 the live guard compared the render time with the device clock, so a fast clock hid LIVE (and showed
+  // OFFLINE) on a fresh page until the first poll. Pages from the service worker's cache are marked by it instead
+  // (markCachedPages: the test below injects that mark); @bft/ui/e2e/clock-skew.ts covers the rest.
   await page.addInitScript(() => {
     const now = Date.now
     Date.now = () => now() + 5 * 60_000
@@ -172,11 +172,8 @@ test('HTML rendered minutes ago shows no LIVE until a live call reaches the netw
   await page.waitForTimeout(1_500)
   expect(
     await page.evaluate(() => (window as unknown as { __guardAtFirstFrame?: boolean }).__guardAtFirstFrame),
-  ).toBe(true)
-  expect(await liveSeen(page)).toEqual([])
-  // A live call that reaches the network confirms freshness; the app's own state decides from then on.
-  await refresh(page)
-  await expect(page.locator('html')).not.toHaveAttribute('data-live-unconfirmed', '')
+  ).toBe(false)
+  expect(await liveSeen(page)).not.toEqual([])
 })
 
 // Stop 2810 (Oxford St at Bulimba Ferry) has "Fortitude Valley, Wickham St"; these are the longest in the fixture.

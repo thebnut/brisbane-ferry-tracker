@@ -16,7 +16,7 @@ import {
   OfflineBanner,
   SecondaryButton,
 } from '@bft/ui'
-import { useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { usePageCheck } from '@bft/ui/connectivity'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
@@ -73,8 +73,8 @@ export function StationBoard({
   const offline = !online || (res as { offline?: boolean } | undefined)?.offline === true
   // Data generated over a minute ago (e.g. a page reloaded from the service worker's cache) is not live either.
   // Data that came with a cached page isn't live until this board's own fresh answer arrives (R2-T7).
-  const unconfirmedBefore = useUnconfirmedBefore()
-  const state = boardState(res, offline, nowMs, unconfirmedBefore)
+  const page = usePageCheck()
+  const state = boardState(res, offline, nowMs, page)
   useReportLive(`board:${from.key}>${to?.key ?? ''}`, state == null)
 
   const cards = useMemo(() => {
