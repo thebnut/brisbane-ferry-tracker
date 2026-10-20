@@ -50,3 +50,39 @@ test('Map → a station → its card → Save → Open; the Map button is rememb
   await expect(picker).toHaveCount(0)
   expect(errors).toEqual([])
 })
+
+test('favourites saved on either side of the 768 px breakpoint are all kept; a tablet map is usable', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, 'resizes a desktop window')
+  await page.setViewportSize({ width: 768, height: 900 })
+  await page.goto('/stations')
+  await page.getByRole('button', { name: 'Show stations on a map' }).click()
+  const picker = page.getByLabel('Train stations map', { exact: true })
+  // Tablet: search and map share the width.
+  expect((await picker.boundingBox())?.width).toBeGreaterThan(300)
+  const save = async (name: RegExp, card: string) => {
+    await picker.getByRole('button', { name: /Stations in view \([1-9]\d*\)/ }).click({ timeout: 20_000 })
+    await picker
+      .getByRole('list', { name: 'Train stations in view' })
+      .getByRole('button', { name })
+      .first()
+      .click()
+    await picker.getByRole('dialog', { name: card }).getByRole('button', { name: 'Save' }).click()
+    await expect(
+      picker.getByRole('dialog', { name: card }).getByRole('button', { name: 'Saved' }),
+    ).toBeVisible()
+  }
+  await save(/^Central/, 'Central')
+  // Across the breakpoint: the phone layout's picker takes over.
+  await page.setViewportSize({ width: 500, height: 900 })
+  await expect(picker).toHaveAttribute('aria-modal', 'true')
+  await save(/^Roma Street/, 'Roma Street')
+  await page.setViewportSize({ width: 1200, height: 900 })
+  await expect(picker).not.toHaveAttribute('aria-modal', 'true')
+  await save(/^Fortitude Valley/, 'Fortitude Valley')
+  const favs = await page.evaluate(() => JSON.parse(localStorage.getItem('bft-train-favourites') ?? '[]'))
+  for (const from of ['central', 'roma-street', 'fortitude-valley'])
+    expect(favs).toContainEqual({ from, to: null })
+})

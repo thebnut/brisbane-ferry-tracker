@@ -5,7 +5,7 @@
  */
 import { type PickerStop, writeMapPref } from '@bft/ui/stop-picker'
 import StopPickerMap, { type CardDeparture, useWide } from '@bft/ui/stop-picker-map'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useRouteLoaderData } from 'react-router'
 import { fetchDepartures } from '../lib/api.ts'
 import { lineLabel } from '../lib/lineNames.ts'
@@ -34,7 +34,13 @@ export default function StationPicker({ slot, onClose }: { slot: 'wide' | 'narro
   const root = useRouteLoaderData('root') as { fixtures?: boolean } | undefined
   const [mode] = useState(() => ({ fixtures: root?.fixtures === true, rt: null }))
   const fetcher = useFetcher(mode)
+  // Both layout slots mount a picker (only one shows), so read the store fresh whenever this one starts showing and
+  // on every toggle: a stale snapshot must never overwrite favourites saved from the other (Codex review).
   const [favourites, setFavourites] = useState(readFavourites)
+  const showing = wide === (slot === 'wide')
+  useEffect(() => {
+    if (showing) setFavourites(readFavourites())
+  }, [showing])
   const loadDepartures = useCallback(
     (s: PickerStop, signal: AbortSignal) =>
       fetchDepartures(fetcher, s.id, null, { limit: 3, signal }).then((r) =>
@@ -50,7 +56,7 @@ export default function StationPicker({ slot, onClose }: { slot: 'wide' | 'narro
       ),
     [fetcher],
   )
-  if (wide !== (slot === 'wide')) return null
+  if (!showing) return null
   const fav = (s: PickerStop): Favourite => ({ from: s.id, to: null })
   const isSaved = (s: PickerStop) => favourites.some((f) => sameFavourite(f, fav(s)))
   const picker = (
@@ -69,7 +75,7 @@ export default function StationPicker({ slot, onClose }: { slot: 'wide' | 'narro
       save={{
         label: (s) => (isSaved(s) ? 'Saved' : 'Save'),
         pressed: isSaved,
-        onClick: (s) => setFavourites((list) => toggleFavourite(list, fav(s))),
+        onClick: (s) => setFavourites(toggleFavourite(readFavourites(), fav(s))),
       }}
       onClose={() => {
         writeMapPref(false)

@@ -135,7 +135,12 @@ export default function Stations({ loaderData }: Route.ComponentProps) {
   return (
     <Shell active="stations">
       <div className={map ? 'mx-auto flex max-w-6xl items-start gap-4' : undefined}>
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-3">
+        {/* With the map open, search and map share the width (min-w-0), so neither is squeezed on a tablet. */}
+        <div
+          className={
+            map ? 'flex min-w-0 flex-1 flex-col gap-3' : 'mx-auto flex w-full max-w-2xl flex-col gap-3'
+          }
+        >
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-xl font-extrabold">Choose your trip</h1>
             <MapToggle open={map} onToggle={setMap} noun="stations" />
