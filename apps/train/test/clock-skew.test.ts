@@ -2,8 +2,8 @@
 /**
  * Release review C2: a board built from the saved day carries the device's `savedAt`, not a server time. With the
  * device clock five minutes fast, that stamp used to hold every network answer back ("Offline · scheduled") until
- * server time caught up. Now the network answer replaces it at the first poll back online; liveState still judges the
- * answer against the device clock (a known follow-up), so a fast clock shows "Live times delayed", never a false LIVE.
+ * server time caught up. Now the network answer replaces it at the first poll back online, and (R13-B1) liveState
+ * measures its age from when it reached the device, so either clock shows it LIVE.
  */
 import type { DeparturesResponse } from '@bft/core/contract'
 import { liveState, reportOnline } from '@bft/ui/connectivity'
@@ -37,7 +37,7 @@ afterEach(() => {
 })
 
 describe.each([
-  ['+5 min', 5 * 60_000, 'stale'],
+  ['+5 min', 5 * 60_000, null],
   ['−5 min', -5 * 60_000, null],
 ] as const)('device clock %s, then reconnect', (_, skew, state) => {
   it('the network answer replaces the saved-day board at the first poll', async () => {
