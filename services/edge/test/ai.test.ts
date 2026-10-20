@@ -186,9 +186,29 @@ describe('stop names the parser cannot place (AI off unless stated)', () => {
     )
     const body = await ask(s, 'departures at queen street ferry')
     expect(body.source).toBe('fallback')
-    expect(body.answer).toMatch(/^That name matches more than one stop\./)
+    // The mode is named, so the reply names the places instead of asking for the mode (R11-A1).
+    expect(body.answer).toBe(
+      "'queen street' matches more than one ferry terminal. Did you mean 'Queen Street 1' or 'Queen Street 2'? Use the full name.",
+    )
     expect(fetchSpy).not.toHaveBeenCalled()
     fetchSpy.mockRestore()
+  })
+
+  it('without a mode, the ambiguity reply still asks for one', async () => {
+    const s = setup(
+      {},
+      {
+        stops: [
+          ['QS1', 'Queen Street 1'],
+          ['QS2', 'Queen Street 2'],
+        ],
+      },
+    )
+    const body = await ask(s, 'departures at queen street')
+    expect(body.source).toBe('fallback')
+    expect(body.answer).toBe(
+      "'queen street' matches more than one stop. Did you mean 'Queen Street 1' or 'Queen Street 2'? Add the mode (ferry, train or bus), the full name or the stop number.",
+    )
   })
 
   it('names the stop it could not find', async () => {

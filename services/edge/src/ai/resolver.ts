@@ -1,9 +1,21 @@
 /**
  * Fuzzy stop resolver for /v1/ask and the search_stops tool: uFuzzy over each mode's stop index
  * (data/{mode}/stops.json, ADR-0004), exact matching on bus stop numbers.
+ *
+ * For /v1/ask, bus stops that are one place to a rider (a busway station's platforms, "Cultural Centre station,
+ * platform 1/2/3", or same-named stops) resolve as one candidate carrying every stop key (R11-A1). The bus index has
+ * no parent_station, so places come from names: the same name once a platform or stop suffix is removed, and every
+ * stop within PLACE_RADIUS_M of the first. Train keys are already stations; ferry terminals are single stops.
  */
 
-import type { Mode, StopCandidate, StopIndexEntry, StopIndexFile, StopResolver } from '@bft/core'
+import {
+  haversine,
+  type Mode,
+  type StopCandidate,
+  type StopIndexEntry,
+  type StopIndexFile,
+  type StopResolver,
+} from '@bft/core'
 import uFuzzy from '@leeoniya/ufuzzy'
 import { readJson } from '../data/source.ts'
 import type { StaticStore } from '../data/static-store.ts'
@@ -17,6 +29,67 @@ interface ModeIndex {
   /** haystack with spaces and punctuation removed, for the no-space fallback ("southbank" → South Bank). */
   compact: string[]
   byCode: Map<string, number>
+  /** stop index → its place (several stops), for the stops that share one. */
+  placeOf: Map<number, Place>
+}
+
+interface Place {
+  name: string
+  /** Stop indexes, in display order; the first is the place's key. */
+  members: number[]
+}
+
+/** Stops further apart than this are never one place, whatever their names. */
+export const PLACE_RADIUS_M = 400
+
+/**
+ * A platform or stop suffix: "Cultural Centre station, platform 2", "King George Square, 1a", "Strathpine bus
+ * station, stop D", "Sandgate Rd at Nundah, stop 3". Compound ones ("stop 28/1") are kept whole.
+ */
+const STATION_PART = /^(.+?),\s*(?:(?:platform|stop|bay)\s+)?(?:\d{1,3}[a-z]?|[a-z])(\s*\([^)]*\))?$/i
+
+/** The place a stop name belongs to: the name without its platform or stop suffix. */
+export const placeName = (name: string): string => {
+  const m = STATION_PART.exec(name.trim())
+  return m ? `${m[1]}${m[2] ?? ''}` : name.trim()
+}
+
+const natural = new Intl.Collator('en', { numeric: true, sensitivity: 'base' }).compare
+
+function buildPlaces(stops: StopIndexEntry[]): Map<number, Place> {
+  const byName = new Map<string, number[]>()
+  stops.forEach((s, i) => {
+    const k = placeName(s.name).toLowerCase()
+    const list = byName.get(k)
+    if (list) list.push(i)
+    else byName.set(k, [i])
+  })
+  const out = new Map<number, Place>()
+  for (const list of byName.values()) {
+    if (list.length < 2) continue
+    // Clusters around an anchor stop, so two same-named places across town stay apart.
+    const clusters: number[][] = []
+    for (const i of list) {
+      const s = stops[i] as StopIndexEntry
+      const home = clusters.find((c) => {
+        const a = stops[c[0] as number] as StopIndexEntry
+        return haversine(a.lat, a.lon, s.lat, s.lon) <= PLACE_RADIUS_M
+      })
+      if (home) home.push(i)
+      else clusters.push([i])
+    }
+    for (const c of clusters) {
+      if (c.length < 2) continue
+      const members = c.sort(
+        (a, b) =>
+          natural((stops[a] as StopIndexEntry).name, (stops[b] as StopIndexEntry).name) ||
+          natural((stops[a] as StopIndexEntry).key, (stops[b] as StopIndexEntry).key),
+      )
+      const place: Place = { name: placeName((stops[members[0] as number] as StopIndexEntry).name), members }
+      for (const i of members) out.set(i, place)
+    }
+  }
+  return out
 }
 
 const uf = new uFuzzy({ intraMode: 1, intraIns: 1 })
@@ -36,7 +109,8 @@ export function buildIndex(mode: Mode, stops: StopIndexEntry[]): ModeIndex {
     if (s.code) byCode.set(s.code.replace(/^0+/, ''), i)
   })
   const haystack = stops.map((s) => clean(s.name))
-  return { mode, stops, haystack, compact: haystack.map(compactOf), byCode }
+  const placeOf = mode === 'bus' ? buildPlaces(stops) : new Map<number, Place>()
+  return { mode, stops, haystack, compact: haystack.map(compactOf), byCode, placeOf }
 }
 
 let cached: { generation: string; indexes: Promise<ModeIndex[]> } | null = null
@@ -56,8 +130,25 @@ export function loadIndexes(store: StaticStore, generationKey: string): Promise<
   return indexes
 }
 
-/** Search one or all modes; best-first candidates with a 0..1 score. */
-export function searchStops(indexes: ModeIndex[], text: string, mode?: Mode, limit = 5): StopCandidate[] {
+const single = (mode: Mode, s: StopIndexEntry, score: number): StopCandidate => ({
+  mode,
+  key: s.key,
+  name: s.name,
+  score,
+  ...(s.code ? { code: s.code } : {}),
+})
+
+/**
+ * Search one or all modes; best-first candidates with a 0..1 score. With `places`, stops that are one place come back
+ * as one candidate (its name, every stop key), scored by its best stop or by the place name itself.
+ */
+export function searchStops(
+  indexes: ModeIndex[],
+  text: string,
+  mode?: Mode,
+  limit = 5,
+  places = false,
+): StopCandidate[] {
   const q = clean(text)
   if (!q) return []
   const out: StopCandidate[] = []
@@ -65,10 +156,38 @@ export function searchStops(indexes: ModeIndex[], text: string, mode?: Mode, lim
     if (mode && idx.mode !== mode) continue
     const digits = q.replace(/^(stop\s*)?0*/, '')
     if (/^\d{1,6}$/.test(digits)) {
+      // A stop number names one stop, never its whole station.
       const i = idx.byCode.get(digits)
       const s = i == null ? undefined : idx.stops[i]
-      if (s) out.push({ mode: idx.mode, key: s.key, name: s.name, score: 1 })
+      if (s) out.push(single(idx.mode, s, 1))
       continue
+    }
+    // One candidate per place: the first (best) hit of a place stands for it, later hits only raise its score.
+    const taken = new Map<Place, StopCandidate>()
+    const push = (hi: number, score: number) => {
+      const s = idx.stops[hi]
+      if (!s) return
+      const place = places ? idx.placeOf.get(hi) : undefined
+      if (!place) {
+        out.push(single(idx.mode, s, score))
+        return
+      }
+      const placeScore = clean(place.name) === q ? 1 : score
+      const had = taken.get(place)
+      if (had) {
+        had.score = Math.max(had.score, placeScore)
+        return
+      }
+      const keys = place.members.map((m) => (idx.stops[m] as StopIndexEntry).key)
+      const c: StopCandidate = {
+        mode: idx.mode,
+        key: keys[0] as string,
+        name: place.name,
+        score: placeScore,
+        stopKeys: keys,
+      }
+      taken.set(place, c)
+      out.push(c)
     }
     // Bus has 12k stops with long names; demote non-exact bus hits so a bare "toowong" prefers the station
     // unless the question says "bus".
@@ -85,16 +204,17 @@ export function searchStops(indexes: ModeIndex[], text: string, mode?: Mode, lim
         else if (name.startsWith(cq)) hits.push({ hi, score: 0.9 - busPenalty })
       })
       hits.sort((a, b) => b.score - a.score)
-      for (const { hi, score } of hits.slice(0, limit)) {
-        const s = idx.stops[hi] as StopIndexEntry
-        out.push({ mode: idx.mode, key: s.key, name: s.name, score })
+      const start = out.length
+      for (const { hi, score } of hits) {
+        if (out.length - start >= limit) break
+        push(hi, score)
       }
       continue
     }
     const ranked = order && info ? order.map((o) => info.idx[o] as number) : ids
-    ranked.slice(0, limit).forEach((hi, rank) => {
-      const s = idx.stops[hi]
-      if (!s) return
+    const start = out.length
+    for (const [rank, hi] of ranked.entries()) {
+      if (out.length - start >= limit) break
       const name = idx.haystack[hi] as string
       const score =
         name === q
@@ -102,8 +222,8 @@ export function searchStops(indexes: ModeIndex[], text: string, mode?: Mode, lim
           : name.startsWith(q)
             ? 0.9 - busPenalty
             : Math.max(0.6, 0.85 - rank * 0.05 - busPenalty)
-      out.push({ mode: idx.mode, key: s.key, name: s.name, score })
-    })
+      push(hi, score)
+    }
   }
   return out.sort((a, b) => b.score - a.score).slice(0, limit)
 }
@@ -111,4 +231,4 @@ export function searchStops(indexes: ModeIndex[], text: string, mode?: Mode, lim
 export const resolverFor =
   (indexes: ModeIndex[]): StopResolver =>
   (text, mode) =>
-    searchStops(indexes, text, mode)
+    searchStops(indexes, text, mode, 5, true)

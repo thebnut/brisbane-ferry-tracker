@@ -12,13 +12,31 @@ export interface StopCandidate {
   name: string
   /** 0..1, higher is better. */
   score: number
+  /** Public stop code (bus stop number), to tell same-named stops apart in an ambiguity reply. */
+  code?: string
+  /**
+   * One place made of several stops (a busway station's platforms, R11-A1): every stop key, `key` first. Answers
+   * cover them all; more than MAX_PLACE_STOPS is too many to fan out, so the question asks for the platform instead.
+   */
+  stopKeys?: string[]
 }
+
+/** The most stops one place may fan out to when answering (each is a departures read). */
+export const MAX_PLACE_STOPS = 8
 
 /** Fuzzy stop lookup (uFuzzy over the stop index in apps/edge). Returns best-first candidates. */
 export type StopResolver = (text: string, mode?: Mode) => StopCandidate[]
 
 export type Intent =
-  | { kind: 'next_departure'; mode?: Mode; from: StopCandidate; to: StopCandidate; route?: string }
+  | {
+      kind: 'next_departure'
+      mode?: Mode
+      from: StopCandidate
+      to: StopCandidate
+      route?: string
+      /** A fact about the chosen destination the answer must state (e.g. "the airport" → International first). */
+      note?: string
+    }
   | { kind: 'departures_at'; mode?: Mode; at: StopCandidate; route?: string }
   | { kind: 'route_status'; mode?: Mode; route: string }
   | { kind: 'alerts'; mode?: Mode; line?: string; stop?: StopCandidate }
@@ -30,8 +48,14 @@ export type ParseResult =
       ok: false
       reason: 'no_match' | 'unresolved_stop' | 'ambiguous_stop'
       normalized: string
-      /** For unresolved_stop: the stop name as the question gave it (normalised, mode words removed). */
+      /** For unresolved_stop and ambiguous_stop: the stop name as the question gave it (normalised, mode words removed). */
       detail?: string
+      /** The mode the question named, if any (an ambiguity reply then mustn't ask for it). */
+      mode?: Mode
+      /** For ambiguous_stop: the places it could be, best first (two or three display names). */
+      options?: string[]
+      /** For ambiguous_stop on one station with too many stops to answer for at once: its name and stop count. */
+      station?: { name: string; stops: number }
     }
 
 const MODE_WORDS: Array<[RegExp, Mode]> = [
@@ -72,24 +96,81 @@ function stripModeWords(s: string): string {
     .trim()
 }
 
+interface Ambiguous {
+  ambiguous: true
+  text: string
+  options: StopCandidate[]
+  station?: { name: string; stops: number }
+}
+
+const AIRPORT = /^(?:brisbane )?airports?$/
+/**
+ * "The airport" by train: both airport stations are on the Airport line, and every airport train calls at
+ * International Airport and then Domestic Airport (the terminus), minutes apart. So for a destination either is
+ * correct and International, the first reached, gives the right departures (from International itself: Domestic). As
+ * an origin they're different places and the question must say which.
+ */
+const AIRPORT_STATIONS = ['international-airport', 'domestic-airport'] as const
+
 function resolve(
   resolver: StopResolver,
   raw: string,
   mode?: Mode,
-): StopCandidate | 'unresolved' | 'ambiguous' {
+  role: 'from' | 'to' = 'from',
+  fromKey?: string,
+): StopCandidate | 'unresolved' | Ambiguous {
   const text = stripModeWords(raw)
   if (!text) return 'unresolved'
-  const c = resolver(text, mode)
+  // Same place twice (a resolver may list a station once per platform): collapse before the ambiguity test.
+  const seen = new Set<string>()
+  const c = resolver(text, mode).filter((x) => {
+    const k = `${x.mode}:${x.key}`
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
   const best = c[0]
   if (!best || best.score < 0.6) return 'unresolved'
-  const second = c[1]
-  // Two near-equal distinct stops (any mode, e.g. several "Queen Street" bus stops): ask rather than guess.
-  // An exact name match beats a non-exact one.
-  const exactWins = best.score === 1 && (second?.score ?? 0) < 1
-  if (second && !exactWins && second.score >= best.score - 0.05 && second.key !== best.key) {
-    return 'ambiguous'
+
+  if (AIRPORT.test(text) && best.mode === 'train') {
+    const byKey = new Map(c.filter((x) => x.mode === 'train').map((x) => [x.key, x]))
+    const [intl, dom] = AIRPORT_STATIONS.map((k) => byKey.get(k))
+    if (intl && dom) {
+      if (role === 'to') return { ...(fromKey === intl.key ? dom : intl), score: 1 }
+      return { ambiguous: true, text, options: [dom, intl] }
+    }
   }
+
+  // Near-equal distinct places (any mode, e.g. several "Queen Street" bus stops): ask rather than guess.
+  // An exact name match beats a non-exact one.
+  const second = c[1]
+  const exactWins = best.score === 1 && (second?.score ?? 0) < 1
+  if (second && !exactWins && second.score >= best.score - 0.05) {
+    return { ambiguous: true, text, options: c.filter((x) => x.score >= best.score - 0.05) }
+  }
+  // One station with more stops than an answer can cover: ask for the platform (R11-A1).
+  if (best.stopKeys && best.stopKeys.length > MAX_PLACE_STOPS)
+    return {
+      ambiguous: true,
+      text,
+      options: [best],
+      station: { name: best.name, stops: best.stopKeys.length },
+    }
   return best
+}
+
+const isAmbiguous = (r: StopCandidate | 'unresolved' | Ambiguous): r is Ambiguous =>
+  typeof r === 'object' && 'ambiguous' in r
+
+/** Display names for an ambiguity reply: the mode when they span modes, the stop number when names repeat. */
+function optionNames(options: StopCandidate[]): string[] {
+  const modes = new Set(options.map((o) => o.mode))
+  const names = options.map((o) => o.name)
+  return options.map((o) => {
+    const dup = names.filter((n) => n === o.name).length > 1
+    if (modes.size > 1) return `${o.name} (${o.mode})`
+    return dup && o.code ? `${o.name} (stop ${o.code.replace(/^0+/, '')})` : o.name
+  })
 }
 
 const FROM_TO: RegExp[] = [
@@ -108,6 +189,15 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
     reason,
     normalized: s,
     ...(detail ? { detail } : {}),
+  })
+  const ambiguous = (a: Ambiguous): ParseResult => ({
+    ok: false,
+    reason: 'ambiguous_stop',
+    normalized: s,
+    detail: a.text,
+    ...(mode ? { mode } : {}),
+    options: [...new Set(optionNames(a.options))].slice(0, 3),
+    ...(a.station ? { station: a.station } : {}),
   })
   // The first stop name an explicit "from X to Y", "from X" or "at X" couldn't resolve, so the answer can say which.
   // Looser shapes ("X to Y" with no "from") don't set it: their halves are often not stop names at all.
@@ -227,12 +317,20 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
       fromText = fromText.replace(filler, '')
       toText = toText.replace(filler, '')
       const from = resolve(resolver, fromText, mode)
-      const to = resolve(resolver, toText, mode ?? (typeof from === 'object' ? from.mode : undefined))
-      if (from === 'ambiguous' || to === 'ambiguous') return fail('ambiguous_stop')
+      if (isAmbiguous(from)) return ambiguous(from)
+      const to = resolve(
+        resolver,
+        toText,
+        mode ?? (typeof from === 'object' ? from.mode : undefined),
+        'to',
+        typeof from === 'object' ? from.key : undefined,
+      )
+      if (isAmbiguous(to)) return ambiguous(to)
       if (from === 'unresolved' || to === 'unresolved') {
         if (re === FROM_TO[0]) miss(from === 'unresolved' ? fromText : toText)
         continue
       }
+      const airport = to.mode === 'train' && AIRPORT.test(stripModeWords(toText))
       return {
         ok: true,
         normalized: s,
@@ -242,13 +340,16 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
           from,
           to,
           ...(routeInQuery ? { route: routeInQuery } : {}),
+          ...(airport && to.key === 'international-airport'
+            ? { note: 'Airport trains stop at International Airport, then continue to Domestic Airport.' }
+            : {}),
         },
       }
     }
     const fm = FROM_ONLY.exec(s)
     if (fm) {
       const from = resolve(resolver, fm[1] as string, mode)
-      if (from === 'ambiguous') return fail('ambiguous_stop')
+      if (isAmbiguous(from)) return ambiguous(from)
       if (from !== 'unresolved') {
         return {
           ok: true,
@@ -270,7 +371,7 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
   const am = AT_ONLY.exec(s) ?? /^(.+?) (?:departures|times|timetable|board)$/.exec(s)
   if (am && /\b(departures|leaving|times|timetable|board|next|what is)\b/.test(s)) {
     const at = resolve(resolver, am[1] as string, mode)
-    if (at === 'ambiguous') return fail('ambiguous_stop')
+    if (isAmbiguous(at)) return ambiguous(at)
     if (at !== 'unresolved') {
       return {
         ok: true,
@@ -291,7 +392,7 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
       s.replace(/\b(departures|what is leaving|leaving|timetable|show|me|from|at)\b/g, ' '),
       mode,
     )
-    if (at === 'ambiguous') return fail('ambiguous_stop')
+    if (isAmbiguous(at)) return ambiguous(at)
     if (typeof at === 'object')
       return { ok: true, normalized: s, intent: { kind: 'departures_at', mode: mode ?? at.mode, at } }
   }

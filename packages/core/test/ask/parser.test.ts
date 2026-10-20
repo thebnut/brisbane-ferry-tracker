@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeQuestion, parseQuestion } from '../../src/ask/parser.ts'
+import {
+  MAX_PLACE_STOPS,
+  normalizeQuestion,
+  parseQuestion,
+  type StopCandidate,
+  type StopResolver,
+} from '../../src/ask/parser.ts'
 import questions from './questions.json' with { type: 'json' }
 import { testResolver } from './resolver.ts'
 
@@ -43,7 +49,7 @@ describe('parser details', () => {
   })
   it('a fuzzy typo still resolves', () => {
     const r = parseQuestion('next train from bowen hils to the airport', testResolver)
-    expect(r.ok && r.intent.kind === 'next_departure' && r.intent.to?.key).toBe('domestic-airport')
+    expect(r.ok && r.intent.kind === 'next_departure' && r.intent.to?.key).toBe('international-airport')
   })
   it('an ambiguous stop across modes is not guessed', () => {
     const r = parseQuestion('departures at toowong', testResolver)
@@ -123,5 +129,119 @@ describe('parser details', () => {
     expect(cl.ok && cl.intent.kind === 'alerts' && cl.intent.line).toBe('cleveland')
     expect(parseQuestion('alerts on F1 and F11', testResolver).ok).toBe(false)
     expect(parseQuestion('alerts at stop 1853 for route 66', testResolver).ok).toBe(false)
+  })
+})
+
+describe('one place, several stops (R11-A1)', () => {
+  const cc = ['10802', '11168', '12111']
+  const bus = (
+    key: string,
+    name: string,
+    score: number,
+    extra: Partial<StopCandidate> = {},
+  ): StopCandidate => ({
+    mode: 'bus',
+    key,
+    name,
+    score,
+    ...extra,
+  })
+  // The edge resolver returns a busway station's platforms as one candidate carrying every stop key.
+  const grouped: StopResolver = (text, mode) =>
+    text === 'cultural centre' && mode !== 'train' && mode !== 'ferry'
+      ? [bus('10802', 'Cultural Centre station', 1, { stopKeys: cc })]
+      : testResolver(text, mode)
+
+  it('"next bus from cultural centre" answers for the station, every platform', () => {
+    const r = parseQuestion('next bus from cultural centre', grouped)
+    expect(r.ok && r.intent).toMatchObject({
+      kind: 'departures_at',
+      mode: 'bus',
+      at: { key: '10802', name: 'Cultural Centre station', stopKeys: cc },
+    })
+  })
+
+  it('the same stop listed twice by a resolver is one candidate, not an ambiguity', () => {
+    const twice: StopResolver = () => [
+      bus('10802', 'Cultural Centre', 0.9),
+      bus('10802', 'Cultural Centre', 0.9),
+    ]
+    const r = parseQuestion('departures at cultural centre bus', twice)
+    expect(r.ok && r.intent.kind === 'departures_at' && r.intent.at.key).toBe('10802')
+  })
+
+  it('"to the airport" by train is International Airport (first reached), and the answer says so', () => {
+    for (const q of [
+      'next train from bowen hills to the airport',
+      'next train to the airport from bowen hills',
+    ]) {
+      const r = parseQuestion(q, testResolver)
+      expect(r.ok && r.intent, q).toMatchObject({
+        kind: 'next_departure',
+        mode: 'train',
+        from: { key: 'bowen-hills' },
+        to: { key: 'international-airport' },
+        note: 'Airport trains stop at International Airport, then continue to Domestic Airport.',
+      })
+    }
+  })
+
+  it('"to the airport" from International Airport is Domestic Airport', () => {
+    const r = parseQuestion('next train from international airport to the airport', testResolver)
+    expect(r.ok && r.intent.kind === 'next_departure' && [r.intent.to.key, r.intent.note]).toEqual([
+      'domestic-airport',
+      undefined,
+    ])
+  })
+
+  it('"from the airport" asks which airport station, naming both', () => {
+    for (const q of ['next train from the airport to bowen hills', 'train departures at the airport']) {
+      const r = parseQuestion(q, testResolver)
+      expect(r.ok ? r.intent : r, q).toMatchObject({
+        reason: 'ambiguous_stop',
+        detail: 'airport',
+        mode: 'train',
+        options: ['Domestic Airport', 'International Airport'],
+      })
+    }
+  })
+
+  it('distinct places with one name still ask, naming them (stop numbers when names repeat)', () => {
+    const queenSt: StopResolver = () => [
+      bus('1882', 'Queen Street station', 0.9, { stopKeys: ['1882', '1883'] }),
+      bus('319473', 'Queen Street station (Southport)', 0.9, { stopKeys: ['319473', '319474'] }),
+      bus('A', 'Queen St near Wellington St', 0.88, { code: '005501' }),
+      bus('B', 'Queen St near Wellington St', 0.88, { code: '005502' }),
+    ]
+    const r = parseQuestion('next bus from queen street', queenSt)
+    expect(r.ok ? r.intent : r).toMatchObject({
+      reason: 'ambiguous_stop',
+      detail: 'queen street',
+      mode: 'bus',
+      options: [
+        'Queen Street station',
+        'Queen Street station (Southport)',
+        'Queen St near Wellington St (stop 5501)',
+      ],
+    })
+  })
+
+  it('across modes, each option names its mode; no mode in the question means none in the result', () => {
+    const r = parseQuestion('departures at toowong', testResolver)
+    expect(r.ok ? r.intent : r).toMatchObject({ reason: 'ambiguous_stop', detail: 'toowong' })
+    if (!r.ok) {
+      expect(r.mode).toBeUndefined()
+      expect(r.options?.every((o) => / \((train|bus|ferry)\)$/.test(o))).toBe(true)
+    }
+  })
+
+  it(`a station with more than ${MAX_PLACE_STOPS} stops asks for the stop number, naming the station`, () => {
+    const keys = Array.from({ length: 15 }, (_, i) => String(1000 + i))
+    const big: StopResolver = () => [bus('1000', 'Queen Street station', 1, { stopKeys: keys })]
+    const r = parseQuestion('next bus from queen street station', big)
+    expect(r.ok ? r.intent : r).toMatchObject({
+      reason: 'ambiguous_stop',
+      station: { name: 'Queen Street station', stops: 15 },
+    })
   })
 })
