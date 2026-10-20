@@ -550,9 +550,18 @@ export type VehiclesResponse = z.infer<typeof VehiclesResponse>
 export const AlertsResponse = Envelope.extend({ alerts: z.array(Alert) })
 export type AlertsResponse = z.infer<typeof AlertsResponse>
 
+/** Why a health check fails: no manifest, TransLink's source too old, or the hub's last build too old. */
+export const HealthReason = z.enum(['manifest', 'source-age', 'build-age'])
+export type HealthReason = z.infer<typeof HealthReason>
+
 export const HealthResponse = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   ok: z.boolean(),
+  /**
+   * Every failing check, in a fixed order (manifest, source-age, build-age); an empty list when ok. Optional so older
+   * deploys still parse (additive, SCHEMA_VERSION unchanged).
+   */
+  reasons: z.array(HealthReason).optional(),
   now: z.number().int(),
   manifest: z.object({ updatedAt: z.string().nullable(), generations: z.record(z.string(), z.string()) }),
   rt: z.object({
@@ -560,6 +569,8 @@ export const HealthResponse = z.object({
     sourceTimestamp: z.number().int().nullable(),
     fetchedAt: z.number().int().nullable(),
     ageS: z.number().nullable(),
+    /** Now minus when the hub built the snapshot (s), the age the build-age check measures; optional like reasons. */
+    buildAgeS: z.number().nullable().optional(),
     lastError: z.string().nullable(),
     stats: z.record(z.string(), MatchStats).nullable(),
   }),
