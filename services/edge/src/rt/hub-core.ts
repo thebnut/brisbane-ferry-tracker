@@ -9,13 +9,19 @@
  * - `ensureRunning()` (called by the Worker's 1-minute cron) re-arms the chain when the last completed cycle is
  *   more than 45 s old or no alarm is set.
  */
-import { type Alert, addDays, brisbaneDate, type Manifest, type Mode, type RtSnapshot } from '@bft/core'
+import { type Alert, addDays, brisbaneDate, type Manifest, Mode, type RtSnapshot } from '@bft/core'
 import { fromBinary } from '@bufbuild/protobuf'
 import type { StaticStore } from '../data/static-store.ts'
 import { type FeedMessage, FeedMessageSchema } from '../gen/gtfs-realtime_pb.js'
 import { errorMessage, type Logger, silentLogger } from '../log.ts'
 import { buildAlerts, buildSnapshot, ModeIndex } from './build.ts'
-import { COMBINED_KEY, type CombinedSection, decodeCombined, encodeCombined } from './combined.ts'
+import {
+  COMBINED_KEY,
+  type CombinedSection,
+  decodeCombined,
+  encodeCombined,
+  INDEX_BYTES,
+} from './combined.ts'
 import { type FeedSpec, feedsFor, type RtConfig } from './feeds.ts'
 import {
   alertsDocument,
@@ -203,6 +209,8 @@ export class HubCore {
   private readonly log: Logger
   private meta: Meta = { seq: 0, lastCycleAt: 0, lastError: null, alertsAt: 0, snapChunks: 0 }
   private restored = false
+  /** The restore in flight, shared by every caller (see restore). */
+  private restoring: Promise<void> | null = null
   private snapshot: RtSnapshot | null = null
   private snapshotJson: string | null = null
   private readonly raw = new Map<string, RawFeed>()
@@ -895,8 +903,11 @@ export class HubCore {
     return w
   }
 
-  /** Merge the per-scope documents the pointer names (each slot must hold the named seq). */
-  private async restoreFromDocuments(pointer: R2Pointer): Promise<string | null> {
+  /**
+   * Merge the mode documents the pointer names (per-mode documents, or the combined object) with its alerts document.
+   * Reads only: what it learns goes into `r`, applied by applyRestore.
+   */
+  private async restoreFromDocuments(pointer: R2Pointer, r: Restored): Promise<RtSnapshot | null> {
     const r2 = this.d.r2 as R2Like
     // The combined mode object: accepted at or after the seq the pointer names (it is overwritten before the
     // pointer, like the per-mode latest objects it replaces), and only when its index, size and sections agree.
@@ -907,60 +918,93 @@ export class HubCore {
       if (!r2.get) return null
       const obj = await r2.get(c.key)
       if (!obj) return null
+      // I/O errors (the GET, the body) propagate, so the restore is retried. Everything after works on content:
+      // whatever is wrong with it, the object counts as missing, never as a restore that fails forever (Codex r4
+      // and r8 on #100).
       const bytes = obj.arrayBuffer
         ? new Uint8Array(await obj.arrayBuffer())
         : new TextEncoder().encode(await obj.text())
-      const got = decodeCombined(bytes)
-      if (!got || got.index.seq < c.seq) return null
-      if (got.index.seq > this.meta.seq) this.meta.seq = got.index.seq
-      return got.docs.map((d) => [d.mode, JSON.parse(d.json) as RtSnapshot])
+      try {
+        // The index's seq counts even when its sections, size or documents are unusable: it may be past the
+        // pointer, and a seq left unread could be reused by the next build (Codex r2 and r4).
+        const indexSeq = combinedIndexSeq(bytes)
+        if (indexSeq != null && indexSeq > r.seq) r.seq = indexSeq
+        const got = decodeCombined(bytes)
+        if (!got || !Number.isSafeInteger(got.index.seq) || got.index.seq < c.seq) return null
+        const docs: Array<[Mode, RtSnapshot]> = []
+        for (const d of got.docs) {
+          // A malformed section, or one under an unknown mode name, makes the whole object unusable (missing).
+          if (!MODES.has(d.mode)) return null
+          const doc = parseSnapshot(d.json)
+          if (!doc) return null
+          docs.push([d.mode, doc])
+        }
+        return docs
+      } catch {
+        return null
+      }
     }
     const read = async (e: { key: string; seq: number } | undefined): Promise<RtSnapshot | null> => {
       if (!e || !r2.get) return null
+      // I/O errors propagate (the restore is retried); a problem with the content makes the document missing, so
+      // the fallbacks below apply rather than a restore that fails forever (Codex r8 on #100).
       const obj = await r2.get(e.key)
       const text = obj ? await obj.text() : null
-      const seq = text != null ? snapshotSeq(text) : null
-      if (text == null || seq == null) return null
-      // A per-mode latest object is overwritten before the pointer: after a partial publish it can be newer than
-      // the pointer, and it is that mode's newest committed content, so accept it and move the seq watermark past
-      // it (Codex review of #49). Ring slots (alerts) must match exactly.
-      const overwritten = e.key.endsWith('/latest.json')
-      if (overwritten ? seq < e.seq : seq !== e.seq) return null
-      if (seq > this.meta.seq) this.meta.seq = seq
-      return JSON.parse(text) as RtSnapshot
+      if (text == null) return null
+      try {
+        const seq = snapshotSeq(text)
+        if (!Number.isSafeInteger(seq)) return null
+        const n = seq as number
+        // A per-mode latest object is overwritten before the pointer: after a partial publish it can be newer than
+        // the pointer, and it is that mode's newest committed content, so accept it and move the seq watermark past
+        // it (Codex review of #49). Ring slots (alerts) must match exactly.
+        const overwritten = e.key.endsWith('/latest.json')
+        if (overwritten ? n < e.seq : n !== e.seq) return null
+        if (n > r.seq) r.seq = n
+        return parseSnapshot(text)
+      } catch {
+        return null
+      }
     }
     const load = async (f: NonNullable<R2Pointer['files']>, combined?: R2Pointer['combined']) => {
-      let docs: Array<[Mode, RtSnapshot]> = []
+      // Read every named document even after one fails: each read moves the seq watermark (a mode document can be
+      // newer than the pointer), and one left unread could have its seq reused by the next build (Codex r2 on #100).
+      const docs: Array<[Mode, RtSnapshot]> = []
+      let complete = true
       if (combined) {
         const got = await readCombined(combined)
-        if (!got) return null
-        docs = got
+        if (got) docs.push(...got)
+        else complete = false
       }
       for (const [scope, e] of Object.entries(f)) {
+        // With the combined object the pointer names modes only through it.
         if (scope === 'alerts' || combined) continue
+        if (!MODES.has(scope)) {
+          complete = false
+          continue
+        }
         const d = await read(e)
-        if (!d) return null
-        docs.push([scope as Mode, d])
+        if (d) docs.push([scope as Mode, d])
+        else complete = false
       }
       const alerts = f.alerts ? await read(f.alerts) : null
-      if (f.alerts && !alerts) return null
+      if (!complete || (f.alerts && !alerts)) return null
       return { docs, alerts }
     }
     // A slot overwritten between our reads fails its seq check: re-read the pointer and try once more.
-    const files = pointer.files ?? {}
-    let got = await load(files, pointer.combined)
+    let got = await load(pointer.files ?? {}, pointer.combined)
     if (!got && r2.get) {
       const ptr = await r2.get(R2_LATEST_KEY)
       const again = ptr ? (JSON.parse(await ptr.text()) as R2Pointer) : null
       // Never reuse a published seq: the re-read pointer may be newer than the one restore() started from.
-      if (again && again.seq > this.meta.seq) this.meta.seq = again.seq
+      if (again && again.seq > r.seq) r.seq = again.seq
       if (again?.files || again?.combined) got = await load(again.files ?? {}, again.combined)
       if (!got && (again?.files || again?.combined)) {
         // Still inconsistent: restore the mode documents without alerts and refetch alerts on the next cycle (they
         // are rewritten within one poll), rather than lose the retained cancellations with the whole restore.
         const { alerts: _skip, ...modesOnly } = again.files ?? {}
         got = await load(modesOnly, again.combined)
-        this.meta.alertsAt = 0
+        r.alertsStale = true
         this.log.warn('rt restore without alerts (alerts document failed its seq check)')
       }
     }
@@ -969,21 +1013,45 @@ export class HubCore {
     // was unloaded) stays unassigned so every mode document keeps it (Codex review of the split).
     const seen = new Map<string, Mode | null>()
     for (const [m, d] of got.docs) for (const k of Object.keys(d.trips)) seen.set(k, seen.has(k) ? null : m)
-    for (const [k, m] of seen) if (m) this.tripModes.set(k, m)
-    const merged = mergeDocuments(
+    for (const [k, m] of seen) if (m) r.tripModes.set(k, m)
+    return mergeDocuments(
       got.docs.map(([, d]) => d),
       got.alerts,
     )
-    return merged ? JSON.stringify(merged) : null
   }
 
-  /** After an eviction or restart: restore the sequence, the last snapshot and the watchdog clock. */
-  private async restore(): Promise<void> {
-    if (this.restored) return
-    this.restored = true
+  /**
+   * After an eviction or restart: restore the sequence, the last snapshot and the watchdog clock. Every entry point
+   * (alarm cycle, pull, the watchdog, benchmark) awaits this one in-flight promise, and `restored` is set only once
+   * the restore has applied, so no cycle can build or publish a seq that the restore then overwrites with an older
+   * snapshot (Codex r1/r2 on #96). A failed restore applies nothing and clears the promise: the next call retries.
+   */
+  private restore(): Promise<void> {
+    if (this.restored) return Promise.resolve()
+    this.restoring ??= this.readRestore()
+      .then((r) => {
+        this.applyRestore(r)
+        this.restored = true
+      })
+      .finally(() => {
+        this.restoring = null
+      })
+    return this.restoring
+  }
+
+  /**
+   * The reads of a restore, into a local result (nothing on `this` changes until applyRestore). Everything is parsed
+   * here, so applying cannot throw (Codex r1).
+   */
+  private async readRestore(): Promise<Restored> {
     const meta = await this.d.storage.get<Meta>('meta')
-    if (meta) this.meta = { ...this.meta, ...meta }
-    let json: string | null = null
+    const r: Restored = {
+      meta,
+      seq: meta?.seq ?? 0,
+      snapshot: null,
+      tripModes: new Map(),
+      alertsStale: false,
+    }
     if (meta && meta.snapChunks > 0) {
       const parts: string[] = []
       for (let i = 0; i < meta.snapChunks; i++) {
@@ -991,35 +1059,196 @@ export class HubCore {
         if (p == null) break
         parts.push(p)
       }
-      if (parts.length === meta.snapChunks) json = parts.join('')
+      // A malformed stored copy counts as missing: R2 (when bound) is tried instead.
+      if (parts.length === meta.snapChunks) r.snapshot = parseSnapshot(parts.join(''))
     }
     if (this.d.r2?.get) {
       const ptr = await this.d.r2.get(R2_LATEST_KEY)
       const pointer = ptr ? (JSON.parse(await ptr.text()) as R2Pointer) : null
       // Never reuse a published seq (Codex review #1): continue after whatever R2 already holds, even when this
       // object's own storage is empty or behind.
-      if (pointer && pointer.seq > this.meta.seq) this.meta.seq = pointer.seq
-      if (!json && (pointer?.files || pointer?.combined)) {
-        json = await this.restoreFromDocuments(pointer)
-      } else if (!json && pointer?.key) {
+      if (pointer && pointer.seq > r.seq) r.seq = pointer.seq
+      // Which layout's objects the restore read (and so took seqs from).
+      let readLayout: 'documents' | 'combined' | null = null
+      if (!r.snapshot && (pointer?.files || pointer?.combined)) {
+        r.snapshot = await this.restoreFromDocuments(pointer, r)
+        readLayout = pointer.combined ? 'combined' : 'documents'
+      } else if (!r.snapshot && pointer?.key) {
         const obj = await this.d.r2.get(pointer.key)
         const text = obj ? await obj.text() : null
         // A ring slot may already hold a newer snapshot than the pointer names: only adopt the matching one.
-        json = text != null && snapshotSeq(text) === pointer.seq ? text : null
+        r.snapshot = text != null && snapshotSeq(text) === pointer.seq ? parseSnapshot(text) : null
+      }
+      // A layout switch (RT_R2_LAYOUT) whose object PUT landed but whose pointer PUT failed leaves a seq only the
+      // other layout's objects record: take the seqs of whatever this restore did not read too (Codex r11 on #100).
+      // Each cycle persists meta (with its new seq) before publishing, so while meta exists it already reserves every
+      // published seq. Without it (DO storage lost), any object a partial publish wrote can hold a seq nothing else
+      // records: an alerts slot, or a mode document the pointer doesn't name (a mode added to RT_MODES whose PUT alone
+      // landed). Sweep every object a hub of this release writes then: the combined object, every supported mode's
+      // latest document and the whole alerts ring (Codex r12 and r13 on #100).
+      if (!meta) {
+        await this.combinedSeqInto(r)
+        await this.documentSeqsInto(r, Mode.options)
+        await this.alertsRingSeqsInto(r)
+      } else {
+        if (readLayout !== 'combined') await this.combinedSeqInto(r)
+        if (readLayout !== 'documents') await this.documentSeqsInto(r, this.d.config.modes)
       }
     }
-    if (json) {
-      this.snapshotJson = json
-      this.snapshot = JSON.parse(json) as RtSnapshot
-      this.alerts = this.snapshot.alerts
+    return r
+  }
+
+  /** Watermark only: the header seq of every alerts ring slot. I/O errors propagate; bad content is ignored. */
+  private async alertsRingSeqsInto(r: Restored): Promise<void> {
+    const r2 = this.d.r2 as R2Like
+    const BATCH = 24
+    for (let from = 0; from < R2_KEEP_SNAPSHOTS; from += BATCH) {
+      const slots = Array.from({ length: Math.min(BATCH, R2_KEEP_SNAPSHOTS - from) }, (_, i) => from + i)
+      const texts = await Promise.all(
+        slots.map(async (n) => {
+          const obj = await r2.get?.(scopeKey('alerts', n))
+          return obj ? obj.text() : null
+        }),
+      )
+      for (const text of texts) this.seqInto(r, text)
     }
   }
+
+  /** Move the watermark past a document's header seq, if it has a valid one. */
+  private seqInto(r: Restored, text: string | null): void {
+    if (text == null) return
+    let seq: unknown = null
+    try {
+      seq = snapshotSeq(text)
+    } catch {
+      seq = null
+    }
+    if (Number.isSafeInteger(seq) && (seq as number) > r.seq) r.seq = seq as number
+  }
+
+  /** Watermark only: the combined object's index seqs. I/O errors propagate (retry); bad content is ignored. */
+  private async combinedSeqInto(r: Restored): Promise<void> {
+    const obj = await (this.d.r2 as R2Like).get?.(COMBINED_KEY)
+    if (!obj) return
+    const bytes = obj.arrayBuffer
+      ? new Uint8Array(await obj.arrayBuffer())
+      : new TextEncoder().encode(await obj.text())
+    const seq = combinedIndexSeq(bytes)
+    if (seq != null && seq > r.seq) r.seq = seq
+  }
+
+  /** Watermark only: each given mode's latest document's header seq. I/O errors propagate; bad content is ignored. */
+  private async documentSeqsInto(r: Restored, modes: readonly Mode[]): Promise<void> {
+    const r2 = this.d.r2 as R2Like
+    for (const m of modes) {
+      const obj = await r2.get?.(modeLatestKey(m))
+      this.seqInto(r, obj ? await obj.text() : null)
+    }
+  }
+
+  /**
+   * Apply a restore in one synchronous step. The seq only moves forward, and a restored snapshot never replaces a
+   * newer one already held. The change-only publish state (`published`, `pointerAt`) is left empty: R2's content is
+   * not known from here, so the first publish after a restore rewrites every document and the pointer.
+   */
+  private applyRestore(r: Restored): void {
+    const held = this.meta.seq
+    if (r.meta) this.meta = { ...this.meta, ...r.meta }
+    this.meta.seq = Math.max(held, r.seq)
+    if (r.alertsStale) this.meta.alertsAt = 0
+    const snapshot = r.snapshot
+    if (!snapshot) return
+    // Backstop: whichever document it came from, the next build goes past the restored snapshot's own seq.
+    if (snapshot.header.seq > this.meta.seq) this.meta.seq = snapshot.header.seq
+    if (this.snapshot && this.snapshot.header.seq >= snapshot.header.seq) return
+    this.snapshotJson = null // serialised on demand (fullJson)
+    this.snapshot = snapshot
+    this.alerts = snapshot.alerts
+    for (const [k, m] of r.tripModes) this.tripModes.set(k, m)
+  }
+}
+
+/** What a restore read, before it is applied. */
+interface Restored {
+  meta: Meta | undefined
+  /** The highest seq seen in DO storage or R2: the next build goes past it. */
+  seq: number
+  snapshot: RtSnapshot | null
+  /** Trip ownership from the per-scope documents. */
+  tripModes: Map<string, Mode>
+  /** The alerts document failed its seq check: refetch alerts on the next cycle. */
+  alertsStale: boolean
 }
 
 /** One trip-index day being read by loadUnindexed: its bytes (or why not), cleared once consumed. */
 interface DayRead {
   date: string
   bytes: Promise<Uint8Array | Error> | null
+}
+
+const MODES: ReadonlySet<unknown> = new Set(Mode.options)
+
+/** A trip record as buildSnapshot's carry path reads it: a string key, `until` a number if present. */
+const isTripRecord = (t: unknown): boolean => {
+  if (t == null || typeof t !== 'object' || Array.isArray(t)) return false
+  const r = t as { key?: unknown; until?: unknown; gen?: unknown }
+  return (
+    typeof r.key === 'string' &&
+    (r.until == null || Number.isFinite(r.until)) &&
+    (r.gen === undefined || typeof r.gen === 'string')
+  )
+}
+
+/**
+ * A snapshot document, or null when it is not JSON with the shape restore and the next build rely on (header seq,
+ * string staticGeneration values and string serviceDates; every trip a record as isTripRecord checks, every vehicle an object whose `mode`
+ * (if any) is a known mode and every alert an object with a `modes` array: the per-scope split reads both).
+ * A cheap structural check, not the full schema, which would cost too much of the Free plan's CPU budget per
+ * restore (Codex r4 to r10 on #100).
+ */
+function parseSnapshot(text: string): RtSnapshot | null {
+  let s: RtSnapshot
+  try {
+    s = JSON.parse(text) as RtSnapshot
+  } catch {
+    return null
+  }
+  const h = s?.header
+  const isObject = (v: unknown) => v != null && typeof v === 'object' && !Array.isArray(v)
+  const ok =
+    isObject(h) &&
+    Number.isSafeInteger(h.seq) &&
+    isObject(h.staticGeneration) &&
+    Object.values(h.staticGeneration).every((g) => typeof g === 'string') &&
+    Array.isArray(h.serviceDates) &&
+    h.serviceDates.every((d) => typeof d === 'string') &&
+    isObject(s.trips) &&
+    Array.isArray(s.vehicles) &&
+    Array.isArray(s.alerts) &&
+    Object.values(s.trips).every(isTripRecord) &&
+    s.vehicles.every((v) => isObject(v) && (v.mode === undefined || MODES.has(v.mode))) &&
+    s.alerts.every((a) => isObject(a) && Array.isArray((a as { modes?: unknown }).modes))
+  return ok ? s : null
+}
+
+/**
+ * The highest seq a combined object's index names (its own, or any section's), read without its other checks: only
+ * for the seq watermark (Codex r4 and r7 on #100).
+ */
+function combinedIndexSeq(bytes: Uint8Array): number | null {
+  try {
+    const idx = JSON.parse(new TextDecoder().decode(bytes.subarray(0, INDEX_BYTES))) as {
+      seq?: unknown
+      sections?: unknown
+    }
+    const seqs = [idx?.seq]
+    if (idx?.sections && typeof idx.sections === 'object')
+      for (const s of Object.values(idx.sections)) if (Array.isArray(s)) seqs.push(s[2])
+    const ok = seqs.filter((n): n is number => Number.isSafeInteger(n))
+    return ok.length > 0 ? Math.max(...ok) : null
+  } catch {
+    return null
+  }
 }
 
 const same = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i])
