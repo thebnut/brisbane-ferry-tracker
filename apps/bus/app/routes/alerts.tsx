@@ -120,6 +120,8 @@ export default function AlertsPage({ loaderData }: Route.ComponentProps) {
   const shown = scope === 'mine' ? mine : all
   // Without the stop index there are no routes for the saved stops: route alerts may be missing, so never "No alerts".
   const routesFailed = scope === 'mine' && index.isError
+  // Nor while it's still loading (first load or Try again): no "No alerts" until the routes are known.
+  const routesPending = scope === 'mine' && saved.length > 0 && !index.data && !index.isError
   return (
     <>
       <SiteHeader live={q.data?.rtState === 'live'} />
@@ -151,7 +153,7 @@ export default function AlertsPage({ loaderData }: Route.ComponentProps) {
             className="rounded-card bg-white/90 px-4 py-6 text-center text-sm text-sched-text shadow-card dark:bg-night-card"
             role="status"
           >
-            {q.isPending
+            {q.isPending || routesPending
               ? 'Loading alerts…'
               : q.isError && !q.data
                 ? "Couldn't load alerts."

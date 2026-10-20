@@ -79,8 +79,24 @@ for (const how of DATA_FAILURES) {
       await expect(status).toBeVisible({ timeout: 20_000 })
       await expect(page.getByText('No alerts for your saved stops.')).toHaveCount(0)
       await expectNoErrorPage(page)
+      // Try again while the index is still loading: never "No alerts" meanwhile.
+      let release = () => {}
+      const held = new Promise<void>((r) => (release = r))
+      await context.route(/\/data\/bus\/stops\.json/, async (route) => {
+        await held
+        await route.continue()
+      })
       restore()
       await status.getByRole('button', { name: 'Try again' }).click()
+      await expect(
+        page
+          .getByRole('status')
+          .filter({ hasText: /Loading alerts…|Couldn't check|Couldn't load your stops/ })
+          .first(),
+      ).toBeVisible()
+      await page.waitForTimeout(300)
+      await expect(page.getByText('No alerts for your saved stops.')).toHaveCount(0)
+      release()
       await expect(page.getByText(/Showing alerts for your 1 saved stop and [1-9]\d* route/)).toBeVisible({
         timeout: 20_000,
       })
