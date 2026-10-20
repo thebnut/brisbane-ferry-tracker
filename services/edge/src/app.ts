@@ -59,7 +59,27 @@ export interface AppDeps {
   build?: string
 }
 
-type Env = { Variables: { rid: string; log: Logger } }
+/** A server error's code and a trusted id (a mode or generation, never user input), for the request log line. */
+type Failure = { error: string; detail?: string }
+
+type Env = { Variables: { rid: string; log: Logger; failure?: Failure } }
+
+/**
+ * A 5xx JSON error that the `request` log line also names. Recorded where the response is built rather than read
+ * back from the body, so logging never waits on or reads a response stream (Codex r1). Pass as `detail` only an id
+ * the app itself produced.
+ */
+function serverError(
+  c: Context<Env>,
+  status: 500 | 502 | 503 | 504,
+  error: string,
+  detail?: string,
+  headers?: Record<string, string>,
+) {
+  const failure: Failure = detail === undefined ? { error } : { error, detail }
+  c.set('failure', failure)
+  return c.json(failure, status, headers)
+}
 
 const DEFAULT_LIMIT = 20
 /** `at` within this of now is treated as a live query for caching. */
@@ -92,12 +112,20 @@ export function createApp(deps: AppDeps): Hono<Env> {
     for (const [k, v] of Object.entries(cors)) c.res.headers.set(k, v)
     c.res.headers.set('x-request-id', rid)
     c.res.headers.set(BUILD_HEADER, build)
-    log.info('request', { method: c.req.method, path: c.req.path, status: c.res.status, ms: now() - t0 })
+    // A server error names its cause (the 503s below were indistinguishable by status and ms, staging 20 Oct).
+    const failure = c.res.status >= 500 ? c.get('failure') : undefined
+    log.info('request', {
+      method: c.req.method,
+      path: c.req.path,
+      status: c.res.status,
+      ms: now() - t0,
+      ...failure,
+    })
   })
 
   app.onError((err, c) => {
     c.get('log')?.error('unhandled', { error: errorMessage(err) })
-    return c.json({ error: 'internal error' }, 500, { 'cache-control': 'no-store' })
+    return serverError(c, 500, 'internal error', undefined, { 'cache-control': 'no-store' })
   })
   app.notFound((c) => c.json({ error: 'not found' }, 404))
 
@@ -172,9 +200,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
       return c.json({ error: 'bad at', detail: 'epoch seconds' }, 400)
 
     const generation = await deps.store.currentGeneration(mode, waitUntilOf(c))
-    if (!generation) return c.json({ error: 'no static data for mode', detail: mode }, 503)
+    if (!generation) return serverError(c, 503, 'no static data for mode', mode)
     const index = await deps.store.getIndex(generation, mode)
-    if (!index) return c.json({ error: 'static index missing', detail: generation }, 503)
+    if (!index) return serverError(c, 503, 'static index missing', generation)
 
     const datesFor = (ms: number) => overlappingServiceDates(ms).filter((d) => index.serviceDates.includes(d))
     const load = async (ds: string[]) =>
@@ -285,7 +313,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const tripInstance = c.req.param('tripInstance')
     if (!/^.+@\d{8}$/.test(tripInstance)) return c.json({ error: 'bad trip instance' }, 400)
     const generation = await deps.store.currentGeneration(mode, waitUntilOf(c))
-    if (!generation) return c.json({ error: 'no static data for mode', detail: mode }, 503)
+    if (!generation) return serverError(c, 503, 'no static data for mode', mode)
     const r = await rt(c, mode, generation)
     const rtTrip = r.snap?.trips[tripInstance]
     const vehicle = r.cur?.vehiclesByTrip.get(tripInstance) ?? null
@@ -495,6 +523,8 @@ export function createApp(deps: AppDeps): Hono<Env> {
         : { enabled: false, budgetUsedUsd: null },
       build,
     }
+    // The health body has no error field; its log line still says why it is a 503.
+    if (!body.ok) c.set('failure', { error: 'health not ok' })
     return c.json(body, body.ok ? 200 : 503, { 'cache-control': 'no-store' })
   })
 
@@ -546,7 +576,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const raws = await Promise.all(keys.map((k) => deps.snapshots.raw(k, c.req.raw.signal)))
     const parts = raws.filter((r) => r != null)
     if (parts.length === 0) {
-      return c.json({ error: 'Realtime feed not available yet' }, 503, { 'cache-control': 'no-store' })
+      return serverError(c, 503, 'Realtime feed not available yet', undefined, {
+        'cache-control': 'no-store',
+      })
     }
     // Concatenated protobuf FeedMessages parse as one message: entities append, the header's fields merge.
     const body = parts.length === 1 ? (parts[0]?.bytes as Uint8Array) : concatBytes(parts.map((p) => p.bytes))
