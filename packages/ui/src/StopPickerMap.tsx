@@ -257,6 +257,16 @@ export default function StopPickerMap({
   const [webgl] = useState(supportsWebGL)
   const map = useRef<MlMap | null>(null)
   const pendingFly = useRef<{ center: [number, number]; zoom: number } | null>(null)
+  // A located device remounts the map (its key): the old map is gone until the new one is ready, so list picks wait
+  // for it (pendingFly) instead of moving the removed map (Codex review).
+  const mapKey = geo.state === 'ok' ? 'located' : 'default'
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the map is replaced (mapKey) and on unmount.
+  useEffect(
+    () => () => {
+      map.current = null
+    },
+    [mapKey],
+  )
   const closeRef = useRef<HTMLButtonElement>(null)
   const sectionRef = useRef<HTMLElement>(null)
   // On phones the picker covers the page: a modal dialog, with the page behind it inert (Codex review). On desktop it
@@ -440,7 +450,7 @@ export default function StopPickerMap({
               onReady={onReady}
               center={center}
               zoom={zoom}
-              key={geo.state === 'ok' ? 'located' : 'default'}
+              key={mapKey}
               label={`Map of ${inView.length} ${noun}s in view. Use “${noun[0]?.toUpperCase()}${noun.slice(1)}s in view” for a list.`}
               className="h-full w-full bg-map-ground"
             />
@@ -550,6 +560,7 @@ export function useWide(): boolean {
   const query = '(min-width: 768px)'
   const [wide, setWide] = useState(() => typeof matchMedia === 'function' && matchMedia(query).matches)
   useEffect(() => {
+    if (typeof matchMedia !== 'function') return
     const mq = matchMedia(query)
     const on = () => setWide(mq.matches)
     mq.addEventListener('change', on)
