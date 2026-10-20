@@ -443,7 +443,8 @@ export function createApp(deps: AppDeps): Hono<Env> {
     // Stop names from the stop index (already loaded per isolate by the departures route), so clients get "Edward
     // Street Stop 142 near Queen St", not "Stop 142". Train apps name stations from `stationKey` and their own
     // network, so train trip stops stay unnamed.
-    const names = mode === 'train' ? null : stationsFor(deps.store, mode, generation).catch(() => null)
+    const names =
+      mode === 'train' ? null : stationsFor(deps.store, mode, generation, budget.signal).catch(() => null)
     const named = async (stops: TripStop[]): Promise<TripStop[]> => {
       const stations = await names
       if (!stations) return stops
@@ -488,7 +489,9 @@ export function createApp(deps: AppDeps): Hono<Env> {
       const trip = day ? findTrip(day, tripId) : undefined
       if (!day || !trip) return c.json({ error: 'unknown trip', detail: tripInstance }, 404)
       const stations =
-        mode === 'train' ? await stationsFor(deps.store, mode, generation).catch(() => null) : null
+        mode === 'train'
+          ? await stationsFor(deps.store, mode, generation, budget.signal).catch(() => null)
+          : null
       const stops: TripStop[] = []
       for (let i = 0; i + 5 < trip.st.length; i += 6) {
         const [si, seq, arrS, depS, pickup, dropOff] = trip.st.slice(i, i + 6) as number[]

@@ -493,6 +493,34 @@ describe('departures, trips, vehicles and passthroughs on failing static reads',
     expect(s.line('request')).toMatchObject({ status: 200, degraded: ['next-day-skipped'] })
   })
 
+  it('trip detail: a stop-index read that hangs ends with the budget, and the trip answers unnamed (Codex r2)', async () => {
+    for (const mode of ['ferry', 'train'] as const) {
+      // The stations cache is per module: a generation no other test uses.
+      const tree = buildTree(`trip-names-${Math.random()}`, TRIPS, mode)
+      const { src } = scripted(tree.source, (k) => (k === `data/${mode}/stops.json` ? 'never' : 'ok'))
+      // A stop-index deadline far past the budget: only the budget can end the wait.
+      const now = () => epoch(D, '07:55:00') * 1000
+      const store = new StaticStore(src, { validate: true, manifestMaxAgeMs: 0, loadDeadlineMs: 5_000, now })
+      const snaps = snapshots(null, mode)
+      const app = createApp({
+        store,
+        snapshots: snaps,
+        snapshotsFor: () => snaps,
+        log: createLogger({}, () => {}),
+        combinedFeeds: false,
+        polledModes: [mode],
+        staticReadBudgetMs: 3 * DEADLINE,
+        now,
+      })
+      const { value: res, ms } = await timed(Promise.resolve(app.request(`/v1/${mode}/trips/T1@${D}`)))
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { stops: Array<{ name?: string }> }
+      expect(body.stops.length).toBeGreaterThan(0)
+      expect(body.stops.every((s) => s.name === undefined)).toBe(true)
+      expect(ms).toBeLessThan(3 * DEADLINE + SLACK)
+    }
+  })
+
   it('a trip whose generation index is missing is 503 static index missing, not 404 unknown trip', async () => {
     const tree = buildTree()
     tree.source.files.delete(indexKey('g1', 'ferry'))
