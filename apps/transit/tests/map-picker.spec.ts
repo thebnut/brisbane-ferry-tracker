@@ -36,7 +36,7 @@ test('Bus tab: Map → Cultural Centre → Save shows in My Transit → Open sta
 test('Train tab: the station search has the map; Open stays under /train', async ({ page }) => {
   await page.goto('/train/stations')
   await page.getByRole('button', { name: 'Show stations on a map' }).click()
-  const picker = page.getByRole('region', { name: 'Train stations map' })
+  const picker = page.getByLabel('Train stations map', { exact: true })
   await picker.getByRole('button', { name: /Stations in view \([1-9]\d*\)/ }).click({ timeout: 20_000 })
   await picker
     .getByRole('list', { name: 'Train stations in view' })

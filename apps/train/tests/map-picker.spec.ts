@@ -12,13 +12,16 @@ test('Map → a station → its card → Save → Open; the Map button is rememb
   const toggle = page.getByRole('button', { name: 'Show stations on a map' })
   await expect(toggle).toHaveAttribute('data-map-toggle', '')
   await toggle.click()
-  const picker = page.getByRole('region', { name: 'Train stations map' })
+  const picker = page.getByLabel('Train stations map', { exact: true })
   await expect(picker).toBeVisible()
   const box = await picker.boundingBox()
   const viewport = page.viewportSize()
-  if (isMobile) expect(box?.height).toBeGreaterThan((viewport?.height ?? 0) * 0.9)
-  else {
-    // Desktop: beside the station list, not over it.
+  if (isMobile) {
+    expect(box?.height).toBeGreaterThan((viewport?.height ?? 0) * 0.9)
+    await expect(picker).toHaveAttribute('aria-modal', 'true')
+  } else {
+    // Desktop: beside the station list, not over it, and not modal.
+    await expect(picker).not.toHaveAttribute('aria-modal', 'true')
     const heading = await page.getByRole('heading', { name: 'Choose your trip' }).boundingBox()
     expect(heading && box && heading.x + heading.width <= box.x).toBe(true)
   }
