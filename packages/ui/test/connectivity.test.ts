@@ -84,6 +84,9 @@ describe('liveState (F3/T5/B3/X4)', () => {
     const server = noteCacheCopy(new Response('{}'), { generatedAt: 1 })
     expect(server).not.toHaveProperty('receivedAt')
     browser()
+    // On the device's monotonic clock (deviceNow: navigation start plus the time since).
+    vi.spyOn(performance, 'timeOrigin', 'get').mockReturnValue(NOW - 1_000)
+    vi.spyOn(performance, 'now').mockReturnValue(1_000)
     expect(noteCacheCopy(new Response('{}'), { generatedAt: 1 })).toMatchObject({ receivedAt: NOW })
     const cached = noteCacheCopy(new Response('{}', { headers: { [SW_CACHE_HEADER]: 'sw' } }), {
       generatedAt: 1,

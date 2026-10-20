@@ -21,7 +21,8 @@ import {
   type OfflineCopy,
   retryWhenBack,
   useDisconnects,
-  useUnconfirmedBefore,
+  usePageCheck,
+  VIA_NETWORK,
 } from '@bft/ui/connectivity'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
@@ -35,7 +36,7 @@ import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/saved'
 
 export function loader() {
-  return { renderedAt: Date.now() }
+  return { renderedAt: Date.now(), via: VIA_NETWORK }
 }
 
 export const meta: Route.MetaFunction = () => [
@@ -154,8 +155,16 @@ export function homeLiveState(
     online,
     nowMs,
     unconfirmedBefore,
+    arrivedAt = null,
     reached = false,
-  }: { online: boolean; nowMs: number; unconfirmedBefore: number | null; reached?: boolean },
+  }: {
+    online: boolean
+    nowMs: number
+    unconfirmedBefore: number | null
+    /** PageCheck.arrivedAt (usePageCheck, R15-S1). */
+    arrivedAt?: number | null
+    reached?: boolean
+  },
 ): { live: boolean; unconfirmed: boolean } {
   const answered =
     cards.some(
@@ -171,7 +180,8 @@ export function homeLiveState(
   const live =
     cards.length === items.length &&
     cards.every(
-      (c) => c.data != null && liveState(c.data, { offline: false, nowMs, unconfirmedBefore }) == null,
+      (c) =>
+        c.data != null && liveState(c.data, { offline: false, nowMs, unconfirmedBefore, arrivedAt }) == null,
     )
   return { live, unconfirmed }
 }
@@ -223,12 +233,12 @@ function SavedList({
   nowMs: number
   online: boolean
 }) {
-  const unconfirmedBefore = useUnconfirmedBefore()
+  const page = usePageCheck()
   // Not live (offline, a cached copy, or data generated over a minute ago): never show the last live estimates;
   // timetable rows from the device's copies instead.
   const models = items.map((it, i) => {
     const data = qs[i]?.data
-    const live = liveState(data, { offline: !online, nowMs, unconfirmedBefore }) == null
+    const live = liveState(data, { offline: !online, nowMs, ...page }) == null
     return cardModel(it, live ? data : asOffline(it, data ?? null, data), nowMs)
   })
   const soonest = models.reduce<number | null>(
@@ -324,12 +334,13 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   useEffect(() => setItems(readSavedItems()), [])
   const { mode, fetcher } = useApi()
   const qs = useSavedDepartures(fetcher, mode, items ?? [])
-  const unconfirmedBefore = useUnconfirmedBefore()
+  const page = usePageCheck()
+  const unconfirmedBefore = page?.unconfirmedBefore ?? null
   const reached = useReachedNetwork(items?.length === 0)
   const { live, unconfirmed } = homeLiveState(
     items,
     qs.map((q) => ({ data: q.data, pending: q.isPending })),
-    { online, nowMs: now, unconfirmedBefore, reached },
+    { online, nowMs: now, unconfirmedBefore, arrivedAt: page?.arrivedAt, reached },
   )
   const updatedAt = useLastAnswerAt(
     `${mode.fixtures}:${mode.rt}`,

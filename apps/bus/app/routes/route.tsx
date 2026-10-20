@@ -3,8 +3,10 @@
  * data/bus/routes/{route}.json (server-rendered stop list), for a route data/bus/routes.json lists as current; the map (lazy) draws the line, the stops as bus diamonds
  * and the live buses; the sheet lists the buses with where they are. `?trip=` highlights one bus ("Track on map").
  */
+
 import { ErrorState, RouteTile, routeTileVariant, useGeolocation } from '@bft/ui'
 import { occupancyText, SaveButton, SegmentedControl } from '@bft/ui/bus'
+import { VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { data, Link, useRevalidator, useSearchParams } from 'react-router'
 import { ClientOnly } from '../components/ClientOnly.tsx'
@@ -56,10 +58,10 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // the app's "Something went wrong". 503, so it isn't indexed or cached as the route's page.
   if (!route)
     return data(
-      { route: null, renderedAt: Date.now(), siteUrl: env?.SITE_URL ?? SITE_URL },
+      { route: null, renderedAt: Date.now(), via: VIA_NETWORK, siteUrl: env?.SITE_URL ?? SITE_URL },
       { status: 503, headers: { 'cache-control': 'no-store' } },
     )
-  return { route, renderedAt: Date.now(), siteUrl: env?.SITE_URL ?? SITE_URL }
+  return { route, renderedAt: Date.now(), via: VIA_NETWORK, siteUrl: env?.SITE_URL ?? SITE_URL }
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {
@@ -138,11 +140,7 @@ function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: numb
   return (
     <>
       <SiteHeader live={vehiclesQ.data?.rtState === 'live'} />
-      <UpdatedStrip
-        updatedAt={vehiclesQ.data?.generatedAt ?? null}
-        sourceS={vehiclesQ.data?.rtSourceTimestamp ?? null}
-        nowMs={now}
-      >
+      <UpdatedStrip updatedAt={vehiclesQ.data?.generatedAt ?? null} source={vehiclesQ.data} nowMs={now}>
         <DesktopNav active="" />
       </UpdatedStrip>
       <main className="mx-auto flex max-w-3xl flex-col gap-3 px-4 pt-3.5 pb-28">

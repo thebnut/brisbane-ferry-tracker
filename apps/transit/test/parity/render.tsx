@@ -5,6 +5,7 @@
  */
 
 import { join } from 'node:path'
+import { resetUnconfirmedBefore } from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import type { ComponentType } from 'react'
@@ -54,8 +55,12 @@ export function withFixtureFetch(fixtures: PageSpec['fixtures']) {
 }
 
 export async function renderPage(spec: PageSpec): Promise<string> {
-  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.useFakeTimers({ toFake: ['Date', 'performance'] })
   vi.setSystemTime(NOW_MS)
+  // The device clock connectivity ages data by (deviceNow) starts from these fakes, not from when the module loaded
+  // (Codex r6: "updated 13 s" or "14 s ago" depending on timing).
+  vi.spyOn(performance, 'timeOrigin', 'get').mockReturnValue(NOW_MS)
+  resetUnconfirmedBefore()
   withFixtureFetch(spec.fixtures)
   const context = new RouterContextProvider() as unknown as Ctx
   context.set(spec.contextKey, { env: FIXTURE_ENV, ctx: {} })

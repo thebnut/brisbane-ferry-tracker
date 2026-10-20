@@ -9,6 +9,7 @@ import {
   type LiveState,
   liveState,
   type OfflineCopy,
+  type PageCheck,
   pollEvery,
   replacesBoard,
   timetableStatus,
@@ -186,11 +187,11 @@ export function liveView(
   res: Board | undefined,
   nowMs: number,
   online: boolean,
-  /** useUnconfirmedBefore(): data that came with a cached page isn't live (R2-T7). */
-  unconfirmedBefore: number | null = null,
+  /** usePageCheck(): data that came with a cached page isn't live (R2-T7), and how old page data is (R15-S1). */
+  page: PageCheck | null = null,
 ): { data: DeparturesResponse | undefined; state: LiveState } {
   // A board built offline (Board.offline) stays offline in liveState until its own network answer replaces it.
-  const state = liveState(res, { offline: !online, nowMs, unconfirmedBefore })
+  const state = liveState(res, { offline: !online, nowMs, ...page })
   if (!res || state == null) return { data: res, state }
   if (state === 'offline') return { data: asOfflineTimetable(stopId, res, nowMs, res) ?? res, state }
   return { data: asTimetable(res, nowMs, state), state }

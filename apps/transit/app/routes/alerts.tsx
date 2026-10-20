@@ -3,8 +3,10 @@
  * Ferry n, Train n, Bus n). The server renders the list (one /v1/alerts call for all modes); the client polls every
  * minute and works out which alerts touch saved stops, which only this device knows.
  */
+
 import type { Alert, AlertsResponse } from '@bft/core/contract'
 import { ChipFilter, type ChipOption, EmptyState, ErrorState, ModeAlertCard, type TransitMode } from '@bft/ui'
+import { VIA_NETWORK } from '@bft/ui/connectivity'
 import { useEffect, useMemo, useState } from 'react'
 import { TransitFooter, TransitHeader, TransitStrip } from '../components/Chrome.tsx'
 import {
@@ -41,7 +43,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const scopes = Object.fromEntries(list.map((a) => [a.id, scopeText(a, trainLinesOf, stopMode)]))
   // Modes of alerts the feed left without one, from their stops (R2-X7b), with the train network on hand here.
   const modes = Object.fromEntries(list.map((a) => [a.id, alertModes(a, stopMode, trainLinesOf)]))
-  return { alerts, scopes, modes, renderedAt: Date.now() }
+  return { alerts, scopes, modes, renderedAt: Date.now(), via: VIA_NETWORK }
 }
 
 export const meta: Route.MetaFunction = () => [

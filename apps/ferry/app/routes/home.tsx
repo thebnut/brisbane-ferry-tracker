@@ -1,3 +1,4 @@
+import { VIA_NETWORK } from '@bft/ui/connectivity'
 import { Footer, SiteIntro } from '../components/Chrome.tsx'
 import { FerryBoards } from '../components/FerryBoards.tsx'
 import { fetchDepartures } from '../lib/api.ts'
@@ -29,6 +30,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     outbound,
     inbound,
     renderedAt: Date.now(),
+    via: VIA_NETWORK,
     // After an API failure with FIXTURE_FALLBACK the browser polls the fixture API too (and shows the demo notice).
     // FIXTURES=1 or a fallback answer: demo data without a visitor's demo session (useFixtureCookie).
     mode: {

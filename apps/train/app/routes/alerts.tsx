@@ -2,8 +2,10 @@
  * /alerts: service alerts and line status (T-Alerts) from /v1/alerts?mode=train. "My trips" shows the alerts that
  * touch a favourite's lines (or stations) first; "All lines" shows every line's status.
  */
+
 import type { Alert } from '@bft/core/contract'
 import { AlertCard, ErrorState, FilterPills, formatWhen, Icon, LineStatus } from '@bft/ui'
+import { VIA_NETWORK } from '@bft/ui/connectivity'
 import { useEffect, useMemo, useState } from 'react'
 import { SECTION, Shell } from '../components/Chrome.tsx'
 import {
@@ -29,7 +31,7 @@ import type { Route } from './+types/alerts'
 export async function loader({ request, context }: Route.LoaderArgs) {
   const { fixtures, rt, fetcher, env } = loaderEnv(request, context)
   const alerts = await settle((signal) => fetchAlerts(fetcher, { signal, validate: validateAlerts }))
-  return { alerts, renderedAt: Date.now(), mode: { fixtures, rt }, site: siteInfo(env) }
+  return { alerts, renderedAt: Date.now(), via: VIA_NETWORK, mode: { fixtures, rt }, site: siteInfo(env) }
 }
 
 export function headers() {
