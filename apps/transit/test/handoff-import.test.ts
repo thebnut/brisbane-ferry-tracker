@@ -362,6 +362,63 @@ describe('Codex r3: the ledger first, cookies restored as they were', () => {
   })
 })
 
+describe('Codex r4: pending until stored, so failed clean-up stays recoverable', () => {
+  it('bus: the store write, its rollback and the ledger clean-up all fail; after recovery the stop is stored', async () => {
+    const { imp, bus } = await modules()
+    const real = Storage.prototype.setItem
+    let ledgerWrites = 0
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k, v) {
+      if (k === 'bft-bus-saved') throw new Error('QuotaExceededError')
+      // The first ledger write (pending) works; the clean-up afterwards fails.
+      if (k === 'bft-handoff-imported' && ++ledgerWrites > 1) throw new Error('QuotaExceededError')
+      real.call(this, k, v)
+    })
+    const remove = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toEqual({ ...none, left: 1 })
+    set.mockRestore()
+    remove.mockRestore()
+    expect(ledger()).toEqual(['?bus:10802'])
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toEqual({ ...none, added: 1 })
+    expect(bus.readSaved()).toEqual([BUS_A])
+    expect(ledger()).toEqual(['bus:10802'])
+  })
+
+  it('a stored stop whose final record fails stays pending: found saved next time and marked done', async () => {
+    const { imp, bus } = await modules()
+    const real = Storage.prototype.setItem
+    let ledgerWrites = 0
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k, v) {
+      if (k === 'bft-handoff-imported' && ++ledgerWrites > 1) throw new Error('QuotaExceededError')
+      real.call(this, k, v)
+    })
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toEqual({ ...none, added: 1 })
+    set.mockRestore()
+    expect(ledger()).toEqual(['?bus:10802'])
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toEqual(none)
+    expect(ledger()).toEqual(['bus:10802'])
+    expect(bus.readSaved()).toEqual([BUS_A])
+  })
+
+  it('a failed "Use it" whose clean-up also fails is offered again next time', async () => {
+    const mine = { outbound: { id: '317590', name: 'Riverside' }, inbound: { id: '317584', name: 'Bulimba' } }
+    localStorage.setItem('brisbane-ferry-selected-stops', JSON.stringify(mine))
+    const { imp } = await modules()
+    const real = Storage.prototype.setItem
+    let ledgerWrites = 0
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k, v) {
+      if (k === 'brisbane-ferry-selector-seen') throw new Error('QuotaExceededError')
+      if (k === 'bft-handoff-imported' && ++ledgerWrites > 1) throw new Error('QuotaExceededError')
+      real.call(this, k, v)
+    })
+    expect(imp.useHandedPair({ pair: PAIR, remember: true })).toBe(false)
+    set.mockRestore()
+    const handed = { pair: PAIR, remember: true }
+    expect(imp.mergeHandoff({ v: 1, ferry: handed })).toEqual({ added: 0, left: 1, ferryConflict: handed })
+  })
+})
+
 describe('noticeText', () => {
   it('says what moved, what was left and why, and asks about a ferry conflict', async () => {
     const { imp } = await modules()

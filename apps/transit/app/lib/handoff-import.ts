@@ -133,26 +133,36 @@ export function saveFerryPair(p: FerryHandoff): void {
 
 /**
  * Items an import has stored here (or found already saved), e.g. "bus:10802". The mode host hands its favourites over
- * on every visit until it has none, so an item in the ledger is skipped: one removed here isn't added back. Anything
- * not stored (no room, a different ferry pair, storage errors) stays out of it and is tried again next time.
+ * on every visit until it has none, so a done item is skipped: one removed here isn't added back. An item is first
+ * recorded as pending ("?bus:10802") and marked done only once its store write has succeeded, so any failure on the
+ * way (the write, a rollback, the final record) leaves at most a pending entry, which never skips anything: the item
+ * is tried again next time. Anything not stored at all (no room, a different ferry pair) isn't recorded.
  */
 export const LEDGER_KEY = 'bft-handoff-imported'
+const PENDING = '?'
 const readLedger = (): string[] => {
   const v = readJson(localStorage, LEDGER_KEY)
   return Array.isArray(v) ? v.filter((k): k is string => typeof k === 'string') : []
 }
-/**
- * Records keys; throws when it can't. Never trimmed: an entry is what keeps a stop removed here from coming back while
- * the old site still hands it over, and it only grows with the visitor's own favourites (a few bytes each).
- */
-function addToLedger(keys: string[]): void {
-  if (keys.length === 0) return
-  const had = readLedger()
-  localStorage.setItem(LEDGER_KEY, JSON.stringify([...had, ...keys.filter((k) => !had.includes(k))]))
-}
+/** Done keys (the ones that are skipped). */
+const doneKeys = () => new Set(readLedger().filter((k) => !k.startsWith(PENDING)))
 
-function removeFromLedger(keys: string[]): void {
-  localStorage.setItem(LEDGER_KEY, JSON.stringify(readLedger().filter((k) => !keys.includes(k))))
+/**
+ * Rewrites the ledger in one write: `done` keys become done (replacing their pending entries), `pending` keys are
+ * added as pending, `dropped` pending entries go. Throws when storage refuses. Never trimmed: a done entry is what
+ * keeps a stop removed here from coming back while the old site still hands it over, and it only grows with the
+ * visitor's own favourites (a few bytes each).
+ */
+function writeLedger(change: { done?: string[]; pending?: string[]; dropped?: string[] }): void {
+  const done = change.done ?? []
+  const pending = (change.pending ?? []).map((k) => `${PENDING}${k}`)
+  const gone = new Set([
+    ...done.map((k) => `${PENDING}${k}`),
+    ...(change.dropped ?? []).map((k) => `${PENDING}${k}`),
+  ])
+  const had = readLedger().filter((k) => !gone.has(k))
+  const next = [...had, ...[...done, ...pending].filter((k) => !had.includes(k))]
+  localStorage.setItem(LEDGER_KEY, JSON.stringify(next))
 }
 
 /** A cookie a store writes, and whether it outlives the session (the ferry pair's only when remembered). */
@@ -179,16 +189,8 @@ function snapshot(keys: [Storage, string][], cookies: CookieSpec[]): () => void 
   }
 }
 
-/**
- * Writes a store whose items are already in the ledger. If the write throws, the store (and its cookie) is put back as
- * it was and the items leave the ledger again, so they are tried next time.
- */
-function storeWithRollback(
-  keys: [Storage, string][],
-  cookies: CookieSpec[],
-  write: () => void,
-  record: string[],
-): boolean {
+/** Writes a store; if the write throws, the store (and its cookie) is put back as it was. */
+function storeWithRollback(keys: [Storage, string][], cookies: CookieSpec[], write: () => void): boolean {
   let restore: (() => void) | null = null
   try {
     restore = snapshot(keys, cookies)
@@ -197,11 +199,19 @@ function storeWithRollback(
   } catch {
     try {
       restore?.()
-      removeFromLedger(record)
     } catch {
       // Storage refuses even the old values: nothing more can be done here.
     }
     return false
+  }
+}
+
+/** Best effort: a ledger write that fails leaves pending entries, which are tried again next time. */
+function tryLedger(change: Parameters<typeof writeLedger>[0]): void {
+  try {
+    writeLedger(change)
+  } catch {
+    // Pending entries stay pending.
   }
 }
 
@@ -237,7 +247,7 @@ const busKey = (s: HandoffStop) => `bus:${s.id}`
  */
 export function mergeHandoff(p: HandoffPayload): MergeResult {
   const result: MergeResult = { added: 0, left: 0, ferryConflict: null }
-  const ledger = new Set(readLedger())
+  const ledger = doneKeys()
   const present: string[] = []
   const writes: { items: string[]; keys: [Storage, string][]; cookies: CookieSpec[]; write: () => void }[] =
     []
@@ -292,17 +302,25 @@ export function mergeHandoff(p: HandoffPayload): MergeResult {
       })
   }
 
-  const pending = writes.reduce((n, w) => n + w.items.length, 0)
+  const fresh = writes.flatMap((w) => w.items)
   try {
-    addToLedger([...present, ...writes.flatMap((w) => w.items)])
+    writeLedger({ done: present, pending: fresh })
   } catch {
-    result.left += pending + present.filter((k) => !ledger.has(k)).length
+    result.left += fresh.length + present.filter((k) => !ledger.has(k)).length
     return result
   }
+  const stored: string[] = []
+  const failed: string[] = []
   for (const w of writes) {
-    if (storeWithRollback(w.keys, w.cookies, w.write, w.items)) result.added += w.items.length
-    else result.left += w.items.length
+    if (storeWithRollback(w.keys, w.cookies, w.write)) {
+      stored.push(...w.items)
+      result.added += w.items.length
+    } else {
+      failed.push(...w.items)
+      result.left += w.items.length
+    }
   }
+  tryLedger({ done: stored, dropped: failed })
   return result
 }
 
@@ -310,11 +328,13 @@ export function mergeHandoff(p: HandoffPayload): MergeResult {
 export function useHandedPair(ferry: FerryHandoff): boolean {
   const key = ferryKey(ferry)
   try {
-    addToLedger([key])
+    writeLedger({ pending: [key] })
   } catch {
     return false
   }
-  return storeWithRollback(FERRY_KEYS(), FERRY_COOKIES(), () => saveFerryPair(ferry), [key])
+  const ok = storeWithRollback(FERRY_KEYS(), FERRY_COOKIES(), () => saveFerryPair(ferry))
+  tryLedger(ok ? { done: [key] } : { dropped: [key] })
+  return ok
 }
 
 // ---- the notice ----
