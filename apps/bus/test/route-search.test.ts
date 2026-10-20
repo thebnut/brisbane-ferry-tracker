@@ -124,11 +124,14 @@ describe('stop page ?route=', () => {
     expect(only.every((d) => d.route.short === '333')).toBe(true)
   })
 
-  it('ignores a missing, empty or malformed value', async () => {
+  it('ignores a missing, empty, malformed or unknown value', async () => {
     expect('route' in (await loadStop(''))).toBe(false)
     expect((await loadStop('?route=')).route).toBeUndefined()
     expect((await loadStop('?route=%3Cscript%3E')).route).toBeUndefined()
     expect((await loadStop('?route=a/b')).route).toBeUndefined()
+    // Well formed but not a current route (not in data/bus/routes.json): the whole board, not an empty one.
+    expect((await loadStop('?route=NO_SUCH')).route).toBeUndefined()
+    expect((await loadStop('?route=999')).route).toBeUndefined()
     expect((await loadStop(`?route=${'9'.repeat(13)}`)).route).toBeUndefined()
   })
 })

@@ -12,14 +12,15 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { data, redirect, useNavigate } from 'react-router'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { DepartureList, linkRenderer } from '../components/StopBoard.tsx'
-import { ApiError, fetchAlerts, fetchDepartures } from '../lib/api.ts'
+import { ApiError, fetchAlerts, fetchDepartures, fetchRouteIndex } from '../lib/api.ts'
 import { at } from '../lib/base.ts'
-import { validateAlerts, validateDepartures } from '../lib/contract.server.ts'
+import { validateAlerts, validateDepartures, validateRouteIndex } from '../lib/contract.server.ts'
 import { isActive, routesIn } from '../lib/departures.ts'
 import { useApi } from '../lib/mode.ts'
 import { liveView, refreshOfflineCopy, useAlerts, useDepartures } from '../lib/queries.ts'
+import { cachedRouteIndex } from '../lib/route-index.server.ts'
 import { pageMeta, SITE_URL, stopJsonLd, stopMetaTags } from '../lib/seo.ts'
-import { loaderEnv, settle } from '../lib/server.server.ts'
+import { fixtureFallbackOn, loaderEnv, settle } from '../lib/server.server.ts'
 import { canonicalStopId, routeHref, routeShortOf, stopHref, stopMeta } from '../lib/stops.ts'
 import { hasTimetableCopy, pushRecent, toggleSaved, useSavedStops } from '../lib/storage.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
@@ -34,11 +35,22 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // instead of asking the API for an id that doesn't exist (two 404s per visit, R3-B10).
   const canonical = canonicalStopId(stopId)
   if (canonical !== stopId) throw redirect(`${stopHref(canonical)}${new URL(request.url).search}`, 301)
-  const { fetcher, env } = loaderEnv(request, context)
+  const { fetcher, env, fixtures } = loaderEnv(request, context)
   // ?route=<short> (the route stop picker, P2): only that route's departures, filtered by the API before the row
-  // limit so a busy stop still lists them. A malformed value is ignored.
+  // limit so a busy stop still lists them. Only a current route counts (data/bus/routes.json, cached in the isolate
+  // as for the route page); a malformed or unknown value, or no readable index, means the whole board.
   const only = new URL(request.url).searchParams.get('route')
-  const route = only && /^[\w-]{1,12}$/.test(only) ? only : undefined
+  let route: string | undefined
+  if (only && /^[\w-]{1,12}$/.test(only)) {
+    const index = await settle(
+      (signal) =>
+        cachedRouteIndex(() => fetchRouteIndex(fetcher, { signal, validate: validateRouteIndex }), {
+          cache: !fixtures && !fixtureFallbackOn(env),
+        }),
+      1200,
+    )
+    if (index?.routes.includes(only)) route = only
+  }
   let unknown = false
   const [departures, alerts] = await Promise.all([
     settle(async (signal) => {
@@ -140,7 +152,13 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
                 label="Filter by route"
                 value={pick}
                 // ?route= came from the API filtered: "All routes" loads the whole board.
-                onChange={only ? () => navigate(stopHref(stopId)) : setRoute}
+                onChange={
+                  only
+                    ? (v) => {
+                        if (v === 'all') navigate(stopHref(stopId))
+                      }
+                    : setRoute
+                }
                 options={[
                   { value: 'all', label: 'All routes' },
                   ...(only ? [only] : routes.slice(0, 12)).map((r) => ({ value: r, label: r })),

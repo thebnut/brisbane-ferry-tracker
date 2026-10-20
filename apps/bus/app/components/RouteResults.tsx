@@ -12,29 +12,41 @@
 import { buildRouteSearchIndex, searchRoutes } from '@bft/core/route-search'
 import { RouteTile, routeTileVariant } from '@bft/ui'
 import { useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useId, useMemo } from 'react'
 import { Link } from 'react-router'
-import { getJson } from '../lib/api.ts'
 import type { LinesFile, RouteIndexFile } from '../lib/data-contract.ts'
 import { useApi } from '../lib/mode.ts'
 import { routeHref } from '../lib/stops.ts'
 
 export const pickHref = (short: string) => `${routeHref(short)}?pick=1`
 
+/**
+ * A plain fetch, not the app's tracked fetcher: these files are optional, so a failure must not mark the whole app
+ * offline (that would take LIVE off every board). Same fixture routing as browserFetcher.
+ */
+async function optionalJson<T>(path: string, fixtures: boolean, signal: AbortSignal): Promise<T> {
+  const res = await fetch(fixtures ? `/__fixtures${path}` : path, {
+    signal,
+    headers: { accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`)
+  return (await res.json()) as T
+}
+
 export default function RouteResults({ query, slot }: { query: string; slot: 'above' | 'below' }) {
-  const { mode, fetcher } = useApi()
+  const { mode } = useApi()
+  const headingId = useId()
   const q = query.trim()
   const idx = useQuery({
     queryKey: ['bus', 'route-index', mode.fixtures],
-    // getJson here, not api.ts's fetchers: an export only this chunk used would sit in api.ts's chunk, on first load.
-    queryFn: ({ signal }) => getJson<RouteIndexFile>(fetcher, '/data/bus/routes.json', undefined, signal),
+    queryFn: ({ signal }) => optionalJson<RouteIndexFile>('/data/bus/routes.json', mode.fixtures, signal),
     staleTime: 300_000,
     retry: 1,
   })
   const shortOnly = useMemo(() => (idx.data ? buildRouteSearchIndex(idx.data.routes) : null), [idx.data])
   const lines = useQuery({
     queryKey: ['bus', 'lines', mode.fixtures],
-    queryFn: ({ signal }) => getJson<LinesFile>(fetcher, '/data/bus/lines.json', undefined, signal),
+    queryFn: ({ signal }) => optionalJson<LinesFile>('/data/bus/lines.json', mode.fixtures, signal),
     enabled:
       !!shortOnly && (q.replace(/[^a-z]/gi, '').length >= 3 || searchRoutes(shortOnly, q, 1).hits.length > 0),
     staleTime: Number.POSITIVE_INFINITY,
@@ -48,9 +60,9 @@ export default function RouteResults({ query, slot }: { query: string; slot: 'ab
   if (!result?.hits.length || (result.routeLike ? 'above' : 'below') !== slot) return null
   const hits = result.routeLike ? result.hits : result.hits.slice(0, 3)
   return (
-    <section aria-labelledby={`routes-${slot}`} className="flex flex-col gap-2" data-route-results>
+    <section aria-labelledby={headingId} className="flex flex-col gap-2" data-route-results>
       <h2
-        id={`routes-${slot}`}
+        id={headingId}
         className="px-1 text-xs font-bold tracking-wide text-sched-text uppercase dark:text-night-text/70"
       >
         Routes

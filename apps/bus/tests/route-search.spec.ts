@@ -41,6 +41,10 @@ test('type "333" → Routes → pick a stop → departures for that route', asyn
     .getByRole('button', { name: '333', exact: true })
   // The fixture day runs 333 from both Cultural Centre platforms; the board starts filtered to it.
   await expect(pill).toHaveAttribute('aria-pressed', 'true')
+  // Pressing the selected route again keeps the filter.
+  await pill.click()
+  await expect(page).toHaveURL(/\/stop\/\d+\?route=333$/)
+  await expect(pill).toHaveAttribute('aria-pressed', 'true')
   for (const t of await rows.allTextContents()) expect(t).toMatch(/^Route 333(?![0-9])/)
   expect(errors).toEqual([])
 })
@@ -57,19 +61,31 @@ test('a place name finds routes below the stops; keyboard reaches them', async (
   await expect(page).toHaveURL(/\/route\/333\?pick=1$/)
 })
 
-test('stop search still works when the route index cannot load', async ({ page, isMobile }) => {
-  await page.route('**/data/bus/routes.json', (r) => r.fulfill({ status: 500, body: 'no' }))
-  await page.goto('/')
-  await field(page, isMobile).fill('010802')
-  await expect(
-    page
-      .getByRole('list', { name: 'Matching stops' })
-      .locator('visible=true')
-      .getByText('Cultural Centre')
-      .first(),
-  ).toBeVisible()
-  await expect(page.getByRole('list', { name: 'Matching routes' })).toHaveCount(0)
-})
+for (const how of ['an error', 'no network'] as const) {
+  test(`stop search still works when the route data gets ${how}, and the app stays online`, async ({
+    page,
+    isMobile,
+  }) => {
+    await page.route(/\/data\/bus\/(routes|lines)\.json$/, (r) =>
+      how === 'an error' ? r.fulfill({ status: 500, body: 'no' }) : r.abort('internetdisconnected'),
+    )
+    await page.goto('/')
+    await expect(page.getByRole('banner').getByText('LIVE')).toBeVisible()
+    await field(page, isMobile).fill('333')
+    await field(page, isMobile).fill('Chermside')
+    await field(page, isMobile).fill('010802')
+    await expect(
+      page
+        .getByRole('list', { name: 'Matching stops' })
+        .locator('visible=true')
+        .getByText('Cultural Centre')
+        .first(),
+    ).toBeVisible()
+    await expect(page.getByRole('list', { name: 'Matching routes' })).toHaveCount(0)
+    // Optional data: its failure never marks the app offline (LIVE stays).
+    await expect(page.getByRole('banner').getByText('LIVE')).toBeVisible()
+  })
+}
 
 test('picker highlights the nearest stop only when location is already allowed, and saves a stop', async ({
   page,
