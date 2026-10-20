@@ -1,17 +1,21 @@
 /**
  * bft-api Worker entry: the Hono /v1 app, the 1-minute watchdog cron, and the RtHub Durable Object class.
  */
+
+import { buildId } from '@bft/core'
 import { aiHealthStatus, registerAi } from './ai/routes.ts'
 import { createApp } from './app.ts'
 import { withRtNamespace } from './data/rt-prefix.ts'
 import { dataSourceFor } from './data/source.ts'
 import { StaticStore } from './data/static-store.ts'
 import type { WorkerEnv } from './env.ts'
+import { checkPublished } from './health.ts'
 import { createLogger, errorMessage } from './log.ts'
-import { pullFromR2 } from './r2-snapshots.ts'
+import { pullFromR2, readPublishedStatus } from './r2-snapshots.ts'
+import { withRequestDeadline } from './request-deadline.ts'
 import { parseRtModes } from './rt/feeds.ts'
 import type { SnapshotScope } from './rt/split.ts'
-import { parseMaxStale, SnapshotClient } from './snapshot-client.ts'
+import { parseMaxStale, parseRtWait, SnapshotClient } from './snapshot-client.ts'
 
 export { Budget } from './ai/budget-do.ts'
 export { RtHub } from './rt/hub.ts'
@@ -23,7 +27,11 @@ export const hubStub = (env: WorkerEnv) =>
   env.RT_HUB.get(env.RT_HUB.idFromName(HUB_NAME), { locationHint: 'oc' })
 
 /** Per-isolate state: the static caches and the snapshot client live as long as the isolate. */
-let isolate: { app: ReturnType<typeof createApp>; snapshots: SnapshotClient } | null = null
+let isolate: {
+  app: ReturnType<typeof createApp>
+  snapshots: SnapshotClient
+  store: StaticStore
+} | null = null
 let pendingWaitUntil: ((p: Promise<unknown>) => void) | null = null
 
 function getIsolate(rawEnv: WorkerEnv) {
@@ -43,12 +51,21 @@ function getIsolate(rawEnv: WorkerEnv) {
     }
     const waitUntil = (p: Promise<unknown>) => pendingWaitUntil?.(p)
     const maxStale = parseMaxStale(env.RT_SNAPSHOT_MAX_STALE_MS)
-    const snapshots = new SnapshotClient(hubClient, Date.now, waitUntil, undefined, undefined, maxStale)
+    const timing = { requestWaitMs: parseRtWait(env.RT_WAIT_MS) }
+    const snapshots = new SnapshotClient(
+      hubClient,
+      Date.now,
+      waitUntil,
+      undefined,
+      undefined,
+      maxStale,
+      timing,
+    )
     const scoped = new Map<SnapshotScope, SnapshotClient>()
     const snapshotsFor = (scope: SnapshotScope) => {
       let cl = scoped.get(scope)
       if (!cl) {
-        cl = new SnapshotClient(hubClient, Date.now, waitUntil, undefined, scope, maxStale)
+        cl = new SnapshotClient(hubClient, Date.now, waitUntil, undefined, scope, maxStale, timing)
         scoped.set(scope, cl)
       }
       return cl
@@ -82,7 +99,7 @@ function getIsolate(rawEnv: WorkerEnv) {
       { store, generationKey: async () => (await store.getManifest())?.updatedAt ?? 'none' },
       (c) => c.env as WorkerEnv,
     )
-    isolate = { app, snapshots }
+    isolate = { app, snapshots, store }
   }
   return isolate
 }
@@ -90,21 +107,44 @@ function getIsolate(rawEnv: WorkerEnv) {
 export default {
   fetch(req, env, ctx) {
     pendingWaitUntil = (p) => ctx.waitUntil(p)
-    return getIsolate(env).app.fetch(req, env, ctx)
+    const { app } = getIsolate(env)
+    return withRequestDeadline(req, async () => app.fetch(req, env, ctx), {
+      build: buildId(env.BUILD_SHA),
+      corsAllowAll: env.CORS_ALLOW_ALL === 'true',
+      onCut: (o) =>
+        log.warn('request cut', {
+          why: o.why,
+          ms: o.ms,
+          method: req.method,
+          path: new URL(req.url).pathname,
+          rid: req.headers.get('cf-ray') ?? undefined,
+        }),
+    })
   },
   async scheduled(_event, env, ctx) {
-    // Watchdog: re-arm the hub's alarm chain if its last completed cycle is older than 45 s.
+    // Watchdog: re-arm the hub's alarm chain if its last completed cycle is older than 45 s. Then check the status
+    // readers see (R14-RT1): cycles that run while TransLink's header time stands still, or while the published
+    // pointer stops moving, leave lastCycleAt fresh, so `rt stale` says so every minute until it recovers.
+    const { store } = getIsolate(env)
+    const published = () =>
+      env.DATA_BUCKET
+        ? readPublishedStatus(store.source)
+        : hubStub(env)
+            .pull(null, 'alerts')
+            .then((r) => r.status)
     ctx.waitUntil(
       hubStub(env)
         .ensureRunning(env.CF_VERSION?.id)
-        .then((r) =>
+        .then(async (r) => {
           log.info('watchdog', {
             rearmed: r.rearmed,
             lastCycleAt: r.lastCycleAt,
             alarm: r.alarm,
             restarted: r.restarted,
-          }),
-        )
+            hubSourceTimestamp: r.sourceTimestamp,
+          })
+          await checkPublished(published, Date.now(), log, r)
+        })
         .catch((e) => {
           // The hub aborting itself to pick up a new deploy rejects this call; that's the restart working.
           const msg = errorMessage(e)

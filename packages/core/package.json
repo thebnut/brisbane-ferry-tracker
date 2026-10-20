@@ -10,7 +10,8 @@
     "./contract": "./src/contract/index.ts",
     "./fixture-clock": "./src/util/fixture-clock.ts",
     "./fixtures/*": "./fixtures/*",
-    "./geo": "./src/geo/index.ts"
+    "./geo": "./src/geo/index.ts",
+    "./route-search": "./src/route/search.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",

@@ -93,7 +93,7 @@ export function DepartureList({
     if (isError)
       return (
         <ErrorState title="Live times aren't coming through" onRetry={onRetry}>
-          TransLink's live feed didn't answer. We'll keep trying every 15 seconds.
+          TransLink's live feed didn't answer. We'll keep trying.
         </ErrorState>
       )
     return <SkeletonRows />

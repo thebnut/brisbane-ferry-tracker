@@ -16,7 +16,7 @@ import {
   StopSelect,
   useFixtureCookie,
 } from '@bft/ui'
-import { bestOfflineCopy, useUnconfirmedBefore } from '@bft/ui/connectivity'
+import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   applyFilter,
@@ -28,17 +28,8 @@ import {
   visibleRows,
 } from '../lib/departures.ts'
 import { cleanStopName } from '../lib/names.ts'
-import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
-import {
-  FIXTURE_COOKIE,
-  markSelectorSeen,
-  readDepartAt,
-  readOffline,
-  readSavedPair,
-  savePair,
-  shouldShowSelector,
-  writeDepartAt,
-} from '../lib/storage.ts'
+import { type DataMode, useDepartures, useFetcher, useShownData } from '../lib/queries.ts'
+import { FIXTURE_COOKIE, readDepartAt, readSavedPair, writeDepartAt } from '../lib/storage.ts'
 import {
   type StopPair,
   swapPair,
@@ -53,7 +44,9 @@ import { SiteHeader } from './Chrome.tsx'
 import { DepartureList } from './DepartureList.tsx'
 import { DetailsSheet } from './DetailsSheet.tsx'
 
-const LiveMapSheet = lazy(() => import('./LiveMapSheet.tsx'))
+// If the map sheet's chunk can't load, the board stays up (the Map button just does nothing).
+const NoMap = (() => null) as never // renders nothing, whatever the props
+const LiveMapSheet = lazy(() => import('./LiveMapSheet.tsx').catch(() => ({ default: NoMap })))
 const StopSelector = lazy(() => import('./StopSelector.tsx'))
 
 export interface FerryBoardsProps {
@@ -101,7 +94,8 @@ export function FerryBoards({
   const online = useOnline()
   const fetcher = useFetcher(mode)
 
-  // After hydration: saved pair (home only), first-visit selector, session "Depart from", fixture cookie.
+  // After hydration: saved pair (home only), session "Depart from", fixture cookie. A first visit gets the onboarding
+  // prompt (P4, its own lazy slot), which replaced the stop selector opening by itself here.
   useEffect(() => {
     if (!terminalPage && !deepLink) {
       const saved = readSavedPair()
@@ -111,10 +105,6 @@ export function FerryBoards({
       ) {
         setPair(saved)
       }
-      if (shouldShowSelector()) {
-        setShowSelector(true)
-        markSelectorSeen()
-      }
     }
     setDepartAt(readDepartAt())
   }, [terminalPage, deepLink, serverPair])
@@ -122,8 +112,10 @@ export function FerryBoards({
   // failure that fell back to fixtures (FIXTURE_FALLBACK) used to make demo mode stick for the session (R7-B1).
   useFixtureCookie(FIXTURE_COOKIE, mode.fixtures, mode.forced === true, mode.allowed === true)
 
-  const same = (a: StopPair, b: StopPair) => a.outbound.id === b.outbound.id && a.inbound.id === b.inbound.id
-  const useInitial = same(pair, serverPair) && departAt == null
+  const useInitial =
+    pair.outbound.id === serverPair.outbound.id &&
+    pair.inbound.id === serverPair.inbound.id &&
+    departAt == null
   const out = useDepartures(
     fetcher,
     mode,
@@ -147,13 +139,11 @@ export function FerryBoards({
   const stateOf = (q: typeof out) => boardState(q.data, offline, now, unconfirmedBefore)
   // Offline, a board shows the best copy on hand: its data, or the copy kept on this device. After an offline reload
   // its data is the cached page's (maybe last night's, every row gone) until the first poll (R6-B1). Read only once
-  // the board is offline, after hydration, so the first render still matches the HTML.
-  const shown = (q: typeof out, from: string, to: string) =>
-    q.data && departAt == null && stateOf(q) === 'offline'
-      ? (bestOfflineCopy([q.data, readOffline(from, to) as DeparturesResponse | null], now) ?? q.data)
-      : q.data
-  const outData = shown(out, pair.outbound.id, pair.inbound.id)
-  const backData = shown(back, pair.inbound.id, pair.outbound.id)
+  // the board is offline, after hydration, so the first render still matches the HTML, and once per change, not per
+  // tick (L8); which copy is best still depends on the time.
+  const holds = (q: typeof out) => departAt == null && stateOf(q) === 'offline'
+  const outData = useShownData(out.data, pair.outbound.id, pair.inbound.id, holds(out), now)
+  const backData = useShownData(back.data, pair.inbound.id, pair.outbound.id, holds(back), now)
   const view = (q: typeof out, data: typeof outData) =>
     data ? applyFilter(visibleRows(data.departures, stateOf(q), now), filter) : null
   const outList = view(out, outData)
@@ -181,8 +171,8 @@ export function FerryBoards({
     setSelected(null)
   }
 
-  const save = (next: StopPair, remember: boolean) => {
-    savePair(next, remember)
+  // The selector has saved the pair (savePair).
+  const save = (next: StopPair) => {
     setShowSelector(false)
     setDepartAt(null)
     writeDepartAt(null)
@@ -423,7 +413,12 @@ export function FerryBoards({
       ) : null}
       {showSelector ? (
         <Suspense fallback={<SheetFallback />}>
-          <StopSelector initial={pair} onSave={save} onClose={() => setShowSelector(false)} />
+          <StopSelector
+            initial={pair}
+            fetcher={fetcher}
+            onSave={save}
+            onClose={() => setShowSelector(false)}
+          />
         </Suspense>
       ) : null}
     </>

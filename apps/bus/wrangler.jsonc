@@ -6,7 +6,7 @@
   "name": "bft-bus",
   "main": "./workers/app.ts",
   "compatibility_date": "2026-10-01",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "enable_request_signal"],
   "account_id": "dde2914802079766f7671528e7cbae75",
   "workers_dev": true,
   "observability": { "enabled": true },
@@ -27,6 +27,10 @@
       "name": "bft-bus",
       "workers_dev": true,
       "vars": {
+        // P6: page navigations go to the same page on TRANSIT_SITE_URL, a browser's first visit via the favourites
+        // handoff page (@bft/ui/redirect). 302 on staging; production stays unset until Brett's OK, per app.
+        "REDIRECT_TO_TRANSIT": "1",
+        "REDIRECT_STATUS": "302",
         "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
         "ALLOW_FIXTURES": "1",
         "FIXTURES": "0",

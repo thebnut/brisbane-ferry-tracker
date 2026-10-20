@@ -7,16 +7,11 @@ import { Icon, PrimaryButton } from '@bft/ui'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useRouteLoaderData } from 'react-router'
 import { type AskResult, postAsk } from '../lib/ask.ts'
+import { ASK_EXAMPLES } from '../lib/ask-examples.ts'
 import { invisibleTurnstile } from '../lib/turnstile.ts'
 
 // Answer rows (shared DepartureCard) load with the first answer, keeping them off the home page's first load.
 const AskAnswer = lazy(() => import('./AskAnswer.tsx'))
-
-const EXAMPLES = [
-  'next train from Bowen Hills to the airport',
-  'next ferry from Bulimba',
-  'alerts on the Ferny Grove line',
-]
 
 export function AskBox() {
   const root = useRouteLoaderData('root') as
@@ -107,7 +102,7 @@ export function AskBox() {
         </Suspense>
       ) : (
         <ul className="flex flex-wrap gap-1.5" aria-label="Try asking">
-          {EXAMPLES.map((e) => (
+          {ASK_EXAMPLES.map((e) => (
             <li key={e}>
               <button
                 type="button"

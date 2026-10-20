@@ -9,8 +9,10 @@
  */
 import {
   type Alert,
+  gtfsTimeToSeconds,
   gtfsToEpoch,
   isRecordLive,
+  MAX_UNSTATED_DELAY_S,
   type MatchStats,
   type Mode,
   type RouteRef,
@@ -173,6 +175,8 @@ function stopRel(r: PbStopRel): RtStopUpdate['rel'] {
 export function normaliseUpdates(stus: TripUpdate_StopTimeUpdate[], trip: IndexedTrip): RtStopUpdate[] {
   const out: RtStopUpdate[] = []
   let last = Number.NEGATIVE_INFINITY
+  let origin = Number.POSITIVE_INFINITY
+  for (const seq of trip.stops.keys()) if (seq < origin) origin = seq
   for (const u of stus) {
     const seq = has(u, 'stopSequence')
       ? u.stopSequence
@@ -186,9 +190,16 @@ export function normaliseUpdates(stus: TripUpdate_StopTimeUpdate[], trip: Indexe
     const sid = u.stopId || st?.stopId
     if (sid) rec.stopId = sid
     if (rec.rel === 'SCHEDULED') {
-      const arr = evTime(u.arrival)
       const dep = evTime(u.departure)
-      const arrDelay = evDelay(u.arrival) ?? (arr != null && st ? arr - st.arrEpoch : undefined)
+      const depGiven = dep != null || evDelay(u.departure) != null
+      // At the trip's origin TransLink's arrival is the inbound vessel's ETA from its previous run, while the
+      // departure is stated separately. Nobody alights there, and clamping the stated departure to that ETA turned
+      // a wrong block assignment into "79 min late" (smoke round 9): keep the departure, drop the arrival.
+      const inbound = seq === origin && depGiven
+      const arr = inbound ? undefined : evTime(u.arrival)
+      const arrDelay = inbound
+        ? undefined
+        : (evDelay(u.arrival) ?? (arr != null && st ? arr - st.arrEpoch : undefined))
       const depDelay = evDelay(u.departure) ?? (dep != null && st ? dep - st.depEpoch : undefined)
       if (arr != null) rec.arr = arr
       if (arrDelay != null) rec.arrDelay = arrDelay
@@ -245,28 +256,46 @@ function resolveAdded(
     }
   }
   const stops: NonNullable<RtTrip['added']>['stops'] = []
-  for (const u of stus) {
+  // The trip's origin: the original's first stop_sequence for a duplicate, else the first update of an ADDED trip
+  // (whose updates are its whole stop list).
+  const originSeq = original ? Math.min(...original.stops.keys()) : undefined
+  for (const [n, u] of stus.entries()) {
     if (u.scheduleRelationship === PbStopRel.SKIPPED) continue
     const stopId =
       u.stopId || (original && has(u, 'stopSequence') ? original.stops.get(u.stopSequence)?.stopId : '')
     if (!stopId || !idx.stopIds.has(stopId)) return null
     let arr = evTime(u.arrival)
     let dep = evTime(u.departure)
-    if ((arr == null || dep == null) && original && has(u, 'stopSequence')) {
-      const st = original.stops.get(u.stopSequence)
-      if (st) {
-        arr ??= st.arrEpoch + shift + (evDelay(u.arrival) ?? evDelay(u.departure) ?? 0)
-        dep ??= st.depEpoch + shift + (evDelay(u.departure) ?? evDelay(u.arrival) ?? 0)
-      }
+    const depStated = dep != null || evDelay(u.departure) != null
+    // A duplicate's own timetable at this stop: the original's, shifted to the new start.
+    const st = original && has(u, 'stopSequence') ? original.stops.get(u.stopSequence) : undefined
+    const timetable = st ? { arr: st.arrEpoch + shift, dep: st.depEpoch + shift } : undefined
+    if ((arr == null || dep == null) && timetable) {
+      arr ??= timetable.arr + (evDelay(u.arrival) ?? evDelay(u.departure) ?? 0)
+      dep ??= timetable.dep + (evDelay(u.departure) ?? evDelay(u.arrival) ?? 0)
     }
+    // Same origin rule as normaliseUpdates: the origin's arrival is the inbound vehicle, not this trip.
+    const atOrigin = originSeq != null ? has(u, 'stopSequence') && u.stopSequence === originSeq : n === 0
+    if (atOrigin && dep != null) arr = dep
     arr ??= dep
     dep ??= arr
     if (arr == null || dep == null) return null
+    let depOut = Math.max(arr, dep)
+    // Same trust rule as predictStop: an hour-plus departure delay the feed doesn't state as this stop's departure
+    // (taken from the arrival, or pushed there by the clamp) falls back to the duplicate's timetable at this stop.
+    if (
+      timetable &&
+      !(depStated && depOut === dep) &&
+      Math.abs(depOut - timetable.dep) > MAX_UNSTATED_DELAY_S
+    ) {
+      arr = timetable.arr
+      depOut = timetable.dep
+    }
     stops.push({
       stopId,
       seq: has(u, 'stopSequence') ? u.stopSequence : stops.length + 1,
       arr,
-      dep: Math.max(arr, dep),
+      dep: depOut,
     })
   }
   if (stops.length < 2) return null
@@ -321,6 +350,8 @@ export function buildSnapshot(input: BuildInput): BuildResult {
   for (const m of modes) stats[m] = emptyStats()
   const trips: Record<string, RtTrip> = {}
   const keyByDescriptor = new Map<string, string>()
+  /** The start_time each keyByDescriptor entry was matched with, so a vehicle naming another run isn't attached. */
+  const startByDescriptor = new Map<string, string>()
   const tripModes = new Map<string, Mode>()
   let sourceTimestamp = Number.POSITIVE_INFINITY
 
@@ -357,7 +388,11 @@ export function buildSnapshot(input: BuildInput): BuildResult {
               : desc.tripId
                 ? `${desc.tripId}|${desc.startDate ?? ''}`
                 : null
-          if (vehicleKey) keyByDescriptor.set(vehicleKey, r.key)
+          if (vehicleKey) {
+            keyByDescriptor.set(vehicleKey, r.key)
+            const start = rel === 'DUPLICATED' ? props?.startTime || desc.startTime : desc.startTime
+            if (start) startByDescriptor.set(vehicleKey, start)
+          }
           done = true
           break
         }
@@ -407,7 +442,11 @@ export function buildSnapshot(input: BuildInput): BuildResult {
         }
         trips[res.key] = rec
         tripModes.set(res.key, m)
-        if (desc.tripId) keyByDescriptor.set(`${desc.tripId}|${desc.startDate ?? ''}`, res.key)
+        if (desc.tripId) {
+          const k = `${desc.tripId}|${desc.startDate ?? ''}`
+          keyByDescriptor.set(k, res.key)
+          if (desc.startTime) startByDescriptor.set(k, desc.startTime)
+        }
         break
       }
       if (!counted && known) {
@@ -456,7 +495,17 @@ export function buildSnapshot(input: BuildInput): BuildResult {
       if (!vp?.position || ent.isDeleted) continue
       const desc = descriptor(vp.trip)
       let tripKey: string | undefined
-      if (desc.tripId) tripKey = keyByDescriptor.get(`${desc.tripId}|${desc.startDate ?? ''}`)
+      if (desc.tripId) {
+        const k = `${desc.tripId}|${desc.startDate ?? ''}`
+        const key = keyByDescriptor.get(k)
+        // A vehicle naming another run (its start_time disagrees with the instance the update resolved to) goes
+        // through the matcher instead, which rejects the conflict.
+        if (
+          key &&
+          (!desc.startTime || startAgrees(desc.startTime, startByDescriptor.get(k), input.indexes, key))
+        )
+          tripKey = key
+      }
       if (!tripKey && (desc.tripId || desc.routeId)) {
         const obs: RtStopObservation[] =
           has(vp, 'currentStopSequence') || vp.stopId
@@ -524,6 +573,24 @@ export function buildSnapshot(input: BuildInput): BuildResult {
       alerts: input.alerts,
     },
   }
+}
+
+/** Does a vehicle's start_time agree with the run its trip key names (the TU's start, else the static start)? */
+function startAgrees(
+  start: string,
+  tuStart: string | undefined,
+  indexes: BuildInput['indexes'],
+  key: string,
+): boolean {
+  if (tuStart) return tuStart === start
+  const s = gtfsTimeToSeconds(start)
+  if (s == null) return true
+  for (const idx of Object.values(indexes)) {
+    const t = idx?.matcher.trip(key)
+    // 00:18 on the calendar date is 24:18 of the previous service day (the matcher's tier-1 convention).
+    if (t) return t.startS === s || t.startS === s + 24 * 3600
+  }
+  return true
 }
 
 function tripRouteId(indexes: BuildInput['indexes'], key: string): string | undefined {

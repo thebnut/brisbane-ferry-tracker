@@ -181,20 +181,56 @@ const VerifyBody = z.object({
   remoteip: z.string().max(64).optional(),
 })
 
+/** Apostrophes, single quotes, single guillemets and primes, all removed so "st peter‘s" reads 'st peters' too. */
+const SINGLE_QUOTES = /['`´ʹʻʼʽ‘’‚‛′‵‹›＇｀]/g
+/** Double quotes, guillemets and double primes, each replaced by a space like `"`. */
+const DOUBLE_QUOTES = /["«»“”„‟″‶〝〞〟＂]/g
+
 /**
- * The user's own stop term for "I couldn't find a stop called 'x'": plain text only (control characters, quotes,
- * angle brackets, backticks and backslashes removed, whitespace collapsed), capped at 40 characters, in single quotes. The Ask box
- * renders answers as React text, so this is defence in depth for other clients of /v1/ask. Null when nothing is left.
+ * The user's own stop term for "I couldn't find a stop called 'x'": plain text only (control characters, quotes of
+ * any style, angle brackets, backticks and backslashes removed, whitespace collapsed), capped at 40 characters, in
+ * single quotes. The Ask box renders answers as React text, so this is defence in depth for other clients of /v1/ask.
+ * Null when nothing is left.
  */
 export function quotedTerm(raw: string | undefined, max = 40): string | null {
   const t = (raw ?? '')
-    .replace(/['’`]/g, '')
-    .replace(/[\p{Cc}\p{Cf}<>"\\]/gu, ' ')
+    .replace(SINGLE_QUOTES, '')
+    .replace(/[\p{Cc}\p{Cf}<>\\]/gu, ' ')
+    .replace(DOUBLE_QUOTES, ' ')
     .replace(/\s+/g, ' ')
     .trim()
   if (!t) return null
   const chars = [...t]
   return `'${chars.length > max ? `${chars.slice(0, max).join('').trimEnd()}…` : t}'`
+}
+
+const NOUN: Record<string, string> = { ferry: 'ferry terminal', train: 'station', bus: 'stop', tram: 'stop' }
+
+/**
+ * The reply when a stop name fits more than one place (R11-A1): name the places (sanitised like quotedTerm, as the
+ * names are echoed back), and only ask for the mode when the question didn't give one. Deterministic, no AI.
+ */
+export function ambiguityReply(p: {
+  detail?: string
+  mode?: string
+  options?: string[]
+  station?: { name: string; stops: number }
+}): string {
+  const term = quotedTerm(p.detail) ?? 'That name'
+  if (p.station) {
+    const name = quotedTerm(p.station.name, 60) ?? 'that station'
+    return `${name} has ${p.station.stops} stops, too many to answer for at once. Add your platform from the sign (e.g. platform 2) or the stop number.`
+  }
+  const names = (p.options ?? []).map((o) => quotedTerm(o, 60)).filter((o): o is string => !!o)
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names.at(-1)}` : (names[0] ?? null)
+  const noun = p.mode ? (NOUN[p.mode] ?? 'stop') : 'stop'
+  const ask = list ? ` Did you mean ${list}?` : ''
+  const next = !p.mode
+    ? ' Add the mode (ferry, train or bus), the full name or the stop number.'
+    : p.mode === 'bus'
+      ? ' Use the full name or the stop number on the sign.'
+      : ' Use the full name.'
+  return `${term} matches more than one ${noun}.${ask}${next}`
 }
 
 const CANNOT_ANSWER: Record<string, string> = {
@@ -312,11 +348,7 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
     }
     // Before the kill switch, so an ambiguous stop gets its specific message with AI off too.
     if (parse && !parse.ok && parse.reason === 'ambiguous_stop')
-      return c.json({
-        ...hint,
-        answer:
-          'That name matches more than one stop. Add the mode (ferry, train or bus) or the stop number.',
-      })
+      return c.json({ ...hint, answer: ambiguityReply(parse) })
     const cfg = budgetConfig(env)
     if (!cfg.enabled || cfg.monthlyBudgetUsd <= 0) return c.json({ ...hint, ai: { enabled: false } })
 

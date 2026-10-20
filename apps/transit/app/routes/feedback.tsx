@@ -1,7 +1,7 @@
 import { redirect } from 'react-router'
 
 /**
- * /feedback: the feedback sheet opens from the footer of the Saved tab, so this sends people there with ?feedback=1,
+ * /feedback: the feedback sheet opens from the footer of the My Transit tab, so this sends people there with ?feedback=1,
  * which opens it (the footer's FeedbackButton).
  */
 export function loader() {

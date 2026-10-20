@@ -1,4 +1,5 @@
 import { DEMO_ALLOWED_SPECS, demoAllowedProject, demoAllowedServer } from '@bft/ui/e2e/demo-allowed.ts'
+import { onboardingAnswered } from '@bft/ui/e2e/onboarding.ts'
 import { defineConfig, devices } from '@playwright/test'
 
 const PORT = 8789
@@ -14,7 +15,12 @@ export default defineConfig({
   testIgnore: [DEMO_ALLOWED_SPECS],
   fullyParallel: true,
   reporter: process.env.CI ? 'github' : 'list',
-  use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure' },
+  use: {
+    baseURL: `http://localhost:${PORT}`,
+    trace: 'retain-on-failure',
+    // The first-visit onboarding prompt (P4) answered: only tests/onboarding.spec.ts starts from a real first visit.
+    storageState: onboardingAnswered(`http://localhost:${PORT}`),
+  },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'phone', use: { ...devices['Pixel 7'] } },

@@ -14,7 +14,7 @@ import { isActive } from '../lib/departures.ts'
 import { useApi } from '../lib/mode.ts'
 import { useAlerts, useStopIndex } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
-import { loaderEnv, settle } from '../lib/server.server.ts'
+import { getEnv, loaderEnv, settle } from '../lib/server.server.ts'
 import { routeShortOf } from '../lib/stops.ts'
 import { useSavedStops } from '../lib/storage.ts'
 import { useNow } from '../lib/useNow.ts'
@@ -23,19 +23,20 @@ import type { Route } from './+types/alerts'
 export async function loader({ request, context }: Route.LoaderArgs) {
   const { fetcher } = loaderEnv(request, context)
   const alerts = await settle((signal) => fetchAlerts(fetcher, { signal, validate: validateAlerts }))
-  return { alerts, renderedAt: Date.now() }
+  return { alerts, renderedAt: Date.now(), siteUrl: getEnv(context)?.SITE_URL ?? SITE_URL }
 }
 
 export function headers() {
   return { 'cache-control': 'private, no-store' }
 }
 
-export const meta: Route.MetaFunction = () =>
+export const meta: Route.MetaFunction = ({ loaderData }) =>
   pageMeta({
     title: 'Brisbane bus detours and service alerts | BrisbaneBus',
     description:
       'Current bus detours, stop changes and planned service changes across Brisbane and South East Queensland.',
-    url: `${SITE_URL}/alerts`,
+    url: `${loaderData?.siteUrl ?? SITE_URL}/alerts`,
+    siteUrl: loaderData?.siteUrl,
   })
 
 const SEV: Record<string, string> = {

@@ -3,9 +3,9 @@
  * them: in SSR loaders (contract.server.ts) and in the Worker's same-origin /v1 and /data proxy (workers/app.ts),
  * which answers 502 when the API drifts from the contract. The browser bundle carries only the types, not zod.
  */
-import type { AlertsResponse, DeparturesResponse, TripResponse, VehiclesResponse } from '@bft/core/contract'
+import type { AlertsResponse, DeparturesResponse } from '@bft/core/contract'
 import { noteCacheCopy, trackedFetch } from '@bft/ui/connectivity'
-import type { GeoTileFile, LinesFile, RouteFile, RouteIndexFile, StopIndexFile } from './data-contract.ts'
+import type { LinesFile, RouteFile, RouteIndexFile, StopIndexFile } from './data-contract.ts'
 
 export type ApiErrorKind = 'network' | 'http' | 'contract'
 
@@ -65,28 +65,20 @@ export const DEPARTURE_LIMIT = 20
 /** A longer list kept for saved stops so they work offline ("Offline · scheduled"). */
 export const OFFLINE_LIMIT = 100
 
-export const departuresPath = (stopId: string, limit = DEPARTURE_LIMIT) =>
-  `/v1/bus/stops/${encodeURIComponent(stopId)}/departures?limit=${limit}`
+/** `route`: only that route's departures, filtered by the API before the limit (the stop page's ?route=). */
+export const departuresPath = (stopId: string, limit = DEPARTURE_LIMIT, route?: string) =>
+  `/v1/bus/stops/${encodeURIComponent(stopId)}/departures?limit=${limit}${route ? `&route=${encodeURIComponent(route)}` : ''}`
 
 export const fetchDepartures = (
   fetcher: ApiFetcher,
   stopId: string,
-  opts: { limit?: number; signal?: AbortSignal; validate?: Validate<DeparturesResponse> } = {},
-) => getJson(fetcher, departuresPath(stopId, opts.limit), opts.validate, opts.signal)
-
-export const fetchTrip = (
-  fetcher: ApiFetcher,
-  tripInstance: string,
-  opts: { signal?: AbortSignal; validate?: Validate<TripResponse> } = {},
-) => getJson(fetcher, `/v1/bus/trips/${encodeURIComponent(tripInstance)}`, opts.validate, opts.signal)
-
-export const fetchVehicles = (fetcher: ApiFetcher, route: string | null, signal?: AbortSignal) =>
-  getJson<VehiclesResponse>(
-    fetcher,
-    `/v1/bus/vehicles${route ? `?route=${encodeURIComponent(route)}` : ''}`,
-    undefined,
-    signal,
-  )
+  opts: {
+    limit?: number
+    route?: string
+    signal?: AbortSignal
+    validate?: Validate<DeparturesResponse>
+  } = {},
+) => getJson(fetcher, departuresPath(stopId, opts.limit, opts.route), opts.validate, opts.signal)
 
 export const fetchAlerts = (
   fetcher: ApiFetcher,
@@ -100,16 +92,6 @@ export const fetchLines = (
   fetcher: ApiFetcher,
   opts: { signal?: AbortSignal; validate?: Validate<LinesFile> } = {},
 ) => getJson(fetcher, '/data/bus/lines.json', opts.validate, opts.signal)
-
-/** A geohash-5 tile; a cell with no stops has no file (404), which is an empty tile, not an error. */
-export async function fetchGeoTile(fetcher: ApiFetcher, geohash: string, signal?: AbortSignal) {
-  try {
-    return await getJson<GeoTileFile>(fetcher, `/data/bus/geo/${geohash}.json`, undefined, signal)
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return null
-    throw error
-  }
-}
 
 export const fetchRoute = (
   fetcher: ApiFetcher,

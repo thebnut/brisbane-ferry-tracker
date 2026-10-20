@@ -9,23 +9,26 @@ import { FilterPills, PillButton } from '@bft/ui'
 import { NoticeStrip, SaveButton } from '@bft/ui/bus'
 import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { data, redirect } from 'react-router'
+import { data, redirect, useNavigate } from 'react-router'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { DepartureList, linkRenderer } from '../components/StopBoard.tsx'
-import { ApiError, fetchAlerts, fetchDepartures } from '../lib/api.ts'
+import { ApiError, fetchAlerts, fetchDepartures, fetchRouteIndex } from '../lib/api.ts'
 import { at } from '../lib/base.ts'
-import { validateAlerts, validateDepartures } from '../lib/contract.server.ts'
+import { validateAlerts, validateDepartures, validateRouteIndex } from '../lib/contract.server.ts'
 import { isActive, routesIn } from '../lib/departures.ts'
 import { useApi } from '../lib/mode.ts'
 import { liveView, refreshOfflineCopy, useAlerts, useDepartures } from '../lib/queries.ts'
+import { cachedRouteIndex } from '../lib/route-index.server.ts'
 import { pageMeta, SITE_URL, stopJsonLd, stopMetaTags } from '../lib/seo.ts'
-import { loaderEnv, settle } from '../lib/server.server.ts'
+import { fixtureFallbackOn, loaderEnv, settle } from '../lib/server.server.ts'
 import { canonicalStopId, routeHref, routeShortOf, stopHref, stopMeta } from '../lib/stops.ts'
 import { hasTimetableCopy, pushRecent, toggleSaved, useSavedStops } from '../lib/storage.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/stop'
 
-const StopMap = lazy(() => import('../components/StopMap.tsx'))
+// If this small chunk can't load, the page goes on without its map (SafeMap inside covers MapLibre itself).
+const NoMap = (() => null) as never // renders nothing, whatever the props
+const StopMap = lazy(() => import('../components/StopMap.tsx').catch(() => ({ default: NoMap })))
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const stopId = params.stopId
@@ -34,12 +37,27 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   // instead of asking the API for an id that doesn't exist (two 404s per visit, R3-B10).
   const canonical = canonicalStopId(stopId)
   if (canonical !== stopId) throw redirect(`${stopHref(canonical)}${new URL(request.url).search}`, 301)
-  const { fetcher, env } = loaderEnv(request, context)
+  const { fetcher, env, fixtures } = loaderEnv(request, context)
+  // ?route=<short> (the route stop picker, P2): only that route's departures, filtered by the API before the row
+  // limit so a busy stop still lists them. Only a current route counts (data/bus/routes.json, cached in the isolate
+  // as for the route page); a malformed or unknown value, or no readable index, means the whole board.
+  const only = new URL(request.url).searchParams.get('route')
+  let route: string | undefined
+  if (only && /^[\w-]{1,12}$/.test(only)) {
+    const index = await settle(
+      (signal) =>
+        cachedRouteIndex(() => fetchRouteIndex(fetcher, { signal, validate: validateRouteIndex }), {
+          cache: !fixtures && !fixtureFallbackOn(env),
+        }),
+      1200,
+    )
+    if (index?.routes.includes(only)) route = only
+  }
   let unknown = false
   const [departures, alerts] = await Promise.all([
     settle(async (signal) => {
       try {
-        return await fetchDepartures(fetcher, stopId, { signal, validate: validateDepartures })
+        return await fetchDepartures(fetcher, stopId, { signal, route, validate: validateDepartures })
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) unknown = true
         throw error
@@ -48,7 +66,15 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     settle((signal) => fetchAlerts(fetcher, { signal, validate: validateAlerts }), 1200),
   ])
   if (unknown) throw data(null, { status: 404 })
-  return { stopId, departures, alerts, renderedAt: Date.now(), siteUrl: env?.SITE_URL ?? SITE_URL }
+  // No `route` key at all without one: it would be in every stop page's inline data.
+  return {
+    stopId,
+    departures,
+    alerts,
+    renderedAt: Date.now(),
+    siteUrl: env?.SITE_URL ?? SITE_URL,
+    ...(route ? { route } : {}),
+  }
 }
 
 export function headers() {
@@ -79,11 +105,14 @@ export function stopAlerts(alerts: Alert[], stopId: string, routes: string[], no
 export default function StopPage({ loaderData }: Route.ComponentProps) {
   const { stopId } = loaderData
   const { mode, fetcher } = useApi()
-  const q = useDepartures(fetcher, mode, stopId, loaderData.departures)
+  const q = useDepartures(fetcher, mode, stopId, loaderData.departures, loaderData.route)
   const alertsQ = useAlerts(fetcher, mode, loaderData.alerts)
   const now = useNow(loaderData.renderedAt)
   const saved = useSavedStops()
   const [route, setRoute] = useState('all')
+  const only = loaderData.route
+  const pick = only ?? route
+  const navigate = useNavigate()
   const [showMap, setShowMap] = useState(false)
   // Timetable only unless the data is live and fresh (offline, cached copy, stale).
   const online = useOnline()
@@ -120,14 +149,21 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
       {routes.length > 1 || res ? (
         <div className="bg-strip border-b border-ferry-orange/20">
           <div className="mx-auto flex max-w-3xl items-center gap-1.5 overflow-x-auto px-4 py-2">
-            {routes.length > 1 ? (
+            {routes.length > 1 || only ? (
               <FilterPills
                 label="Filter by route"
-                value={route}
-                onChange={setRoute}
+                value={pick}
+                // ?route= came from the API filtered: "All routes" loads the whole board.
+                onChange={
+                  only
+                    ? (v) => {
+                        if (v === 'all') navigate(stopHref(stopId))
+                      }
+                    : setRoute
+                }
                 options={[
                   { value: 'all', label: 'All routes' },
-                  ...routes.slice(0, 12).map((r) => ({ value: r, label: r })),
+                  ...(only ? [only] : routes.slice(0, 12)).map((r) => ({ value: r, label: r })),
                 ]}
               />
             ) : null}
@@ -172,7 +208,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
           onRetry={() => q.refetch()}
           nowMs={now}
           alerts={alerts}
-          routes={route === 'all' ? null : new Set([route])}
+          routes={pick === 'all' ? null : new Set([pick])}
           offline={state === 'offline'}
           saved={isSaved}
           copyRanOut={state === 'offline' && hasTimetableCopy(stopId)}

@@ -49,8 +49,8 @@ export default function SettingsSheet({ open, onClose }: { open: boolean; onClos
           />
         </div>
         <p className="text-sm text-sched-text">
-          Saved stops come from the Ferry, Train and Bus tabs and stay on this device. Times refresh every 15
-          seconds while the page is open.
+          My Transit shows the stops you save in the Ferry, Train and Bus tabs. They stay on this device.
+          Times refresh every 15 seconds while the page is open.
         </p>
       </div>
     </BottomSheet>

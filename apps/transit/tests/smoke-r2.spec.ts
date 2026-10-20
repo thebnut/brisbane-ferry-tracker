@@ -75,7 +75,7 @@ for (const path of PAGES) {
   })
 }
 
-test('/ask opens the Ask box on the Saved tab with the input focused (R2-X7)', async ({ page }) => {
+test('/ask opens the Ask box on the My Transit tab with the input focused (R2-X7)', async ({ page }) => {
   const res = await page.request.get('/ask', { maxRedirects: 0 })
   expect(res.status()).toBe(302)
   expect(res.headers().location).toBe('/#ask')

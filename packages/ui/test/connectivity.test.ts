@@ -54,9 +54,48 @@ describe('liveState (F3/T5/B3/X4)', () => {
     )
     expect(liveState(res({ rtSourceTimestamp: null }), { offline: false, nowMs: NOW })).toBe('stale')
   })
+  it('a device clock minutes off never makes a fresh network answer "delayed" (R13-B1)', () => {
+    // The server answered at NOW with a 57 s old source; the device's clock reads +/- 5 min, and the answer arrived
+    // 2 s after it was generated.
+    for (const skew of [5 * 60_000, -5 * 60_000, 61_000]) {
+      const device = NOW + skew
+      const body = res({ rtSourceTimestamp: NOW / 1000 - 57, generatedAt: NOW, receivedAt: device + 2_000 })
+      expect(liveState(body, { offline: false, nowMs: device + 2_000 })).toBeNull()
+      // Still judged as it ages on the device: 61 s after it arrived it is stale ...
+      expect(liveState(body, { offline: false, nowMs: device + 2_000 + LIVE_REFRESH_MAX_AGE_MS + 1 })).toBe(
+        'stale',
+      )
+    }
+    // ... and a source already 290 s old at the server is stale 11 s after it arrived, whatever the device clock.
+    const late = res({ rtSourceTimestamp: NOW / 1000 - 290, generatedAt: NOW, receivedAt: NOW - 300_000 })
+    expect(liveState(late, { offline: false, nowMs: NOW - 300_000 + 5_000 })).toBeNull()
+    expect(liveState(late, { offline: false, nowMs: NOW - 300_000 + 11_000 })).toBe('stale')
+  })
+  it('a real stall (R14-RT1) still shows delayed: the server says so, or the source is past 5 min', () => {
+    const frozen = res({ rtSourceTimestamp: NOW / 1000 - 446, generatedAt: NOW, receivedAt: NOW })
+    expect(liveState(frozen, { offline: false, nowMs: NOW })).toBe('stale')
+    expect(liveState(res({ rtState: 'stale', receivedAt: NOW }), { offline: false, nowMs: NOW })).toBe(
+      'stale',
+    )
+  })
+  it('noteCacheCopy stamps a browser network answer with its arrival, never a cached copy or a server render', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+    const server = noteCacheCopy(new Response('{}'), { generatedAt: 1 })
+    expect(server).not.toHaveProperty('receivedAt')
+    browser()
+    expect(noteCacheCopy(new Response('{}'), { generatedAt: 1 })).toMatchObject({ receivedAt: NOW })
+    const cached = noteCacheCopy(new Response('{}', { headers: { [SW_CACHE_HEADER]: 'sw' } }), {
+      generatedAt: 1,
+    })
+    expect(cached).not.toHaveProperty('receivedAt')
+    expect(noteCacheCopy(new Response('[]'), null)).toBeNull()
+  })
   it("passes the API's own state through", () => {
     expect(liveState(res({ rtState: 'reloading' }), { offline: false, nowMs: NOW })).toBe('reloading')
     expect(liveState(res({ rtState: 'unavailable' }), { offline: false, nowMs: NOW })).toBe('unavailable')
+    // bft-api answers `stale` for an expired copy whose source is past health's 120 s: never shown as live.
+    expect(liveState(res({ rtState: 'stale' }), { offline: false, nowMs: NOW })).toBe('stale')
   })
 })
 

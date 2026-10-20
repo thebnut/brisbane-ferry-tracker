@@ -1,0 +1,137 @@
+// @vitest-environment node
+/** P6: page navigations redirect to BrisbaneTransit when REDIRECT_TO_TRANSIT is "1", through the Worker's fetch handler. */
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it, vi } from 'vitest'
+import { unstable_readConfig } from 'wrangler'
+import worker from '../workers/app.ts'
+
+vi.mock('virtual:react-router/server-build', () => ({}))
+// SSR stands in for React Router: any HTML page.
+vi.mock('react-router', async (orig) => ({
+  ...(await orig<typeof import('react-router')>()),
+  createRequestHandler: () => async () =>
+    new Response('<!doctype html><title>t</title>', {
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    }),
+}))
+
+const SITE = 'https://bft-bus.brisbanetransit.workers.dev'
+const TRANSIT = 'https://bft-transit.brisbanetransit.workers.dev'
+const ON = { REDIRECT_TO_TRANSIT: '1', TRANSIT_SITE_URL: TRANSIT }
+const envWith = (vars: Record<string, unknown> = {}) =>
+  ({
+    SITE_URL: SITE,
+    API_BASE: 'http://x',
+    ALLOW_FIXTURES: '1',
+    FIXTURES: '0',
+    BUILD_SHA: '1a2b3c4',
+    API: { fetch: vi.fn(async () => Response.json({ ok: true })) },
+    ASSETS: { fetch: vi.fn(async () => new Response('Not found', { status: 404 })) },
+    ...vars,
+  }) as unknown as Env
+const get = (path: string, env: Env, init: RequestInit = {}) =>
+  worker.fetch(new Request(`${SITE}${path}`, init), env, {} as ExecutionContext) as Promise<Response>
+
+const PAGES: [string, string][] = [
+  ['/', '/bus'],
+  ['/nearby', '/bus/nearby'],
+  ['/stop/10802', '/bus/stop/10802'],
+  ['/trip/t1', '/bus/trip/t1'],
+  ['/route/66?pick=1', '/bus/route/66?pick=1'],
+  ['/map', '/bus/map'],
+  ['/alerts', '/bus/alerts'],
+  ['/about', '/bus/about'],
+  ['/feedback', '/feedback'],
+  ['/nope', '/bus'],
+]
+const EXCLUDED = [
+  '/v1/x/departures',
+  '/api/gtfs-proxy',
+  '/__fixtures/v1/x',
+  '/__manifest',
+  '/sitemap.xml',
+  '/robots.txt',
+  '/sw.js',
+  '/manifest.webmanifest',
+  '/assets/x-abc.js',
+  '/icon-192.png',
+  '/home.data',
+  '/data/bus/stops.json',
+  '/sitemaps/pages.xml',
+]
+
+describe('redirect to transit (P6)', () => {
+  it.each(PAGES)('%s → %s, with the security headers and build marker', async (path, want) => {
+    const res = await get(path, envWith(ON))
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe(`${TRANSIT}${want}`)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    expect(res.headers.get('strict-transport-security')).toContain('max-age=')
+    expect(res.headers.get('x-bft-build')).toBe('1a2b3c4')
+  })
+
+  it('a browser’s first visit gets the handoff page, its script allowed by this response’s CSP nonce (P6b)', async () => {
+    const browser = {
+      'sec-fetch-mode': 'navigate',
+      'user-agent': 'Mozilla/5.0 Chrome/141.0',
+      accept: 'text/html',
+    }
+    const res = await get('/stop/10802', envWith(ON), { headers: browser })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('x-robots-tag')).toBe('noindex')
+    expect(res.headers.get('cache-control')).toBe('private, no-store')
+    const nonce = /'nonce-([^']+)'/.exec(res.headers.get('content-security-policy') ?? '')?.[1]
+    const html = await res.text()
+    expect(nonce).toBeTruthy()
+    expect(html).toContain(`<script nonce="${nonce}">`)
+    expect(html).toContain(`href="${TRANSIT}/bus/stop/10802"`)
+    // Handed off already: the plain redirect.
+    const again = await get('/stop/10802', envWith(ON), { headers: { ...browser, cookie: 'bft-handoff=1' } })
+    expect(again.status).toBe(302)
+    expect(again.headers.get('location')).toBe(`${TRANSIT}/bus/stop/10802`)
+  })
+
+  it('301 only when REDIRECT_STATUS is "301"', async () => {
+    expect((await get('/', envWith({ ...ON, REDIRECT_STATUS: '301' }))).status).toBe(301)
+  })
+
+  it.each(EXCLUDED)('%s is served as before', async (path) => {
+    const res = await get(path, envWith(ON))
+    expect(res.headers.get('location')).toBeNull()
+  })
+
+  it('POST, fetch() and WebSocket upgrades are served as before', async () => {
+    expect((await get('/', envWith(ON), { method: 'POST' })).headers.get('location')).toBeNull()
+    expect((await get('/', envWith(ON), { headers: { 'sec-fetch-mode': 'cors' } })).status).toBe(200)
+    const ws = await get('/', envWith(ON), { headers: { upgrade: 'websocket', connection: 'Upgrade' } })
+    expect(ws.headers.get('location')).toBeNull()
+  })
+
+  it('flag off (unset or not "1"): pages render as before', async () => {
+    for (const flag of [undefined, '0']) {
+      const res = await get(PAGES[1][0], envWith({ TRANSIT_SITE_URL: TRANSIT, REDIRECT_TO_TRANSIT: flag }))
+      expect(res.status).toBe(200)
+      expect(res.headers.get('content-type')).toContain('text/html')
+    }
+  })
+})
+
+describe('wrangler.jsonc', () => {
+  const CONFIG = fileURLToPath(new URL('../wrangler.jsonc', import.meta.url))
+  const read = (env?: string) => unstable_readConfig({ config: CONFIG, env }, { hideWarnings: true })
+  it('REDIRECT_TO_TRANSIT and REDIRECT_STATUS are unset in production', () => {
+    for (const env of ['production', 'production-preview']) {
+      const vars = read(env).vars as Record<string, unknown>
+      expect(vars.REDIRECT_TO_TRANSIT, env).toBeUndefined()
+      expect(vars.REDIRECT_STATUS, env).toBeUndefined()
+    }
+  })
+  it('staging redirects (302) to the staging transit host; local dev and the e2e suites do not', () => {
+    expect(read('staging').vars).toMatchObject({
+      TRANSIT_SITE_URL: TRANSIT,
+      REDIRECT_TO_TRANSIT: '1',
+      REDIRECT_STATUS: '302',
+    })
+    expect(read().vars.REDIRECT_TO_TRANSIT).toBeUndefined()
+  })
+})

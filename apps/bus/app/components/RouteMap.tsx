@@ -1,6 +1,7 @@
 /** Per-route map (lazy): the line in the route colour, its stops as bus diamonds, live buses as pulsing dots. */
 import type { Vehicle } from '@bft/core/contract'
-import MapView, { type MapMarker, type MapStop } from '@bft/ui/map'
+import type { MapMarker, MapStop } from '@bft/ui/map'
+import SafeMap from '@bft/ui/safe-map'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import type { RouteFile } from '../lib/data-contract.ts'
@@ -53,7 +54,7 @@ export default function RouteMap({
       Number.parseInt(color.slice(4), 16) * 0.11 <
       140
   return (
-    <MapView
+    <SafeMap
       markers={markers}
       stops={stops}
       onStopClick={(id) => navigate(stopHref(id))}

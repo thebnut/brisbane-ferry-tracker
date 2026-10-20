@@ -1,12 +1,12 @@
 /** Regression tests for Dev's smoke test round 1b (18 Oct 2026): X1 ferry selector, X2 nearby tiles, X4 offline. */
 import { expect, test } from '@playwright/test'
 
-test('Ferry tab: the stop selector opens by itself on the first visit only (X1)', async ({ page }) => {
+test('Ferry tab: no stop selector opens by itself (X1; P4 moved the first visit to the onboarding prompt)', async ({
+  page,
+}) => {
   await page.goto('/ferry')
-  const sheet = page.getByRole('dialog', { name: 'Select ferry stops' })
-  await expect(sheet).toBeVisible()
-  await sheet.getByRole('button', { name: 'Cancel' }).click()
-  await expect(sheet).toBeHidden()
+  await expect(page.locator('[data-board=outbound]').getByTestId('departure').first()).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Select ferry stops' })).toBeHidden()
   for (let i = 0; i < 2; i++) {
     await page.reload()
     await expect(page.locator('[data-board=outbound]').getByTestId('departure').first()).toBeVisible()

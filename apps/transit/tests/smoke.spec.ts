@@ -16,17 +16,33 @@ const watchErrors = (page: Page) => {
 
 const CBD = '/nearby?lat=-27.4717&lon=153.0206'
 
-test('Saved home: transit lockup, Ask box, Mode Tabs in the X-Home order', async ({ page, isMobile }) => {
+test('My Transit home: transit lockup, Ask box, Mode Tabs with My Transit first', async ({
+  page,
+  isMobile,
+}) => {
   const errors = watchErrors(page)
   await page.goto('/')
   await expect(page.getByRole('link', { name: 'BrisbaneTransit Departure Boards, home' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Ask' })).toBeVisible()
-  await expect(page.getByText('Nothing saved yet')).toBeVisible()
+  await expect(page.getByText('Nothing in My Transit yet')).toBeVisible()
   const tabs = page.getByRole('navigation', { name: 'Modes' }).filter({ visible: true })
   const labels = (await tabs.getByRole('link').allInnerTexts()).map((t) => t.trim())
-  expect(labels.slice(0, 5)).toEqual(
-    isMobile ? ['Ferry', 'Train', 'Bus', 'Nearby', 'Saved'] : ['Saved', 'Ferry', 'Train', 'Bus', 'Nearby'],
+  // Phone and desktop share one order; desktop adds Alerts last, on the right.
+  expect(labels).toEqual(
+    isMobile
+      ? ['My Transit', 'Nearby', 'Ferry', 'Train', 'Bus']
+      : ['My Transit', 'Nearby', 'Ferry', 'Train', 'Bus', 'Alerts'],
   )
+  if (!isMobile) {
+    const box = async (l: ReturnType<typeof tabs.getByRole>) =>
+      (await l.boundingBox()) as { x: number; width: number }
+    const bus = await box(tabs.getByRole('link', { name: 'Bus', exact: true }))
+    const alerts = await box(tabs.getByRole('link', { name: 'Alerts', exact: true }))
+    const list = await box(tabs.getByRole('list'))
+    expect(alerts.x).toBeGreaterThan(bus.x + bus.width + 100)
+    // Right-aligned: its right edge at the row's right edge, less the row's 16 px padding.
+    expect(Math.abs(list.x + list.width - 16 - (alerts.x + alerts.width))).toBeLessThan(2)
+  }
   expect(errors).toEqual([])
 })
 
@@ -47,14 +63,16 @@ test('each mode tab shows its standalone app with that app’s own lockup', asyn
   expect(errors).toEqual([])
 })
 
-test('bus stop page: server-rendered rows, links stay inside the Bus tab, canonical is the standalone app', async ({
+test("bus stop page: server-rendered rows, links stay inside the Bus tab, canonical is this site's page (P6)", async ({
   request,
 }) => {
   const res = await request.get('/bus/stop/10802')
   expect(res.status()).toBe(200)
   const html = await res.text()
   expect(html.match(/data-testid="departure"/g)?.length ?? 0).toBeGreaterThanOrEqual(10)
-  expect(html).toContain('rel="canonical" href="https://bft-bus.brisbanetransit.workers.dev/stop/10802"')
+  expect(html).toContain(
+    'rel="canonical" href="https://bft-transit.brisbanetransit.workers.dev/bus/stop/10802"',
+  )
   expect(html).toContain('href="/bus/route/')
   expect(html).not.toMatch(/href="\/route\//)
   expect(html).toContain('aria-label="Bus sections"')
@@ -144,7 +162,7 @@ test('Ask box answers with shared departure cards and explains an AI limit', asy
   await expect(page.locator('[data-ask-notice]')).toContainText("month's budget")
 })
 
-test('Saved mixes every mode and works offline as "Offline · scheduled"', async ({ page, context }) => {
+test('My Transit mixes every mode and works offline as "Offline · scheduled"', async ({ page, context }) => {
   // Saved cards fetch after hydration, so every card's first service is pinned 10 minutes out (any hour).
   await pinUpcoming(context)
   await page.addInitScript(() => {

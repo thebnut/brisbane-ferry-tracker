@@ -1,5 +1,5 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
-import type { AlertsResponse, DeparturesResponse, TripResponse } from '@bft/core/contract'
+import type { AlertsResponse, DeparturesResponse } from '@bft/core/contract'
 import {
   asOfflineCopy,
   bestOfflineCopy,
@@ -9,28 +9,27 @@ import {
   type LiveState,
   liveState,
   type OfflineCopy,
+  pollEvery,
   replacesBoard,
   timetableStatus,
 } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQueries, useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   type ApiFetcher,
   browserFetcher,
   fetchAlerts,
   fetchDepartures,
-  fetchGeoTile,
   fetchLines,
   fetchStopIndex,
-  fetchTrip,
-  fetchVehicles,
   OFFLINE_LIMIT,
 } from './api.ts'
-import type { GeoTileFile } from './data-contract.ts'
-import { buildSearchIndex } from './search.ts'
 import { readOffline, writeOffline } from './storage.ts'
 
 export const POLL_MS = 15_000
+/** Live data polling, backing off while calls fail (@bft/ui pollEvery). */
+export const poll = pollEvery(POLL_MS)
+const pollAlerts = pollEvery(60_000)
 /** Saved stops refresh their offline timetable copy at most this often. */
 const OFFLINE_REFRESH_MS = 3 * 3600_000
 
@@ -141,15 +140,17 @@ export function departuresOptions(
   mode: DataMode,
   stopId: string,
   initial: DeparturesResponse | null,
+  /** Only this route's departures (the stop page's ?route=). */
+  route?: string,
 ) {
-  const queryKey = ['bus', 'departures', mode.fixtures, mode.rt, stopId] as const
+  const queryKey = ['bus', 'departures', mode.fixtures, mode.rt, stopId, route] as const
   return {
     queryKey,
     queryFn: async ({ signal, client }: QueryFunctionContext<typeof queryKey>): Promise<Board> => {
       // The board on screen: offline, it may be fresher than any cached copy.
       const shown = client.getQueryData<Board>(queryKey)
       try {
-        const res = await fetchDepartures(fetcher, stopId, { signal })
+        const res = await fetchDepartures(fetcher, stopId, { signal, route })
         // A network answer, judged on this response (not on the connection flag, which another request may have just
         // cleared) and never older than the server board on screen (R6-B1). Not against the kept timetable: a network
         // answer from the edge cache can be a little older than it (release review).
@@ -171,7 +172,7 @@ export function departuresOptions(
     },
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
-    refetchInterval: POLL_MS,
+    refetchInterval: poll,
   }
 }
 
@@ -200,8 +201,9 @@ export function useDepartures(
   mode: DataMode,
   stopId: string,
   initial: DeparturesResponse | null,
+  route?: string,
 ) {
-  return useQuery(departuresOptions(fetcher, mode, stopId, initial))
+  return useQuery(departuresOptions(fetcher, mode, stopId, initial, route))
 }
 
 export function useManyDepartures(
@@ -215,30 +217,6 @@ export function useManyDepartures(
   })
 }
 
-export function useTrip(
-  fetcher: ApiFetcher,
-  mode: DataMode,
-  tripInstance: string,
-  initial: TripResponse | null,
-) {
-  return useQuery({
-    queryKey: ['bus', 'trip', mode.fixtures, mode.rt, tripInstance],
-    queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance, { signal }),
-    initialData: initial ?? undefined,
-    initialDataUpdatedAt: initial?.generatedAt,
-    refetchInterval: POLL_MS,
-  })
-}
-
-export function useVehicles(fetcher: ApiFetcher, mode: DataMode, route: string | null, enabled = true) {
-  return useQuery({
-    queryKey: ['bus', 'vehicles', mode.fixtures, mode.rt, route],
-    queryFn: ({ signal }) => fetchVehicles(fetcher, route, signal),
-    enabled,
-    refetchInterval: POLL_MS,
-  })
-}
-
 export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsResponse | null = null) {
   return useQuery({
     queryKey: ['bus', 'alerts', mode.fixtures, mode.rt],
@@ -246,15 +224,36 @@ export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsRe
     initialData: initial ?? undefined,
     initialDataUpdatedAt: initial?.generatedAt,
     staleTime: 60_000,
-    refetchInterval: 60_000,
+    refetchInterval: pollAlerts,
   })
 }
 
 /**
  * The stop search index (data/bus/stops.json, ~300 KB gz), fetched lazily after first paint (`enabled` turns on
- * after hydration) and kept for the session; the service worker keeps it across visits.
+ * after hydration) and kept for the session; the service worker keeps it across visits. The fuzzy search code
+ * (search.ts with uFuzzy) loads alongside it, so it isn't on any page's first load either.
  */
 export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boolean) {
+  const [search, setSearch] = useState<typeof import('./search.ts') | null>(null)
+  // A search chunk that can't load (offline before it was cached) is an error, retried when the browser is back
+  // online, never an endless "Loading stops…" (Codex review).
+  const [searchFailed, setSearchFailed] = useState(false)
+  useEffect(() => {
+    if (!enabled || search) return
+    if (searchFailed) {
+      const retry = () => setSearchFailed(false)
+      window.addEventListener('online', retry)
+      return () => window.removeEventListener('online', retry)
+    }
+    let live = true
+    import('./search.ts').then(
+      (m) => live && setSearch(m),
+      () => live && setSearchFailed(true),
+    )
+    return () => {
+      live = false
+    }
+  }, [enabled, search, searchFailed])
   const q = useQuery({
     queryKey: ['bus', 'stop-index', mode.fixtures],
     queryFn: ({ signal }) => fetchStopIndex(fetcher, signal),
@@ -263,9 +262,12 @@ export function useStopIndex(fetcher: ApiFetcher, mode: DataMode, enabled: boole
     gcTime: Number.POSITIVE_INFINITY,
     retry: 2,
   })
-  const index = useMemo(() => (q.data ? buildSearchIndex(q.data.stops) : null), [q.data])
+  const index = useMemo(
+    () => (q.data && search ? search.buildSearchIndex(q.data.stops) : null),
+    [q.data, search],
+  )
   const byKey = useMemo(() => new Map((q.data?.stops ?? []).map((s) => [s.key, s])), [q.data])
-  return { ...q, index, byKey }
+  return { ...q, isError: q.isError || searchFailed, index, byKey, searchStops: search?.searchStops }
 }
 
 export function useLines(fetcher: ApiFetcher, mode: DataMode, enabled = true) {
@@ -275,19 +277,4 @@ export function useLines(fetcher: ApiFetcher, mode: DataMode, enabled = true) {
     enabled,
     staleTime: Number.POSITIVE_INFINITY,
   })
-}
-
-/** Geohash tiles (own + neighbours) for nearby. Missing tiles (no stops) resolve to null. */
-export function useGeoTiles(fetcher: ApiFetcher, mode: DataMode, geohashes: string[]) {
-  const results = useQueries({
-    queries: geohashes.map((gh) => ({
-      queryKey: ['bus', 'geo', mode.fixtures, gh],
-      queryFn: ({ signal }: { signal: AbortSignal }) => fetchGeoTile(fetcher, gh, signal),
-      staleTime: Number.POSITIVE_INFINITY,
-    })),
-  })
-  const loading = results.some((r) => r.isPending)
-  const error = results.find((r) => r.error)?.error ?? null
-  const tiles = results.map((r) => r.data).filter((t): t is GeoTileFile => !!t)
-  return { tiles, loading, error }
 }

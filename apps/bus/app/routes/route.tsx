@@ -3,33 +3,37 @@
  * data/bus/routes/{route}.json (server-rendered stop list), for a route data/bus/routes.json lists as current; the map (lazy) draws the line, the stops as bus diamonds
  * and the live buses; the sheet lists the buses with where they are. `?trip=` highlights one bus ("Track on map").
  */
-import { RouteTile, routeTileVariant } from '@bft/ui'
-import { occupancyText, SegmentedControl } from '@bft/ui/bus'
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { RouteTile, routeTileVariant, useGeolocation } from '@bft/ui'
+import { occupancyText, SaveButton, SegmentedControl } from '@bft/ui/bus'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { data, Link, useSearchParams } from 'react-router'
 import { ClientOnly } from '../components/ClientOnly.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute, fetchRouteIndex } from '../lib/api.ts'
 import { validateRoute, validateRouteIndex } from '../lib/contract.server.ts'
-import type { RouteFile } from '../lib/data-contract.ts'
 import { haversine } from '../lib/geo.ts'
 import { useApi } from '../lib/mode.ts'
-import { useVehicles } from '../lib/queries.ts'
+import { cachedRouteIndex } from '../lib/route-index.server.ts'
+import { directions, nearestStop, stopForRouteHref } from '../lib/route-picker.ts'
 import { pageMeta, routeMetaTags, SITE_URL } from '../lib/seo.ts'
-import { loaderEnv, settle } from '../lib/server.server.ts'
+import { fixtureFallbackOn, loaderEnv, settle } from '../lib/server.server.ts'
 import { stopCode, stopHref, tripHref } from '../lib/stops.ts'
+import { toggleSaved, useSavedStops } from '../lib/storage.ts'
 import { useNow } from '../lib/useNow.ts'
+import { useVehicles } from '../lib/vehicles.ts'
 import type { Route } from './+types/route'
 
-const RouteMap = lazy(() => import('../components/RouteMap.tsx'))
+// If this small chunk can't load, the page goes on without its map (SafeMap inside covers MapLibre itself).
+const NoMap = (() => null) as never // renders nothing, whatever the props
+const RouteMap = lazy(() => import('../components/RouteMap.tsx').catch(() => ({ default: NoMap })))
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   const short = params.route
   if (!/^[\w-]{1,12}$/.test(short)) throw data(null, { status: 404 })
-  const { fetcher, env } = loaderEnv(request, context)
+  const { fetcher, env, fixtures } = loaderEnv(request, context)
   let unknown = false
   // Route files are never deleted, so the index says which are current. Without it (unreadable right now), the file
-  // alone decides: a page from the last feed beats a 503.
+  // alone decides: a page from the last feed beats a 503. The index is cached in the isolate (route-index.server.ts).
   const [route, index] = await Promise.all([
     settle(async (signal) => {
       try {
@@ -39,7 +43,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
         throw error
       }
     }),
-    settle((signal) => fetchRouteIndex(fetcher, { signal, validate: validateRouteIndex })),
+    settle((signal) =>
+      cachedRouteIndex(() => fetchRouteIndex(fetcher, { signal, validate: validateRouteIndex }), {
+        cache: !fixtures && !fixtureFallbackOn(env),
+      }),
+    ),
   ])
   if (index && !index.routes.includes(short)) unknown = true
   if (unknown || (route && route.patterns.length === 0)) throw data(null, { status: 404 })
@@ -53,20 +61,11 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   return pageMeta({ ...m, siteUrl: loaderData.siteUrl })
 }
 
-/** The main pattern per direction (the busiest), in direction order. */
-export function directions(route: RouteFile) {
-  const seen = new Set<number>()
-  return route.patterns.filter((p) => {
-    if (seen.has(p.directionId)) return false
-    seen.add(p.directionId)
-    return true
-  })
-}
-
 export default function RoutePage({ loaderData }: Route.ComponentProps) {
   const { route } = loaderData
   const [params] = useSearchParams()
   const trip = params.get('trip')
+  const pick = params.get('pick') === '1'
   const dirs = directions(route)
   const [dir, setDir] = useState(String(dirs[0]?.directionId ?? 0))
   const pattern = dirs.find((p) => String(p.directionId) === dir) ?? dirs[0]
@@ -92,6 +91,17 @@ export default function RoutePage({ loaderData }: Route.ComponentProps) {
       })
       .filter((b) => b.metres < 1500)
   }, [vehicles, pattern])
+  // The stop picker (P2): the nearest stop only if location is already allowed (never prompts), Save per stop, and
+  // from search (?pick=1) the stop list in view.
+  const { geo } = useGeolocation()
+  const nearest = pattern && geo.state === 'ok' ? nearestStop(pattern.stops, geo) : -1
+  const saved = useSavedStops()
+  const stopsHeading = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    if (!pick) return
+    stopsHeading.current?.scrollIntoView({ block: 'start' })
+    stopsHeading.current?.focus({ preventScroll: true })
+  }, [pick])
   if (!pattern) return null
   return (
     <>
@@ -184,27 +194,49 @@ export default function RoutePage({ loaderData }: Route.ComponentProps) {
           aria-labelledby="stops"
           className="rounded-card bg-white/90 px-3.5 py-3 shadow-card dark:bg-night-card"
         >
-          <h2 id="stops" className="mb-1 text-[15px] font-bold text-aqua-text dark:text-ferry-aqua-light">
-            Stops towards {pattern.headsign}
+          <h2
+            id="stops"
+            ref={stopsHeading}
+            tabIndex={-1}
+            className="mb-1 scroll-mt-20 text-[15px] font-bold text-aqua-text outline-none dark:text-ferry-aqua-light"
+          >
+            {pick ? 'Choose your stop towards' : 'Stops towards'} {pattern.headsign}
           </h2>
           <ol className="flex flex-col">
-            {pattern.stops.map((s, i) => (
-              <li
-                // biome-ignore lint/suspicious/noArrayIndexKey: loop routes visit a stop twice; position is the identity.
-                key={`${s.key}:${i}`}
-                className="border-b border-charcoal/5 last:border-0"
-              >
-                <Link
-                  to={stopHref(s.key)}
-                  className="flex min-h-11 items-center justify-between gap-2 py-1.5"
+            {pattern.stops.map((s, i) => {
+              const isSaved = saved.some((x) => x.id === s.key)
+              const code = s.code ?? stopCode(s.key)
+              return (
+                <li
+                  // biome-ignore lint/suspicious/noArrayIndexKey: loop routes visit a stop twice; position is the identity.
+                  key={`${s.key}:${i}`}
+                  className={`flex items-center gap-2 border-b border-charcoal/5 last:border-0 ${i === nearest ? '-mx-2 rounded-card bg-ferry-light-blue px-2 dark:bg-night-2' : ''}`}
+                  data-nearest={i === nearest || undefined}
                 >
-                  <span className="text-[15px] font-semibold">{s.name}</span>
-                  <span className="text-xs whitespace-nowrap text-sched-text">
-                    {s.code ? `Stop ${s.code}` : stopCode(s.key) ? `Stop ${stopCode(s.key)}` : ''}
-                  </span>
-                </Link>
-              </li>
-            ))}
+                  <Link
+                    to={stopForRouteHref(s.key, route.short)}
+                    className="flex min-h-11 flex-1 items-center justify-between gap-2 py-1.5"
+                  >
+                    <span className="flex flex-col">
+                      <span className="text-[15px] font-semibold">{s.name}</span>
+                      {i === nearest ? (
+                        <span className="text-xs font-bold text-ferry-orange-aa dark:text-ferry-sunset">
+                          Nearest to you
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="text-xs whitespace-nowrap text-sched-text">
+                      {code ? `Stop ${code}` : ''}
+                    </span>
+                  </Link>
+                  <SaveButton
+                    saved={isSaved}
+                    name={s.name}
+                    onToggle={() => toggleSaved({ id: s.key, name: s.name })}
+                  />
+                </li>
+              )
+            })}
           </ol>
         </section>
       </main>

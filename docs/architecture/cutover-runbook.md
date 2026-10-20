@@ -21,6 +21,11 @@ A mismatch, `dev`, or a `-dirty` suffix on a production host means the wrong cod
 
 **Before step 1 and before every deploy:** in the deploy checkout, `git status --porcelain` must print nothing. Any stray file, even an untracked editor temp file or an unignored local `.env`, makes every marker `-dirty` and so fails the check above. Remove or commit it first; never deploy from a dirty tree.
 
+**Local client data can't ship: the deploy scripts refuse it.** `react-router build` copies all of `public/` into the bundle, and the bus Worker (route pages, sitemap, `/data/bus/*`) reads that copy ahead of the live R2 data, so a `pnpm data` output left in the deploy checkout would be served frozen until the next deploy. `git status --porcelain` hides git-ignored files, so the marker can't show it. Instead `scripts/build-sha.mjs`, which every `deploy:*` script runs first, exits non-zero before anything is built or uploaded when any `apps/*/public/data` holds an untracked or ignored file, a tracked file (train's `stops.json`/`lines.json`) that is modified, staged or flagged assume-unchanged/skip-worktree, or a symlink at `apps/<app>/public`, `public/data` or below it (the build follows links to files git can't see). It names the files on stderr; fix with `rm -rf apps/<app>/public/data` (or `git restore` for train's tracked files) and run the deploy again. No manual check is needed. `services/data` (the assets-only data Worker) ships pipeline output by design and is not guarded. After each bus deploy, confirm the live data path still answers `/data/bus/*`: a bundled file is answered by static assets without the Worker, so it lacks the marker.
+```sh
+curl -sI https://<bus host>/data/bus/routes.json | grep -i x-bft-build   # must print the release sha
+```
+
 ## 0. Preconditions (staging, end to end)
 - [ ] The deploy checkout is clean: `git status --porcelain` prints nothing (see the build marker above).
 - [ ] All transit PRs merged to develop: #44, #45, #48, #49, #47, #51, #46, #50, and this one.
@@ -79,6 +84,61 @@ A mismatch, `dev`, or a `-dirty` suffix on a production host means the wrong cod
   - TransLink requests ≤ 13k/day across both hubs (staging + prod = about 26k/day; drop staging to `RT_MODES=ferry,train` if needed)
 - **Rollback:** `wrangler rollback --env production`, or detach the custom domain (Brett's OK: that's a delete). Nothing user-facing depends on it yet.
 
+### 2a. RT R2 layout: `RT_R2_LAYOUT` (from #99)
+The hub publishes realtime to R2 in one of two layouts: `documents` (one object per mode, the default) or `combined` (one `rt/modes/combined.dat` object with a byte-offset index, read with ranged GETs). With `combined`, a poll in which any mode's content changed costs one mode-object PUT instead of one per changed mode, and an unchanged poll skips it. Alerts writes and the pointer heartbeat stay separate PUTs in both layouts. The pointer `rt/latest.json` says which layout is current: `files[mode]` entries for `documents`, a `combined: {key, seq}` entry for `combined` (alerts stay in `files`). Readers from #99 on read **both**. **Readers from releases before #99 read only `documents`**, so the order below matters.
+- **Rollout (staging first, then production, each only after the release containing #99 is deployed and verified there):**
+  1. Deploy with `RT_R2_LAYOUT` unset. The hub keeps publishing `documents`, exactly as before.
+  2. Switch: `cd services/edge && BUILD_SHA=$(node ../../scripts/build-sha.mjs) && npx wrangler deploy --env <staging|production> --var BUILD_SHA:$BUILD_SHA --var RT_R2_LAYOUT:combined`. The watchdog restarts the hub on the new version within about a minute.
+  3. **Check:**
+     - `/v1/health` ok with `build` unchanged (`ok` itself needs source and build age under 120 s; aim for `rt.ageS` under 60 s).
+     - Departures `live` for ferry, train, tram and bus.
+     - **The pointer names the combined object:** read the pointer (command under "Rollback order"). It must have a `combined: {key, seq}` entry. The pointer itself is rewritten only on a heartbeat (≈ 45 s in production, ≈ 60 s on staging) or when alerts move, and `combined.seq` advances only when some mode's content changed, so read it over ~3 minutes. The pointer's status should move each heartbeat; `combined.seq` may legitimately stay put on a quiet mode set.
+     - **Readers really consume it, per mode (the step that proves it):** an advancing pointer proves publishing, not reading. A reader whose mode section is missing returns normally and can keep its previous snapshot with fresh status, so `live` and health can look fine. For each of ferry, train, tram and bus, read `GET /v1/<mode>/vehicles` twice ~2 minutes apart, during service. **Pass** when the vehicles' `ts` values advance or positions change. **No change is inconclusive** (stationary vehicles or an unchanged upstream feed look the same, and a section's `seq` also moves for trips, alerts and static metadata), so compare against what was published. The combined object starts with a 1 KiB JSON index whose `sections[<mode>]` is `[offset, length, seq]`. Extract the mode's section and its newest vehicle `ts`:
+       ```sh
+       npx wrangler r2 object get bft-transit-data/rt/modes/combined.dat --remote --pipe > /tmp/combined.dat   # staging: bft-transit-data/rt-staging/modes/combined.dat
+       python3 -c 'import json,sys,gzip;b=open("/tmp/combined.dat","rb").read();o,l,s=json.loads(b[:1024])["sections"][sys.argv[1]];raw=b[o:o+l];print("first bytes",raw[:2].hex());raw=gzip.decompress(raw) if raw[:2]==b"\x1f\x8b" else raw;d=json.loads(raw);print("seq",s,"max vehicle ts",max((v.get("ts") or 0 for v in d["vehicles"]),default=None))' <mode>
+       ```
+       `None` (no vehicles in the section) is inconclusive: retry during visible activity. **Fail** only if the published section's newest vehicle `ts` is more than ~60 s newer than the newest `ts` in `GET /v1/<mode>/vehicles`, still so on a read ~1 minute later (after the API's refresh and cache): then readers aren't consuming it, so switch back to `documents`. Otherwise it's still inconclusive: retry later during visible activity.
+     - `npx wrangler tail --env <staging|production>` shows hub cycles completing with no errors.
+     - The R2 `PutObject` rate drops: R2 → `bft-transit-data` → Metrics, or GraphQL `r2OperationsAdaptiveGroups` by `actionType`. Both environments share the bucket, so the counts include both hubs; compare 5-minute buckets before and after.
+  - **A `--var` value lasts only for that deploy:** the `deploy:*` scripts don't pass `RT_R2_LAYOUT`, so the next normal deploy returns the hub to `documents`. That is safe (readers read both). To keep `combined` across deploys, set it in that env's `vars` in `services/edge/wrangler.jsonc` with a reviewed PR.
+- **Rollback order:**
+  - **Before any `wrangler rollback` or deploy of a version older than #99**, return the hub to `documents` first: redeploy the current version without `RT_R2_LAYOUT` (or with `--var RT_R2_LAYOUT:documents`).
+  - Wait for the hub to restart on that version (the minute watchdog) and publish (≈ 1–2 min). Don't go on elapsed time alone; confirm the next step.
+  - Confirm the pointer has per-mode `files` entries (`rt/<mode>/latest.json`) and no `combined` entry (read it over ~3 minutes: it's rewritten on a ≈ 45–60 s heartbeat), and that each mode's `/v1/<mode>/vehicles` `ts` values advance across two reads ~2 minutes apart (no change is inconclusive: check that mode's `rt/<mode>/latest.json` header `seq` advanced, then retry). Read-only: `npx wrangler r2 object get bft-transit-data/rt/latest.json --remote --pipe` (staging: `bft-transit-data/rt-staging/latest.json`; the keys inside keep their logical `rt/…` names).
+  - Only then roll back. A pre-#99 reader facing a `combined` pointer can't load new mode snapshots: a cold isolate has no realtime, and **a warm one can keep serving its last snapshot labelled `live`**. That's why the pointer must be back on `documents` first.
+- **Report entry:** the layout switch (env, time, version id), the PUT rate before and after, and any rollback.
+
+### 2b. RT document compression: `RT_R2_COMPRESS` (from #104)
+With `RT_R2_COMPRESS=gzip` the hub stores each per-mode and alerts document as gzip (`contentEncoding: gzip`, its seq in `customMetadata`), and in the `combined` layout each mode section as its own gzip stream (the 1 KiB index stays plain, so ranged reads still work). The pointer `rt/latest.json` is always plain.
+- **Who can read what:**
+  - Readers from #104 on read plain, gzip and mixed objects in both layouts (gzip is detected by its first two bytes, `1f 8b`).
+  - **Before #104:** API readers already decode gzip *per-mode and alerts documents*, but **not gzip `combined` sections**. There, a cold isolate has no realtime, and a warm one keeps its last snapshot until it's marked stale. **The pre-#104 hub restore decodes neither compressed layout.** So the hub must publish plain before any rollback past #104 in either layout.
+- **Sizes and cost** (PR #104, measured in Node 22 on a Saturday snapshot): about 7.8× smaller; a cold bus read fetches 334 KB instead of 2,607 KB.
+  - Reader cost: +6–7 ms to gunzip, on top of the ~6 ms JSON parse it already did.
+  - Hub cost: about +50 ms per poll at weekday peak. That's **extrapolated** extra compression CPU, not a measured total.
+- **Independent of `RT_R2_LAYOUT`:** either, both or neither can be on. Switch one at a time, and verify between.
+- **Rollout (staging first, then production, each only after the release containing #104 is deployed and verified there):**
+  1. Deploy with `RT_R2_COMPRESS` unset (plain documents, as before).
+  2. Switch: the same command as 2a with `--var RT_R2_COMPRESS:gzip`. Wrangler applies the env's configured `vars` plus *this deploy's* `--var` overrides only; a value set with `--var` on an earlier deploy isn't kept. Neither flag is in `wrangler.jsonc`, so repeat `--var RT_R2_LAYOUT:combined` if that layout is on. The watchdog restarts the hub on the new version within about a minute. A restarted hub has nothing published yet, so its first publish rewrites every active document in the new encoding.
+  3. **Check:**
+     - as in 2a: health, departures `live` per mode, `/v1/<mode>/vehicles` `ts` advancing per mode, hub cycles completing in `npx wrangler tail --env <env>`, with CPU well under the limit;
+     - **the active objects are gzip:** follow the pointer (2a's read-only `wrangler r2 object get` of `rt/latest.json`).
+       - `documents` layout: for each mode, `npx wrangler r2 object get bft-transit-data/rt/<mode>/latest.json --remote --pipe | head -c 2 | xxd` prints `1f8b` (staging prefix `rt-staging/`).
+       - `combined` layout: run 2a's section extraction (it gunzips a gzip section first), and its first bytes, also printed, are `1f8b`.
+       - The pointer-named alerts document can be checked the same way.
+  - **A `--var` lasts one deploy**, as in 2a: the next normal deploy returns the hub to plain documents, which is safe from #104 on. To keep it, set it in `wrangler.jsonc` `vars` with a reviewed PR.
+- **Rollback order:**
+  - **Before any `wrangler rollback` or deploy of a version older than #104**, redeploy the current version without `RT_R2_COMPRESS`. Repeat `--var RT_R2_LAYOUT:combined` only if you keep that layout and aren't also going back past #99; otherwise leave it off and also do 2a's rollback steps, including its `documents`-pointer check.
+  - Wait for the hub to restart on that version and complete a publish. Its first publish rewrites every active document plain.
+  - **Confirm the active objects are plain:** follow the current pointer.
+    - `documents`: every mode's `rt/<mode>/latest.json` starts with `7b` (`{`).
+    - `combined`: every active section starts with `7b`; per-mode objects are abandoned in that layout, so don't check them.
+    - The pointer-named alerts document starts with `7b` too.
+    - Each mode's vehicles `ts` advance.
+  - Only then roll back.
+- **Report entry:** the switch (env, time, version id), bytes and hub CPU before and after, the bus cold-read result, and any rollback.
+
 ## 3. Phase 2: the legacy ferry app reads `/v1` (flagged, 10% → 50% → 100%)
 - The legacy app's CSP (`vercel.json` and the iOS `index.html` meta) already allows `https://api.brisbaneferry.com` in `connect-src`. **Check** in a real browser that `/v1` requests succeed with no CSP violations in the console before raising the percentage.
 - Vercel production env: `VITE_TRANSIT_API_BASE=https://api.brisbaneferry.com`, then `VITE_FERRY_V1_PERCENT=10`, and redeploy.
@@ -123,6 +183,7 @@ A mismatch, `dev`, or a `-dirty` suffix on a production host means the wrong cod
 - **Rollback:** `AI_ENABLED=false` and redeploy.
 
 ## 7. Afterwards
+- Realtime freshness alerts on `bft-api-prod` (Brett, dashboard): `rt stale` (page) and `rt source stale` (notify), with the thresholds in `services/edge/README.md` ("Realtime freshness: log lines to alert on").
 - Phase 1 freshness target (p95 ≤ 40 s): enable the shared per-PoP snapshot refresh (Cache API works on the custom domain), re-measure under real traffic, consider a 10 s hub cadence.
 - Stop the daily `latest.json` commit job only after old iOS adoption allows it (open question 3: "indefinitely" for now). Publishing `latest.json` from the Actions Pages artifact is Phase 2's last step and needs Brett's OK (it changes GitHub Pages).
 - Train, bus and transit production (brisbanetrain.com, brisbanebus.com, brisbanetransit.com): see section 8. They go straight to their real domains, with no `next.` host, and don't depend on steps 3–6. The ferry Worker's security headers and nonce CSP are already in all three apps.

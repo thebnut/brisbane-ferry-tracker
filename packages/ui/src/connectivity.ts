@@ -7,6 +7,7 @@
  * The next call that reaches the network clears it, and so does the browser's own "online" event.
  */
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { NULL_BODY_STATUS } from './upstream.ts'
 
 /** Header the service worker adds to /v1 responses it serves from its cache instead of the network. */
 export const SW_CACHE_HEADER = 'x-bft-cache'
@@ -20,14 +21,16 @@ export const LIVE_REQUEST_TIMEOUT_MS = 8_000
 /** Live data whose TransLink source is older than this is shown as timetable times. */
 export const LIVE_SOURCE_MAX_AGE_S = 300
 /**
- * Live data generated longer ago than this is shown as timetable. Judged on the response's own `generatedAt`, never
- * on when it was fetched: a copy from the service worker's cache (or a page reloaded from it) is fetched "now" but
- * generated minutes ago. Polling is every 15 s, so this is four missed refreshes.
+ * Live data older than this is shown as timetable: four missed 15 s refreshes. Measured from when the answer reached
+ * the device (Received), or from its `generatedAt` when it has no arrival time. A copy from the service worker's
+ * cache, or a page reloaded from it, is flagged as such (noteCacheCopy, unconfirmedBefore) and never stamped.
  */
 export const LIVE_REFRESH_MAX_AGE_MS = 60_000
 
 let unreachable = false
-const listeners = new Set<() => void>()
+/** Browser online, offline and visibilitychange events so far. */
+let events = 0
+const listeners = new Set<(e?: Event) => void>()
 /** Disconnects so far (a failed API call or the browser going offline), however quickly the connection came back. */
 let disconnects = 0
 
@@ -151,30 +154,27 @@ export function isOnline(): boolean {
   return navigator.onLine !== false && !unreachable
 }
 
-/** The browser says it is back online: trust it until a request fails again (the next poll checks at once). */
-const onBrowserOnline = () => setUnreachable(false)
-const onBrowserOffline = () => {
-  disconnects++
+/**
+ * The browser's online, offline and visibilitychange events, heard from the moment this module loads (in a browser).
+ * Online, the browser is trusted until a request fails again (the next poll checks at once). Then every subscriber
+ * hears of the event, after the state it reads is up to date.
+ */
+const onBrowserEvent = (e: Event) => {
+  if (e.type === 'online') unreachable = false
+  else if (e.type === 'offline') disconnects++
+  // Any of them starts the boards' HTTP-error backoff over (pollEvery).
+  events++
+  for (const l of listeners) l(e)
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', onBrowserEvent)
+  window.addEventListener('offline', onBrowserEvent)
+  document.addEventListener('visibilitychange', onBrowserEvent)
 }
 
-function subscribe(onChange: () => void) {
-  // Registered before any listener's own, so the count is up to date when they run.
-  if (listeners.size === 0) {
-    window.addEventListener('online', onBrowserOnline)
-    window.addEventListener('offline', onBrowserOffline)
-  }
+function subscribe(onChange: (e?: Event) => void) {
   listeners.add(onChange)
-  window.addEventListener('online', onChange)
-  window.addEventListener('offline', onChange)
-  return () => {
-    listeners.delete(onChange)
-    if (listeners.size === 0) {
-      window.removeEventListener('online', onBrowserOnline)
-      window.removeEventListener('offline', onBrowserOffline)
-    }
-    window.removeEventListener('online', onChange)
-    window.removeEventListener('offline', onChange)
-  }
+  return () => void listeners.delete(onChange)
 }
 
 /**
@@ -204,29 +204,19 @@ export function onReconnect(onBack: () => void): () => void {
     last = Date.now()
     onBack()
   }
-  const check = () => {
+  // Store changes and the browser's events (`e`): online, refetch even if nothing had failed; shown again, refetch if
+  // the connection was or is down.
+  const check = (e?: Event) => {
     const now = isOnline()
-    if (now && !wasOnline) refetch()
+    if (
+      e?.type === 'visibilitychange'
+        ? !document.hidden && !(wasOnline && now)
+        : now && (!wasOnline || e?.type === 'online')
+    )
+      refetch()
     wasOnline = now
   }
-  const onOnline = () => {
-    wasOnline = isOnline()
-    refetch()
-  }
-  const onVisible = () => {
-    if (document.visibilityState !== 'visible') return
-    if (!wasOnline || !isOnline()) refetch()
-    wasOnline = isOnline()
-  }
-  const unsubscribe = subscribe(check)
-  // After subscribe(): its own online listener clears `unreachable` first, so the refetch's calls count as online.
-  window.addEventListener('online', onOnline)
-  document.addEventListener('visibilitychange', onVisible)
-  return () => {
-    unsubscribe()
-    window.removeEventListener('online', onOnline)
-    document.removeEventListener('visibilitychange', onVisible)
-  }
+  return subscribe(check)
 }
 
 /**
@@ -265,44 +255,96 @@ export interface RefetchableClient {
     filters: { type: 'active'; predicate(query: PolledQuery): boolean },
     options: { cancelRefetch: boolean },
   ): Promise<unknown>
+  getQueryCache(): { getAll(): PolledQuery[] }
 }
-/** The part of a TanStack Query this reads: its observers' options (where `refetchInterval` lives). */
+/**
+ * The part of a TanStack Query this reads: its observers' options (where `refetchInterval` lives), which setOptions
+ * applies again (the observer then reads its refetchInterval afresh).
+ */
 interface PolledQuery {
-  observers: ReadonlyArray<{ options: object }>
+  observers: ReadonlyArray<{ options: object; setOptions(options: object): void }>
 }
 const isPolled = (q: PolledQuery) =>
   q.observers.some((o) => (o.options as { refetchInterval?: unknown }).refetchInterval != null)
 
-/** While API calls fail but the browser says it is online, the live boards retry this often (R7). */
+/** While API calls fail but the browser says it is online, the live boards first retry after this long (R7). */
 export const RECONNECT_PROBE_MS = 2_500
+/** ...and then back off, doubling the wait up to this (offline backoff). */
+export const BACKOFF_MAX_MS = LIVE_REFRESH_MAX_AGE_MS
 
 /**
- * Calls `probe` every `intervalMs` while API calls are failing (or answered from the service worker's cache) and the
- * browser still says it is online. That connection can come back without any event: DevTools' "Service Workers →
- * Offline" unticked, a flaky link, a captive network let through. Until the next 15 s poll reached the network,
- * nothing noticed, so a saved stop took 15–25 s to show LIVE again (R7). Once a probe gets through, onReconnect
- * refetches every board. With navigator.onLine false the browser's `online` event does the job instead.
+ * Calls `probe` while API calls are failing (or answered from the service worker's cache) and the browser still says
+ * it is online, backing off: at a fixed 2.5 s, lie-fi made ~40 /v1 calls a minute (smoke round 9). That
+ * connection can come back without any event: DevTools' "Service Workers → Offline" unticked, a flaky link, a captive
+ * network let through. Until the next 15 s poll reached the network, nothing noticed, so a saved stop took 15–25 s to
+ * show LIVE again (R7). Once a probe gets through, onReconnect refetches every board. With navigator.onLine false the
+ * browser's `online` event does the job instead. A hidden tab doesn't poll, so it doesn't probe either (Codex review;
+ * onReconnect refetches when it is shown). The waits start over with each outage and whenever the page is shown.
  */
-export function probeWhileUnreachable(probe: () => void, intervalMs = RECONNECT_PROBE_MS): () => void {
-  let id: ReturnType<typeof setInterval> | undefined
-  // A hidden tab doesn't poll, so it doesn't probe either (Codex review); onReconnect refetches when it is shown.
-  const tick = () => {
-    if (document.visibilityState !== 'hidden') probe()
-  }
+export function probeWhileUnreachable(probe: () => void, firstMs = RECONNECT_PROBE_MS): () => void {
+  let id: ReturnType<typeof setTimeout> | undefined
+  let n = 0
   const update = () => {
-    const probing = unreachable && navigator.onLine !== false
-    if (probing && id === undefined) id = setInterval(tick, intervalMs)
-    else if (!probing && id !== undefined) {
-      clearInterval(id)
+    if (unreachable && navigator.onLine !== false && !document.hidden)
+      id ??= setTimeout(
+        () => {
+          id = undefined
+          probe()
+          update()
+        },
+        // Doubling up to BACKOFF_MAX_MS, then up to a fifth shorter at random: devices that lost the same network
+        // don't all come back in step.
+        Math.min(BACKOFF_MAX_MS, firstMs * 2 ** n++) * (1 - Math.random() / 5),
+      )
+    else {
+      clearTimeout(id)
       id = undefined
+      n = 0
     }
   }
   const unsubscribe = subscribe(update)
   update()
   return () => {
     unsubscribe()
-    if (id !== undefined) clearInterval(id)
+    clearTimeout(id)
   }
+}
+
+/**
+ * Per query: the browser-event count and its errorUpdateCount when its HTTP-error backoff last started over (its last
+ * good answer, or the browser's last online, offline or visibilitychange event).
+ */
+const backoffFrom = new WeakMap<object, [number, number]>()
+
+/**
+ * A live query's `refetchInterval` (TanStack reads it after each fetch, and on every render): every `ms` while API
+ * calls get through, as before. After failed fetches that got an answer from the network (HTTP errors), `ms` doubling
+ * with each failure in a row, up to BACKOFF_MAX_MS, up to a fifth shorter. Counted on this device (TanStack's
+ * errorUpdateCount), never from a server time (Codex r2); started over by a good answer and by the browser's online,
+ * offline and visibilitychange events. The same for every read of one failure (the jitter comes from its time): a
+ * value that changed would restart the timer. None while the browser says it is offline: its `online` event refetches
+ * every board (onReconnect). While calls fail with the browser online (lie-fi), probeWhileUnreachable refetches every
+ * board on its backoff, so the board's own timer only backs that up, at the longest wait.
+ */
+export const pollEvery = (ms: number) => (query: QueryState) => {
+  const { status, errorUpdateCount, errorUpdatedAt } = query.state
+  let from = backoffFrom.get(query)
+  // A query with no data yet goes back to 'pending' while it asks again: only a good answer starts over.
+  if (status === 'success' || from?.[0] !== events) {
+    from = [events, errorUpdateCount]
+    backoffFrom.set(query, from)
+  }
+  const failures = errorUpdateCount - from[1]
+  return isOnline()
+    ? failures
+      ? Math.min(BACKOFF_MAX_MS, ms * 2 ** (failures - 1)) * (1 - (errorUpdatedAt % 1000) / 5000)
+      : ms
+    : navigator.onLine !== false && BACKOFF_MAX_MS
+}
+
+/** The part of a TanStack Query that pollEvery reads. */
+interface QueryState {
+  state: { status: string; errorUpdateCount: number; errorUpdatedAt: number }
 }
 
 /**
@@ -322,9 +364,15 @@ export function useRefetchOnReconnect(client: RefetchableClient): void {
     }
     const offReconnect = onReconnect(refetch)
     const offProbe = probeWhileUnreachable(refetch)
+    // Offline, a poll timed before then would still fire: the boards read their refetchInterval (pollEvery) again.
+    const offOffline = subscribe((e) => {
+      if (e?.type === 'offline')
+        for (const q of client.getQueryCache().getAll()) for (const o of q.observers) o.setOptions(o.options)
+    })
     return () => {
       offReconnect()
       offProbe()
+      offOffline()
     }
   }, [client])
 }
@@ -381,9 +429,6 @@ export async function trackedFetch(input: string, init?: RequestInit): Promise<R
   }
 }
 
-/** Statuses whose Response can't carry a body. */
-const NULL_BODY_STATUS = new Set([101, 103, 204, 205, 304])
-
 /** Bodies parsed from a response the service worker served from its cache (see noteCacheCopy). */
 const cacheCopies = new WeakSet<object>()
 
@@ -395,8 +440,23 @@ const cacheCopies = new WeakSet<object>()
  * live data: "Live times delayed", its old "Updated" time, and its departed rows gone (R6-B1).
  */
 export function noteCacheCopy<T>(res: Response, body: T): T {
-  if (res.headers.get(SW_CACHE_HEADER) && typeof body === 'object' && body !== null) cacheCopies.add(body)
+  if (typeof body === 'object' && body !== null) {
+    if (res.headers.get(SW_CACHE_HEADER)) cacheCopies.add(body)
+    // A network answer in the browser is stamped with the device time it arrived (see Received). Never on the server:
+    // a server-rendered board has no device arrival time.
+    else if (typeof window !== 'undefined') (body as Received).receivedAt = Date.now()
+  }
   return body
+}
+
+/**
+ * When a network answer reached this device, by the device clock (noteCacheCopy). liveState measures a board's age
+ * from it, so a device clock that is minutes off never makes live data read as "delayed" (R13-B1): server times are
+ * only compared with server times, device times with device times. An enumerable field, so it survives TanStack's
+ * structural sharing and a board's offline copy.
+ */
+export interface Received {
+  receivedAt?: number
 }
 
 /**
@@ -477,7 +537,9 @@ export type LiveState = 'offline' | 'stale' | 'reloading' | 'unavailable' | null
  * generated over a minute ago (both judged on the data's own timestamps).
  */
 export function liveState(
-  res: ({ rtState: string; rtSourceTimestamp: number | null; generatedAt: number } & OfflineCopy) | undefined,
+  res:
+    | ({ rtState: string; rtSourceTimestamp: number | null; generatedAt: number } & OfflineCopy & Received)
+    | undefined,
   {
     offline,
     nowMs,
@@ -503,8 +565,16 @@ export function liveState(
       ? res.rtState
       : 'unavailable'
   }
-  const sourceAge = res.rtSourceTimestamp == null ? Infinity : nowMs / 1000 - res.rtSourceTimestamp
-  if (sourceAge > LIVE_SOURCE_MAX_AGE_S || nowMs - res.generatedAt > LIVE_REFRESH_MAX_AGE_MS) return 'stale'
+  // Skew-free (R13-B1): the source's age when the server answered (server clock), plus the time since the answer
+  // arrived (device clock). A board without an arrival time (data in the page's HTML or a route loader's) falls back
+  // to the device clock against its generatedAt, the rule before. That copy lasts only until the board's first
+  // successful poll (every 15 s from mount; longer while requests fail or the tab is hidden), which is stamped. Moving
+  // it onto the device clock by the page's render time was tried and dropped (Codex r2): during hydration the clock is
+  // the server's, and cached HTML gives no usable offset.
+  const elapsed = nowMs - (res.receivedAt ?? res.generatedAt)
+  const sourceAge =
+    res.rtSourceTimestamp == null ? Infinity : res.generatedAt / 1000 - res.rtSourceTimestamp + elapsed / 1000
+  if (sourceAge > LIVE_SOURCE_MAX_AGE_S || elapsed > LIVE_REFRESH_MAX_AGE_MS) return 'stale'
   return null
 }
 

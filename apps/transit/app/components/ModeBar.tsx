@@ -2,7 +2,7 @@
 import { Icon, MODE_TABS, ModeTabs, type NavItem } from '@bft/ui'
 import { Link, useLocation } from 'react-router'
 
-/** Tab order on phones (X-* boards): Ferry | Train | Bus | Nearby | Saved. Saved is the home page. */
+/** Tab order on phones: My Transit | Nearby | Ferry | Train | Bus (Brett, 20 Oct). My Transit is the home page. */
 export const TABS: NavItem[] = MODE_TABS.map((t) => (t.key === 'saved' ? { ...t, href: '/' } : t))
 
 export function activeTab(pathname: string): string {
@@ -11,7 +11,7 @@ export function activeTab(pathname: string): string {
   return pathname === '/' ? 'saved' : ''
 }
 
-/** The Mode Tabs shell: bottom bar on phones, a pill row above the page on desktop (X-Desktop, Saved first). */
+/** The Mode Tabs shell: bottom bar on phones, a pill row above the page on desktop, in the same order. */
 export function ModeBar() {
   const { pathname } = useLocation()
   const active = activeTab(pathname)
@@ -39,12 +39,13 @@ export function ModeBar() {
   )
 }
 
-const DESKTOP_ORDER = ['saved', 'ferry', 'train', 'bus', 'nearby']
+/** Desktop pills: the same order as the phone tabs (Brett, 20 Oct), so the two can't drift; Alerts sits on the right. */
+export const DESKTOP_TABS: NavItem[] = TABS
 
 export function DesktopModeBar() {
   const { pathname } = useLocation()
   const active = activeTab(pathname)
-  const items = DESKTOP_ORDER.map((k) => TABS.find((t) => t.key === k) as NavItem)
+  const items = DESKTOP_TABS
   return (
     <nav
       aria-label="Modes"

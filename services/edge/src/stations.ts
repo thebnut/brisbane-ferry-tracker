@@ -21,8 +21,16 @@ export interface Stations {
 
 const cache = new Map<string, Flight<Stations | null>>()
 
-/** A read still pending at the store's load deadline is replaced, and its waiters fail instead of hanging. */
-export function stationsFor(store: StaticStore, mode: Mode, generation: string): Promise<Stations | null> {
+/**
+ * A read still pending at the store's load deadline is replaced, and its waiters fail instead of hanging. `signal`
+ * (a request's budget) ends only this wait, leaving the read to others.
+ */
+export function stationsFor(
+  store: StaticStore,
+  mode: Mode,
+  generation: string,
+  signal?: AbortSignal,
+): Promise<Stations | null> {
   const now = store.now
   const deadlineMs = store.loadDeadlineMs
   const k = `${mode}/${generation}`
@@ -42,7 +50,7 @@ export function stationsFor(store: StaticStore, mode: Mode, generation: string):
     f = load
   }
   const shared = f
-  return awaitFlight(shared, now(), deadlineMs, `data/${mode}/stops.json`).catch((e: unknown) => {
+  return awaitFlight(shared, now(), deadlineMs, `data/${mode}/stops.json`, signal).catch((e: unknown) => {
     if (e instanceof DeadlineError && cache.get(k) === shared) cache.delete(k)
     throw e
   })

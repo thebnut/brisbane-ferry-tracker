@@ -340,6 +340,10 @@ export async function handleFixtureApi(url: URL, nowMs: number, env: Env | null 
       nowS,
       limit: Math.min(Number(url.searchParams.get('limit')) || 20, 100),
       rtState,
+      // `route` filters before the limit, as the API does.
+      ...(url.searchParams.get('route')
+        ? { routes: new Set(url.searchParams.get('route')?.split(',')) }
+        : {}),
     })
     const boarding = base.stops[base.events[0]?.[6] ?? -1]
     return json(

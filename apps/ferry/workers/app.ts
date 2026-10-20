@@ -4,11 +4,13 @@
  *  - /__fixtures/v1/* recorded /v1 responses for fixture mode (only when ALLOW_FIXTURES or FIXTURES is "1")
  *  - /api/gtfs-proxy, /api/feedback  legacy endpoints for old iOS builds and the legacy app (workers/legacy.ts)
  *  - /sitemap.xml     generated, same URLs as the legacy postbuild sitemap
+ *  - REDIRECT_TO_TRANSIT "1": page navigations 302/301 to the same page on TRANSIT_SITE_URL (@bft/ui/redirect)
  *  - everything else  React Router SSR
  */
 
 import { withBuild } from '@bft/core/build'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
+import { transitRedirect } from '@bft/ui/redirect'
 import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
@@ -71,6 +73,10 @@ async function guarded(handle: () => Promise<Response>): Promise<Response> {
 }
 
 async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
+  // P6: page navigations move to BrisbaneTransit when REDIRECT_TO_TRANSIT is "1" (APIs, data and static files never);
+  // a browser's first visit gets the favourites handoff page instead (P6b).
+  const moved = env.REDIRECT_TO_TRANSIT === '1' ? transitRedirect(request, 'ferry', env, nonce) : null
+  if (moved) return moved
   const url = new URL(request.url)
   const legacy = await handleLegacy(request, env)
   if (legacy) return legacy

@@ -5,7 +5,7 @@
   "name": "bft-api-dev",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-15",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "enable_request_signal"],
   "account_id": "dde2914802079766f7671528e7cbae75",
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   "workers_dev": true,
@@ -70,6 +70,13 @@
         // Staging's realtime objects live under rt-staging/ so they never collide with production's rt/.
         "RT_R2_PREFIX": "rt-staging/",
         "RT_UPSTREAM": "https://gtfsrt.api.translink.com.au/api/realtime/SEQ",
+        // Staging polls every 30 s (production 15 s) to halve its share of the bucket's R2 PUTs (20 Oct). Not slower:
+        // the cron watchdog re-arms a hub whose last poll is over 45 s old.
+        "RT_CYCLE_MS": "30000",
+        // R2 layout of the realtime mode documents: unset = per-mode objects. Set "combined" (one object, ranged reads)
+        // only once this release's readers are deployed, and unset it again before rolling back (HubDeps.layout).
+        // RT_R2_COMPRESS likewise: unset = plain JSON documents. Set "gzip" only once this release's readers are deployed,
+        // and unset it again before rolling back (HubDeps.compress).
         "CORS_ALLOW_ALL": "false",
         // Kill switch, read per request. ON in staging since 18 Oct (Brett approved; ANTHROPIC_API_KEY, TURNSTILE_SECRET and
         // IP_HASH_SALT are Worker secrets). To turn AI off instantly: set "false" and redeploy, or

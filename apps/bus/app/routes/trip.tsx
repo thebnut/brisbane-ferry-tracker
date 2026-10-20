@@ -24,15 +24,15 @@ import { BigCountdown, OccupancyMeter, SaveButton, SkeletonRows, TripTimeline } 
 import { useUnconfirmedBefore } from '@bft/ui/connectivity'
 import { data, Link, useNavigate } from 'react-router'
 import { BusNav, DataBanner, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
-import { ApiError, fetchRoute, fetchTrip } from '../lib/api.ts'
+import { ApiError, fetchRoute } from '../lib/api.ts'
 import { validateRoute, validateTrip } from '../lib/contract.server.ts'
 import { useApi } from '../lib/mode.ts'
-import { useTrip } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
 import { routeHref, stopHref } from '../lib/stops.ts'
 import { toggleSaved, useSavedStops } from '../lib/storage.ts'
 import { at, needsStopNames, schedAt, stopNamesFor, timeline } from '../lib/trip.ts'
+import { fetchTrip, useTrip } from '../lib/trip-queries.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/trip'
 
@@ -78,8 +78,9 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   return pageMeta({
     title,
     description: 'Live position and stops for this bus.',
-    url: `${SITE_URL}/`,
+    url: `${loaderData?.siteUrl ?? SITE_URL}/`,
     noindex: true,
+    siteUrl: loaderData?.siteUrl,
   })
 }
 

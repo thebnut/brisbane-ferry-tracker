@@ -39,14 +39,38 @@ export function alertsDocument(snap: RtSnapshot): RtSnapshot {
   return { header: snap.header, trips: {}, vehicles: [], alerts: snap.alerts }
 }
 
-/** Merge per-mode documents (and the alerts document) back into one snapshot, for hub restore. */
+/**
+ * Merge per-mode documents (and the alerts document) back into one snapshot, for hub restore. Documents are
+ * rewritten only when their content changes, so they can be of different ages: the newest header wins.
+ */
 export function mergeDocuments(docs: RtSnapshot[], alerts: RtSnapshot | null): RtSnapshot | null {
-  const first = docs[0]
-  if (!first) return alerts
-  const merged: RtSnapshot = { header: first.header, trips: {}, vehicles: [], alerts: alerts?.alerts ?? [] }
+  const newest = docs.reduce<RtSnapshot | undefined>(
+    (a, d) => (!a || d.header.seq > a.header.seq ? d : a),
+    undefined,
+  )
+  if (!newest) return alerts
+  const merged: RtSnapshot = { header: newest.header, trips: {}, vehicles: [], alerts: alerts?.alerts ?? [] }
   for (const d of docs) {
     Object.assign(merged.trips, d.trips)
     merged.vehicles.push(...d.vehicles)
   }
   return merged
+}
+
+/** A document's JSON without its header: `{"trips":…,"vehicles":…,"alerts":…}`. */
+export function documentBody(doc: RtSnapshot): string {
+  return JSON.stringify({ trips: doc.trips, vehicles: doc.vehicles, alerts: doc.alerts })
+}
+
+/**
+ * What decides whether a document must be rewritten: its body plus the header fields that change only with the
+ * static data. seq, sourceTimestamp, fetchedAt and stats move on every poll; readers get them fresh from the pointer.
+ */
+export function documentContent(header: RtSnapshot['header'], body: string): string {
+  return `${header.schemaVersion}|${JSON.stringify(header.staticGeneration)}|${header.serviceDates.join(',')}|${body}`
+}
+
+/** The document's JSON, byte-identical to JSON.stringify(doc) (header first, as snapshotSeq expects). */
+export function documentJson(header: RtSnapshot['header'], body: string): string {
+  return `{"header":${JSON.stringify(header)},${body.slice(1)}`
 }

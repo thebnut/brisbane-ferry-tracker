@@ -101,6 +101,9 @@ async function build(args: string[]): Promise<number> {
     const summary = {
       feedVersion: res.feedVersion,
       zipSha256: feed.zipSha256,
+      serviceDates: res.serviceDates,
+      // Outside the feed's validity (e.g. D−1 of a feed starting today): not built, not quarantine-checked.
+      uncoveredDates: res.uncoveredDates,
       modes: res.modes.map((m) => ({
         mode: m.mode,
         generation: m.generation,

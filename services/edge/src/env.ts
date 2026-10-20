@@ -16,8 +16,16 @@ export interface WorkerEnv extends AiEnv {
   RT_UPSTREAM: string
   /** Alarm interval in ms (default 15000). */
   RT_CYCLE_MS?: string
+  /** `combined` (one R2 object for every mode, ranged reads) or `documents` (default). See HubDeps.layout. */
+  RT_R2_LAYOUT?: string
+  /** `gzip`: store the realtime snapshot documents compressed (default off). See HubDeps.compress. */
+  RT_R2_COMPRESS?: string
   /** How old (ms) an isolate's snapshot copy may be before a request waits for the refresh (default 60000). */
   RT_SNAPSHOT_MAX_STALE_MS?: string
+  /** Most a request waits for realtime before answering scheduled rows as stale/unavailable (ms, default 1200). */
+  RT_WAIT_MS?: string
+  /** `1`: log per-phase RtHub cycle timings on every poll (slow cycles are always logged). */
+  RT_PROFILE?: string
   CORS_ALLOW_ALL?: string
   SPIKE_ENABLED?: string
   /** version_metadata binding: lets the cron restart a resident hub that still runs an older deploy. */

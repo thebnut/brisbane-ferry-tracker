@@ -186,9 +186,29 @@ describe('stop names the parser cannot place (AI off unless stated)', () => {
     )
     const body = await ask(s, 'departures at queen street ferry')
     expect(body.source).toBe('fallback')
-    expect(body.answer).toMatch(/^That name matches more than one stop\./)
+    // The mode is named, so the reply names the places instead of asking for the mode (R11-A1).
+    expect(body.answer).toBe(
+      "'queen street' matches more than one ferry terminal. Did you mean 'Queen Street 1' or 'Queen Street 2'? Use the full name.",
+    )
     expect(fetchSpy).not.toHaveBeenCalled()
     fetchSpy.mockRestore()
+  })
+
+  it('without a mode, the ambiguity reply still asks for one', async () => {
+    const s = setup(
+      {},
+      {
+        stops: [
+          ['QS1', 'Queen Street 1'],
+          ['QS2', 'Queen Street 2'],
+        ],
+      },
+    )
+    const body = await ask(s, 'departures at queen street')
+    expect(body.source).toBe('fallback')
+    expect(body.answer).toBe(
+      "'queen street' matches more than one stop. Did you mean 'Queen Street 1' or 'Queen Street 2'? Add the mode (ferry, train or bus), the full name or the stop number.",
+    )
   })
 
   it('names the stop it could not find', async () => {
@@ -238,6 +258,17 @@ describe('quotedTerm', () => {
     expect(quotedTerm('x'.repeat(50))).toBe(`'${'x'.repeat(40)}…'`)
     expect(quotedTerm('<>')).toBeNull()
     expect(quotedTerm(undefined)).toBeNull()
+  })
+  it('removes every single-quote style and spaces out every double-quote style', () => {
+    expect(quotedTerm('‘foo')).toBe("'foo'")
+    expect(quotedTerm('‘st peter’s’')).toBe("'st peters'")
+    for (const q of ["'", '`', '´', 'ʹ', 'ʻ', 'ʼ', 'ʽ', '‘', '’', '‚', '‛', '′', '‵', '‹', '›', '＇', '｀'])
+      expect(quotedTerm(`${q}a${q}b${q}`)).toBe("'ab'")
+    for (const q of ['"', '«', '»', '“', '”', '„', '‟', '″', '‶', '〝', '〞', '〟', '＂'])
+      expect(quotedTerm(`${q}a${q}b${q}`)).toBe("'a b'")
+    expect(quotedTerm('‘’“”')).toBeNull()
+    expect(quotedTerm('〟')).toBeNull()
+    expect(quotedTerm(`‘${'x'.repeat(50)}’`)).toBe(`'${'x'.repeat(40)}…'`)
   })
 })
 

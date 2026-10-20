@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { activeTab, TABS } from '../app/components/ModeBar.tsx'
+import { activeTab, DESKTOP_TABS, TABS } from '../app/components/ModeBar.tsx'
 
 describe('Mode Tabs', () => {
-  it('X-* order and Saved is the home page', () => {
+  it('phone order: My Transit, Nearby, Ferry, Train, Bus; My Transit is the home page', () => {
     expect(TABS.map((t) => `${t.label}:${t.href}`)).toEqual([
+      'My Transit:/',
+      'Nearby:/nearby',
       'Ferry:/ferry',
       'Train:/train',
       'Bus:/bus',
-      'Nearby:/nearby',
-      'Saved:/',
     ])
+  })
+
+  it('desktop pills use the phone order', () => {
+    expect(DESKTOP_TABS.map((t) => t.key)).toEqual(['saved', 'nearby', 'ferry', 'train', 'bus'])
+    expect(DESKTOP_TABS.map((t) => t.key)).toEqual(TABS.map((t) => t.key))
   })
 
   it('the URL is the only mode state', () => {

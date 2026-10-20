@@ -7,6 +7,9 @@
 /** Upstream time limit: a hung binding (seen for 60 s during a bft-api redeploy, minutes in R8-F1) must not hang. */
 export const API_TIMEOUT_MS = 10_000
 
+/** Statuses whose Response can't carry a body: `new Response(body, …)` throws for them unless the body is null. */
+export const NULL_BODY_STATUS: ReadonlySet<number> = new Set([101, 103, 204, 205, 304])
+
 /** The error a `proxied` call fails with at its deadline (other failures are the call's own). */
 export class UpstreamTimeout extends Error {}
 

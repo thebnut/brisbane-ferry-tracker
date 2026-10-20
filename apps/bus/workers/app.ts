@@ -6,17 +6,20 @@
  *  - /sitemap.xml        sitemap index; /sitemaps/{pages,routes,stops-n}.xml from the client data
  *  - /robots.txt        disallows everything unless INDEXABLE is "1"
  *  - www.<SITE_URL host> 301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
+ *  - REDIRECT_TO_TRANSIT "1": page navigations 302/301 to the same page on TRANSIT_SITE_URL (@bft/ui/redirect)
  *  - everything else     React Router SSR
  */
 
 import { withBuild } from '@bft/core/build'
 import { ROUTE_SHORT_RE, RouteIndexFile } from '@bft/core/contract'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
+import { transitRedirect } from '@bft/ui/redirect'
 import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
 import { validateProxied } from '../app/lib/contract.server.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
+import { cachedRouteIndex } from '../app/lib/route-index.server.ts'
 import {
   robotsTxt,
   STOPS_PER_SITEMAP,
@@ -86,17 +89,19 @@ const xml = (body: string, maxAge = 86400) =>
     },
   })
 
-/** The safe short names in a route index's text, or null when there is no valid index. */
-function routeIndexShorts(text: string | null): string[] | null {
-  if (!text) return null
-  let body: unknown
+/** The safe short names in the route index (isolate-cached, as for route pages), or null when there is no valid index. */
+async function routeIndexShorts(env: Env): Promise<string[] | null> {
+  const load = async () => {
+    const text = await dataText(env, '/data/bus/routes.json')
+    if (!text) throw new Error('no route index')
+    return RouteIndexFile.parse(JSON.parse(text))
+  }
   try {
-    body = JSON.parse(text)
+    const index = await cachedRouteIndex(load, { cache: env.FIXTURES !== '1' && !fixtureFallbackOn(env) })
+    return index.routes.filter((s) => ROUTE_SHORT_RE.test(s))
   } catch {
     return null
   }
-  const parsed = RouteIndexFile.safeParse(body)
-  return parsed.success ? parsed.data.routes.filter((s) => ROUTE_SHORT_RE.test(s)) : null
 }
 
 export async function sitemap(url: URL, env: Env): Promise<Response | null> {
@@ -117,7 +122,7 @@ export async function sitemap(url: URL, env: Env): Promise<Response | null> {
     // Only routes whose page renders: data/bus/routes.json names the route files of the current publish (uploaded
     // after them) and the route page is a 404 for any other name. Without it (data published before route files
     // existed, or unreadable), a 503 tells crawlers to come back later rather than a list of 404 pages.
-    const shorts = routeIndexShorts(await dataText(env, '/data/bus/routes.json'))
+    const shorts = await routeIndexShorts(env)
     if (!shorts) return new Response('Unavailable', { status: 503 })
     const paths = shorts.map(routePath)
     return xml(urlsetXml(site, paths, { changefreq: 'weekly', priority: '0.5' }))
@@ -157,6 +162,10 @@ async function guarded(handle: () => Promise<Response>): Promise<Response> {
 }
 
 async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
+  // P6: page navigations move to BrisbaneTransit when REDIRECT_TO_TRANSIT is "1" (APIs, data and static files never);
+  // a browser's first visit gets the favourites handoff page instead (P6b).
+  const moved = env.REDIRECT_TO_TRANSIT === '1' ? transitRedirect(request, 'bus', env, nonce) : null
+  if (moved) return moved
   const url = new URL(request.url)
   if (request.method === 'GET' && (url.pathname.startsWith('/v1/') || url.pathname.startsWith('/data/bus/')))
     return proxyApi(request, env)
