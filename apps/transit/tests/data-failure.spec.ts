@@ -2,10 +2,12 @@
  * A failed /data read (R2 slow: the edge's 503 JSON, or no answer) degrades in place on BrisbaneTransit and never
  * reaches "Something went wrong" (staging 20 Oct: /train/stations went to the error page). Around you says the stops
  * couldn't load (never a false "No stops nearby"), "Use a stop" and the onboarding picker say so too, and each
- * Try again brings the data back.
+ * Try again brings the data back. On the Bus tab and in the bus onboarding picker, one Try again retries every list that
+ * failed (R16-D1, @bft/ui/e2e/bus-search-retry.ts).
  */
+import { busOnboardingRetryTests, busSearchRetryTests } from '@bft/ui/e2e/bus-search-retry.ts'
 import { DATA_FAILURES, expectNoErrorPage, failData, pageErrors } from '@bft/ui/e2e/data-failure.ts'
-import { expectPrompt, expectUnobscured, FIRST_VISIT, prompt } from '@bft/ui/e2e/onboarding.ts'
+import { expectUnobscured } from '@bft/ui/e2e/onboarding.ts'
 import { expect, test } from '@playwright/test'
 
 for (const how of DATA_FAILURES) {
@@ -100,40 +102,8 @@ for (const how of DATA_FAILURES) {
       await expect(notice).toHaveCount(0)
       expect(errors).toEqual([])
     })
-
-    test.describe(() => {
-      test.use({ storageState: FIRST_VISIT })
-      test('onboarding picker (bus): map and name search say stops failed; Try again loads them', async ({
-        page,
-        context,
-      }) => {
-        const errors = pageErrors(page)
-        await context.grantPermissions(['geolocation'])
-        await context.setGeolocation({ latitude: -27.4732, longitude: 153.0195 })
-        const { restore } = await failData(context, how)
-        await page.goto('/')
-        await expectPrompt(page)
-        await prompt(page).getByRole('button', { name: 'Yes' }).click()
-        const picker = page.getByRole('dialog', { name: 'Set up your favourite stops' })
-        const notice = picker.getByRole('status').filter({ hasText: "Couldn't load stops" })
-        await expect(notice.first()).toBeVisible({ timeout: 20_000 })
-        const tray = picker.getByRole('complementary', { name: 'Your favourite stops' })
-        await tray.getByLabel('Find a stop by name').fill('cultural centre')
-        const searchNotice = tray.getByRole('status').filter({ hasText: "Couldn't load stops" })
-        await expect(searchNotice).toBeVisible({ timeout: 20_000 })
-        await expect(tray.getByText('No stops match.')).toHaveCount(0)
-        await expectNoErrorPage(page)
-        restore()
-        await searchNotice.getByRole('button', { name: 'Try again' }).click()
-        await expect(tray.getByRole('button', { name: /Cultural Centre/ }).first()).toBeVisible({
-          timeout: 20_000,
-        })
-        await notice.first().getByRole('button', { name: 'Try again' }).click()
-        await expect(picker.getByRole('button', { name: /Stops in view \([1-9]\d*\)/ })).toBeVisible({
-          timeout: 20_000,
-        })
-        expect(errors).toEqual([])
-      })
-    })
   })
 }
+
+busSearchRetryTests('/bus')
+busOnboardingRetryTests()

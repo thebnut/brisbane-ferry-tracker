@@ -15,14 +15,36 @@ export async function failData(context: BrowserContext, how: DataFailure): Promi
   await context.route(/\/data\//, (route) => {
     if (!failing) return route.continue()
     if (how === 'abort') return route.abort('failed')
-    return route.fulfill({
-      status: 503,
-      contentType: 'application/json',
-      headers: { 'cache-control': 'no-store' },
-      body: JSON.stringify({ error: 'static data unavailable', detail: 'passthrough', retryable: true }),
-    })
+    return route.fulfill(EDGE_503)
   })
   return { restore: () => (failing = false) }
+}
+
+const EDGE_503 = {
+  status: 503,
+  contentType: 'application/json',
+  headers: { 'cache-control': 'no-store' },
+  body: JSON.stringify({ error: 'static data unavailable', detail: 'passthrough', retryable: true }),
+}
+
+/**
+ * From now on, records the path of every /data request matching `pattern` (also from the service worker), and
+ * answers those matching `failAgain` with the edge's 503 while letting the rest through to `failData`'s route. For
+ * "one Try again refetched every failed list" and "a list that fails again keeps its notice".
+ */
+export async function watchData(
+  context: BrowserContext,
+  pattern: RegExp,
+  failAgain?: RegExp,
+): Promise<string[]> {
+  const seen: string[] = []
+  // Routes registered later run first; fallback() hands the request on to failData's.
+  await context.route(pattern, (route) => {
+    const path = new URL(route.request().url()).pathname
+    seen.push(path)
+    return failAgain?.test(path) ? route.fulfill(EDGE_503) : route.fallback()
+  })
+  return seen
 }
 
 /** Collects uncaught page errors, for asserting none happened. */
