@@ -1,6 +1,6 @@
 /**
- * P3: the map stop picker in BrisbaneTransit's Bus tab (the bus app's screens, mounted under /bus). Open links stay
- * inside the tab, and Save uses the bus store, so My Transit lists the saved stop. (Train and Ferry: the next PR.)
+ * P3: the map stop picker in BrisbaneTransit's Bus, Train and Ferry tabs (the mode apps' screens, mounted under their
+ * prefix). Open links stay inside the tab, and Save uses each mode's own store, so My Transit lists the saved stop.
  */
 import { expect, test } from '@playwright/test'
 
@@ -31,4 +31,37 @@ test('Bus tab: Map → Cultural Centre → Save shows in My Transit → Open sta
   await expect(page).toHaveURL(new RegExp(`/bus/stop/${id}$`))
   await page.goto('/')
   await expect(page.getByText(name).locator('visible=true').first()).toBeVisible()
+})
+
+test('Train tab: the station search has the map; Open stays under /train', async ({ page }) => {
+  await page.goto('/train/stations')
+  await page.getByRole('button', { name: 'Show stations on a map' }).click()
+  const picker = page.getByLabel('Train stations map', { exact: true })
+  await picker.getByRole('button', { name: /Stations in view \([1-9]\d*\)/ }).click({ timeout: 20_000 })
+  await picker
+    .getByRole('list', { name: 'Train stations in view' })
+    .getByRole('button', { name: /^Central/ })
+    .click()
+  const card = picker.getByRole('dialog', { name: 'Central' })
+  await expect(card.getByRole('list', { name: 'Next departures from Central' })).toBeVisible({
+    timeout: 10_000,
+  })
+  await card.getByRole('link', { name: 'Open' }).click()
+  await expect(page).toHaveURL(/\/train\/station\/central$/)
+})
+
+test('Ferry tab: the stop selector has the map; Use as From fills the field', async ({ page }) => {
+  await page.goto('/ferry')
+  const sheet = page.getByRole('dialog', { name: 'Select ferry stops' })
+  await sheet.getByRole('button', { name: 'Show origin terminals on a map' }).click()
+  const picker = sheet.getByRole('region', { name: 'Choose where from map' })
+  await picker.getByRole('button', { name: /Terminals in view \([1-9]\d*\)/ }).click({ timeout: 20_000 })
+  await picker
+    .getByRole('list', { name: 'Choose where from in view' })
+    .getByRole('button', { name: /Bulimba/ })
+    .click()
+  const card = picker.getByRole('dialog', { name: 'Bulimba' })
+  await expect(card.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/ferry/terminal/bulimba')
+  await card.getByRole('button', { name: 'Use as From' }).click()
+  await expect(sheet.getByRole('combobox', { name: 'From' })).toHaveValue('Bulimba')
 })

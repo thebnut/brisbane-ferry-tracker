@@ -1,11 +1,17 @@
 /**
  * Stop selector (legacy StopSelectorModal): pick origin and a directly reachable destination, with
- * "Remember selection". Loaded lazily (Ark UI combobox) on first visit or from Settings.
+ * "Remember selection". Loaded lazily (Ark UI combobox) on first visit or from Settings. Each field has a Map button
+ * that opens the map stop picker (P3): tap a terminal for its next ferries, then "Use as From/To" fills the field and
+ * Save stores the pair as before (a ferry favourite is a pair, not a terminal).
  */
+import type { DeparturesResponse } from '@bft/core/contract'
 import { BottomSheet, PrimaryButton, SecondaryButton } from '@bft/ui'
-import SafeMap from '@bft/ui/safe-map'
+import { MapToggle } from '@bft/ui/map-toggle'
+import type { PickerStop } from '@bft/ui/stop-picker'
 import { StopSearch } from '@bft/ui/stop-search'
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
+import { Link } from 'react-router'
+import type { ApiFetcher } from '../lib/api.ts'
 import { savePair } from '../lib/save-pair.ts'
 import { readRemember } from '../lib/storage.ts'
 import {
@@ -14,17 +20,27 @@ import {
   type StopPair,
   TERMINALS,
   terminalById,
+  terminalHref,
   validDestinations,
 } from '../lib/terminals.ts'
 
+// If the map's chunk can't load (offline), the selector says so and the fields still work.
+const StopPickerMap = lazy(() =>
+  import('@bft/ui/stop-picker-map').catch(() => ({
+    default: () => <p className="text-sm text-sched-text">Map unavailable right now.</p>,
+  })),
+)
+
 export interface StopSelectorProps {
   initial: StopPair
+  /** For the map card's next departures. */
+  fetcher: ApiFetcher
   /** After the pair is saved on this device. */
   onSave: (pair: StopPair) => void
   onClose: () => void
 }
 
-export default function StopSelector({ initial, onSave, onClose }: StopSelectorProps) {
+export default function StopSelector({ initial, fetcher, onSave, onClose }: StopSelectorProps) {
   const [origin, setOrigin] = useState(initial.outbound.id)
   const [destination, setDestination] = useState(initial.inbound.id)
   const [remember, setRemember] = useState(readRemember)
@@ -44,34 +60,35 @@ export default function StopSelector({ initial, onSave, onClose }: StopSelectorP
     if (!next.includes(destination) && next[0]) setDestination(next[0])
   }
 
-  // Map picker (legacy StopSelectorMap): every terminal for the origin, only reachable ones for the destination.
-  const mapMarkers = (() => {
+  // Map picker: every terminal for the origin, only reachable ones for the destination.
+  const mapStops = useMemo<PickerStop[]>(() => {
     if (!mapFor) return []
     const pool = mapFor === 'origin' ? TERMINALS : TERMINALS.filter((t) => reachable.includes(t.id))
-    const current = mapFor === 'origin' ? origin : destination
-    return pool.map((t) => ({
-      id: t.id,
-      lat: t.lat,
-      lon: t.lng,
-      tone: t.id === current ? ('selected' as const) : ('stop' as const),
-      label: `Choose ${t.name} as ${mapFor === 'origin' ? 'origin' : 'destination'}`,
-      onClick: () => {
-        if (mapFor === 'origin') changeOrigin(t.id)
-        else setDestination(t.id)
-        setMapFor(null)
-      },
-    }))
-  })()
+    return pool.map((t) => ({ id: t.id, name: t.name, lat: t.lat, lon: t.lng, detail: t.routes.join(' · ') }))
+  }, [mapFor, reachable])
+  const loadDepartures = useCallback(
+    async (s: PickerStop, signal: AbortSignal) => {
+      const [res, { toCardDepartures }] = await Promise.all([
+        // The path is spelled here, not taken from api.ts: importing api.ts into this lazy module splits it into its own
+        // chunk on the boards' first load. The card claims nothing live, so a plain fetch is enough.
+        fetcher(`/v1/ferry/stops/${encodeURIComponent(s.id)}/departures?limit=3`, { signal }).then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`)
+          return r.json() as Promise<DeparturesResponse>
+        }),
+        import('@bft/ui/stop-picker-map'),
+      ])
+      return toCardDepartures(res.departures)
+    },
+    [fetcher],
+  )
 
   const mapToggle = (which: 'origin' | 'destination') => (
-    <button
-      type="button"
-      aria-pressed={mapFor === which}
-      onClick={() => setMapFor((m) => (m === which ? null : which))}
-      className="self-start text-sm font-semibold text-aqua-text underline underline-offset-2"
-    >
-      {mapFor === which ? 'Hide map' : 'Pick on map'}
-    </button>
+    <MapToggle
+      open={mapFor === which}
+      onToggle={(open) => setMapFor(open ? which : null)}
+      noun={which === 'origin' ? 'origin terminals' : 'destination terminals'}
+      className="self-start"
+    />
   )
 
   const save = () => {
@@ -111,12 +128,36 @@ export default function StopSelector({ initial, onSave, onClose }: StopSelectorP
         />
         {mapToggle('destination')}
         {mapFor ? (
-          <SafeMap
-            markers={mapMarkers}
-            label={`Map of ferry terminals: choose the ${mapFor}`}
-            className="h-64 w-full overflow-hidden rounded-card bg-map-ground"
-            loading={<div className="h-64 rounded-card bg-map-ground" />}
-          />
+          <Suspense fallback={<div className="h-[60dvh] rounded-card bg-map-ground" />}>
+            <StopPickerMap
+              key={mapFor}
+              title={mapFor === 'origin' ? 'Choose where from' : 'Choose where to'}
+              noun="terminal"
+              shape="circle"
+              stops={mapStops}
+              zoom={12}
+              loadDepartures={loadDepartures}
+              renderOpen={(s, className) => {
+                const t = terminalById(s.id)
+                return t ? (
+                  <Link to={terminalHref(t.slug)} className={className}>
+                    Open
+                  </Link>
+                ) : null
+              }}
+              save={{
+                label: () => (mapFor === 'origin' ? 'Use as From' : 'Use as To'),
+                onClick: (s) => {
+                  if (mapFor === 'origin') changeOrigin(s.id)
+                  else setDestination(s.id)
+                  setMapFor(null)
+                },
+              }}
+              onClose={() => setMapFor(null)}
+              // Inside the selector sheet (a modal dialog), not a second full-screen layer.
+              className="flex h-[60dvh] flex-col overflow-hidden rounded-card border border-ferry-orange/20 bg-white dark:bg-night-card"
+            />
+          </Suspense>
         ) : null}
         {destinations.length === 0 ? (
           <p className="text-sm text-cancel-text">No direct ferries from this terminal.</p>

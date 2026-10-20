@@ -49,6 +49,30 @@ export function worldPixel(lat: number, lon: number, zoom: number): [number, num
   return [((lon + 180) / 360) * scale, (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale]
 }
 
+/** Inverse of worldPixel: the [lon, lat] at a world pixel. */
+export function fromWorldPixel(x: number, y: number, zoom: number): [number, number] {
+  const scale = 512 * 2 ** zoom
+  const lon = (x / scale) * 360 - 180
+  const lat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / scale))) * 180) / Math.PI
+  return [lon, lat]
+}
+
+/**
+ * The bounds a map of `width` × `height` px shows around `center` ([lon, lat]) at `zoom`: the picker's view before
+ * MapLibre has loaded its basemap (slow on a busy device), so the stops list and tiles don't wait for it.
+ */
+export function viewAround(
+  center: [number, number],
+  zoom: number,
+  width: number,
+  height: number,
+): PickerBounds {
+  const [cx, cy] = worldPixel(center[1], center[0], zoom)
+  const [west, north] = fromWorldPixel(cx - width / 2, cy - height / 2, zoom)
+  const [east, south] = fromWorldPixel(cx + width / 2, cy + height / 2, zoom)
+  return { west, south, east, north }
+}
+
 /**
  * The stops in view, grouped on a screen-pixel grid: a cell with one stop shows the stop, a cell with more shows a
  * cluster at their average position. From `CLUSTER_MAX_ZOOM` every stop shows on its own. Cells are anchored to the

@@ -5,9 +5,10 @@
  */
 import type { StopIndexFile } from '@bft/core/contract'
 import { Icon, LineChip, PrimaryButton } from '@bft/ui'
+import { MapToggle } from '@bft/ui/map-toggle'
 import type { StopOption } from '@bft/ui/stop-search'
 import { useQuery } from '@tanstack/react-query'
-import { lazy, Suspense, useMemo } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
 import { ReachableList } from '../components/ReachableList.tsx'
@@ -32,6 +33,16 @@ const StopSearch = lazy(() =>
   import.meta.env.SSR
     ? new Promise<never>(() => {})
     : import('@bft/ui/stop-search').then((m) => ({ default: m.StopSearch })),
+)
+
+// The map station picker (P3): MapLibre loads only when the Map button is pressed. If its chunk can't load (offline),
+// the button does nothing and the search is unchanged.
+const StationPicker = lazy(() =>
+  import.meta.env.SSR
+    ? new Promise<never>(() => {})
+    : import('../components/StationPicker.tsx').catch(() => ({
+        default: (_: { slot: string; onClose: () => void }) => null,
+      })),
 )
 
 export function loader({ request, context }: Route.LoaderArgs) {
@@ -113,113 +124,132 @@ export default function Stations({ loaderData }: Route.ComponentProps) {
     setParams(next, { replace: true })
   }
   const lines = from && to ? linesBetween(from.key, to.key) : []
+  const [map, setMap] = useState(false)
+  const picker = (slot: 'wide' | 'narrow') =>
+    map ? (
+      <Suspense fallback={null}>
+        <StationPicker slot={slot} onClose={() => setMap(false)} />
+      </Suspense>
+    ) : null
 
   return (
     <Shell active="stations">
-      <div className="mx-auto flex max-w-2xl flex-col gap-3">
-        <h1 className="text-xl font-extrabold">Choose your trip</h1>
-        <div className="flex flex-col gap-3 rounded-card bg-white/90 p-3.5 shadow-card dark:bg-night-card">
-          <div className="flex items-end gap-2">
-            <div className="min-w-0 flex-1">
-              {mounted ? (
-                <Suspense fallback={<FieldFallback label="From" value={from?.name ?? ''} />}>
-                  <StopSearch
-                    label="From"
-                    placeholder="Station name"
-                    options={options}
-                    value={from?.key ?? null}
-                    filter={fuzzy}
-                    onChange={(k) => set(k, to && isReachable(k, to.key) ? to.key : null)}
-                  />
-                </Suspense>
-              ) : (
-                <FieldFallback label="From" value={from?.name ?? ''} />
-              )}
-            </div>
-            <button
-              type="button"
-              aria-label="Swap origin and destination"
-              disabled={!from || !to || !isReachable(to.key, from.key)}
-              onClick={() => from && to && set(to.key, from.key)}
-              className="mb-0.5 flex size-11 shrink-0 items-center justify-center rounded-full border border-ferry-orange/30 bg-white text-ferry-orange-dark disabled:opacity-40 dark:bg-night-2"
-            >
-              <Icon name="swap" size={20} className="rotate-90" />
-            </button>
+      <div className={map ? 'mx-auto flex max-w-6xl items-start gap-4' : undefined}>
+        {/* With the map open, search and map share the width (min-w-0), so neither is squeezed on a tablet. */}
+        <div
+          className={
+            map ? 'flex min-w-0 flex-1 flex-col gap-3' : 'mx-auto flex w-full max-w-2xl flex-col gap-3'
+          }
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-xl font-extrabold">Choose your trip</h1>
+            <MapToggle open={map} onToggle={setMap} noun="stations" />
           </div>
-          {from && !mounted ? <FieldFallback label="To" value={to?.name ?? ''} /> : null}
-          {from && mounted ? (
-            <Suspense fallback={<FieldFallback label="To" value={to?.name ?? ''} />}>
-              <StopSearch
-                label="To"
-                placeholder="Where are you going?"
-                options={toOptions}
-                value={to?.key ?? null}
-                filter={fuzzy}
-                onChange={(k) => set(from.key, k)}
-              />
-            </Suspense>
+          <div className="flex flex-col gap-3 rounded-card bg-white/90 p-3.5 shadow-card dark:bg-night-card">
+            <div className="flex items-end gap-2">
+              <div className="min-w-0 flex-1">
+                {mounted ? (
+                  <Suspense fallback={<FieldFallback label="From" value={from?.name ?? ''} />}>
+                    <StopSearch
+                      label="From"
+                      placeholder="Station name"
+                      options={options}
+                      value={from?.key ?? null}
+                      filter={fuzzy}
+                      onChange={(k) => set(k, to && isReachable(k, to.key) ? to.key : null)}
+                    />
+                  </Suspense>
+                ) : (
+                  <FieldFallback label="From" value={from?.name ?? ''} />
+                )}
+              </div>
+              <button
+                type="button"
+                aria-label="Swap origin and destination"
+                disabled={!from || !to || !isReachable(to.key, from.key)}
+                onClick={() => from && to && set(to.key, from.key)}
+                className="mb-0.5 flex size-11 shrink-0 items-center justify-center rounded-full border border-ferry-orange/30 bg-white text-ferry-orange-dark disabled:opacity-40 dark:bg-night-2"
+              >
+                <Icon name="swap" size={20} className="rotate-90" />
+              </button>
+            </div>
+            {from && !mounted ? <FieldFallback label="To" value={to?.name ?? ''} /> : null}
+            {from && mounted ? (
+              <Suspense fallback={<FieldFallback label="To" value={to?.name ?? ''} />}>
+                <StopSearch
+                  label="To"
+                  placeholder="Where are you going?"
+                  options={toOptions}
+                  value={to?.key ?? null}
+                  filter={fuzzy}
+                  onChange={(k) => set(from.key, k)}
+                />
+              </Suspense>
+            ) : null}
+          </div>
+
+          {from ? (
+            <p className="flex items-center gap-2 px-0.5 text-[13px] text-gray-700 dark:text-night-text/80">
+              <Icon name="info" size={16} className="shrink-0 text-aqua-text" />
+              Only stations with a direct train from {from.name} are shown.
+            </p>
           ) : null}
-        </div>
 
-        {from ? (
-          <p className="flex items-center gap-2 px-0.5 text-[13px] text-gray-700 dark:text-night-text/80">
-            <Icon name="info" size={16} className="shrink-0 text-aqua-text" />
-            Only stations with a direct train from {from.name} are shown.
-          </p>
-        ) : null}
-
-        {from && to ? (
-          <div
-            className="bg-hot flex items-center gap-3 rounded-card border-2 border-ferry-orange px-4 py-3.5"
-            data-testid="trip-match"
-          >
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <span className="text-lg font-extrabold">
-                {from.name} → {to.name}
-              </span>
-              <span className="flex flex-wrap gap-1.5">
-                {lines.map((l) => (
-                  <LineChip key={l.name} name={l.name} color={l.color} />
-                ))}
-              </span>
-            </div>
-            <PrimaryButton onClick={() => navigate(boardHref(from.key, to.key))}>Show trains</PrimaryButton>
-          </div>
-        ) : null}
-
-        {from ? (
-          <>
-            <h2 className={`${SECTION.h2} mt-1.5`}>Reachable from {from.name}, by line</h2>
-            <ReachableList from={from} selected={to?.key ?? null} onPick={(k) => set(from.key, k)} />
-            <Link
-              to={stationHref(from.key)}
-              className="self-start text-sm font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
+          {from && to ? (
+            <div
+              className="bg-hot flex items-center gap-3 rounded-card border-2 border-ferry-orange px-4 py-3.5"
+              data-testid="trip-match"
             >
-              All departures from {from.name}
-            </Link>
-          </>
-        ) : (
-          <section aria-labelledby="all-stations">
-            <h2 id="all-stations" className={`${SECTION.h2} mt-1.5`}>
-              All {STATIONS.length} stations
-            </h2>
-            <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm sm:grid-cols-3">
-              {[...STATIONS]
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((s) => (
-                  <li key={s.key}>
-                    <Link
-                      className="block py-1.5 text-aqua-text hover:text-ferry-orange-deep dark:text-ferry-aqua-light"
-                      to={stationHref(s.key)}
-                    >
-                      {s.name}
-                    </Link>
-                  </li>
-                ))}
-            </ul>
-          </section>
-        )}
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <span className="text-lg font-extrabold">
+                  {from.name} → {to.name}
+                </span>
+                <span className="flex flex-wrap gap-1.5">
+                  {lines.map((l) => (
+                    <LineChip key={l.name} name={l.name} color={l.color} />
+                  ))}
+                </span>
+              </div>
+              <PrimaryButton onClick={() => navigate(boardHref(from.key, to.key))}>Show trains</PrimaryButton>
+            </div>
+          ) : null}
+
+          {from ? (
+            <>
+              <h2 className={`${SECTION.h2} mt-1.5`}>Reachable from {from.name}, by line</h2>
+              <ReachableList from={from} selected={to?.key ?? null} onPick={(k) => set(from.key, k)} />
+              <Link
+                to={stationHref(from.key)}
+                className="self-start text-sm font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
+              >
+                All departures from {from.name}
+              </Link>
+            </>
+          ) : (
+            <section aria-labelledby="all-stations">
+              <h2 id="all-stations" className={`${SECTION.h2} mt-1.5`}>
+                All {STATIONS.length} stations
+              </h2>
+              <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm sm:grid-cols-3">
+                {[...STATIONS]
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((s) => (
+                    <li key={s.key}>
+                      <Link
+                        className="block py-1.5 text-aqua-text hover:text-ferry-orange-deep dark:text-ferry-aqua-light"
+                        to={stationHref(s.key)}
+                      >
+                        {s.name}
+                      </Link>
+                    </li>
+                  ))}
+              </ul>
+            </section>
+          )}
+        </div>
+        {picker('wide')}
       </div>
+      {picker('narrow')}
     </Shell>
   )
 }

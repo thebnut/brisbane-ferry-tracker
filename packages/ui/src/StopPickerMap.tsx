@@ -31,6 +31,7 @@ import {
   type PickerCluster,
   type PickerStop,
   selectionReducer,
+  viewAround,
   visibleStops,
 } from './stop-picker.ts'
 
@@ -228,6 +229,17 @@ export default function StopPickerMap({
   const [view, setView] = useState<{ bounds: ViewBounds; zoom: number } | null>(null)
   const [listOpen, setListOpen] = useState(false)
   const map = useRef<MlMap | null>(null)
+  const pendingFly = useRef<{ center: [number, number]; zoom: number } | null>(null)
+  // A located device remounts the map (its key): the old map is gone until the new one is ready, so list picks wait
+  // for it (pendingFly) instead of moving the removed map (Codex review).
+  const mapKey = geo.state === 'ok' ? 'located' : 'default'
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the map is replaced (mapKey) and on unmount.
+  useEffect(
+    () => () => {
+      map.current = null
+    },
+    [mapKey],
+  )
   const closeRef = useRef<HTMLButtonElement>(null)
   const sectionRef = useRef<HTMLElement>(null)
   // On phones the picker covers the page: a modal dialog, with the page behind it inert (Codex review). On desktop it
@@ -286,6 +298,9 @@ export default function StopPickerMap({
   const onReady = useCallback((m: MlMap) => {
     map.current = m
     addClusterLayers(m)
+    // A stop chosen from the list before the map had loaded: centre on it now.
+    if (pendingFly.current) m.jumpTo(pendingFly.current)
+    pendingFly.current = null
   }, [])
   const onView = (bounds: ViewBounds, z: number) => {
     setView({ bounds, zoom: z })
@@ -294,8 +309,10 @@ export default function StopPickerMap({
   const pick = (s: PickerStop, fly: boolean) => {
     dispatch({ type: 'tap', id: s.id })
     setListOpen(false)
-    if (fly)
-      map.current?.easeTo({ center: [s.lon, s.lat], zoom: Math.max(map.current.getZoom(), CLUSTER_MAX_ZOOM) })
+    if (!fly) return
+    const m = map.current
+    if (m) m.easeTo({ center: [s.lon, s.lat], zoom: Math.max(m.getZoom(), CLUSTER_MAX_ZOOM) })
+    else pendingFly.current = { center: [s.lon, s.lat], zoom: CLUSTER_MAX_ZOOM }
   }
 
   const markers = useMemo<MapMarker[]>(() => {
@@ -314,6 +331,17 @@ export default function StopPickerMap({
     return out
   }, [geo, active, shape])
   const center: [number, number] = geo.state === 'ok' ? [geo.lon, geo.lat] : CBD_CENTRE
+  // The view the map opens on, from its box, until MapLibre reports its own (after the basemap loads, which can take a
+  // while on a busy device): the stops list, clusters and bus tiles don't wait for the basemap.
+  const mapBox = useRef<HTMLDivElement>(null)
+  const onViewRef = useRef(onView)
+  onViewRef.current = onView
+  const [cLon, cLat] = center
+  useEffect(() => {
+    const box = mapBox.current
+    if (box?.clientWidth && box.clientHeight)
+      onViewRef.current(viewAround([cLon, cLat], zoom, box.clientWidth, box.clientHeight), zoom)
+  }, [cLon, cLat, zoom])
   const meta = active
     ? [active.code ? `${noun === 'stop' ? 'Stop' : 'Code'} ${active.code}` : null, active.detail]
         .filter(Boolean)
@@ -374,7 +402,7 @@ export default function StopPickerMap({
           <Icon name="close" size={20} />
         </button>
       </div>
-      <div className="relative min-h-0 flex-1">
+      <div ref={mapBox} className="relative min-h-0 flex-1">
         <MapBoundary className="h-full w-full bg-map-ground" unavailable={unavailable}>
           <MapView
             markers={markers}
@@ -389,7 +417,7 @@ export default function StopPickerMap({
             onReady={onReady}
             center={center}
             zoom={zoom}
-            key={geo.state === 'ok' ? 'located' : 'default'}
+            key={mapKey}
             label={`Map of ${inView.length} ${noun}s in view. Use “${noun[0]?.toUpperCase()}${noun.slice(1)}s in view” for a list.`}
             className="h-full w-full bg-map-ground"
           />
@@ -436,7 +464,7 @@ export default function StopPickerMap({
             role="dialog"
             aria-label={active.name}
             data-stop-card={active.id}
-            className="absolute inset-x-2 bottom-2 z-20 flex flex-col gap-2.5 rounded-card bg-white p-3.5 shadow-header md:right-auto md:w-96 dark:bg-night-card"
+            className="absolute inset-x-2 bottom-2 z-20 flex flex-col gap-2.5 rounded-card bg-white p-3.5 shadow-header md:right-auto md:w-[min(24rem,calc(100%-1rem))] dark:bg-night-card"
           >
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
@@ -496,6 +524,7 @@ export function useWide(): boolean {
   const query = '(min-width: 768px)'
   const [wide, setWide] = useState(() => typeof matchMedia === 'function' && matchMedia(query).matches)
   useEffect(() => {
+    if (typeof matchMedia !== 'function') return
     const mq = matchMedia(query)
     const on = () => setWide(mq.matches)
     mq.addEventListener('change', on)
