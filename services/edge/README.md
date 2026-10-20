@@ -86,7 +86,12 @@ visible in Workers Observability (`bft-api` staging, `bft-api-prod` production):
 | `rt source stale` | warn | hub (`svc: bft-rthub`) | once per feed per episode: TransLink's header time unchanged for 3 successful polls and over max(90 s, 3 polls) old | `feed`, `sourceTimestamp`, `ageS`, `polls`, `seq` |
 | `rt source recovered` | info | hub | that feed's header time moves again | `feed`, `sourceTimestamp`, `staleS` (episode length), `polls`, `seq` |
 | `rt stale` | warn | watchdog cron (`svc: bft-api`) | every minute while the published status (the R2 pointer health reads) is past health's 120 s | `reasons` (`source-age`, `build-age`), `ageS`, `buildAgeS`, `seq`, `hubAges` (the hub's own view) |
-| `request` with `path: /v1/health`, `status: 503` | info | API | each failing health check | `error: health not ok`, `detail` such as `source-age 446s` or `build-age 130s,manifest` |
+| `request` with `path: /v1/health`, `status: 503` | info | API | each failing health check | `error: health not ok`, `detail` such as `source-age 446s` or `manifest,build-age 130s` |
+
+The `/v1/health` body says the same thing for a caller: `reasons` lists every failing check in that fixed order
+(`manifest`, `source-age`, `build-age`) and is always present, an empty list on a 200; `rt.ageS` and `rt.buildAgeS` are
+the measured ages (null when unknown). Both fields are optional in the `HealthResponse` contract, so older deploys
+still parse.
 
 Reading them: `rt source stale` with `rt stale` reasons `[source-age]` is an upstream freeze (nothing for us to fix
 but to show it). `rt stale` with `build-age` while `hubAges` is fresh means the hub is fine and its status isn't
