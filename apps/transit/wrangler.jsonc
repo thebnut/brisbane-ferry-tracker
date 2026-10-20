@@ -25,10 +25,8 @@
     // "1" serves fixture data to everyone (dev and Playwright without the live API).
     "FIXTURES": "0",
     "SITE_URL": "https://bft-transit.brisbanetransit.workers.dev",
-    // Canonical URLs of the mounted mode pages point at the standalone apps (one indexable copy of each page).
-    "FERRY_SITE_URL": "https://www.brisbaneferry.com",
-    "TRAIN_SITE_URL": "https://bft-train.brisbanetransit.workers.dev",
-    "BUS_SITE_URL": "https://bft-bus.brisbanetransit.workers.dev",
+    // No FERRY/TRAIN/BUS_SITE_URL: the mounted mode pages' canonical URLs are this site's own (SITE_URL + /ferry etc.),
+    // since the mode hosts redirect here once REDIRECT_TO_TRANSIT is on (P6). Production keeps the standalone apps.
     // Invisible Turnstile widget for the Ask box and the feedback sheet: the STAGING widget "bft-transit-ask" (public
     // sitekey; its secret lives on bft-api). Both production envs use the PROD widget (test/wrangler-config.test.ts).
     "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
@@ -42,9 +40,6 @@
         "ALLOW_FIXTURES": "1",
         "FIXTURES": "0",
         "SITE_URL": "https://bft-transit.brisbanetransit.workers.dev",
-        "FERRY_SITE_URL": "https://www.brisbaneferry.com",
-        "TRAIN_SITE_URL": "https://bft-train.brisbanetransit.workers.dev",
-        "BUS_SITE_URL": "https://bft-bus.brisbanetransit.workers.dev",
         "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
       },
       // SSR loaders, the /v1 + /data proxy and POST /v1/ask call the API Worker in-process through this binding.

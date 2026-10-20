@@ -12,11 +12,15 @@
     "./bus": "./src/bus.tsx",
     "./map": "./src/map/MapView.tsx",
     "./safe-map": "./src/map/SafeMap.tsx",
+    "./stop-picker": "./src/stop-picker.ts",
+    "./stop-picker-map": "./src/StopPickerMap.tsx",
+    "./map-toggle": "./src/MapToggle.tsx",
     "./stop-search": "./src/StopSearch.tsx",
     "./theme.css": "./src/theme.css",
     "./assets/*": "./assets/*",
     "./sw": "./src/sw.ts",
     "./upstream": "./src/upstream.ts",
+    "./redirect": "./src/redirect.ts",
     "./e2e/*": "./e2e/*"
   },
   "sideEffects": [

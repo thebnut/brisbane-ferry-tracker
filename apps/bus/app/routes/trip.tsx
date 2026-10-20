@@ -78,8 +78,9 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   return pageMeta({
     title,
     description: 'Live position and stops for this bus.',
-    url: `${SITE_URL}/`,
+    url: `${loaderData?.siteUrl ?? SITE_URL}/`,
     noindex: true,
+    siteUrl: loaderData?.siteUrl,
   })
 }
 

@@ -6,12 +6,14 @@
  *  - /sitemap.xml        sitemap index; /sitemaps/{pages,routes,stops-n}.xml from the client data
  *  - /robots.txt        disallows everything unless INDEXABLE is "1"
  *  - www.<SITE_URL host> 301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
+ *  - REDIRECT_TO_TRANSIT "1": page navigations 302/301 to the same page on TRANSIT_SITE_URL (@bft/ui/redirect)
  *  - everything else     React Router SSR
  */
 
 import { withBuild } from '@bft/core/build'
 import { ROUTE_SHORT_RE, RouteIndexFile } from '@bft/core/contract'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
+import { transitRedirect } from '@bft/ui/redirect'
 import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
@@ -160,6 +162,9 @@ async function guarded(handle: () => Promise<Response>): Promise<Response> {
 }
 
 async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: string): Promise<Response> {
+  // P6: page navigations move to BrisbaneTransit when REDIRECT_TO_TRANSIT is "1" (APIs, data and static files never).
+  const moved = env.REDIRECT_TO_TRANSIT === '1' ? transitRedirect(request, 'bus', env) : null
+  if (moved) return moved
   const url = new URL(request.url)
   if (request.method === 'GET' && (url.pathname.startsWith('/v1/') || url.pathname.startsWith('/data/bus/')))
     return proxyApi(request, env)

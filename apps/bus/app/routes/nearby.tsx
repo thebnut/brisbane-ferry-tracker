@@ -22,15 +22,22 @@ import { useGeoTiles } from '../lib/geo-queries.ts'
 import { useApi } from '../lib/mode.ts'
 import { useStopIndex } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
+import { getEnv } from '../lib/server.server.ts'
 import { stopHref } from '../lib/stops.ts'
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/nearby'
 
-export const meta: Route.MetaFunction = () =>
+/** The site's own URL (inside BrisbaneTransit, its page there), for the canonical and OG tags. */
+export function loader({ context }: Route.LoaderArgs) {
+  return { siteUrl: getEnv(context)?.SITE_URL ?? SITE_URL }
+}
+
+export const meta: Route.MetaFunction = ({ loaderData }) =>
   pageMeta({
     title: 'Bus stops near me - live departures | BrisbaneBus',
     description: 'Find the Brisbane bus stops nearest to you and their next buses.',
-    url: `${SITE_URL}/nearby`,
+    url: `${loaderData?.siteUrl ?? SITE_URL}/nearby`,
+    siteUrl: loaderData?.siteUrl,
   })
 
 export const NEARBY_LIMIT = 20

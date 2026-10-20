@@ -17,6 +17,10 @@ interface Env {
   API_WS_BASE?: string
   /** TripSocket Durable Object namespace (WebSocket prototype). */
   TRIP_SOCKET?: DurableObjectNamespace<import('./tripSocket.ts').TripSocket>
+  /** "1": page navigations redirect to the same page on TRANSIT_SITE_URL (P6, @bft/ui/redirect). Unset in production. */
+  REDIRECT_TO_TRANSIT?: string
+  /** "301" once the mapping is verified; otherwise the redirect is a 302. */
+  REDIRECT_STATUS?: string
   /** Deployed short git sha for the x-bft-build header, passed by the deploy scripts; unset locally ("dev"). */
   BUILD_SHA?: string
 }
