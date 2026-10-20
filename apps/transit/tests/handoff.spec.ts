@@ -124,7 +124,7 @@ const CASES: {
 ]
 
 for (const c of CASES) {
-  test(`${c.mode}: saved data on the mode host lands in My Transit, with the notice; then plain redirects`, async ({
+  test(`${c.mode}: saved data on the mode host lands in My Transit, with the notice; then again without a second notice`, async ({
     page,
     context,
     baseURL,
@@ -145,17 +145,20 @@ for (const c of CASES) {
     await expect(page.getByRole('link', { name: c.card })).toBeVisible()
     await expect(page.locator('[data-handoff-notice]')).toHaveCount(0)
 
-    // Second visit to the mode host: the handed-off cookie gives the plain redirect, and no second notice.
+    // Second visit to the mode host: it still holds favourites, so it hands them over again (it can't know transit
+    // stored them); transit's ledger finds nothing new: same page, no second notice, nothing duplicated.
     await page.goto(`${HOST[c.mode]}${c.from}`)
     await expect(page).toHaveURL(`${baseURL}${c.to}`)
-    expect(answers).toEqual(['served', 'handoff', '302'])
+    expect(answers).toEqual(['served', 'handoff', 'handoff'])
     await page.waitForTimeout(500)
     await expect(page.locator('[data-handoff-notice]')).toHaveCount(0)
+    await page.goto('/')
+    await expect(page.getByRole('link', { name: c.card })).toHaveCount(1)
     expect(errors).toEqual([])
   })
 }
 
-test('no saved data: the handoff page goes to the plain URL (no fragment, no notice), then plain redirects', async ({
+test('no saved data: the handoff page goes to the plain URL (no fragment, no notice) and sets the cookie, then plain 302s', async ({
   page,
   context,
   baseURL,

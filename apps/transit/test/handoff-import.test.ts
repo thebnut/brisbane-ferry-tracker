@@ -67,6 +67,7 @@ describe('STORES', () => {
   it('a pair merged here is what ferry savePair would have written', async () => {
     const { imp } = await modules()
     imp.mergeHandoff({ v: 1, ferry: { pair: PAIR, remember: true } })
+    localStorage.removeItem(imp.LEDGER_KEY)
     const merged = { local: { ...localStorage }, cookie: document.cookie }
     localStorage.clear()
     const { savePair } = await import('@bft/ferry/app/lib/save-pair.ts')
@@ -89,30 +90,51 @@ describe('STORES', () => {
   })
 })
 
+const ledger = () => JSON.parse(localStorage.getItem('bft-handoff-imported') ?? '[]')
+const none = { added: 0, left: 0, ferryConflict: null }
+
 describe('mergeHandoff', () => {
   it('bus: appends new stops after this device’s, no duplicates, same format and cookie as the bus app', async () => {
     localStorage.setItem('bft-bus-saved', JSON.stringify([BUS_B]))
     const { imp, bus } = await modules()
-    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A, BUS_B, BUS_A] })).toBe(1)
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A, BUS_B, BUS_A] })).toEqual({ ...none, added: 1 })
     expect(JSON.parse(localStorage.getItem('bft-bus-saved') ?? '')).toEqual([BUS_B, BUS_A])
     expect(bus.readSaved()).toEqual([BUS_B, BUS_A])
     expect(cookies().bft_bus_saved).toBe('1832.10802')
-    // Again: nothing new.
-    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toBe(0)
+    expect(ledger()).toEqual(['bus:1832', 'bus:10802'])
+    // Again (the old site hands over on every visit): nothing new.
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toEqual(none)
     expect(JSON.parse(localStorage.getItem('bft-bus-saved') ?? '')).toEqual([BUS_B, BUS_A])
   })
 
-  it('train: adds favourites not already saved, keeps the cap, same format and cookie', async () => {
+  it('a stop removed here after its import is not added back by a later handoff', async () => {
+    const { imp } = await modules()
+    imp.mergeHandoff({ v: 1, bus: [BUS_A, BUS_B] })
+    localStorage.setItem('bft-bus-saved', JSON.stringify([BUS_B]))
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A, BUS_B] })).toEqual(none)
+    expect(JSON.parse(localStorage.getItem('bft-bus-saved') ?? '')).toEqual([BUS_B])
+  })
+
+  it('bus lists that arrive in turns all end up saved', async () => {
+    const all = Array.from({ length: 70 }, (_, i) => ({ id: `${20000 + i}`, name: `Stop ${i}` }))
+    const { imp } = await modules()
+    expect(imp.mergeHandoff({ v: 1, bus: all.slice(0, 50) }).added).toBe(50)
+    // The next turn starts where this one stopped and wraps round.
+    expect(imp.mergeHandoff({ v: 1, bus: [...all.slice(50), ...all.slice(0, 30)] }).added).toBe(20)
+    expect(JSON.parse(localStorage.getItem('bft-bus-saved') ?? '')).toEqual(all)
+  })
+
+  it('train: adds favourites not already saved, same format and cookie', async () => {
     localStorage.setItem('bft-train-favourites', JSON.stringify([{ from: 'central', to: null }]))
     const { imp, train } = await modules()
-    const added = imp.mergeHandoff({
+    const r = imp.mergeHandoff({
       v: 1,
       train: [
         { from: 'central', to: null },
         { from: 'roma-street', to: 'indooroopilly' },
       ],
     })
-    expect(added).toBe(1)
+    expect(r).toEqual({ ...none, added: 1 })
     expect(train.readFavourites()).toEqual([
       { from: 'central', to: null },
       { from: 'roma-street', to: 'indooroopilly' },
@@ -121,25 +143,30 @@ describe('mergeHandoff', () => {
     expect(decodeURIComponent(cookies().bft_fav ?? '')).toBe('central.,roma-street.indooroopilly')
   })
 
-  it('train: only what fits under the favourites cap is counted', async () => {
+  it('train: what doesn’t fit under the cap is left (not recorded), and moves once there is room', async () => {
     const own = Array.from({ length: MAX_FAVOURITES - 1 }, (_, i) => ({ from: `own-${i}`, to: null }))
     localStorage.setItem('bft-train-favourites', JSON.stringify(own))
     const { imp, train } = await modules()
-    const added = imp.mergeHandoff({
-      v: 1,
+    const incoming = {
+      v: 1 as const,
       train: [
         { from: 'a', to: null },
         { from: 'b', to: null },
       ],
-    })
-    expect(added).toBe(1)
+    }
+    expect(imp.mergeHandoff(incoming)).toEqual({ ...none, added: 1, left: 1 })
     expect(train.readFavourites()).toHaveLength(MAX_FAVOURITES)
     expect(train.readFavourites().slice(0, own.length)).toEqual(own)
+    expect(ledger()).toEqual(['train:a>'])
+    // The visitor removes one here; the old site's next handoff brings the one that didn't fit.
+    train.writeFavourites(train.readFavourites().slice(1))
+    expect(imp.mergeHandoff(incoming)).toEqual({ ...none, added: 1 })
+    expect(train.readFavourites().map((f) => f.from)).toContain('b')
   })
 
   it('ferry: sets the pair when there is none here (remembered as on the old site) and marks the selector seen', async () => {
     const { imp, ferry } = await modules()
-    expect(imp.mergeHandoff({ v: 1, ferry: { pair: PAIR, remember: true } })).toBe(1)
+    expect(imp.mergeHandoff({ v: 1, ferry: { pair: PAIR, remember: true } })).toEqual({ ...none, added: 1 })
     expect(ferry.readSavedPair()).toEqual(PAIR)
     expect(JSON.parse(localStorage.getItem('brisbane-ferry-selected-stops') ?? '')).toEqual(PAIR)
     expect(localStorage.getItem('brisbane-ferry-remember-selection')).toBe('true')
@@ -149,32 +176,62 @@ describe('mergeHandoff', () => {
 
   it('ferry: not remembered on the old site → this session only, as the ferry app does', async () => {
     const { imp, ferry } = await modules()
-    expect(imp.mergeHandoff({ v: 1, ferry: { pair: PAIR, remember: false } })).toBe(1)
+    expect(imp.mergeHandoff({ v: 1, ferry: { pair: PAIR, remember: false } }).added).toBe(1)
     expect(localStorage.getItem('brisbane-ferry-selected-stops')).toBeNull()
     expect(JSON.parse(sessionStorage.getItem('brisbane-ferry-selected-stops-session') ?? '')).toEqual(PAIR)
     expect(ferry.readSavedPair()).toEqual(PAIR)
   })
 
-  it('ferry: never replaces a pair already saved here, and ignores pairs that aren’t real routes', async () => {
+  it('ferry: a different pair here is never replaced unasked; it is offered (the conflict), and stays unrecorded', async () => {
     const mine = { outbound: { id: '317590', name: 'Riverside' }, inbound: { id: '317584', name: 'Bulimba' } }
     localStorage.setItem('brisbane-ferry-selected-stops', JSON.stringify(mine))
-    let m = await modules()
-    expect(m.imp.mergeHandoff({ v: 1, ferry: { pair: PAIR, remember: true } })).toBe(0)
-    expect(m.ferry.readSavedPair()).toEqual(mine)
-    localStorage.clear()
-    m = await modules()
-    const fake = { outbound: { id: '999999', name: 'Nowhere' }, inbound: { id: '317590', name: 'Riverside' } }
-    expect(m.imp.mergeHandoff({ v: 1, ferry: { pair: fake, remember: true } })).toBe(0)
-    expect(localStorage.length).toBe(0)
+    const { imp, ferry } = await modules()
+    const handed = { pair: PAIR, remember: true }
+    expect(imp.mergeHandoff({ v: 1, ferry: handed })).toEqual({ added: 0, left: 1, ferryConflict: handed })
+    expect(ferry.readSavedPair()).toEqual(mine)
+    expect(ledger()).toEqual([])
+    // The same pair here already: recorded, nothing to do.
+    localStorage.setItem('brisbane-ferry-selected-stops', JSON.stringify(PAIR))
+    expect(imp.mergeHandoff({ v: 1, ferry: handed })).toEqual(none)
+    expect(ledger()).toEqual(['ferry:317584>317590'])
   })
 
-  it('storage that throws loses nothing and stops nothing', async () => {
+  it('ferry: a pair that isn’t a real route is dropped (nothing saved, not offered again)', async () => {
     const { imp } = await modules()
+    const fake = { outbound: { id: '999999', name: 'Nowhere' }, inbound: { id: '317590', name: 'Riverside' } }
+    expect(imp.mergeHandoff({ v: 1, ferry: { pair: fake, remember: true } })).toEqual(none)
+    expect(localStorage.getItem('brisbane-ferry-selected-stops')).toBeNull()
+  })
+
+  it('storage that throws: counted as left, nothing recorded, so the next handoff stores them', async () => {
+    const { imp, bus } = await modules()
     const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('QuotaExceededError')
     })
-    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toBe(0)
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toEqual({ ...none, left: 1 })
     set.mockRestore()
+    expect(localStorage.getItem('bft-handoff-imported')).toBeNull()
+    expect(imp.mergeHandoff({ v: 1, bus: [BUS_A] })).toEqual({ ...none, added: 1 })
+    expect(bus.readSaved()).toEqual([BUS_A])
+  })
+})
+
+describe('noticeText', () => {
+  it('says what moved, what was left and why, and asks about a ferry conflict', async () => {
+    const { imp } = await modules()
+    expect(imp.noticeText({ added: 3, left: 0, ferryConflict: null })).toBe(
+      'Your 3 stops moved to My Transit.',
+    )
+    expect(imp.noticeText({ added: 1, left: 0, ferryConflict: null })).toBe(
+      'Your 1 stop moved to My Transit.',
+    )
+    expect(imp.noticeText(none)).toBe('')
+    expect(imp.noticeText({ added: 2, left: 1, ferryConflict: null })).toBe(
+      "Your 2 stops moved to My Transit. 1 stop couldn't be added here (My Transit is full, or this browser blocked saving). They're still on the old site and move next time you open it.",
+    )
+    expect(imp.noticeText({ added: 0, left: 1, ferryConflict: { pair: PAIR, remember: true } })).toBe(
+      'You already have a ferry trip here. Use Bulimba → Riverside from the old site instead?',
+    )
   })
 })
 
@@ -243,6 +300,29 @@ describe('run (entry.client.tsx)', () => {
     expect(localStorage.length).toBe(0)
     vi.advanceTimersByTime(1000)
     expect(document.querySelector('[data-handoff-notice]')).toBeNull()
+  })
+
+  it('a ferry conflict asks, and "Use it" saves the old site’s pair and reloads', async () => {
+    vi.useFakeTimers()
+    const mine = { outbound: { id: '317590', name: 'Riverside' }, inbound: { id: '317584', name: 'Bulimba' } }
+    localStorage.setItem('brisbane-ferry-selected-stops', JSON.stringify(mine))
+    open(encodeHandoff({ v: 1, ferry: { pair: PAIR, remember: true } }) ?? '', '/ferry')
+    const { imp, ferry } = await modules()
+    imp.run(() => {})
+    vi.advanceTimersByTime(300)
+    const notice = document.querySelector('[data-handoff-notice]')
+    expect(notice?.textContent).toContain('Use Bulimba → Riverside from the old site instead?')
+    // A question stays until answered.
+    vi.advanceTimersByTime(60_000)
+    expect(document.querySelector('[data-handoff-notice]')).not.toBeNull()
+    const reload = vi.fn()
+    vi.stubGlobal('location', { ...location, reload, pathname: '/ferry' })
+    const use = [...(notice?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Use it')
+    use?.click()
+    vi.unstubAllGlobals()
+    expect(reload).toHaveBeenCalledOnce()
+    expect(ferry.readSavedPair()).toEqual(PAIR)
+    expect(ledger()).toEqual(['ferry:317584>317590'])
   })
 
   it('all duplicates: no notice', async () => {

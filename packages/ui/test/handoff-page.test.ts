@@ -22,16 +22,19 @@ const browser = (path: string, headers: Record<string, string> = {}, method = 'G
   })
 
 class FakeStorage {
-  constructor(private items: Record<string, string> = {}) {}
+  constructor(readonly items: Record<string, string> = {}) {}
   getItem(k: string) {
     return Object.hasOwn(this.items, k) ? (this.items[k] as string) : null
+  }
+  setItem(k: string, v: string) {
+    this.items[k] = String(v)
   }
 }
 
 /** Runs a mode's handoff script with this storage; where it went and the cookie it set. */
 function run(
   mode: RedirectMode,
-  local: Record<string, string> | 'blocked',
+  local: Record<string, string> | FakeStorage | 'blocked',
   session: Record<string, string> = {},
 ) {
   const href = `${BASE}/${mode}?x=1`
@@ -46,7 +49,7 @@ function run(
   const window = {
     get localStorage(): FakeStorage {
       if (local === 'blocked') throw new Error('SecurityError')
-      return new FakeStorage(local)
+      return local instanceof FakeStorage ? local : new FakeStorage(local)
     },
   }
   const location = { replace: (u: string) => (went = u) }
@@ -70,7 +73,7 @@ function run(
 const COOKIE = `${HANDOFF_COOKIE}=1; Max-Age=31536000; Path=/; Secure; SameSite=Lax`
 
 describe('handoff script', () => {
-  it('bus: hands over the saved stops, sets the cookie and goes to the server-rendered link', () => {
+  it('bus: hands over the saved stops and goes to the server-rendered link; no cookie while it has favourites', () => {
     const saved = [
       { id: '10802', name: 'Cultural Centre station, platform 1' },
       { id: '1832', name: 'King George Square station' },
@@ -79,7 +82,8 @@ describe('handoff script', () => {
     expect(r.base).toBe(`${BASE}/bus?x=1`)
     expect(r.url.slice(r.base.length).startsWith(HANDOFF_PREFIX)).toBe(true)
     expect(r.payload).toEqual({ v: 1, bus: saved })
-    expect(r.cookie).toBe(COOKIE)
+    // Transit's storing isn't confirmed to this origin, so every visit hands over again (transit's ledger dedupes).
+    expect(r.cookie).toBe('')
   })
 
   it('train: favourites, dropping items in another shape', () => {
@@ -156,16 +160,47 @@ describe('handoff script', () => {
     expect(r.cookie).toBe(COOKIE)
   })
 
-  it('trims a long list to the size cap rather than dropping it', () => {
+  it('a list too long for one fragment goes over in turns until every stop has moved', () => {
     const saved = Array.from({ length: 80 }, (_, i) => ({
       id: `${10000 + i}`,
       name: `${'Stop name '.repeat(11)}${i}`,
     }))
-    const r = run('bus', { 'bft-bus-saved': JSON.stringify(saved) })
-    const got = r.payload?.bus ?? []
-    expect(got.length).toBeGreaterThan(20)
-    expect(got).toEqual(saved.slice(0, got.length))
-    expect(new TextEncoder().encode(JSON.stringify(r.payload)).length).toBeLessThanOrEqual(MAX_HANDOFF_BYTES)
+    const local = new FakeStorage({ 'bft-bus-saved': JSON.stringify(saved) })
+    const seen = new Set<string>()
+    let turns = 0
+    while (seen.size < saved.length && turns < 10) {
+      const r = run('bus', local)
+      const got = r.payload?.bus ?? []
+      expect(got.length).toBeGreaterThan(20)
+      expect(new TextEncoder().encode(JSON.stringify(r.payload)).length).toBeLessThanOrEqual(
+        MAX_HANDOFF_BYTES,
+      )
+      expect(r.cookie).toBe('')
+      for (const s of got) seen.add(s.id)
+      turns++
+    }
+    expect(seen.size).toBe(saved.length)
+    expect(turns).toBeGreaterThan(1)
+    expect(turns).toBeLessThan(5)
+  })
+
+  it('more than 50 short stops also go over in turns (50 a time), wrapping round', () => {
+    const saved = Array.from({ length: 60 }, (_, i) => ({ id: `${i}`, name: 'a' }))
+    const local = new FakeStorage({ 'bft-bus-saved': JSON.stringify(saved) })
+    expect(run('bus', local).payload?.bus?.map((s) => s.id)).toEqual(saved.slice(0, 50).map((s) => s.id))
+    expect(local.items['bft-handoff-next']).toBe('50')
+    expect(run('bus', local).payload?.bus?.map((s) => s.id)).toEqual(
+      [...saved.slice(50), ...saved.slice(0, 40)].map((s) => s.id),
+    )
+    expect(local.items['bft-handoff-next']).toBe('40')
+  })
+
+  it('a stale turn marker (the list shrank) starts again from the top', () => {
+    const local = new FakeStorage({
+      'bft-bus-saved': JSON.stringify([{ id: '1', name: 'a' }]),
+      'bft-handoff-next': '57',
+    })
+    expect(run('bus', local).payload?.bus).toEqual([{ id: '1', name: 'a' }])
   })
 
   it('is static: no request data in it', () => {

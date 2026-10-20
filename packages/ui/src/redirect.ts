@@ -113,8 +113,15 @@ export function redirectStatus(env: RedirectEnv): 301 | 302 {
   return env.REDIRECT_STATUS === '301' ? 301 : 302
 }
 
-/** Set by the handoff page once it has run, so later navigations get the plain redirect. Per mode host. */
+/**
+ * Set by the handoff page when this origin has no favourites to hand over, so later navigations get the plain
+ * redirect. Per mode host. While there are favourites, every browser navigation hands them over again: this host
+ * can't know whether transit stored them (a full store, storage errors), and transit's import is idempotent (it keeps
+ * a ledger of what it has stored, so a stop removed there isn't added back).
+ */
 export const HANDOFF_COOKIE = 'bft-handoff'
+/** The bus handoff page's place in a list too long for one fragment (this origin's localStorage). */
+export const HANDOFF_NEXT_KEY = 'bft-handoff-next'
 
 /** Known crawlers and link unfurlers: they get the plain redirect (they hold no favourites). */
 const BOT_RE =
@@ -155,15 +162,18 @@ var o=p&&s(p.outbound),i=p&&s(p.inbound);if(o&&i&&o.id!==i.id){d.ferry={pair:{ou
   train: `var f=g(ls,"bft-train-favourites"),o=[],K=${TRAIN_KEY_RE};
 if(Array.isArray(f))for(var j=0;j<f.length&&o.length<${MAX_TRAIN};j++){var x=f[j];if(x&&typeof x.from==="string"&&K.test(x.from)&&(x.to==null||(typeof x.to==="string"&&K.test(x.to))))o.push({from:x.from,to:x.to==null?null:x.to})}
 if(o.length){d.train=o;n=o.length}`,
-  bus: `var b=g(ls,"bft-bus-saved"),o=[];
-if(Array.isArray(b))for(var j=0;j<b.length&&o.length<${MAX_BUS};j++){var x=b[j];if(x&&typeof x.id==="string"&&${BUS_ID_RE}.test(x.id)&&t(x.name,${BUS_NAME_MAX})&&x.name)o.push({id:x.id,name:x.name})}
+  // The bus app has no cap on saved stops: a list too long for one fragment goes over in turns, starting where the
+  // last handoff stopped (bft-handoff-next, on this origin), so every stop moves across visits.
+  bus: `var b=g(ls,"bft-bus-saved"),o=[],F=0,T=0;
+if(Array.isArray(b))for(var j=0;j<b.length;j++){var x=b[j];if(x&&typeof x.id==="string"&&${BUS_ID_RE}.test(x.id)&&t(x.name,${BUS_NAME_MAX})&&x.name)o.push({id:x.id,name:x.name})}
+T=o.length;F=Number(ls.getItem("${HANDOFF_NEXT_KEY}"))||0;if(F<0||F>=T)F=0;o=o.slice(F).concat(o.slice(0,F)).slice(0,${MAX_BUS});
 if(o.length){d.bus=o;n=o.length}`,
 }
 
 /**
  * The handoff page's script, static per mode (nothing from the request): read this origin's favourites, put them in
- * the fragment of the link the server rendered (trimming lists to the size cap), set the handed-off cookie and go.
- * Any failure still goes to the plain link.
+ * the fragment of the link the server rendered (a bus list longer than the size cap goes over in turns), and go. Only
+ * when there is nothing to hand over does it set the handed-off cookie. Any failure still goes to the plain link.
  */
 export function handoffScript(mode: RedirectMode): string {
   return `(function(){var a=document.getElementById("bft-go"),u=a.href,d={v:1},n=0;
@@ -172,8 +182,8 @@ function g(st,k){try{return JSON.parse(st.getItem(k)||"null")}catch(e){return nu
 function t(x,m){return typeof x==="string"&&x.length<=m&&!C.test(x)}
 function enc(v){var y=new TextEncoder().encode(JSON.stringify(v));if(y.length>${MAX_HANDOFF_BYTES})return null;var z="";for(var q=0;q<y.length;q++)z+=String.fromCharCode(y[q]);return btoa(z).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"")}
 ${READERS[mode]}
-if(n){var l=d.bus||d.train,e=enc(d);while(e===null&&l&&l.length>1){l.pop();e=enc(d)}if(e)u+="${HANDOFF_PREFIX}"+e}}catch(e){}
-try{document.cookie="${HANDOFF_COOKIE}=1; Max-Age=31536000; Path=/; Secure; SameSite=Lax"}catch(e){}
+if(n){var l=d.bus||d.train,e=enc(d);while(e===null&&l&&l.length>1){l.pop();e=enc(d)}if(e){u+="${HANDOFF_PREFIX}"+e;if(d.bus)try{ls.setItem("${HANDOFF_NEXT_KEY}",String((F+d.bus.length)%T))}catch(e){}}}}catch(e){}
+if(!n)try{document.cookie="${HANDOFF_COOKIE}=1; Max-Age=31536000; Path=/; Secure; SameSite=Lax"}catch(e){}
 location.replace(u)})()`
 }
 
