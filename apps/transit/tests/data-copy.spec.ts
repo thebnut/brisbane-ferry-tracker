@@ -11,7 +11,9 @@ import { pinUpcoming } from './upcoming.ts'
 
 const STOP = '/bus/stop/10802'
 
-test('the service worker rewrites a stored copy of real loader data, and nothing else in it', async ({ request }) => {
+test('the service worker rewrites a stored copy of real loader data, and nothing else in it', async ({
+  request,
+}) => {
   const res = await request.get(`${STOP}.data`)
   expect(res.ok()).toBe(true)
   const network = await res.text()
@@ -34,7 +36,10 @@ test('the service worker rewrites a stored copy of real loader data, and nothing
 
 const saveStop = (page: Page) =>
   page.addInitScript(() =>
-    localStorage.setItem('bft-bus-saved', JSON.stringify([{ id: '10802', name: 'Cultural Centre station, platform 1' }])),
+    localStorage.setItem(
+      'bft-bus-saved',
+      JSON.stringify([{ id: '10802', name: 'Cultural Centre station, platform 1' }]),
+    ),
   )
 
 test('a client navigation answered from the cache shows the offline timetable, then LIVE once the network answers', async ({
