@@ -83,9 +83,27 @@ export function useUnconfirmedBefore(): number | null {
   return useSyncExternalStore(noSubscribe, getUnconfirmedBefore, () => null)
 }
 
-/** Tests: forget the cutoff read at load. */
+/** Tests: forget the cutoff and the render clock read at load. */
 export function resetUnconfirmedBefore(): void {
   unconfirmedBefore = undefined
+  renderSkew = undefined
+}
+
+let renderSkew: number | undefined
+/**
+ * Device clock minus server clock, from this page's HTML (Codex r1 of R13-B1): the device's navigation start minus the
+ * server's render time (liveGuardScript). Data that came in the HTML has no arrival stamp (Received), so liveState
+ * dates it by its generatedAt plus this. Navigation start precedes the render, so a board reads at most the
+ * request's round trip older than it is, never younger. 0 during SSR or without a render time. Cached or old HTML is
+ * unconfirmed (useUnconfirmedBefore), and liveState shows its data offline before this applies.
+ */
+const getRenderSkew = () => {
+  if (renderSkew === undefined) {
+    const at =
+      typeof window === 'undefined' ? null : (window as { __bftRenderedAt?: unknown }).__bftRenderedAt
+    renderSkew = typeof at === 'number' ? performance.timeOrigin - at : 0
+  }
+  return renderSkew
 }
 
 /**
@@ -566,9 +584,9 @@ export function liveState(
       : 'unavailable'
   }
   // Skew-free (R13-B1): the source's age when the server answered (server clock), plus the time since the answer
-  // arrived (device clock). A board without an arrival time (server-rendered) falls back to the device clock against
-  // its generatedAt, which is the same rule as before.
-  const elapsed = nowMs - (res.receivedAt ?? res.generatedAt)
+  // arrived (device clock). Data from the page's HTML has no arrival stamp; its generatedAt is moved onto the device
+  // clock by the page's render time (getRenderSkew).
+  const elapsed = nowMs - (res.receivedAt ?? res.generatedAt + getRenderSkew())
   const sourceAge =
     res.rtSourceTimestamp == null ? Infinity : res.generatedAt / 1000 - res.rtSourceTimestamp + elapsed / 1000
   if (sourceAge > LIVE_SOURCE_MAX_AGE_S || elapsed > LIVE_REFRESH_MAX_AGE_MS) return 'stale'

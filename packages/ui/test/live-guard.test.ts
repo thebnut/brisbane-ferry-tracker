@@ -128,6 +128,33 @@ describe('per-board confirmation after a cached page (R2-T7, Codex review rounds
     expect(liveState(a, { offline: false, nowMs: NOW, unconfirmedBefore: null })).toBeNull()
   })
 
+  it('board data from a fresh page is dated on the device clock through the render time, either skew (R13-B1)', () => {
+    for (const skew of [5 * 60_000, -5 * 60_000]) {
+      // The server rendered at NOW; the device started that navigation 500 ms earlier by its own clock.
+      ;(window as { __bftRenderedAt?: number }).__bftRenderedAt = NOW
+      vi.spyOn(performance, 'timeOrigin', 'get').mockReturnValue(NOW + skew - 500)
+      resetUnconfirmedBefore()
+      const ssr = { ...board(NOW + 100), rtSourceTimestamp: NOW / 1000 - 57 }
+      const at = (ms: number) =>
+        liveState(ssr, { offline: false, nowMs: NOW + skew + ms, unconfirmedBefore: null })
+      expect(at(2_000)).toBeNull()
+      // Never read younger than it is (navigation start precedes the render by 500 ms here, so it reads 400 ms older
+      // than its generatedAt): about a minute on, by the device clock, it is stale.
+      expect(at(LIVE_REFRESH_MAX_AGE_MS - 400)).toBeNull()
+      expect(at(LIVE_REFRESH_MAX_AGE_MS + 1_000)).toBe('stale')
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('a cached page stays offline whatever its render time says about the clock', () => {
+    vi.spyOn(performance, 'timeOrigin', 'get').mockReturnValue(NOW)
+    cachedPage()
+    const cutoff = renderHook(() => useUnconfirmedBefore()).result.current
+    expect(liveState(board(RENDERED), { offline: false, nowMs: NOW, unconfirmedBefore: cutoff })).toBe(
+      'offline',
+    )
+  })
+
   it('an unmarked page without a recorded render time still cuts off everything already on hand', () => {
     html.setAttribute(LIVE_UNCONFIRMED_ATTR, '')
     resetUnconfirmedBefore()
