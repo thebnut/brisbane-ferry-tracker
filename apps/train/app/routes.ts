@@ -8,5 +8,6 @@ export default [
   route('map', 'routes/map.tsx'),
   route('alerts', 'routes/alerts.tsx'),
   route('feedback', 'routes/feedback.tsx'),
+  route('whats-new', 'routes/whats-new.tsx'),
   route('*', 'routes/not-found.tsx'),
 ] satisfies RouteConfig
