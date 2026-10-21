@@ -62,12 +62,12 @@ function hub(answer: () => HubStatus, delayMs: () => number | null = () => 0) {
   return h
 }
 
-function setup(client: SnapshotClient, now: () => number) {
+const MANIFEST = { updatedAt: 'x', modes: { ferry: { current: 'g1' } } }
+
+function setup(client: SnapshotClient, now: () => number, getManifest = async () => MANIFEST) {
   const lines: Array<Record<string, unknown>> = []
   const log = createLogger({}, (l) => lines.push(JSON.parse(l)))
-  const store = {
-    getManifest: async () => ({ updatedAt: 'x', modes: { ferry: { current: 'g1' } } }),
-  } as unknown as StaticStore
+  const store = { getManifest } as unknown as StaticStore
   const a = createApp({ store, snapshots: client, log, now, combinedFeeds: false, polledModes: ['ferry'] })
   const health = async () => {
     const res = await a.request('/v1/health')
@@ -210,6 +210,87 @@ describe('health confirms before failing (THE-111)', () => {
     await client.refreshStatus()
     expect(matches).toBe(1)
     expect(h.pulls).toBe(2)
+  })
+})
+
+describe('Codex r1 findings (THE-111)', () => {
+  it('#1 a joined refresh still at its Cache API lookup goes on to read the hub', async () => {
+    let t = NOW
+    let answer = () => status(NOW, 110, 5)
+    const h = hub(() => answer())
+    let stale: HubStatus | null = null
+    const cache = {
+      match: async () => {
+        if (!stale) return undefined
+        await sleep(20)
+        return new Response(null, { headers: { 'x-seq': '1', 'x-status': JSON.stringify(stale) } })
+      },
+      put: async () => {},
+    }
+    const client = new SnapshotClient(
+      h,
+      () => t,
+      () => {},
+      cache,
+      'alerts',
+      600_000,
+    )
+    await client.get()
+    // 15 s on: the copy is 125 s behind, get() starts a normal refresh, and the PoP copy is just as stale.
+    t = NOW + 15_000
+    stale = status(t, 121, 6)
+    answer = () => status(t, 20, 5)
+    const pulls = h.pulls
+    const s = setup(client, () => t)
+    const r = await s.health()
+    expect(r).toMatchObject({ status: 200, body: { ok: true, rt: { ageS: 20 } } })
+    expect(h.pulls).toBe(pulls + 1)
+    expect(s.line('health refreshed')).toMatchObject({ cachedAgeS: 125, ageS: 20 })
+  })
+
+  it('#2 a status that crosses 120 s while the manifest loads is judged at the end, then confirmed', async () => {
+    let t = NOW
+    const frozen = status(NOW, 119, 5)
+    const h = hub(() => frozen)
+    const client = new SnapshotClient(
+      h,
+      () => t,
+      () => {},
+      null,
+      'alerts',
+      600_000,
+    )
+    await client.get()
+    const s = setup(
+      client,
+      () => t,
+      async () => {
+        t += 2_000
+        return MANIFEST
+      },
+    )
+    const r = await s.health()
+    expect(r).toMatchObject({ status: 503, body: { reasons: ['source-age'], rt: { ageS: 121 } } })
+    expect(s.line('request')).toMatchObject({ detail: 'source-age 121s', cachedAgeS: 121, confirmed: true })
+  })
+
+  it('#3 a slow manifest does not give a cold check a second refresh or a second 3 s wait', async () => {
+    const h = hub(
+      () => status(Date.now(), 20, 5),
+      () => null,
+    )
+    const client = new SnapshotClient(h, Date.now, () => {}, null, 'alerts')
+    const s = setup(client, Date.now, async () => {
+      await sleep(SNAPSHOT_REFRESH_DEADLINE_MS + 100)
+      return MANIFEST
+    })
+    const t0 = Date.now()
+    const r = await s.health()
+    const ms = Date.now() - t0
+    expect(r).toMatchObject({ status: 503, body: { reasons: ['unavailable'] } })
+    expect(h.pulls).toBe(1)
+    expect(ms).toBeLessThan(SNAPSHOT_REFRESH_DEADLINE_MS + 500)
+    expect(s.line('request')).toMatchObject({ confirmed: false })
   })
 })
 

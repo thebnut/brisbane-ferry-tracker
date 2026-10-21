@@ -88,7 +88,7 @@ visible in Workers Observability (`bft-api` staging, `bft-api-prod` production):
 | `rt source lagging` | warn | hub | once per feed per episode: the header time still advances but is over 90 s behind wall clock (not logged for a feed in a stale episode) | `feed`, `sourceTimestamp`, `ageS`, `seq` |
 | `rt source caught up` | info | hub | that feed's advancing header time is back within 90 s | `feed`, `sourceTimestamp`, `ageS`, `laggedS` (episode length), `seq` |
 | `rt stale` | warn | watchdog cron (`svc: bft-api`) | every minute while the published status (the R2 pointer health reads) is past health's 120 s | `reasons` (`source-age`, `build-age`), `ageS`, `buildAgeS`, `seq`, `hubAges` (the hub's own view) |
-| `request` with `path: /v1/health`, `status: 503` | info | API | each failing health check | `error: health not ok`, `detail` such as `source-age 446s`, `manifest,build-age 130s` or `status unavailable (waited 3000ms)`; after a confirming refresh also `confirmed: true`, `cachedAgeS`, `cachedBuildAgeS` (the isolate's ages before it) |
+| `request` with `path: /v1/health`, `status: 503` | info | API | each failing health check | `error: health not ok`, `detail` such as `source-age 446s`, `manifest,build-age 130s` or `status unavailable (waited 3000ms)`; when the cached status would have failed also `cachedAgeS`, `cachedBuildAgeS` (the isolate's ages before the confirming refresh) and `confirmed` (false: nothing was re-read, as a refresh ran under 5 s ago or the 3 s budget was spent) |
 | `health refreshed` | info | API | a health check whose cached status would have failed, but the confirming refresh was fresh (a 200) | `cachedAgeS`, `cachedBuildAgeS`, `ageS`, `buildAgeS`, `waitedMs` |
 
 The `/v1/health` body says the same thing for a caller: `reasons` lists every failing check in that fixed order
@@ -98,8 +98,8 @@ the measured ages (null when unknown). Both fields are optional in the `HealthRe
 still parse.
 
 Health never fails on the isolate's cached status alone (THE-111): that copy can be up to a minute older than the
-pointer, so a would-be 503 first forces one refresh (at most one per isolate per 5 s, joining any in flight) and judges
-that. A new isolate waits up to the 3 s refresh deadline for its first status (board routes keep `RT_WAIT_MS`). The
+pointer, so a would-be 503 first forces one refresh of the hub status (at most one per isolate per 5 s, joining any in
+flight) and judges that, all within 3 s of the request's start. A new isolate waits up to that 3 s for its first status (board routes keep `RT_WAIT_MS`). The
 `rt source lagging` and `caught up` lines are log-only: nothing alerts on them and they don't change health.
 
 Reading them: `rt source stale` with `rt stale` reasons `[source-age]` is an upstream freeze (nothing for us to fix

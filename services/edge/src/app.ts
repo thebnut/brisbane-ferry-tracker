@@ -55,7 +55,7 @@ import { REQUEST_DEADLINE_MS } from './request-deadline.ts'
 import { FEED_MODE_SUFFIX, MODES } from './rt/feeds.ts'
 import type { HubStatus } from './rt/hub-core.ts'
 import type { SnapshotScope } from './rt/split.ts'
-import type { CurrentSnapshot, SnapshotClient } from './snapshot-client.ts'
+import { type CurrentSnapshot, SNAPSHOT_REFRESH_DEADLINE_MS, type SnapshotClient } from './snapshot-client.ts'
 import { type Stations, stationsFor, stopNameFor, tripStopPlatform } from './stations.ts'
 
 export interface AppDeps {
@@ -645,22 +645,26 @@ export function createApp(deps: AppDeps): Hono<Env> {
       deps.store.getManifest(waitUntilOf(c)).catch(() => null),
       client.get(waitUntilOf(c), c.req.raw.signal),
     ])
-    let cur = first
-    let nowMs = t0
-    let judged = judgeRt(cur, client.status, nowMs)
+    // Judged when the reads are done, not when the request began (Codex r1 #2).
+    let nowMs = now()
+    let judged = judgeRt(first, client.status, nowMs)
     // THE-111: the isolate's status can be up to a minute older than the pointer, which alone put a healthy hub over
     // 120 s. Before failing on it (or on none), confirm with one forced refresh and judge that instead. A healthy
-    // check does no extra I/O, and a real upstream freeze or lag still fails, on the fresh read.
+    // check does no extra I/O, and a real upstream freeze or lag still fails, on the fresh read. The whole status wait
+    // stays inside SNAPSHOT_REFRESH_DEADLINE_MS from the start, however long the manifest took (Codex r1 #3).
     let cached: RtAges | null = null
     let confirmed = false
     if (judged.stale) {
       cached = judged.ages
-      const r = await client.refreshStatus(waitUntilOf(c), c.req.raw.signal)
-      cur = r.current
-      // false: a forced refresh ran under 5 s ago (STATUS_CONFIRM_MIN_MS), so this judges what that one loaded.
+      const r = await client.refreshStatus(
+        waitUntilOf(c),
+        c.req.raw.signal,
+        t0 + SNAPSHOT_REFRESH_DEADLINE_MS - nowMs,
+      )
+      // false: nothing was read (a forced refresh ran under 5 s ago, or the wait budget was spent).
       confirmed = r.refreshed
       nowMs = now()
-      judged = judgeRt(cur, client.status, nowMs)
+      judged = judgeRt(r.current, client.status, nowMs)
     }
     const { h, ages } = judged
     const { ageS, buildAgeS } = ages
