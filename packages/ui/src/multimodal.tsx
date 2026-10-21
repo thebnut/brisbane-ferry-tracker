@@ -149,8 +149,8 @@ export interface SavedTripCardProps {
   mode: TransitMode
   /** e.g. "BUS · CULTURAL CENTRE, PLATFORM 1" (upper-cased by the card). */
   label: string
-  /** e.g. "66 to UQ Lakes" or "Bulimba → Riverside". */
-  title: string
+  /** e.g. "66 to UQ Lakes" or "Bulimba → Riverside" (or a custom name with that as a second line). */
+  title: ReactNode
   live?: boolean
   /** "7:46 pm → 7:58 pm". */
   time?: string | null
