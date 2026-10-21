@@ -51,7 +51,8 @@ const rowOrder = (page: Page) =>
 
 async function openEditor(page: Page) {
   await page.getByRole('button', { name: 'Edit order and names' }).click()
-  await expect(page.getByRole('heading', { name: 'Edit My Transit' })).toBeVisible()
+  // Focus moves into the editor (the button that opened it is gone).
+  await expect(page.getByRole('heading', { name: 'Edit My Transit' })).toBeFocused()
 }
 
 async function expectOrderAfterReload(page: Page, order: string[]) {
@@ -148,12 +149,20 @@ test('reorder from the keyboard: pick up, move, drop, and Escape cancels', async
   await expect(handle).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(status(page)).toContainText('dropped at position 1 of 3')
+  // Leaving a held item drops it where it is, and focus is never pulled back.
+  await page.keyboard.press('Space')
+  await page.getByRole('textbox', { name: `Name for ${BUS_NAME}` }).click()
+  await page.keyboard.type('W')
+  await expect(page.getByRole('textbox', { name: `Name for ${BUS_NAME}` })).toBeFocused()
+  await page.getByRole('button', { name: `Reset name for ${BUS_NAME}` }).click()
   // The Move up button moves one place in one tap.
   await page.getByRole('button', { name: `Move ${BUS_NAME} up` }).click()
   await expect
     .poll(() => rowOrder(page))
     .toEqual(['train:roma-street>indooroopilly', 'bus:10802', 'ferry:317584>317590'])
   await page.getByRole('button', { name: 'Done' }).click()
+  // Closing gives focus back to the button that opened the editor.
+  await expect(page.getByRole('button', { name: 'Edit order and names' })).toBeFocused()
   await expectOrderAfterReload(page, [TRAIN, BUS, FERRY])
 })
 

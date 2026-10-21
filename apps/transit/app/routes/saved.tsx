@@ -24,7 +24,7 @@ import {
   usePageCheck,
   VIA_NETWORK,
 } from '@bft/ui/connectivity'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { AskBox } from '../components/AskBox.tsx'
 import { TransitFooter, TransitHeader, TransitStrip } from '../components/Chrome.tsx'
@@ -354,6 +354,15 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
     null,
   )
   const [editing, setEditing] = useState(false)
+  // Closing the editor gives focus back to the button that opened it.
+  const editButton = useRef<HTMLButtonElement>(null)
+  const refocus = useRef(false)
+  useEffect(() => {
+    if (!editing && refocus.current) {
+      refocus.current = false
+      editButton.current?.focus()
+    }
+  }, [editing])
   const edit = () =>
     void import('../components/SavedEditor.tsx').then((m) => {
       setEditor(() => m.SavedEditor)
@@ -410,13 +419,17 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
             items={items}
             onChange={setItems}
             store={{ read: readPrefs, write: writePrefs, clean: cleanLabel, maxLength: LABEL_MAX }}
-            onDone={() => setEditing(false)}
+            onDone={() => {
+              refocus.current = true
+              setEditing(false)
+            }}
           />
         ) : items.length ? (
           <>
             <SavedList items={items} qs={qs} nowMs={now} online={online} />
             <button
               type="button"
+              ref={editButton}
               onClick={edit}
               data-saved-edit=""
               className="flex min-h-11 items-center justify-center gap-2 self-end rounded-button px-3 text-sm font-semibold text-ferry-orange-deep hover:bg-ferry-orange-light dark:text-ferry-sunset dark:hover:bg-night-2"

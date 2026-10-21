@@ -52,6 +52,9 @@ export function SavedEditor({
   /** Ends a drag in progress (its window listeners) if the editor closes during it. */
   const stopDrag = useRef<(() => void) | null>(null)
   useEffect(() => () => stopDrag.current?.(), [])
+  // Opening it moves focus here, where the button that opened it was.
+  const heading = useRef<HTMLHeadingElement>(null)
+  useEffect(() => heading.current?.focus(), [])
 
   const commit = (next: SavedItem[]) => {
     setList(next)
@@ -109,7 +112,8 @@ export function SavedEditor({
   }
 
   const onHandlePointer = (e: PointerEvent<HTMLButtonElement>, item: SavedItem) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return
+    // One drag at a time (a second finger on another handle does nothing).
+    if ((e.pointerType === 'mouse' && e.button !== 0) || stopDrag.current) return
     e.preventDefault()
     const before = list
     const pointerId = e.pointerId
@@ -164,7 +168,7 @@ export function SavedEditor({
   return (
     <section aria-labelledby="saved-edit-title" className="flex flex-col gap-2" data-saved-editor="">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="saved-edit-title" className="text-base font-bold">
+        <h2 id="saved-edit-title" ref={heading} tabIndex={-1} className="text-base font-bold">
           Edit My Transit
         </h2>
         <button
