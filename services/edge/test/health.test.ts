@@ -30,7 +30,12 @@ function app(st: HubStatus | null, manifest = true) {
   const store = {
     getManifest: async () => (manifest ? { updatedAt: 'x', modes: { ferry: { current: 'g1' } } } : null),
   } as unknown as StaticStore
-  const snapshots = { get: async () => null, status: st } as unknown as SnapshotClient
+  // No hub behind it: health's confirming refresh finds the same status (THE-111 paths: health-confirm.test.ts).
+  const snapshots = {
+    get: async () => null,
+    refreshStatus: async () => ({ current: null, refreshed: true }),
+    status: st,
+  } as unknown as SnapshotClient
   const a = createApp({
     store,
     snapshots,
@@ -120,8 +125,9 @@ describe('health body reasons (R15-H1)', () => {
     expect((await body(status(140, 135))).body.reasons).toEqual(['source-age', 'build-age'])
     expect((await body(status(140, 5), false)).body.reasons).toEqual(['manifest', 'source-age'])
     expect((await body(status(20, 135), false)).body.reasons).toEqual(['manifest', 'build-age'])
+    // No status at all is `unavailable` (THE-111), not source-age and build-age with no ages.
     const all = await body(null, false)
-    expect(all).toMatchObject({ status: 503, body: { reasons: ['manifest', 'source-age', 'build-age'] } })
+    expect(all).toMatchObject({ status: 503, body: { reasons: ['manifest', 'unavailable'] } })
     // No status at all: both ages are unknown, not zero.
     expect(all.body.rt).toMatchObject({ ageS: null, buildAgeS: null })
   })

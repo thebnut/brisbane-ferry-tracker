@@ -36,11 +36,34 @@ export function healthReasons(manifestOk: boolean, { ageS, buildAgeS }: RtAges):
   return out
 }
 
-/** The request log's failure detail: each reason with its age, e.g. `source-age 446s,build-age 130s`. */
-export function healthDetail(reasons: HealthReason[], { ageS, buildAgeS }: RtAges): string {
+/**
+ * /v1/health's reasons when the isolate has no realtime status at all, even after waiting `waitedMs` for one: a plain
+ * `unavailable` rather than `source-age` and `build-age` with no ages (THE-111). The watchdog keeps `healthReasons`.
+ */
+export function unavailableReasons(manifestOk: boolean): HealthReason[] {
+  return manifestOk ? ['unavailable'] : ['manifest', 'unavailable']
+}
+
+/**
+ * The request log's failure detail: each reason with its age, e.g. `source-age 446s,build-age 130s`, or how long
+ * health waited for a status, e.g. `status unavailable (waited 3000ms)`.
+ */
+export function healthDetail(
+  reasons: HealthReason[],
+  { ageS, buildAgeS }: RtAges,
+  waitedMs?: number,
+): string {
   const age = (v: number | null) => (v == null ? 'none' : `${Math.round(v)}s`)
   return reasons
-    .map((r) => (r === 'source-age' ? `${r} ${age(ageS)}` : r === 'build-age' ? `${r} ${age(buildAgeS)}` : r))
+    .map((r) =>
+      r === 'source-age'
+        ? `${r} ${age(ageS)}`
+        : r === 'build-age'
+          ? `${r} ${age(buildAgeS)}`
+          : r === 'unavailable'
+            ? `status unavailable (waited ${Math.round(waitedMs ?? 0)}ms)`
+            : r,
+    )
     .join(',')
 }
 

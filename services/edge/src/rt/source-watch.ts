@@ -8,11 +8,20 @@
  * 304) and is older than staleAfterMs(cycle): 90 s, or three polls at a slower cadence. That is under health's 120 s,
  * so the line comes before the 503s, and well over TransLink's normal lag (10 to 25 s behind on staging, with the
  * header moving in 10 s steps). Failed fetches don't count either way: they are already logged as `rt cycle partial`.
+ *
+ * A header that keeps advancing but runs far behind wall clock is a different fault, and was silent (THE-111: the
+ * watchdog saw TripUpdates 149 s and 279 s behind on 21 Oct while this logged nothing). When an advancing header is
+ * more than SOURCE_LAG_MS behind, the feed is lagging: one `warn` line per episode (`rt source lagging`), and one
+ * `info` line once an advancing header is back under it (`rt source caught up`, with how long it lagged). A feed already
+ * in a stale episode is not also logged as lagging. Both are log lines only: nothing alerts on them, and they don't
+ * change /v1/health.
  */
 import type { Logger } from '../log.ts'
 
 export const SOURCE_STALE_MIN_POLLS = 3
 export const SOURCE_STALE_MIN_MS = 90_000
+/** An advancing header further behind wall clock than this (ms) is lagging. */
+export const SOURCE_LAG_MS = 90_000
 
 /** How old a feed's header time must be (with SOURCE_STALE_MIN_POLLS unchanged polls) to count as stale. */
 export const staleAfterMs = (cycleMs: number) =>
@@ -26,6 +35,8 @@ interface FeedWatch {
   polls: number
   /** When this episode was logged as stale, or null. */
   staleAt: number | null
+  /** When the current lagging episode was logged, or null. */
+  laggingAt: number | null
 }
 
 export class SourceWatch {
@@ -56,7 +67,14 @@ export class SourceWatch {
           seq,
         })
       }
-      this.feeds.set(feed, { ts, seenAt: nowMs, polls: 0, staleAt: null })
+      this.feeds.set(feed, {
+        ts,
+        seenAt: nowMs,
+        polls: 0,
+        staleAt: null,
+        // Only a header seen to advance is judged as lagging; a first sighting may yet turn out frozen.
+        laggingAt: w ? this.lag(feed, ts, nowMs, seq, w.laggingAt) : null,
+      })
       return
     }
     w.polls++
@@ -71,6 +89,36 @@ export class SourceWatch {
         seq,
       })
     }
+  }
+
+  /**
+   * The lagging episode after an advancing poll: starts one (logged) when the header is over SOURCE_LAG_MS behind,
+   * ends one (logged) when it is back under, and otherwise keeps `laggingAt` as it was.
+   */
+  private lag(feed: string, ts: number, nowMs: number, seq: number, laggingAt: number | null): number | null {
+    const ageMs = nowMs - ts * 1000
+    if (ageMs > SOURCE_LAG_MS) {
+      if (laggingAt == null) {
+        this.log.warn('rt source lagging', { feed, sourceTimestamp: ts, ageS: Math.round(ageMs / 1000), seq })
+        return nowMs
+      }
+      return laggingAt
+    }
+    if (laggingAt != null) {
+      this.log.info('rt source caught up', {
+        feed,
+        sourceTimestamp: ts,
+        ageS: Math.round(ageMs / 1000),
+        laggedS: Math.round((nowMs - laggingAt) / 1000),
+        seq,
+      })
+    }
+    return null
+  }
+
+  /** Feeds currently lagging (tests). */
+  lagging(): string[] {
+    return [...this.feeds].filter(([, w]) => w.laggingAt != null).map(([k]) => k)
   }
 
   /** Feeds currently in a stale episode (tests, and the hub status). */
