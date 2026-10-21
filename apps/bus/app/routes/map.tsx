@@ -3,9 +3,9 @@
  * stops layer is GeoJSON built from the geohash-5 tiles covering the visible area (zoom 14+, at most 16 tiles).
  * Scope toggle: around you (or `?lat=&lon=`) or your saved stops. Tap a stop for its board.
  */
-import { Icon, useGeolocation } from '@bft/ui'
+import { useGeolocation } from '@bft/ui'
 import { SegmentedControl } from '@bft/ui/bus'
-import type { ViewBounds } from '@bft/ui/map'
+import type { MapMarker, ViewBounds } from '@bft/ui/map'
 import SafeMap from '@bft/ui/safe-map'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
@@ -36,11 +36,15 @@ export const meta: Route.MetaFunction = ({ loaderData }) =>
   })
 
 const CBD: [number, number] = [153.0235, -27.4705]
+/** The map draws "you are here" itself (from `geolocation`); the stops are a layer. */
+const NO_MARKERS: MapMarker[] = []
 
 export default function MapPage() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const { geo, locate } = useGeolocation(positionFromParams(params))
+  const fixed = positionFromParams(params)
+  const geolocation = useGeolocation(fixed)
+  const { geo } = geolocation
   const [scope, setScope] = useState<'near' | 'saved'>('near')
   const [cells, setCells] = useState<string[]>([])
   const [zoomedOut, setZoomedOut] = useState(false)
@@ -59,19 +63,15 @@ export default function MapPage() {
     )
   }, [scope, saved, index.byKey, tiles.tiles])
   const center: [number, number] = geo.state === 'ok' ? [geo.lon, geo.lat] : CBD
-  const me =
-    geo.state === 'ok'
-      ? [
-          {
-            id: 'me',
-            lat: geo.lat,
-            lon: geo.lon,
-            tone: 'allstops' as const,
-            pulse: true,
-            label: 'You are here',
-          },
-        ]
-      : []
+  const fLat = fixed?.lat
+  const fLon = fixed?.lon
+  const fixedMarker = useMemo<MapMarker[]>(
+    () =>
+      fLat != null && fLon != null
+        ? [{ id: 'here', lat: fLat, lon: fLon, tone: 'you', pulse: true, label: 'Showing stops around here' }]
+        : NO_MARKERS,
+    [fLat, fLon],
+  )
   const onView = (b: ViewBounds, zoom: number) => {
     const c = zoom >= 14 ? cellsCovering(b) : null
     setZoomedOut(!c)
@@ -83,7 +83,8 @@ export default function MapPage() {
         <DesktopNav active="map" />
       </SiteHeader>
       <main className="relative h-[calc(100dvh-74px)] md:h-[calc(100dvh-120px)]">
-        <div className="absolute inset-x-3 top-3 z-10 flex items-center gap-2">
+        {/* Left only: the map's own locate-me button (THE-112) sits top right. */}
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
           <SegmentedControl
             label="Map scope"
             value={scope}
@@ -93,21 +94,15 @@ export default function MapPage() {
               { value: 'saved', label: 'My stops' },
             ]}
           />
-          <button
-            type="button"
-            onClick={locate}
-            aria-label="Centre on my location"
-            className="ml-auto flex size-11 items-center justify-center rounded-full border border-ferry-orange/20 bg-white text-aqua-text shadow-card dark:bg-night-card"
-          >
-            <Icon name="locate" size={20} />
-          </button>
         </div>
         <h1 className="sr-only">Bus stop map</h1>
         <ClientOnly fallback={<div className="h-full w-full animate-pulse bg-map-ground" />}>
           {() => (
             <SafeMap
               key={geo.state === 'ok' ? 'located' : 'default'}
-              markers={me}
+              markers={fixedMarker}
+              // ?lat=&lon= isn't the device: the map's own locate-me finds that (THE-112).
+              geolocation={fixed ? undefined : geolocation}
               stops={stops}
               onStopClick={(id) => navigate(stopHref(id))}
               onViewChange={onView}

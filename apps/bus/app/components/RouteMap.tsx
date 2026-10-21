@@ -1,6 +1,6 @@
 /** Per-route map (lazy): the line in the route colour, its stops as bus diamonds, live buses as pulsing dots. */
 import type { Vehicle } from '@bft/core/contract'
-import type { MapMarker, MapStop } from '@bft/ui/map'
+import type { GeoSource, MapMarker, MapStop } from '@bft/ui/map'
 import SafeMap from '@bft/ui/safe-map'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router'
@@ -13,12 +13,15 @@ export default function RouteMap({
   selectedTrip,
   color,
   variant,
+  geolocation,
 }: {
   pattern: RouteFile['patterns'][number]
   vehicles: Vehicle[]
   selectedTrip: string | null
   color?: string
   variant: 'standard' | 'premium'
+  /** The page's location (its nearest stop), shared with the map's locate-me button (THE-112). */
+  geolocation?: GeoSource
 }) {
   const navigate = useNavigate()
   const line = useMemo(() => pattern.stops.map((s): [number, number] => [s.lon, s.lat]), [pattern])
@@ -60,6 +63,7 @@ export default function RouteMap({
       onStopClick={(id) => navigate(stopHref(id))}
       line={line}
       lineColor={dark ? color : variant === 'premium' ? 'C2410C' : '1E7C80'}
+      geolocation={geolocation}
       label={`Map of route stops towards ${pattern.headsign} with ${markers.length} live buses`}
       className="h-80 w-full overflow-hidden rounded-card bg-map-ground md:h-[28rem]"
     />

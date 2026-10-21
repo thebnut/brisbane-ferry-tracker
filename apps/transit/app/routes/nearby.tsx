@@ -148,7 +148,8 @@ export default function Nearby({ loaderData }: Route.ComponentProps) {
     if (p?.source === 'stop') setPlace(p)
   }, [])
   const fixed = fromUrl ?? (place ? { lat: place.lat, lon: place.lon } : null)
-  const { geo, locate } = useGeolocation(fixed)
+  const geolocation = useGeolocation(fixed)
+  const { geo, locate } = geolocation
   const pos = geo.state === 'ok' ? geo : null
   const lat = pos?.lat
   const lon = pos?.lon
@@ -274,7 +275,13 @@ export default function Nearby({ loaderData }: Route.ComponentProps) {
             </div>
             {showMap && result && lat != null && lon != null ? (
               <Suspense fallback={<div className="h-64 animate-pulse rounded-card bg-map-ground md:h-80" />}>
-                <NearbyMap lat={lat} lon={lon} stops={listed} onStop={onStop} />
+                <NearbyMap
+                  lat={lat}
+                  lon={lon}
+                  stops={listed}
+                  onStop={onStop}
+                  geolocation={fixed ? undefined : geolocation}
+                />
               </Suspense>
             ) : null}
             {error && (!result || listed.length === 0) ? (
