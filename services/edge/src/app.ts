@@ -42,12 +42,20 @@ import {
   type StaticStore,
 } from './data/static-store.ts'
 import { within } from './deadline.ts'
-import { HEALTH_MAX_AGE_S, healthDetail, healthReasons, rtAges } from './health.ts'
+import {
+  HEALTH_MAX_AGE_S,
+  healthDetail,
+  healthReasons,
+  type RtAges,
+  rtAges,
+  unavailableReasons,
+} from './health.ts'
 import { createLogger, errorMessage, type Logger } from './log.ts'
 import { REQUEST_DEADLINE_MS } from './request-deadline.ts'
 import { FEED_MODE_SUFFIX, MODES } from './rt/feeds.ts'
+import type { HubStatus } from './rt/hub-core.ts'
 import type { SnapshotScope } from './rt/split.ts'
-import type { SnapshotClient } from './snapshot-client.ts'
+import type { CurrentSnapshot, SnapshotClient } from './snapshot-client.ts'
 import { type Stations, stationsFor, stopNameFor, tripStopPlatform } from './stations.ts'
 
 export interface AppDeps {
@@ -75,7 +83,18 @@ export interface AppDeps {
 }
 
 /** A server error's code and a trusted id (a mode or generation, never user input), for the request log line. */
-type Failure = { error: string; detail?: string; retryable?: true }
+type Failure = {
+  error: string
+  detail?: string
+  retryable?: true
+  /**
+   * /v1/health when its cached status would fail (THE-111): the isolate's ages before the forced refresh, and whether
+   * that refresh ran (false: one ran under 5 s ago, and its result was judged).
+   */
+  cachedAgeS?: number | null
+  cachedBuildAgeS?: number | null
+  confirmed?: boolean
+}
 
 /**
  * A 200 that is less than the full answer, for the request log line: the generation came from the RT snapshot
@@ -620,31 +639,37 @@ export function createApp(deps: AppDeps): Hono<Env> {
   // ---------------------------------------------------------------- health
 
   app.get('/v1/health', async (c) => {
-    const nowMs = now()
+    const t0 = now()
     const client = deps.snapshotsFor?.('alerts') ?? deps.snapshots
-    const [manifest, cur] = await Promise.all([
+    const [manifest, first] = await Promise.all([
       deps.store.getManifest(waitUntilOf(c)).catch(() => null),
       client.get(waitUntilOf(c), c.req.raw.signal),
     ])
+    let cur = first
+    let nowMs = t0
+    let judged = judgeRt(cur, client.status, nowMs)
+    // THE-111: the isolate's status can be up to a minute older than the pointer, which alone put a healthy hub over
+    // 120 s. Before failing on it (or on none), confirm with one forced refresh and judge that instead. A healthy
+    // check does no extra I/O, and a real upstream freeze or lag still fails, on the fresh read.
+    let cached: RtAges | null = null
+    let confirmed = false
+    if (judged.stale) {
+      cached = judged.ages
+      const r = await client.refreshStatus(waitUntilOf(c), c.req.raw.signal)
+      cur = r.current
+      // false: a forced refresh ran under 5 s ago (STATUS_CONFIRM_MIN_MS), so this judges what that one loaded.
+      confirmed = r.refreshed
+      nowMs = now()
+      judged = judgeRt(cur, client.status, nowMs)
+    }
+    const { h, ages } = judged
+    const { ageS, buildAgeS } = ages
     const status = client.status
-    // The hub status (from the pointer) is the freshest view; the alerts document's header can lag up to 60 s.
-    const hdr = cur?.snapshot.header
-    const h =
-      status?.seq != null && status.sourceTimestamp != null && status.fetchedAt != null
-        ? {
-            seq: status.seq,
-            sourceTimestamp: status.sourceTimestamp,
-            fetchedAt: status.fetchedAt,
-            stats: status.stats ?? hdr?.stats,
-          }
-        : hdr
     const generations: Record<string, string> = {}
     for (const [m, v] of Object.entries(manifest?.modes ?? {})) if (v) generations[m] = v.current
-    // Judge the source, not the build: a hub that keeps rebuilding from retained data while TripUpdates fail must
-    // not look healthy (Codex review #5). ageS is the age of TransLink's header time behind the snapshot.
-    const ages = rtAges(h, nowMs)
-    const { ageS, buildAgeS } = ages
-    const reasons = healthReasons(manifest != null, ages)
+    // No status even after waiting (a new isolate, or a hub that didn't answer): say so plainly.
+    const waitedMs = nowMs - t0
+    const reasons = h == null ? unavailableReasons(manifest != null) : healthReasons(manifest != null, ages)
     const body: HealthResponse = {
       schemaVersion: SCHEMA_VERSION,
       ok: reasons.length === 0,
@@ -666,9 +691,20 @@ export function createApp(deps: AppDeps): Hono<Env> {
         : { enabled: false, budgetUsedUsd: null },
       build,
     }
+    const cachedFields = cached ? { cachedAgeS: cached.ageS, cachedBuildAgeS: cached.buildAgeS } : {}
     // The body says why in `reasons`; the log line keeps its R14-RT1 `detail` with the ages (e.g. `source-age 446s`),
-    // so an upstream freeze reads differently from a hub or pointer that stopped.
-    if (!body.ok) c.set('failure', { error: 'health not ok', detail: healthDetail(reasons, ages) })
+    // so an upstream freeze reads differently from a hub or pointer that stopped. After a forced refresh it also
+    // carries the isolate's pre-refresh ages and `confirmed`, so a cache-only blip can be told from a real one.
+    if (!body.ok) {
+      c.set('failure', {
+        error: 'health not ok',
+        detail: healthDetail(reasons, ages, waitedMs),
+        ...(cached ? { ...cachedFields, confirmed } : {}),
+      })
+    } else if (cached && confirmed) {
+      // A would-be 503 the fresh read turned into a 200: counted, to see how often the refresh saves one.
+      c.get('log').info('health refreshed', { ...cachedFields, ageS, buildAgeS, waitedMs })
+    }
     return c.json(body, body.ok ? 200 : 503, { 'cache-control': 'no-store' })
   })
 
@@ -895,4 +931,26 @@ function concatBytes(parts: Uint8Array[]): Uint8Array {
     o += p.byteLength
   }
   return out
+}
+
+/**
+ * The realtime half of /v1/health: the header it judges (the hub status from the pointer, the freshest view, else the
+ * alerts document's header, which can lag up to 60 s), its ages, and whether those would fail health (or there is
+ * none). Judge the source, not the build: a hub that keeps rebuilding from retained data while TripUpdates fail must
+ * not look healthy (Codex review #5).
+ */
+function judgeRt(cur: CurrentSnapshot | null, status: HubStatus | null, nowMs: number) {
+  const hdr = cur?.snapshot.header
+  const h =
+    status?.seq != null && status.sourceTimestamp != null && status.fetchedAt != null
+      ? {
+          seq: status.seq,
+          sourceTimestamp: status.sourceTimestamp,
+          fetchedAt: status.fetchedAt,
+          stats: status.stats ?? hdr?.stats,
+        }
+      : (hdr ?? null)
+  const ages = rtAges(h, nowMs)
+  const stale = h == null || healthReasons(true, ages).length > 0
+  return { h, ages, stale }
 }

@@ -85,13 +85,22 @@ visible in Workers Observability (`bft-api` staging, `bft-api-prod` production):
 |---|---|---|---|---|
 | `rt source stale` | warn | hub (`svc: bft-rthub`) | once per feed per episode: TransLink's header time unchanged for 3 successful polls and over max(90 s, 3 polls) old | `feed`, `sourceTimestamp`, `ageS`, `polls`, `seq` |
 | `rt source recovered` | info | hub | that feed's header time moves again | `feed`, `sourceTimestamp`, `staleS` (episode length), `polls`, `seq` |
+| `rt source lagging` | warn | hub | once per feed per episode: the header time still advances but is over 90 s behind wall clock (not logged for a feed in a stale episode) | `feed`, `sourceTimestamp`, `ageS`, `seq` |
+| `rt source caught up` | info | hub | that feed's advancing header time is back within 90 s | `feed`, `sourceTimestamp`, `ageS`, `laggedS` (episode length), `seq` |
 | `rt stale` | warn | watchdog cron (`svc: bft-api`) | every minute while the published status (the R2 pointer health reads) is past health's 120 s | `reasons` (`source-age`, `build-age`), `ageS`, `buildAgeS`, `seq`, `hubAges` (the hub's own view) |
-| `request` with `path: /v1/health`, `status: 503` | info | API | each failing health check | `error: health not ok`, `detail` such as `source-age 446s` or `manifest,build-age 130s` |
+| `request` with `path: /v1/health`, `status: 503` | info | API | each failing health check | `error: health not ok`, `detail` such as `source-age 446s`, `manifest,build-age 130s` or `status unavailable (waited 3000ms)`; after a confirming refresh also `confirmed: true`, `cachedAgeS`, `cachedBuildAgeS` (the isolate's ages before it) |
+| `health refreshed` | info | API | a health check whose cached status would have failed, but the confirming refresh was fresh (a 200) | `cachedAgeS`, `cachedBuildAgeS`, `ageS`, `buildAgeS`, `waitedMs` |
 
 The `/v1/health` body says the same thing for a caller: `reasons` lists every failing check in that fixed order
-(`manifest`, `source-age`, `build-age`) and is always present, an empty list on a 200; `rt.ageS` and `rt.buildAgeS` are
+(`manifest`, `source-age`, `build-age`, or `unavailable` instead of the two ages when there is no realtime status at
+all) and is always present, an empty list on a 200; `rt.ageS` and `rt.buildAgeS` are
 the measured ages (null when unknown). Both fields are optional in the `HealthResponse` contract, so older deploys
 still parse.
+
+Health never fails on the isolate's cached status alone (THE-111): that copy can be up to a minute older than the
+pointer, so a would-be 503 first forces one refresh (at most one per isolate per 5 s, joining any in flight) and judges
+that. A new isolate waits up to the 3 s refresh deadline for its first status (board routes keep `RT_WAIT_MS`). The
+`rt source lagging` and `caught up` lines are log-only: nothing alerts on them and they don't change health.
 
 Reading them: `rt source stale` with `rt stale` reasons `[source-age]` is an upstream freeze (nothing for us to fix
 but to show it). `rt stale` with `build-age` while `hubAges` is fresh means the hub is fine and its status isn't

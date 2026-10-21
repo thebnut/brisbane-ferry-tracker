@@ -54,6 +54,11 @@ export const RT_WAIT_MS = 1_200
  * is due anyway, and it stays well inside the 30 s Workers allow `waitUntil` after a response.
  */
 export const SNAPSHOT_LATE_COMMIT_MS = SNAPSHOT_REFRESH_MS
+/**
+ * Health's forced refresh (`refreshStatus`) starts at most once per this per isolate, so a real upstream freeze, when
+ * every health check would force one, costs at most one pointer read per isolate per 5 s however often it's probed.
+ */
+export const STATUS_CONFIRM_MIN_MS = 5_000
 
 export interface SnapshotTiming {
   refreshDeadlineMs: number
@@ -105,6 +110,8 @@ export class SnapshotClient {
   private lastStatus: HubStatus | null = null
   private loadedAt = Number.NEGATIVE_INFINITY
   private attemptedAt = Number.NEGATIVE_INFINITY
+  /** When `refreshStatus` last ran a refresh (its own, or one it joined). */
+  private forcedAt = Number.NEGATIVE_INFINITY
   /** The refresh in flight, which requests join. One abandoned at its deadline may still commit (see `commit`). */
   private inflight: Refresh | null = null
   private tokens = 0
@@ -194,15 +201,46 @@ export class SnapshotClient {
   }
 
   /**
-   * The refresh in flight, or a new one. A new one is handed to `waitUntil` so it can outlive the request that
-   * starts it (a waiter whose wait runs out returns before it), and it carries its own deadline.
+   * /v1/health only (THE-111): one forced refresh before health fails on this isolate's copy, which can be up to
+   * maxStaleMs older than the pointer. Joins the refresh in flight if there is one, else starts one regardless of
+   * the 10 s attempt throttle (but at most once per STATUS_CONFIRM_MIN_MS), reading the hub (the R2 pointer) rather
+   * than the PoP's Cache API copy. Waits at most
+   * until that refresh's deadline (SNAPSHOT_REFRESH_DEADLINE_MS from its start), not RT_WAIT_MS: health is not
+   * rider-facing latency. Resolves to the current snapshot (`status` holds the result) and whether a refresh ran
+   * (false: throttled, nothing was read). Never throws. Board routes use `get()`, whose behaviour this doesn't change.
    */
-  private attempt(waitUntil: (p: Promise<unknown>) => void): Refresh {
+  async refreshStatus(
+    waitUntil?: (p: Promise<unknown>) => void,
+    signal?: AbortSignal,
+  ): Promise<{ current: CurrentSnapshot | null; refreshed: boolean }> {
+    const now = this.now()
+    const { refreshDeadlineMs } = this.timing
+    if (this.inflight && isDead(this.inflight, now, refreshDeadlineMs)) this.abandon(this.inflight, 'lost')
+    if (!this.inflight && now - this.forcedAt < STATUS_CONFIRM_MIN_MS)
+      return { current: this.current, refreshed: false }
+    this.forcedAt = now
+    const run = this.attempt(waitUntil ?? this.waitUntil, true)
+    try {
+      return {
+        current: await within(run.p, run.at + refreshDeadlineMs - now, 'rt status refresh', signal),
+        refreshed: true,
+      }
+    } catch {
+      return { current: this.current, refreshed: true }
+    }
+  }
+
+  /**
+   * The refresh in flight, or a new one. A new one is handed to `waitUntil` so it can outlive the request that
+   * starts it (a waiter whose wait runs out returns before it), and it carries its own deadline. `force` (health's
+   * confirming refresh) skips the Cache API and reads the hub.
+   */
+  private attempt(waitUntil: (p: Promise<unknown>) => void, force = false): Refresh {
     if (this.inflight) return this.inflight
     const token = ++this.tokens
     const at = this.now()
     this.attemptedAt = at
-    const work = this.refresh({ token, at, commits: this.commits })
+    const work = this.refresh({ token, at, commits: this.commits, force })
     const p = within(work, this.timing.refreshDeadlineMs, 'rt snapshot refresh').then(
       (value) => {
         if (this.inflight?.token === token) this.inflight = null
@@ -241,7 +279,8 @@ export class SnapshotClient {
   }
 
   private async refresh(run: RefreshRun): Promise<CurrentSnapshot | null> {
-    const cached = await this.fromCache()
+    // Always await (a forced refresh too): `attempt` records this refresh as in flight only after this call returns.
+    const cached = await (run.force ? null : this.fromCache())
     if (cached) {
       this.commit(run, cached)
       return this.current
@@ -351,6 +390,8 @@ interface RefreshRun {
   token: number
   at: number
   commits: number
+  /** Skip the Cache API (health's confirming refresh). */
+  force?: boolean
 }
 
 /** What a refresh loaded, from the Cache API or the hub. */
