@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import * as busNav from '../app/modes/bus-nav.tsx'
 import * as trainNav from '../app/modes/train-nav.tsx'
-import { NAV_SLOTS } from '../modes.config.ts'
+import { NAV_SLOTS, RERUN_SLOTS } from '../modes.config.ts'
 
 const exportsOf = (path: string) =>
   [...readFileSync(path, 'utf8').matchAll(/^export (?:const|function) (\w+)/gm)].map((m) => m[1]).sort()
@@ -30,5 +30,19 @@ describe('nav slots', () => {
     expect(Object.keys(mod).sort()).toEqual(exportsOf(original(mode)))
     expect(mod.NAV.map((n) => `${n.key}:${n.label}`)).toEqual(navOf(original(mode)))
     for (const n of mod.NAV) expect(n.href.startsWith(`/${mode}`)).toBe(true)
+  })
+})
+
+describe('re-run onboarding slots (THE-113)', () => {
+  it("each mode app's re-run picker resolves to transit's, which has every mode", () => {
+    const own = (path: string) => fileURLToPath(new URL(path, import.meta.url))
+    expect(RERUN_SLOTS).toEqual(
+      Object.fromEntries(
+        ['ferry', 'train', 'bus'].map((mode) => [
+          own(`../../${mode}/app/components/OnboardingRerun.tsx`),
+          own('../app/components/OnboardingRerun.tsx'),
+        ]),
+      ),
+    )
   })
 })

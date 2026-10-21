@@ -1,19 +1,30 @@
 /**
  * App chrome shared by every page: header lockup (train emblem + "BrisbaneTrain / Departure Boards"), Settings and
  * LIVE pills, bottom navigation (Home, Stations, Map, Alerts), footer with the TransLink attribution, and the
- * settings sheet (theme). Fixture mode is labelled so demo data is never mistaken for live times.
+ * settings sheet (theme, My Transit stops; lazy: SettingsSheet.tsx). Fixture mode is labelled so demo data is never mistaken for live times.
  */
-import { AppHeader, BottomSheet, DemoExitLink, LivePill, SettingsPill } from '@bft/ui'
+import { AppHeader, DemoExitLink, LivePill, SettingsPill } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-train.svg?url'
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
+import {
+  createContext,
+  lazy,
+  type ReactNode,
+  Suspense,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react'
 import { useRouteLoaderData } from 'react-router'
 import { ATTRIBUTION } from '../lib/seo.ts'
-import { type Theme, writeTheme } from '../lib/storage.ts'
 import { useOnline } from '../lib/useNow.ts'
 import type { loader as rootLoader } from '../root.tsx'
 import { DesktopNav, TrainNav } from './nav.tsx'
 
 export { NAV } from './nav.tsx'
+
+// Loaded on first open: keeps the bottom sheet off every page's first load.
+const SettingsSheet = lazy(() => import('./SettingsSheet.tsx'))
 
 export const SECTION = {
   section: 'mx-auto max-w-6xl px-4 pt-4 pb-2 text-charcoal dark:text-night-text',
@@ -41,56 +52,6 @@ export function SiteHeader({
       {onSettings ? <SettingsPill onClick={onSettings} compact /> : null}
       <LivePill live={live} />
     </AppHeader>
-  )
-}
-
-const THEMES: Array<{ value: Theme; label: string }> = [
-  { value: 'system', label: 'Match my device' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-]
-
-function applyTheme(theme: Theme) {
-  const el = document.documentElement
-  el.classList.remove('light', 'dark')
-  if (theme !== 'system') el.classList.add(theme)
-  else if (matchMedia('(prefers-color-scheme: dark)').matches) el.classList.add('dark')
-}
-
-export function SettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const root = useRouteLoaderData<typeof rootLoader>('root')
-  const [theme, setTheme] = useState<Theme>(root?.theme ?? 'system')
-  return (
-    <BottomSheet open={open} onClose={onClose} title="Settings">
-      <fieldset className="px-5 py-4">
-        <legend className="text-sm font-semibold text-gray-700 dark:text-night-text/80">Appearance</legend>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {THEMES.map((t) => (
-            <label
-              key={t.value}
-              className="flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-ferry-orange/30 bg-white px-4 text-sm font-semibold has-checked:border-ferry-orange-aa has-checked:bg-ferry-orange-light dark:bg-night-2 dark:has-checked:bg-night-card"
-            >
-              <input
-                type="radio"
-                name="theme"
-                value={t.value}
-                checked={theme === t.value}
-                onChange={() => {
-                  setTheme(t.value)
-                  writeTheme(t.value)
-                  applyTheme(t.value)
-                }}
-                className="accent-ferry-orange-aa"
-              />
-              {t.label}
-            </label>
-          ))}
-        </div>
-        <p className="mt-4 text-xs text-sched-text">
-          Favourites and today's offline timetable are kept on this device only.
-        </p>
-      </fieldset>
-    </BottomSheet>
   )
 }
 
@@ -136,7 +97,7 @@ export function Shell({
   live?: boolean
   children: ReactNode
 }) {
-  const [settings, setSettings] = useState(false)
+  const [settings, setSettings] = useState<boolean | null>(null)
   const [reports, setReports] = useState<Record<string, boolean>>({})
   const report = useCallback(
     (key: string, value: boolean | null) =>
@@ -162,7 +123,12 @@ export function Shell({
       <main className="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">{children}</main>
       <Footer />
       <TrainNav active={active} />
-      <SettingsSheet open={settings} onClose={() => setSettings(false)} />
+      {/* Mounted from the first open on: closing the sheet (not unmounting it) gives focus back to Settings. */}
+      {settings != null ? (
+        <Suspense fallback={null}>
+          <SettingsSheet open={settings} onClose={() => setSettings(false)} />
+        </Suspense>
+      ) : null}
     </LiveReport.Provider>
   )
 }

@@ -2,7 +2,6 @@
 import type { RtState } from '@bft/core/contract'
 import {
   AppHeader,
-  BottomSheet,
   DemoExitLink,
   formatAge,
   formatClock,
@@ -13,17 +12,18 @@ import {
   StatusStrip,
 } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
-import { SegmentedControl } from '@bft/ui/bus'
 import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
-import { type ReactNode, useEffect, useState } from 'react'
+import { lazy, type ReactNode, Suspense, useState } from 'react'
 import { Link } from 'react-router'
 import { at } from '../lib/base.ts'
 import { ATTRIBUTION } from '../lib/seo.ts'
-import { readTheme, type ThemePref, writeTheme } from '../lib/storage.ts'
 import { useOnline } from '../lib/useNow.ts'
 
+// Loaded on first open: keeps the bottom sheet and segmented control off every page's first load.
+const SettingsSheet = lazy(() => import('./SettingsSheet.tsx'))
+
 export function SiteHeader({ live = true, children }: { live?: boolean; children?: ReactNode }) {
-  const [settings, setSettings] = useState(false)
+  const [settings, setSettings] = useState<boolean | null>(null)
   const online = useOnline()
   return (
     <>
@@ -38,48 +38,13 @@ export function SiteHeader({ live = true, children }: { live?: boolean; children
         {/* Never LIVE while offline, whatever the page's data says. */}
         <LivePill live={live && online} />
       </AppHeader>
-      <SettingsSheet open={settings} onClose={() => setSettings(false)} />
+      {/* Mounted from the first open on: closing the sheet (not unmounting it) gives focus back to Settings. */}
+      {settings != null ? (
+        <Suspense fallback={null}>
+          <SettingsSheet open={settings} onClose={() => setSettings(false)} />
+        </Suspense>
+      ) : null}
     </>
-  )
-}
-
-function SettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [theme, setTheme] = useState<ThemePref>('system')
-  useEffect(() => setTheme(readTheme()), [])
-  return (
-    <BottomSheet open={open} onClose={onClose} title="Settings">
-      <div className="flex flex-col gap-5">
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-semibold">Appearance</span>
-          <SegmentedControl<ThemePref>
-            label="Appearance"
-            value={theme}
-            onChange={(t) => {
-              setTheme(t)
-              writeTheme(t)
-            }}
-            options={[
-              { value: 'system', label: 'Auto' },
-              { value: 'light', label: 'Light' },
-              { value: 'dark', label: 'Dark' },
-            ]}
-          />
-        </div>
-        <p className="text-sm text-sched-text">
-          Saved stops, recent searches and offline timetables stay on this device. Times refresh every 15
-          seconds while the page is open.
-        </p>
-        <p className="text-sm">
-          <Link
-            to={at('/about')}
-            className="font-semibold text-ferry-orange-deep underline"
-            onClick={onClose}
-          >
-            About BrisbaneBus and data sources
-          </Link>
-        </p>
-      </div>
-    </BottomSheet>
   )
 }
 

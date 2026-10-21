@@ -7,7 +7,13 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import OnboardingPicker, { type ModeSource } from '../src/OnboardingPicker.tsx'
 import OnboardingPrompt, { measureLift } from '../src/OnboardingPrompt.tsx'
-import { markOnboardingDone, ONBOARDING_KEY, shouldOffer, type TrayState } from '../src/onboarding.ts'
+import {
+  markOnboardingDone,
+  ONBOARDING_KEY,
+  shouldOffer,
+  type TrayItem,
+  type TrayState,
+} from '../src/onboarding.ts'
 
 vi.mock('../src/geolocation.ts', () => ({ useGeolocation: () => ({ geo: { state: 'idle' } }) }))
 
@@ -48,13 +54,17 @@ const SOURCES: ModeSource[] = [
   },
 ]
 
-function renderPicker(onSave = vi.fn((_: TrayState) => true as boolean | undefined), onClose = vi.fn()) {
+function renderPicker(
+  onSave = vi.fn((_: TrayState) => true as boolean | undefined),
+  onClose = vi.fn(),
+  initialItems?: TrayItem[],
+) {
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400)
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(800)
   render(
     <main>
       <p>the page</p>
-      <OnboardingPicker sources={SOURCES} onSave={onSave} onClose={onClose} />
+      <OnboardingPicker sources={SOURCES} initialItems={initialItems} onSave={onSave} onClose={onClose} />
     </main>,
   )
   return { onSave, onClose }
@@ -142,6 +152,62 @@ describe('onboarding picker without WebGL', () => {
     expect(tray().getByRole('status').textContent).toMatch(/Couldn't save on this device/)
     expect(trayNames()).toEqual(['King George Square'])
     expect(onClose).not.toHaveBeenCalled()
+  })
+})
+
+describe('onboarding picker re-run from Settings (THE-113)', () => {
+  const SAVED: TrayItem[] = [
+    { mode: 'bus', id: '1832', name: 'King George Square' },
+    { mode: 'ferry', id: 'bulimba', name: 'Bulimba', to: 'riverside' },
+  ]
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    localStorage.clear()
+  })
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('opens with the saved stops in the tray, already picked, titled for My Transit', () => {
+    renderPicker(undefined, undefined, SAVED)
+    expect(screen.getByRole('dialog', { name: 'Set up My Transit stops' })).toBeTruthy()
+    expect(trayNames()).toEqual(['King George Square', 'From Bulimba'])
+    expect((tray().getByRole('combobox', { name: 'To' }) as HTMLSelectElement).value).toBe('riverside')
+    // Picked on the list too: a tap there takes it out.
+    fireEvent.change(tray().getByLabelText('Find a stop by name'), { target: { value: 'king' } })
+    const row = within(tray().getByRole('list', { name: /matching king/ })).getByRole('button')
+    expect(row.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(row)
+    expect(trayNames()).toEqual(['From Bulimba'])
+  })
+
+  it('add one, remove one, Save hands over the tray as it stands', () => {
+    const { onSave } = renderPicker(undefined, undefined, SAVED)
+    fireEvent.change(tray().getByLabelText('Find a stop by name'), { target: { value: 'cultural' } })
+    fireEvent.click(tray().getByRole('button', { name: /Cultural Centre/ }))
+    fireEvent.click(tray().getByRole('button', { name: 'Remove King George Square' }))
+    fireEvent.click(tray().getByRole('button', { name: /^Save/ }))
+    expect(onSave.mock.calls[0]?.[0].items.map((i) => `${i.mode}:${i.id}`)).toEqual([
+      'ferry:bulimba',
+      'bus:10802',
+    ])
+  })
+
+  it('emptying the tray can be saved (it unsaves everything), and says so', () => {
+    const { onSave } = renderPicker(undefined, undefined, SAVED)
+    fireEvent.click(tray().getByRole('button', { name: 'Remove King George Square' }))
+    fireEvent.click(tray().getByRole('button', { name: 'Remove Bulimba' }))
+    expect(tray().getByText(/Saving now removes all your saved stops/)).toBeTruthy()
+    fireEvent.click(tray().getByRole('button', { name: 'Save' }))
+    expect(onSave.mock.calls[0]?.[0].items).toEqual([])
+  })
+
+  it('Cancel saves nothing', () => {
+    const { onSave, onClose } = renderPicker(undefined, undefined, SAVED)
+    fireEvent.click(tray().getByRole('button', { name: 'Remove King George Square' }))
+    fireEvent.click(tray().getByRole('button', { name: 'Cancel' }))
+    expect(onClose).toHaveBeenCalled()
+    expect(onSave).not.toHaveBeenCalled()
   })
 })
 
