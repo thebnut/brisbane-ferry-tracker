@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** P4: train onboarding saves stations as favourites through storage.ts (format, cookie and cap unchanged). */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { saveTrain, trainHasSaved, trainSource } from '../app/lib/onboarding.ts'
+import { resaveTrain, saveTrain, trainHasSaved, trainSource, trainTrayItems } from '../app/lib/onboarding.ts'
 import { FAV_COOKIE, FAVOURITES_KEY, MAX_FAVOURITES, writeFavourites } from '../app/lib/storage.ts'
 
 const station = (id: string) => ({ mode: 'train' as const, id, name: id })
@@ -40,5 +40,72 @@ describe('train onboarding', () => {
   it('the picker has every station, with platforms; search finds them by name', () => {
     expect(trainSource.stops.length).toBeGreaterThan(100)
     expect(trainSource.search('bowen hils')[0]?.id).toBe('bowen-hills')
+  })
+})
+
+describe('train re-run from Settings (THE-113)', () => {
+  it('the tray opens with the station favourites (trips with a destination stay out of it)', () => {
+    writeFavourites([
+      { from: 'central', to: null },
+      { from: 'central', to: 'roma-street' },
+      { from: 'bowen-hills', to: null },
+    ])
+    expect(trainTrayItems().map((i) => [i.mode, i.id])).toEqual([
+      ['train', 'central'],
+      ['train', 'bowen-hills'],
+    ])
+    expect(trainTrayItems()[0]?.name).toBe('Central')
+  })
+
+  it('Save makes the station favourites match the tray; favourite trips keep their place', () => {
+    writeFavourites([
+      { from: 'central', to: null },
+      { from: 'central', to: 'roma-street' },
+      { from: 'bowen-hills', to: null },
+    ])
+    expect(resaveTrain([station('bowen-hills'), station('fortitude-valley')])).toBe(true)
+    expect(JSON.parse(localStorage.getItem(FAVOURITES_KEY) ?? '[]')).toEqual([
+      { from: 'bowen-hills', to: null },
+      { from: 'central', to: 'roma-street' },
+      { from: 'fortitude-valley', to: null },
+    ])
+    expect(decodeURIComponent(document.cookie)).toContain(
+      `${FAV_COOKIE}=bowen-hills.,central.roma-street,fortitude-valley.`,
+    )
+  })
+
+  it('an unchanged tray writes nothing; an emptied one leaves only the trips', () => {
+    writeFavourites([
+      { from: 'central', to: null },
+      { from: 'central', to: 'roma-street' },
+    ])
+    const before = trainTrayItems()
+    const set = vi.spyOn(Storage.prototype, 'setItem')
+    expect(resaveTrain([...before])).toBe(true)
+    expect(set).not.toHaveBeenCalled()
+    set.mockRestore()
+    expect(resaveTrain([])).toBe(true)
+    expect(JSON.parse(localStorage.getItem(FAVOURITES_KEY) ?? '[]')).toEqual([
+      { from: 'central', to: 'roma-street' },
+    ])
+  })
+
+  it('with storage blocked after the tray opened, emptying it is never reported as saved (Codex r3)', () => {
+    writeFavourites([{ from: 'central', to: null }])
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    expect(resaveTrain([])).toBe(false)
+  })
+
+  it('an overflow past the store’s cap is reported and writes nothing; a retry is judged on what is stored (Codex r1)', () => {
+    const trips = Array.from({ length: MAX_FAVOURITES - 1 }, (_, i) => ({ from: `s${i}`, to: 'central' }))
+    const list = [{ from: 'central', to: null }, ...trips]
+    writeFavourites(list)
+    const before = trainTrayItems()
+    expect(resaveTrain([station('roma-street'), station('bowen-hills')])).toBe(false)
+    expect(JSON.parse(localStorage.getItem(FAVOURITES_KEY) ?? '[]')).toEqual(list)
+    expect(resaveTrain(before)).toBe(true)
+    expect(JSON.parse(localStorage.getItem(FAVOURITES_KEY) ?? '[]')).toEqual(list)
   })
 })

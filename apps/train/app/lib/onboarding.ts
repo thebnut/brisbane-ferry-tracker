@@ -3,12 +3,19 @@
  * (`bft-train-favourites`, through storage.ts writeFavourites: a station with no destination, as the map picker's
  * Save). Loaded only with the prompt (lazy).
  */
-import type { TrayItem } from '@bft/ui/onboarding'
+import { applyTray, modeChanged, type TrayItem } from '@bft/ui/onboarding'
 import type { ModeSource } from '@bft/ui/onboarding-picker'
 import type { PickerStop } from '@bft/ui/stop-picker'
 import { STATIONS } from './network.ts'
 import { searchStations } from './search.ts'
-import { type Favourite, readFavourites, sameFavourite, writeFavourites } from './storage.ts'
+import {
+  FAVOURITES_KEY,
+  type Favourite,
+  MAX_FAVOURITES,
+  readFavourites,
+  sameFavourite,
+  writeFavourites,
+} from './storage.ts'
 
 const platformsText = (codes: string[]) =>
   codes.length === 0
@@ -49,4 +56,39 @@ export function saveTrain(items: TrayItem[]): boolean {
   writeFavourites([...readFavourites(), ...add])
   const kept = readFavourites()
   return add.every((f) => kept.some((x) => sameFavourite(x, f)))
+}
+
+/**
+ * Re-run from Settings (THE-113): the station favourites, as the tray opens with them. A favourite trip with a
+ * destination isn't a stop, so it stays out of the tray and is kept as it is.
+ */
+export const trainTrayItems = (): TrayItem[] =>
+  readFavourites().flatMap((f) => {
+    const s = f.to == null ? byKey.get(f.from) : undefined
+    return s ? [{ mode: 'train' as const, id: s.id, name: s.name, detail: s.detail }] : []
+  })
+
+/**
+ * Re-run from Settings: the station favourites become the tray's stations, in tray order (one taken out is unsaved);
+ * favourite trips keep their place. Nothing is written when they already match, or when the list would pass the
+ * store's cap (nothing is cut short: Codex r1). False if they weren't all kept.
+ */
+export function resaveTrain(after: TrayItem[]): boolean {
+  // readFavourites() reads blocked storage as no favourites: then nothing here can be judged or kept (Codex r3).
+  try {
+    localStorage.getItem(FAVOURITES_KEY)
+  } catch {
+    return false
+  }
+  if (!modeChanged(trainTrayItems(), after, 'train')) return true
+  const want = applyTray(
+    readFavourites(),
+    (f) => (f.to == null && byKey.has(f.from) ? f.from : null),
+    after.filter((i) => i.mode === 'train'),
+    (i): Favourite => ({ from: i.id, to: null }),
+  )
+  if (want.length > MAX_FAVOURITES) return false
+  writeFavourites(want)
+  const kept = readFavourites()
+  return kept.length === want.length && want.every((f, n) => kept[n] && sameFavourite(kept[n], f))
 }

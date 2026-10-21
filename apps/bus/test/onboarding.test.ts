@@ -65,3 +65,75 @@ describe('bus onboarding', () => {
     expect(onb.saveBus([{ mode: 'bus', id: '10802', name: 'Cultural Centre' }])).toBe(false)
   })
 })
+
+describe('bus re-run from Settings (THE-113)', () => {
+  const stop = (id: string, name = `Stop ${id}`) => ({ mode: 'bus' as const, id, name })
+
+  it('the tray opens with My stops; Save makes My stops match it (added, removed, reordered)', async () => {
+    const { onb, storage } = await modules()
+    storage.toggleSaved({ id: '1832', name: 'King George Square' })
+    storage.toggleSaved({ id: '10802', name: 'Cultural Centre' })
+    const before = onb.busTrayItems()
+    expect(before).toEqual([stop('1832', 'King George Square'), stop('10802', 'Cultural Centre')])
+    const after = [stop('600', 'Chermside'), stop('1832', 'King George Square')]
+    expect(onb.resaveBus(after)).toBe(true)
+    expect(JSON.parse(localStorage.getItem(storage.KEYS.SAVED) ?? '[]')).toEqual([
+      { id: '600', name: 'Chermside' },
+      { id: '1832', name: 'King George Square' },
+    ])
+    expect(document.cookie).toContain(`${storage.SAVED_COOKIE}=600.1832`)
+    expect(storage.readSaved().map((s) => s.id)).toEqual(['600', '1832'])
+  })
+
+  it('an unchanged tray writes nothing; an emptied one unsaves every stop', async () => {
+    const { onb, storage } = await modules()
+    storage.toggleSaved({ id: '1832', name: 'King George Square' })
+    const before = onb.busTrayItems()
+    const set = vi.spyOn(Storage.prototype, 'setItem')
+    expect(onb.resaveBus([{ mode: 'train', id: 'central', name: 'Central' }, ...before])).toBe(true)
+    expect(set).not.toHaveBeenCalled()
+    set.mockRestore()
+    expect(onb.resaveBus([])).toBe(true)
+    expect(JSON.parse(localStorage.getItem(storage.KEYS.SAVED) ?? 'null')).toEqual([])
+  })
+
+  it('the tray opens with what storage holds, also a save from another tab the in-memory list missed (Codex r1)', async () => {
+    const { onb, storage } = await modules()
+    storage.toggleSaved({ id: '1832', name: 'King George Square' })
+    localStorage.setItem(
+      storage.KEYS.SAVED,
+      JSON.stringify([
+        { id: '1832', name: 'King George Square' },
+        { id: '10802', name: 'Cultural Centre' },
+      ]),
+    )
+    expect(storage.readSaved().map((s) => s.id)).toEqual(['1832'])
+    const before = onb.busTrayItems()
+    expect(before.map((i) => i.id)).toEqual(['1832', '10802'])
+    expect(onb.resaveBus([...before, stop('600', 'Chermside')])).toBe(true)
+    expect(
+      JSON.parse(localStorage.getItem(storage.KEYS.SAVED) ?? '[]').map((s: { id: string }) => s.id),
+    ).toEqual(['1832', '10802', '600'])
+  })
+
+  it('with storage blocked, a retry is never reported as saved (Codex r2)', async () => {
+    const { onb } = await modules()
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    expect(onb.resaveBus([stop('600')])).toBe(false)
+    expect(onb.resaveBus([stop('600')])).toBe(false)
+  })
+
+  it('reports a re-save that storage refused', async () => {
+    const { onb, storage } = await modules()
+    storage.toggleSaved({ id: '1832', name: 'King George Square' })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+    expect(onb.resaveBus([stop('600')])).toBe(false)
+  })
+})

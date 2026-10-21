@@ -68,3 +68,25 @@ export async function expectPromptClearOfDocks(page: Page): Promise<void> {
   })
   expect(overlaps).toEqual([])
 }
+
+/** THE-113: the picker that Settings' "Set up My Transit stops" opens, with this device's saved stops in its tray. */
+export const rerunPicker = (page: Page) => page.getByRole('dialog', { name: 'Set up My Transit stops' })
+export const rerunTray = (page: Page) =>
+  rerunPicker(page).getByRole('complementary', { name: 'Your favourite stops' })
+/** The tray's rows, by their first line ("King George Square", "From Bulimba"). */
+export const rerunTrayNames = (page: Page) => rerunTray(page).locator('[data-tray-items] > li p:first-child')
+
+/** Settings (whichever pill shows at this width) → "Set up My Transit stops" → the picker. */
+export async function openRerun(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Settings' }).locator('visible=true').click()
+  await page.getByRole('button', { name: 'Set up My Transit stops' }).click()
+  await expect(rerunPicker(page)).toBeVisible({ timeout: 15_000 })
+}
+
+/** Cancel closes the picker and Settings with it, and focus goes back to the Settings button. */
+export async function cancelRerun(page: Page): Promise<void> {
+  await rerunTray(page).getByRole('button', { name: 'Cancel' }).click()
+  await expect(rerunPicker(page)).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Settings' }).locator('visible=true')).toBeFocused()
+}

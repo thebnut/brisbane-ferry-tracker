@@ -183,3 +183,51 @@ export const traySavable = (s: TrayState) =>
 
 /** The tray's items for one mode, in tray order. */
 export const itemsFor = (s: TrayState, mode: OnboardMode) => s.items.filter((i) => i.mode === mode)
+
+// ---- re-running onboarding from Settings (THE-113) ----
+
+/**
+ * Save is possible when the ferry trip, if any, has its destination, and there is something to save; a re-run that
+ * opened with stops (`before`) may also end empty, which unsaves them all.
+ */
+export const trayRerunSavable = (s: TrayState, before: TrayItem[]) =>
+  (s.items.length > 0 || before.length > 0) && s.items.every((i) => i.mode !== 'ferry' || !!i.to)
+
+/** Whether one mode's stops in the tray differ from those it opened with: which, their order, the ferry's To. */
+export function modeChanged(before: TrayItem[], after: TrayItem[], mode: OnboardMode): boolean {
+  const sig = (items: TrayItem[]) =>
+    items
+      .filter((i) => i.mode === mode)
+      .map((i) => `${i.id}>${i.to ?? ''}`)
+      .join(',')
+  return sig(before) !== sig(after)
+}
+
+/**
+ * A mode's stored list after a re-run, so that the stops the tray holds match it: entries the tray doesn't show
+ * (`trayId` null: a train favourite with a destination) keep their place; the tray's slots are filled in tray order
+ * (an unchanged tray gives the list back as it was), kept entries are reused as they are, new ones go at the end.
+ */
+export function applyTray<T>(
+  existing: T[],
+  trayId: (entry: T) => string | null,
+  tray: TrayItem[],
+  make: (item: TrayItem) => T,
+): T[] {
+  const kept = new Map<string, T>()
+  for (const e of existing) {
+    const id = trayId(e)
+    if (id != null && !kept.has(id)) kept.set(id, e)
+  }
+  const queue = [...tray]
+  const out: T[] = []
+  for (const e of existing) {
+    if (trayId(e) == null) out.push(e)
+    else {
+      const next = queue.shift()
+      if (next) out.push(kept.get(next.id) ?? make(next))
+    }
+  }
+  for (const next of queue) out.push(kept.get(next.id) ?? make(next))
+  return out
+}
