@@ -286,6 +286,54 @@ describe('Codex r1 findings (THE-111)', () => {
     expect(client.status?.sourceTimestamp).toBe(status(t, 20, 5).sourceTimestamp)
   })
 
+  it('r3: that late answer is still dropped once a competing refresh has committed (same seq)', async () => {
+    let t = NOW
+    const A = status(NOW + 15_000, 30, 5) // the slow, superseded answer
+    const B = status(NOW + 20_000, 10, 2) // the competing, newer one
+    // Each pull's answer and delay are fixed when it starts.
+    const plan: Array<{ s: HubStatus; d: number }> = [{ s: status(NOW, 110, 5), d: 0 }]
+    const h = {
+      pulls: 0,
+      pull: async (since: number | null): Promise<PullResult> => {
+        const p = plan[h.pulls++] ?? { s: B, d: 0 }
+        if (p.d > 0) await sleep(p.d)
+        return { seq: 1, json: since === 1 ? null : SNAP, status: p.s }
+      },
+      getRaw: async () => null,
+    } satisfies HubClient & { pulls: number }
+    let stale: HubStatus | null = null
+    const cache = {
+      match: async () => {
+        if (!stale) return undefined
+        await sleep(5)
+        return new Response(null, { headers: { 'x-seq': '1', 'x-status': JSON.stringify(stale) } })
+      },
+      put: async () => {},
+    }
+    const client = new SnapshotClient(
+      h,
+      () => t,
+      () => {},
+      cache,
+      'alerts',
+      600_000,
+      { refreshDeadlineMs: 50 },
+    )
+    await client.get()
+    t = NOW + 15_000
+    stale = status(t, 121, 6)
+    plan.push({ s: A, d: 150 })
+    await client.get()
+    await client.refreshStatus() // joins; its hub read (A) outlasts the deadline
+    // 5 s on, a second confirming refresh commits B first; then A lands late and must not replace it.
+    t = NOW + 20_000
+    stale = null
+    expect((await client.refreshStatus()).refreshed).toBe(true)
+    expect(client.status).toEqual(B)
+    await sleep(200)
+    expect(client.status).toEqual(B)
+  })
+
   it('#2 a status that crosses 120 s while the manifest loads is judged at the end, then confirmed', async () => {
     let t = NOW
     const frozen = status(NOW, 119, 5)
