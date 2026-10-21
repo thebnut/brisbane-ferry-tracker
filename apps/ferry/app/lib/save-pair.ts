@@ -23,3 +23,16 @@ export function savePair(pair: StopPair, remember: boolean): void {
     // Storage or cookies blocked: the pair lasts for this page view only.
   }
 }
+
+/** Unsaves the pair (remembered and this session's) and its cookie: the boards go back to the default pair. */
+export function clearPair(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.REMEMBER_SELECTION)
+    localStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS)
+    sessionStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS_SESSION)
+    // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is not in Safari; this is a plain preference cookie.
+    document.cookie = `${PAIR_COOKIE}=; path=/; samesite=lax; max-age=0`
+  } catch {
+    // Storage or cookies blocked: there was nothing saved to clear.
+  }
+}

@@ -17,6 +17,7 @@
     "./onboarding": "./src/onboarding.ts",
     "./onboarding-prompt": "./src/OnboardingPrompt.tsx",
     "./onboarding-picker": "./src/OnboardingPicker.tsx",
+    "./onboarding-rerun": "./src/OnboardingRerun.tsx",
     "./map-toggle": "./src/MapToggle.tsx",
     "./stop-search": "./src/StopSearch.tsx",
     "./theme.css": "./src/theme.css",

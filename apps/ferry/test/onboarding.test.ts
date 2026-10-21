@@ -7,6 +7,8 @@ import {
   ferryHasSaved,
   ferrySeenBefore,
   ferrySource,
+  ferryTrayItems,
+  resaveFerry,
   saveFerry,
 } from '../app/lib/onboarding.ts'
 import { PAIR_COOKIE, readSavedPair, STORAGE_KEYS, shouldShowSelector } from '../app/lib/storage.ts'
@@ -68,5 +70,44 @@ describe('ferry onboarding', () => {
     ferryAnswered()
     expect(ferrySeenBefore()).toBe(true)
     expect(shouldShowSelector()).toBe(false)
+  })
+})
+
+describe('ferry re-run from Settings (THE-113)', () => {
+  it('the tray opens with the saved pair: From, with its To chosen', () => {
+    expect(ferryTrayItems()).toEqual([])
+    saveFerry([trip(BULIMBA, RIVERSIDE)])
+    expect(ferryTrayItems()).toEqual([
+      expect.objectContaining({
+        mode: 'ferry',
+        id: BULIMBA,
+        name: terminalById(BULIMBA)?.name,
+        to: RIVERSIDE,
+      }),
+    ])
+  })
+
+  it('a changed trip replaces the pair; taking it out unsaves the pair and its cookie', () => {
+    saveFerry([trip(BULIMBA, RIVERSIDE)])
+    const before = ferryTrayItems()
+    const to = validDestinations(RIVERSIDE).find((id) => id !== BULIMBA) ?? BULIMBA
+    expect(resaveFerry(before, [trip(RIVERSIDE, to)])).toBe(true)
+    expect(readSavedPair()?.outbound.id).toBe(RIVERSIDE)
+    expect(resaveFerry(ferryTrayItems(), [])).toBe(true)
+    expect(readSavedPair()).toBeNull()
+    expect(localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION)).toBeNull()
+    expect(document.cookie).not.toContain(`${PAIR_COOKIE}=`)
+  })
+
+  it('an unchanged trip writes nothing: a pair kept for this session only stays so', () => {
+    sessionStorage.setItem(
+      STORAGE_KEYS.SELECTED_STOPS_SESSION,
+      JSON.stringify({ outbound: { id: BULIMBA, name: 'B' }, inbound: { id: RIVERSIDE, name: 'R' } }),
+    )
+    const before = ferryTrayItems()
+    expect(before[0]?.to).toBe(RIVERSIDE)
+    expect(resaveFerry(before, [...before])).toBe(true)
+    expect(localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS)).toBeNull()
+    expect(readSavedPair()?.inbound.id).toBe(RIVERSIDE)
   })
 })

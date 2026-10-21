@@ -65,3 +65,44 @@ describe('bus onboarding', () => {
     expect(onb.saveBus([{ mode: 'bus', id: '10802', name: 'Cultural Centre' }])).toBe(false)
   })
 })
+
+describe('bus re-run from Settings (THE-113)', () => {
+  const stop = (id: string, name = `Stop ${id}`) => ({ mode: 'bus' as const, id, name })
+
+  it('the tray opens with My stops; Save makes My stops match it (added, removed, reordered)', async () => {
+    const { onb, storage } = await modules()
+    storage.toggleSaved({ id: '1832', name: 'King George Square' })
+    storage.toggleSaved({ id: '10802', name: 'Cultural Centre' })
+    const before = onb.busTrayItems()
+    expect(before).toEqual([stop('1832', 'King George Square'), stop('10802', 'Cultural Centre')])
+    const after = [stop('600', 'Chermside'), stop('1832', 'King George Square')]
+    expect(onb.resaveBus(before, after)).toBe(true)
+    expect(JSON.parse(localStorage.getItem(storage.KEYS.SAVED) ?? '[]')).toEqual([
+      { id: '600', name: 'Chermside' },
+      { id: '1832', name: 'King George Square' },
+    ])
+    expect(document.cookie).toContain(`${storage.SAVED_COOKIE}=600.1832`)
+    expect(storage.readSaved().map((s) => s.id)).toEqual(['600', '1832'])
+  })
+
+  it('an unchanged tray writes nothing; an emptied one unsaves every stop', async () => {
+    const { onb, storage } = await modules()
+    storage.toggleSaved({ id: '1832', name: 'King George Square' })
+    const before = onb.busTrayItems()
+    const set = vi.spyOn(Storage.prototype, 'setItem')
+    expect(onb.resaveBus(before, [{ mode: 'train', id: 'central', name: 'Central' }, ...before])).toBe(true)
+    expect(set).not.toHaveBeenCalled()
+    set.mockRestore()
+    expect(onb.resaveBus(before, [])).toBe(true)
+    expect(JSON.parse(localStorage.getItem(storage.KEYS.SAVED) ?? 'null')).toEqual([])
+  })
+
+  it('reports a re-save that storage refused', async () => {
+    const { onb, storage } = await modules()
+    storage.toggleSaved({ id: '1832', name: 'King George Square' })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+    expect(onb.resaveBus(onb.busTrayItems(), [stop('600')])).toBe(false)
+  })
+})

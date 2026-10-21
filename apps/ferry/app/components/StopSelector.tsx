@@ -2,11 +2,13 @@
  * Stop selector (legacy StopSelectorModal): pick origin and a directly reachable destination, with
  * "Remember selection". Loaded lazily (Ark UI combobox) on first visit or from Settings. Each field has a Map button
  * that opens the map stop picker (P3): tap a terminal for its next ferries, then "Use as From/To" fills the field and
- * Save stores the pair as before (a ferry favourite is a pair, not a terminal).
+ * Save stores the pair as before (a ferry favourite is a pair, not a terminal). "Set up My Transit stops" (THE-113)
+ * swaps the sheet for the onboarding map picker with the saved pair in its tray (OnboardingRerun.tsx, lazy).
  */
 import type { DeparturesResponse } from '@bft/core/contract'
 import { BottomSheet, PrimaryButton, SecondaryButton } from '@bft/ui'
 import { MapToggle } from '@bft/ui/map-toggle'
+import { RerunEntry, RerunHost } from '@bft/ui/onboarding-rerun'
 import type { PickerStop } from '@bft/ui/stop-picker'
 import { StopSearch } from '@bft/ui/stop-search'
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
@@ -31,6 +33,9 @@ const StopPickerMap = lazy(() =>
   })),
 )
 
+// Inside BrisbaneTransit this resolves to transit's picker, with every mode (modes.config.ts).
+const OnboardingRerun = lazy(() => import('./OnboardingRerun.tsx'))
+
 export interface StopSelectorProps {
   initial: StopPair
   /** For the map card's next departures. */
@@ -45,6 +50,7 @@ export default function StopSelector({ initial, fetcher, onSave, onClose }: Stop
   const [destination, setDestination] = useState(initial.inbound.id)
   const [remember, setRemember] = useState(readRemember)
   const [mapFor, setMapFor] = useState<'origin' | 'destination' | null>(null)
+  const [rerun, setRerun] = useState(false)
 
   const origins = useMemo(() => TERMINALS.map((t) => ({ id: t.id, name: t.name })), [])
   const reachable = validDestinations(origin)
@@ -100,6 +106,7 @@ export default function StopSelector({ initial, fetcher, onSave, onClose }: Stop
     onSave(pair)
   }
 
+  if (rerun) return <RerunHost onClose={onClose}>{(close) => <OnboardingRerun onClose={close} />}</RerunHost>
   return (
     <BottomSheet open onClose={onClose} title="Select ferry stops">
       <form
@@ -180,6 +187,9 @@ export default function StopSelector({ initial, fetcher, onSave, onClose }: Stop
           </PrimaryButton>
         </div>
       </form>
+      <div className="mt-5 border-t border-ferry-orange/15 pt-4">
+        <RerunEntry onOpen={() => setRerun(true)} />
+      </div>
     </BottomSheet>
   )
 }

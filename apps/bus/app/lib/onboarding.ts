@@ -4,7 +4,7 @@
  * from the geohash-5 tiles in view (zoom 13+, as BusStopPicker); the name search loads the stop index on first use.
  * Loaded only with the prompt (lazy).
  */
-import type { TrayItem } from '@bft/ui/onboarding'
+import { applyTray, modeChanged, type TrayItem } from '@bft/ui/onboarding'
 import type { ModeSource } from '@bft/ui/onboarding-picker'
 import type { PickerStop } from '@bft/ui/stop-picker'
 import { useCallback, useMemo, useState } from 'react'
@@ -12,7 +12,7 @@ import { cellsCovering } from './geo.ts'
 import { useGeoTiles } from './geo-queries.ts'
 import { useApi } from './mode.ts'
 import { useStopIndex } from './queries.ts'
-import { isSaved, KEYS, readSaved, toggleSaved } from './storage.ts'
+import { isSaved, KEYS, readSaved, toggleSaved, writeSaved } from './storage.ts'
 
 const TILE_ZOOM = 13
 const MAX_TILES = 30
@@ -42,6 +42,29 @@ export function saveBus(items: TrayItem[]): boolean {
   }
   const stored = persisted()
   return stored != null && stops.every((s) => stored.some((x) => x?.id === s.id))
+}
+
+/** Re-run from Settings (THE-113): My stops, as the tray opens with them. */
+export const busTrayItems = (): TrayItem[] =>
+  readSaved().map((s) => ({ mode: 'bus', id: s.id, name: s.name }))
+
+/**
+ * Re-run from Settings: My stops become the tray's bus stops, in tray order (a stop taken out is unsaved). Nothing is
+ * written when they didn't change. False if storage refused.
+ */
+export function resaveBus(before: TrayItem[], after: TrayItem[]): boolean {
+  if (!modeChanged(before, after, 'bus')) return true
+  const stops = after.filter((i) => i.mode === 'bus')
+  writeSaved(
+    applyTray(
+      readSaved(),
+      (s) => s.id,
+      stops,
+      (i) => ({ id: i.id, name: i.name }),
+    ),
+  )
+  const stored = persisted()
+  return stored != null && stored.length === stops.length && stops.every((s, n) => stored[n]?.id === s.id)
 }
 
 export function useBusSource(): ModeSource {

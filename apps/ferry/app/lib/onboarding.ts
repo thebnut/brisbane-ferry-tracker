@@ -4,10 +4,10 @@
  * through savePair (remembered), exactly as the stop selector's Save. Loaded only with the prompt (lazy).
  */
 
-import type { TrayItem } from '@bft/ui/onboarding'
+import { modeChanged, type TrayItem } from '@bft/ui/onboarding'
 import type { ModeSource } from '@bft/ui/onboarding-picker'
 import { cleanStopName } from './names.ts'
-import { savePair } from './save-pair.ts'
+import { clearPair, savePair } from './save-pair.ts'
 import { markSelectorSeen, readSavedPair, STORAGE_KEYS } from './storage.ts'
 import { choice, TERMINALS, terminalById, validDestinations } from './terminals.ts'
 
@@ -66,4 +66,25 @@ export function saveFerry(items: TrayItem[]): boolean {
   markSelectorSeen()
   const saved = readSavedPair()
   return saved?.outbound.id === from.id && saved.inbound.id === to.id
+}
+
+/** Re-run from Settings (THE-113): the saved pair, as the tray opens with it (From, with its To chosen). */
+export function ferryTrayItems(): TrayItem[] {
+  const pair = readSavedPair()
+  const from = pair && terminalById(pair.outbound.id)
+  if (!pair || !from) return []
+  return [
+    { mode: 'ferry', id: from.id, name: from.name, detail: from.routes.join(' · '), to: pair.inbound.id },
+  ]
+}
+
+/**
+ * Re-run from Settings: the tray's ferry trip replaces the pair, and taking it out unsaves it. Nothing is written when
+ * it didn't change (a pair kept for this session only stays so). False if storage refused.
+ */
+export function resaveFerry(before: TrayItem[], after: TrayItem[]): boolean {
+  if (!modeChanged(before, after, 'ferry')) return true
+  if (after.some((i) => i.mode === 'ferry')) return saveFerry(after)
+  clearPair()
+  return readSavedPair() == null
 }
