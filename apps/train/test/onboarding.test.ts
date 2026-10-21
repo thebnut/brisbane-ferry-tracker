@@ -90,6 +90,14 @@ describe('train re-run from Settings (THE-113)', () => {
     ])
   })
 
+  it('with storage blocked after the tray opened, emptying it is never reported as saved (Codex r3)', () => {
+    writeFavourites([{ from: 'central', to: null }])
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    expect(resaveTrain([])).toBe(false)
+  })
+
   it('an overflow past the store’s cap is reported and writes nothing; a retry is judged on what is stored (Codex r1)', () => {
     const trips = Array.from({ length: MAX_FAVOURITES - 1 }, (_, i) => ({ from: `s${i}`, to: 'central' }))
     const list = [{ from: 'central', to: null }, ...trips]

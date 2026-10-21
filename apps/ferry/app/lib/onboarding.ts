@@ -83,6 +83,13 @@ export function ferryTrayItems(): TrayItem[] {
  * it already matches (a pair kept for this session only stays so). False if storage refused.
  */
 export function resaveFerry(after: TrayItem[]): boolean {
+  // readSavedPair() reads blocked storage as no pair: then nothing here can be judged or cleared (Codex r3).
+  try {
+    localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS)
+    sessionStorage.getItem(STORAGE_KEYS.SELECTED_STOPS_SESSION)
+  } catch {
+    return false
+  }
   if (!modeChanged(ferryTrayItems(), after, 'ferry')) return true
   if (after.some((i) => i.mode === 'ferry')) return saveFerry(after)
   clearPair()

@@ -8,7 +8,14 @@ import type { ModeSource } from '@bft/ui/onboarding-picker'
 import type { PickerStop } from '@bft/ui/stop-picker'
 import { STATIONS } from './network.ts'
 import { searchStations } from './search.ts'
-import { type Favourite, MAX_FAVOURITES, readFavourites, sameFavourite, writeFavourites } from './storage.ts'
+import {
+  FAVOURITES_KEY,
+  type Favourite,
+  MAX_FAVOURITES,
+  readFavourites,
+  sameFavourite,
+  writeFavourites,
+} from './storage.ts'
 
 const platformsText = (codes: string[]) =>
   codes.length === 0
@@ -67,6 +74,12 @@ export const trainTrayItems = (): TrayItem[] =>
  * store's cap (nothing is cut short: Codex r1). False if they weren't all kept.
  */
 export function resaveTrain(after: TrayItem[]): boolean {
+  // readFavourites() reads blocked storage as no favourites: then nothing here can be judged or kept (Codex r3).
+  try {
+    localStorage.getItem(FAVOURITES_KEY)
+  } catch {
+    return false
+  }
   if (!modeChanged(trainTrayItems(), after, 'train')) return true
   const want = applyTray(
     readFavourites(),

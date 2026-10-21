@@ -98,6 +98,14 @@ describe('ferry re-run from Settings (THE-113)', () => {
     expect(document.cookie).not.toContain(`${PAIR_COOKIE}=`)
   })
 
+  it('with storage blocked after the tray opened, taking the trip out is never reported as saved (Codex r3)', () => {
+    saveFerry([trip(BULIMBA, RIVERSIDE)])
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    expect(resaveFerry([])).toBe(false)
+  })
+
   it('an unchanged trip writes nothing: a pair kept for this session only stays so', () => {
     sessionStorage.setItem(
       STORAGE_KEYS.SELECTED_STOPS_SESSION,
