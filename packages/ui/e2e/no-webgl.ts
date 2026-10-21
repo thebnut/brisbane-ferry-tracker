@@ -39,4 +39,6 @@ export async function expectMapUnavailable(page: Page): Promise<void> {
   await expect(page.getByText('Map unavailable on this device')).toBeVisible()
   await expect(page.getByText('Something went wrong')).toHaveCount(0)
   await expect(page.locator('canvas.maplibregl-canvas')).toHaveCount(0)
+  // THE-112: the locate-me button belongs to a started map; the panel never shows a broken one.
+  await expect(page.getByRole('button', { name: 'Show my location' })).toHaveCount(0)
 }

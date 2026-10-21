@@ -127,7 +127,8 @@ function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: numb
   }, [vehicles, pattern])
   // The stop picker (P2): the nearest stop only if location is already allowed (never prompts), Save per stop, and
   // from search (?pick=1) the stop list in view.
-  const { geo } = useGeolocation()
+  const geolocation = useGeolocation()
+  const { geo } = geolocation
   const nearest = pattern && geo.state === 'ok' ? nearestStop(pattern.stops, geo) : -1
   const saved = useSavedStops()
   const stopsHeading = useRef<HTMLHeadingElement>(null)
@@ -171,6 +172,7 @@ function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: numb
                 selectedTrip={trip}
                 color={route.color}
                 variant={variant}
+                geolocation={geolocation}
               />
             </Suspense>
           )}

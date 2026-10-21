@@ -8,6 +8,9 @@ import { type GeoJSONSource, Marker, Map as MlMap, setWorkerUrl } from 'maplibre
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useRef, useState } from 'react'
 import { MAP_TEXT_FONT } from './fonts.ts'
+import LocateControl, { type GeoSource } from './LocateControl.tsx'
+
+export type { GeoSource } from './LocateControl.tsx'
 
 // MapLibre looks for its worker next to its module URL, which does not survive bundling; ship it as an asset.
 setWorkerUrl(workerUrl)
@@ -72,6 +75,12 @@ export interface MapViewProps {
   refit?: boolean
   /** Once the style and the built-in layers are loaded, for callers that add their own (the stop picker's clusters). */
   onReady?: (map: MlMap) => void
+  /**
+   * The page's own `useGeolocation()`, when it already tracks the device (the stop picker, a nearby map): the locate-me
+   * button and "you are here" dot use it instead of asking again, so the page shouldn't draw its own dot. Without it
+   * the map keeps its own.
+   */
+  geolocation?: GeoSource
 }
 
 const TONE_COLOUR: Record<MarkerTone, string> = {
@@ -85,6 +94,11 @@ const TONE_COLOUR: Record<MarkerTone, string> = {
   you: '#0066CC',
 }
 
+/**
+ * A marker's element. Never give it a `position`: MapLibre's `.maplibregl-marker` makes it absolute (its own containing
+ * block for the pulse ring and diamond face), and an inline `relative` put each marker in the flow, below the ones
+ * before it, so pulsing markers were drawn off their position (THE-112).
+ */
 export function markerElement(m: MapMarker): HTMLElement {
   const el = document.createElement(m.onClick ? 'button' : 'div')
   const size = m.pulse ? 18 : 14
@@ -117,7 +131,6 @@ export function markerElement(m: MapMarker): HTMLElement {
       transform: 'rotate(45deg)',
       ...face,
     })
-    el.style.position = 'relative'
     el.appendChild(inner)
   }
   if (m.pulse) {
@@ -131,7 +144,6 @@ export function markerElement(m: MapMarker): HTMLElement {
       animation: 'pulse-dot 2s ease-in-out infinite',
       pointerEvents: 'none',
     })
-    el.style.position = 'relative'
     el.appendChild(ring)
   }
   if (m.onClick) el.addEventListener('click', m.onClick)
@@ -218,12 +230,15 @@ export default function MapView({
   zoom = 12,
   refit = false,
   onReady,
+  geolocation,
 }: MapViewProps) {
   const container = useRef<HTMLElement>(null)
   const map = useRef<MlMap | null>(null)
   const placed = useRef<Marker[]>([])
   const fitted = useRef(false)
   const [ready, setReady] = useState(false)
+  // The map instance as state: the locate-me button mounts as soon as the map exists, before its style has loaded.
+  const [instance, setInstance] = useState<MlMap | null>(null)
   const handlers = useRef({ onStopClick, onViewChange, onReady })
   handlers.current = { onStopClick, onViewChange, onReady }
 
@@ -238,6 +253,7 @@ export default function MapView({
       attributionControl: { compact: true },
     })
     map.current = m
+    setInstance(m)
     const report = () => {
       const b = m.getBounds()
       handlers.current.onViewChange?.(
@@ -310,6 +326,7 @@ export default function MapView({
       map.current = null
       fitted.current = false
       setReady(false)
+      setInstance(null)
     }
   }, [])
 
@@ -353,6 +370,8 @@ export default function MapView({
       ref={container}
       aria-label={label}
       className={className ?? 'h-80 w-full overflow-hidden rounded-card bg-map-ground'}
-    />
+    >
+      {instance ? <LocateControl map={instance} ready={ready} source={geolocation} /> : null}
+    </section>
   )
 }

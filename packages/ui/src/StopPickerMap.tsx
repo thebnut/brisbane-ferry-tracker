@@ -253,7 +253,8 @@ export default function StopPickerMap({
   zoom = 15,
   className,
 }: StopPickerMapProps) {
-  const { geo } = useGeolocation()
+  const geolocation = useGeolocation()
+  const { geo } = geolocation
   const [selection, dispatch] = useReducer(selectionReducer, undefined, initialSelection)
   const [view, setView] = useState<{ bounds: ViewBounds; zoom: number } | null>(null)
   const [listOpen, setListOpen] = useState(false)
@@ -349,8 +350,6 @@ export default function StopPickerMap({
   const pickedIds = multi?.pickedIds
   const markers = useMemo<MapMarker[]>(() => {
     const out: MapMarker[] = []
-    if (geo.state === 'ok')
-      out.push({ id: 'me', lat: geo.lat, lon: geo.lon, tone: 'you', pulse: true, label: 'You are here' })
     for (const id of pickedIds ?? []) {
       const s = byId.get(id)
       if (s) out.push({ id: `sel:${s.id}`, lat: s.lat, lon: s.lon, shape, tone: 'selected', label: s.name })
@@ -365,7 +364,7 @@ export default function StopPickerMap({
         label: active.name,
       })
     return out
-  }, [geo, active, shape, pickedIds, byId])
+  }, [active, shape, pickedIds, byId])
   const center: [number, number] = geo.state === 'ok' ? [geo.lon, geo.lat] : CBD_CENTRE
   // The view the map opens on, from its box, until MapLibre reports its own (after the basemap loads, which can take a
   // while on a busy device): the stops list, clusters and bus tiles don't wait for the basemap.
@@ -452,6 +451,7 @@ export default function StopPickerMap({
             }}
             onViewChange={onView}
             onReady={onReady}
+            geolocation={geolocation}
             center={center}
             zoom={zoom}
             key={mapKey}
