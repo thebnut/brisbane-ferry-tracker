@@ -24,7 +24,7 @@ import {
   usePageCheck,
   VIA_NETWORK,
 } from '@bft/ui/connectivity'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { AskBox } from '../components/AskBox.tsx'
 import { TransitFooter, TransitHeader, TransitStrip } from '../components/Chrome.tsx'
@@ -32,6 +32,7 @@ import { fetchAlerts } from '../lib/api.ts'
 import { MODE_BASES } from '../lib/modes.ts'
 import { asOffline, useApi, useSavedDepartures } from '../lib/queries.ts'
 import { readSavedItems, type SavedItem } from '../lib/saved.ts'
+import { applyPrefs, cleanLabel, LABEL_MAX, readPrefs, writePrefs } from '../lib/saved-prefs.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/saved'
 
@@ -69,7 +70,9 @@ const FERRY_EXPRESS = /^F1\d$/
 
 export interface CardModel {
   label: string
+  /** The visitor's name for the item if it has one, else what the card would say (`subtitle` then says that). */
   title: string
+  subtitle: string | null
   live: boolean
   time: string | null
   detail: string | null
@@ -120,7 +123,9 @@ export function cardModel(item: SavedItem, res: DeparturesResponse | undefined, 
   }
   return {
     label,
-    title,
+    // A custom name (THE-114) heads the card; what it would have said stays under it, so the stop is recognisable.
+    title: item.label || title,
+    subtitle: item.label ? title : null,
     live,
     time: dep ? `${clockDay(dep, nowMs)}${arr ? ` → ${clockDay(arr, nowMs)}` : ''}` : null,
     detail,
@@ -265,7 +270,18 @@ function SavedList({
             key={it.id}
             mode={it.mode}
             label={m.label}
-            title={m.title}
+            title={
+              m.subtitle ? (
+                <>
+                  {m.title}
+                  <span className="block truncate text-[13px] font-normal text-gray-600 dark:text-night-text/70">
+                    {m.subtitle}
+                  </span>
+                </>
+              ) : (
+                m.title
+              )
+            }
             live={m.live}
             time={m.time}
             detail={m.detail}
@@ -329,9 +345,29 @@ export function useReachedNetwork(needed: boolean): boolean {
 export default function Saved({ loaderData }: Route.ComponentProps) {
   const now = useNow(loaderData.renderedAt)
   const online = useOnline()
-  // localStorage is client-only: read after hydration (the server renders the Ask box and an empty list).
+  // localStorage is client-only: read after hydration (the server renders the Ask box and an empty list), in the
+  // visitor's own order and names in the same step, so the list never shows in another order first.
   const [items, setItems] = useState<SavedItem[] | null>(null)
-  useEffect(() => setItems(readSavedItems()), [])
+  useEffect(() => setItems(applyPrefs(readSavedItems(), readPrefs())), [])
+  // "Edit list" (THE-114): its own chunk, loaded on the first tap.
+  const [Editor, setEditor] = useState<typeof import('../components/SavedEditor.tsx').SavedEditor | null>(
+    null,
+  )
+  const [editing, setEditing] = useState(false)
+  // Closing the editor gives focus back to the button that opened it.
+  const editButton = useRef<HTMLButtonElement>(null)
+  const refocus = useRef(false)
+  useEffect(() => {
+    if (!editing && refocus.current) {
+      refocus.current = false
+      editButton.current?.focus()
+    }
+  }, [editing])
+  const edit = () =>
+    void import('../components/SavedEditor.tsx').then((m) => {
+      setEditor(() => m.SavedEditor)
+      setEditing(true)
+    })
   const { mode, fetcher } = useApi()
   const qs = useSavedDepartures(fetcher, mode, items ?? [])
   const page = usePageCheck()
@@ -378,8 +414,29 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
           <p data-loading="" className="text-sm text-sched-text dark:text-night-text/70">
             Loading your stops…
           </p>
+        ) : items.length && editing && Editor ? (
+          <Editor
+            items={items}
+            onChange={setItems}
+            store={{ read: readPrefs, write: writePrefs, clean: cleanLabel, maxLength: LABEL_MAX }}
+            onDone={() => {
+              refocus.current = true
+              setEditing(false)
+            }}
+          />
         ) : items.length ? (
-          <SavedList items={items} qs={qs} nowMs={now} online={online} />
+          <>
+            <SavedList items={items} qs={qs} nowMs={now} online={online} />
+            <button
+              type="button"
+              ref={editButton}
+              onClick={edit}
+              data-saved-edit=""
+              className="flex min-h-11 items-center justify-center gap-2 self-end rounded-button px-3 text-sm font-semibold text-ferry-orange-deep hover:bg-ferry-orange-light dark:text-ferry-sunset dark:hover:bg-night-2"
+            >
+              Edit order and names
+            </button>
+          </>
         ) : (
           <EmptyState title="Nothing in My Transit yet">
             Save a ferry trip, a train station or a bus stop in its tab and it shows up here, with the next
