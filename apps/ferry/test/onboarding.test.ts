@@ -89,11 +89,10 @@ describe('ferry re-run from Settings (THE-113)', () => {
 
   it('a changed trip replaces the pair; taking it out unsaves the pair and its cookie', () => {
     saveFerry([trip(BULIMBA, RIVERSIDE)])
-    const before = ferryTrayItems()
     const to = validDestinations(RIVERSIDE).find((id) => id !== BULIMBA) ?? BULIMBA
-    expect(resaveFerry(before, [trip(RIVERSIDE, to)])).toBe(true)
+    expect(resaveFerry([trip(RIVERSIDE, to)])).toBe(true)
     expect(readSavedPair()?.outbound.id).toBe(RIVERSIDE)
-    expect(resaveFerry(ferryTrayItems(), [])).toBe(true)
+    expect(resaveFerry([])).toBe(true)
     expect(readSavedPair()).toBeNull()
     expect(localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION)).toBeNull()
     expect(document.cookie).not.toContain(`${PAIR_COOKIE}=`)
@@ -106,7 +105,7 @@ describe('ferry re-run from Settings (THE-113)', () => {
     )
     const before = ferryTrayItems()
     expect(before[0]?.to).toBe(RIVERSIDE)
-    expect(resaveFerry(before, [...before])).toBe(true)
+    expect(resaveFerry([...before])).toBe(true)
     expect(localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS)).toBeNull()
     expect(readSavedPair()?.inbound.id).toBe(RIVERSIDE)
   })

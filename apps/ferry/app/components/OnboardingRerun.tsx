@@ -16,7 +16,7 @@ export default function FerryOnboardingRerun({ onClose }: { onClose: () => void 
       sources={[ferrySource]}
       initialItems={before}
       onSave={(tray) => {
-        const ok = resaveFerry(before, tray.items)
+        const ok = resaveFerry(tray.items)
         // The home board reads the saved pair (and the server its cookie) on a fresh load.
         if (ok) location.assign(at('/'))
         return ok

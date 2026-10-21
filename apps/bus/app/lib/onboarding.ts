@@ -12,7 +12,7 @@ import { cellsCovering } from './geo.ts'
 import { useGeoTiles } from './geo-queries.ts'
 import { useApi } from './mode.ts'
 import { useStopIndex } from './queries.ts'
-import { isSaved, KEYS, readSaved, toggleSaved, writeSaved } from './storage.ts'
+import { isSaved, KEYS, readSaved, type SavedStop, toggleSaved, writeSaved } from './storage.ts'
 
 const TILE_ZOOM = 13
 const MAX_TILES = 30
@@ -44,16 +44,25 @@ export function saveBus(items: TrayItem[]): boolean {
   return stored != null && stops.every((s) => stored.some((x) => x?.id === s.id))
 }
 
-/** Re-run from Settings (THE-113): My stops, as the tray opens with them. */
-export const busTrayItems = (): TrayItem[] =>
-  readSaved().map((s) => ({ mode: 'bus', id: s.id, name: s.name }))
+/**
+ * Re-run from Settings (THE-113): My stops, as the tray opens with them. Read from storage itself: storage.ts's
+ * in-memory list misses another tab's save unless a list of saved stops is mounted (Codex r1).
+ */
+export function busTrayItems(): TrayItem[] {
+  const stored = persisted()
+  const list =
+    stored?.filter(
+      (s): s is SavedStop => typeof s?.id === 'string' && typeof (s as SavedStop).name === 'string',
+    ) ?? readSaved()
+  return list.map((s) => ({ mode: 'bus', id: s.id, name: s.name }))
+}
 
 /**
  * Re-run from Settings: My stops become the tray's bus stops, in tray order (a stop taken out is unsaved). Nothing is
- * written when they didn't change. False if storage refused.
+ * written when they already match. False if storage refused.
  */
-export function resaveBus(before: TrayItem[], after: TrayItem[]): boolean {
-  if (!modeChanged(before, after, 'bus')) return true
+export function resaveBus(after: TrayItem[]): boolean {
+  if (!modeChanged(busTrayItems(), after, 'bus')) return true
   const stops = after.filter((i) => i.mode === 'bus')
   writeSaved(
     applyTray(

@@ -8,7 +8,7 @@ import type { ModeSource } from '@bft/ui/onboarding-picker'
 import type { PickerStop } from '@bft/ui/stop-picker'
 import { STATIONS } from './network.ts'
 import { searchStations } from './search.ts'
-import { type Favourite, readFavourites, sameFavourite, writeFavourites } from './storage.ts'
+import { type Favourite, MAX_FAVOURITES, readFavourites, sameFavourite, writeFavourites } from './storage.ts'
 
 const platformsText = (codes: string[]) =>
   codes.length === 0
@@ -63,16 +63,18 @@ export const trainTrayItems = (): TrayItem[] =>
 
 /**
  * Re-run from Settings: the station favourites become the tray's stations, in tray order (one taken out is unsaved);
- * favourite trips keep their place. Nothing is written when the stations didn't change. False if they weren't all kept.
+ * favourite trips keep their place. Nothing is written when they already match, or when the list would pass the
+ * store's cap (nothing is cut short: Codex r1). False if they weren't all kept.
  */
-export function resaveTrain(before: TrayItem[], after: TrayItem[]): boolean {
-  if (!modeChanged(before, after, 'train')) return true
+export function resaveTrain(after: TrayItem[]): boolean {
+  if (!modeChanged(trainTrayItems(), after, 'train')) return true
   const want = applyTray(
     readFavourites(),
     (f) => (f.to == null && byKey.has(f.from) ? f.from : null),
     after.filter((i) => i.mode === 'train'),
     (i): Favourite => ({ from: i.id, to: null }),
   )
+  if (want.length > MAX_FAVOURITES) return false
   writeFavourites(want)
   const kept = readFavourites()
   return kept.length === want.length && want.every((f, n) => kept[n] && sameFavourite(kept[n], f))

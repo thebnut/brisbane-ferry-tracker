@@ -17,7 +17,7 @@ export default function BusOnboardingRerun({ onClose }: { onClose: () => void })
       sources={[bus]}
       initialItems={before}
       onSave={(tray) => {
-        const ok = resaveBus(before, tray.items)
+        const ok = resaveBus(tray.items)
         // The home page lists My stops (and the server renders the first few from their cookie) on a fresh load.
         if (ok) location.assign(at('/'))
         return ok

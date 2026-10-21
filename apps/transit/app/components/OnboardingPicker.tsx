@@ -19,9 +19,9 @@ export function saveAll(tray: TrayState): boolean {
 /** Re-run from Settings (THE-113): every mode's saved stops, in My Transit's order (saved.ts readSavedItems). */
 export const allTrayItems = (): TrayItem[] => [...ferryTrayItems(), ...trainTrayItems(), ...busTrayItems()]
 
-/** Re-run from Settings: each mode's store matches the tray; a mode that didn't change isn't written. */
-export function resaveAll(before: TrayItem[], tray: TrayState): boolean {
-  const ok = [resaveBus(before, tray.items), resaveTrain(before, tray.items), resaveFerry(before, tray.items)]
+/** Re-run from Settings: each mode's store matches the tray; a mode that already does isn't written. */
+export function resaveAll(tray: TrayState): boolean {
+  const ok = [resaveBus(tray.items), resaveTrain(tray.items), resaveFerry(tray.items)]
   return ok.every(Boolean)
 }
 
@@ -46,7 +46,7 @@ export default function TransitOnboardingPicker({
       initialMode={currentMode()}
       initialItems={initialItems}
       onSave={(tray) => {
-        const ok = initialItems ? resaveAll(initialItems, tray) : saveAll(tray)
+        const ok = initialItems ? resaveAll(tray) : saveAll(tray)
         // My Transit reads every store (and the server their cookies) on a fresh load.
         if (ok) location.assign('/')
         return ok

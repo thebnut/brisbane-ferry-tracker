@@ -82,7 +82,7 @@ describe('transit re-run from Settings (THE-113)', () => {
     const before = picker.allTrayItems()
     expect(before.map((i) => `${i.mode}:${i.id}`)).toEqual(['ferry:317584', 'train:central', 'bus:10802'])
     // Ferry taken out, a bus stop added, train untouched.
-    const ok = picker.resaveAll(before, {
+    const ok = picker.resaveAll({
       said: '',
       items: [before[1], before[2], { mode: 'bus', id: '1832', name: 'King George Square' }].filter(
         (i) => i != null,

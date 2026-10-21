@@ -16,7 +16,7 @@ export default function TrainOnboardingRerun({ onClose }: { onClose: () => void 
       sources={[trainSource]}
       initialItems={before}
       onSave={(tray) => {
-        const ok = resaveTrain(before, tray.items)
+        const ok = resaveTrain(tray.items)
         // The home page lists favourites (and the server renders the first few from their cookie) on a fresh load.
         if (ok) location.assign(at('/'))
         return ok

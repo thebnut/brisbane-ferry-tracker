@@ -80,10 +80,10 @@ export function ferryTrayItems(): TrayItem[] {
 
 /**
  * Re-run from Settings: the tray's ferry trip replaces the pair, and taking it out unsaves it. Nothing is written when
- * it didn't change (a pair kept for this session only stays so). False if storage refused.
+ * it already matches (a pair kept for this session only stays so). False if storage refused.
  */
-export function resaveFerry(before: TrayItem[], after: TrayItem[]): boolean {
-  if (!modeChanged(before, after, 'ferry')) return true
+export function resaveFerry(after: TrayItem[]): boolean {
+  if (!modeChanged(ferryTrayItems(), after, 'ferry')) return true
   if (after.some((i) => i.mode === 'ferry')) return saveFerry(after)
   clearPair()
   return readSavedPair() == null

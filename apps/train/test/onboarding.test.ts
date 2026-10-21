@@ -63,8 +63,7 @@ describe('train re-run from Settings (THE-113)', () => {
       { from: 'central', to: 'roma-street' },
       { from: 'bowen-hills', to: null },
     ])
-    const before = trainTrayItems()
-    expect(resaveTrain(before, [station('bowen-hills'), station('fortitude-valley')])).toBe(true)
+    expect(resaveTrain([station('bowen-hills'), station('fortitude-valley')])).toBe(true)
     expect(JSON.parse(localStorage.getItem(FAVOURITES_KEY) ?? '[]')).toEqual([
       { from: 'bowen-hills', to: null },
       { from: 'central', to: 'roma-street' },
@@ -82,17 +81,23 @@ describe('train re-run from Settings (THE-113)', () => {
     ])
     const before = trainTrayItems()
     const set = vi.spyOn(Storage.prototype, 'setItem')
-    expect(resaveTrain(before, [...before])).toBe(true)
+    expect(resaveTrain([...before])).toBe(true)
     expect(set).not.toHaveBeenCalled()
     set.mockRestore()
-    expect(resaveTrain(before, [])).toBe(true)
+    expect(resaveTrain([])).toBe(true)
     expect(JSON.parse(localStorage.getItem(FAVOURITES_KEY) ?? '[]')).toEqual([
       { from: 'central', to: 'roma-street' },
     ])
   })
 
-  it('an overflow past the store’s cap is reported', () => {
-    writeFavourites(Array.from({ length: MAX_FAVOURITES }, (_, i) => ({ from: `s${i}`, to: 'central' })))
-    expect(resaveTrain([], [station('central')])).toBe(false)
+  it('an overflow past the store’s cap is reported and writes nothing; a retry is judged on what is stored (Codex r1)', () => {
+    const trips = Array.from({ length: MAX_FAVOURITES - 1 }, (_, i) => ({ from: `s${i}`, to: 'central' }))
+    const list = [{ from: 'central', to: null }, ...trips]
+    writeFavourites(list)
+    const before = trainTrayItems()
+    expect(resaveTrain([station('roma-street'), station('bowen-hills')])).toBe(false)
+    expect(JSON.parse(localStorage.getItem(FAVOURITES_KEY) ?? '[]')).toEqual(list)
+    expect(resaveTrain(before)).toBe(true)
+    expect(JSON.parse(localStorage.getItem(FAVOURITES_KEY) ?? '[]')).toEqual(list)
   })
 })
