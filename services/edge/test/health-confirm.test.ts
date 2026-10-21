@@ -248,6 +248,44 @@ describe('Codex r1 findings (THE-111)', () => {
     expect(s.line('health refreshed')).toMatchObject({ cachedAgeS: 125, ageS: 20 })
   })
 
+  it('r2: a joined refresh whose hub answer lands after the deadline still commits it (same seq)', async () => {
+    let t = NOW
+    let answer = () => status(NOW, 110, 5)
+    let delay = 0
+    const h = hub(
+      () => answer(),
+      () => delay,
+    )
+    let stale: HubStatus | null = null
+    const cache = {
+      match: async () => {
+        if (!stale) return undefined
+        await sleep(5)
+        return new Response(null, { headers: { 'x-seq': '1', 'x-status': JSON.stringify(stale) } })
+      },
+      put: async () => {},
+    }
+    const client = new SnapshotClient(
+      h,
+      () => t,
+      () => {},
+      cache,
+      'alerts',
+      600_000,
+      { refreshDeadlineMs: 50 },
+    )
+    await client.get()
+    t = NOW + 15_000
+    stale = status(t, 121, 6)
+    answer = () => status(t, 20, 5)
+    delay = 100
+    await client.get() // starts a normal refresh, at its Cache API lookup
+    const r = await client.refreshStatus() // joins it; its hub read outlasts the 50 ms deadline
+    expect(r.refreshed).toBe(true)
+    await sleep(150)
+    expect(client.status?.sourceTimestamp).toBe(status(t, 20, 5).sourceTimestamp)
+  })
+
   it('#2 a status that crosses 120 s while the manifest loads is judged at the end, then confirmed', async () => {
     let t = NOW
     const frozen = status(NOW, 119, 5)

@@ -285,7 +285,8 @@ export class SnapshotClient {
     // Always await (a forced refresh too): `attempt` records this refresh as in flight only after this call returns.
     const cached = await (run.force ? null : this.fromCache())
     if (cached) {
-      this.commit(run, cached)
+      // Its own commit doesn't count as a competing one, so a late same-seq hub answer below can still land (Codex r2).
+      if (this.commit(run, cached)) run.commits = this.commits
       // Health joined this refresh after it started (`refreshStatus`): a PoP copy up to 10 s old doesn't confirm a
       // status, so go on to the hub (Codex r1 #1).
       if (!run.force) return this.current
