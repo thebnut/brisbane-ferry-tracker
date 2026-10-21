@@ -42,7 +42,8 @@ const NO_MARKERS: MapMarker[] = []
 export default function MapPage() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const geolocation = useGeolocation(positionFromParams(params))
+  const fixed = positionFromParams(params)
+  const geolocation = useGeolocation(fixed)
   const { geo } = geolocation
   const [scope, setScope] = useState<'near' | 'saved'>('near')
   const [cells, setCells] = useState<string[]>([])
@@ -62,6 +63,15 @@ export default function MapPage() {
     )
   }, [scope, saved, index.byKey, tiles.tiles])
   const center: [number, number] = geo.state === 'ok' ? [geo.lon, geo.lat] : CBD
+  const fLat = fixed?.lat
+  const fLon = fixed?.lon
+  const fixedMarker = useMemo<MapMarker[]>(
+    () =>
+      fLat != null && fLon != null
+        ? [{ id: 'here', lat: fLat, lon: fLon, tone: 'you', pulse: true, label: 'Showing stops around here' }]
+        : NO_MARKERS,
+    [fLat, fLon],
+  )
   const onView = (b: ViewBounds, zoom: number) => {
     const c = zoom >= 14 ? cellsCovering(b) : null
     setZoomedOut(!c)
@@ -90,8 +100,9 @@ export default function MapPage() {
           {() => (
             <SafeMap
               key={geo.state === 'ok' ? 'located' : 'default'}
-              markers={NO_MARKERS}
-              geolocation={geolocation}
+              markers={fixedMarker}
+              // ?lat=&lon= isn't the device: the map's own locate-me finds that (THE-112).
+              geolocation={fixed ? undefined : geolocation}
               stops={stops}
               onStopClick={(id) => navigate(stopHref(id))}
               onViewChange={onView}

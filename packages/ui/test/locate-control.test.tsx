@@ -28,6 +28,7 @@ vi.mock('maplibre-gl', () => ({
 }))
 
 const { default: LocateControl, locateMessage } = await import('../src/map/LocateControl.tsx')
+type GeoState = import('../src/geolocation.ts').GeoState
 
 type Ctrl = { onAdd: (m: unknown) => HTMLElement; onRemove: () => void }
 function fakeMap() {
@@ -153,8 +154,41 @@ describe('LocateControl', () => {
     await act(async () => {})
     expect(pending).toHaveLength(0)
     expect(screen.getByLabelText('You are here').dataset.lngLat).toBe('153,-27.5')
+    // Located already: the tap frames the page's position without asking again (which would remount the page's map).
+    fireEvent.click(screen.getByRole('button', { name: 'Show my location' }))
+    expect(locate).not.toHaveBeenCalled()
+    expect(map.fitBounds).toHaveBeenCalledTimes(1)
+  })
+
+  it('a caller’s geolocation not located yet: a tap asks through it, and its answer frames the map or says why', async () => {
+    const map = fakeMap()
+    const locate = vi.fn()
+    const view = (geo: GeoState) => (
+      <LocateControl map={map as unknown as MlMap} ready source={{ geo, locate }} />
+    )
+    const { rerender } = render(view({ state: 'idle' }))
     fireEvent.click(screen.getByRole('button', { name: 'Show my location' }))
     expect(locate).toHaveBeenCalledTimes(1)
+    rerender(view({ state: 'locating' }))
+    rerender(view({ state: 'denied' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Location is off.')
+    fireEvent.click(screen.getByRole('button', { name: 'Show my location' }))
+    rerender(view({ state: 'locating' }))
+    rerender(view({ state: 'ok', lat: -27.5, lon: 153, accuracy: 40 }))
+    expect(map.fitBounds).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('own geolocation: located, then a retry that fails still says so on the same map', async () => {
+    permission = 'granted'
+    const map = await mount()
+    await answer()
+    fireEvent.click(screen.getByRole('button', { name: 'Show my location' }))
+    expect(pending).toHaveLength(1)
+    await fail(3)
+    expect(screen.getByRole('status')).toHaveTextContent("Couldn't find your location.")
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(map.fitBounds).not.toHaveBeenCalled()
   })
 
   it('locateMessage: only a failed answer has a line', () => {

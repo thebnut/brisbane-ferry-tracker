@@ -90,7 +90,13 @@ export function locateMessage(geo: GeoState): string | null {
   return null
 }
 
-function Control({ map, ready, geo, locate }: { map: MlMap; ready: boolean } & GeoSource) {
+function Control({
+  map,
+  ready,
+  geo,
+  locate,
+  shared,
+}: { map: MlMap; ready: boolean; shared: boolean } & GeoSource) {
   const [host] = useState(() => {
     const el = document.createElement('div')
     el.className = 'maplibregl-ctrl'
@@ -114,6 +120,9 @@ function Control({ map, ready, geo, locate }: { map: MlMap; ready: boolean } & G
   const flyOnFix = useRef(false)
   const tap = () => {
     setAsked(true)
+    // A page's shared position is framed as it is: asking again would set the page's state to `locating`, which
+    // remounts (stop picker, bus /map) or unmounts (Around you) this map mid-request, losing the move and any message.
+    if (shared && geo.state === 'ok') return frameOn(map, geo.lat, geo.lon, geo.accuracy)
     flyOnFix.current = true
     locate()
   }
@@ -193,7 +202,7 @@ function Control({ map, ready, geo, locate }: { map: MlMap; ready: boolean } & G
 /** The map's own geolocation, when the caller has none to share. */
 function OwnGeo(props: { map: MlMap; ready: boolean }) {
   const { geo, locate } = useGeolocation()
-  return <Control {...props} geo={geo} locate={locate} />
+  return <Control {...props} geo={geo} locate={locate} shared={false} />
 }
 
 export default function LocateControl({
@@ -205,5 +214,5 @@ export default function LocateControl({
   ready: boolean
   source?: GeoSource
 }) {
-  return source ? <Control {...props} {...source} /> : <OwnGeo {...props} />
+  return source ? <Control {...props} {...source} shared /> : <OwnGeo {...props} />
 }

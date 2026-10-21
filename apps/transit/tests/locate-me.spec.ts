@@ -36,6 +36,21 @@ test('THE-112: Around a chosen place, the map shows you without moving and frame
   await expectLocatesOnTap(map)
 })
 
+test('THE-112: Around you on the device’s location: a tap frames you on the same map (no re-request remount)', async ({
+  page,
+  context,
+}) => {
+  await allowLocation(context)
+  await page.goto('/nearby')
+  const map = nearbyMap(page)
+  await expect(youAreHere(map)).toBeAttached({ timeout: 20_000 })
+  // Tag the map's element: asking the page's GPS again would unmount it (Codex r1 P2).
+  await map.evaluate((el) => el.setAttribute('data-probe', ''))
+  await panAway(map)
+  await expectLocatesOnTap(map)
+  await expect(map).toHaveAttribute('data-probe', '')
+})
+
 test('THE-112: location blocked: the Around you map says so', async ({ page, context }) => {
   await context.clearPermissions()
   await page.goto(AROUND)
