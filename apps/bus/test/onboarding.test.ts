@@ -116,6 +116,18 @@ describe('bus re-run from Settings (THE-113)', () => {
     ).toEqual(['1832', '10802', '600'])
   })
 
+  it('with storage blocked, a retry is never reported as saved (Codex r2)', async () => {
+    const { onb } = await modules()
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('SecurityError')
+    })
+    expect(onb.resaveBus([stop('600')])).toBe(false)
+    expect(onb.resaveBus([stop('600')])).toBe(false)
+  })
+
   it('reports a re-save that storage refused', async () => {
     const { onb, storage } = await modules()
     storage.toggleSaved({ id: '1832', name: 'King George Square' })

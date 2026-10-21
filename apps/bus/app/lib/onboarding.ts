@@ -48,21 +48,23 @@ export function saveBus(items: TrayItem[]): boolean {
  * Re-run from Settings (THE-113): My stops, as the tray opens with them. Read from storage itself: storage.ts's
  * in-memory list misses another tab's save unless a list of saved stops is mounted (Codex r1).
  */
-export function busTrayItems(): TrayItem[] {
-  const stored = persisted()
-  const list =
-    stored?.filter(
-      (s): s is SavedStop => typeof s?.id === 'string' && typeof (s as SavedStop).name === 'string',
-    ) ?? readSaved()
-  return list.map((s) => ({ mode: 'bus', id: s.id, name: s.name }))
-}
+export const busTrayItems = (): TrayItem[] => toTray(storedStops() ?? readSaved())
+
+/** My stops as storage holds them; null when it can't be read. */
+const storedStops = () =>
+  persisted()?.filter(
+    (s): s is SavedStop => typeof s?.id === 'string' && typeof (s as SavedStop).name === 'string',
+  ) ?? null
+const toTray = (list: SavedStop[]): TrayItem[] => list.map((s) => ({ mode: 'bus', id: s.id, name: s.name }))
 
 /**
  * Re-run from Settings: My stops become the tray's bus stops, in tray order (a stop taken out is unsaved). Nothing is
  * written when they already match. False if storage refused.
  */
 export function resaveBus(after: TrayItem[]): boolean {
-  if (!modeChanged(busTrayItems(), after, 'bus')) return true
+  // Only what storage really holds can show nothing needs writing, never the in-memory list (Codex r2).
+  const now = storedStops()
+  if (now && !modeChanged(toTray(now), after, 'bus')) return true
   const stops = after.filter((i) => i.mode === 'bus')
   writeSaved(
     applyTray(
