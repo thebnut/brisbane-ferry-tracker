@@ -102,7 +102,8 @@ export function keepTrayOrder(before: readonly TrayItem[], after: readonly TrayI
   const overlay = readOverlay()
   if (!overlay) return
   const next = trayOrder(overlay.ids, was, now)
-  if (next.join('\n') === overlay.order.join('\n')) return
+  // Entry by entry, not joined: a hand-edited order can hold anything, and joining an object coerces it (and can throw).
+  if (next.length === overlay.order.length && next.every((id, i) => id === overlay.order[i])) return
   try {
     localStorage.setItem(OVERLAY_KEY, JSON.stringify({ ...overlay.prefs, order: next }))
   } catch {

@@ -193,4 +193,20 @@ describe('keepTrayOrder', () => {
     keepTrayOrder([ferry, cultural], [ferry, cultural])
     expect(localStorage.getItem(PREFS_KEY)).toBe(same)
   })
+
+  it('rewrites an order holding junk without throwing, keeping its string ids (release review r1)', () => {
+    const junk = `{"v":1,"order":["${savedId(ferry)}",{"toString":null},7,"${savedId(cultural)}"],"labels":{"x":"Home"}}`
+    localStorage.setItem(PREFS_KEY, junk)
+    expect(() => keepTrayOrder([ferry, cultural], [cultural, ferry])).not.toThrow()
+    expect(stored()).toEqual({ v: 1, order: [savedId(cultural), savedId(ferry)], labels: { x: 'Home' } })
+  })
+
+  it('writes the string ids back over an order that held junk, even when they are already in the tray order', () => {
+    localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ v: 1, order: [savedId(cultural), null, savedId(ferry)] }),
+    )
+    keepTrayOrder([ferry, cultural], [cultural, ferry])
+    expect(stored().order).toEqual([savedId(cultural), savedId(ferry)])
+  })
 })
