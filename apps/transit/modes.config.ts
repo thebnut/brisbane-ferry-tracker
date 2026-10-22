@@ -8,6 +8,8 @@
  *  - `navSlots()`: each app keeps its section navigation in one module (`app/components/nav.tsx`). Inside this build
  *    that module resolves to `app/modes/<mode>-nav.tsx` instead, so the bottom bar is the Mode Tabs while every page
  *    module is imported unchanged. test/nav-slots.test.ts checks each replacement exports what the original does.
+ *    Each app's header module (`app/components/header.tsx`: its lockup header and "Updated" strip) resolves to
+ *    `app/modes/<mode>-header.tsx`, the one BrisbaneTransit header and status line (THE-118).
  *    The same way, each app's re-run onboarding picker (`app/components/OnboardingRerun.tsx`, THE-113) resolves to
  *    transit's, so "Set up My Transit stops" in a mode tab's Settings edits every mode's stops.
  */
@@ -46,6 +48,14 @@ export const NAV_SLOTS: Record<string, string> = Object.fromEntries(
   ]),
 )
 
+/** Each mode app's header and status strip → the one BrisbaneTransit header and status line (THE-118). */
+export const HEADER_SLOTS: Record<string, string> = Object.fromEntries(
+  (['ferry', 'train', 'bus'] as const).map((mode) => [
+    `${appsDir}${mode}/app/components/header.tsx`,
+    fileURLToPath(new URL(`./app/modes/${mode}-header.tsx`, import.meta.url)),
+  ]),
+)
+
 /** Each mode app's re-run onboarding picker → transit's, which has every mode. */
 export const RERUN_SLOTS: Record<string, string> = Object.fromEntries(
   (['ferry', 'train', 'bus'] as const).map((mode) => [
@@ -59,9 +69,9 @@ export function navSlots(): Plugin {
     name: 'bft:transit-nav-slots',
     enforce: 'pre',
     async resolveId(id, importer, options) {
-      if (!importer || !(id.endsWith('nav.tsx') || id.endsWith('OnboardingRerun.tsx'))) return null
+      if (!importer || !/(nav|header|OnboardingRerun)\.tsx$/.test(id)) return null
       const r = await this.resolve(id, importer, { ...options, skipSelf: true })
-      return r ? (NAV_SLOTS[r.id] ?? RERUN_SLOTS[r.id] ?? null) : null
+      return r ? (NAV_SLOTS[r.id] ?? HEADER_SLOTS[r.id] ?? RERUN_SLOTS[r.id] ?? null) : null
     },
   }
 }

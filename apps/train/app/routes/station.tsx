@@ -5,11 +5,12 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { FilterPills, formatAge, formatClock, StatusStrip } from '@bft/ui'
+import { FilterPills, formatAge, formatClock } from '@bft/ui'
 import { sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { useCallback, useEffect, useState } from 'react'
 import { data, Link } from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
+import { UpdatedStrip } from '../components/header.tsx'
 import { StationBoard } from '../components/StationBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
 import { at } from '../lib/base.ts'
@@ -145,7 +146,7 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   useEffect(() => setFilter('all'), [station.key, to?.key])
 
   const strip = (
-    <StatusStrip
+    <UpdatedStrip
       updated={
         <>
           Updated{' '}
@@ -171,13 +172,14 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
       >
         Map
       </Link>
-    </StatusStrip>
+    </UpdatedStrip>
   )
 
   // The header pill follows the boards: from the loader data until each StationBoard reports (useReportLive).
   const seeded = [outbound, to ? inbound : null].every((r) => !r || boardState(r, false, nowMs, page) == null)
   return (
-    <Shell active="stations" strip={strip} live={seeded}>
+    // No outbound answer from the loader (it timed out): BrisbaneTransit says "Connecting…", not LIVE (THE-118).
+    <Shell active="stations" strip={strip} live={seeded} pending={!outbound}>
       <div className={to && inbound ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : 'mx-auto max-w-2xl'}>
         <StationBoard
           key={`${station.key}:${to?.key ?? ''}`}

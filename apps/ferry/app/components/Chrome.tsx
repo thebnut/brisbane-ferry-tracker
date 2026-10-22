@@ -1,8 +1,4 @@
 /** Site header, footer and the crawlable intro shared by every page. */
-import { AppHeader, LivePill, SettingsPill } from '@bft/ui'
-import lockup489 from '@bft/ui/assets/ferry-lockup.webp?url'
-import lockup236 from '@bft/ui/assets/ferry-lockup-236.webp?url'
-import lockup360 from '@bft/ui/assets/ferry-lockup-360.webp?url'
 import { at } from '../lib/base.ts'
 import { ATTRIBUTION, INTRO_HEADING, INTRO_TEXT } from '../lib/seo.ts'
 import { TERMINALS, terminalHref } from '../lib/terminals.ts'
@@ -15,19 +11,6 @@ export const SECTION = {
   subheading: 'mt-4 text-sm font-semibold text-gray-700',
   list: 'mt-2 flex flex-wrap gap-2 text-sm',
   link: 'inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep',
-}
-
-export function SiteHeader({ onSettings, live = true }: { onSettings?: () => void; live?: boolean }) {
-  return (
-    <AppHeader
-      mode="ferry"
-      logoSrc={lockup360}
-      logoSrcSet={`${lockup236} 236w, ${lockup360} 360w, ${lockup489} 489w`}
-    >
-      {onSettings ? <SettingsPill onClick={onSettings} /> : null}
-      <LivePill live={live} />
-    </AppHeader>
-  )
 }
 
 export function TerminalLinks() {
@@ -96,4 +79,5 @@ export function Footer() {
   )
 }
 
+export { SiteHeader } from './header.tsx'
 export { FeedbackButton }

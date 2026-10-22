@@ -126,13 +126,15 @@ export default function AlertsPage({ loaderData }: Route.ComponentProps) {
   const routesPending = scope === 'mine' && saved.length > 0 && !index.data && !index.isError
   return (
     <>
-      <SiteHeader live={q.data?.rtState === 'live'} />
+      <SiteHeader live={q.data?.rtState === 'live'} pending={!q.data && !q.isError} />
       <UpdatedStrip
         updatedAt={q.data?.generatedAt ?? null}
         source={q.data}
         nowMs={now}
         onRefresh={() => q.refetch()}
         refreshing={q.isFetching}
+        live={q.data?.rtState === 'live'}
+        pending={!q.data && !q.isError}
       >
         <DesktopNav active="alerts" />
       </UpdatedStrip>
