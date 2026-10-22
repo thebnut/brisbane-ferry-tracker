@@ -1,11 +1,20 @@
 /**
- * Saves the chosen stop pair (storage.ts's keys and cookie). Only the stop selector saves a pair, and it is loaded
- * when opened, so this stays off the boards' first load.
+ * Saves the chosen stop pair (storage.ts's keys and cookie). Only the stop selector and onboarding save a pair, and
+ * they are loaded when opened, so this stays off the boards' first load. A remembered pair is also a ferry favourite
+ * (favourites.ts), so it shows in My Transit.
  */
-import { PAIR_COOKIE, STORAGE_KEYS } from './storage.ts'
+import {
+  addFerryFavourite,
+  readFerryFavourites,
+  removeFerryFavourite,
+  writePairCookie,
+} from './favourites.ts'
+import { STORAGE_KEYS } from './storage.ts'
 import type { StopPair } from './terminals.ts'
 
 export function savePair(pair: StopPair, remember: boolean): void {
+  // Before the new pair replaces it: a pair remembered before favourites existed becomes one first (migration).
+  readFerryFavourites()
   try {
     if (remember) {
       localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true')
@@ -16,23 +25,33 @@ export function savePair(pair: StopPair, remember: boolean): void {
       localStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS)
       sessionStorage.setItem(STORAGE_KEYS.SELECTED_STOPS_SESSION, JSON.stringify(pair))
     }
-    const maxAge = remember ? '; max-age=31536000' : ''
-    // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is not in Safari; this is a plain preference cookie.
-    document.cookie = `${PAIR_COOKIE}=${pair.outbound.id}.${pair.inbound.id}; path=/; samesite=lax${maxAge}`
   } catch {
-    // Storage or cookies blocked: the pair lasts for this page view only.
+    // Storage blocked: the pair lasts for this page view only.
   }
+  if (remember) addFerryFavourite({ from: pair.outbound.id, to: pair.inbound.id })
+  writePairCookie()
 }
 
-/** Unsaves the pair (remembered and this session's) and its cookie: the boards go back to the default pair. */
+/**
+ * Unsaves the pair (remembered and this session's), the favourite it made and its cookie: the boards go back to the
+ * first other favourite, or the default pair.
+ */
 export function clearPair(): void {
+  let remembered: StopPair | null = null
+  try {
+    if (localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION) === 'true')
+      remembered = JSON.parse(localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS) ?? 'null') as StopPair | null
+  } catch {
+    // Blocked or malformed: no remembered favourite to take out.
+  }
   try {
     localStorage.removeItem(STORAGE_KEYS.REMEMBER_SELECTION)
     localStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS)
     sessionStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS_SESSION)
-    // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is not in Safari; this is a plain preference cookie.
-    document.cookie = `${PAIR_COOKIE}=; path=/; samesite=lax; max-age=0`
   } catch {
-    // Storage or cookies blocked: there was nothing saved to clear.
+    // Storage blocked: there was nothing saved to clear.
   }
+  if (remembered?.outbound?.id && remembered.inbound?.id)
+    removeFerryFavourite({ from: remembered.outbound.id, to: remembered.inbound.id })
+  writePairCookie()
 }

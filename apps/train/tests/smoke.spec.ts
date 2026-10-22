@@ -76,7 +76,7 @@ test('alerts: line status board', async ({ page }) => {
 
 test('favourite shows on home and its day is saved for offline', async ({ page, context }) => {
   await page.goto('/station/roma-street?to=indooroopilly')
-  await page.getByRole('button', { name: 'Save as favourite' }).click()
+  await page.getByRole('button', { name: /^Save Roma Street → Indooroopilly to My Transit/ }).click()
   await page.goto('/')
   await expect(page.getByTestId('favourite')).toContainText('Roma Street → Indooroopilly')
   // The rest of today's timetable is saved; how much is left depends on the hour (little near midnight).

@@ -98,7 +98,7 @@ test('picker highlights the nearest stop only when location is already allowed, 
   await page.reload()
   await expect(page.locator('[data-nearest]')).toContainText('Cultural Centre')
   await expect(page.locator('[data-nearest]')).toContainText('Nearest to you')
-  const star = page.locator('[data-nearest]').getByRole('button', { name: /My stops/ })
+  const star = page.locator('[data-nearest]').getByRole('button', { name: /to My Transit/ })
   await star.click()
   await expect(star).toHaveAttribute('aria-pressed', 'true')
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('bft-bus-saved') ?? '[]'))

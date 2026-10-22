@@ -43,6 +43,7 @@ import { generateTimeSlots } from '../lib/timeSlots.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import { SiteHeader } from './Chrome.tsx'
 import { DepartureList } from './DepartureList.tsx'
+import type FerryStar from './FerryStar.tsx'
 
 // If the map sheet's chunk can't load, the board stays up (the Map button just does nothing).
 const NoMap = (() => null) as never // renders nothing, whatever the props
@@ -118,23 +119,34 @@ export function FerryBoards({
   const [selected, setSelected] = useState<{ d: Departure; direction: 'outbound' | 'inbound' } | null>(null)
   const [showMap, setShowMap] = useState(false)
   const [showSelector, setShowSelector] = useState(false)
+  const [Star, setStar] = useState<typeof FerryStar | null>(null)
   const now = useNow(renderedAt, 5_000)
   const online = useOnline()
   const fetcher = useFetcher(mode)
 
   // After hydration: saved pair (home only), session "Depart from", fixture cookie. A first visit gets the onboarding
-  // prompt (P4, its own lazy slot), which replaced the stop selector opening by itself here.
+  // prompt (P4, its own lazy slot), which replaced the stop selector opening by itself here. The star (THE-118) loads
+  // then, with the favourites' code: with no saved pair, the home board opens the first favourite.
   useEffect(() => {
-    if (!terminalPage && !deepLink) {
-      const saved = readSavedPair()
-      if (
-        saved &&
-        (saved.outbound.id !== serverPair.outbound.id || saved.inbound.id !== serverPair.inbound.id)
-      ) {
-        setPair(saved)
-      }
+    const home = !terminalPage && !deepLink
+    const show = (p: StopPair | null) => {
+      if (p && (p.outbound.id !== serverPair.outbound.id || p.inbound.id !== serverPair.inbound.id))
+        setPair(p)
     }
+    const saved = home ? readSavedPair() : null
+    show(saved)
     setDepartAt(readDepartAt())
+    import('./FerryStar.tsx').then(
+      (m) => {
+        setStar(() => m.default)
+        if (home && !saved) {
+          show(m.firstFavouritePair())
+          // The cookie again, so the next load renders that pair (a session-only pair's cookie ends with the session).
+          m.writePairCookie()
+        }
+      },
+      () => {}, // Offline before the chunk was cached: no star until the next load.
+    )
   }, [terminalPage, deepLink, serverPair])
   // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0. Never from the data mode alone: an API
   // failure that fell back to fixtures (FIXTURE_FALLBACK) used to make demo mode stick for the session (R7-B1).
@@ -365,7 +377,20 @@ export function FerryBoards({
                 </span>
               </>
             }
-            trailing={<div className="flex min-w-0 md:hidden">{departSelect}</div>}
+            trailing={
+              <>
+                <div className="flex min-w-0 md:hidden">{departSelect}</div>
+                {Star ? (
+                  <Star
+                    from={pair.outbound.id}
+                    to={pair.inbound.id}
+                    onPickDestination={() => setShowSelector(true)}
+                  />
+                ) : (
+                  <span aria-hidden="true" className="block h-11 w-24" />
+                )}
+              </>
+            }
             departures={outList}
             nowMs={now}
             loading={out.isPending}

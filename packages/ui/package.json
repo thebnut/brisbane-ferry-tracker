@@ -10,6 +10,8 @@
     "./connectivity": "./src/connectivity.ts",
     "./demo": "./src/demo.tsx",
     "./bus": "./src/bus.tsx",
+    "./star": "./src/star.tsx",
+    "./save-toast": "./src/SaveToast.tsx",
     "./map": "./src/map/MapView.tsx",
     "./safe-map": "./src/map/SafeMap.tsx",
     "./stop-picker": "./src/stop-picker.ts",

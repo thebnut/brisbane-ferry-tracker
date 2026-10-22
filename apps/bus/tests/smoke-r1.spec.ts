@@ -85,7 +85,7 @@ test('opening a busy stop from the home chips does not save it (B5)', async ({ p
     .click()
   await expect(page).toHaveURL(/\/stop\/10802/)
   await expect(page.getByTestId('departure').first()).toBeVisible()
-  await expect(page.getByRole('button', { name: /to My stops/ })).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByRole('button', { name: /to My Transit/ })).toHaveAttribute('aria-pressed', 'false')
   await page.goto('/')
   expect(await page.evaluate(() => localStorage.getItem('bft-bus-saved'))).toBeNull()
 })

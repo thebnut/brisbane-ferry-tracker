@@ -21,10 +21,12 @@ Shared React 19 design system in the BrisbaneFerry look (round 2: `docs/design/t
   `EmptyState`, `ErrorState`, `OfflineBanner` ("Offline · scheduled", "Live times unavailable", stale, reloading).
 - Bus (`src/bus.tsx`, B-* boards): `BigCountdown` (huge right-aligned "Now" / "4 min", clock past an hour),
   `RouteDepartureCard`, `SearchField` (orange "Stop name or number"), `ThumbSheet`, `StopResultCard` (PLAT tile, route
-  chips, distance), `MyStopCard` (next 3 buses), `SegmentedControl`, `SaveButton`, `NoticeStrip`, `OccupancyMeter`,
+  chips, distance), `MyStopCard` (next 3 buses), `SegmentedControl`, `NoticeStrip`, `OccupancyMeter`,
   `TripTimeline`, `SkeletonRows`; `RouteTile` gained sizes (sm/md/lg/xl) and `routeTileVariant` now knows CityGlider
   (60, 61) and BUZ routes; `formatBusCountdown`. `MapView` gained a GeoJSON stops layer (`stops`, pin shape, click),
   a route `line` and `onViewChange`.
+- `@bft/ui/star` (`StarButton`, THE-118: labelled "Save" / "Saved" pill or icon-only, `aria-pressed`) and
+  `@bft/ui/save-toast` (`SaveToast`, "{Name} saved to My Transit · Undo", optional "Pick a destination").
 - Lazy entry points: `@bft/ui/map` (MapLibre GL 6 on OpenFreeMap, pulsing vehicle dots, pin shapes ferry circle /
   train square / bus diamond; about 280 KB gz, never on first load) and `@bft/ui/stop-search` (Ark UI combobox).
 - `@bft/ui/format`: Brisbane-time helpers with the legacy rules: `formatCountdown` ("Departing", "in 1 min", none over

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { KEYS, readSaved, writeSaved } from '@bft/bus/app/lib/storage.ts'
+import { FAVOURITES_KEY as FERRY_FAVOURITES_KEY } from '@bft/ferry/app/lib/favourites.ts'
 import { STORAGE_KEYS } from '@bft/ferry/app/lib/storage.ts'
 import { FAVOURITES_KEY } from '@bft/train/app/lib/storage.ts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -112,14 +113,65 @@ describe('deleting a saved item from My Transit (THE-115)', () => {
     expect(shown()).toEqual(before)
   })
 
-  it("ferry: a pair kept for this session only comes back as this session's, not remembered", () => {
+  it('ferry: a pair kept for this session only is no favourite, so there is no card to delete', () => {
     sessionStorage.setItem(STORAGE_KEYS.SELECTED_STOPS_SESSION, PAIR)
-    const r = removeSaved(byId(FERRY), store)
-    expect(sessionStorage.getItem(STORAGE_KEYS.SELECTED_STOPS_SESSION)).toBeNull()
-    expect(restoreSaved(r, store)).toBe(true)
+    expect(ids(readDefault()).filter((id) => id.startsWith('ferry:'))).toEqual([])
     expect(sessionStorage.getItem(STORAGE_KEYS.SELECTED_STOPS_SESSION)).toBe(PAIR)
-    expect(localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS)).toBeNull()
-    expect(localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION)).toBeNull()
+  })
+
+  it('ferry (THE-118): one of several favourites goes, and Undo puts it back in its place', () => {
+    const list = [
+      { from: '317584', to: '317590' },
+      { from: '317590', to: null },
+      { from: '317584', to: null },
+    ]
+    localStorage.setItem(FERRY_FAVOURITES_KEY, JSON.stringify(list))
+    const before = ids(shown())
+    expect(before.filter((id) => id.startsWith('ferry:'))).toEqual([
+      'ferry:317584>317590',
+      'ferry:317590>',
+      'ferry:317584>',
+    ])
+    const r = removeSaved(byId('ferry:317590>'), store)
+    expect(r.kept).toBe(true)
+    expect(stored(FERRY_FAVOURITES_KEY)).toEqual([list[0], list[2]])
+    // Not the remembered pair: the cookie still opens the first favourite.
+    expect(document.cookie).toContain('bft_pair=317584.317590')
+    expect(restoreSaved(r, store)).toBe(true)
+    expect(stored(FERRY_FAVOURITES_KEY)).toEqual(list)
+    expect(ids(shown())).toEqual(before)
+  })
+
+  it('ferry: Undo leaves a pair remembered since alone, and never brings back one the delete kept (Codex r1)', () => {
+    const A = { from: '317584', to: '317590' }
+    const B = { from: '317590', to: '317584' }
+    const pairOf = (f: typeof A) =>
+      JSON.stringify({ outbound: { id: f.from, name: '' }, inbound: { id: f.to, name: '' } })
+    localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, pairOf(A))
+    localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true')
+    localStorage.setItem(FERRY_FAVOURITES_KEY, JSON.stringify([A, B]))
+    // B isn't the remembered pair: deleting it leaves A remembered.
+    const r = removeSaved(byId('ferry:317590>317584'), store)
+    expect(localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS)).toBe(pairOf(A))
+    // Another tab remembers B before Undo.
+    localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, pairOf(B))
+    expect(restoreSaved(r, store)).toBe(true)
+    expect(localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS)).toBe(pairOf(B))
+    // Deleting B (remembered now) forgets it; a pair remembered again before Undo stays.
+    const r2 = removeSaved(byId('ferry:317590>317584'), store)
+    localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, pairOf(A))
+    restoreSaved(r2, store)
+    expect(localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS)).toBe(pairOf(A))
+  })
+
+  it('ferry: Undo after the list changed elsewhere still puts it back once, at its place or the end', () => {
+    localStorage.setItem(FERRY_FAVOURITES_KEY, JSON.stringify([{ from: '317584', to: '317590' }]))
+    const r = removeSaved(byId('ferry:317584>317590'), store)
+    expect(stored(FERRY_FAVOURITES_KEY)).toEqual([])
+    // Saved again from the board before Undo: not added twice.
+    localStorage.setItem(FERRY_FAVOURITES_KEY, JSON.stringify([{ from: '317584', to: '317590' }]))
+    expect(restoreSaved(r, store)).toBe(true)
+    expect(stored(FERRY_FAVOURITES_KEY)).toEqual([{ from: '317584', to: '317590' }])
   })
 
   it('an item missing from the overlay (no overlay at all) leaves it unwritten; Undo puts the store place back', () => {

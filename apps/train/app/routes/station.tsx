@@ -5,7 +5,7 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { FilterPills, formatAge, formatClock, Icon, StatusStrip } from '@bft/ui'
+import { FilterPills, formatAge, formatClock, StatusStrip } from '@bft/ui'
 import { sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { useCallback, useEffect, useState } from 'react'
 import { data, Link } from 'react-router'
@@ -26,7 +26,6 @@ import {
 } from '../lib/network.ts'
 import { pageMeta, stationJsonLd, stationMeta } from '../lib/seo.ts'
 import { loaderEnv, settle, siteInfo } from '../lib/server.server.ts'
-import { type Favourite, readFavourites, sameFavourite, toggleFavourite } from '../lib/storage.ts'
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/station'
 
@@ -80,13 +79,6 @@ const haversine = (a: Station, b: Station) => {
     Math.sin(r(b.lat - a.lat) / 2) ** 2 +
     Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lon - a.lon) / 2) ** 2
   return 2 * R * Math.asin(Math.sqrt(x))
-}
-
-function useFavourite(f: Favourite) {
-  const [list, setList] = useState<Favourite[]>([])
-  useEffect(() => setList(readFavourites()), [])
-  const saved = list.some((x) => sameFavourite(x, f))
-  return { saved, toggle: () => setList((l) => toggleFavourite(l, f)) }
 }
 
 function StationAbout({ station }: { station: Station }) {
@@ -146,7 +138,6 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   const [filter, setFilter] = useState<ServiceFilter>('all')
   const [latest, setLatest] = useState<DeparturesResponse | undefined>(outbound ?? undefined)
   const onData = useCallback((r: DeparturesResponse | undefined) => r && setLatest(r), [])
-  const fav = useFavourite({ from: station.key, to: to?.key ?? null })
   const page = usePageCheck()
   const src = sourceTimeS(latest, { nowMs, ...page })
   // Reset the filter when moving between stations.
@@ -180,15 +171,6 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
       >
         Map
       </Link>
-      <button
-        type="button"
-        onClick={fav.toggle}
-        aria-pressed={fav.saved}
-        aria-label={fav.saved ? 'Remove from favourites' : 'Save as favourite'}
-        className="flex size-9 items-center justify-center rounded-full border border-ferry-orange/20 bg-white text-ferry-orange-aa dark:bg-night-card"
-      >
-        <Icon name="star" size={18} fill={fav.saved ? 'currentColor' : 'none'} />
-      </button>
     </StatusStrip>
   )
 

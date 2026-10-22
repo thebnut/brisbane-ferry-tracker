@@ -1,15 +1,24 @@
 /**
  * Deleting a saved item from My Transit (THE-115), loaded with the swipe rows (SavedRows.tsx), never on first load.
- * The item stops being saved: it leaves its own mode's store through that store's own code (the ferry pair's
- * clearPair, train writeFavourites, bus writeSaved), so the standalone apps see the change, and leaves the overlay's
+ * The item stops being saved: it leaves its own mode's store through that store's own code (ferry
+ * removeFerryFavourite, which also forgets the remembered pair when it is that trip; train writeFavourites, bus
+ * writeSaved), so the standalone apps see the change, and leaves the overlay's
  * order and names. Undo puts back exactly what was there: the store entry at its place, the overlay place and name.
  * Each change is written straight away, so a reload or leaving the page keeps it.
  */
 
 import { KEYS as BUS_KEYS, readSaved, type SavedStop, writeSaved } from '@bft/bus/app/lib/storage.ts'
-import { clearPair, savePair } from '@bft/ferry/app/lib/save-pair.ts'
-import { readSavedPair, STORAGE_KEYS } from '@bft/ferry/app/lib/storage.ts'
-import type { StopPair } from '@bft/ferry/app/lib/terminals.ts'
+import {
+  addFerryFavourite,
+  FAVOURITES_KEY as FERRY_FAVOURITES,
+  type FerryFavourite,
+  isFerryFavourite,
+  readFerryFavourites,
+  removeFerryFavourite,
+  sameFerryFavourite,
+  writePairCookie,
+} from '@bft/ferry/app/lib/favourites.ts'
+import { STORAGE_KEYS } from '@bft/ferry/app/lib/storage.ts'
 import {
   type Favourite,
   MAX_FAVOURITES,
@@ -26,7 +35,13 @@ export interface Removal {
   item: SavedItem
   /** The store's entry and its place there; null when the store no longer had it (another tab unsaved it). */
   entry:
-    | { mode: 'ferry'; pair: StopPair; local: string | null; remember: string | null; session: string | null }
+    | {
+        mode: 'ferry'
+        at: number
+        fav: FerryFavourite
+        /** The remembered pair this delete forgot (it was this trip), for Undo; null when it left it alone. */
+        forgot: { local: string; remember: string | null } | null
+      }
     | { mode: 'train'; at: number; fav: Favourite }
     | { mode: 'bus'; at: number; stop: SavedStop }
     | null
@@ -58,8 +73,15 @@ function busStored(): unknown[] | null {
 }
 const busHas = (id: string) => busStored()?.some((s) => (s as SavedStop | null)?.id === id) ?? null
 
-const isPair = (item: SavedItem, pair: StopPair | null) =>
-  pair?.outbound.id === item.key && pair.inbound.id === item.to
+/** Ferry favourites as storage itself holds them; null when it can't be read. */
+function ferryStoredHas(f: FerryFavourite): boolean | null {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(FERRY_FAVOURITES) ?? '[]')
+    return Array.isArray(v) && v.some((x) => sameFerryFavourite(x as FerryFavourite, f))
+  } catch {
+    return null
+  }
+}
 const favOf = (item: SavedItem): Favourite => ({ from: item.key, to: item.to })
 
 /** Unsaves the item from its store and the overlay. Never throws: blocked storage gives `kept: false`. */
@@ -67,17 +89,17 @@ export function removeSaved(item: SavedItem, overlay: Overlay): Removal {
   let entry: Removal['entry'] = null
   let kept = true
   if (item.mode === 'ferry') {
-    const pair = readSavedPair()
-    if (isPair(item, pair)) {
-      entry = {
-        mode: 'ferry',
-        pair: pair as StopPair,
-        local: raw(() => localStorage, STORAGE_KEYS.SELECTED_STOPS),
-        remember: raw(() => localStorage, STORAGE_KEYS.REMEMBER_SELECTION),
-        session: raw(() => sessionStorage, STORAGE_KEYS.SELECTED_STOPS_SESSION),
-      }
-      clearPair()
-      kept = readSavedPair() == null
+    const list = readFerryFavourites()
+    const at = list.findIndex((f) => sameFerryFavourite(f, favOf(item)))
+    if (at >= 0) {
+      const local = raw(() => localStorage, STORAGE_KEYS.SELECTED_STOPS)
+      const remember = raw(() => localStorage, STORAGE_KEYS.REMEMBER_SELECTION)
+      const fav = list[at] as FerryFavourite
+      // Removing the remembered pair's favourite forgets that pair too (favourites.ts).
+      removeFerryFavourite(fav)
+      const forgot = local != null && raw(() => localStorage, STORAGE_KEYS.SELECTED_STOPS) == null
+      entry = { mode: 'ferry', at, fav, forgot: forgot ? { local, remember } : null }
+      kept = ferryStoredHas(fav) === false
     }
   } else if (item.mode === 'train') {
     const list = readFavourites()
@@ -113,18 +135,20 @@ export function restoreSaved(r: Removal, overlay: Overlay): boolean {
   const { item, entry } = r
   let kept = true
   if (entry?.mode === 'ferry') {
-    // Through the selector's own save (its cookie too), then the exact values it found, remembered or not.
-    savePair(entry.pair, entry.local != null)
-    try {
-      const put = (s: Storage, key: string, v: string | null) =>
-        v == null ? s.removeItem(key) : s.setItem(key, v)
-      put(localStorage, STORAGE_KEYS.SELECTED_STOPS, entry.local)
-      put(localStorage, STORAGE_KEYS.REMEMBER_SELECTION, entry.remember)
-      put(sessionStorage, STORAGE_KEYS.SELECTED_STOPS_SESSION, entry.session)
-    } catch {
-      // Storage blocked: checked below.
+    // Back at its place; the remembered pair the delete forgot comes back too, unless a pair has been remembered since.
+    if (!isFerryFavourite(entry.fav)) addFerryFavourite(entry.fav, entry.at)
+    const { forgot } = entry
+    if (forgot && raw(() => localStorage, STORAGE_KEYS.SELECTED_STOPS) == null) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, forgot.local)
+        if (forgot.remember == null) localStorage.removeItem(STORAGE_KEYS.REMEMBER_SELECTION)
+        else localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, forgot.remember)
+      } catch {
+        // Storage blocked: checked below.
+      }
+      writePairCookie()
     }
-    kept = isPair(item, readSavedPair())
+    kept = ferryStoredHas(entry.fav) === true
   } else if (entry?.mode === 'train') {
     const list = readFavourites()
     if (!list.some((f) => sameFavourite(f, entry.fav))) {

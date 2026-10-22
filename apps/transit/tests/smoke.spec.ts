@@ -174,6 +174,8 @@ test('My Transit mixes every mode and works offline as "Offline · scheduled"', 
       'bft-train-favourites',
       JSON.stringify([{ from: 'roma-street', to: 'indooroopilly' }]),
     )
+    // A remembered pair: it becomes the ferry favourite (THE-118).
+    localStorage.setItem('brisbane-ferry-remember-selection', 'true')
     localStorage.setItem(
       'brisbane-ferry-selected-stops',
       JSON.stringify({

@@ -119,7 +119,7 @@ export function DepartureList({
         </h2>
         <p className="text-sm text-sched-text">
           Buses may still be running. Times come back when you reconnect.
-          {saved ? null : ' Save a stop to My stops to keep its timetable for offline use.'}
+          {saved ? null : ' Save this stop to keep its timetable for offline use.'}
         </p>
       </div>
     )

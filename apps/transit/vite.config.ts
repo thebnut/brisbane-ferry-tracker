@@ -88,11 +88,13 @@ export default defineConfig({
                   // demo-cleanup and handoff-codec (P6b's import) are loaded on demand: off every page's first load. The
                   // map stop picker (P3) is lazy, and its Map button is only on the stop searches (below). Onboarding (P4)
                   // loads after hydration. What's new (WhatsNew, changelog) stays in its route's chunk.
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|[Oo]nboarding|WhatsNew|changelog)/,
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|[Oo]nboarding|WhatsNew|changelog)/,
                 },
                 // The bus boards' elements (@bft/ui/bus) that only the Bus pages load. After 'ui', so the modules they
                 // share stay there.
                 { name: 'ui-bus', test: /packages[\\/]ui[\\/]src[\\/]bus\.tsx$/ },
+                // The Save star and its toast (THE-118): on the train and bus boards, and in the ferry star's lazy chunk.
+                { name: 'ui-star', test: /packages[\\/]ui[\\/]src[\\/](star\.tsx|SaveToast\.tsx)$/ },
                 // The Map button beside the stop searches (P3): its own small chunk, so the ferry stop selector and the
                 // train station search don't load the bus elements for it.
                 { name: 'ui-map-toggle', test: /packages[\\/]ui[\\/]src[\\/](MapToggle\.tsx|map-pref\.ts)$/ },

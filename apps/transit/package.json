@@ -36,6 +36,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
     "@bft/config": "workspace:*",
     "@biomejs/biome": "2.5.15",
     "@cloudflare/vite-plugin": "1.64.0",

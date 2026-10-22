@@ -150,7 +150,8 @@ async function seedSaves(page: Page, prefs: unknown, favourites: unknown[] = FAV
   )
 }
 
-const FERRY = '/ferry'
+/** The ferry favourite's card opens its trip's boards (THE-118). */
+const FERRY = '/ferry?from=317584&to=317590'
 const TRIP = '/train/station/roma-street?to=indooroopilly'
 const CENTRAL = '/train/station/central'
 const BUS = '/bus/stop/10802'

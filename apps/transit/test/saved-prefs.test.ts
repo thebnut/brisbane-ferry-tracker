@@ -28,6 +28,7 @@ const ids = (list: Array<{ id: string }>) => list.map((i) => i.id)
 
 /** One of each mode, saved in each app's own store (as readSavedItems reads them). */
 function saveAll() {
+  localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true')
   localStorage.setItem(
     STORAGE_KEYS.SELECTED_STOPS,
     JSON.stringify({
