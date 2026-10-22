@@ -120,83 +120,128 @@ test('My Transit’s Settings and the Ferry tab’s: Cancel changes nothing; the
   await expectNoPrompt(page)
 })
 
-/** Saves in every mode's store (one train favourite is a trip, which the tray never shows), plus My Transit's overlay. */
-async function seedSaves(page: Page, prefs: unknown) {
-  await page.addInitScript((overlay) => {
-    if (sessionStorage.getItem('seeded')) return
-    sessionStorage.setItem('seeded', '1')
-    localStorage.setItem('bft-onboarding', '1')
-    localStorage.setItem('bft-bus-saved', JSON.stringify([{ id: '10802', name: 'Cultural Centre' }]))
-    localStorage.setItem(
-      'bft-train-favourites',
-      JSON.stringify([
-        { from: 'central', to: null },
-        { from: 'roma-street', to: 'indooroopilly' },
-      ]),
-    )
-    localStorage.setItem('brisbane-ferry-remember-selection', 'true')
-    localStorage.setItem(
-      'brisbane-ferry-selected-stops',
-      JSON.stringify({
-        outbound: { id: '317584', name: 'Bulimba' },
-        inbound: { id: '317590', name: 'Riverside' },
-      }),
-    )
-    if (overlay) localStorage.setItem('bft-mytransit-prefs', JSON.stringify(overlay))
-  }, prefs)
+const FAVOURITES = [
+  { from: 'central', to: null },
+  { from: 'roma-street', to: 'indooroopilly' },
+]
+
+/**
+ * Saves in every mode's store (one train favourite is a trip, which the tray never shows), plus My Transit's overlay.
+ */
+async function seedSaves(page: Page, prefs: unknown, favourites: unknown[] = FAVOURITES) {
+  await page.addInitScript(
+    ([overlay, favourites]) => {
+      if (sessionStorage.getItem('seeded')) return
+      sessionStorage.setItem('seeded', '1')
+      localStorage.setItem('bft-onboarding', '1')
+      localStorage.setItem('bft-bus-saved', JSON.stringify([{ id: '10802', name: 'Cultural Centre' }]))
+      localStorage.setItem('bft-train-favourites', JSON.stringify(favourites))
+      localStorage.setItem('brisbane-ferry-remember-selection', 'true')
+      localStorage.setItem(
+        'brisbane-ferry-selected-stops',
+        JSON.stringify({
+          outbound: { id: '317584', name: 'Bulimba' },
+          inbound: { id: '317590', name: 'Riverside' },
+        }),
+      )
+      if (overlay) localStorage.setItem('bft-mytransit-prefs', JSON.stringify(overlay))
+    },
+    [prefs, favourites] as const,
+  )
 }
 
 const FERRY = '/ferry'
 const TRIP = '/train/station/roma-street?to=indooroopilly'
 const CENTRAL = '/train/station/central'
 const BUS = '/bus/stop/10802'
+const ROMA = '/train/station/roma-street'
 /** My Transit's cards, top to bottom. */
 const cardOrder = (page: Page) =>
   page
     .locator('main a')
     .evaluateAll(
       (as, wanted) => as.map((a) => a.getAttribute('href')).filter((h) => h != null && wanted.includes(h)),
-      [FERRY, TRIP, CENTRAL, BUS],
+      [FERRY, TRIP, CENTRAL, BUS, ROMA],
     )
 
-/** Re-run from My Transit's Settings, move Cultural Centre up one (above Central) and Save. */
-async function rerunMovingBusUp(page: Page) {
+/**
+ * Re-run from My Transit's Settings: the tray opens as `opened`; move `move` up one, if given, and Save (which reloads
+ * My Transit).
+ */
+async function rerunAndSave(page: Page, opened: string[], move?: string) {
   await openRerun(page)
-  await expect(rerunTrayNames(page)).toHaveText(['From Bulimba', 'Central', 'Cultural Centre'])
-  await rerunTray(page).getByRole('button', { name: 'Move Cultural Centre up' }).click()
-  await expect(rerunTrayNames(page)).toHaveText(['From Bulimba', 'Cultural Centre', 'Central'])
+  await expect(rerunTrayNames(page)).toHaveText(opened)
+  if (move) {
+    await rerunTray(page)
+      .getByRole('button', { name: `Move ${move} up` })
+      .click()
+    const at = opened.indexOf(move)
+    const moved = [...opened.slice(0, at - 1), move, opened[at - 1] as string, ...opened.slice(at + 1)]
+    await expect(rerunTrayNames(page)).toHaveText(moved)
+  }
   // Save reloads My Transit (already at /): wait for that load, not just the URL.
   const reloaded = page.waitForEvent('framenavigated', (f) => f === page.mainFrame())
-  await rerunTray(page).getByRole('button', { name: 'Save 3 stops' }).click()
+  await rerunTray(page)
+    .getByRole('button', { name: `Save ${opened.length} stops` })
+    .click()
   await reloaded
   await page.waitForLoadState()
   await expect(rerunPicker(page)).toHaveCount(0)
 }
 
+const OVERLAY = {
+  v: 1,
+  order: ['bus:10802', 'train:roma-street>indooroopilly', 'ferry:317584>317590', 'train:central>'],
+  labels: { 'bus:10802': 'Work', 'train:roma-street>indooroopilly': 'Uni' },
+}
+const overlay = (page: Page) => page.evaluate(() => localStorage.getItem('bft-mytransit-prefs'))
+
 test('THE-114: with My Transit’s own order, a re-run’s tray order becomes it; the trip keeps its place and names stay', async ({
   page,
 }) => {
-  await seedSaves(page, {
-    v: 1,
-    order: ['bus:10802', 'train:roma-street>indooroopilly', 'ferry:317584>317590', 'train:central>'],
-    labels: { 'bus:10802': 'Work', 'train:roma-street>indooroopilly': 'Uni' },
-  })
+  await seedSaves(page, OVERLAY)
   await page.goto('/')
   await expect.poll(() => cardOrder(page)).toEqual([BUS, TRIP, FERRY, CENTRAL])
-  await rerunMovingBusUp(page)
-  // The tray's items (ferry, bus, Central) fill their places in the tray's order; the trip stays second.
-  await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([FERRY, TRIP, BUS, CENTRAL])
+  // R21-O1: the tray opens in My Transit's order too.
+  await rerunAndSave(page, ['Cultural Centre', 'From Bulimba', 'Central'], 'Central')
+  // The tray's items (bus, Central, ferry) fill their places in the tray's order; the trip stays second.
+  await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([BUS, TRIP, CENTRAL, FERRY])
   await expect(page.locator(`main a[href="${BUS}"]`)).toContainText('Work')
   await expect(page.locator(`main a[href="${TRIP}"]`)).toContainText('Uni')
   await page.reload()
-  await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([FERRY, TRIP, BUS, CENTRAL])
+  await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([BUS, TRIP, CENTRAL, FERRY])
 })
 
-test('THE-114: with no order of its own, a re-run writes none', async ({ page }) => {
+test('R21-O1: a re-run opens in My Transit’s own order; Save without changes leaves it and every store as they were', async ({
+  page,
+}) => {
+  // Two stations, in the overlay the other way round from the favourites; the ferry, missing from the order, goes last.
+  const favourites = [...FAVOURITES, { from: 'roma-street', to: null }]
+  await seedSaves(
+    page,
+    {
+      ...OVERLAY,
+      order: ['train:roma-street>', 'train:central>', 'bus:10802', 'train:roma-street>indooroopilly'],
+    },
+    favourites,
+  )
+  await page.goto('/')
+  await expect.poll(() => cardOrder(page)).toEqual([ROMA, CENTRAL, BUS, TRIP, FERRY])
+  const seeded = { overlay: await overlay(page), stores: await stores(page) }
+  await rerunAndSave(page, ['Roma Street', 'Central', 'Cultural Centre', 'From Bulimba'])
+  expect(await overlay(page)).toBe(seeded.overlay)
+  expect(await stores(page)).toEqual(seeded.stores)
+  expect(seeded.stores.train).toEqual(favourites)
+  await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([ROMA, CENTRAL, BUS, TRIP, FERRY])
+})
+
+test('THE-114: with no order of its own, a re-run opens in the default order and writes none', async ({
+  page,
+}) => {
   await seedSaves(page, null)
   await page.goto('/')
   await expect.poll(() => cardOrder(page)).toEqual([FERRY, CENTRAL, TRIP, BUS])
-  await rerunMovingBusUp(page)
+  await rerunAndSave(page, ['From Bulimba', 'Central', 'Cultural Centre'], 'Cultural Centre')
   await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([FERRY, CENTRAL, TRIP, BUS])
-  expect(await page.evaluate(() => localStorage.getItem('bft-mytransit-prefs'))).toBeNull()
+  expect(await overlay(page)).toBeNull()
 })
