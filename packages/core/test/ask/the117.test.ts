@@ -160,7 +160,12 @@ describe('towards the city (stopping pattern, CITY_STOPS)', () => {
   })
 
   it('from the city to a stop: the city stops of that mode are the origin', () => {
-    for (const q of ['next ferry from the city to bulimba', 'next ferry to bulimba from the city']) {
+    for (const q of [
+      'next ferry from the city to bulimba',
+      'next ferry to bulimba from the city',
+      'next ferry departing the city for bulimba',
+      'next ferry leaving the cbd for bulimba',
+    ]) {
       const r = parseQuestion(q, testResolver)
       expect(
         r.ok &&

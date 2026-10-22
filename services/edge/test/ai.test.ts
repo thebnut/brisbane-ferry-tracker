@@ -441,6 +441,7 @@ describe('THE-117: towards the city', () => {
     expect(trip(await get('city=in'))).toEqual(['IN'])
     expect(trip(await get('city=out'))).toEqual(['OUT'])
     expect((await get('city=inbound')).status).toBe(400)
+    expect((await get('city=')).status).toBe(400)
     expect((await get('city=in&to=XB')).status).toBe(400)
   })
 })

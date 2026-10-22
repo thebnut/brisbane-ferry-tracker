@@ -324,7 +324,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
       return c.json({ error: 'bad to', detail: `up to ${MAX_PLACE_STOPS} comma-separated stop keys` }, 400)
     // `city` (in|out, /v1/ask THE-117): only services that call at a city stop (CITY_STOPS) after this one, or only
     // those that don't. Not with `to`, which already names where the service must go.
-    const cityQ = c.req.query('city') || null
+    const cityQ = c.req.query('city') ?? null
     if (cityQ != null && cityQ !== 'in' && cityQ !== 'out')
       return c.json({ error: 'bad city', detail: 'in or out' }, 400)
     if (cityQ && toKey) return c.json({ error: 'bad city', detail: 'city and to are exclusive' }, 400)
@@ -403,6 +403,7 @@ export function createApp(deps: AppDeps): Hono<Env> {
       const mergeOptions: MergeOptions & { stationPlatforms?: ReadonlyMap<string, string | undefined> } = {
         nowS: Math.floor(fromMs / 1000),
         toStopIds,
+        ...(cityQ === 'in' ? { toAnyServed: true } : {}),
         ...(cityQ === 'out' ? { avoidStopIds: city } : {}),
         limit,
         rtState: r.rtState,

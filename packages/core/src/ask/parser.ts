@@ -275,7 +275,7 @@ const CITY_WORDS = /^(?:city(?: centre| center)?|town)$/
 const CITY_IN = new RegExp(String.raw`\b(?:to|towards|toward|into|in to|for) ${CITY}${CITY_END}|\binbound\b`)
 const CITY_OUT = new RegExp(String.raw`\b(?:out of|away from) ${CITY}${CITY_END}|\boutbound\b`)
 const CITY_ORIGIN = new RegExp(
-  String.raw`\b(?:from|leaving|out of) ${CITY} (?:to|for|into|towards|toward) (.+)$|\bto (.+?) from ${CITY}$`,
+  String.raw`\b(?:from|leaving|leave|leaves|departing|depart|departs|out of) ${CITY} (?:to|for|into|towards|toward) (.+)$|\bto (.+?) from ${CITY}$`,
 )
 /** Question lead-ins before the origin ("when is the next", "what time is the next"). */
 const LEAD = /^.*\b(?:next|when is the next|when is|what time is the next|what time|is there a)\b/
