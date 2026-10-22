@@ -24,7 +24,7 @@ import {
   usePageCheck,
   VIA_NETWORK,
 } from '@bft/ui/connectivity'
-import { useEffect, useRef, useState } from 'react'
+import { type ComponentType, type ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { AskBox } from '../components/AskBox.tsx'
 import { TransitFooter, TransitHeader, TransitStrip } from '../components/Chrome.tsx'
@@ -232,11 +232,14 @@ function SavedList({
   qs,
   nowMs,
   online,
+  Row,
 }: {
   items: SavedItem[]
   qs: ReturnType<typeof useSavedDepartures>
   nowMs: number
   online: boolean
+  /** Wraps each card once the list can be changed (SavedRows.tsx SwipeRow). */
+  Row?: ComponentType<{ item: SavedItem; children: ReactNode }>
 }) {
   const page = usePageCheck()
   // Not live (offline, a cached copy, or data generated over a minute ago): never show the last live estimates;
@@ -265,7 +268,7 @@ function SavedList({
               : online
                 ? 'No more departures today.'
                 : 'Offline: no saved timetable with times to come.'
-        return (
+        const card = (
           <SavedTripCard
             key={it.id}
             mode={it.mode}
@@ -297,6 +300,13 @@ function SavedList({
               </Link>
             )}
           />
+        )
+        return Row ? (
+          <Row key={it.id} item={it}>
+            {card}
+          </Row>
+        ) : (
+          card
         )
       })}
     </div>
@@ -348,26 +358,12 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   // localStorage is client-only: read after hydration (the server renders the Ask box and an empty list), in the
   // visitor's own order and names in the same step, so the list never shows in another order first.
   const [items, setItems] = useState<SavedItem[] | null>(null)
-  useEffect(() => setItems(applyPrefs(readSavedItems(), readPrefs())), [])
-  // "Edit list" (THE-114): its own chunk, loaded on the first tap.
-  const [Editor, setEditor] = useState<typeof import('../components/SavedEditor.tsx').SavedEditor | null>(
-    null,
-  )
-  const [editing, setEditing] = useState(false)
-  // Closing the editor gives focus back to the button that opened it.
-  const editButton = useRef<HTMLButtonElement>(null)
-  const refocus = useRef(false)
+  // Editing and deleting (THE-114, THE-115): their own chunk, loaded after hydration, off the first load.
+  const [rows, setRows] = useState<typeof import('../components/SavedRows.tsx') | null>(null)
   useEffect(() => {
-    if (!editing && refocus.current) {
-      refocus.current = false
-      editButton.current?.focus()
-    }
-  }, [editing])
-  const edit = () =>
-    void import('../components/SavedEditor.tsx').then((m) => {
-      setEditor(() => m.SavedEditor)
-      setEditing(true)
-    })
+    setItems(applyPrefs(readSavedItems(), readPrefs()))
+    void import('../components/SavedRows.tsx').then(setRows)
+  }, [])
   const { mode, fetcher } = useApi()
   const qs = useSavedDepartures(fetcher, mode, items ?? [])
   const page = usePageCheck()
@@ -382,6 +378,23 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
     `${mode.fixtures}:${mode.rt}`,
     qs.map((q) => q.data),
     unconfirmedBefore,
+  )
+  const empty = (
+    <EmptyState title="Nothing in My Transit yet">
+      Save a ferry trip, a train station or a bus stop in its tab and it shows up here, with the next
+      departures from every mode in one list.{' '}
+      <span className="mt-2 flex flex-wrap justify-center gap-2">
+        <Link to={MODE_BASES.ferry} className="font-semibold text-ferry-orange-deep underline">
+          Ferry
+        </Link>
+        <Link to={MODE_BASES.train} className="font-semibold text-ferry-orange-deep underline">
+          Train
+        </Link>
+        <Link to={MODE_BASES.bus} className="font-semibold text-ferry-orange-deep underline">
+          Bus
+        </Link>
+      </span>
+    </EmptyState>
   )
   return (
     <>
@@ -414,45 +427,18 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
           <p data-loading="" className="text-sm text-sched-text dark:text-night-text/70">
             Loading your stops…
           </p>
-        ) : items.length && editing && Editor ? (
-          <Editor
+        ) : rows ? (
+          <rows.SavedArea
             items={items}
-            onChange={setItems}
+            onItems={setItems}
             store={{ read: readPrefs, write: writePrefs, clean: cleanLabel, maxLength: LABEL_MAX }}
-            onDone={() => {
-              refocus.current = true
-              setEditing(false)
-            }}
+            list={<SavedList items={items} qs={qs} nowMs={now} online={online} Row={rows.SwipeRow} />}
+            empty={empty}
           />
         ) : items.length ? (
-          <>
-            <SavedList items={items} qs={qs} nowMs={now} online={online} />
-            <button
-              type="button"
-              ref={editButton}
-              onClick={edit}
-              data-saved-edit=""
-              className="flex min-h-11 items-center justify-center gap-2 self-end rounded-button px-3 text-sm font-semibold text-ferry-orange-deep hover:bg-ferry-orange-light dark:text-ferry-sunset dark:hover:bg-night-2"
-            >
-              Edit order and names
-            </button>
-          </>
+          <SavedList items={items} qs={qs} nowMs={now} online={online} />
         ) : (
-          <EmptyState title="Nothing in My Transit yet">
-            Save a ferry trip, a train station or a bus stop in its tab and it shows up here, with the next
-            departures from every mode in one list.{' '}
-            <span className="mt-2 flex flex-wrap justify-center gap-2">
-              <Link to={MODE_BASES.ferry} className="font-semibold text-ferry-orange-deep underline">
-                Ferry
-              </Link>
-              <Link to={MODE_BASES.train} className="font-semibold text-ferry-orange-deep underline">
-                Train
-              </Link>
-              <Link to={MODE_BASES.bus} className="font-semibold text-ferry-orange-deep underline">
-                Bus
-              </Link>
-            </span>
-          </EmptyState>
+          empty
         )}
         <Link
           to="/nearby"
