@@ -133,7 +133,9 @@ export function writeFerryFavourites(list: FerryFavourite[]): boolean {
   } catch {
     kept = false
   }
-  writePairCookie(next)
+  // The cookie follows what storage holds: after a refused write (quota) the next home board would otherwise open on
+  // a trip that was never saved (release review of c1f2be0).
+  writePairCookie(kept ? next : readFerryFavourites())
   // Every star and list on this page reads it again (FerryStar); other tabs get the storage event.
   try {
     dispatchEvent(new Event(FAVOURITES_EVENT))
