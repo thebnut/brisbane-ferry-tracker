@@ -53,6 +53,8 @@ async function seed(page: Page, { more = false, overlay = false } = {}) {
   await expect(page.getByText(`${more ? 3 + MORE_BUS.length : 3} saved · all modes`)).toBeVisible()
   // The rows that can be swiped (loaded after hydration).
   await expect(page.locator('[data-saved-row]').first()).toBeAttached()
+  // And the cards' departures in, so no card changes height under a gesture.
+  await expect(page.locator('main [data-loading]')).toHaveCount(0)
 }
 
 /** The saved cards' links, top to bottom. */
