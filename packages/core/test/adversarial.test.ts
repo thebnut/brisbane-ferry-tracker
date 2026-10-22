@@ -667,3 +667,71 @@ describe('serviceDayStartEpoch memo', () => {
     expect(serviceDayStartEpoch('20261019') - a).toBe(86400)
   })
 })
+
+describe('city destinations (THE-117, Codex r1)', () => {
+  const now = t(D, '07:00:00')
+  const day = stopDay(D, 'A', [
+    {
+      id: 'C',
+      route: 'F1-1',
+      stops: [
+        ['A', '08:00:00'],
+        ['RIV', '08:10:00'],
+        ['NQ', '08:20:00'],
+      ],
+    },
+  ])
+  const city = new Set(['RIV', 'NQ'])
+  const skipRiverside: RtTrip = {
+    key: `C@${D}`,
+    rel: 'SCHEDULED',
+    ts: now,
+    updates: [
+      { seq: 1, rel: 'SCHEDULED', depDelay: 0 },
+      { seq: 2, rel: 'SKIPPED' },
+    ],
+  }
+  const added: RtTrip = {
+    key: `rt:EXTRA@${D}`,
+    rel: 'ADDED',
+    ts: now,
+    updates: [],
+    added: {
+      route: { id: 'F1-1', short: 'F1' },
+      headsign: 'North Quay',
+      directionId: 0,
+      stops: [
+        { stopId: 'A', seq: 1, arr: t(D, '07:30:00'), dep: t(D, '07:30:00') },
+        { stopId: 'RIV', seq: 2, arr: t(D, '07:40:00'), dep: t(D, '07:40:00') },
+      ],
+    },
+  }
+
+  it('toAnyServed: a skipped first city stop keeps the row while a later one is served', () => {
+    const snap = snapshot({ [skipRiverside.key]: skipRiverside }, now)
+    const any = mergeDepartures([day], snap, {
+      nowS: now,
+      rtState: 'live',
+      toStopIds: city,
+      toAnyServed: true,
+    })
+    expect(any.map((r) => [r.tripInstance, r.schedArrTo])).toEqual([[`C@${D}`, t(D, '08:20:00')]])
+    // One destination keeps the old rule: its first match skipped drops the row.
+    expect(mergeDepartures([day], snap, { nowS: now, rtState: 'live', toStopIds: city })).toEqual([])
+  })
+
+  it('avoidStopIds drops static and ADDED trips that call at a city stop later', () => {
+    const snap = snapshot({ [added.key]: added }, now)
+    expect(mergeDepartures([day], snap, { nowS: now, rtState: 'live' }).map((r) => r.tripInstance)).toEqual([
+      `rt:EXTRA@${D}`,
+      `C@${D}`,
+    ])
+    expect(mergeDepartures([day], snap, { nowS: now, rtState: 'live', avoidStopIds: city })).toEqual([])
+    const away = mergeDepartures([day], snap, {
+      nowS: now,
+      rtState: 'live',
+      avoidStopIds: new Set(['ELSEWHERE']),
+    })
+    expect(away).toHaveLength(2)
+  })
+})

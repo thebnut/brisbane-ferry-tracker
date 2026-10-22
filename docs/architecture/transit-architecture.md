@@ -339,7 +339,7 @@ It is also tested against **adversarial fixtures**:
 
 | Endpoint | Payload | Cache |
 |---|---|---|
-| `GET /v1/{mode}/stops/{key}/departures?to={key}&limit=20` | `{schemaVersion, staticGeneration, serviceDates, rtSourceTimestamp, rtState, stop, departures:[{tripInstance, stopSequence, route, headsign, platform, schedDep, estDep, schedArrTo?, estArrTo?, status (scheduled\|live\|skipped\|cancelled\|unknown), gps}]}` | `max-age` capped by source age (≤ 10 s) |
+| `GET /v1/{mode}/stops/{key}/departures?to={key}&limit=20` (optional `city=in\|out` instead of `to`: only services that call at a city stop later, or only those that don't; the stops are `CITY_STOPS` in `packages/core/src/ask/city.ts`) | `{schemaVersion, staticGeneration, serviceDates, rtSourceTimestamp, rtState, stop, departures:[{tripInstance, stopSequence, route, headsign, platform, schedDep, estDep, schedArrTo?, estArrTo?, status (scheduled\|live\|skipped\|cancelled\|unknown), gps}]}` | `max-age` capped by source age (≤ 10 s) |
 | `GET /v1/{mode}/trips/{tripInstance}` | Stopping pattern with separate arrival and departure times, vehicle position, occupancy | Same |
 | `GET /v1/{mode}/vehicles?route=…` or `?bbox=…` (bbox snapped to a grid so cache keys stay bounded) | Positions (632 buses at midday, about 12 KB gz unfiltered) | Same |
 | `GET /v1/alerts?mode=&route=&stop=` | Alerts with a precomputed plain-English summary | `max-age=60` |
@@ -353,7 +353,7 @@ It is also tested against **adversarial fixtures**:
 
 **Flow for "when's the next train from Bowen Hills to the airport?":**
 1. The client sends `POST /v1/ask` with a Turnstile token (free, invisible). Siri and Shortcuts use the native App Intent path, which calls structured endpoints directly with no LLM.
-2. A **deterministic parser** in `packages/core` handles the common shapes with a small grammar and the fuzzy stop matcher: next {mode} from X (to Y); is (my) {route} (running) late; departures at X; alerts on {line}. Target: 70% or more of questions never reach an LLM, so they cost $0.
+2. A **deterministic parser** in `packages/core` handles the common shapes with a small grammar and the fuzzy stop matcher: next {mode} from X (to Y, or to/out of the city); is (my) {route} (running) late; departures at X; alerts on {line}. Target: 70% or more of questions never reach an LLM, so they cost $0.
 3. **Intent cache:** parses are cached by normalised question text (KV or Cache API, 30 days). Only the *intent* is cached. The answer is always recomputed from live data, so a cached question is never a stale answer.
 4. **LLM fallback:**
    - The Worker calls **Claude Haiku 5.5** ($0.10 / $0.50 per M tokens) through **Cloudflare AI Gateway**, using our own Anthropic key (BYOK).

@@ -78,7 +78,7 @@ describe('parser details', () => {
       const r = parseQuestion(q, testResolver)
       expect(r.ok && r.intent.kind === 'next_departure' && [r.intent.from.key, r.intent.to.key], q).toEqual([
         '317584',
-        '317586',
+        '321666',
       ])
     }
   })

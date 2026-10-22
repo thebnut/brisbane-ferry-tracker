@@ -4,9 +4,11 @@
  */
 import { type BudgetConfig, DEFAULT_BUDGET, emptyBudgetState, reconcile, reserve } from '@bft/core'
 import { describe, expect, it, vi } from 'vitest'
+import type { SynthTrip } from '../../../packages/core/test/helpers.ts'
 import {
   type AiDeps,
   budgetConfig,
+  cityReply,
   ipKey,
   ipv6Prefix48,
   quotedTerm,
@@ -41,11 +43,15 @@ function setup(
     siteverify?: AiDeps['siteverify']
     /** More ferry stop-index entries as [key, name] (no trips). */
     stops?: Array<[string, string]>
+    /** Ferry trips instead of the default fixtures (their stops still need stop-index entries). */
+    trips?: Record<string, SynthTrip[]>
   } = {},
 ) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
   vi.setSystemTime(clock.t)
-  const tree = buildTree()
+  // Extra stops or trips get their own generation: the stop-index and station caches are keyed by it.
+  const gen = extra.stops || extra.trips ? `g1-${++extraGen}` : 'g1'
+  const tree = buildTree(gen, extra.trips)
   // Real-looking names so the fuzzy resolver has something to match.
   const stops = [
     ...['317584', '317590', '317586', 'QUIET'].map((key) => [key, NAMES[key] ?? key]),
@@ -53,7 +59,7 @@ function setup(
   ].map(([key, name]) => ({ key, name, lat: -27.4, lon: 153, routes: [] }))
   tree.source.files.set(
     'data/ferry/stops.json',
-    new TextEncoder().encode(JSON.stringify({ schemaVersion: 1, mode: 'ferry', generation: 'g1', stops })),
+    new TextEncoder().encode(JSON.stringify({ schemaVersion: 1, mode: 'ferry', generation: gen, stops })),
   )
   const store = storeFor(tree, clock.now)
   const snapshots = new SnapshotClient(
@@ -70,9 +76,7 @@ function setup(
     combinedFeeds: false,
     polledModes: ['ferry'],
   })
-  // The stop-index cache is keyed by generation: extra stops need their own key.
-  const { stops: extraStops, ...deps } = extra
-  const gen = extraStops ? `g1-${++extraGen}` : 'g1'
+  const { stops: _stops, trips: _trips, ...deps } = extra
   registerAi(app, { store, generationKey: async () => gen, ...deps }, () => env)
   const ask = (question: string, headers: Record<string, string> = {}) =>
     app.request('/v1/ask', {
@@ -248,6 +252,197 @@ describe('stop names the parser cannot place (AI off unless stated)', () => {
     }
     expect(body.ai.reason).toBe('turnstile_not_configured')
     expect(body.answer).toMatch(/^I couldn't find a stop called 'zzyzx'\./)
+  })
+})
+
+describe('THE-117: "going to", the trailing-word retry and the gates', () => {
+  type Body = {
+    source: string
+    answer: string
+    intent?: { kind: string; from?: { key: string }; to?: { key: string } }
+    ai?: { enabled: boolean; reason?: string }
+  }
+  const ask = async (s: { ask: (q: string) => Promise<Response> | Response }, q: string) =>
+    (await (await s.ask(q)).json()) as Body
+
+  it('"Next ferry from bulimba going to riverside?" answers deterministically (it said "bulimba going")', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    const body = await ask(setup(), 'Next ferry from bulimba going to riverside?')
+    expect(body.source).toBe('deterministic')
+    expect([body.intent?.from?.key, body.intent?.to?.key]).toEqual(['317584', '317590'])
+    expect(body.answer).toMatch(/^Next ferries from Bulimba ferry terminal to Riverside ferry terminal: /)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
+  })
+
+  it('an unresolved explicit stop is retried without its trailing word, before any reply', async () => {
+    const body = await ask(setup(), 'next ferry from bulimba jetty to riverside')
+    expect(body.source).toBe('deterministic')
+    expect([body.intent?.from?.key, body.intent?.to?.key]).toEqual(['317584', '317590'])
+  })
+
+  it('with AI on, the retry still answers deterministically: no provider call', async () => {
+    const s = llmSetup((ref) => finalCall({ kind: 'departures', refs: [ref] }))
+    const body = await ask(s, 'next ferry from bulimba jetty to riverside')
+    s.spy.mockRestore()
+    // The intent may come from the cache by now; either way it never reached the provider.
+    expect(['deterministic', 'cache']).toContain(body.source)
+    expect(s.urls).toEqual([])
+  })
+
+  it('still unresolved with AI on and within budget: falls through to the LLM path', async () => {
+    const s = llmSetup((ref) => finalCall({ kind: 'departures', refs: [ref] }))
+    const body = await ask(s, 'next ferry from zzyzx going to riverside')
+    s.spy.mockRestore()
+    expect(body.source).toBe('llm')
+    expect(s.urls.length).toBeGreaterThan(0)
+  })
+
+  it('still unresolved with AI off, over budget or failing Turnstile: the canned hint names the stop', async () => {
+    const hint = "I couldn't find a stop called 'zzyzx'. Try its full name or the stop number on the sign."
+    const off = await ask(setup(), 'next ferry from zzyzx going to riverside')
+    expect([off.source, off.ai?.enabled, off.answer]).toEqual(['fallback', false, hint])
+    const broke = await ask(
+      setup({ AI_ENABLED: 'true', ANTHROPIC_API_KEY: 'x', AI_MONTHLY_BUDGET_USD: '0', BUDGET: {} }),
+      'next ferry from zzyzx going to riverside',
+    )
+    expect([broke.ai?.enabled, broke.answer]).toEqual([false, hint])
+    const bot = await ask(
+      setup(
+        {
+          AI_ENABLED: 'true',
+          ANTHROPIC_API_KEY: 'x',
+          AI_MONTHLY_BUDGET_USD: '10',
+          BUDGET: {},
+          TURNSTILE_SECRET: 's',
+        },
+        { verifyTurnstile: async () => false },
+      ),
+      'next ferry from zzyzx going to riverside',
+    )
+    expect([bot.ai?.reason, bot.answer]).toEqual(['turnstile_failed', hint])
+  })
+})
+
+describe('THE-117: towards the city', () => {
+  type Body = { source: string; answer: string; departures?: Array<{ route: string; status: string }> }
+  const ask = async (s: { ask: (q: string) => Promise<Response> | Response }, q: string) =>
+    (await (await s.ask(q)).json()) as Body
+  /** Apollo Road (XA): one trip on to Riverside (a city stop), one to Bretts Wharf (XB), which isn't. */
+  const trips: Record<string, SynthTrip[]> = {
+    [D]: [
+      {
+        id: 'IN',
+        route: 'F1-4055',
+        headsign: 'Riverside',
+        stops: [
+          ['XA', '08:00:00'],
+          ['317590', '08:20:00'],
+        ],
+      },
+      {
+        id: 'OUT',
+        route: 'F1-4055',
+        dir: 1,
+        headsign: 'Northshore Hamilton',
+        stops: [
+          ['XA', '08:10:00'],
+          ['XB', '08:25:00'],
+        ],
+      },
+    ],
+  }
+  const cityTree = () =>
+    setup(
+      {},
+      {
+        trips,
+        stops: [
+          ['XA', 'Apollo Road ferry terminal'],
+          ['XB', 'Bretts Wharf ferry terminal'],
+        ],
+      },
+    )
+
+  it('"ferry from bulimba to the city": services that call at a city stop later, named as the city', async () => {
+    const body = await ask(setup(), 'ferry from bulimba to the city')
+    expect(body.source).toBe('deterministic')
+    expect(body.answer).toMatch(
+      /^Next ferries from Bulimba ferry terminal to the city: F1 to Riverside in 5 min/,
+    )
+    // The fixture snapshot is unavailable: timetabled, never a false LIVE.
+    expect(body.answer).toMatch(/Live times are unavailable, so these are timetabled\.$/)
+    expect(body.departures?.every((d) => d.status !== 'live')).toBe(true)
+  })
+
+  it('by stopping pattern, not headsign: only the trip that reaches Riverside', async () => {
+    const s = cityTree()
+    const inb = await ask(s, 'next ferry from apollo road towards the city')
+    expect(inb.answer).toMatch(
+      /^Next ferries from Apollo Road ferry terminal to the city: F1 to Riverside in 5 min/,
+    )
+    expect(inb.departures).toHaveLength(1)
+    const out = await ask(s, 'next ferry from apollo road out of the city')
+    expect(out.answer).toMatch(
+      /^Next ferries from Apollo Road ferry terminal away from the city: F1 to Northshore Hamilton in 15 min/,
+    )
+    expect(out.departures).toHaveLength(1)
+  })
+
+  it('a stop whose services reach no city stop gets a clear empty answer', async () => {
+    const body = await ask(cityTree(), 'next ferry from bretts wharf to the city')
+    expect(body.answer).toBe('No upcoming ferries from Bretts Wharf ferry terminal go on to a city stop.')
+  })
+
+  it('from the city to a stop: each line says which city stop it leaves from', async () => {
+    const s = setup(
+      {},
+      {
+        stops: [
+          ['317593', 'North Quay ferry terminal'],
+          ['319637', 'QUT Gardens Point ferry terminal'],
+          ['321666', 'South Bank ferry terminal'],
+        ],
+      },
+    )
+    const body = await ask(s, 'next ferry from the city to bulimba')
+    expect(body.source).toBe('deterministic')
+    expect(body.answer).toMatch(
+      /^Next ferries from the city to Bulimba ferry terminal: F1 to Northshore Hamilton in 35 min \(8:30.am\), from Riverside ferry terminal\./,
+    )
+  })
+
+  it('an origin inside the city is said plainly, with AI off and no provider call', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    const body = await ask(setup(), 'next ferry from riverside to the city')
+    expect(body.source).toBe('fallback')
+    expect(body.answer).toBe(
+      `'Riverside ferry terminal' is in the city, so "towards the city" doesn't narrow it down. Ask for departures at that stop, or name the stop you're going to.`,
+    )
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
+  })
+
+  it('cityReply: from the city by bus asks for the stop', () => {
+    expect(cityReply({ city: { why: 'too_many_stops', dir: 'out' } })).toMatch(
+      /^The city has too many bus stops to answer for at once\./,
+    )
+  })
+
+  it('/v1 departures: `city` is in|out, filters by later stops, and is exclusive with `to`', async () => {
+    const s = cityTree()
+    const get = async (q: string) => {
+      const r = await s.app.request(`/v1/ferry/stops/XA/departures?${q}`)
+      return { status: r.status, body: (await r.json()) as { departures?: Array<{ tripInstance: string }> } }
+    }
+    const trip = (r: { body: { departures?: Array<{ tripInstance: string }> } }) =>
+      r.body.departures?.map((d) => d.tripInstance.split('@')[0])
+    expect(trip(await get(''))).toEqual(['IN', 'OUT'])
+    expect(trip(await get('city=in'))).toEqual(['IN'])
+    expect(trip(await get('city=out'))).toEqual(['OUT'])
+    expect((await get('city=inbound')).status).toBe(400)
+    expect((await get('city=')).status).toBe(400)
+    expect((await get('city=in&to=XB')).status).toBe(400)
   })
 })
 
