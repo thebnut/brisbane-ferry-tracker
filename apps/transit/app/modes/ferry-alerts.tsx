@@ -1,28 +1,41 @@
 /**
  * The ferry board's alert count (THE-118 PR 3): the ferry app has no alerts page, so it links to BrisbaneTransit's
- * Alerts with the Ferry chip on, and counts what that chip would. Its own chunk, loaded after hydration (ferry-header.tsx),
- * so the alerts code stays off /ferry's first load.
+ * Alerts with the Ferry chip on, and counts what that chip would. The ferry board loads it after hydration in place of
+ * its empty BoardAlerts slot (modes.config.ts).
  */
-import { AlertCountLink } from '@bft/ui'
+
+import type { AlertsResponse } from '@bft/core/contract'
+import type { BoardAlertsProps } from '@bft/ferry/app/components/BoardAlerts.tsx'
+import { AlertCountLink } from '@bft/ui/alert-count'
+import { useQuery } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import { alertModes, inMode, sortAlerts, stopModeOf } from '../lib/alerts.ts'
-import { useAlerts, useApi } from '../lib/queries.ts'
-import { useNow } from '../lib/useNow.ts'
+import { alertModes, inMode, notOver, stopModeOf } from '../lib/alert-modes.ts'
 
 export const FERRY_ALERTS = '/alerts?mode=ferry'
 
-export default function FerryAlerts() {
-  const { mode, fetcher } = useApi()
-  const q = useAlerts(fetcher, mode)
-  const nowS = Math.floor(useNow(Date.now(), 60_000) / 1000)
+export default function FerryAlerts({ fetcher, mode }: BoardAlertsProps) {
+  // Through the board's own fetcher: importing an API client here split it off /ferry's first-load chunks.
+  const q = useQuery({
+    // The Alerts page's key (queries.ts useAlerts): the same /v1/alerts answer for every mode.
+    queryKey: ['transit', 'alerts', 'all', mode.fixtures, mode.rt],
+    queryFn: async ({ signal }): Promise<AlertsResponse> => {
+      const res = await fetcher('/v1/alerts', { signal })
+      if (!res.ok) throw new Error(`HTTP ${res.status} for /v1/alerts`)
+      return res.json()
+    },
+    staleTime: 60_000,
+  })
   const stopMode = stopModeOf()
+  const nowS = Date.now() / 1000
+  // What the Alerts page's Ferry chip counts.
   const count = q.data
-    ? sortAlerts(q.data.alerts, nowS).filter((a) => inMode(a, 'ferry', alertModes(a, stopMode))).length
+    ? q.data.alerts.filter((a) => notOver(a, nowS) && inMode(a, 'ferry', alertModes(a, stopMode))).length
     : null
   return <AlertCountLink count={count} href={FERRY_ALERTS} renderLink={link} />
 }
 
-function link({ href, className, children }: { href: string; className: string; children: React.ReactNode }) {
+function link({ href, className, children }: { href: string; className: string; children: ReactNode }) {
   return (
     <Link to={href} prefetch="intent" className={className}>
       {children}

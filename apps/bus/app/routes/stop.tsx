@@ -5,7 +5,8 @@
  */
 
 import type { Alert } from '@bft/core/contract'
-import { AlertCountLink, FilterPills, PillButton } from '@bft/ui'
+import { FilterPills, PillButton } from '@bft/ui'
+import { AlertCountLink } from '@bft/ui/alert-count'
 import { NoticeStrip } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'

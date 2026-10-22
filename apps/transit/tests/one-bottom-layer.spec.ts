@@ -106,17 +106,16 @@ function suite(phone: boolean) {
         ]
         for (const t of targets) {
           if ((await t.count()) === 0) continue
-          await t.scrollIntoViewIfNeeded()
-          await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-          const box = await t.boundingBox()
-          expect(box, path).not.toBeNull()
-          expect((box?.y ?? 0) + (box?.height ?? 0), path).toBeLessThanOrEqual((bar?.y ?? 0) + 0.5)
-          const hit = await t.evaluate((el) => {
+          // Scroll the page so the target's bottom meets the bar's top: the page must have the room for that, and
+          // then the target is what a tap at its centre reaches.
+          const result = await t.evaluate((el, barTop) => {
+            window.scrollBy(0, el.getBoundingClientRect().bottom - barTop)
             const r = el.getBoundingClientRect()
             const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
-            return at != null && (el === at || el.contains(at))
-          })
-          expect(hit, path).toBe(true)
+            return { bottom: r.bottom, hit: at != null && (el === at || el.contains(at)) }
+          }, bar?.y ?? 0)
+          expect(result.bottom, path).toBeLessThanOrEqual((bar?.y ?? 0) + 0.5)
+          expect(result.hit, path).toBe(true)
         }
       })
 

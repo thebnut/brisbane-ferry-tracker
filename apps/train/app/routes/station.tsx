@@ -5,7 +5,8 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { AlertCountLink, FilterPills, formatAge, formatClock } from '@bft/ui'
+import { FilterPills, formatAge, formatClock } from '@bft/ui'
+import { AlertCountLink } from '@bft/ui/alert-count'
 import { sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { useCallback, useEffect, useState } from 'react'
 import { data, Link } from 'react-router'
