@@ -172,6 +172,21 @@ function modeTests() {
     })
   }
 
+  test('train with no destination, storage refusing: no "Pick a destination", and the star stays "Save" (R27-S1)', async ({
+    page,
+  }) => {
+    await page.addInitScript(blockWrites, 'bft-train-favourites')
+    await page.goto('/train/station/central')
+    const s = star(page, 'Central')
+    await expect(async () => {
+      await s.click()
+      await expect(saveToast(page)).not.toBeEmpty({ timeout: 1000 })
+    }).toPass()
+    await expect(saveToast(page)).toHaveText("Couldn't save Central: this device isn't keeping changes.")
+    await expect(saveToast(page).getByRole('button')).toHaveCount(0)
+    await expect(s).toHaveAttribute('aria-pressed', 'false')
+  })
+
   test('train with no destination: the station alone is saved; "Pick a destination" opens Going to', async ({
     page,
   }) => {
