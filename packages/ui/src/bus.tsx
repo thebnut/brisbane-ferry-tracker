@@ -559,32 +559,6 @@ export function SegmentedControl<T extends string>({
   )
 }
 
-export interface SaveButtonProps {
-  saved: boolean
-  onToggle: () => void
-  name: string
-}
-
-/** Star toggle for "My stops". */
-export function SaveButton({ saved, onToggle, name }: SaveButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={saved}
-      aria-label={saved ? `Remove ${name} from My stops` : `Save ${name} to My stops`}
-      className={cx(
-        'flex size-11 shrink-0 items-center justify-center rounded-full transition active:scale-95',
-        saved
-          ? 'bg-ferry-orange-light text-ferry-orange-dark'
-          : 'border border-ferry-orange/25 bg-white text-aqua-text dark:bg-night-card',
-      )}
-    >
-      <Icon name="star" size={22} fill={saved ? 'currentColor' : 'none'} />
-    </button>
-  )
-}
-
 export interface NoticeStripProps {
   children: ReactNode
   href?: string

@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { KEYS } from '@bft/bus/app/lib/storage.ts'
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
+import { FAVOURITES_KEY as FERRY_FAVOURITES, readFerryFavourites } from '@bft/ferry/app/lib/favourites.ts'
 import { STORAGE_KEYS } from '@bft/ferry/app/lib/storage.ts'
 import { stationHref } from '@bft/train/app/lib/network.ts'
 import { FAVOURITES_KEY } from '@bft/train/app/lib/storage.ts'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { stationName, trainBoardHref } from '../app/lib/hrefs.ts'
-import { offlineRows, readSavedItems, writeSavedCopy } from '../app/lib/saved.ts'
+import { offlineRows, readFerry, readSavedItems, writeSavedCopy } from '../app/lib/saved.ts'
 import { cardModel, greeting, homeLiveState, lastAnswerAt } from '../app/routes/saved.tsx'
 
 const NOW = Date.UTC(2026, 9, 19, 9, 30) // 7:30 pm Brisbane
@@ -53,7 +54,9 @@ beforeEach(() => {
 })
 
 describe('Saved mixes every app’s own saved items', () => {
-  it('reads the ferry pair, train favourites and bus stops from their apps’ storage', () => {
+  it('reads the ferry favourites, train favourites and bus stops from their apps’ storage', () => {
+    // The pair remembered before THE-118 becomes the first ferry favourite.
+    localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true')
     localStorage.setItem(
       STORAGE_KEYS.SELECTED_STOPS,
       JSON.stringify({
@@ -65,7 +68,7 @@ describe('Saved mixes every app’s own saved items', () => {
     localStorage.setItem(KEYS.SAVED, JSON.stringify([{ id: '1832', name: 'Cultural Centre, platform 1' }]))
     const items = readSavedItems()
     expect(items.map((i) => [i.mode, i.key, i.to, i.title, i.href])).toEqual([
-      ['ferry', '317584', '317590', 'Bulimba → Riverside', '/ferry'],
+      ['ferry', '317584', '317590', 'Bulimba → Riverside', '/ferry?from=317584&to=317590'],
       [
         'train',
         'roma-street',
@@ -74,6 +77,61 @@ describe('Saved mixes every app’s own saved items', () => {
         '/train/station/roma-street?to=indooroopilly',
       ],
       ['bus', '1832', null, 'Cultural Centre, platform 1', '/bus/stop/1832'],
+    ])
+  })
+
+  it('ferry (THE-118): reads the list as ferry favourites.ts does, in every state, without writing it', () => {
+    const pair = JSON.stringify({ outbound: { id: '317584', name: '' }, inbound: { id: '317590', name: '' } })
+    const states: Array<() => void> = [
+      () => {},
+      () => localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, pair),
+      () => {
+        localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, pair)
+        localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true')
+      },
+      () => {
+        localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, '{bad')
+        localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true')
+      },
+      () => sessionStorage.setItem(STORAGE_KEYS.SELECTED_STOPS_SESSION, pair),
+      () => localStorage.setItem(FERRY_FAVOURITES, '{bad'),
+      () => localStorage.setItem(FERRY_FAVOURITES, '{"from":"317584"}'),
+      () =>
+        localStorage.setItem(
+          FERRY_FAVOURITES,
+          JSON.stringify([
+            { from: '317584', to: '317590' },
+            { from: '317584', to: '317590' },
+            { from: 'nope', to: null },
+            { from: '317590', to: '999' },
+            { from: '317590' },
+            null,
+          ]),
+        ),
+    ]
+    for (const set of states) {
+      localStorage.clear()
+      sessionStorage.clear()
+      set()
+      const before = localStorage.getItem(FERRY_FAVOURITES)
+      const lite = readFerry()
+      expect(localStorage.getItem(FERRY_FAVOURITES)).toBe(before)
+      expect(lite).toEqual(readFerryFavourites())
+    }
+  })
+
+  it('ferry: several favourites, with or without a To, each its own card', () => {
+    localStorage.setItem(
+      FERRY_FAVOURITES,
+      JSON.stringify([
+        { from: '317590', to: null },
+        { from: '317584', to: '317590' },
+      ]),
+    )
+    const ferry = readSavedItems().filter((i) => i.mode === 'ferry')
+    expect(ferry.map((i) => [i.id, i.title, i.href])).toEqual([
+      ['ferry:317590>', 'Riverside', '/ferry/terminal/riverside'],
+      ['ferry:317584>317590', 'Bulimba → Riverside', '/ferry?from=317584&to=317590'],
     ])
   })
 

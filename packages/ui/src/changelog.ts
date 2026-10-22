@@ -12,6 +12,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-10-23',
+    summary: 'A bigger, clearer Save button on every ferry, train and bus board.',
+    items: [
+      'Tap Save on a board to add it to My Transit, and tap again to take it off. Undo is there if you change your mind.',
+      'Save as many ferry trips as you like, not just one.',
+      'Train boards save the station on its own, or with where you’re going.',
+    ],
+  },
+  {
     date: '2026-10-21',
     summary:
       'Quicker recovery when your connection drops out, and clearer messages when something can’t load.',

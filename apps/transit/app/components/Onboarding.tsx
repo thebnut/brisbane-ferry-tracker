@@ -7,6 +7,7 @@
  * it had opened on before counts as onboarded, and either answer marks it as seen, as its opening did.
  */
 import { KEYS as BUS_KEYS, readSaved as readBusSaved } from '@bft/bus/app/lib/storage.ts'
+import { readFerryFavourites } from '@bft/ferry/app/lib/favourites.ts'
 import { markSelectorSeen, readSavedPair, STORAGE_KEYS } from '@bft/ferry/app/lib/storage.ts'
 import { readFavourites } from '@bft/train/app/lib/storage.ts'
 import { shouldOffer } from '@bft/ui/onboarding'
@@ -30,7 +31,11 @@ function busStored(): boolean {
 
 /** Anything saved in any mode: what My Transit lists (saved.ts readSavedItems), read with each app's own code. */
 export const anySaved = () =>
-  readBusSaved().length > 0 || busStored() || readFavourites().length > 0 || readSavedPair() != null
+  readBusSaved().length > 0 ||
+  busStored() ||
+  readFavourites().length > 0 ||
+  readFerryFavourites().length > 0 ||
+  readSavedPair() != null
 
 /** The Ferry tab's stop selector has opened by itself before (the old first visit). Blocked storage: yes. */
 function ferrySeen(): boolean {

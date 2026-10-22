@@ -25,6 +25,8 @@ export const STORES = {
     remember: 'brisbane-ferry-remember-selection',
     seen: 'brisbane-ferry-selector-seen',
     cookie: 'bft_pair',
+    /** ferry favourites.ts (THE-118): a remembered pair is also a favourite. */
+    favourites: 'bft-ferry-favourites',
   },
 } as const
 
@@ -125,6 +127,13 @@ export function saveFerryPair(p: FerryHandoff): void {
   setCookie(
     `${f.cookie}=${pair.outbound.id}.${pair.inbound.id}; path=/; samesite=lax${p.remember ? `; ${YEAR}` : ''}`,
   )
+  // As save-pair.ts: a remembered pair joins the ferry favourites, at the end (a new list when there is none: only a
+  // device with no pair gets here, so the migration would have found nothing else).
+  const had = readJson(localStorage, f.favourites)
+  const favs = Array.isArray(had) ? had : []
+  const fav = { from: pair.outbound.id, to: pair.inbound.id }
+  if (p.remember && !favs.some((x) => x?.from === fav.from && (x?.to ?? null) === fav.to))
+    localStorage.setItem(f.favourites, JSON.stringify([...favs, fav]))
   // The stop selector doesn't open by itself for someone who already chose their stops.
   localStorage.setItem(f.seen, '1')
 }
@@ -223,6 +232,7 @@ const FERRY_KEYS = (): [Storage, string][] => [
   [localStorage, STORES.ferry.pair],
   [localStorage, STORES.ferry.remember],
   [localStorage, STORES.ferry.seen],
+  [localStorage, STORES.ferry.favourites],
   [sessionStorage, STORES.ferry.session],
 ]
 

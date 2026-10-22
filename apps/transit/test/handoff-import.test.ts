@@ -61,6 +61,7 @@ describe('STORES', () => {
       remember: ferry.STORAGE_KEYS.REMEMBER_SELECTION,
       seen: ferry.STORAGE_KEYS.SELECTOR_SEEN,
       cookie: ferry.PAIR_COOKIE,
+      favourites: (await import('@bft/ferry/app/lib/favourites.ts')).FAVOURITES_KEY,
     })
   })
 

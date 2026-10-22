@@ -1,15 +1,16 @@
 /**
  * /stop/:stopId: server-rendered stop board (B-Departures). The loader fetches /v1 departures in-process so the
- * rows are in the HTML; the client then polls every 15 s. Route filter pills, save to My stops, alert strip and a
+ * rows are in the HTML; the client then polls every 15 s. Route filter pills, the Save star (My Transit), alert strip and a
  * lazy per-stop map with the buses heading here.
  */
 
 import type { Alert } from '@bft/core/contract'
 import { FilterPills, PillButton } from '@bft/ui'
-import { NoticeStrip, SaveButton } from '@bft/ui/bus'
+import { NoticeStrip } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { data, redirect, useNavigate } from 'react-router'
+import { BusStar } from '../components/BusStar.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { DepartureList, linkRenderer } from '../components/StopBoard.tsx'
 import { ApiError, fetchAlerts, fetchDepartures, fetchRouteIndex } from '../lib/api.ts'
@@ -22,7 +23,7 @@ import { cachedRouteIndex } from '../lib/route-index.server.ts'
 import { pageMeta, SITE_URL, stopJsonLd, stopMetaTags } from '../lib/seo.ts'
 import { fixtureFallbackOn, loaderEnv, settle } from '../lib/server.server.ts'
 import { canonicalStopId, routeHref, routeShortOf, stopHref, stopMeta } from '../lib/stops.ts'
-import { hasTimetableCopy, pushRecent, toggleSaved, useSavedStops } from '../lib/storage.ts'
+import { hasTimetableCopy, pushRecent, useSavedStops } from '../lib/storage.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/stop'
 
@@ -184,7 +185,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
               {stopMeta(stopId, platform)}
             </span>
           </div>
-          <SaveButton saved={isSaved} name={name} onToggle={() => toggleSaved({ id: stopId, name })} />
+          <BusStar id={stopId} name={name} />
         </div>
         <DataBanner
           offline={state === 'offline'}
