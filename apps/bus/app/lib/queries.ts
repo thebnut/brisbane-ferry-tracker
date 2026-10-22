@@ -224,7 +224,7 @@ export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsRe
     queryKey: ['bus', 'alerts', mode.fixtures, mode.rt],
     queryFn: ({ signal }) => fetchAlerts(fetcher, { signal }),
     initialData: initial ?? undefined,
-    initialDataUpdatedAt: initial?.generatedAt,
+    initialDataUpdatedAt: seedUpdatedAt(initial),
     staleTime: 60_000,
     refetchInterval: pollAlerts,
   })

@@ -163,7 +163,7 @@ export function useAlerts(
     queryKey: ['train', 'alerts', mode.fixtures, mode.rt],
     queryFn: ({ signal }) => fetchAlerts(fetcher, { signal }),
     initialData: initial ?? undefined,
-    initialDataUpdatedAt: initial?.generatedAt,
+    initialDataUpdatedAt: seedUpdatedAt(initial),
     refetchInterval: pollAlerts,
   })
 }
