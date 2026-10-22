@@ -423,6 +423,13 @@ export const MatchStats = z.object({
   unmatched: z.number().int(),
   byTier: z.record(z.string(), z.number().int()),
   addedDropped: z.number().int(),
+  /**
+   * Matched trips whose feed stop_sequence disagreed with its stop_id (R20-T1: renumbered REPLACEMENT trips, offset
+   * bus trips); their updates were placed by stop_id. Optional: additive, absent when zero.
+   */
+  seqMismatch: z.number().int().optional(),
+  /** Stop-time updates left out because they resolved to no static stop occurrence. Optional, absent when zero. */
+  seqDropped: z.number().int().optional(),
 })
 export type MatchStats = z.infer<typeof MatchStats>
 

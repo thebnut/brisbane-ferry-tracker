@@ -150,19 +150,90 @@ const evTime = (e: TripUpdate_StopTimeEvent | undefined): number | undefined =>
 const evDelay = (e: TripUpdate_StopTimeEvent | undefined): number | undefined =>
   e && has(e, 'delay') ? e.delay : undefined
 
-function observations(stus: TripUpdate_StopTimeUpdate[]): RtStopObservation[] {
+/**
+ * Matcher observations. A REPLACEMENT trip's stop_sequence is TransLink's own numbering (R20-T1: renumbered from 1
+ * where the replacement joins the static pattern), so it is left out whenever the stop_id says where the stop is.
+ */
+function observations(stus: TripUpdate_StopTimeUpdate[], replacement = false): RtStopObservation[] {
   return stus.map((u) => ({
-    seq: has(u, 'stopSequence') ? u.stopSequence : undefined,
+    seq: has(u, 'stopSequence') && !(replacement && u.stopId) ? u.stopSequence : undefined,
     stopId: u.stopId || undefined,
     arr: evTime(u.arrival),
     dep: evTime(u.departure),
   }))
 }
 
-/** The next stop_sequence after `after` at which the static trip visits `stopId` (loops repeat stops). */
-function seqForStop(trip: IndexedTrip, stopId: string, after: number): number | undefined {
-  for (const [seq, st] of trip.stops) if (seq > after && st.stopId === stopId) return seq
-  return undefined
+/**
+ * The stop_sequence after `after` at which the static trip visits `stopId`: the occurrence nearest `near` (the feed's
+ * own sequence) when given, else the next one. Loops repeat stops, so "after the last resolved stop" keeps order.
+ */
+function seqForStop(trip: IndexedTrip, stopId: string, after: number, near?: number): number | undefined {
+  let best: number | undefined
+  for (const [seq, st] of trip.stops) {
+    if (seq <= after || st.stopId !== stopId) continue
+    if (near == null) return seq
+    if (best == null || Math.abs(seq - near) < Math.abs(best - near)) best = seq
+  }
+  return best
+}
+
+/** Per-trip sequence counters for MatchStats (seqMismatch, seqDropped). */
+export interface SeqStats {
+  /** The feed's stop_sequence disagreed with its stop_id at least once on this trip. */
+  mismatch: boolean
+  /** Updates that resolved to no static stop occurrence and were left out. */
+  dropped: number
+}
+
+/**
+ * Resolve each stop-time update to a static stop_sequence (R20-T1). The stop_id is the authority: TransLink
+ * renumbers REPLACEMENT trips (and some SCHEDULED bus trips are offset by a stop), so a feed sequence that names
+ * another stop is never used as-is. An update whose stop_id isn't on the trip (an unindexed platform, a different
+ * pattern) or that has no stop_id keeps its feed sequence only when the nearest updates either side were resolved by
+ * stop_id at their own feed sequence, i.e. the feed's numbering is the static one around it; with no resolved
+ * neighbour at all a non-REPLACEMENT update keeps its sequence as before. Anything else is dropped: a missing update
+ * falls back to propagation or the timetable, never another stop's time.
+ */
+function resolveSeqs(
+  stus: TripUpdate_StopTimeUpdate[],
+  trip: IndexedTrip,
+  replacement: boolean,
+  stats?: SeqStats,
+): Array<number | undefined> {
+  const feed = stus.map((u) => (has(u, 'stopSequence') ? u.stopSequence : undefined))
+  const out: Array<number | undefined> = new Array(stus.length)
+  let last = Number.NEGATIVE_INFINITY
+  for (const [i, u] of stus.entries()) {
+    if (!u.stopId) continue
+    const f = feed[i]
+    const seq =
+      f != null && f > last && trip.stops.get(f)?.stopId === u.stopId
+        ? f
+        : seqForStop(trip, u.stopId, last, f)
+    if (seq == null) continue
+    if (f != null && seq !== f && stats) stats.mismatch = true
+    out[i] = seq
+    last = seq
+  }
+  const aligned = (j: number) => out[j] != null && out[j] === feed[j]
+  for (const [i, f] of feed.entries()) {
+    if (out[i] != null || f == null) continue
+    let prev = i - 1
+    while (prev >= 0 && out[prev] == null) prev--
+    let next = i + 1
+    while (next < stus.length && out[next] == null) next++
+    const hasPrev = prev >= 0
+    const hasNext = next < stus.length
+    const keep =
+      hasPrev || hasNext
+        ? (!hasPrev || (aligned(prev) && f > (out[prev] as number))) &&
+          (!hasNext || (aligned(next) && f < (out[next] as number)))
+        : !replacement
+    if (keep) out[i] = f
+  }
+  if (stats)
+    for (const [i, u] of stus.entries()) if (out[i] == null && (feed[i] != null || u.stopId)) stats.dropped++
+  return out
 }
 
 function stopRel(r: PbStopRel): RtStopUpdate['rel'] {
@@ -172,19 +243,18 @@ function stopRel(r: PbStopRel): RtStopUpdate['rel'] {
 }
 
 /** Normalise stop-time updates against the matched static trip: resolve seq, derive delays from absolute times. */
-export function normaliseUpdates(stus: TripUpdate_StopTimeUpdate[], trip: IndexedTrip): RtStopUpdate[] {
+export function normaliseUpdates(
+  stus: TripUpdate_StopTimeUpdate[],
+  trip: IndexedTrip,
+  opts: { replacement?: boolean; stats?: SeqStats } = {},
+): RtStopUpdate[] {
   const out: RtStopUpdate[] = []
-  let last = Number.NEGATIVE_INFINITY
   let origin = Number.POSITIVE_INFINITY
   for (const seq of trip.stops.keys()) if (seq < origin) origin = seq
-  for (const u of stus) {
-    const seq = has(u, 'stopSequence')
-      ? u.stopSequence
-      : u.stopId
-        ? seqForStop(trip, u.stopId, last)
-        : undefined
+  const seqs = resolveSeqs(stus, trip, opts.replacement ?? false, opts.stats)
+  for (const [i, u] of stus.entries()) {
+    const seq = seqs[i]
     if (seq == null) continue
-    last = seq
     const st = trip.stops.get(seq)
     const rec: RtStopUpdate = { seq, rel: stopRel(u.scheduleRelationship) }
     const sid = u.stopId || st?.stopId
@@ -407,7 +477,8 @@ export function buildSnapshot(input: BuildInput): BuildResult {
         continue
       }
 
-      const obs = observations(tu.stopTimeUpdate)
+      const replacement = rel === 'REPLACEMENT'
+      const obs = observations(tu.stopTimeUpdate, replacement)
       let counted = false
       for (const m of candidates) {
         const idx = input.indexes[m]
@@ -428,14 +499,20 @@ export function buildSnapshot(input: BuildInput): BuildResult {
         st.matched++
         st.byTier[String(res.tier)] = (st.byTier[String(res.tier)] ?? 0) + 1
         const it = idx.matcher.trip(res.key) as IndexedTrip
+        const seqStats: SeqStats = { mismatch: false, dropped: 0 }
         const rec: RtTrip = {
           key: res.key,
           rel,
           tier: res.tier,
           ts,
-          updates: rel === 'CANCELED' || rel === 'DELETED' ? [] : normaliseUpdates(tu.stopTimeUpdate, it),
+          updates:
+            rel === 'CANCELED' || rel === 'DELETED'
+              ? []
+              : normaliseUpdates(tu.stopTimeUpdate, it, { replacement, stats: seqStats }),
           ...vehicleId(tu),
         }
+        if (seqStats.mismatch) st.seqMismatch = (st.seqMismatch ?? 0) + 1
+        if (seqStats.dropped > 0) st.seqDropped = (st.seqDropped ?? 0) + seqStats.dropped
         if (rel === 'CANCELED' || rel === 'DELETED') {
           rec.until = it.endEpoch
           rec.gen = idx.generation
@@ -507,11 +584,17 @@ export function buildSnapshot(input: BuildInput): BuildResult {
           tripKey = key
       }
       if (!tripKey && (desc.tripId || desc.routeId)) {
+        // Same rule as a TripUpdate: a REPLACEMENT vehicle's current_stop_sequence is TransLink's numbering, so the
+        // stop_id alone places it (R20-T1).
+        const vpReplacement = vp.trip?.scheduleRelationship === PbTripRel.REPLACEMENT
         const obs: RtStopObservation[] =
           has(vp, 'currentStopSequence') || vp.stopId
             ? [
                 {
-                  seq: has(vp, 'currentStopSequence') ? vp.currentStopSequence : undefined,
+                  seq:
+                    has(vp, 'currentStopSequence') && !(vpReplacement && vp.stopId)
+                      ? vp.currentStopSequence
+                      : undefined,
                   stopId: vp.stopId || undefined,
                 },
               ]
