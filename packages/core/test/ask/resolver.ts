@@ -1,4 +1,4 @@
-/** A small test resolver standing in for uFuzzy over the real stop index. */
+/** A small test resolver standing in for uFuzzy over the real stop index (real stop keys, so CITY_STOPS applies). */
 
 import type { StopCandidate, StopResolver } from '../../src/ask/parser.ts'
 import type { Mode } from '../../src/contract/index.ts'
@@ -8,12 +8,12 @@ const STOPS: Array<[Mode, string, string, string[]?]> = [
   ['ferry', '317590', 'Riverside'],
   ['ferry', '317541', 'New Farm Park'],
   ['ferry', '317582', 'Northshore Hamilton', ['northshore', 'hamilton']],
-  ['ferry', '317586', 'South Bank'],
+  ['ferry', '321666', 'South Bank'],
   ['ferry', '317555', 'UQ St Lucia', ['uq ferry', 'st lucia']],
   ['ferry', '317592', 'Teneriffe'],
   ['ferry', '317583', 'Hawthorne'],
-  ['ferry', '317566', 'North Quay'],
-  ['ferry', '317578', 'QUT Gardens Point', ['qut', 'gardens point']],
+  ['ferry', '317593', 'North Quay'],
+  ['ferry', '319637', 'QUT Gardens Point', ['qut', 'gardens point']],
   ['ferry', '317600', 'Howard Smith Wharves', ['howard smith']],
   ['ferry', '317610', 'Apollo Road'],
   ['train', 'bowen-hills', 'Bowen Hills'],
@@ -35,14 +35,15 @@ const STOPS: Array<[Mode, string, string, string[]?]> = [
   ['train', 'kippa-ring', 'Kippa-Ring', ['redcliffe', 'kippa ring']],
   ['train', 'gold-coast-airport', 'Varsity Lakes', ['varsity lakes', 'gold coast']],
   ['train', 'ipswich', 'Ipswich'],
-  ['bus', '10795', 'Cultural Centre', ['cultural centre busway', 'cultural center']],
-  ['bus', '10802', 'King George Square', ['kgs']],
-  ['bus', '1882', 'Queen Street bus station', ['queen street', 'queen st']],
+  ['bus', '10802', 'Cultural Centre', ['cultural centre busway', 'cultural center']],
+  ['bus', '10780', 'King George Square', ['kgs']],
+  ['bus', '919', 'Queen Street bus station', ['queen street', 'queen st']],
   ['bus', '1853', 'UQ Lakes', ['uq lakes', 'uq']],
   ['bus', '2001', 'Chermside'],
   ['bus', '4975', 'Garden City'],
   ['bus', '3003', 'Carindale'],
   ['bus', '5005', 'Toowong Village', ['toowong']],
+  ['bus', '2869', 'Krupp Rd near Shrapnel Rd', ['krupp road', 'krupp rd']],
   ['bus', '600001', 'Stop 001234', ['001234', '1234']],
 ]
 

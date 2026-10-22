@@ -5,6 +5,7 @@
  * reach an LLM (target ≥ 70%). It only produces an *intent*; answers are always computed from live data.
  */
 import type { Mode } from '../contract/index.ts'
+import { CITY_STOPS, type CityDirection, isCityStop } from './city.ts'
 
 export interface StopCandidate {
   mode: Mode
@@ -40,8 +41,17 @@ export type Intent =
       route?: string
       /** A fact about the chosen destination the answer must state (e.g. "the airport" → International first). */
       note?: string
+      /** `out`: `from` is the city itself (every stop in CITY_STOPS), "next ferry from the city to Bulimba". */
+      city?: 'out'
     }
-  | { kind: 'departures_at'; mode?: Mode; at: StopCandidate; route?: string }
+  | {
+      kind: 'departures_at'
+      mode?: Mode
+      at: StopCandidate
+      route?: string
+      /** Only services that go on to a city stop (`in`) or that don't (`out`): "next bus from Krupp Rd to the city". */
+      city?: CityDirection
+    }
   | { kind: 'route_status'; mode?: Mode; route: string }
   | { kind: 'alerts'; mode?: Mode; line?: string; stop?: StopCandidate }
   | { kind: 'trip_plan_unsupported'; from?: string; to?: string }
@@ -50,7 +60,7 @@ export type ParseResult =
   | { ok: true; intent: Intent; normalized: string }
   | {
       ok: false
-      reason: 'no_match' | 'unresolved_stop' | 'ambiguous_stop'
+      reason: 'no_match' | 'unresolved_stop' | 'ambiguous_stop' | 'city_question'
       normalized: string
       /** For unresolved_stop and ambiguous_stop: the stop name as the question gave it (normalised, mode words removed). */
       detail?: string
@@ -60,6 +70,12 @@ export type ParseResult =
       options?: string[]
       /** For ambiguous_stop on one station with too many stops to answer for at once: its name and stop count. */
       station?: { name: string; stops: number }
+      /**
+       * For city_question: why "the city" can't be answered as asked. `origin_in_city`: the stop (detail) is itself in
+       * the city, so "to/out of the city" says nothing; `too_many_stops`: "from the city" by bus, which has too many
+       * city stops to answer for at once.
+       */
+      city?: { why: 'origin_in_city' | 'too_many_stops'; dir: CityDirection }
     }
 
 const MODE_WORDS: Array<[RegExp, Mode]> = [
@@ -145,7 +161,8 @@ function resolve(
   fromKey?: string,
 ): StopCandidate | 'unresolved' | Ambiguous {
   const split = splitPlatform(raw)
-  if (!split?.text) return 'unresolved'
+  // "The city" is never a stop name: as a bus stop search it finds "City of Gold Coast, Nerang".
+  if (!split?.text || CITY_WORDS.test(split.text)) return 'unresolved'
   const { text, platform } = split
   // Same place twice (a resolver may list a station once per platform): collapse before the ambiguity test.
   const seen = new Set<string>()
@@ -188,6 +205,39 @@ function resolve(
 const isAmbiguous = (r: StopCandidate | 'unresolved' | Ambiguous): r is Ambiguous =>
   typeof r === 'object' && 'ambiguous' in r
 
+/** Words a trailing-word retry never drops: they tell places apart ("Kangaroo Point North"). */
+const KEEP_WORDS = /^(?:north|south|east|west|central|upper|lower|inner|outer)$/
+const JOINS = /\b(?:to|into|towards|toward|for|via|from|and|or|then)\b|->|→/
+
+/**
+ * A stop the question named explicitly ("from X", "at X"): as resolve(), then, if nothing matches, again without the
+ * last one or two words ("bulimba jetty" → Bulimba, THE-117). A retry only counts when it is confident (an exact or
+ * prefix match, score ≥ 0.9) and is never a guess between places: an ambiguous retry asks, like any ambiguous stop.
+ */
+function resolveExplicit(
+  resolver: StopResolver,
+  raw: string,
+  mode?: Mode,
+  role: 'from' | 'to' = 'from',
+  fromKey?: string,
+): StopCandidate | 'unresolved' | Ambiguous {
+  const first = resolve(resolver, raw, mode, role, fromKey)
+  if (first !== 'unresolved') return first
+  const split = splitPlatform(raw)
+  // A phrase that still joins two places ("bulimba to nowhereville") is never cut down to the first of them.
+  if (!split?.text || split.platform || JOINS.test(split.text)) return first
+  const words = split.text.split(' ')
+  for (let drop = 1; drop <= 2 && words.length > drop; drop++) {
+    if (words.slice(-drop).some((w) => KEEP_WORDS.test(w))) break
+    const text = words.slice(0, -drop).join(' ')
+    if (text.length < 3) break
+    const again = resolve(resolver, text, mode, role, fromKey)
+    if (again === 'unresolved') continue
+    if (isAmbiguous(again) || again.score >= 0.9) return again
+  }
+  return first
+}
+
 /** Display names for an ambiguity reply: the mode when they span modes, the stop number when names repeat. */
 function optionNames(options: StopCandidate[]): string[] {
   const modes = new Set(options.map((o) => o.mode))
@@ -201,8 +251,36 @@ function optionNames(options: StopCandidate[]): string[] {
 
 const FROM_TO: RegExp[] = [
   /\b(?:from (.+?) (?:to|into|towards|toward|->|→) (.+)|to .+? from .+)$/,
+  // "leaving bulimba for riverside": with no "from", the stop after leaving/departing is the origin (THE-117).
+  /\b(?:leaving|leave|leaves|departing|depart|departs) (.+?) (for|to|into|towards|toward) (.+)$/,
   /^(.+?) (?:to|->|→) (.+?)(?: (?:next|now|soon|today|tonight))?$/,
 ]
+const LEAVING_FOR = FROM_TO[1] as RegExp
+const LOOSE_TO = FROM_TO[2] as RegExp
+
+/**
+ * A verb between the origin and "to" is not part of the stop name: "from bulimba going to riverside", "bulimba heading
+ * to riverside", "bound for riverside" (THE-117). No stop name in the ferry, train or bus index contains one.
+ */
+const CONNECTOR =
+  /\b(?:going|heading|headed|travelling|traveling|getting|riding|bound|on (?:my|the) way) (to|into|in to|towards|toward|for)\b/g
+
+/** The city as words: "the city", "city centre", "town" ("the cbd" is normalised to "the city"). */
+const CITY = `(?:the )?(?:city(?: centre| center)?|town)`
+/** What may end a question after its stops: "next", a mode word, a time filler ("... to the city next bus"). */
+const TAIL = `(?: next)?(?: (?:ferry|ferries|citycat|boat|train|trains|bus|buses|service|services))?(?: (?:right now|now|soon|today))?$`
+/** The city phrase ends the question (TAIL aside) or comes before "from"/"leaving": "to city hall" stays a stop. */
+const CITY_END = `(?=${TAIL}| (?:from|leaving|departing) )`
+const CITY_WORDS = /^(?:city(?: centre| center)?|town)$/
+const CITY_IN = new RegExp(String.raw`\b(?:to|towards|toward|into|in to|for) ${CITY}${CITY_END}|\binbound\b`)
+const CITY_OUT = new RegExp(String.raw`\b(?:out of|away from) ${CITY}${CITY_END}|\boutbound\b`)
+const CITY_ORIGIN = new RegExp(
+  String.raw`\b(?:from|leaving|leave|leaves|departing|depart|departs|out of) ${CITY} (?:to|for|into|towards|toward) (.+)$|\bto (.+?) from ${CITY}$`,
+)
+/** Question lead-ins before the origin ("when is the next", "what time is the next"). */
+const LEAD = /^.*\b(?:next|when is the next|when is|what time is the next|what time|is there a)\b/
+/** Trailing fillers ("to bulimba now") aren't part of a stop name, nor of the name an answer reports. */
+const FILLER = /\s+(?:right now|next|now|soon|today)$/
 const FROM_ONLY =
   /\b(?:from|leaving|leave|leaves|departing|depart|departs|out of) (.+?)(?: (?:next|now|soon|today|tonight))?$/
 const AT_ONLY = /\b(?:at|for) (.+?)(?: (?:next|now|soon|today|tonight))?$/
@@ -319,32 +397,116 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
   })
   if (strayNumber) return fail('no_match', 'unplaced number')
 
+  // Verbs between the stops ("going to", "heading for") read as "to" from here on; `s` stays the cache key.
+  const t = s.replace(CONNECTOR, (_m, to: string) => (to === 'for' ? 'to' : to))
+
+  // "The city" as a destination or origin (THE-117): never a fuzzy stop match.
+  const cityFail = (
+    why: 'origin_in_city' | 'too_many_stops',
+    dir: CityDirection,
+    detail?: string,
+  ): ParseResult => ({
+    ok: false,
+    reason: 'city_question',
+    normalized: s,
+    ...(detail ? { detail } : {}),
+    ...(mode ? { mode } : {}),
+    city: { why, dir },
+  })
+  const route = routeInQuery ? { route: routeInQuery } : {}
+  // From the city to a stop: the city's stops are the origin, one place (ferry and train have a few; bus too many).
+  const co = CITY_ORIGIN.exec(t)
+  if (co) {
+    const toText = ((co[1] ?? co[2]) as string).replace(FILLER, '')
+    const to = resolveExplicit(resolver, toText, mode, 'to')
+    if (isAmbiguous(to)) return ambiguous(to)
+    if (to === 'unresolved') {
+      miss(toText)
+      return fail('unresolved_stop', missing)
+    }
+    const m = mode ?? to.mode
+    const keys = CITY_STOPS[m]
+    if (keys.length === 0 || keys.length > MAX_PLACE_STOPS) return cityFail('too_many_stops', 'out')
+    const from: StopCandidate = {
+      mode: m,
+      key: keys[0] as string,
+      name: 'the city',
+      score: 1,
+      stopKeys: [...keys],
+    }
+    return {
+      ok: true,
+      normalized: s,
+      intent: { kind: 'next_departure', mode: m, from, to, ...route, city: 'out' },
+    }
+  }
+  // From a stop towards the city, or away from it: that stop's departures, by where they go next.
+  const ci = CITY_IN.exec(t)
+  const cout = ci ? null : CITY_OUT.exec(t)
+  const cm = ci ?? cout
+  if (cm) {
+    const dir: CityDirection = ci ? 'in' : 'out'
+    const rest = `${t.slice(0, cm.index)} ${t.slice(cm.index + cm[0].length)}`
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(new RegExp(TAIL), '')
+    const named = /\b(?:from|leaving|leave|leaves|departing|depart|departs) (.+?)$/.exec(rest)?.[1]
+    // Without "from", what's left once the lead-in is gone ("krupp road to the city", "inbound buses at krupp road").
+    const originText = (named ?? rest.replace(LEAD, '').replace(/^(?:.*\s)?(?:at|from) /, ''))
+      .replace(FILLER, '')
+      .trim()
+    if (stripModeWords(originText)) {
+      const at = named ? resolveExplicit(resolver, originText, mode) : resolve(resolver, originText, mode)
+      if (isAmbiguous(at)) return ambiguous(at)
+      if (at !== 'unresolved') {
+        const m = mode ?? at.mode
+        if (isCityStop(at.mode, at.stopKeys ?? [at.key])) return cityFail('origin_in_city', dir, at.name)
+        return {
+          ok: true,
+          normalized: s,
+          intent: { kind: 'departures_at', mode: m, at, ...route, city: dir },
+        }
+      }
+      if (named) {
+        miss(originText)
+        return fail('unresolved_stop', missing)
+      }
+    }
+  }
+
   // Next departure between two stops.
   if (
-    /\b(next|when|what time|times?|departures?|leave|leaving|going|get|catch|is there)\b|->|→| to /.test(s)
+    /\b(next|when|what time|times?|departures?|leave|leaving|depart|departing|going|get|catch|is there)\b|->|→| to /.test(
+      t,
+    )
   ) {
     for (const re of FROM_TO) {
-      const m = re.exec(s)
+      const m = re.exec(t)
       if (!m) continue
+      const explicit = re !== LOOSE_TO
+      const leaving = re === LEAVING_FOR
       let fromText = m[1] as string
-      let toText = m[2] as string
+      let toText = (leaving ? m[3] : m[2]) as string
       // "next train to X from Y": the destination came first.
-      const swapped = /^(?:.*\b)?to (.+?) from (.+)$/.exec(s)
+      const swapped = /^(?:.*\b)?to (.+?) from (.+)$/.exec(t)
       if (swapped && re === FROM_TO[0]) {
         toText = swapped[1] as string
         fromText = swapped[2] as string
       }
-      fromText = fromText
-        .replace(/^.*\b(?:next|when is the next|when is|what time is the next|what time|is there a)\b/, '')
-        .trim()
-      // Trailing fillers ("to bulimba now") aren't part of the stop name, nor of the name an answer reports (Codex
-      // review of #81).
-      const filler = /\s+(?:right now|next|now|soon|today)$/
-      fromText = fromText.replace(filler, '')
-      toText = toText.replace(filler, '')
-      const from = resolve(resolver, fromText, mode)
+      fromText = fromText.replace(LEAD, '').trim()
+      fromText = fromText.replace(FILLER, '')
+      toText = toText.replace(FILLER, '')
+      if (leaving) {
+        // "leaving X for Y" must not split a stop named "... for ..." (Lake Sherrin Homes for Aged), nor read a route
+        // ("leaving bulimba for the 66") as a stop number.
+        const whole = resolve(resolver, `${fromText} ${m[2]} ${toText}`, mode)
+        if (typeof whole === 'object' && !isAmbiguous(whole) && whole.score >= 0.9) continue
+        if (/^\d/.test(stripModeWords(toText))) continue
+      }
+      const look = explicit ? resolveExplicit : resolve
+      const from = look(resolver, fromText, mode)
       if (isAmbiguous(from)) return ambiguous(from)
-      const to = resolve(
+      const to = look(
         resolver,
         toText,
         mode ?? (typeof from === 'object' ? from.mode : undefined),
@@ -353,7 +515,7 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
       )
       if (isAmbiguous(to)) return ambiguous(to)
       if (from === 'unresolved' || to === 'unresolved') {
-        if (re === FROM_TO[0]) miss(from === 'unresolved' ? fromText : toText)
+        if (explicit) miss(from === 'unresolved' ? fromText : toText)
         continue
       }
       const airport = to.mode === 'train' && AIRPORT.test(stripModeWords(toText))
@@ -372,9 +534,11 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
         },
       }
     }
-    const fm = FROM_ONLY.exec(s)
+    // An explicit stop that didn't resolve ("to zzyzx from bulimba") is never answered as departures from the other.
+    if (missing) return fail('unresolved_stop', missing)
+    const fm = FROM_ONLY.exec(t)
     if (fm) {
-      const from = resolve(resolver, fm[1] as string, mode)
+      const from = resolveExplicit(resolver, fm[1] as string, mode)
       if (isAmbiguous(from)) return ambiguous(from)
       if (from !== 'unresolved') {
         return {
@@ -396,7 +560,7 @@ export function parseQuestion(question: string, resolver: StopResolver): ParseRe
   // Departures at a stop: "departures at X", "what's leaving X", "X departures", "X".
   const am = AT_ONLY.exec(s) ?? /^(.+?) (?:departures|times|timetable|board)$/.exec(s)
   if (am && /\b(departures|leaving|times|timetable|board|next|what is)\b/.test(s)) {
-    const at = resolve(resolver, am[1] as string, mode)
+    const at = resolveExplicit(resolver, am[1] as string, mode)
     if (isAmbiguous(at)) return ambiguous(at)
     if (at !== 'unresolved') {
       return {

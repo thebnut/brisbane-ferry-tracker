@@ -237,19 +237,19 @@
     "q": "next boat New Farm Park to South Bank",
     "kind": "next_departure",
     "from": "317541",
-    "to": "317586"
+    "to": "321666"
   },
   {
     "q": "when's the next citycat from New Farm Park to South Bank",
     "kind": "next_departure",
     "from": "317541",
-    "to": "317586"
+    "to": "321666"
   },
   {
     "q": "New Farm Park to South Bank ferry",
     "kind": "next_departure",
     "from": "317541",
-    "to": "317586"
+    "to": "321666"
   },
   {
     "q": "next ferry from Northshore Hamilton to Riverside",
@@ -273,19 +273,19 @@
     "q": "when's the next citycat from Hawthorne to North Quay",
     "kind": "next_departure",
     "from": "317583",
-    "to": "317566"
+    "to": "317593"
   },
   {
     "q": "next ferry from Hawthorne to North Quay",
     "kind": "next_departure",
     "from": "317583",
-    "to": "317566"
+    "to": "317593"
   },
   {
     "q": "Hawthorne to North Quay ferry",
     "kind": "next_departure",
     "from": "317583",
-    "to": "317566"
+    "to": "317593"
   },
   {
     "q": "what time is the next ferry from Teneriffe to UQ St Lucia?",
@@ -308,19 +308,19 @@
   {
     "q": "next ferry from QUT Gardens Point to Bulimba",
     "kind": "next_departure",
-    "from": "317578",
+    "from": "319637",
     "to": "317584"
   },
   {
     "q": "what time is the next ferry from QUT Gardens Point to Bulimba?",
     "kind": "next_departure",
-    "from": "317578",
+    "from": "319637",
     "to": "317584"
   },
   {
     "q": "QUT Gardens Point to Bulimba ferry",
     "kind": "next_departure",
-    "from": "317578",
+    "from": "319637",
     "to": "317584"
   },
   {
@@ -362,74 +362,74 @@
   {
     "q": "next bus from Cultural Centre to UQ Lakes",
     "kind": "next_departure",
-    "from": "10795",
+    "from": "10802",
     "to": "1853"
   },
   {
     "q": "bus from Cultural Centre to UQ Lakes",
     "kind": "next_departure",
-    "from": "10795",
+    "from": "10802",
     "to": "1853"
   },
   {
     "q": "when is the next bus from Cultural Centre to UQ Lakes",
     "kind": "next_departure",
-    "from": "10795",
+    "from": "10802",
     "to": "1853"
   },
   {
     "q": "next bus from King George Square to Chermside",
     "kind": "next_departure",
-    "from": "10802",
+    "from": "10780",
     "to": "2001"
   },
   {
     "q": "bus from King George Square to Chermside",
     "kind": "next_departure",
-    "from": "10802",
+    "from": "10780",
     "to": "2001"
   },
   {
     "q": "when is the next bus from King George Square to Chermside",
     "kind": "next_departure",
-    "from": "10802",
+    "from": "10780",
     "to": "2001"
   },
   {
     "q": "next bus from Queen Street to Carindale",
     "kind": "next_departure",
-    "from": "1882",
+    "from": "919",
     "to": "3003"
   },
   {
     "q": "bus from Queen Street to Carindale",
     "kind": "next_departure",
-    "from": "1882",
+    "from": "919",
     "to": "3003"
   },
   {
     "q": "when is the next bus from Queen Street to Carindale",
     "kind": "next_departure",
-    "from": "1882",
+    "from": "919",
     "to": "3003"
   },
   {
     "q": "next bus from Garden City to Cultural Centre",
     "kind": "next_departure",
     "from": "4975",
-    "to": "10795"
+    "to": "10802"
   },
   {
     "q": "bus from Garden City to Cultural Centre",
     "kind": "next_departure",
     "from": "4975",
-    "to": "10795"
+    "to": "10802"
   },
   {
     "q": "when is the next bus from Garden City to Cultural Centre",
     "kind": "next_departure",
     "from": "4975",
-    "to": "10795"
+    "to": "10802"
   },
   {
     "q": "next train from bowen hils to the airport",
@@ -456,7 +456,7 @@
   {
     "q": "next bus from cultural centre",
     "kind": "departures_at",
-    "from": "10795"
+    "from": "10802"
   },
   {
     "q": "when does the next ferry leave from riverside",
@@ -491,17 +491,17 @@
   {
     "q": "show me departures at cultural centre",
     "kind": "departures_at",
-    "from": "10795"
+    "from": "10802"
   },
   {
     "q": "timetable for south bank ferry",
     "kind": "departures_at",
-    "from": "317586"
+    "from": "321666"
   },
   {
     "q": "King George Square departures",
     "kind": "departures_at",
-    "from": "10802"
+    "from": "10780"
   },
   {
     "q": "next departures at UQ Lakes",
@@ -793,7 +793,7 @@
   {
     "q": "next 199 from queen st",
     "kind": "departures_at",
-    "from": "1882"
+    "from": "919"
   },
   {
     "q": "next F11 from bulimba to riverside",
@@ -908,7 +908,7 @@
     "q": "next ferry from hawthorne to north quay",
     "kind": "next_departure",
     "from": "317583",
-    "to": "317566"
+    "to": "317593"
   },
   {
     "q": "next train from central to varsity lakes",
@@ -956,7 +956,7 @@
     "q": "next ferry from new farm park to south bank",
     "kind": "next_departure",
     "from": "317541",
-    "to": "317586"
+    "to": "321666"
   },
   {
     "q": "next train from south brisbane to cleveland",
@@ -980,13 +980,13 @@
     "q": "next ferry from hawthorne to north quay",
     "kind": "next_departure",
     "from": "317583",
-    "to": "317566"
+    "to": "317593"
   },
   {
     "q": "next ferry from new farm park to south bank",
     "kind": "next_departure",
     "from": "317541",
-    "to": "317586"
+    "to": "321666"
   },
   {
     "q": "next train from central to ferny grove",
@@ -1003,7 +1003,7 @@
   {
     "q": "next ferry from qut gardens point to bulimba",
     "kind": "next_departure",
-    "from": "317578",
+    "from": "319637",
     "to": "317584"
   },
   {
@@ -1040,7 +1040,7 @@
     "q": "next ferry from hawthorne to north quay",
     "kind": "next_departure",
     "from": "317583",
-    "to": "317566"
+    "to": "317593"
   },
   {
     "q": "next ferry from howard smith wharves to new farm park",

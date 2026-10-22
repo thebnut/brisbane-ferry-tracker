@@ -20,6 +20,13 @@ export interface MergeOptions {
   nowS: number
   /** Destination stop ids (all platforms of a station for train). Empty or undefined = any. */
   toStopIds?: ReadonlySet<string>
+  /** Rows that call at any of these stops later are dropped ("away from the city", /v1/ask THE-117). */
+  avoidStopIds?: ReadonlySet<string>
+  /**
+   * `toStopIds` is a set of destinations, any of which will do ("towards the city"): a row stays while one of them is
+   * still served, and its arrival is the first served one. Without it, only the first match counts (one destination).
+   */
+  toAnyServed?: boolean
   limit?: number
   rtState: RtState
   /** Rows whose effective departure is older than this many seconds are dropped. */
@@ -73,6 +80,7 @@ export function mergeDepartures(
 ): Departure[] {
   const grace = opts.graceS ?? 30
   const to = opts.toStopIds && opts.toStopIds.size > 0 ? opts.toStopIds : null
+  const avoid = opts.avoidStopIds && opts.avoidStopIds.size > 0 ? opts.avoidStopIds : null
   const rows: Departure[] = []
   // For a `to` query on a loop that repeats the boarding stop, keep only the last boarding before the destination.
   const bestByTrip = new Map<string, number>()
@@ -85,18 +93,24 @@ export function mergeDepartures(
       if (!route) continue
       if (opts.routes && !opts.routes.has(route.short)) continue
 
-      let toArrOffset: number | null = null
-      let toSeq: number | null = null
+      if (avoid) {
+        let via = false
+        for (let i = 0; i + 3 < ds.length && !via; i += 4)
+          via = avoid.has(day.stops[ds[i] as number]?.id ?? '')
+        if (via) continue
+      }
+
+      // Downstream matches as [arrOffsetS, stop sequence]: the first only, unless any destination will do.
+      const dests: Array<[number, number]> = []
       if (to) {
         for (let i = 0; i + 3 < ds.length; i += 4) {
           const stop = day.stops[ds[i] as number]
           if (stop && to.has(stop.id)) {
-            toArrOffset = ds[i + 1] as number
-            toSeq = seq + (ds[i + 3] as number)
-            break
+            dests.push([ds[i + 1] as number, seq + (ds[i + 3] as number)])
+            if (!opts.toAnyServed) break
           }
         }
-        if (toArrOffset == null) continue
+        if (dests.length === 0) continue
       }
 
       const tripId = day.trips[tripIdx] as string
@@ -110,12 +124,19 @@ export function mergeDepartures(
 
       let schedArrTo: number | null = null
       let estArrTo: number | null = null
-      if (toArrOffset != null && toSeq != null) {
-        schedArrTo = schedDep + toArrOffset
-        const pTo = predictStop(rtTrip, toSeq, schedArrTo, schedArrTo, opts.rtState, 'arr')
-        estArrTo = pTo.status === 'live' ? pTo.estArr : null
-        // A service that skips the destination doesn't get you there.
-        if (pTo.status === 'skipped') continue
+      if (dests.length > 0) {
+        // A service that skips the destination doesn't get you there (every destination, when any will do).
+        let served = false
+        for (const [offset, toSeq] of dests) {
+          const arr = schedDep + offset
+          const pTo = predictStop(rtTrip, toSeq, arr, arr, opts.rtState, 'arr')
+          if (pTo.status === 'skipped') continue
+          schedArrTo = arr
+          estArrTo = pTo.status === 'live' ? pTo.estArr : null
+          served = true
+          break
+        }
+        if (!served) continue
       }
 
       const platformStop = day.stops[platformIdx]
@@ -200,10 +221,12 @@ function addedTripRows(
     const added = trip.added
     if (!added || (trip.rel !== 'ADDED' && trip.rel !== 'DUPLICATED')) continue
     if (opts.routes && !opts.routes.has(added.route.short)) continue
+    const avoid = opts.avoidStopIds
     let chosen: Departure | null = null
     for (let i = 0; i < added.stops.length; i++) {
       const s = added.stops[i] as (typeof added.stops)[number]
       if (!boarding.has(s.stopId) || s.dep < opts.nowS - grace) continue
+      if (avoid?.size && added.stops.slice(i + 1).some((d) => avoid.has(d.stopId))) continue
       let arrTo: number | null = null
       if (to) {
         const dest = added.stops.slice(i + 1).find((d) => to.has(d.stopId))

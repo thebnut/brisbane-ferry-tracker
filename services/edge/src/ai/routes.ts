@@ -72,6 +72,12 @@ const AskBody = z.object({ question: z.string().min(1).max(300), turnstileToken:
 const intentCache = new Map<string, { intent: Intent; until: number }>()
 /** Intent cache (ADR-0008): isolate memory, backed by the Cache API for 30 days (a no-op on *.workers.dev). */
 const INTENT_TTL_S = 30 * 24 * 3600
+/**
+ * Part of every intent cache key: bump it when the parser starts reading a question differently, so intents cached
+ * by the old parser aren't served for 30 days. p2 (THE-117): "to the city" was a fuzzy bus stop match (City of Gold
+ * Coast, Nerang) and is now the CBD.
+ */
+const PARSER_VERSION = 'p2'
 const cacheUrl = (k: string, gen: string) =>
   `https://intent-cache.bft.internal/${encodeURIComponent(gen)}/${encodeURIComponent(k)}`
 async function recall(k: string, gen: string): Promise<Intent | null> {
@@ -233,6 +239,22 @@ export function ambiguityReply(p: {
   return `${term} matches more than one ${noun}.${ask}${next}`
 }
 
+/**
+ * The reply when "the city" can't be answered as asked (THE-117): the stop is already in the city, or "from the city"
+ * by bus, which has too many city stops for one answer. Deterministic, no AI.
+ */
+export function cityReply(p: {
+  detail?: string
+  city?: { why: 'origin_in_city' | 'too_many_stops'; dir: 'in' | 'out' }
+}): string {
+  if (p.city?.why === 'origin_in_city') {
+    const name = quotedTerm(p.detail, 60) ?? 'That stop'
+    const phrase = p.city.dir === 'in' ? 'towards the city' : 'away from the city'
+    return `${name} is in the city, so "${phrase}" doesn't narrow it down. Ask for departures at that stop, or name the stop you're going to.`
+  }
+  return 'The city has too many bus stops to answer for at once. Ask from your stop, e.g. "next bus from King George Square", or use the stop number on the sign.'
+}
+
 const CANNOT_ANSWER: Record<string, string> = {
   trip_planning:
     'I can\'t plan multi-step journeys yet. Try asking for the next service between two stops, e.g. "next train from Bowen Hills to the airport".',
@@ -315,7 +337,7 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
     const base = { schemaVersion: SCHEMA_VERSION, question, normalized }
 
     // Intents are keyed by stop-index generation too: stop keys can change between timetable versions.
-    const gen = await deps.generationKey()
+    const gen = `${await deps.generationKey()}|${PARSER_VERSION}`
     const cachedIntent = await recall(normalized, gen)
     const parse = cachedIntent ? null : parseQuestion(question, resolverFor(indexes))
     const intent = cachedIntent ?? (parse?.ok ? parse.intent : null)
@@ -349,6 +371,9 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
     // Before the kill switch, so an ambiguous stop gets its specific message with AI off too.
     if (parse && !parse.ok && parse.reason === 'ambiguous_stop')
       return c.json({ ...hint, answer: ambiguityReply(parse) })
+    // Likewise a city question that can't be answered as asked: a fact about the stops, not something to ask an LLM.
+    if (parse && !parse.ok && parse.reason === 'city_question')
+      return c.json({ ...hint, answer: cityReply(parse) })
     const cfg = budgetConfig(env)
     if (!cfg.enabled || cfg.monthlyBudgetUsd <= 0) return c.json({ ...hint, ai: { enabled: false } })
 
