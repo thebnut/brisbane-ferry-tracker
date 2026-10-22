@@ -43,7 +43,7 @@ const editSel = (id: string) => `[data-saved-edit-row="${CSS.escape(id)}"] [data
 const Rows = createContext<{
   open: string | null
   setOpen: (id: string | null) => void
-  remove: (item: SavedItem, focus: boolean) => void
+  remove: (item: SavedItem) => void
 } | null>(null)
 
 /** One saved card that swipes left to show its Delete action. */
@@ -102,7 +102,7 @@ export function SwipeRow({ item, children }: { item: SavedItem; children: ReactN
     setDrag(null)
     if (e.type === 'pointercancel') return
     const width = row.current?.offsetWidth ?? 0
-    if (g.x < -width * FLING) ctx.remove(item, false)
+    if (g.x < -width * FLING) ctx.remove(item)
     else ctx.setOpen(g.x < -REVEAL / 2 ? item.id : null)
   }
 
@@ -130,7 +130,7 @@ export function SwipeRow({ item, children }: { item: SavedItem; children: ReactN
         type="button"
         aria-label={`Delete ${name}`}
         data-saved-delete=""
-        onClick={(e) => ctx.remove(item, document.activeElement === e.currentTarget)}
+        onClick={() => ctx.remove(item)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         className={`absolute inset-y-0 right-0 flex w-24 items-center justify-center rounded-card bg-cancel-text text-sm font-bold text-white dark:bg-red-700 ${x === 0 ? 'opacity-0' : ''}`}
@@ -162,8 +162,13 @@ function UndoToast({
 }) {
   const [held, setHeld] = useState({ pointer: false, focus: false })
   const [bottom, setBottom] = useState(GAP)
+  const box = useRef<HTMLDivElement>(null)
+  // Each toast starts from where the pointer and focus are now: an Undo that had them went without a leave or blur.
   useLayoutEffect(() => {
-    if (removal) setBottom(liftAboveDocks())
+    if (!removal) return
+    setBottom(liftAboveDocks())
+    const bar = box.current?.firstElementChild
+    setHeld({ pointer: !!bar?.matches(':hover'), focus: !!bar?.contains(document.activeElement) })
   }, [removal])
   const paused = held.pointer || held.focus
   useEffect(() => {
@@ -174,6 +179,7 @@ function UndoToast({
   // Always in the page, so the first message is announced too.
   return (
     <div
+      ref={box}
       role="status"
       aria-live="polite"
       data-saved-toast=""
@@ -239,7 +245,7 @@ export function SavedArea({
   })
   const [gone] = useState(() => () => setToast(null))
 
-  const remove = (item: SavedItem, focus: boolean) => {
+  const remove = (item: SavedItem) => {
     const at = items.findIndex((i) => i.id === item.id)
     if (at < 0) return
     const removal = removeSaved(item, store)
@@ -249,10 +255,9 @@ export function SavedArea({
     // A second delete replaces the toast; the first stays done.
     setToast({ removal, at })
     if (next.length === 0) setEditing(false)
-    if (focus) {
-      const to = next[at] ?? next[at - 1]
-      focusNext.current = to ? (editing ? editSel(to.id) : rowSel(to.id)) : '[data-saved-empty]'
-    }
+    // However it was deleted (a long swipe too, or a tap in a browser that doesn't focus buttons).
+    const to = next[at] ?? next[at - 1]
+    focusNext.current = to ? (editing ? editSel(to.id) : rowSel(to.id)) : '[data-saved-empty]'
   }
   const undo = () => {
     if (!toast) return
@@ -276,7 +281,7 @@ export function SavedArea({
           items={items}
           onChange={onItems}
           store={store}
-          onDelete={(item, focus) => remove(item, focus)}
+          onDelete={remove}
           onDone={() => {
             // Closing the editor gives focus back to the button that opened it.
             focusNext.current = '[data-saved-edit]'

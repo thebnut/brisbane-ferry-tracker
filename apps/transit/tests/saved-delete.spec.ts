@@ -130,6 +130,8 @@ function touchTests() {
     const box = await row(page, BUS_ID).boundingBox()
     await swipe(page, BUS_ID, -(box?.width ?? 400) * 0.8)
     await expect(row(page, BUS_ID)).toHaveCount(0)
+    // Focus moves to the row now in its place (here the one before it, as it was last).
+    await expect(page.locator(`main a[href="${TRAIN}"]`)).toBeFocused()
     await expect(toast(page)).toContainText(`Removed ${BUS_NAME}`)
     await expectDeletedAfterReload(page, 2)
   })
@@ -233,6 +235,20 @@ function sharedTests() {
     expect(await page.evaluate(() => localStorage.getItem('brisbane-ferry-selected-stops'))).toBeNull()
   })
 
+  test('after a focused Undo, the next toast still goes by itself', async ({ page }) => {
+    test.slow()
+    await seed(page)
+    await page.getByRole('button', { name: `Delete ${BUS_NAME}` }).focus()
+    await page.keyboard.press('Enter')
+    await page.getByRole('button', { name: 'Undo' }).focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(() => cardOrder(page)).toEqual([FERRY, TRAIN, BUS])
+    await page.getByRole('button', { name: 'Delete Roma Street → Indooroopilly' }).focus()
+    await page.keyboard.press('Enter')
+    await expect(toast(page)).toContainText('Removed Roma Street → Indooroopilly')
+    await expect(toast(page)).toBeEmpty({ timeout: 10_000 })
+  })
+
   test('the toast stays while pointed at, then goes', async ({ page }) => {
     test.slow()
     await seed(page)
@@ -249,7 +265,9 @@ function sharedTests() {
 
 /** Runs a describe block's tests in one project only (the extra sizes need not run twice). */
 const onlyIn = (project: string) =>
-  test.beforeEach(() => test.skip(test.info().project.name !== project, `the ${project} project runs this size`))
+  test.beforeEach(() =>
+    test.skip(test.info().project.name !== project, `the ${project} project runs this size`),
+  )
 
 test.describe('at the project size', () => {
   test.describe('touch', () => {

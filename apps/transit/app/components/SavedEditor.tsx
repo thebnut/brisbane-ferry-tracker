@@ -36,8 +36,8 @@ export function SavedEditor({
   /** The list as now shown (saved here, through `store`). */
   onChange: (next: SavedItem[]) => void
   store: PrefsStore
-  /** Unsaves the item (`focus`: its Delete button had focus, so focus moves on). */
-  onDelete: (item: SavedItem, focus: boolean) => void
+  /** Unsaves the item (focus moves to the next row's Delete). */
+  onDelete: (item: SavedItem) => void
   onDone: () => void
 }) {
   const [list, setList] = useState(items)
@@ -304,7 +304,7 @@ export function SavedEditor({
                 <button
                   type="button"
                   aria-label={`Delete ${name}`}
-                  onClick={(e) => onDelete(item, document.activeElement === e.currentTarget)}
+                  onClick={() => onDelete(item)}
                   data-saved-delete=""
                   className="flex min-h-11 shrink-0 items-center rounded-button px-3 text-sm font-semibold text-cancel-text hover:bg-red-50 dark:text-red-300 dark:hover:bg-night-2"
                 >
