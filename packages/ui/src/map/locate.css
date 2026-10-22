@@ -1,0 +1,15 @@
+/*
+ * THE-112: the locate-me button's hover and press. MapLibre's `.maplibregl-ctrl button:not(:disabled):hover` (and
+ * `:active`) sets a 5% black wash that beats the button's `bg-white`, so it went nearly see-through over the map. These
+ * rules are more specific than MapLibre's, touch only this button, and load with the map (MapView's lazy chunk).
+ * Colours: a light ferry-orange tint over white, and a step up from night-card (#222b2e) in dark mode.
+ */
+.maplibregl-ctrl button[data-locate-me]:not(:disabled):hover,
+.maplibregl-ctrl button[data-locate-me]:not(:disabled):active {
+  background-color: #fff1e8;
+}
+
+.dark .maplibregl-ctrl button[data-locate-me]:not(:disabled):hover,
+.dark .maplibregl-ctrl button[data-locate-me]:not(:disabled):active {
+  background-color: #2e3a3e;
+}

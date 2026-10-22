@@ -53,3 +53,28 @@ export async function panAway(map: Locator): Promise<void> {
   for (let i = 0; i < 4; i++) await map.page().keyboard.press('ArrowRight')
   await expect.poll(() => offCentre(map), { timeout: 10_000 }).toBeGreaterThan(80)
 }
+
+const background = (el: Locator) => el.evaluate((b) => getComputedStyle(b).backgroundColor)
+
+/**
+ * The button stays solid under the pointer, light and dark (MapLibre's own control hover is a 5% black wash that used
+ * to win over its white, leaving it nearly see-through over the map). Dark mode is the root's `dark` class.
+ */
+export async function expectSolidHover(map: Locator): Promise<void> {
+  const button = locateButton(map)
+  await expect(button).toBeVisible({ timeout: 20_000 })
+  const page = map.page()
+  for (const [dark, rest, hover] of [
+    [false, 'rgb(255, 255, 255)', 'rgb(255, 241, 232)'],
+    [true, 'rgb(34, 43, 46)', 'rgb(46, 58, 62)'],
+  ] as const) {
+    await page.evaluate((on) => {
+      document.documentElement.classList.toggle('dark', on)
+      document.documentElement.classList.toggle('light', !on)
+    }, dark)
+    await page.mouse.move(0, 0)
+    await expect.poll(() => background(button)).toBe(rest)
+    await button.hover()
+    await expect.poll(() => background(button)).toBe(hover)
+  }
+}

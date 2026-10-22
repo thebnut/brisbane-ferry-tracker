@@ -166,6 +166,31 @@ test('reorder from the keyboard: pick up, move, drop, and Escape cancels', async
   await expectOrderAfterReload(page, [TRAIN, BUS, FERRY])
 })
 
+test('Move up/down from the keyboard keeps focus on the item, even at the top or bottom', async ({
+  page,
+}) => {
+  await seed(page)
+  await openEditor(page)
+  const TRAIN_NAME = 'Roma Street → Indooroopilly'
+  // Tab from the 2nd item's handle to its Move up, then Enter: it reaches the top, so Move up is disabled.
+  await page.getByRole('button', { name: `Reorder ${TRAIN_NAME}` }).focus()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: `Move ${TRAIN_NAME} up` })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(status(page)).toContainText('moved to position 1 of 3')
+  await expect(page.getByRole('button', { name: `Move ${TRAIN_NAME} down` })).toBeFocused()
+  // Down twice to the bottom: the first press keeps focus on Move down, the second lands on Move up.
+  await page.keyboard.press('Enter')
+  await expect(status(page)).toContainText('moved to position 2 of 3')
+  await expect(page.getByRole('button', { name: `Move ${TRAIN_NAME} down` })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(status(page)).toContainText('moved to position 3 of 3')
+  await expect(page.getByRole('button', { name: `Move ${TRAIN_NAME} up` })).toBeFocused()
+  await expect
+    .poll(() => rowOrder(page))
+    .toEqual(['ferry:317584>317590', 'bus:10802', 'train:roma-street>indooroopilly'])
+})
+
 test('rename a saved stop, then reset it to its own name', async ({ page }) => {
   await seed(page)
   await openEditor(page)

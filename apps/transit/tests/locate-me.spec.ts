@@ -8,6 +8,7 @@ import {
   allowLocation,
   expectDeniedOnTap,
   expectLocatesOnTap,
+  expectSolidHover,
   offCentre,
   panAway,
   youAreHere,
@@ -49,6 +50,11 @@ test('THE-112: Around you on the device’s location: a tap frames you on the sa
   await panAway(map)
   await expectLocatesOnTap(map)
   await expect(map).toHaveAttribute('data-probe', '')
+})
+
+test('THE-112: the button stays solid on hover, light and dark', async ({ page }) => {
+  await page.goto(AROUND)
+  await expectSolidHover(nearbyMap(page))
 })
 
 test('THE-112: location blocked: the Around you map says so', async ({ page, context }) => {

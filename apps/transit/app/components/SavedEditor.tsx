@@ -71,6 +71,19 @@ export function SavedEditor({
     if (grabbed) handles.current.get(grabbed.id)?.focus()
   })
 
+  /** A Move up/down that had focus: its row, and which arrow (-1 up, 1 down). */
+  const stepped = useRef<{ id: string; by: -1 | 1 } | null>(null)
+  // After a Move up/down, focus stays on the item: on the same arrow, or the other one when it reached the end (its
+  // own is now disabled), or the handle when both are (a one-item list). Otherwise it would fall to the page.
+  useLayoutEffect(() => {
+    const was = stepped.current
+    if (!was) return
+    stepped.current = null
+    const row = rows.current.get(was.id)
+    const arrow = (by: -1 | 1) => row?.querySelector<HTMLButtonElement>(`[data-step="${by}"]:not(:disabled)`)
+    ;(arrow(was.by) ?? arrow(was.by === -1 ? 1 : -1) ?? handles.current.get(was.id))?.focus()
+  })
+
   const drop = (id: string) => {
     setGrabbed(null)
     commit(listRef.current)
@@ -152,7 +165,9 @@ export function SavedEditor({
     stopDrag.current = stop
   }
 
-  const step = (item: SavedItem, by: -1 | 1) => {
+  const step = (item: SavedItem, by: -1 | 1, button: HTMLButtonElement) => {
+    // Only a focused button keeps focus on its item (a tap that doesn't focus, as in Safari, takes none).
+    if (document.activeElement === button) stepped.current = { id: item.id, by }
     const i = list.findIndex((x) => x.id === item.id)
     const next = moved(list, i, i + by)
     commit(next)
@@ -234,7 +249,8 @@ export function SavedEditor({
                   type="button"
                   aria-label={`Move ${name} up`}
                   disabled={i === 0}
-                  onClick={() => step(item, -1)}
+                  onClick={(e) => step(item, -1, e.currentTarget)}
+                  data-step="-1"
                   className={SMALL}
                 >
                   <span aria-hidden="true">↑</span>
@@ -243,7 +259,8 @@ export function SavedEditor({
                   type="button"
                   aria-label={`Move ${name} down`}
                   disabled={i === list.length - 1}
-                  onClick={() => step(item, 1)}
+                  onClick={(e) => step(item, 1, e.currentTarget)}
+                  data-step="1"
                   className={SMALL}
                 >
                   <span aria-hidden="true">↓</span>
