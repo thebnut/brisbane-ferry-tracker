@@ -21,6 +21,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'BrisbaneTransit has one simpler header on every page: a back button and the settings gear on phones, and every mode in one bar on computers.',
       'On BrisbaneTransit boards, “Live · updated 12 s ago” now sits just above the departures. Tap it to refresh.',
       'While a BrisbaneTransit page loads, the header says “Connecting…” instead of briefly showing Offline.',
+      'If your browser isn’t keeping changes, Save now tells you so instead of saying it saved.',
     ],
   },
   {
