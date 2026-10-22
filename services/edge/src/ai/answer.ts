@@ -186,11 +186,19 @@ export async function answerIntent(
           stop: { mode, key: from.key, name: stopName },
           to: toRef,
         }
-      const lines = rows
-        .slice(0, 3)
-        .map((d) => `${describe(d, nowS)}${fromCity && boardAt.get(d) ? `, from ${boardAt.get(d)}` : ''}`)
-      const live = bodies.every((b) => b.rtState === 'live')
-      const caveat = live ? '' : ' Live times are unavailable, so these are timetabled.'
+      const shown = rows.slice(0, 3)
+      const lines = shown.map(
+        (d) => `${describe(d, nowS)}${fromCity && boardAt.get(d) ? `, from ${boardAt.get(d)}` : ''}`,
+      )
+      // R24-A1: only an outage is "unavailable". A feed that's behind, reloading or simply has nothing for these trips
+      // yet leaves them timetabled too, and says so; rows with any realtime status are labelled on their own.
+      const caveat = bodies.every((b) => b.rtState === 'unavailable')
+        ? ' Live times are unavailable, so these are timetabled.'
+        : shown.every((d) => d.status === 'scheduled')
+          ? " No live times for these yet, so they're timetabled."
+          : shown.some((d) => d.status === 'scheduled') && !bodies.every((b) => b.rtState === 'live')
+            ? ' Times not marked live are timetabled.'
+            : ''
       return {
         answer: `Next ${head}: ${lines.join('; ')}.${note}${caveat}${partial}`,
         departures: rows.slice(0, 5).map((d) => slimDeparture(d, nowS)),
