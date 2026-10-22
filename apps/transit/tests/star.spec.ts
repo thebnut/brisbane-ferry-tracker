@@ -2,7 +2,7 @@
  * THE-118 PR 1: one star on every mode's board. Tap Save → "{Name} saved to My Transit · Undo" → the card is on My
  * Transit → Delete it there (Undo puts it back) → gone, and a reload keeps each state. A train board with no
  * destination also offers "Pick a destination", which opens the Going-to sheet. Runs at 390×844 touch, 1280×900 and
- * 1440×900 (each once).
+ * 1440×900 (each once). With writes refused (R27-S1) the star keeps its state and the toast says it couldn't.
  */
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test } from '@playwright/test'
@@ -38,6 +38,15 @@ const star = (page: Page, name: string) =>
 const saveToast = (page: Page) => page.locator('[data-save-toast]')
 const stored = (page: Page, key: string) =>
   page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? '[]') as unknown[], key)
+
+/** An init script: this device refuses writes to `key` (blocked or full storage), as Dev's round 27 did. */
+function blockWrites(key: string) {
+  const set = Storage.prototype.setItem
+  Storage.prototype.setItem = function (k: string, v: string) {
+    if (this === window.localStorage && k === key) throw new DOMException('blocked', 'QuotaExceededError')
+    return set.call(this, k, v)
+  }
+}
 
 async function axeOnStar(page: Page) {
   const { violations } = await new AxeBuilder({ page }).include('[data-star]').analyze()
@@ -111,6 +120,55 @@ function modeTests() {
       await page.reload()
       await expect(star(page, b.name)).toHaveAttribute('aria-pressed', 'false')
       expect(await stored(page, b.store)).toEqual([])
+    })
+  }
+
+  for (const [mode, b] of Object.entries(BOARDS)) {
+    test(`${mode}: storage refusing the save: the star stays "Save", the toast says it couldn't save (R27-S1)`, async ({
+      page,
+    }) => {
+      await page.addInitScript(blockWrites, b.store)
+      await page.goto(b.path)
+      const s = star(page, b.name)
+      await expect(s).toHaveAttribute('aria-pressed', 'false')
+      // Hydrated (the ferry star is its own chunk): the toast answers the tap.
+      await expect(async () => {
+        await s.click()
+        await expect(saveToast(page)).not.toBeEmpty({ timeout: 1000 })
+      }).toPass()
+      await expect(saveToast(page)).toHaveText(`Couldn't save ${b.name}: this device isn't keeping changes.`)
+      await expect(saveToast(page)).toHaveAttribute('role', 'status')
+      await expect(saveToast(page).getByRole('button')).toHaveCount(0)
+      await expect(s).toHaveAttribute('aria-pressed', 'false')
+      await expect(s).toContainText('Save')
+      expect(await stored(page, b.store)).toEqual([])
+      await page.reload()
+      await expect(star(page, b.name)).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    test(`${mode}: storage refusing the unsave: the star stays "Saved", the toast says it couldn't remove (R27-S1)`, async ({
+      page,
+    }) => {
+      await page.goto('/robots.txt')
+      await page.evaluate(([k, v]) => localStorage.setItem(k, JSON.stringify([v])), [
+        b.store,
+        b.entry,
+      ] as const)
+      await page.addInitScript(blockWrites, b.store)
+      await page.goto(b.path)
+      const s = star(page, b.name)
+      await expect(s).toHaveAttribute('aria-pressed', 'true')
+      await expect(async () => {
+        await s.click()
+        await expect(saveToast(page)).not.toBeEmpty({ timeout: 1000 })
+      }).toPass()
+      await expect(saveToast(page)).toHaveText(
+        `Couldn't remove ${b.name}: this device isn't keeping changes.`,
+      )
+      await expect(saveToast(page).getByRole('button')).toHaveCount(0)
+      await expect(s).toHaveAttribute('aria-pressed', 'true')
+      await expect(s).toContainText('Saved')
+      expect(await stored(page, b.store)).toEqual([b.entry])
     })
   }
 

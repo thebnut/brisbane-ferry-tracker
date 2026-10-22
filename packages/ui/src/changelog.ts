@@ -18,6 +18,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Tap Save on a board to add it to My Transit, and tap again to take it off. Undo is there if you change your mind.',
       'Save as many ferry trips as you like, not just one.',
       'Train boards save the station on its own, or with where you’re going.',
+      'If your browser isn’t keeping changes, Save now tells you so instead of saying it saved.',
     ],
   },
   {
