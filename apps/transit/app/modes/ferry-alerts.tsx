@@ -7,12 +7,16 @@
 import type { AlertsResponse } from '@bft/core/contract'
 import type { BoardAlertsProps } from '@bft/ferry/app/components/BoardAlerts.tsx'
 import { AlertCountLink } from '@bft/ui/alert-count'
+import { pollEvery } from '@bft/ui/connectivity'
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { alertModes, inMode, notOver, stopModeOf } from '../lib/alert-modes.ts'
 
 export const FERRY_ALERTS = '/alerts?mode=ferry'
+
+/** Every minute while the board is open, as the Alerts page polls (queries.ts useAlerts). */
+const poll = pollEvery(60_000)
 
 export default function FerryAlerts({ fetcher, mode }: BoardAlertsProps) {
   // Through the board's own fetcher: importing an API client here split it off /ferry's first-load chunks.
@@ -25,6 +29,7 @@ export default function FerryAlerts({ fetcher, mode }: BoardAlertsProps) {
       return res.json()
     },
     staleTime: 60_000,
+    refetchInterval: poll,
   })
   const stopMode = stopModeOf()
   const nowS = Date.now() / 1000

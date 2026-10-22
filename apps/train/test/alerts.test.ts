@@ -145,4 +145,10 @@ describe('station alerts (the board header count, THE-118 PR 3)', () => {
     expect(stationAlerts(alerts, indro, 1000).map((a) => a.id)).toEqual([])
     expect(stationAlerts([alert({ routes: ['BRSP-1'] })], indro, 1000)).toHaveLength(1)
   })
+  it('counts a network-wide notice that names no route or stop at every station (Codex r1)', () => {
+    const all = alert({ id: 'all', header: 'All trains suspended' })
+    expect(stationAlerts([all], central, 1000)).toHaveLength(1)
+    expect(stationAlerts([all], indro, 1000)).toHaveLength(1)
+    expect(stationAlerts([{ ...all, modes: ['bus'] }], central, 1000)).toHaveLength(0)
+  })
 })

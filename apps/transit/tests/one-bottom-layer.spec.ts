@@ -150,7 +150,9 @@ function suite(phone: boolean) {
         .first()
       await expect(map).toBeVisible()
       const box = await map.boundingBox()
-      expect(box?.height ?? 0).toBeGreaterThanOrEqual(36)
+      // The boards' existing Map chips (PillButton, 36 px) stay until the filter row is rebuilt in THE-118 PR 5; the
+      // mode homes' new ones are at least 44 px.
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(path === '/train' || path === '/bus' ? 44 : 36)
     })
 
   test('Train home: the search finds a station and opens its board', async ({ page }) => {

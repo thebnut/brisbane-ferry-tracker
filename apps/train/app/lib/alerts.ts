@@ -142,7 +142,7 @@ export function lineStatus(alerts: Alert[], nowS: number): LineStatusRow[] {
 
 /**
  * Active train alerts that affect a station (its board header's count, THE-118 PR 3): one naming any of its platforms,
- * or touching a line that stops there (network-wide notices included: they affect every station).
+ * touching a line that stops there, or naming no route or stop at all (network-wide notices affect every station).
  */
 export function stationAlerts(alerts: Alert[], station: Station, nowS: number): Alert[] {
   const platforms = new Set(station.platforms.map((p) => p.id))
@@ -153,6 +153,8 @@ export function stationAlerts(alerts: Alert[], station: Station, nowS: number): 
     (a) =>
       forTrains(a) &&
       isActive(a, nowS) &&
-      (a.stops.some((s) => platforms.has(s)) || linesOfAlert(a).some((l) => lines.has(l))),
+      ((a.routes.length === 0 && a.stops.length === 0) ||
+        a.stops.some((s) => platforms.has(s)) ||
+        linesOfAlert(a).some((l) => lines.has(l))),
   )
 }
