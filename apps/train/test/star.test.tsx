@@ -35,6 +35,21 @@ describe('train board star', () => {
     expect(result.current.saved).toBe(false)
   })
 
+  it('Undo never pushes out a favourite saved elsewhere since (Codex r5)', () => {
+    const full = KEYS.slice(0, MAX_FAVOURITES).map((from) => ({ from, to: null }))
+    localStorage.setItem(FAVOURITES_KEY, JSON.stringify(full))
+    const { result } = renderHook(() =>
+      useStar({ from: 'indooroopilly', to: null }, 'Indooroopilly', () => {}),
+    )
+    act(() => result.current.toggle())
+    // Another tab: Indooroopilly out, Taringa in (full again).
+    const elsewhere = [{ from: 'taringa', to: null }, ...full.slice(0, MAX_FAVOURITES - 1)]
+    localStorage.setItem(FAVOURITES_KEY, JSON.stringify(elsewhere))
+    render(result.current.toast)
+    act(() => screen.getByRole('button', { name: 'Undo' }).click())
+    expect(readFavourites()).toEqual(elsewhere)
+  })
+
   it('follows another tab, and a "Save" tap never unsaves what was saved elsewhere since (Codex r3)', () => {
     const { result } = renderHook(() => useStar({ from: 'central', to: null }, 'Central', () => {}))
     expect(result.current.saved).toBe(false)

@@ -28,6 +28,7 @@ import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import {
   FAVOURITES_KEY,
   type Favourite,
+  MAX_FAVOURITES,
   readFavourites,
   sameFavourite,
   toggleFavourite,
@@ -89,9 +90,10 @@ export function useStar(f: Favourite, name: string, pickDestination: () => void)
   const undo = () => {
     let now = readFavourites()
     if (now.some((x) => sameFavourite(x, f))) now = writeFavourites(now.filter((x) => !sameFavourite(x, f)))
-    // The one a full list let go comes back at its place, unless it was saved again since.
+    // The one a full list let go comes back at its place, unless it was saved again since, or the list is full again
+    // (saved to elsewhere since): it never pushes another favourite out.
     const ev = toast?.evicted
-    if (ev && !now.some((x) => sameFavourite(x, ev.fav)))
+    if (ev && now.length < MAX_FAVOURITES && !now.some((x) => sameFavourite(x, ev.fav)))
       now = writeFavourites([...now.slice(0, ev.at), ev.fav, ...now.slice(ev.at)])
     setList(now)
     setToast(null)
