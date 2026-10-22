@@ -143,7 +143,7 @@ export interface StatusStripProps {
 
 export function StatusStrip({ updated, detail, children }: StatusStripProps) {
   return (
-    <div className="bg-strip border-b border-ferry-orange/20">
+    <div data-status-strip="" className="bg-strip border-b border-ferry-orange/20">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-3 py-2 md:px-4">
         <p
           className="flex items-center gap-1.5 text-sm text-charcoal tabular dark:text-night-text"

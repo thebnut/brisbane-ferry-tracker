@@ -3,8 +3,7 @@
  * LIVE pills, bottom navigation (Home, Stations, Map, Alerts), footer with the TransLink attribution, and the
  * settings sheet (theme, My Transit stops; lazy: SettingsSheet.tsx). Fixture mode is labelled so demo data is never mistaken for live times.
  */
-import { AppHeader, DemoExitLink, LivePill, SettingsPill } from '@bft/ui'
-import emblem from '@bft/ui/assets/emblem-train.svg?url'
+import { DemoExitLink } from '@bft/ui'
 import {
   createContext,
   lazy,
@@ -19,8 +18,10 @@ import { useRouteLoaderData } from 'react-router'
 import { ATTRIBUTION } from '../lib/seo.ts'
 import { useOnline } from '../lib/useNow.ts'
 import type { loader as rootLoader } from '../root.tsx'
-import { DesktopNav, TrainNav } from './nav.tsx'
+import { type LiveProps, ShellLive, SiteHeader } from './header.tsx'
+import { TrainNav } from './nav.tsx'
 
+export { SiteHeader } from './header.tsx'
 export { NAV } from './nav.tsx'
 
 // Loaded on first open: keeps the bottom sheet off every page's first load.
@@ -34,25 +35,6 @@ export const SECTION = {
   list: 'mt-2 flex flex-wrap gap-2 text-sm',
   link: 'inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 text-aqua-text transition-colors hover:border-ferry-orange/50 hover:text-ferry-orange-deep dark:bg-night-card dark:text-ferry-aqua-light',
   h2: 'text-[13px] font-bold tracking-[0.06em] text-aqua-text uppercase dark:text-ferry-aqua-light',
-}
-
-export function SiteHeader({
-  onSettings,
-  live = true,
-  active,
-}: {
-  onSettings?: () => void
-  live?: boolean
-  /** Current section: shows the desktop section links (phones use the bottom nav). */
-  active?: string
-}) {
-  return (
-    <AppHeader mode="train" logoSrc={emblem}>
-      {active != null ? <DesktopNav active={active} /> : null}
-      {onSettings ? <SettingsPill onClick={onSettings} compact /> : null}
-      <LivePill live={live} />
-    </AppHeader>
-  )
 }
 
 function FixtureNotice() {
@@ -69,16 +51,24 @@ function FixtureNotice() {
   )
 }
 
-/** Boards report whether their data is live and fresh; the header pill is LIVE only while every one is. */
-const LiveReport = createContext<((key: string, live: boolean | null) => void) | null>(null)
+/**
+ * Boards report whether their data is live and fresh; the header pill is LIVE only while every one is. A board still
+ * waiting for its first answer reports 'pending': not live either.
+ */
+type Report = boolean | 'pending'
+const LiveReport = createContext<((key: string, live: Report | null) => void) | null>(null)
 
-/** Tell the page header whether this board's data is live (shared liveState). Reported after hydration. */
-export function useReportLive(key: string, live: boolean) {
+/**
+ * Tell the page header whether this board's data is live (shared liveState), or that it has no answer yet (no data, no
+ * error: BrisbaneTransit's header says "Connecting…" then, THE-118). Reported after hydration.
+ */
+export function useReportLive(key: string, live: boolean, pending = false) {
   const report = useContext(LiveReport)
+  const value: Report = pending ? 'pending' : live
   useEffect(() => {
-    report?.(key, live)
+    report?.(key, value)
     return () => report?.(key, null)
-  }, [report, key, live])
+  }, [report, key, value])
 }
 
 /** Header, optional status strip, page body, bottom nav and footer. */
@@ -86,6 +76,8 @@ export function Shell({
   active,
   strip,
   live: dataLive,
+  pending = false,
+  back,
   children,
 }: {
   active: string
@@ -95,12 +87,16 @@ export function Shell({
    * first client render; once the boards report (useReportLive, after hydration) their reports decide.
    */
   live?: boolean
+  /** Still waiting for the page's first answer (no data, no error). */
+  pending?: boolean
+  /** The parent page, for the header's back link (BrisbaneTransit). */
+  back?: { href: string; label: string }
   children: ReactNode
 }) {
   const [settings, setSettings] = useState<boolean | null>(null)
-  const [reports, setReports] = useState<Record<string, boolean>>({})
+  const [reports, setReports] = useState<Record<string, Report>>({})
   const report = useCallback(
-    (key: string, value: boolean | null) =>
+    (key: string, value: Report | null) =>
       setReports((r) => {
         if (value == null) {
           if (!(key in r)) return r
@@ -114,12 +110,17 @@ export function Shell({
   // Never LIVE while offline, nor over data too old to call live on any board of the page (smoke test T5).
   const online = useOnline()
   const reported = Object.values(reports)
-  const live = online && (reported.length ? reported.every(Boolean) : dataLive !== false)
+  const live = online && (reported.length ? reported.every((r) => r === true) : dataLive !== false)
+  const state: LiveProps = {
+    live,
+    pending: pending || reported.includes('pending'),
+    idle: dataLive === undefined && reported.length === 0,
+  }
   return (
     <LiveReport.Provider value={report}>
-      <SiteHeader live={live} active={active} onSettings={() => setSettings(true)} />
+      <SiteHeader {...state} active={active} back={back} onSettings={() => setSettings(true)} />
       <FixtureNotice />
-      {strip}
+      <ShellLive.Provider value={state}>{strip}</ShellLive.Provider>
       <main className="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">{children}</main>
       <Footer />
       <TrainNav active={active} />

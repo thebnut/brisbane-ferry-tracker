@@ -1,20 +1,18 @@
 /**
- * Layout for every tab. Mode pages render their own standalone header (that app's lockup) inside the Outlet; this
- * layout adds only the Mode Tabs (bottom on phones, a pill row on desktop). No runtime mode state: the active tab is
- * the URL.
+ * Layout for every tab. Each page renders the one BrisbaneTransit header (ModeHeader.tsx; a mode page through its
+ * app's header module, swapped at build time), which carries the desktop mode pills; this layout adds the phone's
+ * Mode Tabs. No runtime mode state: the active tab is the URL.
  */
-import { AppHeader } from '@bft/ui'
-import emblem from '@bft/ui/assets/emblem-transit.svg?url'
 import { isOfflineFailure } from '@bft/ui/connectivity'
 import { Outlet } from 'react-router'
-import { DesktopModeBar, ModeBar } from '../components/ModeBar.tsx'
+import { ModeBar } from '../components/ModeBar.tsx'
+import { ModeHeader } from '../components/ModeHeader.tsx'
 import { OfflineRouteScreen } from '../components/OfflineRoute.tsx'
 import type { Route } from './+types/mode-layout'
 
 export default function ModeLayout() {
   return (
     <>
-      <DesktopModeBar />
       <Outlet />
       <ModeBar />
     </>
@@ -29,8 +27,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   if (!isOfflineFailure(error)) throw error
   return (
     <>
-      <AppHeader mode="transit" logoSrc={emblem} />
-      <DesktopModeBar />
+      <ModeHeader />
       <main>
         <OfflineRouteScreen />
       </main>

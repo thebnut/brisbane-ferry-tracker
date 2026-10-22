@@ -1,4 +1,4 @@
-import { AppHeader, useFixtureCookie } from '@bft/ui'
+import { useFixtureCookie } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
 import {
   isOfflineFailure,
@@ -26,6 +26,7 @@ import {
 } from 'react-router'
 import type { Route } from './+types/root'
 import './app.css'
+import { ModeHeader } from './components/ModeHeader.tsx'
 import { OfflineRouteScreen } from './components/OfflineRoute.tsx'
 import { makeQueryClient } from './lib/query-client.ts'
 import { getEnv, getNonce, isFixtureMode } from './lib/server.server.ts'
@@ -217,7 +218,7 @@ function ErrorPage({ error }: { error: unknown }) {
       {/* React 19 hoists these into <head>; error pages must never be indexed. */}
       <title>{`${title} | BrisbaneTransit`}</title>
       <meta name="robots" content="noindex" />
-      <AppHeader mode="transit" logoSrc={emblem} />
+      <ModeHeader />
       <main className="mx-auto max-w-3xl px-4 py-10">
         <h1 className="text-xl font-bold text-aqua-text dark:text-ferry-aqua-light">{title}</h1>
         <p className="mt-2 text-gray-700 dark:text-night-text/80">
@@ -236,7 +237,7 @@ function RootOfflineScreen() {
   const client = useMemo(makeQueryClient, [])
   return (
     <QueryClientProvider client={client}>
-      <AppHeader mode="transit" logoSrc={emblem} />
+      <ModeHeader />
       <main>
         <OfflineRouteScreen />
       </main>

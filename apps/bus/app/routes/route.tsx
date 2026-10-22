@@ -107,6 +107,7 @@ function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: numb
   const pattern = dirs.find((p) => String(p.directionId) === dir) ?? dirs[0]
   const { mode, fetcher } = useApi()
   const vehiclesQ = useVehicles(fetcher, mode, route.short)
+  const vehiclesPending = !vehiclesQ.data && !vehiclesQ.isError
   const now = useNow(renderedAt)
   const variant = routeTileVariant(route.short, route.long)
   const vehicles = vehiclesQ.data?.vehicles ?? []
@@ -143,8 +144,14 @@ function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: numb
   if (!pattern) return null
   return (
     <>
-      <SiteHeader live={vehiclesQ.data?.rtState === 'live'} />
-      <UpdatedStrip updatedAt={vehiclesQ.data?.generatedAt ?? null} source={vehiclesQ.data} nowMs={now}>
+      <SiteHeader live={vehiclesQ.data?.rtState === 'live'} pending={vehiclesPending} />
+      <UpdatedStrip
+        updatedAt={vehiclesQ.data?.generatedAt ?? null}
+        source={vehiclesQ.data}
+        nowMs={now}
+        live={vehiclesQ.data?.rtState === 'live'}
+        pending={vehiclesPending}
+      >
         <DesktopNav active="" />
       </UpdatedStrip>
       <main className="mx-auto flex max-w-3xl flex-col gap-3 px-4 pt-3.5 pb-28">

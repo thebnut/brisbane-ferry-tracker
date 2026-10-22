@@ -1,17 +1,12 @@
 /**
- * BrisbaneTransit chrome for the transit pages (Saved, Nearby, Alerts): the transit lockup (emblem + "BrisbaneTransit
- * / Departure Boards"), Settings and LIVE pills, the status strip, the footer, and the Mode Tabs shell. Mode pages
- * keep their own app's header and lockup; only the bottom bar is shared.
+ * BrisbaneTransit chrome for the transit pages (Saved, Nearby, Alerts): the one header (ModeHeader.tsx, which the
+ * mode pages use too), the status strip and the footer.
  */
 
-import { AppHeader, DemoExitLink, formatClock, LivePill, SettingsPill, StatusStrip } from '@bft/ui'
-import emblem from '@bft/ui/assets/emblem-transit.svg?url'
+import { DemoExitLink, formatClock, StatusStrip } from '@bft/ui'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { Link, useRouteLoaderData, useSearchParams } from 'react-router'
-import { useOnline } from '../lib/useNow.ts'
-
-// Loaded on first open: keeps the bottom sheet and segmented control off every page's first load.
-const SettingsSheet = lazy(() => import('./SettingsSheet.tsx'))
+import { ModeHeader } from './ModeHeader.tsx'
 
 /** Demo-data note in fixture mode, with the way out (the root keeps the hour-long cookie, R7-B1). */
 export function FixtureNotice() {
@@ -28,27 +23,12 @@ export function FixtureNotice() {
   )
 }
 
-export function TransitHeader({ live = true }: { live?: boolean }) {
-  const [settings, setSettings] = useState(false)
-  // Never LIVE while offline, whatever the page's data says.
-  const online = useOnline()
+/** The header for a transit page. `live` undefined: a page without live data (What's new) claims nothing. */
+export function TransitHeader({ live }: { live?: boolean }) {
   return (
     <>
-      <AppHeader mode="transit" logoSrc={emblem}>
-        <span className="md:hidden">
-          <SettingsPill compact onClick={() => setSettings(true)} />
-        </span>
-        <span className="hidden md:inline">
-          <SettingsPill onClick={() => setSettings(true)} />
-        </span>
-        <LivePill live={live && online} />
-      </AppHeader>
+      <ModeHeader live={live} />
       <FixtureNotice />
-      {settings ? (
-        <Suspense fallback={null}>
-          <SettingsSheet open onClose={() => setSettings(false)} />
-        </Suspense>
-      ) : null}
     </>
   )
 }
