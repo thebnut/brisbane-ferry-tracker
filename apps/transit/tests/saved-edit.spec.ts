@@ -5,7 +5,8 @@
  */
 import { expect, type Page, test } from '@playwright/test'
 
-const FERRY = '/ferry'
+/** The ferry favourite's card opens its trip's boards (THE-118). */
+const FERRY = '/ferry?from=317584&to=317590'
 const TRAIN = '/train/station/roma-street?to=indooroopilly'
 const BUS = '/bus/stop/10802'
 const BUS_NAME = 'Cultural Centre station, platform 1'
@@ -23,6 +24,8 @@ async function seed(page: Page) {
       'bft-train-favourites',
       JSON.stringify([{ from: 'roma-street', to: 'indooroopilly' }]),
     )
+    // A remembered pair: it becomes the ferry favourite (THE-118).
+    localStorage.setItem('brisbane-ferry-remember-selection', 'true')
     localStorage.setItem(
       'brisbane-ferry-selected-stops',
       JSON.stringify({
@@ -41,7 +44,7 @@ const cardOrder = (page: Page) =>
     .locator('main a')
     .evaluateAll(
       (as, wanted) => as.map((a) => a.getAttribute('href')).filter((h) => h != null && wanted.includes(h)),
-      ['/ferry', '/train/station/roma-street?to=indooroopilly', '/bus/stop/10802'],
+      [FERRY, TRAIN, BUS],
     )
 
 const rowOrder = (page: Page) =>

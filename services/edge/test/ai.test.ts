@@ -587,6 +587,82 @@ describe('next-day answers say so (R2-X6b)', () => {
   })
 })
 
+describe('R24-A1: the timetabled caveat says why', () => {
+  const now = Date.UTC(2026, 9, 18, 12, 42) / 1000
+  const row = (dep: number, status = 'scheduled') => ({
+    tripInstance: `t${dep}`,
+    stopSequence: 1,
+    route: { id: 'F1', short: 'F1', long: 'CityCat' },
+    headsign: 'Riverside',
+    directionId: 0,
+    stopId: '317584',
+    platform: null,
+    schedDep: dep,
+    estDep: status === 'live' ? dep + 60 : null,
+    schedArrTo: null,
+    estArrTo: null,
+    status,
+    gps: false,
+    vehicleId: null,
+  })
+  const answer = async (rtState: string, statuses: string[]) => {
+    const { answerIntent } = await import('../src/ai/answer.ts')
+    const fetchApi = async () =>
+      new Response(
+        JSON.stringify({
+          schemaVersion: 1,
+          staticGeneration: 'g',
+          serviceDates: ['20261018'],
+          rtSourceTimestamp: null,
+          rtState,
+          generatedAt: now * 1000,
+          mode: 'ferry',
+          stop: { key: '317584', name: 'Bulimba', stopIds: ['317584'] },
+          to: null,
+          departures: statuses.map((s, i) => row(now + 300 * (i + 1), s)),
+        }),
+      )
+    const a = await answerIntent(
+      {
+        kind: 'departures_at',
+        mode: 'ferry',
+        at: { mode: 'ferry', key: '317584', name: 'Bulimba', score: 1 },
+      },
+      fetchApi,
+      now,
+    )
+    return a.answer
+  }
+
+  it('a live feed with no realtime for these trips yet: "no live times for these yet", not "unavailable"', async () => {
+    const a = await answer('live', ['scheduled', 'scheduled', 'scheduled'])
+    expect(a).toMatch(/ No live times for these yet, so they're timetabled\.$/)
+    expect(a).not.toMatch(/unavailable/)
+  })
+
+  it('a feed that is behind or reloading: the same, never "unavailable"', async () => {
+    for (const state of ['stale', 'reloading']) {
+      const a = await answer(state, ['scheduled', 'scheduled'])
+      expect(a).toMatch(/ No live times for these yet, so they're timetabled\.$/)
+      expect(a).not.toMatch(/unavailable/)
+    }
+  })
+
+  it('an outage still says live times are unavailable', async () => {
+    expect(await answer('unavailable', ['scheduled'])).toMatch(
+      / Live times are unavailable, so these are timetabled\.$/,
+    )
+  })
+
+  it('live rows label themselves: no caveat on a live feed, a partial one on a feed that is behind', async () => {
+    const live = await answer('live', ['live', 'scheduled'])
+    expect(live).toContain('(live)')
+    expect(live).not.toMatch(/timetabled/)
+    const behind = await answer('stale', ['unknown', 'scheduled'])
+    expect(behind).toMatch(/ Times not marked live are timetabled\.$/)
+  })
+})
+
 describe('route alerts with suffixed route ids (Codex round 4)', () => {
   it('"alerts on F1" finds an alert for route F1-4055', async () => {
     const { answerIntent } = await import('../src/ai/answer.ts')

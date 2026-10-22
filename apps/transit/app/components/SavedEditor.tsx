@@ -3,7 +3,8 @@
  * names. Each row's handle drags with a mouse or a finger (touch-action: none, so the page doesn't scroll instead);
  * from the keyboard, Space or Enter on the handle picks the item up, the arrow keys move it, Space or Enter drops it
  * and Escape puts it back, each step read out in a live region. Move up/down buttons do the same in one tap.
- * Names are plain text (cleanLabel); an empty one goes back to the stop's own name.
+ * Names are plain text (cleanLabel); an empty one goes back to the stop's own name. Each row's Delete unsaves the item
+ * (THE-115, through `onDelete`, which offers Undo).
  */
 
 import { ModeTile } from '@bft/ui'
@@ -28,12 +29,15 @@ export function SavedEditor({
   items,
   onChange,
   store,
+  onDelete,
   onDone,
 }: {
   items: SavedItem[]
   /** The list as now shown (saved here, through `store`). */
   onChange: (next: SavedItem[]) => void
   store: PrefsStore
+  /** Unsaves the item (focus moves to the next row's Delete). */
+  onDelete: (item: SavedItem) => void
   onDone: () => void
 }) {
   const [list, setList] = useState(items)
@@ -43,6 +47,12 @@ export function SavedEditor({
   const [grabbed, setGrabbed] = useState<{ id: string; before: SavedItem[]; how: 'key' | 'pointer' } | null>(
     null,
   )
+  // A delete or its Undo changes the list from outside: show it (not mid-move, which ends in a commit of its own).
+  const [shown, setShown] = useState(items)
+  if (items !== shown) {
+    setShown(items)
+    if (!grabbed) setList(items)
+  }
   const [said, say] = useState('')
   const [unsaved, setUnsaved] = useState(false)
   const rows = useRef(new Map<string, HTMLLIElement>())
@@ -196,7 +206,7 @@ export function SavedEditor({
       </div>
       <p id="saved-edit-help" className="text-sm text-sched-text dark:text-night-text/70">
         Drag ⠿ to reorder, or focus it and press Space, then the arrow keys. Clear a name to use the stop's
-        own.
+        own. Delete takes a stop off this device; Undo puts it back.
       </p>
       <ol className="flex flex-col gap-2">
         {list.map((item, i) => {
@@ -290,6 +300,15 @@ export function SavedEditor({
                   className="flex min-h-11 shrink-0 items-center rounded-button px-3 text-sm font-semibold text-ferry-orange-deep hover:bg-ferry-orange-light disabled:opacity-30 dark:text-ferry-sunset dark:hover:bg-night-2"
                 >
                   Reset
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Delete ${name}`}
+                  onClick={() => onDelete(item)}
+                  data-saved-delete=""
+                  className="flex min-h-11 shrink-0 items-center rounded-button px-3 text-sm font-semibold text-cancel-text hover:bg-red-50 dark:text-red-300 dark:hover:bg-night-2"
+                >
+                  Delete
                 </button>
               </div>
             </li>

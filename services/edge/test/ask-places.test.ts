@@ -474,7 +474,8 @@ describe('answerIntent for a place: every platform, in parallel', () => {
     const a = await answerIntent(intent, fetchApi, NOW)
     expect(calls).toEqual(['/v1/train/stops/bowen-hills/departures?limit=5&to=international-airport'])
     expect(a.answer).toMatch(
-      /to International Airport station: .*\. Airport trains stop at International Airport, then continue to Domestic Airport\.$/,
+      // A live feed with no realtime for this trip yet says so after the note (R24-A1).
+      /to International Airport station: .*\. Airport trains stop at International Airport, then continue to Domestic Airport\. No live times for these yet, so they're timetabled\.$/,
     )
 
     // The note holds for an empty board too (Codex r3).

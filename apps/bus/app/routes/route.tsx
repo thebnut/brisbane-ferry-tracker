@@ -5,10 +5,12 @@
  */
 
 import { ErrorState, RouteTile, routeTileVariant, useGeolocation } from '@bft/ui'
-import { occupancyText, SaveButton, SegmentedControl } from '@bft/ui/bus'
+import { occupancyText, SegmentedControl } from '@bft/ui/bus'
 import { VIA_NETWORK } from '@bft/ui/connectivity'
+import { StarButton } from '@bft/ui/star'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { data, Link, useRevalidator, useSearchParams } from 'react-router'
+import { useBusSave } from '../components/BusStar.tsx'
 import { ClientOnly } from '../components/ClientOnly.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute, fetchRouteIndex } from '../lib/api.ts'
@@ -21,7 +23,7 @@ import { directions, nearestStop, stopForRouteHref } from '../lib/route-picker.t
 import { pageMeta, routeMetaTags, SITE_URL } from '../lib/seo.ts'
 import { fixtureFallbackOn, loaderEnv, settle } from '../lib/server.server.ts'
 import { stopCode, stopHref, tripHref } from '../lib/stops.ts'
-import { toggleSaved, useSavedStops } from '../lib/storage.ts'
+import { useSavedStops } from '../lib/storage.ts'
 import { useNow } from '../lib/useNow.ts'
 import { useVehicles } from '../lib/vehicles.ts'
 import type { Route } from './+types/route'
@@ -131,6 +133,7 @@ function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: numb
   const { geo } = geolocation
   const nearest = pattern && geo.state === 'ok' ? nearestStop(pattern.stops, geo) : -1
   const saved = useSavedStops()
+  const star = useBusSave()
   const stopsHeading = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     if (!pick) return
@@ -261,10 +264,11 @@ function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: numb
                       {code ? `Stop ${code}` : ''}
                     </span>
                   </Link>
-                  <SaveButton
+                  <StarButton
+                    variant="icon"
                     saved={isSaved}
                     name={s.name}
-                    onToggle={() => toggleSaved({ id: s.key, name: s.name })}
+                    onToggle={() => star.toggle({ id: s.key, name: s.name })}
                   />
                 </li>
               )
@@ -272,6 +276,7 @@ function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: numb
           </ol>
         </section>
       </main>
+      {star.toast}
       <Footer />
       <BusNav active="" />
     </>

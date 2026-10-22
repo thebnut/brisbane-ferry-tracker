@@ -2,7 +2,8 @@ import { isDemoSession } from '@bft/ui/demo'
 /**
  * Saved (X-Home): one list mixing what each standalone app already saves on this device, read with that app's own
  * storage code, so a trip saved in the Ferry, Train or Bus tab shows up here with no second copy:
- *  - ferry: the remembered terminal pair (brisbane-ferry-selected-stops), outbound direction
+ *  - ferry: favourites (bft-ferry-favourites, THE-118), terminal or terminal → terminal, read as ferry favourites.ts
+ *    reads them (readFerry below)
  *  - train: favourites (bft-train-favourites), station or station → station
  *  - bus: My stops (bft-bus-saved)
  * Offline, each card shows scheduled times from the newest copy kept on the device ("Offline · scheduled"): this
@@ -14,8 +15,8 @@ import { stopHref } from '@bft/bus/app/lib/stops.ts'
 import { readOffline as readBusOffline, readSaved as readBusSaved } from '@bft/bus/app/lib/storage.ts'
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import { cleanStopName } from '@bft/ferry/app/lib/names.ts'
-import { readOffline as readFerryOffline, readSavedPair } from '@bft/ferry/app/lib/storage.ts'
-import { terminalById } from '@bft/ferry/app/lib/terminals.ts'
+import { STORAGE_KEYS as FERRY_KEYS, readOffline as readFerryOffline } from '@bft/ferry/app/lib/storage.ts'
+import { terminalById, terminalHref } from '@bft/ferry/app/lib/terminals.ts'
 import { readFavourites, readOfflineDay } from '@bft/train/app/lib/storage.ts'
 import { timetableStatus } from '@bft/ui/connectivity'
 import { stationName, trainBoardHref } from './hrefs.ts'
@@ -36,20 +37,55 @@ export interface SavedItem {
   href: string
 }
 
-/** Ferry, then train favourites, then bus stops, each in its own store's order. */
+type FerryFavourite = { from: string; to: string | null }
+
+/**
+ * Ferry favourites exactly as ferry favourites.ts readFerryFavourites returns them, read here without that module: it
+ * would bring the favourites' write code onto every transit page's first load (test/saved.test.ts checks the two
+ * agree). Before the list exists, the pair "Remember selection" kept, which favourites.ts makes the first favourite on
+ * its first read (only then is the list written).
+ */
+export function readFerry(): FerryFavourite[] {
+  const raw = safe<string | null | undefined>(() => localStorage.getItem('bft-ferry-favourites'), undefined)
+  let list: unknown = null
+  if (raw === null) {
+    const p = safe(
+      () =>
+        localStorage.getItem(FERRY_KEYS.REMEMBER_SELECTION) === 'true' &&
+        JSON.parse(localStorage.getItem(FERRY_KEYS.SELECTED_STOPS) ?? 'null'),
+      null,
+    )
+    if (typeof p?.outbound?.id === 'string' && typeof p.inbound?.id === 'string')
+      list = [{ from: p.outbound.id, to: p.inbound.id }]
+  } else if (raw) list = safe(() => JSON.parse(raw), null)
+  const out: FerryFavourite[] = []
+  for (const f of Array.isArray(list) ? list : []) {
+    const origin = typeof f?.from === 'string' ? terminalById(f.from) : null
+    if (!origin) continue
+    const to = typeof f.to === 'string' && origin.destinations.includes(f.to) ? (f.to as string) : null
+    if (!out.some((x) => x.from === origin.id && x.to === to)) out.push({ from: origin.id, to })
+  }
+  return out
+}
+
+/** The ferry boards for one trip (the home page's ?from=&to= deep link). */
+export const ferryBoardHref = (from: string, to: string) => `${MODE_BASES.ferry}?from=${from}&to=${to}`
+
+/** Ferry favourites, then train favourites, then bus stops, each in its own store's order. */
 export function readSavedItems(): SavedItem[] {
   const out: SavedItem[] = []
-  const pair = readSavedPair()
-  if (pair) {
-    const from = terminalById(pair.outbound.id)
-    const to = terminalById(pair.inbound.id)
+  for (const f of readFerry()) {
+    const from = terminalById(f.from)
+    const to = f.to ? terminalById(f.to) : null
+    if (!from) continue
     out.push({
-      id: `ferry:${pair.outbound.id}>${pair.inbound.id}`,
+      // The remembered pair's id before THE-118 too, so its My Transit name and place carry over.
+      id: `ferry:${f.from}>${f.to ?? ''}`,
       mode: 'ferry',
-      key: pair.outbound.id,
-      to: pair.inbound.id,
-      title: `${cleanStopName(from?.name ?? pair.outbound.name)} → ${cleanStopName(to?.name ?? pair.inbound.name)}`,
-      href: MODE_BASES.ferry,
+      key: f.from,
+      to: f.to,
+      title: to ? `${cleanStopName(from.name)} → ${cleanStopName(to.name)}` : cleanStopName(from.name),
+      href: to ? ferryBoardHref(f.from, f.to as string) : terminalHref(from.slug),
     })
   }
   for (const f of readFavourites())

@@ -17,18 +17,89 @@ import {
   SecondaryButton,
 } from '@bft/ui'
 import { usePageCheck } from '@bft/ui/connectivity'
-import { useEffect, useMemo, useState } from 'react'
+import { SaveToast, type SaveToastMessage } from '@bft/ui/save-toast'
+import { StarButton } from '@bft/ui/star'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
 import { boardState, platformChanges, type ServiceFilter, trainCard, visibleRows } from '../lib/departures.ts'
 import { isReachable, type Station, stationHref } from '../lib/network.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
+import {
+  FAVOURITES_KEY,
+  type Favourite,
+  MAX_FAVOURITES,
+  readFavourites,
+  sameFavourite,
+  toggleFavourite,
+  writeFavourites,
+} from '../lib/storage.ts'
 import { useOnline } from '../lib/useNow.ts'
 import { useReportLive } from './Chrome.tsx'
 import { ReachableList } from './ReachableList.tsx'
 import { TrainCard } from './TrainCard.tsx'
 
 export const MORE_LIMIT = 30
+
+/** Whether storage itself holds the favourite (a refused write leaves it out). */
+function stored(f: Favourite): boolean {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(FAVOURITES_KEY) ?? '[]')
+    return Array.isArray(v) && v.some((x) => sameFavourite(x as Favourite, f))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The board's star (THE-118 PR 1): saves the station, with "Going to" when set (`to: null` is a valid favourite).
+ * Saving shows the toast, which adds "Pick a destination" (the Going-to sheet) when there is none; a second tap unsaves.
+ */
+export function useStar(f: Favourite, name: string, pickDestination: () => void) {
+  const [list, setList] = useState<Favourite[]>([])
+  /** `evicted`: the favourite a full list let go to make room (MAX_FAVOURITES), and its place, for Undo. */
+  const [toast, setToast] = useState<
+    (SaveToastMessage & { evicted: { fav: Favourite; at: number } | null }) | null
+  >(null)
+  // The list as stored, again when another tab changes it.
+  useEffect(() => {
+    const read = () => setList(readFavourites())
+    read()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === FAVOURITES_KEY || e.key == null) read()
+    }
+    addEventListener('storage', onStorage)
+    return () => removeEventListener('storage', onStorage)
+  }, [])
+  const gone = useCallback(() => setToast(null), [])
+  const saved = list.some((x) => sameFavourite(x, f))
+  const toggle = () => {
+    // Fresh from storage: another board or tab may have changed the list since this one read it.
+    const before = readFavourites()
+    // What the button showed decides: a "Save" tap never unsaves one saved elsewhere since.
+    const adding = !saved
+    const has = before.some((x) => sameFavourite(x, f))
+    const after = adding === has ? before : toggleFavourite(before, f)
+    setList(after)
+    const at = before.findIndex((x) => !after.some((y) => sameFavourite(x, y)))
+    const evicted = adding && at >= 0 ? { fav: before[at] as Favourite, at } : null
+    setToast(
+      adding ? { name, evicted, kept: stored(f), pickDestination: f.to ? undefined : pickDestination } : null,
+    )
+  }
+  const undo = () => {
+    let now = readFavourites()
+    if (now.some((x) => sameFavourite(x, f))) now = writeFavourites(now.filter((x) => !sameFavourite(x, f)))
+    // The one a full list let go comes back at its place, unless it was saved again since, or the list is full again
+    // (saved to elsewhere since): it never pushes another favourite out.
+    const ev = toast?.evicted
+    if (ev && now.length < MAX_FAVOURITES && !now.some((x) => sameFavourite(x, ev.fav)))
+      now = writeFavourites([...now.slice(0, ev.at), ev.fav, ...now.slice(ev.at)])
+    setList(now)
+    setToast(null)
+  }
+  return { saved, toggle, toast: <SaveToast toast={toast} onGone={gone} onUndo={undo} /> }
+}
 
 export const boardHref = (from: string, to: string | null) => `${stationHref(from)}${to ? `?to=${to}` : ''}`
 
@@ -91,6 +162,7 @@ export function StationBoard({
   const firstLive = cards.findIndex((c) => !c.cancelled)
   const canSwap = !!to && isReachable(to.key, from.key)
   const title = `${from.name}${to ? ` → ${to.name}` : ''}`
+  const star = useStar({ from: from.key, to: to?.key ?? null }, title, () => setPicker(true))
 
   return (
     <section
@@ -98,7 +170,13 @@ export function StationBoard({
       className="flex min-w-0 flex-col gap-2.5"
       data-board={from.key}
     >
-      <BoardHeader as="h2" onSwap={canSwap && to ? () => navigate(boardHref(to.key, from.key)) : undefined}>
+      <BoardHeader
+        as="h2"
+        onSwap={canSwap && to ? () => navigate(boardHref(to.key, from.key)) : undefined}
+        trailing={
+          compactHeader ? undefined : <StarButton saved={star.saved} onToggle={star.toggle} name={title} />
+        }
+      >
         {compactHeader ? (
           <span className="truncate text-base font-bold">{title}</span>
         ) : (
@@ -140,7 +218,7 @@ export function StationBoard({
             state === 'offline'
               ? res
                 ? "Timetabled trains from today's saved timetable. Delays, cancellations and platform changes can't be shown until you're back online."
-                : 'No saved timetable for this trip yet. Save it as a favourite to keep today’s times offline.'
+                : 'No saved timetable for this trip yet. Save it to keep today’s times offline.'
               : undefined
           }
         />
@@ -193,6 +271,7 @@ export function StationBoard({
         <MoreButton onClick={() => setMore(true)}>More departures</MoreButton>
       ) : null}
 
+      {compactHeader ? null : star.toast}
       {compactHeader ? null : (
         <BottomSheet
           open={picker}

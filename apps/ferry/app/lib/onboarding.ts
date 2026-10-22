@@ -6,6 +6,7 @@
 
 import { modeChanged, type TrayItem } from '@bft/ui/onboarding'
 import type { ModeSource } from '@bft/ui/onboarding-picker'
+import { readFerryFavourites } from './favourites.ts'
 import { cleanStopName } from './names.ts'
 import { clearPair, savePair } from './save-pair.ts'
 import { markSelectorSeen, readSavedPair, STORAGE_KEYS } from './storage.ts'
@@ -19,8 +20,8 @@ const STOPS = TERMINALS.map((t) => ({
   detail: t.routes.join(' · '),
 }))
 
-/** A pair saved on this device (remembered, or this session's). */
-export const ferryHasSaved = (): boolean => readSavedPair() != null
+/** A pair saved on this device (remembered, or this session's), or a ferry favourite. */
+export const ferryHasSaved = (): boolean => readSavedPair() != null || readFerryFavourites().length > 0
 
 /** The stop selector opened by itself before (the old first visit): this device has been onboarded. */
 export function ferrySeenBefore(): boolean {
@@ -79,8 +80,9 @@ export function ferryTrayItems(): TrayItem[] {
 }
 
 /**
- * Re-run from Settings: the tray's ferry trip replaces the pair, and taking it out unsaves it. Nothing is written when
- * it already matches (a pair kept for this session only stays so). False if storage refused.
+ * Re-run from Settings: the tray's ferry trip replaces the pair (and the favourite it made), and taking it out
+ * unsaves it. Nothing is written when it already matches (a pair kept for this session only stays so). False if
+ * storage refused or the trip isn't a real route.
  */
 export function resaveFerry(after: TrayItem[]): boolean {
   // readSavedPair() reads blocked storage as no pair: then nothing here can be judged or cleared (Codex r3).
@@ -91,7 +93,11 @@ export function resaveFerry(after: TrayItem[]): boolean {
     return false
   }
   if (!modeChanged(ferryTrayItems(), after, 'ferry')) return true
-  if (after.some((i) => i.mode === 'ferry')) return saveFerry(after)
+  const item = after.find((i) => i.mode === 'ferry')
+  const from = item && terminalById(item.id)
+  if (item && !(from && item.to && from.destinations.includes(item.to))) return false
+  // The tray's trip replaces the pair, and the favourite the pair made (save-pair.ts), rather than adding one.
   clearPair()
+  if (item) return saveFerry(after)
   return readSavedPair() == null
 }

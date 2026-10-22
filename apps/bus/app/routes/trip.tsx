@@ -20,9 +20,10 @@ import {
   StatusBadge,
   tripAsTimetable,
 } from '@bft/ui'
-import { BigCountdown, OccupancyMeter, SaveButton, SkeletonRows, TripTimeline } from '@bft/ui/bus'
+import { BigCountdown, OccupancyMeter, SkeletonRows, TripTimeline } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { data, Link, useNavigate } from 'react-router'
+import { BusStar } from '../components/BusStar.tsx'
 import { BusNav, DataBanner, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute } from '../lib/api.ts'
 import { validateRoute, validateTrip } from '../lib/contract.server.ts'
@@ -30,7 +31,6 @@ import { useApi } from '../lib/mode.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
 import { routeHref, stopHref } from '../lib/stops.ts'
-import { toggleSaved, useSavedStops } from '../lib/storage.ts'
 import { at, needsStopNames, schedAt, stopNamesFor, timeline } from '../lib/trip.ts'
 import { fetchTrip, useTrip } from '../lib/trip-queries.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
@@ -91,7 +91,6 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const q = useTrip(fetcher, mode, key, loaderData.trip)
   const now = useNow(loaderData.renderedAt)
   const navigate = useNavigate()
-  const saved = useSavedStops()
   const online = useOnline()
   // Offline, or data too old to call live: the timetable only (no LIVE/GPS badge, estimates or position).
   const page = usePageCheck()
@@ -135,7 +134,6 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
             from={from}
             now={now}
             stopNames={loaderData.stopNames}
-            saved={saved.some((s) => s.id === from)}
             onTrack={() => navigate(`${routeHref(trip.route.short)}?trip=${encodeURIComponent(key)}`)}
           />
         )}
@@ -151,14 +149,12 @@ function TripBody({
   from,
   now,
   stopNames,
-  saved,
   onTrack,
 }: {
   trip: TripResponse
   from: string | null
   now: number
   stopNames: Record<string, string>
-  saved: boolean
   onTrack: () => void
 }) {
   const fromStop = trip.stops.find((s) => s.stopId === from) ?? trip.stops[0]
@@ -255,14 +251,7 @@ function TripBody({
             Track on map
           </PrimaryButton>
           {from && fromStop ? (
-            <span className="flex flex-1 items-center justify-center gap-2 rounded-button border-2 border-ferry-orange bg-white px-3 text-sm font-bold text-ferry-orange-deep dark:bg-night-card">
-              <SaveButton
-                saved={saved}
-                name={fromStop.name ?? 'this stop'}
-                onToggle={() => toggleSaved({ id: from, name: fromStop.name ?? from })}
-              />
-              {saved ? 'Saved stop' : 'Save stop'}
-            </span>
+            <BusStar id={from} name={fromStop.name ?? from} className="min-h-12 flex-1" />
           ) : null}
         </div>
       </div>

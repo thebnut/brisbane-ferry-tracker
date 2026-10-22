@@ -94,9 +94,9 @@ test('My stops: saved stops render with their next buses', async ({ page, isMobi
 
 test('save and unsave a stop', async ({ page }) => {
   await page.goto('/stop/19051')
-  const star = page.getByRole('button', { name: /Save Mater Hill station, platform 1 to My stops/ })
+  const star = page.getByRole('button', { name: /^Save Mater Hill station, platform 1 to My Transit/ })
   await star.click()
-  await expect(page.getByRole('button', { name: /Remove Mater Hill/ })).toHaveAttribute(
+  await expect(page.getByRole('button', { name: /^Saved Mater Hill/ })).toHaveAttribute(
     'aria-pressed',
     'true',
   )
