@@ -22,7 +22,7 @@ import {
 } from 'react'
 import type { SavedItem } from '../lib/saved.ts'
 import { type Removal, removeSaved, restoreSaved } from '../lib/saved-delete.ts'
-import type { PrefsStore } from '../lib/saved-prefs-save.ts'
+import { type PrefsStore, savePrefs } from '../lib/saved-prefs-save.ts'
 import type { SavedEditor } from './SavedEditor.tsx'
 
 /** How far a card moves to show its Delete action (px): the action's width plus a gap. */
@@ -264,7 +264,10 @@ export function SavedArea({
     const { removal, at } = toast
     restoreSaved(removal, store)
     const rest = items.filter((i) => i.id !== removal.item.id)
-    onItems([...rest.slice(0, at), removal.item, ...rest.slice(at)])
+    const next = [...rest.slice(0, at), removal.item, ...rest.slice(at)]
+    onItems(next)
+    // A reorder or rename since the delete wrote an order without this item: the list as shown is the order now.
+    if (store.read().order.length) savePrefs(next, store)
     setToast(null)
     focusNext.current = editing ? editSel(removal.item.id) : rowSel(removal.item.id)
   }

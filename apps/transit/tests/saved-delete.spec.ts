@@ -219,6 +219,21 @@ function sharedTests() {
     expect((await busSaved(page)).map((s) => s.id)).toEqual(['10802'])
   })
 
+  test('Undo after a rename made since the delete keeps the item in its place after a reload', async ({
+    page,
+  }) => {
+    await seed(page)
+    await page.getByRole('button', { name: 'Edit order and names' }).click()
+    await page.getByRole('button', { name: 'Delete Bulimba → Riverside' }).click()
+    await page.getByRole('textbox', { name: `Name for ${BUS_NAME}` }).fill('Work')
+    await page.getByRole('button', { name: 'Undo' }).click()
+    await page.getByRole('button', { name: 'Done' }).click()
+    await expect.poll(() => cardOrder(page)).toEqual([FERRY, TRAIN, BUS])
+    await page.reload()
+    await expect.poll(() => cardOrder(page)).toEqual([FERRY, TRAIN, BUS])
+    await expect(page.locator(`main a[href="${BUS}"]`)).toContainText('Work')
+  })
+
   test('deleting every stop shows the empty state; the delete survives a reload', async ({ page }) => {
     await seed(page)
     for (const name of ['Bulimba → Riverside', 'Roma Street → Indooroopilly', BUS_NAME]) {
