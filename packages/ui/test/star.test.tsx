@@ -54,8 +54,35 @@ describe('SaveToast', () => {
     expect(onGone).toHaveBeenCalledTimes(1)
   })
 
-  it("says so when the device didn't keep it", () => {
-    render(<SaveToast toast={{ name: 'Central', kept: false }} onUndo={() => {}} onGone={() => {}} />)
-    expect(screen.getByRole('status').textContent).toContain("isn't keeping changes")
+  it('a refused save says it couldn\'t save, never "saved", with no Undo or Pick a destination (R27-S1)', () => {
+    vi.useFakeTimers()
+    const onGone = vi.fn()
+    render(
+      <SaveToast
+        toast={{ name: 'Central', kept: false, pickDestination: () => {} }}
+        onUndo={() => {}}
+        onGone={onGone}
+      />,
+    )
+    const status = screen.getByRole('status')
+    expect(status.getAttribute('aria-live')).toBe('polite')
+    expect(status.textContent).toBe("Couldn't save Central: this device isn't keeping changes.")
+    expect(screen.queryAllByRole('button')).toEqual([])
+    act(() => vi.advanceTimersByTime(7000))
+    expect(onGone).toHaveBeenCalled()
+  })
+
+  it("a refused unsave says it couldn't remove it", () => {
+    render(
+      <SaveToast
+        toast={{ name: 'Central', kept: false, remove: true }}
+        onUndo={() => {}}
+        onGone={() => {}}
+      />,
+    )
+    expect(screen.getByRole('status').textContent).toBe(
+      "Couldn't remove Central: this device isn't keeping changes.",
+    )
+    expect(screen.queryAllByRole('button')).toEqual([])
   })
 })
