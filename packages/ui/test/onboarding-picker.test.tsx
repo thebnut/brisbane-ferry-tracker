@@ -436,3 +436,17 @@ describe('onboarding prompt placement (R15)', () => {
     vi.useRealTimers()
   })
 })
+
+describe('inline prompt (BrisbaneTransit My Transit, THE-118 PR 3)', () => {
+  it('sits in the page flow: not fixed, no spacer, never lifted', () => {
+    vi.useFakeTimers()
+    render(<OnboardingPrompt offer={() => true} renderPicker={() => null} inline quietMs={0} />)
+    act(() => vi.advanceTimersByTime(50))
+    const box = document.querySelector<HTMLElement>('[data-onboarding-prompt]') as HTMLElement
+    expect(box).toHaveAttribute('data-onboarding-inline')
+    expect(box.className).not.toMatch(/\bfixed\b/)
+    expect(box.style.bottom).toBe('')
+    expect(document.querySelector('[data-onboarding-spacer]')).toBeNull()
+    vi.useRealTimers()
+  })
+})

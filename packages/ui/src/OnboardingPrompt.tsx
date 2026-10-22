@@ -15,6 +15,11 @@ export interface OnboardingPromptProps {
   /** Called on either answer (ferry marks its stop selector as seen, as its first-visit opening did). */
   onAnswer?: () => void
   quietMs?: number
+  /**
+   * In the page flow where it is mounted instead of fixed over the page (BrisbaneTransit: at the top of My Transit,
+   * THE-118 PR 3), so it never covers a board or the bottom bar.
+   */
+  inline?: boolean
 }
 
 const BUTTON = 'min-h-11 rounded-button px-4 text-sm font-bold transition active:scale-95'
@@ -51,7 +56,13 @@ export function measureLift(prompt: HTMLElement): Lift {
   return { bottom, spacer: bottom + prompt.offsetHeight - docked }
 }
 
-export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietMs }: OnboardingPromptProps) {
+export default function OnboardingPrompt({
+  offer,
+  renderPicker,
+  onAnswer,
+  quietMs,
+  inline = false,
+}: OnboardingPromptProps) {
   const [step, setStep] = useState<'waiting' | 'prompt' | 'picker' | 'done'>('waiting')
   const offerRef = useRef(offer)
   offerRef.current = offer
@@ -90,7 +101,7 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
   // navigations, so a dock that mounts with the next route (the Bus tab's search sheet) moves it at once (Codex r1).
   // Set on the elements directly, not through state, so a re-render can't lag a frame behind.
   useLayoutEffect(() => {
-    if (step !== 'prompt') return
+    if (step !== 'prompt' || inline) return
     const place = () => {
       const el = box.current
       if (!el) return
@@ -109,7 +120,7 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
       clearInterval(id)
       removeEventListener('resize', place)
     }
-  }, [step])
+  }, [step, inline])
   // The prompt's buttons and the picker are gone: put focus back where it was, never on <body> (Codex r1).
   useEffect(() => {
     if (step !== 'done' || !restore.current) return
@@ -154,7 +165,7 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
   if (step !== 'prompt') return null
   return (
     <>
-      <div ref={spacer} aria-hidden="true" data-onboarding-spacer="" />
+      {inline ? null : <div ref={spacer} aria-hidden="true" data-onboarding-spacer="" />}
       <section
         ref={box}
         aria-labelledby="bft-onboarding-title"
@@ -162,7 +173,12 @@ export default function OnboardingPrompt({ offer, renderPicker, onAnswer, quietM
         onKeyDown={(e) => {
           if (e.key === 'Escape') notNow()
         }}
-        className="fixed inset-x-3 bottom-24 z-40 mx-auto flex max-w-md flex-col gap-3 rounded-card border border-ferry-orange/30 bg-white p-4 text-charcoal shadow-header md:inset-x-auto md:right-6 md:bottom-6 dark:bg-night-card dark:text-night-text"
+        data-onboarding-inline={inline ? '' : undefined}
+        className={
+          inline
+            ? 'flex flex-col gap-3 rounded-card border border-ferry-orange/30 bg-white p-4 text-charcoal shadow-card dark:bg-night-card dark:text-night-text'
+            : 'fixed inset-x-3 bottom-24 z-40 mx-auto flex max-w-md flex-col gap-3 rounded-card border border-ferry-orange/30 bg-white p-4 text-charcoal shadow-header md:inset-x-auto md:right-6 md:bottom-6 dark:bg-night-card dark:text-night-text'
+        }
       >
         {/* Announced when it appears, without moving focus away from whatever the visitor is doing. */}
         <div role="status">

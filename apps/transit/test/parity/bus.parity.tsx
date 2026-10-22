@@ -20,7 +20,7 @@ it('bus stop page renders the same in BrisbaneBus and in the Bus tab', async () 
     module: stop,
     contextKey: cloudflareContext,
     fixtures: (url, now) => handleFixtureApi(url, now),
-    transitNav: 'Bus sections',
+    boardAlerts: true,
     ready: /Cultural Centre station, platform 1/,
   })
   expect(html).toContain('Cultural Centre')

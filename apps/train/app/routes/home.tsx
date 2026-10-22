@@ -17,12 +17,12 @@ import {
   StoppingPattern,
 } from '@bft/ui'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { SECTION, Shell, useReportLive } from '../components/Chrome.tsx'
 import { boardHref } from '../components/StationBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
-import { at } from '../lib/base.ts'
+import { at, BASE } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { boardState, effectiveDep, trainCard, visibleRows } from '../lib/departures.ts'
 import { lineLabel } from '../lib/lineNames.ts'
@@ -32,8 +32,56 @@ import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import { HOME_META, homeJsonLd, pageMeta } from '../lib/seo.ts'
 import { loaderEnv, settle, siteInfo } from '../lib/server.server.ts'
 import { type Favourite, favouriteId, favouritesFromCookie, readFavourites } from '../lib/storage.ts'
-import { useNow, useOnline } from '../lib/useNow.ts'
+import { useMounted, useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/home'
+
+// BrisbaneTransit's "Find a station" (THE-118 PR 3): client-only (Ark UI), loaded after hydration.
+const StationSearch = lazy(() =>
+  import.meta.env.SSR ? new Promise<never>(() => {}) : import('../components/StationSearch.tsx'),
+)
+
+/** The search field until the combobox has loaded (and on the server). */
+function SearchFallback() {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-sm font-semibold text-gray-700 dark:text-night-text/80">Find a station</span>
+      <input
+        readOnly
+        placeholder="Station name"
+        className="h-12 w-full rounded-card border-2 border-ferry-orange/30 bg-white px-10 text-base font-semibold text-aqua-text dark:bg-night-2"
+      />
+    </label>
+  )
+}
+
+/**
+ * The top of the Train tab's home in BrisbaneTransit, where the section bar's Stations and Map went (THE-118 PR 3):
+ * the station search and a Map chip. The full mode-home layout is THE-118 PR 8.
+ */
+function ModeHomeTop() {
+  const mounted = useMounted()
+  return (
+    <div className="flex items-end gap-2">
+      <div className="min-w-0 flex-1">
+        {mounted ? (
+          <Suspense fallback={<SearchFallback />}>
+            <StationSearch />
+          </Suspense>
+        ) : (
+          <SearchFallback />
+        )}
+      </div>
+      <Link
+        to={at('/map')}
+        prefetch="intent"
+        className="flex min-h-12 shrink-0 items-center gap-1.5 rounded-full border-2 border-ferry-orange/30 bg-white px-3.5 text-sm font-bold text-aqua-text no-underline dark:bg-night-card dark:text-ferry-aqua-light"
+      >
+        <Icon name="map" size={18} />
+        Map
+      </Link>
+    </div>
+  )
+}
 
 const POPULAR = [
   'central',
@@ -321,6 +369,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       pending={Object.values(loaderData.boards).some((r) => !r)}
     >
       <div className="mx-auto flex max-w-2xl flex-col gap-3.5">
+        {BASE ? <ModeHomeTop /> : null}
         <h1 className="text-xl font-extrabold">Your trips</h1>
         {favourites.length ? (
           favourites.map((f, i) => (

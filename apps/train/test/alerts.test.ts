@@ -10,8 +10,10 @@ import {
   linesOfAlert,
   networkNotices,
   nextStart,
+  stationAlerts,
   upcomingAlerts,
 } from '../app/lib/alerts.ts'
+import { type Station, stationByKey } from '../app/lib/network.ts'
 
 const alert = (over: Partial<Alert>): Alert => ({
   id: 'a',
@@ -125,5 +127,22 @@ describe('line status with the live alerts of 18 Oct (T3)', () => {
     expect(
       healthOf(alert({ cause: 'MAINTENANCE', header: 'Track closure - Sunshine Coast line' })).text,
     ).toBe('Planned works')
+  })
+})
+
+describe('station alerts (the board header count, THE-118 PR 3)', () => {
+  const central = stationByKey('central') as Station
+  const indro = stationByKey('indooroopilly') as Station
+  it('counts active alerts naming a platform or a line that stops there, and nothing else', () => {
+    const alerts = [
+      alert({ id: 'plat', stops: [(central.platforms[0] as { id: string }).id] }),
+      alert({ id: 'line', routes: ['BRFG-1'] }),
+      alert({ id: 'later', routes: ['BRFG-1'], activePeriods: [{ start: 2000, end: 3000 }] }),
+      alert({ id: 'bus', modes: ['bus'], routes: ['BRFG-1'] }),
+    ]
+    expect(stationAlerts(alerts, central, 1000).map((a) => a.id)).toEqual(['plat', 'line'])
+    // Indooroopilly is on the Ipswich/Springfield lines, not Ferny Grove, and that platform isn't its own.
+    expect(stationAlerts(alerts, indro, 1000).map((a) => a.id)).toEqual([])
+    expect(stationAlerts([alert({ routes: ['BRSP-1'] })], indro, 1000)).toHaveLength(1)
   })
 })

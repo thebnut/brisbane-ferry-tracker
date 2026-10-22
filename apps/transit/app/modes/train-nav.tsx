@@ -1,12 +1,12 @@
 /**
  * Replaces apps/train/app/components/nav.tsx inside BrisbaneTransit (modes.config.ts). The train pages are unchanged;
- * the bottom bar is the Mode Tabs (mode-layout.tsx), so Home, Stations, Map and Alerts become a pill row just above
- * it on phones and at the bottom on desktop (where the Mode Tabs are a row at the top). Same exports as the original (test/nav-slots.test.ts).
+ * the five Mode Tabs (mode-layout.tsx) are the only bottom layer, so the Home/Stations/Map/Alerts section pills render
+ * nothing here (THE-118 PR 3): Home is the Train tab, Stations the search on its home, Map a chip on the board and the
+ * home, Alerts the count in the board header. Same exports as the original (test/nav-slots.test.ts).
  */
 
 import { at } from '@bft/train/app/lib/base.ts'
-import { type NavItem, SectionTabs } from '@bft/ui'
-import { SECTION_BAR, sectionLink } from './section-link.tsx'
+import type { NavItem } from '@bft/ui'
 
 export const NAV: NavItem[] = [
   { key: 'home', label: 'Home', icon: 'home', href: at('/') },
@@ -15,19 +15,10 @@ export const NAV: NavItem[] = [
   { key: 'alerts', label: 'Alerts', icon: 'bell', href: at('/alerts') },
 ]
 
-/** Inside BrisbaneTransit the section pills are the desktop nav too (above), so the header adds nothing. */
 export function DesktopNav(_: { active: string }) {
   return null
 }
 
-export function TrainNav({ active }: { active: string }) {
-  return (
-    <SectionTabs
-      label="Train sections"
-      items={NAV}
-      active={active}
-      renderLink={sectionLink}
-      className={`${SECTION_BAR} md:bottom-0`}
-    />
-  )
+export function TrainNav(_: { active: string }) {
+  return null
 }

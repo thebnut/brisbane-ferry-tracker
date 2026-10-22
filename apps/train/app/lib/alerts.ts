@@ -14,7 +14,7 @@
  */
 import type { Alert } from '@bft/core/contract'
 import type { LineHealth } from '@bft/ui'
-import { LINES } from './network.ts'
+import { LINES, type Station } from './network.ts'
 
 export interface LineStatusRow {
   id: string
@@ -138,4 +138,21 @@ export function lineStatus(alerts: Alert[], nowS: number): LineStatusRow[] {
       alerts: mine,
     }
   }).sort((a, b) => RANK[b.status] - RANK[a.status] || a.name.localeCompare(b.name))
+}
+
+/**
+ * Active train alerts that affect a station (its board header's count, THE-118 PR 3): one naming any of its platforms,
+ * or touching a line that stops there (network-wide notices included: they affect every station).
+ */
+export function stationAlerts(alerts: Alert[], station: Station, nowS: number): Alert[] {
+  const platforms = new Set(station.platforms.map((p) => p.id))
+  const lines = new Set(
+    LINES.filter((l) => l.patterns.some((p) => p.stations.includes(station.key))).map((l) => l.name),
+  )
+  return alerts.filter(
+    (a) =>
+      forTrains(a) &&
+      isActive(a, nowS) &&
+      (a.stops.some((s) => platforms.has(s)) || linesOfAlert(a).some((l) => lines.has(l))),
+  )
 }

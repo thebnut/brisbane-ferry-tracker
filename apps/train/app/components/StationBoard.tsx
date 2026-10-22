@@ -19,7 +19,7 @@ import {
 import { usePageCheck } from '@bft/ui/connectivity'
 import { SaveToast, type SaveToastMessage } from '@bft/ui/save-toast'
 import { StarButton } from '@bft/ui/star'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
 import { boardState, platformChanges, type ServiceFilter, trainCard, visibleRows } from '../lib/departures.ts'
@@ -112,6 +112,7 @@ export function StationBoard({
   filter,
   onData,
   compactHeader = false,
+  sub,
 }: {
   from: Station
   to: Station | null
@@ -123,6 +124,8 @@ export function StationBoard({
   onData?: (res: DeparturesResponse | undefined) => void
   /** Second board on desktop: no picker, just the title and swap. */
   compactHeader?: boolean
+  /** A line under the title (BrisbaneTransit's alert count, THE-118 PR 3). */
+  sub?: ReactNode
 }) {
   const navigate = useNavigate()
   const fetcher = useFetcher(mode)
@@ -174,6 +177,7 @@ export function StationBoard({
       <BoardHeader
         as="h2"
         onSwap={canSwap && to ? () => navigate(boardHref(to.key, from.key)) : undefined}
+        sub={sub}
         trailing={
           compactHeader ? undefined : <StarButton saved={star.saved} onToggle={star.toggle} name={title} />
         }

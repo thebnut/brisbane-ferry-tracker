@@ -20,7 +20,7 @@ it('train station board renders the same in BrisbaneTrain and in the Train tab',
     module: station,
     contextKey: cloudflareContext,
     fixtures: (url, now) => handleFixtureApi(url, now),
-    transitNav: 'Train sections',
+    boardAlerts: true,
     ready: /Indooroopilly/,
   })
   expect(html).toContain('Roma Street')

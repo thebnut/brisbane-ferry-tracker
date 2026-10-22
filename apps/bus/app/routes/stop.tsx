@@ -5,7 +5,7 @@
  */
 
 import type { Alert } from '@bft/core/contract'
-import { FilterPills, PillButton } from '@bft/ui'
+import { AlertCountLink, FilterPills, PillButton } from '@bft/ui'
 import { NoticeStrip } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
@@ -14,7 +14,7 @@ import { BusStar } from '../components/BusStar.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { DepartureList, linkRenderer } from '../components/StopBoard.tsx'
 import { ApiError, fetchAlerts, fetchDepartures, fetchRouteIndex } from '../lib/api.ts'
-import { at } from '../lib/base.ts'
+import { at, BASE } from '../lib/base.ts'
 import { validateAlerts, validateDepartures, validateRouteIndex } from '../lib/contract.server.ts'
 import { isActive, routesIn } from '../lib/departures.ts'
 import { useApi } from '../lib/mode.ts'
@@ -188,6 +188,14 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
             <span className="text-xs text-sched-text dark:text-night-text/70">
               {stopMeta(stopId, platform)}
             </span>
+            {/* BrisbaneTransit: Alerts left the section bar for the board header (THE-118 PR 3). */}
+            {BASE ? (
+              <AlertCountLink
+                count={alertsQ.data ? here.length : null}
+                href={at('/alerts')}
+                renderLink={linkRenderer}
+              />
+            ) : null}
           </div>
           <BusStar id={stopId} name={name} />
         </div>

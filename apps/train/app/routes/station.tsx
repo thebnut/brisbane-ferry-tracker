@@ -5,15 +5,16 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { FilterPills, formatAge, formatClock } from '@bft/ui'
+import { AlertCountLink, FilterPills, formatAge, formatClock } from '@bft/ui'
 import { sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { useCallback, useEffect, useState } from 'react'
 import { data, Link } from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
 import { UpdatedStrip } from '../components/header.tsx'
 import { StationBoard } from '../components/StationBoard.tsx'
+import { stationAlerts } from '../lib/alerts.ts'
 import { fetchDepartures } from '../lib/api.ts'
-import { at } from '../lib/base.ts'
+import { at, BASE } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { boardState, type ServiceFilter } from '../lib/departures.ts'
 import { lineLabel } from '../lib/lineNames.ts'
@@ -25,6 +26,7 @@ import {
   stationByKey,
   stationHref,
 } from '../lib/network.ts'
+import { type DataMode, useAlerts, useFetcher } from '../lib/queries.ts'
 import { pageMeta, stationJsonLd, stationMeta } from '../lib/seo.ts'
 import { loaderEnv, settle, siteInfo } from '../lib/server.server.ts'
 import { useNow } from '../lib/useNow.ts'
@@ -133,6 +135,26 @@ function StationAbout({ station }: { station: Station }) {
   )
 }
 
+/**
+ * BrisbaneTransit: the alert count in the board header, linking to the train alerts (THE-118 PR 3: Alerts left the
+ * section bar). Mounted only in that build, so the standalone site makes no extra request.
+ */
+function StationAlerts({ station, mode, nowMs }: { station: Station; mode: DataMode; nowMs: number }) {
+  const q = useAlerts(useFetcher(mode), mode, null)
+  const count = q.data ? stationAlerts(q.data.alerts, station, Math.floor(nowMs / 1000)).length : null
+  return (
+    <AlertCountLink
+      count={count}
+      href={at('/alerts')}
+      renderLink={({ href, className, children }) => (
+        <Link to={href} prefetch="intent" className={className}>
+          {children}
+        </Link>
+      )}
+    />
+  )
+}
+
 export default function StationPage({ loaderData }: Route.ComponentProps) {
   const { station, to, outbound, inbound, mode, renderedAt } = loaderData
   const nowMs = useNow(renderedAt, 1000)
@@ -190,6 +212,7 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
           mode={mode}
           filter={filter}
           onData={onData}
+          sub={BASE ? <StationAlerts station={station} mode={mode} nowMs={nowMs} /> : undefined}
         />
         {to && inbound ? (
           <div className="hidden md:block">
