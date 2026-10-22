@@ -5,6 +5,7 @@
  * without a tap shows the "you are here" dot and accuracy circle but never moves the map, so maps framed around a
  * route or stop stay put. Denied and unavailable (or timed out) answers show a short line under the button.
  */
+import './locate.css'
 import { type GeoJSONSource, type IControl, Marker, type Map as MlMap } from 'maplibre-gl'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'

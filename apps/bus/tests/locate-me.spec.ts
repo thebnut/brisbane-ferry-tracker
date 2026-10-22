@@ -7,6 +7,7 @@ import {
   allowLocation,
   expectDeniedOnTap,
   expectLocatesOnTap,
+  expectSolidHover,
   offCentre,
   youAreHere,
 } from '@bft/ui/e2e/locate-me.ts'
@@ -32,6 +33,11 @@ test('THE-112: the route map shows you without moving, and frames you on a tap',
   expect(await offCentre(map)).toBeGreaterThan(40)
   await expectLocatesOnTap(map)
   expect(errors).toEqual([])
+})
+
+test('THE-112: the button stays solid on hover, light and dark', async ({ page }) => {
+  await page.goto('/route/M2')
+  await expectSolidHover(routeMap(page))
 })
 
 test('THE-112: location blocked: the route map says so', async ({ page, context }) => {
