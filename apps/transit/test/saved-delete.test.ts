@@ -142,6 +142,28 @@ describe('deleting a saved item from My Transit (THE-115)', () => {
     expect(ids(shown())).toEqual(before)
   })
 
+  it('ferry: Undo leaves a pair remembered since alone, and never brings back one the delete kept (Codex r1)', () => {
+    const A = { from: '317584', to: '317590' }
+    const B = { from: '317590', to: '317584' }
+    const pairOf = (f: typeof A) =>
+      JSON.stringify({ outbound: { id: f.from, name: '' }, inbound: { id: f.to, name: '' } })
+    localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, pairOf(A))
+    localStorage.setItem(STORAGE_KEYS.REMEMBER_SELECTION, 'true')
+    localStorage.setItem(FERRY_FAVOURITES_KEY, JSON.stringify([A, B]))
+    // B isn't the remembered pair: deleting it leaves A remembered.
+    const r = removeSaved(byId('ferry:317590>317584'), store)
+    expect(localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS)).toBe(pairOf(A))
+    // Another tab remembers B before Undo.
+    localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, pairOf(B))
+    expect(restoreSaved(r, store)).toBe(true)
+    expect(localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS)).toBe(pairOf(B))
+    // Deleting B (remembered now) forgets it; a pair remembered again before Undo stays.
+    const r2 = removeSaved(byId('ferry:317590>317584'), store)
+    localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, pairOf(A))
+    restoreSaved(r2, store)
+    expect(localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS)).toBe(pairOf(A))
+  })
+
   it('ferry: Undo after the list changed elsewhere still puts it back once, at its place or the end', () => {
     localStorage.setItem(FERRY_FAVOURITES_KEY, JSON.stringify([{ from: '317584', to: '317590' }]))
     const r = removeSaved(byId('ferry:317584>317590'), store)

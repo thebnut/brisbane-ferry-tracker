@@ -197,6 +197,15 @@ describe('the bft_pair cookie (SSR)', () => {
     expect(cookie()?.outbound.id).toBe(BULIMBA)
   })
 
+  it('a pair kept on the device with remember off still wins, as the board picks it (Codex r1)', () => {
+    localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, PAIR)
+    localStorage.setItem(FAVOURITES_KEY, JSON.stringify([{ from: RIVERSIDE, to: OTHER }]))
+    writePairCookie()
+    expect(cookie()?.outbound.id).toBe(BULIMBA)
+    expect(readHomePair()?.outbound.id).toBe(BULIMBA)
+    expect(readFerryFavourites()).toEqual([{ from: RIVERSIDE, to: OTHER }])
+  })
+
   it('is cleared when nothing is saved', () => {
     addFerryFavourite({ from: BULIMBA, to: RIVERSIDE })
     removeFerryFavourite({ from: BULIMBA, to: RIVERSIDE })

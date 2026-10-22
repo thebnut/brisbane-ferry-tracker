@@ -13,10 +13,12 @@
  *   else the first favourite (its first destination when it has no "To"), as bus mirrors its first stops.
  */
 
-import { PAIR_COOKIE, STORAGE_KEYS } from './storage.ts'
+import { PAIR_COOKIE, readSavedPair, STORAGE_KEYS } from './storage.ts'
 import { normalisePair, type StopPair, terminalById } from './terminals.ts'
 
 export const FAVOURITES_KEY = 'bft-ferry-favourites'
+/** Fired on `window` after the list is written. */
+export const FAVOURITES_EVENT = 'bft-ferry-favourites'
 
 export interface FerryFavourite {
   from: string
@@ -91,29 +93,29 @@ export function readFerryFavourites(): FerryFavourite[] {
 export const favouritePair = (f: FerryFavourite): StopPair =>
   normalisePair({ outbound: { id: f.from, name: '' }, inbound: { id: f.to ?? '', name: '' } })
 
-function sessionPair(): StopPair | null {
-  try {
-    const p = parse(sessionStorage.getItem(STORAGE_KEYS.SELECTED_STOPS_SESSION)) as StopPair | null
-    return p?.outbound?.id && p?.inbound?.id ? normalisePair(p) : null
-  } catch {
-    return null
-  }
-}
-
 /** The first favourite's pair, which the home board opens when no pair is saved (the cookie's fallback too). */
 export function firstFavouritePair(): StopPair | null {
   const first = readFerryFavourites()[0]
   return first ? favouritePair(first) : null
 }
 
-/** `bft_pair` for SSR: the pair the home board opens with (see the top of this file). */
+/**
+ * `bft_pair` for SSR: the pair the home board opens with, chosen as FerryBoards chooses it after hydration (storage.ts
+ * readSavedPair: the pair kept on this device, else this session's; then the first favourite).
+ */
 export function writePairCookie(list: FerryFavourite[] = readFerryFavourites()): void {
-  const remembered = rememberedFavourite()
-  const session = remembered ? null : sessionPair()
-  const pair = remembered ? favouritePair(remembered) : (session ?? (list[0] ? favouritePair(list[0]) : null))
+  const saved = readSavedPair()
+  const kept = (() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.SELECTED_STOPS) != null
+    } catch {
+      return false
+    }
+  })()
+  const pair = saved ?? (list[0] ? favouritePair(list[0]) : null)
   const value = pair ? `${pair.outbound.id}.${pair.inbound.id}` : ''
   // A session-only pair keeps a session cookie, as the stop selector writes it; nothing saved clears it.
-  const age = !pair ? '; max-age=0' : session ? '' : '; max-age=31536000'
+  const age = !pair ? '; max-age=0' : saved && !kept ? '' : '; max-age=31536000'
   try {
     // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is not in Safari; this is a plain preference cookie.
     document.cookie = `${PAIR_COOKIE}=${value}; path=/; samesite=lax${age}`
@@ -132,6 +134,12 @@ export function writeFerryFavourites(list: FerryFavourite[]): boolean {
     kept = false
   }
   writePairCookie(next)
+  // Every star and list on this page reads it again (FerryStar); other tabs get the storage event.
+  try {
+    dispatchEvent(new Event(FAVOURITES_EVENT))
+  } catch {
+    // No window (tests without a DOM): nothing on the page to tell.
+  }
   return kept
 }
 

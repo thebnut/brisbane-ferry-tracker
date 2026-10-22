@@ -12,6 +12,7 @@ import { StarButton } from '@bft/ui/star'
 import { useCallback, useEffect, useState } from 'react'
 import {
   addFerryFavourite,
+  FAVOURITES_EVENT,
   FAVOURITES_KEY,
   type FerryFavourite,
   isFerryFavourite,
@@ -46,8 +47,21 @@ export default function FerryStar({
 }) {
   const f = { from, to }
   const [list, setList] = useState<FerryFavourite[]>([])
-  const [toast, setToast] = useState<SaveToastMessage | null>(null)
-  useEffect(() => setList(readFerryFavourites()), [])
+  const [toast, setToast] = useState<(SaveToastMessage & { fav: FerryFavourite }) | null>(null)
+  // The list as stored, again whenever it changes: here (the stop selector remembering a pair), or in another tab.
+  useEffect(() => {
+    const read = () => setList(readFerryFavourites())
+    read()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === FAVOURITES_KEY || e.key == null) read()
+    }
+    addEventListener(FAVOURITES_EVENT, read)
+    addEventListener('storage', onStorage)
+    return () => {
+      removeEventListener(FAVOURITES_EVENT, read)
+      removeEventListener('storage', onStorage)
+    }
+  }, [])
   const gone = useCallback(() => setToast(null), [])
   const name = to ? `${short(from)} → ${short(to)}` : short(from)
   const saved = isFerryFavourite(f, list)
@@ -55,10 +69,13 @@ export default function FerryStar({
     // Fresh from storage: another tab may have changed the list since this board read it.
     const adding = !isFerryFavourite(f)
     setList(adding ? addFerryFavourite(f) : removeFerryFavourite(f))
-    setToast(adding ? { name, kept: stored(f), pickDestination: to ? undefined : onPickDestination } : null)
+    setToast(
+      adding ? { name, fav: f, kept: stored(f), pickDestination: to ? undefined : onPickDestination } : null,
+    )
   }
+  // Undo takes out the trip the toast is about, even if the board has moved to another since.
   const undo = () => {
-    if (isFerryFavourite(f)) setList(removeFerryFavourite(f))
+    if (toast && isFerryFavourite(toast.fav)) setList(removeFerryFavourite(toast.fav))
     setToast(null)
   }
   return (
