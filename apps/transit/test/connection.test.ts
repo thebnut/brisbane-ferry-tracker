@@ -17,7 +17,7 @@ describe('connectionState', () => {
   it('Connecting → Offline only after a request has failed', () => {
     // useOnline() turns false when a request fails (or times out): that is the failure.
     expect(connectionState({ live: false, pending: true, online: false })).toBe('offline')
-    // An answer that is in but not live (stale or unavailable feed) keeps the existing OFFLINE.
+    // An answer that is in but not live (an API error, an unavailable or stale feed) keeps the existing OFFLINE.
     expect(connectionState({ live: false, pending: false, online: true })).toBe('offline')
   })
 

@@ -20,9 +20,14 @@ export function SiteHeader({ back, ...live }: LiveProps & { back?: BackLink }) {
   return <ModeHeader {...claim(live)} back={back} />
 }
 
-/** Live data in the query cache: responses with a `generatedAt`, as @bft/ui/connectivity tells them apart. */
-const isLiveQuery = (q: { state: { data: unknown } }) =>
-  typeof (q.state.data as { generatedAt?: unknown } | undefined)?.generatedAt === 'number'
+/**
+ * Live data in the query cache: responses with a `generatedAt`, as @bft/ui/connectivity tells them apart, and boards
+ * still without an answer (a failed first request), so Refresh retries those too.
+ */
+const isLiveQuery = (q: { state: { data: unknown } }) => {
+  const data = q.state.data as { generatedAt?: unknown } | undefined
+  return data == null || typeof data.generatedAt === 'number'
+}
 
 /** The station strip has no refresh of its own (each board polls): tapping the line refetches every live board. */
 export function UpdatedStrip({

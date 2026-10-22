@@ -64,7 +64,7 @@ function LiveState({ state }: { state: ConnectionState | null }) {
   )
 }
 
-const PILL = 'flex h-10 items-center gap-1.5 rounded-full px-3 text-sm no-underline'
+const PILL = 'flex h-11 items-center gap-1.5 rounded-full px-3 text-sm no-underline'
 
 export function ModeHeader({
   back,
@@ -98,7 +98,7 @@ export function ModeHeader({
             to="/"
             aria-label="BrisbaneTransit, My Transit"
             className={cx(
-              'shrink-0 items-center gap-2 rounded-lg no-underline md:flex',
+              'min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-lg no-underline md:flex',
               parent ? 'hidden' : 'flex',
             )}
           >
