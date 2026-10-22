@@ -46,10 +46,15 @@ export function readSaved(): SavedStop[] {
   return savedCache
 }
 
+/** Saves the list; when storage refuses it, every list shows what storage still holds (R27-S1). */
 export function writeSaved(list: SavedStop[]) {
-  savedCache = list
-  safe(() => localStorage.setItem(KEYS.SAVED, JSON.stringify(list)), undefined)
-  const ids = list
+  const kept = safe(() => {
+    localStorage.setItem(KEYS.SAVED, JSON.stringify(list))
+    return true
+  }, false)
+  savedCache = kept ? list : null
+  // The cookie follows what storage holds, so the server never renders a stop that was not saved.
+  const ids = readSaved()
     .slice(0, SSR_SAVED_MAX)
     .map((s) => s.id)
     .filter((id) => /^[\w-]+$/.test(id))

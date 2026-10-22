@@ -1,6 +1,7 @@
 /**
  * "{Name} saved to My Transit · Undo" after a star tap (THE-118 PR 1). On a train or ferry board with no destination it
- * also offers "Pick a destination". It stays a few seconds, longer while pointed at or focused, and sits above the
+ * also offers "Pick a destination". When this device's storage refused the change it says so instead, with no
+ * actions, since nothing changed (R27-S1). It stays a few seconds, longer while pointed at or focused, and sits above the
  * page's fixed bottom bars (`data-bft-dock`), as My Transit's delete toast does.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -16,8 +17,10 @@ export interface SaveToastMessage {
   name: string
   /** Opens the board's destination picker; shown only when the save has no destination. */
   pickDestination?: () => void
-  /** False when this device's storage refused the save (it lasts until the page is reloaded). */
+  /** False when this device's storage refused the change: nothing was saved (or removed), so there is no Undo. */
   kept?: boolean
+  /** The refused change was an unsave (only with `kept: false`; a removal that worked shows no toast). */
+  remove?: boolean
 }
 
 function liftAboveDocks(): number {
@@ -70,16 +73,16 @@ export function SaveToast({
       style={{ bottom }}
       className="pointer-events-none fixed inset-x-3 z-40 mx-auto flex max-w-md justify-center"
     >
-      {toast ? (
-        <div className="pointer-events-auto flex w-full flex-wrap items-center gap-x-1 gap-y-0.5 rounded-card bg-charcoal py-1.5 pr-1.5 pl-4 text-sm text-white shadow-header dark:border dark:border-night-text/20 dark:bg-night-2 dark:text-night-text">
-          <span className="min-w-0 flex-1 basis-40">
-            <span className="block font-semibold">{toast.name} saved to My Transit</span>
-            {toast.kept === false ? (
-              <span className="block text-xs">
-                This device isn't keeping changes, so it's gone after a reload.
-              </span>
-            ) : null}
+      {toast?.kept === false ? (
+        <div className="pointer-events-auto w-full rounded-card bg-charcoal px-4 py-3 text-sm text-white shadow-header dark:border dark:border-night-text/20 dark:bg-night-2 dark:text-night-text">
+          <span className="font-semibold">
+            Couldn't {toast.remove ? 'remove' : 'save'} {toast.name}
           </span>
+          : this device isn't keeping changes.
+        </div>
+      ) : toast ? (
+        <div className="pointer-events-auto flex w-full flex-wrap items-center gap-x-1 gap-y-0.5 rounded-card bg-charcoal py-1.5 pr-1.5 pl-4 text-sm text-white shadow-header dark:border dark:border-night-text/20 dark:bg-night-2 dark:text-night-text">
+          <span className="min-w-0 flex-1 basis-40 font-semibold">{toast.name} saved to My Transit</span>
           {toast.pickDestination ? (
             <button
               type="button"

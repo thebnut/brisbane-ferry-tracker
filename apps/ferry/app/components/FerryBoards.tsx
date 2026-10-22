@@ -137,8 +137,11 @@ export function FerryBoards({
     const saved = home ? readSavedPair() : null
     show(saved)
     setDepartAt(readDepartAt())
+    let live = true
     import('./FerryStar.tsx').then(
       (m) => {
+        // Gone before the chunk arrived (a quick navigation, or a test's teardown): nothing to update.
+        if (!live) return
         setStar(() => m.default)
         if (home && !saved) {
           show(m.firstFavouritePair())
@@ -150,9 +153,12 @@ export function FerryBoards({
     )
     // The alert count beside Map: BrisbaneTransit's (THE-118 PR 3; nothing in this app), off the first load.
     import('./BoardAlerts.tsx').then(
-      (m) => setAlerts(() => m.default),
+      (m) => live && setAlerts(() => m.default),
       () => {},
     )
+    return () => {
+      live = false
+    }
   }, [terminalPage, deepLink, serverPair])
   // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0. Never from the data mode alone: an API
   // failure that fell back to fixtures (FIXTURE_FALLBACK) used to make demo mode stick for the session (R7-B1).
