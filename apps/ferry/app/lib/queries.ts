@@ -1,6 +1,13 @@
 /** TanStack Query hooks: 15 s polling while the page is visible (paused when hidden), offline fallback. */
 import type { DeparturesResponse } from '@bft/core/contract'
-import { asOfflineCopy, bestOfflineCopy, isOnline, pollEvery, replacesBoard } from '@bft/ui/connectivity'
+import {
+  asOfflineCopy,
+  bestOfflineCopy,
+  isOnline,
+  pollEvery,
+  replacesBoard,
+  seedUpdatedAt,
+} from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { type ApiFetcher, browserFetcher, fetchDepartures, fetchTrip } from './api.ts'
@@ -85,7 +92,7 @@ export function departuresOptions(
       }
     },
     initialData: initial ?? undefined,
-    initialDataUpdatedAt: initial?.generatedAt,
+    initialDataUpdatedAt: seedUpdatedAt(initial),
     refetchInterval: poll,
   }
 }

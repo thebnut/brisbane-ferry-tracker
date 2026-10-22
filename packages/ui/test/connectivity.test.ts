@@ -14,6 +14,7 @@ import {
   reportOffline,
   reportOnline,
   SW_CACHE_HEADER,
+  seedUpdatedAt,
   serverStamp,
   timetableStatus,
   trackedFetch,
@@ -99,6 +100,15 @@ describe('liveState (F3/T5/B3/X4)', () => {
     expect(liveState(res({ rtState: 'unavailable' }), { offline: false, nowMs: NOW })).toBe('unavailable')
     // bft-api answers `stale` for an expired copy whose source is past health's 120 s: never shown as live.
     expect(liveState(res({ rtState: 'stale' }), { offline: false, nowMs: NOW })).toBe('stale')
+  })
+})
+
+describe('seedUpdatedAt (R27-RT1)', () => {
+  it('keeps a live seed fresh and makes any other seed stale at once', () => {
+    expect(seedUpdatedAt(null)).toBeUndefined()
+    expect(seedUpdatedAt({ generatedAt: 5_000, rtState: 'live' })).toBe(5_000)
+    for (const rtState of ['unavailable', 'stale', 'reloading'])
+      expect(seedUpdatedAt({ generatedAt: 5_000, rtState })).toBe(0)
   })
 })
 

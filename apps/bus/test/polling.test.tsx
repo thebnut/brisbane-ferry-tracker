@@ -19,8 +19,8 @@ const body: DeparturesResponse = {
   departures: [],
 }
 
-function Probe({ fetcher }: { fetcher: ApiFetcher }) {
-  useDepartures(fetcher, { fixtures: false, rt: null }, 'a', null)
+function Probe({ fetcher, initial = null }: { fetcher: ApiFetcher; initial?: DeparturesResponse | null }) {
+  useDepartures(fetcher, { fixtures: false, rt: null }, 'a', initial)
   return null
 }
 
@@ -70,4 +70,36 @@ describe('departure polling', () => {
     })
     expect(polls).toHaveBeenCalledTimes(4)
   })
+
+  // R27-RT1: a cold API isolate's SSR answer is scheduled-only (`unavailable`) once its realtime wait runs out. The
+  // board must ask again at once, not show OFFLINE until its first poll 15 s later.
+  for (const [rtState, atMount] of [
+    ['live', 0],
+    ['unavailable', 1],
+    ['stale', 1],
+    ['reloading', 1],
+  ] as const) {
+    it(`a board seeded ${rtState} by the page ${atMount ? 'asks again at mount' : 'polls 15 s later'}`, async () => {
+      vi.useFakeTimers()
+      const polls = vi.fn()
+      const fetcher: ApiFetcher = async (path) => {
+        if (!path.includes('limit=100')) polls()
+        return Response.json(body)
+      }
+      const initial = { ...body, rtState, generatedAt: Date.now() }
+      render(
+        <QueryClientProvider client={makeQueryClient()}>
+          <Probe fetcher={fetcher} initial={initial} />
+        </QueryClientProvider>,
+      )
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10)
+      })
+      expect(polls).toHaveBeenCalledTimes(atMount)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_MS)
+      })
+      expect(polls).toHaveBeenCalledTimes(atMount + 1)
+    })
+  }
 })
