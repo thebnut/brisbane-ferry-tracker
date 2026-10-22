@@ -35,6 +35,23 @@ describe('train board star', () => {
     expect(result.current.saved).toBe(false)
   })
 
+  it('follows another tab, and a "Save" tap never unsaves what was saved elsewhere since (Codex r3)', () => {
+    const { result } = renderHook(() => useStar({ from: 'central', to: null }, 'Central', () => {}))
+    expect(result.current.saved).toBe(false)
+    localStorage.setItem(FAVOURITES_KEY, JSON.stringify([{ from: 'central', to: null }]))
+    act(() => {
+      dispatchEvent(new StorageEvent('storage', { key: FAVOURITES_KEY }))
+    })
+    expect(result.current.saved).toBe(true)
+    // Before the event arrives: the button still says Save, and tapping it keeps it saved.
+    localStorage.setItem(FAVOURITES_KEY, '[]')
+    const stale = renderHook(() => useStar({ from: 'central', to: null }, 'Central', () => {}))
+    localStorage.setItem(FAVOURITES_KEY, JSON.stringify([{ from: 'central', to: null }]))
+    act(() => stale.result.current.toggle())
+    expect(readFavourites()).toEqual([{ from: 'central', to: null }])
+    expect(stale.result.current.saved).toBe(true)
+  })
+
   it('saves the station alone, and offers "Pick a destination"', () => {
     let picked = 0
     const { result } = renderHook(() => useStar({ from: 'central', to: null }, 'Central', () => picked++))

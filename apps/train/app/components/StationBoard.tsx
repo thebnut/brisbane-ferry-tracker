@@ -60,14 +60,25 @@ export function useStar(f: Favourite, name: string, pickDestination: () => void)
   const [toast, setToast] = useState<
     (SaveToastMessage & { evicted: { fav: Favourite; at: number } | null }) | null
   >(null)
-  useEffect(() => setList(readFavourites()), [])
+  // The list as stored, again when another tab changes it.
+  useEffect(() => {
+    const read = () => setList(readFavourites())
+    read()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === FAVOURITES_KEY || e.key == null) read()
+    }
+    addEventListener('storage', onStorage)
+    return () => removeEventListener('storage', onStorage)
+  }, [])
   const gone = useCallback(() => setToast(null), [])
   const saved = list.some((x) => sameFavourite(x, f))
   const toggle = () => {
     // Fresh from storage: another board or tab may have changed the list since this one read it.
     const before = readFavourites()
-    const adding = !before.some((x) => sameFavourite(x, f))
-    const after = toggleFavourite(before, f)
+    // What the button showed decides: a "Save" tap never unsaves one saved elsewhere since.
+    const adding = !saved
+    const has = before.some((x) => sameFavourite(x, f))
+    const after = adding === has ? before : toggleFavourite(before, f)
     setList(after)
     const at = before.findIndex((x) => !after.some((y) => sameFavourite(x, y)))
     const evicted = adding && at >= 0 ? { fav: before[at] as Favourite, at } : null

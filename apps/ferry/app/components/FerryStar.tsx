@@ -66,9 +66,16 @@ export default function FerryStar({
   const name = to ? `${short(from)} → ${short(to)}` : short(from)
   const saved = isFerryFavourite(f, list)
   const toggle = () => {
-    // Fresh from storage: another tab may have changed the list since this board read it.
-    const adding = !isFerryFavourite(f)
-    setList(adding ? addFerryFavourite(f) : removeFerryFavourite(f))
+    // What the button showed decides (a "Save" tap never unsaves one saved elsewhere since); the write is checked
+    // against storage, so it never adds a trip twice.
+    const adding = !saved
+    setList(
+      adding === isFerryFavourite(f)
+        ? readFerryFavourites()
+        : adding
+          ? addFerryFavourite(f)
+          : removeFerryFavourite(f),
+    )
     setToast(
       adding ? { name, fav: f, kept: stored(f), pickDestination: to ? undefined : onPickDestination } : null,
     )
