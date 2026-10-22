@@ -31,6 +31,7 @@ import {
   readFavourites,
   sameFavourite,
   toggleFavourite,
+  writeFavourites,
 } from '../lib/storage.ts'
 import { useOnline } from '../lib/useNow.ts'
 import { useReportLive } from './Chrome.tsx'
@@ -53,9 +54,12 @@ function stored(f: Favourite): boolean {
  * The board's star (THE-118 PR 1): saves the station, with "Going to" when set (`to: null` is a valid favourite).
  * Saving shows the toast, which adds "Pick a destination" (the Going-to sheet) when there is none; a second tap unsaves.
  */
-function useStar(f: Favourite, name: string, pickDestination: () => void) {
+export function useStar(f: Favourite, name: string, pickDestination: () => void) {
   const [list, setList] = useState<Favourite[]>([])
-  const [toast, setToast] = useState<SaveToastMessage | null>(null)
+  /** `evicted`: the favourite a full list let go to make room (MAX_FAVOURITES), and its place, for Undo. */
+  const [toast, setToast] = useState<
+    (SaveToastMessage & { evicted: { fav: Favourite; at: number } | null }) | null
+  >(null)
   useEffect(() => setList(readFavourites()), [])
   const gone = useCallback(() => setToast(null), [])
   const saved = list.some((x) => sameFavourite(x, f))
@@ -63,12 +67,22 @@ function useStar(f: Favourite, name: string, pickDestination: () => void) {
     // Fresh from storage: another board or tab may have changed the list since this one read it.
     const before = readFavourites()
     const adding = !before.some((x) => sameFavourite(x, f))
-    setList(toggleFavourite(before, f))
-    setToast(adding ? { name, kept: stored(f), pickDestination: f.to ? undefined : pickDestination } : null)
+    const after = toggleFavourite(before, f)
+    setList(after)
+    const at = before.findIndex((x) => !after.some((y) => sameFavourite(x, y)))
+    const evicted = adding && at >= 0 ? { fav: before[at] as Favourite, at } : null
+    setToast(
+      adding ? { name, evicted, kept: stored(f), pickDestination: f.to ? undefined : pickDestination } : null,
+    )
   }
   const undo = () => {
-    const now = readFavourites()
-    if (now.some((x) => sameFavourite(x, f))) setList(toggleFavourite(now, f))
+    let now = readFavourites()
+    if (now.some((x) => sameFavourite(x, f))) now = writeFavourites(now.filter((x) => !sameFavourite(x, f)))
+    // The one a full list let go comes back at its place, unless it was saved again since.
+    const ev = toast?.evicted
+    if (ev && !now.some((x) => sameFavourite(x, ev.fav)))
+      now = writeFavourites([...now.slice(0, ev.at), ev.fav, ...now.slice(ev.at)])
+    setList(now)
     setToast(null)
   }
   return { saved, toggle, toast: <SaveToast toast={toast} onGone={gone} onUndo={undo} /> }

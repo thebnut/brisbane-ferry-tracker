@@ -197,6 +197,19 @@ describe('mergeHandoff', () => {
     expect(ledger()).toEqual(['ferry:317584>317590'])
   })
 
+  it('ferry: "Use it" on a conflict keeps the old remembered pair as a favourite and adds the new one (Codex r2)', async () => {
+    const mine = { outbound: { id: '317590', name: 'Riverside' }, inbound: { id: '317584', name: 'Bulimba' } }
+    localStorage.setItem('brisbane-ferry-selected-stops', JSON.stringify(mine))
+    localStorage.setItem('brisbane-ferry-remember-selection', 'true')
+    const { imp } = await modules()
+    expect(imp.useHandedPair({ pair: PAIR, remember: true })).toBe(true)
+    const { readFerryFavourites } = await import('@bft/ferry/app/lib/favourites.ts')
+    expect(readFerryFavourites()).toEqual([
+      { from: '317590', to: '317584' },
+      { from: '317584', to: '317590' },
+    ])
+  })
+
   it('ferry: a pair that isn’t a real route is dropped (nothing saved, not offered again)', async () => {
     const { imp } = await modules()
     const fake = { outbound: { id: '999999', name: 'Nowhere' }, inbound: { id: '317590', name: 'Riverside' } }

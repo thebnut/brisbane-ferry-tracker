@@ -114,6 +114,22 @@ export function saveFerryPair(p: FerryHandoff): void {
   const pair = ferryPair(p)
   if (!pair) return
   const f = STORES.ferry
+  // As save-pair.ts: before the new pair replaces it, a pair remembered before favourites existed becomes one
+  // (favourites.ts migration; "Use it" on a conflict replaces a remembered pair here).
+  let had = readJson(localStorage, f.favourites)
+  if (localStorage.getItem(f.favourites) == null) {
+    const old = (localStorage.getItem(f.remember) === 'true' ? readJson(localStorage, f.pair) : null) as {
+      outbound?: { id?: unknown }
+      inbound?: { id?: unknown }
+    } | null
+    // favourites.ts cleanFavourites: a known origin, its "To" only when reachable.
+    const origin = typeof old?.outbound?.id === 'string' ? terminalById(old.outbound.id) : null
+    const to = old?.inbound?.id
+    had = origin
+      ? [{ from: origin.id, to: typeof to === 'string' && origin.destinations.includes(to) ? to : null }]
+      : []
+    localStorage.setItem(f.favourites, JSON.stringify(had))
+  }
   // The new pair is written before the old one is removed, so a failed write leaves a pair (see storeWithRollback).
   if (p.remember) {
     localStorage.setItem(f.pair, JSON.stringify(pair))
@@ -127,9 +143,7 @@ export function saveFerryPair(p: FerryHandoff): void {
   setCookie(
     `${f.cookie}=${pair.outbound.id}.${pair.inbound.id}; path=/; samesite=lax${p.remember ? `; ${YEAR}` : ''}`,
   )
-  // As save-pair.ts: a remembered pair joins the ferry favourites, at the end (a new list when there is none: only a
-  // device with no pair gets here, so the migration would have found nothing else).
-  const had = readJson(localStorage, f.favourites)
+  // As save-pair.ts: a remembered pair joins the ferry favourites, at the end.
   const favs = Array.isArray(had) ? had : []
   const fav = { from: pair.outbound.id, to: pair.inbound.id }
   if (p.remember && !favs.some((x) => x?.from === fav.from && (x?.to ?? null) === fav.to))
