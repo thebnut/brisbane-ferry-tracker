@@ -7,6 +7,7 @@ import {
   addDays,
   BUILD_HEADER,
   buildId,
+  cityStopKeys,
   currentServiceDate,
   type Departure,
   type DeparturesResponse,
@@ -321,6 +322,12 @@ export function createApp(deps: AppDeps): Hono<Env> {
     const toKeys = toKey?.includes(',') ? toKey.split(',') : null
     if (toKeys && (toKeys.length > MAX_PLACE_STOPS || !toKeys.every((k) => STOP_KEY.test(k))))
       return c.json({ error: 'bad to', detail: `up to ${MAX_PLACE_STOPS} comma-separated stop keys` }, 400)
+    // `city` (in|out, /v1/ask THE-117): only services that call at a city stop (CITY_STOPS) after this one, or only
+    // those that don't. Not with `to`, which already names where the service must go.
+    const cityQ = c.req.query('city') || null
+    if (cityQ != null && cityQ !== 'in' && cityQ !== 'out')
+      return c.json({ error: 'bad city', detail: 'in or out' }, 400)
+    if (cityQ && toKey) return c.json({ error: 'bad city', detail: 'city and to are exclusive' }, 400)
     const limitQ = Number(c.req.query('limit') ?? DEFAULT_LIMIT)
     const limit = Number.isFinite(limitQ)
       ? Math.min(MAX_LIMIT, Math.max(1, Math.floor(limitQ)))
@@ -391,9 +398,12 @@ export function createApp(deps: AppDeps): Hono<Env> {
         toStopIds = new Set(ts.flatMap((t) => [...t.ids]))
         to = { key: toKey, name: ts.find((t) => t.name)?.name ?? toKey }
       }
+      const city = cityQ ? cityStopIds(ds, mode, stations) : undefined
+      if (cityQ === 'in') toStopIds = city
       const mergeOptions: MergeOptions & { stationPlatforms?: ReadonlyMap<string, string | undefined> } = {
         nowS: Math.floor(fromMs / 1000),
         toStopIds,
+        ...(cityQ === 'out' ? { avoidStopIds: city } : {}),
         limit,
         rtState: r.rtState,
         boardingStopIds: stop.ids,
@@ -871,6 +881,15 @@ function destinationStops(
   // Unknown destination: keep the key so the merge filters to nothing rather than to everything.
   if (ids.size === 0) ids.add(to)
   return { name, ids }
+}
+
+/** Stop ids of the city's stops (CITY_STOPS) for a mode: their own ids, and every platform of a city station. */
+function cityStopIds(days: StaticStopDay[], mode: Mode, stations: Stations | null): Set<string> {
+  const keys = cityStopKeys(mode)
+  const ids = new Set<string>(keys)
+  for (const k of keys) for (const id of stations?.platforms.get(k)?.keys() ?? []) ids.add(id)
+  for (const day of days) for (const s of day.stops) if (s.key != null && keys.has(s.key)) ids.add(s.id)
+  return ids
 }
 
 const tripLookup = new WeakMap<TripIndexDay, Map<string, TripIndexDay['trips'][number]>>()

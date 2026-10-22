@@ -20,6 +20,8 @@ export interface MergeOptions {
   nowS: number
   /** Destination stop ids (all platforms of a station for train). Empty or undefined = any. */
   toStopIds?: ReadonlySet<string>
+  /** Rows that call at any of these stops later are dropped ("away from the city", /v1/ask THE-117). */
+  avoidStopIds?: ReadonlySet<string>
   limit?: number
   rtState: RtState
   /** Rows whose effective departure is older than this many seconds are dropped. */
@@ -73,6 +75,7 @@ export function mergeDepartures(
 ): Departure[] {
   const grace = opts.graceS ?? 30
   const to = opts.toStopIds && opts.toStopIds.size > 0 ? opts.toStopIds : null
+  const avoid = opts.avoidStopIds && opts.avoidStopIds.size > 0 ? opts.avoidStopIds : null
   const rows: Departure[] = []
   // For a `to` query on a loop that repeats the boarding stop, keep only the last boarding before the destination.
   const bestByTrip = new Map<string, number>()
@@ -84,6 +87,13 @@ export function mergeDepartures(
       const route = day.routes[routeIdx]
       if (!route) continue
       if (opts.routes && !opts.routes.has(route.short)) continue
+
+      if (avoid) {
+        let via = false
+        for (let i = 0; i + 3 < ds.length && !via; i += 4)
+          via = avoid.has(day.stops[ds[i] as number]?.id ?? '')
+        if (via) continue
+      }
 
       let toArrOffset: number | null = null
       let toSeq: number | null = null

@@ -110,9 +110,19 @@ function buildPlaces(stops: StopIndexEntry[]): Map<number, Place> {
 
 const uf = new uFuzzy({ intraMode: 1, intraIns: 1 })
 
+/** Street types as the stop index mostly abbreviates them, on both sides: "krupp road" finds "Krupp Rd" (THE-117). */
+const STREET_TYPES: Array<[RegExp, string]> = [
+  [/\broad\b/g, 'rd'],
+  [/\bstreet\b/g, 'st'],
+  [/\bavenue\b/g, 'ave'],
+  [/\bterrace\b/g, 'tce'],
+  [/\bdrive\b/g, 'dr'],
+  [/\bparade\b/g, 'pde'],
+  [/\bhighway\b/g, 'hwy'],
+]
+
 const clean = (s: string) =>
-  s
-    .toLowerCase()
+  STREET_TYPES.reduce((t, [re, short]) => t.replace(re, short), s.toLowerCase())
     .replace(/\b(ferry terminal|railway station|station|bus station|busway station)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()

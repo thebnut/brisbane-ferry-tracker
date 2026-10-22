@@ -132,6 +132,11 @@ export async function answerIntent(
       // Filter by route before limiting: fetch a wider window when a route is requested (Codex review round 2).
       const q = new URLSearchParams({ limit: '5' })
       if (intent.route) q.set('route', intent.route)
+      // Towards the city or away from it: by each service's stops after this one (THE-117).
+      const cityDir = intent.kind === 'departures_at' ? intent.city : undefined
+      if (cityDir) q.set('city', cityDir)
+      // From the city: each line says which city stop it leaves from.
+      const fromCity = intent.kind === 'next_departure' && intent.city === 'out'
       if (to) q.set('to', (to.stopKeys && to.stopKeys.length > 1 ? to.stopKeys : [to.key]).join(','))
       const loaded = await fanOut(
         fromKeys.map((k) => () => fetchApi(`/v1/${mode}/stops/${encodeURIComponent(k)}/departures?${q}`)),
@@ -143,10 +148,15 @@ export async function answerIntent(
       if (!first) return { answer: `Sorry, I couldn't load departures for ${from.name} right now.` }
       // A place's platforms answer separately: merge, earliest first (the effective time each card shows).
       const seen = new Set<string>()
-      const rows = bodies
-        .flatMap((b) => b.departures)
+      const boardAt = new Map<Departure, string>()
+      for (const b of bodies) for (const d of b.departures) boardAt.set(d, b.stop.name)
+      const byTime = (a: Departure, b: Departure) => (a.estDep ?? a.schedDep) - (b.estDep ?? b.schedDep)
+      const all = bodies.flatMap((b) => b.departures)
+      // A service through several city stops is listed once, from the first of them it reaches.
+      if (fromCity) all.sort(byTime)
+      const rows = all
         .filter((d) => d.status !== 'skipped' && !seen.has(d.tripInstance) && !!seen.add(d.tripInstance))
-        .sort((a, b) => (a.estDep ?? a.schedDep) - (b.estDep ?? b.schedDep))
+        .sort(byTime)
       const stopName = grouped ? from.name : first.stop.name
       const toName = to
         ? to.stopKeys && to.stopKeys.length > 1
@@ -156,20 +166,29 @@ export async function answerIntent(
       const toRef = first.to && toName ? { ...first.to, name: toName } : first.to
       // The route restriction is part of the claim, positive or negative (Codex review round 5).
       const what = intent.route ? `route ${intent.route} ${PLURAL[mode]}` : `${PLURAL[mode]}`
-      const head = to ? `${what} from ${stopName} to ${toName}` : `${what} from ${stopName}`
+      const towards = cityDir === 'in' ? ' to the city' : cityDir === 'out' ? ' away from the city' : ''
+      const head = to ? `${what} from ${stopName} to ${toName}` : `${what} from ${stopName}${towards}`
       const note = intent.kind === 'next_departure' && intent.note ? ` ${intent.note}` : ''
       // A platform that didn't answer in time leaves a gap: say so rather than claim these are the next ones.
       const partial =
         bodies.length < fromKeys.length
-          ? ` Some platforms at ${stopName} didn't answer in time, so there may be earlier services.`
+          ? fromCity
+            ? " Some city stops didn't answer in time, so there may be earlier services."
+            : ` Some platforms at ${stopName} didn't answer in time, so there may be earlier services.`
           : ''
+      // "None go to the city" is about stopping patterns, so it says so rather than "no services".
+      const none = cityDir
+        ? `No upcoming ${what} from ${stopName} ${cityDir === 'in' ? 'go on to a city stop' : 'head away from the city'}.`
+        : `No upcoming ${head} found.`
       if (rows.length === 0)
         return {
-          answer: `No upcoming ${head} found.${note}${partial}`,
+          answer: `${none}${note}${partial}`,
           stop: { mode, key: from.key, name: stopName },
           to: toRef,
         }
-      const lines = rows.slice(0, 3).map((d) => describe(d, nowS))
+      const lines = rows
+        .slice(0, 3)
+        .map((d) => `${describe(d, nowS)}${fromCity && boardAt.get(d) ? `, from ${boardAt.get(d)}` : ''}`)
       const live = bodies.every((b) => b.rtState === 'live')
       const caveat = live ? '' : ' Live times are unavailable, so these are timetabled.'
       return {
