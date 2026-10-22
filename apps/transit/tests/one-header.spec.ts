@@ -106,12 +106,12 @@ function headerTests(phone: boolean) {
         await expect(page.locator('header').getByRole('link', { name: back })).toHaveAttribute('href', board)
     })
 
-  for (const path of ['/ferry', '/train/station/central', '/bus/stop/10802'])
+  for (const path of ['/ferry', '/train/station/central', '/bus/stop/10802', '/bus/route/333'])
     test(`${path}: tapping the status line refreshes`, async ({ page }) => {
       await page.goto(path)
       const line = page.locator('[data-status-line]')
       await expect(line).toHaveText(/Live · updated \d+ (s|min) ago/)
-      const refetch = page.waitForRequest(/\/v1\/[a-z]+\/stops\/[^/]+\/departures/)
+      const refetch = page.waitForRequest(/\/v1\/([a-z]+\/stops\/[^/]+\/departures|bus\/vehicles)/)
       await line.click()
       await refetch
     })

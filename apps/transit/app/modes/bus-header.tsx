@@ -8,6 +8,7 @@ import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
 import type { ReactNode } from 'react'
 import { type BackLink, type LiveProps, ModeHeader } from '../components/ModeHeader.tsx'
 import { StatusLine } from '../components/StatusLine.tsx'
+import { useRefetchLive } from './refetch-live.ts'
 
 export function SiteHeader({
   back,
@@ -43,12 +44,15 @@ export function UpdatedStrip({
   children?: ReactNode
 }) {
   const page = usePageCheck()
+  // A page with live data but no refresh of its own (the route page's vehicles): tapping refetches its live queries.
+  const own = useRefetchLive()
+  const fallback = live.live !== undefined && !onRefresh
   return (
     <StatusLine
       {...live}
       detail={formatAge(sourceTimeS(source, { nowMs, ...page }), nowMs)}
-      onRefresh={onRefresh}
-      refreshing={refreshing}
+      onRefresh={fallback ? own.refresh : onRefresh}
+      refreshing={fallback ? own.refreshing : refreshing}
     >
       {children}
     </StatusLine>
