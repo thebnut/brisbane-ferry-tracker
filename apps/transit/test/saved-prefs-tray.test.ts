@@ -8,6 +8,7 @@ import {
   OVERLAY_KEY,
   OVERLAY_VERSION,
   savedId,
+  storeTray,
   trayOrder,
 } from '../app/lib/saved-prefs-tray.ts'
 
@@ -103,6 +104,43 @@ describe('inOverlayOrder', () => {
     })
     expect(inOverlayOrder(defaults)).toEqual(defaults)
     get.mockRestore()
+  })
+})
+
+describe('storeTray', () => {
+  const stored = [ferry, central, roma, cultural]
+  const opened = [cultural, roma, ferry, central]
+
+  it('gives every mode its store order back when the tray is saved as it opened', () => {
+    expect(storeTray(stored, opened, [...opened])).toEqual(stored)
+  })
+
+  it('gives a changed mode the tray order and leaves the others in store order', () => {
+    expect(storeTray(stored, opened, [cultural, central, roma, ferry])).toEqual([
+      ferry,
+      central,
+      roma,
+      cultural,
+    ])
+    const other: TrayItem = { mode: 'bus', id: '1', name: 'Other' }
+    expect(storeTray(stored, opened, [cultural, roma, ferry, central, other])).toEqual([
+      ferry,
+      central,
+      roma,
+      cultural,
+      other,
+    ])
+  })
+
+  it('counts a new ferry To or a stop taken out as a change', () => {
+    const toElsewhere = { ...ferry, to: '317600' }
+    expect(storeTray(stored, opened, [cultural, roma, toElsewhere, central])).toEqual([
+      toElsewhere,
+      central,
+      roma,
+      cultural,
+    ])
+    expect(storeTray(stored, opened, [cultural, ferry, central])).toEqual([ferry, central, cultural])
   })
 })
 

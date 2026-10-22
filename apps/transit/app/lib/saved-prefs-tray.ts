@@ -73,6 +73,23 @@ export function inOverlayOrder(items: readonly TrayItem[]): TrayItem[] {
 }
 
 /**
+ * The tray each mode's store is re-saved from. A re-run's tray opens in the overlay's order (`before`), which the
+ * stores don't keep: a mode whose stops the visitor left as they opened (which, their order, the ferry's To) gets them
+ * back in its store's own order (`stored`), so an unchanged Save doesn't reorder it; a mode they changed takes the
+ * tray's.
+ */
+export function storeTray(
+  stored: readonly TrayItem[],
+  before: readonly TrayItem[],
+  after: readonly TrayItem[],
+): TrayItem[] {
+  const of = (items: readonly TrayItem[], mode: TrayItem['mode']) => items.filter((i) => i.mode === mode)
+  const sig = (items: readonly TrayItem[], mode: TrayItem['mode']) => of(items, mode).map(savedId).join('\n')
+  const modes = [...new Set([...stored, ...after].map((i) => i.mode))]
+  return modes.flatMap((mode) => of(sig(before, mode) === sig(after, mode) ? stored : after, mode))
+}
+
+/**
  * After a re-run's Save: the overlay, if this device has one, takes the tray's order (names and the rest are kept).
  * A tray saved as it opened writes nothing. With no overlay, or one in a shape this code doesn't write (another
  * version), nothing is written; blocked storage changes nothing. saved-prefs.ts readPrefs still checks whatever it

@@ -10,6 +10,7 @@ import { inOverlayOrder } from '../lib/saved-prefs-tray.ts'
 import TransitOnboardingPicker, { allTrayItems } from './OnboardingPicker.tsx'
 
 export default function TransitOnboardingRerun({ onClose }: { onClose: () => void }) {
-  const [before] = useState(() => inOverlayOrder(allTrayItems()))
-  return <TransitOnboardingPicker initialItems={before} onClose={onClose} />
+  const [stored] = useState(allTrayItems)
+  const [before] = useState(() => inOverlayOrder(stored))
+  return <TransitOnboardingPicker initialItems={before} storedItems={stored} onClose={onClose} />
 }
