@@ -33,6 +33,8 @@ const DEADLINE = 80
 const OK_DEADLINE = 300
 /** Generous slack for timer jitter on a busy CI runner. */
 const SLACK = 150
+/** How early a timer may fire against performance.now(), for a lower bound on a wait. */
+const EARLY = 25
 
 const never = <T>() => new Promise<T>(() => {})
 
@@ -259,12 +261,16 @@ describe('StaticStore reads with a request budget', () => {
       const { src, count } = scripted(tree.source, (k) => (k === key ? 'never' : 'ok'))
       // 400 ms reads in a 600 ms budget: the clock says 600 ms are always left, so it retries; the timer ends it.
       const store = new StaticStore(src, { now: () => 0, loadDeadlineMs: 400 })
-      const { value: err, ms } = await timed(
-        store.stopDay(index, D, '317584', readBudget(600, 0)).catch((e: unknown) => e),
-      )
+      // Timed from before the budget is made, since its timer starts there and stopDay's synchronous start runs before
+      // timed() would begin; a timer can also fire a little early (CI 22 Oct: 588 ms against a 590 ms floor). Past the
+      // one 400 ms read (no retry), short of two (the budget ignored).
+      const t0 = performance.now()
+      const budget = readBudget(600, 0)
+      const err = await store.stopDay(index, D, '317584', budget).catch((e: unknown) => e)
+      const ms = performance.now() - t0
       expect(err).toMatchObject({ name: 'StaticReadError', why: 'deadline' })
       expect(count(key)).toBe(2)
-      expect(ms).toBeGreaterThanOrEqual(590)
+      expect(ms).toBeGreaterThanOrEqual(600 - EARLY)
       expect(ms).toBeLessThan(600 + SLACK)
     })
 
