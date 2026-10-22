@@ -8,6 +8,8 @@
  *  - `navSlots()`: each app keeps its section navigation in one module (`app/components/nav.tsx`). Inside this build
  *    that module resolves to `app/modes/<mode>-nav.tsx` instead, so the bottom bar is the Mode Tabs while every page
  *    module is imported unchanged. test/nav-slots.test.ts checks each replacement exports what the original does.
+ *    The same way, each app's re-run onboarding picker (`app/components/OnboardingRerun.tsx`, THE-113) resolves to
+ *    transit's, so "Set up My Transit stops" in a mode tab's Settings edits every mode's stops.
  */
 import { fileURLToPath } from 'node:url'
 import type { Plugin } from 'vite'
@@ -44,14 +46,22 @@ export const NAV_SLOTS: Record<string, string> = Object.fromEntries(
   ]),
 )
 
+/** Each mode app's re-run onboarding picker → transit's, which has every mode. */
+export const RERUN_SLOTS: Record<string, string> = Object.fromEntries(
+  (['ferry', 'train', 'bus'] as const).map((mode) => [
+    `${appsDir}${mode}/app/components/OnboardingRerun.tsx`,
+    fileURLToPath(new URL('./app/components/OnboardingRerun.tsx', import.meta.url)),
+  ]),
+)
+
 export function navSlots(): Plugin {
   return {
     name: 'bft:transit-nav-slots',
     enforce: 'pre',
     async resolveId(id, importer, options) {
-      if (!importer || !id.endsWith('nav.tsx')) return null
+      if (!importer || !(id.endsWith('nav.tsx') || id.endsWith('OnboardingRerun.tsx'))) return null
       const r = await this.resolve(id, importer, { ...options, skipSelf: true })
-      return r ? (NAV_SLOTS[r.id] ?? null) : null
+      return r ? (NAV_SLOTS[r.id] ?? RERUN_SLOTS[r.id] ?? null) : null
     },
   }
 }

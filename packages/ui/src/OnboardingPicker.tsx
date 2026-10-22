@@ -17,6 +17,7 @@ import {
   type TrayState,
   trayKey,
   trayReducer,
+  trayRerunSavable,
   traySavable,
 } from './onboarding.ts'
 import StopPickerMap from './StopPickerMap.tsx'
@@ -55,6 +56,11 @@ export interface OnboardingPickerProps {
   /** The mode the picker opens on (default: the first source). */
   initialMode?: OnboardMode
   /**
+   * A re-run from Settings (THE-113): the stops this device has saved, already in the tray. Saving may then leave the
+   * tray empty (everything unsaved), and the picker is titled for My Transit.
+   */
+  initialItems?: TrayItem[]
+  /**
    * Writes the tray through each mode's store. Throws (or returns false) when storage refuses; the tray stays so the
    * visitor can try again. After a save the app usually reloads its home, which reads the stores.
    */
@@ -87,8 +93,16 @@ function wrapTab(e: KeyboardEvent<HTMLElement>) {
   }
 }
 
-export default function OnboardingPicker({ sources, initialMode, onSave, onClose }: OnboardingPickerProps) {
-  const [tray, dispatch] = useReducer(trayReducer, undefined, emptyTray)
+export default function OnboardingPicker({
+  sources,
+  initialMode,
+  initialItems,
+  onSave,
+  onClose,
+}: OnboardingPickerProps) {
+  const [tray, dispatch] = useReducer(trayReducer, undefined, () =>
+    initialItems ? { items: initialItems, said: '' } : emptyTray(),
+  )
   const [modeName, setMode] = useState<OnboardMode>(initialMode ?? sources[0]?.mode ?? 'bus')
   const source = sources.find((s) => s.mode === modeName) ?? (sources[0] as ModeSource)
   const [query, setQuery] = useState('')
@@ -132,7 +146,7 @@ export default function OnboardingPicker({ sources, initialMode, onSave, onClose
   })
   const pick = (s: PickerStop) => dispatch({ type: 'toggle', item: toItem(s) })
   const results = query.trim() ? source.search(query).slice(0, 8) : []
-  const savable = traySavable(tray)
+  const savable = initialItems ? trayRerunSavable(tray, initialItems) : traySavable(tray)
   const byMode = (m: OnboardMode) => sources.find((s) => s.mode === m)
   const ferryMissingTo = tray.items.some((i) => i.mode === 'ferry' && !i.to)
 
@@ -175,7 +189,7 @@ export default function OnboardingPicker({ sources, initialMode, onSave, onClose
       ref={rootRef}
       role="dialog"
       aria-modal="true"
-      aria-label="Set up your favourite stops"
+      aria-label={initialItems ? 'Set up My Transit stops' : 'Set up your favourite stops'}
       data-onboarding-picker=""
       onKeyDown={(e) => {
         // The map picker handles its own Escape (list, then close); this is Escape from the tray.
@@ -266,7 +280,10 @@ export default function OnboardingPicker({ sources, initialMode, onSave, onClose
           Your stops{tray.items.length ? ` (${tray.items.length})` : ''}
         </h3>
         {tray.items.length === 0 ? (
-          <p className="text-sm text-sched-text">Tap stops on the map or in the list to add them here.</p>
+          <p className="text-sm text-sched-text">
+            Tap stops on the map or in the list to add them here.
+            {initialItems?.length ? ' Saving now removes all your saved stops.' : ''}
+          </p>
         ) : (
           <ol className="flex flex-col gap-1" data-tray-items="">
             {tray.items.map((item, i) => {

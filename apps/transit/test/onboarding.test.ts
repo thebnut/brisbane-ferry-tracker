@@ -67,3 +67,28 @@ describe('transit onboarding', () => {
     expect(prompt.anySaved()).toBe(true)
   })
 })
+
+describe('transit re-run from Settings (THE-113)', () => {
+  it('the tray opens with every mode’s saved stops; one Save edits each store, and My Transit matches the tray', async () => {
+    const { picker, saved } = await modules()
+    picker.saveAll({
+      said: '',
+      items: [
+        { mode: 'bus', id: '10802', name: 'Cultural Centre, platform 1' },
+        { mode: 'train', id: 'central', name: 'Central' },
+        { mode: 'ferry', id: '317584', name: 'Bulimba', to: '317590' },
+      ],
+    })
+    const before = picker.allTrayItems()
+    expect(before.map((i) => `${i.mode}:${i.id}`)).toEqual(['ferry:317584', 'train:central', 'bus:10802'])
+    // Ferry taken out, a bus stop added, train untouched.
+    const ok = picker.resaveAll({
+      said: '',
+      items: [before[1], before[2], { mode: 'bus', id: '1832', name: 'King George Square' }].filter(
+        (i) => i != null,
+      ),
+    })
+    expect(ok).toBe(true)
+    expect(saved.readSavedItems().map((i) => i.id)).toEqual(['train:central>', 'bus:10802', 'bus:1832'])
+  })
+})

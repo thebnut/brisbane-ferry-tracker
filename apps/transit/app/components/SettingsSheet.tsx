@@ -1,10 +1,16 @@
-/** Settings (theme) for the transit pages; lazy, see Chrome.tsx. Writes the same cookie and key the mode pages read. */
+/**
+ * Settings (theme, and "Set up My Transit stops": THE-113) for the transit pages; lazy, see Chrome.tsx. The theme
+ * writes the same cookie and key the mode pages read.
+ */
 import { KEYS as BUS_KEYS } from '@bft/bus/app/lib/storage.ts'
 import { BottomSheet } from '@bft/ui'
 import { SegmentedControl } from '@bft/ui/bus'
-import { useState } from 'react'
+import { RerunEntry, RerunHost } from '@bft/ui/onboarding-rerun'
+import { lazy, useState } from 'react'
 import { useRouteLoaderData } from 'react-router'
 import { getCookie, safe, THEME_COOKIE } from '../lib/storage.ts'
+
+const OnboardingRerun = lazy(() => import('./OnboardingRerun.tsx'))
 
 export type ThemePref = 'system' | 'light' | 'dark'
 
@@ -22,6 +28,8 @@ export default function SettingsSheet({ open, onClose }: { open: boolean; onClos
     const t = safe(() => getCookie(document.cookie, THEME_COOKIE), null)
     return t === 'light' || t === 'dark' || t === 'system' ? t : (root?.theme ?? 'system')
   })
+  const [rerun, setRerun] = useState(false)
+  if (rerun) return <RerunHost onClose={onClose}>{(close) => <OnboardingRerun onClose={close} />}</RerunHost>
   return (
     <BottomSheet open={open} onClose={onClose} title="Settings">
       <div className="flex flex-col gap-5">
@@ -48,6 +56,7 @@ export default function SettingsSheet({ open, onClose }: { open: boolean; onClos
             ]}
           />
         </div>
+        <RerunEntry onOpen={() => setRerun(true)} />
         <p className="text-sm text-sched-text">
           My Transit shows the stops you save in the Ferry, Train and Bus tabs. They stay on this device.
           Times refresh every 15 seconds while the page is open.

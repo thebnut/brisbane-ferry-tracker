@@ -7,6 +7,7 @@ import { isDemoSession } from '@bft/ui/demo'
  *  - bus: My stops (bft-bus-saved)
  * Offline, each card shows scheduled times from the newest copy kept on the device ("Offline · scheduled"): this
  * page's own copy first, else the copy the mode's own page keeps.
+ * My Transit applies the visitor's own order and names on top (saved-prefs.ts, THE-114); this is the default list.
  */
 
 import { stopHref } from '@bft/bus/app/lib/stops.ts'
@@ -28,10 +29,14 @@ export interface SavedItem {
   /** Board stop key (/v1/{mode}/stops/{key}/departures) and optional destination key. */
   key: string
   to: string | null
+  /** The stores' own name for it. */
   title: string
+  /** The visitor's own name for it on My Transit (saved-prefs.ts applyPrefs), shown instead of `title`. */
+  label?: string
   href: string
 }
 
+/** Ferry, then train favourites, then bus stops, each in its own store's order. */
 export function readSavedItems(): SavedItem[] {
   const out: SavedItem[] = []
   const pair = readSavedPair()

@@ -37,6 +37,8 @@ export const ALERTS_EVERY_MS = 60_000
 export const FETCH_TIMEOUT_MS = 5_000
 export const WATCHDOG_STALE_MS = 45_000
 export const RAW_PERSIST_EVERY_MS = 60_000
+/** How often the hub logs its stop_sequence mismatch counters (R20-T1), when any are non-zero. */
+export const SEQ_LOG_EVERY_MS = 10 * 60_000
 /** A poll whose wall time reaches this logs its phase timings even without RT_PROFILE. */
 export const SLOW_CYCLE_MS = 2_500
 /**
@@ -250,6 +252,7 @@ export class HubCore {
   private alerts: Alert[] = []
   private running: Promise<void> | null = null
   private rawPersistedAt = 0
+  private seqLoggedAt = 0
   /** Trip key → mode of the current snapshot, for the per-mode split. */
   private tripModes = new Map<string, Mode>()
   /**
@@ -566,6 +569,7 @@ export class HubCore {
         this.snapshotJson = null
         this.meta.seq = snapshot.header.seq
         rebuilt = true
+        this.logSeqStats(snapshot, now)
         // With R2 bound the snapshot lives there as per-scope documents (merged back after a restart); keeping a
         // second copy in DO storage every cycle costs CPU.
         if (!this.d.r2) Object.assign(writes, this.snapshotWrites(this.fullJson() as string))
@@ -748,6 +752,19 @@ export class HubCore {
   }
 
   /** Feed the per-feed source watch: TripUpdates and VehiclePositions (alerts headers may rightly stand still). */
+  /** Per-mode seqMismatch / seqDropped from this snapshot, at most once per SEQ_LOG_EVERY_MS and only when non-zero. */
+  private logSeqStats(snapshot: RtSnapshot, now: number): void {
+    if (now - this.seqLoggedAt < SEQ_LOG_EVERY_MS) return
+    const fields: Record<string, number> = {}
+    for (const [m, st] of Object.entries(snapshot.header.stats ?? {})) {
+      if (st?.seqMismatch) fields[`${m}SeqMismatch`] = st.seqMismatch
+      if (st?.seqDropped) fields[`${m}SeqDropped`] = st.seqDropped
+    }
+    if (Object.keys(fields).length === 0) return
+    this.seqLoggedAt = now
+    this.log.info('rt seq mismatch', { ...fields, seq: snapshot.header.seq })
+  }
+
   private watchSource(f: FeedSpec, msg: FeedMessage | undefined, now: number): void {
     if (f.kind === 'alerts' || !msg?.header) return
     this.sources.observe(f.key, Number(msg.header.timestamp), now, this.meta.seq)

@@ -12,7 +12,6 @@ import { readFavourites } from '@bft/train/app/lib/storage.ts'
 import { shouldOffer } from '@bft/ui/onboarding'
 import OnboardingPrompt from '@bft/ui/onboarding-prompt'
 import { lazy } from 'react'
-import { MODE_BASES } from '../lib/modes.ts'
 
 const Picker = lazy(() => import('./OnboardingPicker.tsx'))
 
@@ -42,18 +41,12 @@ function ferrySeen(): boolean {
   }
 }
 
-/** The tab the visitor is on picks the picker's first mode. */
-function currentMode(): 'bus' | 'train' | 'ferry' {
-  const p = location.pathname
-  return p.startsWith(MODE_BASES.ferry) ? 'ferry' : p.startsWith(MODE_BASES.train) ? 'train' : 'bus'
-}
-
 export default function Onboarding() {
   return (
     <OnboardingPrompt
       offer={() => shouldOffer({ anySaved: anySaved(), seenBefore: ferrySeen() })}
       onAnswer={markSelectorSeen}
-      renderPicker={(close) => <Picker initialMode={currentMode()} onClose={close} />}
+      renderPicker={(close) => <Picker onClose={close} />}
     />
   )
 }

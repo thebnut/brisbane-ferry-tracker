@@ -46,7 +46,7 @@ export function readSaved(): SavedStop[] {
   return savedCache
 }
 
-function writeSaved(list: SavedStop[]) {
+export function writeSaved(list: SavedStop[]) {
   savedCache = list
   safe(() => localStorage.setItem(KEYS.SAVED, JSON.stringify(list)), undefined)
   const ids = list

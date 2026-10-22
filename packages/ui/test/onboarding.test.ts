@@ -1,15 +1,18 @@
 /** P4 onboarding's rules and tray (onboarding.ts). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  applyTray,
   emptyTray,
   HANDOFF_LEDGER_KEY,
   markOnboardingDone,
+  modeChanged,
   ONBOARDING_KEY,
   onboardingDone,
   shouldOffer,
   type TrayItem,
   type TrayState,
   trayReducer,
+  trayRerunSavable,
   traySavable,
   whenIdle,
 } from '../src/onboarding.ts'
@@ -186,5 +189,60 @@ describe('tray (multi-select)', () => {
     expect(trayReducer(s, { type: 'setTo', key: 'bus:1', to: 'x' })).toBe(s)
     expect(traySavable(emptyTray())).toBe(false)
     expect(traySavable(s)).toBe(true)
+  })
+})
+
+describe('re-run from Settings (THE-113)', () => {
+  it('a mode changed when its stops, their order or the ferry To differ; other modes are not looked at', () => {
+    const before = [bus('1'), train('central'), bus('2'), { ...ferry('bulimba'), to: 'riverside' }]
+    expect(modeChanged(before, [...before], 'bus')).toBe(false)
+    expect(modeChanged(before, [bus('2'), train('central'), bus('1')], 'bus')).toBe(true)
+    expect(modeChanged(before, [bus('1'), bus('2')], 'bus')).toBe(false)
+    expect(modeChanged(before, [bus('1'), bus('2')], 'train')).toBe(true)
+    expect(modeChanged(before, [{ ...ferry('bulimba'), to: 'hawthorne' }], 'ferry')).toBe(true)
+    expect(modeChanged(before, [{ ...ferry('bulimba'), to: 'riverside' }], 'ferry')).toBe(false)
+  })
+
+  type Fav = { from: string; to: string | null; extra?: string }
+  const stationId = (f: Fav) => (f.to == null ? f.from : null)
+  const make = (i: TrayItem): Fav => ({ from: i.id, to: null })
+
+  it('an unchanged tray gives the list back as it was, kept entries as they are', () => {
+    const list: Fav[] = [
+      { from: 'a', to: null, extra: 'x' },
+      { from: 'a', to: 'b' },
+      { from: 'c', to: null },
+    ]
+    const out = applyTray(list, stationId, [train('a'), train('c')], make)
+    expect(out).toEqual(list)
+    expect(out[0]).toBe(list[0])
+  })
+
+  it('removes, adds at the end and reorders; entries the tray does not show keep their place', () => {
+    const list: Fav[] = [
+      { from: 'a', to: null },
+      { from: 'a', to: 'b' },
+      { from: 'c', to: null },
+    ]
+    expect(applyTray(list, stationId, [train('c'), train('d')], make)).toEqual([
+      { from: 'c', to: null },
+      { from: 'a', to: 'b' },
+      { from: 'd', to: null },
+    ])
+    expect(applyTray(list, stationId, [train('c'), train('a')], make)).toEqual([
+      { from: 'c', to: null },
+      { from: 'a', to: 'b' },
+      { from: 'a', to: null },
+    ])
+    expect(applyTray(list, stationId, [], make)).toEqual([{ from: 'a', to: 'b' }])
+    expect(applyTray([], stationId, [train('a')], make)).toEqual([{ from: 'a', to: null }])
+  })
+
+  it('a re-run may save an empty tray (unsaving everything) only if it opened with stops; the ferry needs its To', () => {
+    expect(trayRerunSavable(emptyTray(), [])).toBe(false)
+    expect(trayRerunSavable(emptyTray(), [bus('1')])).toBe(true)
+    expect(trayRerunSavable({ items: [bus('1')], said: '' }, [])).toBe(true)
+    expect(trayRerunSavable({ items: [ferry('bulimba')], said: '' }, [bus('1')])).toBe(false)
+    expect(trayRerunSavable({ items: [{ ...ferry('bulimba'), to: 'riverside' }], said: '' }, [])).toBe(true)
   })
 })
