@@ -3,6 +3,7 @@ import type { TrayItem } from '@bft/ui/onboarding'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PREFS_KEY, PREFS_VERSION } from '../app/lib/saved-prefs.ts'
 import {
+  inOverlayOrder,
   keepTrayOrder,
   OVERLAY_KEY,
   OVERLAY_VERSION,
@@ -18,7 +19,10 @@ const TRIP = 'train:roma-street>indooroopilly'
 
 const stored = () => JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null')
 
-afterEach(() => localStorage.clear())
+afterEach(() => {
+  vi.restoreAllMocks()
+  localStorage.clear()
+})
 
 it('reads and writes the overlay saved-prefs.ts keeps', () => {
   expect(OVERLAY_KEY).toBe(PREFS_KEY)
@@ -57,6 +61,51 @@ describe('trayOrder', () => {
   })
 })
 
+describe('inOverlayOrder', () => {
+  const defaults = [ferry, central, roma, cultural]
+  const overlay = (value: unknown) => localStorage.setItem(PREFS_KEY, JSON.stringify(value))
+
+  it('puts the tray in the overlay order, skipping ids the tray does not have', () => {
+    overlay({
+      v: 1,
+      order: [savedId(cultural), TRIP, savedId(roma), savedId(ferry), savedId(central)],
+      labels: {},
+    })
+    expect(inOverlayOrder(defaults)).toEqual([cultural, roma, ferry, central])
+  })
+
+  it('puts items missing from the order after the rest, in the default order', () => {
+    overlay({ v: 1, order: [savedId(cultural), TRIP, savedId(central)], labels: {} })
+    expect(inOverlayOrder(defaults)).toEqual([cultural, central, ferry, roma])
+  })
+
+  it('keeps the default order with no overlay, another version, an empty order or junk', () => {
+    expect(inOverlayOrder(defaults)).toEqual(defaults)
+    overlay({ v: 2, order: [savedId(cultural)], labels: {} })
+    expect(inOverlayOrder(defaults)).toEqual(defaults)
+    overlay({ v: 1, order: [], labels: {} })
+    expect(inOverlayOrder(defaults)).toEqual(defaults)
+    overlay([savedId(cultural)])
+    expect(inOverlayOrder(defaults)).toEqual(defaults)
+    localStorage.setItem(PREFS_KEY, '{not json')
+    expect(inOverlayOrder(defaults)).toEqual(defaults)
+  })
+
+  it('ignores ids that are not strings', () => {
+    overlay({ v: 1, order: [7, null, savedId(roma)], labels: {} })
+    expect(inOverlayOrder(defaults)).toEqual([roma, ferry, central, cultural])
+  })
+
+  it('keeps the default order when storage is blocked', () => {
+    overlay({ v: 1, order: [savedId(cultural)], labels: {} })
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError')
+    })
+    expect(inOverlayOrder(defaults)).toEqual(defaults)
+    get.mockRestore()
+  })
+})
+
 describe('keepTrayOrder', () => {
   it('rewrites the overlay order to the tray order and keeps every name', () => {
     const labels = { [savedId(cultural)]: 'Work', [TRIP]: 'Uni', 'bus:gone': 'Old' }
@@ -90,6 +139,14 @@ describe('keepTrayOrder', () => {
     })
     expect(() => keepTrayOrder([ferry, cultural], [cultural, ferry])).not.toThrow()
     get.mockRestore()
+  })
+
+  it('writes nothing when the tray is saved as it opened, even with tray items missing from the order', () => {
+    const same = JSON.stringify({ v: 1, order: [savedId(cultural), TRIP], labels: {} })
+    localStorage.setItem(PREFS_KEY, same)
+    const opened = inOverlayOrder([ferry, central, cultural])
+    keepTrayOrder(opened, [...opened])
+    expect(localStorage.getItem(PREFS_KEY)).toBe(same)
   })
 
   it('does not rewrite an overlay already in the tray order', () => {

@@ -159,44 +159,77 @@ const cardOrder = (page: Page) =>
       [FERRY, TRIP, CENTRAL, BUS],
     )
 
-/** Re-run from My Transit's Settings, move Cultural Centre up one (above Central) and Save. */
-async function rerunMovingBusUp(page: Page) {
+/**
+ * Re-run from My Transit's Settings: the tray opens as `opened`; move `move` up one, if given, and Save (which reloads
+ * My Transit).
+ */
+async function rerunAndSave(page: Page, opened: string[], move?: string) {
   await openRerun(page)
-  await expect(rerunTrayNames(page)).toHaveText(['From Bulimba', 'Central', 'Cultural Centre'])
-  await rerunTray(page).getByRole('button', { name: 'Move Cultural Centre up' }).click()
-  await expect(rerunTrayNames(page)).toHaveText(['From Bulimba', 'Cultural Centre', 'Central'])
+  await expect(rerunTrayNames(page)).toHaveText(opened)
+  if (move) {
+    await rerunTray(page)
+      .getByRole('button', { name: `Move ${move} up` })
+      .click()
+    const at = opened.indexOf(move)
+    const moved = [...opened.slice(0, at - 1), move, opened[at - 1] as string, ...opened.slice(at + 1)]
+    await expect(rerunTrayNames(page)).toHaveText(moved)
+  }
   // Save reloads My Transit (already at /): wait for that load, not just the URL.
   const reloaded = page.waitForEvent('framenavigated', (f) => f === page.mainFrame())
-  await rerunTray(page).getByRole('button', { name: 'Save 3 stops' }).click()
+  await rerunTray(page)
+    .getByRole('button', { name: `Save ${opened.length} stops` })
+    .click()
   await reloaded
   await page.waitForLoadState()
   await expect(rerunPicker(page)).toHaveCount(0)
 }
 
+const OVERLAY = {
+  v: 1,
+  order: ['bus:10802', 'train:roma-street>indooroopilly', 'ferry:317584>317590', 'train:central>'],
+  labels: { 'bus:10802': 'Work', 'train:roma-street>indooroopilly': 'Uni' },
+}
+const overlay = (page: Page) => page.evaluate(() => localStorage.getItem('bft-mytransit-prefs'))
+
 test('THE-114: with My Transit’s own order, a re-run’s tray order becomes it; the trip keeps its place and names stay', async ({
   page,
 }) => {
-  await seedSaves(page, {
-    v: 1,
-    order: ['bus:10802', 'train:roma-street>indooroopilly', 'ferry:317584>317590', 'train:central>'],
-    labels: { 'bus:10802': 'Work', 'train:roma-street>indooroopilly': 'Uni' },
-  })
+  await seedSaves(page, OVERLAY)
   await page.goto('/')
   await expect.poll(() => cardOrder(page)).toEqual([BUS, TRIP, FERRY, CENTRAL])
-  await rerunMovingBusUp(page)
-  // The tray's items (ferry, bus, Central) fill their places in the tray's order; the trip stays second.
-  await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([FERRY, TRIP, BUS, CENTRAL])
+  // R21-O1: the tray opens in My Transit's order too.
+  await rerunAndSave(page, ['Cultural Centre', 'From Bulimba', 'Central'], 'Central')
+  // The tray's items (bus, Central, ferry) fill their places in the tray's order; the trip stays second.
+  await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([BUS, TRIP, CENTRAL, FERRY])
   await expect(page.locator(`main a[href="${BUS}"]`)).toContainText('Work')
   await expect(page.locator(`main a[href="${TRIP}"]`)).toContainText('Uni')
   await page.reload()
-  await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([FERRY, TRIP, BUS, CENTRAL])
+  await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([BUS, TRIP, CENTRAL, FERRY])
 })
 
-test('THE-114: with no order of its own, a re-run writes none', async ({ page }) => {
+test('R21-O1: a re-run opens in My Transit’s own order; Save without changes leaves the order as it was', async ({
+  page,
+}) => {
+  await seedSaves(page, {
+    ...OVERLAY,
+    order: ['train:central>', 'bus:10802', 'train:roma-street>indooroopilly'],
+  })
+  await page.goto('/')
+  // The ferry, missing from the order, comes after the rest.
+  await expect.poll(() => cardOrder(page)).toEqual([CENTRAL, BUS, TRIP, FERRY])
+  const seeded = await overlay(page)
+  await rerunAndSave(page, ['Central', 'Cultural Centre', 'From Bulimba'])
+  expect(await overlay(page)).toBe(seeded)
+  await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([CENTRAL, BUS, TRIP, FERRY])
+})
+
+test('THE-114: with no order of its own, a re-run opens in the default order and writes none', async ({
+  page,
+}) => {
   await seedSaves(page, null)
   await page.goto('/')
   await expect.poll(() => cardOrder(page)).toEqual([FERRY, CENTRAL, TRIP, BUS])
-  await rerunMovingBusUp(page)
+  await rerunAndSave(page, ['From Bulimba', 'Central', 'Cultural Centre'], 'Cultural Centre')
   await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([FERRY, CENTRAL, TRIP, BUS])
-  expect(await page.evaluate(() => localStorage.getItem('bft-mytransit-prefs'))).toBeNull()
+  expect(await overlay(page)).toBeNull()
 })

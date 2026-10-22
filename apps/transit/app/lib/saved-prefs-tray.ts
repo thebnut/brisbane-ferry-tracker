@@ -42,24 +42,53 @@ export function trayOrder(
   return [...out, ...after.slice(next)]
 }
 
-/**
- * After a re-run's Save: the overlay, if this device has one, takes the tray's order (names and the rest are kept).
- * With no overlay, or one in a shape this code doesn't write (another version), nothing is written; blocked storage
- * changes nothing. saved-prefs.ts readPrefs still checks whatever it reads.
- */
-export function keepTrayOrder(before: readonly TrayItem[], after: readonly TrayItem[]): void {
+/** The overlay on this device and its ids, or null: none, another version, no order, unreadable or blocked storage. */
+function readOverlay(): { prefs: Record<string, unknown>; order: unknown[]; ids: string[] } | null {
   try {
     const raw = localStorage.getItem(OVERLAY_KEY)
-    if (raw == null) return
+    if (raw == null) return null
     const prefs: unknown = JSON.parse(raw)
-    if (typeof prefs !== 'object' || prefs === null || Array.isArray(prefs)) return
+    if (typeof prefs !== 'object' || prefs === null || Array.isArray(prefs)) return null
     const { v, order } = prefs as { v?: unknown; order?: unknown }
-    if (v !== OVERLAY_VERSION || !Array.isArray(order) || order.length === 0) return
+    if (v !== OVERLAY_VERSION || !Array.isArray(order) || order.length === 0) return null
     const ids = order.filter((id): id is string => typeof id === 'string')
-    const next = trayOrder(ids, before.map(savedId), after.map(savedId))
-    if (next.join('\n') !== order.join('\n'))
-      localStorage.setItem(OVERLAY_KEY, JSON.stringify({ ...prefs, order: next }))
+    return { prefs: prefs as Record<string, unknown>, order, ids }
   } catch {
-    // Storage blocked or the overlay unreadable: My Transit keeps the order it has.
+    return null
+  }
+}
+
+/**
+ * A re-run's tray as My Transit shows those stops: in the overlay's order, with items not in it after the rest in the
+ * default order (saved-prefs.ts applyPrefs). With no usable overlay, the items as they are.
+ */
+export function inOverlayOrder(items: readonly TrayItem[]): TrayItem[] {
+  const overlay = readOverlay()
+  if (!overlay) return [...items]
+  const rank = (item: TrayItem) => {
+    const i = overlay.ids.indexOf(savedId(item))
+    return i < 0 ? Number.MAX_SAFE_INTEGER : i
+  }
+  return [...items].sort((a, b) => rank(a) - rank(b))
+}
+
+/**
+ * After a re-run's Save: the overlay, if this device has one, takes the tray's order (names and the rest are kept).
+ * A tray saved as it opened writes nothing. With no overlay, or one in a shape this code doesn't write (another
+ * version), nothing is written; blocked storage changes nothing. saved-prefs.ts readPrefs still checks whatever it
+ * reads.
+ */
+export function keepTrayOrder(before: readonly TrayItem[], after: readonly TrayItem[]): void {
+  const was = before.map(savedId)
+  const now = after.map(savedId)
+  if (was.join('\n') === now.join('\n')) return
+  const overlay = readOverlay()
+  if (!overlay) return
+  const next = trayOrder(overlay.ids, was, now)
+  if (next.join('\n') === overlay.order.join('\n')) return
+  try {
+    localStorage.setItem(OVERLAY_KEY, JSON.stringify({ ...overlay.prefs, order: next }))
+  } catch {
+    // Storage blocked or full: My Transit keeps the order it has.
   }
 }
