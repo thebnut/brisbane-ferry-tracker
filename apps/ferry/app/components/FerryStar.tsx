@@ -5,7 +5,7 @@
  * no "To"); a second tap unsaves.
  */
 
-export { firstFavouritePair } from '../lib/favourites.ts'
+export { firstFavouritePair, writePairCookie } from '../lib/favourites.ts'
 
 import { SaveToast, type SaveToastMessage } from '@bft/ui/save-toast'
 import { StarButton } from '@bft/ui/star'

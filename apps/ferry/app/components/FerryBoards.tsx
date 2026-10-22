@@ -139,7 +139,11 @@ export function FerryBoards({
     import('./FerryStar.tsx').then(
       (m) => {
         setStar(() => m.default)
-        if (home && !saved) show(m.firstFavouritePair())
+        if (home && !saved) {
+          show(m.firstFavouritePair())
+          // The cookie again, so the next load renders that pair (a session-only pair's cookie ends with the session).
+          m.writePairCookie()
+        }
       },
       () => {}, // Offline before the chunk was cached: no star until the next load.
     )

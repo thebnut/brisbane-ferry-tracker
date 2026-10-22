@@ -130,6 +130,21 @@ function modeTests() {
     await expect(page.locator('main a[href="/train/station/central"]')).toBeVisible()
   })
 
+  test('ferry: with no pair saved, the board opens the first favourite and puts it back in the cookie', async ({
+    page,
+    context,
+  }) => {
+    await page.goto('/robots.txt')
+    await page.evaluate(() =>
+      localStorage.setItem('bft-ferry-favourites', JSON.stringify([{ from: '317590', to: '317584' }])),
+    )
+    await page.goto('/ferry')
+    await expect(star(page, 'Riverside → Bulimba')).toHaveAttribute('aria-pressed', 'true')
+    await expect
+      .poll(async () => (await context.cookies()).find((c) => c.name === 'bft_pair')?.value)
+      .toBe('317590.317584')
+  })
+
   test('ferry: several trips can be saved, and each is its own My Transit card', async ({ page }) => {
     await page.goto('/ferry')
     const first = star(page, 'Bulimba → Riverside')
