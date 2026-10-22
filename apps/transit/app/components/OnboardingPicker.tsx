@@ -9,6 +9,7 @@ import { resaveTrain, saveTrain, trainSource, trainTrayItems } from '@bft/train/
 import type { OnboardMode, TrayItem, TrayState } from '@bft/ui/onboarding'
 import OnboardingPicker from '@bft/ui/onboarding-picker'
 import { MODE_BASES } from '../lib/modes.ts'
+import { keepTrayOrder } from '../lib/saved-prefs-tray.ts'
 
 /** Every mode's store; true only if each kept its stops. Every store is written even if one refuses. */
 export function saveAll(tray: TrayState): boolean {
@@ -47,7 +48,9 @@ export default function TransitOnboardingPicker({
       initialItems={initialItems}
       onSave={(tray) => {
         const ok = initialItems ? resaveAll(tray) : saveAll(tray)
-        // My Transit reads every store (and the server their cookies) on a fresh load.
+        // My Transit reads every store (and the server their cookies) on a fresh load. A re-run's tray order also
+        // becomes My Transit's own order, when the visitor has one (THE-114).
+        if (ok && initialItems) keepTrayOrder(initialItems, tray.items)
         if (ok) location.assign('/')
         return ok
       }}
