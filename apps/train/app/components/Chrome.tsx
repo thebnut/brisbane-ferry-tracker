@@ -87,7 +87,7 @@ export function Shell({
    * first client render; once the boards report (useReportLive, after hydration) their reports decide.
    */
   live?: boolean
-  /** Still waiting for the page's first answer (no data, no error). */
+  /** Still waiting for the page's first answer (no data, no error), until the boards report (useReportLive). */
   pending?: boolean
   /** The parent page, for the header's back link (BrisbaneTransit). */
   back?: { href: string; label: string }
@@ -113,7 +113,8 @@ export function Shell({
   const live = online && (reported.length ? reported.every((r) => r === true) : dataLive !== false)
   const state: LiveProps = {
     live,
-    pending: pending || reported.includes('pending'),
+    // Like `live`: from the page until its boards report, then theirs.
+    pending: reported.length ? reported.includes('pending') : pending,
     idle: dataLive === undefined && reported.length === 0,
   }
   return (

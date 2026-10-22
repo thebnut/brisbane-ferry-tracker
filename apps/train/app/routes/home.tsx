@@ -316,6 +316,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           ? Object.values(loaderData.boards).every((r) => !r || boardState(r, false, nowMs, page) == null)
           : undefined
       }
+      // A board the server couldn't load has no answer yet: BrisbaneTransit says "Connecting…", not LIVE (THE-118).
+      pending={Object.values(loaderData.boards).some((r) => !r)}
     >
       <div className="mx-auto flex max-w-2xl flex-col gap-3.5">
         <h1 className="text-xl font-extrabold">Your trips</h1>
