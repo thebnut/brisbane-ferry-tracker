@@ -47,7 +47,18 @@ const LOOP: SynthTrip = {
     ['A', '10:30:00'],
   ],
 }
-const TRIPS = [TRAIN, LOOP]
+// A plain three-stop trip (Codex review r1, finding 4).
+const XYZ: SynthTrip = {
+  id: 'XYZ',
+  route: 'L1-1',
+  headsign: 'Z',
+  stops: [
+    ['X', '10:00:00'],
+    ['Y', '10:10:00'],
+    ['Z', '10:20:00'],
+  ],
+}
+const TRIPS = [TRAIN, LOOP, XYZ]
 
 type Stu = Parameters<typeof tripUpdate>[2]
 
@@ -80,8 +91,13 @@ function build(
   }).snapshot
 }
 
+/** The trip's resolved updates, leaving out the NO_DATA barriers that dropped updates leave behind. */
 const updates = (snap: RtSnapshot, key: string) =>
-  (snap.trips[key]?.updates ?? []).map((u) => ({ seq: u.seq, stopId: u.stopId, dep: u.dep }))
+  (snap.trips[key]?.updates ?? [])
+    .filter((u) => u.rel !== 'NO_DATA' || u.stopId)
+    .map((u) => ({ seq: u.seq, stopId: u.stopId, dep: u.dep }))
+const barriers = (snap: RtSnapshot, key: string) =>
+  (snap.trips[key]?.updates ?? []).filter((u) => u.rel === 'NO_DATA' && !u.stopId).map((u) => u.seq)
 
 function board(stop: string, snap: RtSnapshot, nowS: number): Departure[] {
   return mergeDepartures([stopDay(D, stop, TRIPS)], snap, { nowS, rtState: 'live' })
@@ -225,9 +241,24 @@ describe('stop_sequence resolution for ordinary trips', () => {
       { rel: REPLACEMENT },
     )
     expect(updates(rep, loop).map((x) => x.seq)).toEqual([3, 4])
-    // A lone renumbered A takes the visit nearest its feed sequence.
-    expect(updates(build('LOOP', [{ seq: 3, stopId: 'A', depDelay: 0 }], now), loop)[0]?.seq).toBe(4)
-    expect(updates(build('LOOP', [{ seq: 2, stopId: 'A', depDelay: 0 }], now), loop)[0]?.seq).toBe(1)
+    // A then B: only the first visit comes before B.
+    const ab = build(
+      'LOOP',
+      [
+        { seq: 1, stopId: 'A', depDelay: 0 },
+        { seq: 2, stopId: 'B', depDelay: 0 },
+      ],
+      now,
+      { rel: REPLACEMENT },
+    )
+    expect(updates(ab, loop).map((x) => x.seq)).toEqual([1, 2])
+    // A lone renumbered A could be either visit: dropped, never guessed (Codex review r1, finding 3).
+    for (const seq of [1, 2, 3]) {
+      const lone = build('LOOP', [{ seq, stopId: 'A', depDelay: 300 }], now, { rel: REPLACEMENT })
+      expect(updates(lone, loop)).toEqual([])
+    }
+    // On a SCHEDULED trip a seq that names the same stop still picks the visit.
+    expect(updates(build('LOOP', [{ seq: 1, stopId: 'A', depDelay: 0 }], now), loop)[0]?.seq).toBe(1)
     // No seq: the next visit after the last resolved stop.
     const noSeq = build(
       'LOOP',
@@ -266,5 +297,68 @@ describe('stop_sequence resolution for ordinary trips', () => {
     ]
     const r = build(TRIP_ID, renumbered, now, { rel: REPLACEMENT })
     expect(updates(r, KEY).map((x) => x.seq)).toEqual([10, 12])
+    // The dropped update leaves a barrier, so seq 10's delay doesn't carry over the stop it spoke about.
+    expect(barriers(r, KEY)).toEqual([11])
+  })
+
+  it('a dropped update stops an earlier delay propagating over it (Codex review r1, finding 1)', () => {
+    const at = epoch(D, '10:13:00')
+    // Bowen Hills 10 min late, then Fortitude Valley on an unknown platform whose neighbour gives no seq, so it
+    // can't be placed. Without a barrier Central would inherit +10 min and show LIVE after the train had gone.
+    for (const rel of [undefined, SKIPPED, 2 /* NO_DATA */]) {
+      const stus: Stu = [
+        { seq: 9, stopId: '600002', depDelay: 600 },
+        { seq: 10, stopId: '600011', depTime: epoch(D, '10:05:00'), rel },
+        { stopId: '600029', depDelay: 0 },
+      ]
+      const snap = build(TRIP_ID, stus, at)
+      expect(barriers(snap, KEY)).toEqual([10])
+      const row = board(CENTRAL, snap, at).find((r) => r.tripInstance === KEY)
+      expect(row?.status).not.toBe('live')
+    }
+  })
+
+  it("keeps a replacement's origin rule where TransLink numbers it 1 (Codex review r1, finding 2)", () => {
+    // Starts at static seq 9 (Bowen Hills): its arrival there is the inbound train, its departure is stated.
+    const at = epoch(D, '10:16:00')
+    const stus: Stu = [
+      { seq: 1, stopId: '600002', arrTime: epoch(D, '10:30:00'), depTime: epoch(D, '10:10:00') },
+      { seq: 2, stopId: '600010', arrTime: epoch(D, '10:13:00'), depTime: epoch(D, '10:14:00') },
+    ]
+    const snap = build(TRIP_ID, stus, at, { rel: REPLACEMENT })
+    const origin = snap.trips[KEY]?.updates.find((u) => u.seq === 9)
+    expect(origin?.arr).toBeUndefined()
+    expect(origin?.dep).toBe(epoch(D, '10:10:00'))
+    expect(board('600002', snap, at).filter((r) => r.tripInstance === KEY)).toEqual([])
+  })
+
+  it('never puts a stop that is on the trip at another stop (Codex review r1, finding 4)', () => {
+    const key = `XYZ@${D}`
+    const snap = build(
+      'XYZ',
+      [
+        { seq: 1, stopId: 'X', depDelay: 0 },
+        { seq: 2, stopId: 'X', depTime: epoch(D, '10:40:00') },
+        { seq: 3, stopId: 'Z', depDelay: 0 },
+      ],
+      now,
+    )
+    expect(updates(snap, key).map((x) => [x.seq, x.stopId])).toEqual([
+      [1, 'X'],
+      [3, 'Z'],
+    ])
+    expect(barriers(snap, key)).toEqual([2])
+    expect(board('Y', snap, epoch(D, '10:05:00')).find((r) => r.tripInstance === key)?.status).not.toBe(
+      'live',
+    )
+  })
+
+  it('matches a REPLACEMENT update without start_date by stop_id', () => {
+    const snap = build(TRIP_ID, replacementStus(), epoch(D, '10:35:00'), {
+      rel: REPLACEMENT,
+      startDate: null,
+    })
+    expect(snap.trips[KEY]?.tier).toBe(1)
+    expect(updates(snap, KEY).find((x) => x.seq === 11)?.stopId).toBe(CENTRAL)
   })
 })
