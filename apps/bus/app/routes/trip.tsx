@@ -97,18 +97,20 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const state = liveState(q.data, { offline: !online, nowMs: now, ...page })
   const trip = q.data && state != null ? tripAsTimetable(q.data) : q.data
   const pending = !q.data && !q.isError
+  // No data is never live (a first request that failed with an HTTP error leaves the state null).
+  const live = state == null && q.data != null
   const fromName = from ? trip?.stops.find((s) => s.stopId === from)?.name : undefined
   const back = from && fromName ? { href: stopHref(from), label: fromName } : undefined
   return (
     <>
-      <SiteHeader live={state == null} pending={pending} back={back} />
+      <SiteHeader live={live} pending={pending} back={back} />
       <UpdatedStrip
         updatedAt={trip?.generatedAt ?? null}
         source={trip}
         nowMs={now}
         onRefresh={() => q.refetch()}
         refreshing={q.isFetching}
-        live={state == null}
+        live={live}
         pending={pending}
       />
       <main className="mx-auto flex max-w-3xl flex-col gap-3 px-4 pt-3.5 pb-28">

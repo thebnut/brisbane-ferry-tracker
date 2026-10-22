@@ -87,7 +87,8 @@ function useLiveRows(key: string, q: ReturnType<typeof useDepartures>, nowMs: nu
     page,
   )
   // The header pill is LIVE only while every board on the page is.
-  useReportLive(key, state == null, !q.data && !q.isError)
+  // No data is never live (a first request that failed with an HTTP error leaves the state null).
+  useReportLive(key, state == null && q.data != null, !q.data && !q.isError)
   return visibleRows(q.data?.departures ?? [], state, nowMs)
 }
 

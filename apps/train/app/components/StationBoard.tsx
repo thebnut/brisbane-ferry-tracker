@@ -146,7 +146,8 @@ export function StationBoard({
   // Data that came with a cached page isn't live until this board's own fresh answer arrives (R2-T7).
   const page = usePageCheck()
   const state = boardState(res, offline, nowMs, page)
-  useReportLive(`board:${from.key}>${to?.key ?? ''}`, state == null, !res && !q.isError)
+  // No data is never live (a first request that failed with an HTTP error leaves liveState null).
+  useReportLive(`board:${from.key}>${to?.key ?? ''}`, state == null && res != null, !res && !q.isError)
 
   const cards = useMemo(() => {
     // Not live: timetable only, no live estimates or platform changes, and nothing that has already left.
