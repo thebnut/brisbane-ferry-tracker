@@ -44,7 +44,7 @@ const cardOrder = (page: Page) =>
     .locator('main a')
     .evaluateAll(
       (as, wanted) => as.map((a) => a.getAttribute('href')).filter((h) => h != null && wanted.includes(h)),
-      ['/ferry', '/train/station/roma-street?to=indooroopilly', '/bus/stop/10802'],
+      [FERRY, TRAIN, BUS],
     )
 
 const rowOrder = (page: Page) =>
