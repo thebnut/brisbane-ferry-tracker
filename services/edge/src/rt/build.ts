@@ -188,8 +188,9 @@ export interface SeqStats {
  *   sequence only when the nearest resolved updates either side sit at their own feed sequence and it falls between
  *   them; with no resolved neighbour, a non-REPLACEMENT update keeps it as before. A stop_id that is on the trip but
  *   can't be placed is a contradiction and is dropped.
- * - Each dropped update leaves a NO_DATA barrier at the first static stop after the last resolved one before it, so
- *   an earlier delay never propagates over a stop the feed spoke about but we couldn't place.
+ * - Each dropped update leaves a NO_DATA barrier at the first static stop without an update after the last resolved
+ *   one before it (before the next non-SKIPPED update), so an earlier delay never propagates over a stop the feed
+ *   spoke about but we couldn't place.
  */
 function resolveSeqs(
   stus: TripUpdate_StopTimeUpdate[],
@@ -239,17 +240,24 @@ function resolveSeqs(
   }
   const barriers = new Set<number>()
   const staticSeqs = [...trip.stops.keys()].sort((a, b) => a - b)
+  const occupied = new Set(out.filter((x): x is number => x != null))
   for (const [i, u] of stus.entries()) {
     if (out[i] != null || (feed[i] == null && !u.stopId)) continue
     if (stats) stats.dropped++
     let prev = i - 1
     while (prev >= 0 && out[prev] == null) prev--
     if (prev < 0) continue // nothing upstream to propagate from
+    // The barrier must sit before the next update that governs: SKIPPED updates are transparent to propagation
+    // (governingUpdate passes over them), so it goes on the first stop after `from` that has no update of its own.
     let next = i + 1
-    while (next < stus.length && out[next] == null) next++
+    while (
+      next < stus.length &&
+      (out[next] == null || stus[next]?.scheduleRelationship === PbStopRel.SKIPPED)
+    )
+      next++
     const from = out[prev] as number
     const to = next < stus.length ? (out[next] as number) : Number.POSITIVE_INFINITY
-    const b = staticSeqs.find((x) => x > from)
+    const b = staticSeqs.find((x) => x > from && !occupied.has(x))
     if (b != null && b < to) barriers.add(b)
   }
   return { seqs: out, barriers: [...barriers] }

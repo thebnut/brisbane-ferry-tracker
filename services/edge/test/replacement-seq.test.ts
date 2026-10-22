@@ -361,4 +361,24 @@ describe('stop_sequence resolution for ordinary trips', () => {
     expect(snap.trips[KEY]?.tier).toBe(1)
     expect(updates(snap, KEY).find((x) => x.seq === 11)?.stopId).toBe(CENTRAL)
   })
+
+  it('a SKIPPED stop after a dropped update does not hide the barrier (Codex review r2)', () => {
+    const key = `XYZ@${D}`
+    const at = epoch(D, '10:23:00')
+    const snap = build(
+      'XYZ',
+      [
+        { seq: 1, stopId: 'X', depDelay: 600 },
+        { seq: 2, stopId: 'UNKNOWN', rel: 2 /* NO_DATA */ },
+        { seq: 3, stopId: 'Y', rel: SKIPPED },
+      ],
+      at,
+    )
+    expect(updates(snap, key).map((x) => [x.seq, x.stopId])).toEqual([
+      [1, 'X'],
+      [2, 'Y'],
+    ])
+    expect(barriers(snap, key)).toEqual([3])
+    expect(board('Z', snap, at).find((r) => r.tripInstance === key)?.status).not.toBe('live')
+  })
 })
