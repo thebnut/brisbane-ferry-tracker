@@ -126,6 +126,8 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
   const alerts = alertsQ.data?.alerts ?? []
   const here = stopAlerts(alerts, stopId, routes, Math.floor(now / 1000))
   const isSaved = saved.some((s) => s.id === stopId)
+  // No answer yet (no data, no error): BrisbaneTransit's header says "Connecting…", not OFFLINE (THE-118).
+  const pending = !q.data && !q.isError
 
   // Keep this stop's longer timetable on the device at once, not only from the first poll (R6-B1).
   useEffect(() => {
@@ -138,13 +140,15 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
 
   return (
     <>
-      <SiteHeader live={state == null && res?.rtState === 'live'} />
+      <SiteHeader live={state == null && res?.rtState === 'live'} pending={pending} />
       <UpdatedStrip
         updatedAt={res?.generatedAt ?? null}
         source={res}
         nowMs={now}
         onRefresh={() => q.refetch()}
         refreshing={q.isFetching}
+        live={state == null && res?.rtState === 'live'}
+        pending={pending}
       >
         <DesktopNav active="" />
       </UpdatedStrip>

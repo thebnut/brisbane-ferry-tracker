@@ -95,7 +95,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
 
   if (!trip || !view) {
     return (
-      <Shell active="stations">
+      <Shell active="stations" pending={!q.isError}>
         <p className="py-8 text-center text-sm text-sched-text" role="status">
           {q.isError ? "Couldn't load this service. Retrying…" : 'Loading service…'}
         </p>
@@ -115,9 +115,14 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const occupancy = occupancyOf(trip.vehicle?.occupancy)
   const status = vehicleStatusText(trip.vehicle?.status)
   const backTo = boardKey ? `${stationHref(boardKey)}${to ? `?to=${to}` : ''}` : at('/stations')
+  const backName = view.rows.find((r) => r.stationKey === boardKey)?.name
 
   return (
-    <Shell active="stations" live={state == null}>
+    <Shell
+      active="stations"
+      live={state == null}
+      back={backName ? { href: backTo, label: cleanStopName(backName) } : undefined}
+    >
       <div className="mx-auto flex max-w-2xl flex-col gap-3.5">
         <Link
           to={backTo}

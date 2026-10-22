@@ -106,19 +106,25 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     for (const q of queries) q.refetch()
   }
   const activeAlerts = (alertsQ.data?.alerts ?? []).length
+  // No saved stops: no live data of its own (the header's default; BrisbaneTransit's claims nothing).
+  const live = ids.length
+    ? online && views.every((v) => v.data && v.state == null && v.data.rtState === 'live')
+    : undefined
+  // A saved stop still waiting for its first answer, none failed: BrisbaneTransit's header says "Connecting…" (THE-118).
+  const pending = queries.some((q) => !q.data && !q.isError)
   return (
     <>
       {/* LIVE only while every saved stop's board is live (each confirms itself after a cached page, R2-T7). A board
           still waiting for its answer is not live (R7-T1). */}
-      <SiteHeader
-        live={online && views.every((v) => v.data && v.state == null && v.data.rtState === 'live')}
-      />
+      <SiteHeader live={live} pending={pending} />
       <UpdatedStrip
         updatedAt={first?.generatedAt ?? null}
         source={first}
         nowMs={now}
         onRefresh={ids.length ? refetchAll : undefined}
         refreshing={queries.some((q) => q.isFetching)}
+        live={live}
+        pending={pending}
       >
         <DesktopNav active="home" />
       </UpdatedStrip>

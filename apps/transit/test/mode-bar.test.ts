@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeTab, DESKTOP_TABS, TABS } from '../app/components/ModeBar.tsx'
+import { activeTab, DESKTOP_TABS, parentOf, TABS } from '../app/components/ModeBar.tsx'
 
 describe('Mode Tabs', () => {
   it('phone order: My Transit, Nearby, Ferry, Train, Bus; My Transit is the home page', () => {
@@ -25,5 +25,15 @@ describe('Mode Tabs', () => {
     expect(activeTab('/nearby')).toBe('nearby')
     expect(activeTab('/alerts')).toBe('')
     expect(activeTab('/busway')).toBe('')
+  })
+})
+
+describe('header back link (THE-118 PR 2)', () => {
+  it('a page under a mode goes back to that mode; top-level pages show the emblem instead', () => {
+    expect(parentOf('/train/station/central')).toEqual({ href: '/train', label: 'Train' })
+    expect(parentOf('/bus/stop/10802')).toEqual({ href: '/bus', label: 'Bus' })
+    expect(parentOf('/ferry/terminal/bulimba')).toEqual({ href: '/ferry', label: 'Ferry' })
+    for (const p of ['/', '/ferry', '/train', '/bus', '/nearby', '/alerts', '/busway/x'])
+      expect(parentOf(p)).toBeNull()
   })
 })

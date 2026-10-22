@@ -16,37 +16,33 @@ const watchErrors = (page: Page) => {
 
 const CBD = '/nearby?lat=-27.4717&lon=153.0206'
 
-test('My Transit home: transit lockup, Ask box, Mode Tabs with My Transit first', async ({
+test('My Transit home: transit emblem, Ask box, Mode Tabs with My Transit first', async ({
   page,
   isMobile,
 }) => {
   const errors = watchErrors(page)
   await page.goto('/')
-  await expect(page.getByRole('link', { name: 'BrisbaneTransit Departure Boards, home' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'BrisbaneTransit, My Transit' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Ask' })).toBeVisible()
   await expect(page.getByText('Nothing in My Transit yet')).toBeVisible()
   const tabs = page.getByRole('navigation', { name: 'Modes' }).filter({ visible: true })
   const labels = (await tabs.getByRole('link').allInnerTexts()).map((t) => t.trim())
-  // Phone and desktop share one order; desktop adds Alerts last, on the right.
-  expect(labels).toEqual(
-    isMobile
-      ? ['My Transit', 'Nearby', 'Ferry', 'Train', 'Bus']
-      : ['My Transit', 'Nearby', 'Ferry', 'Train', 'Bus', 'Alerts'],
-  )
+  // Phone and desktop share one order; desktop's header (THE-118 PR 2) adds Alerts on the right, before LIVE and the gear.
+  expect(labels).toEqual(['My Transit', 'Nearby', 'Ferry', 'Train', 'Bus'])
   if (!isMobile) {
     const box = async (l: ReturnType<typeof tabs.getByRole>) =>
       (await l.boundingBox()) as { x: number; width: number }
+    const header = page.locator('header')
     const bus = await box(tabs.getByRole('link', { name: 'Bus', exact: true }))
-    const alerts = await box(tabs.getByRole('link', { name: 'Alerts', exact: true }))
-    const list = await box(tabs.getByRole('list'))
+    const alerts = await box(header.getByRole('link', { name: 'Alerts', exact: true }))
+    const gear = await box(header.getByRole('button', { name: 'Settings' }))
     expect(alerts.x).toBeGreaterThan(bus.x + bus.width + 100)
-    // Right-aligned: its right edge at the row's right edge, less the row's 16 px padding.
-    expect(Math.abs(list.x + list.width - 16 - (alerts.x + alerts.width))).toBeLessThan(2)
+    expect(gear.x).toBeGreaterThan(alerts.x + alerts.width)
   }
   expect(errors).toEqual([])
 })
 
-test('each mode tab shows its standalone app with that app’s own lockup', async ({ page }) => {
+test('each mode tab shows its app’s pages under the one BrisbaneTransit header', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('/')
   const tabs = page.getByRole('navigation', { name: 'Modes' }).filter({ visible: true })
@@ -57,7 +53,10 @@ test('each mode tab shows its standalone app with that app’s own lockup', asyn
   ] as const) {
     await tabs.getByRole('link', { name: tab }).click()
     await expect(page).toHaveURL(new RegExp(`${path}$`))
-    await expect(page.getByRole('link', { name: lockup })).toBeVisible()
+    // THE-118 PR 2: the app's own lockup is gone; the transit emblem leads the one header on a mode home.
+    await expect(page.locator('header')).toHaveCount(1)
+    await expect(page.getByRole('link', { name: 'BrisbaneTransit, My Transit' })).toBeVisible()
+    await expect(page.getByRole('link', { name: lockup })).toHaveCount(0)
     await expect(tabs.getByRole('link', { name: tab })).toHaveAttribute('aria-current', 'page')
   }
   expect(errors).toEqual([])
@@ -81,7 +80,8 @@ test("bus stop page: server-rendered rows, links stay inside the Bus tab, canoni
 test('train board inside the Train tab opens a service and comes back', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('/train/station/roma-street?to=indooroopilly')
-  await expect(page.getByRole('link', { name: 'BrisbaneTrain Departure Boards, home' })).toBeVisible()
+  await expect(page.locator('header')).toHaveCount(1)
+  await expect(page.getByRole('link', { name: 'BrisbaneTrain Departure Boards, home' })).toHaveCount(0)
   const first = page.locator('a[href^="/train/trip/"]').first()
   await first.click()
   await expect(page).toHaveURL(/\/train\/trip\//)

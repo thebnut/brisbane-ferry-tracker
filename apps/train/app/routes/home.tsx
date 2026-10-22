@@ -87,7 +87,8 @@ function useLiveRows(key: string, q: ReturnType<typeof useDepartures>, nowMs: nu
     page,
   )
   // The header pill is LIVE only while every board on the page is.
-  useReportLive(key, state == null)
+  // No data is never live (a first request that failed with an HTTP error leaves the state null).
+  useReportLive(key, state == null && q.data != null, !q.data && !q.isError)
   return visibleRows(q.data?.departures ?? [], state, nowMs)
 }
 
@@ -310,8 +311,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   return (
     <Shell
       active="home"
-      // From the loader data until the cards report (useReportLive).
-      live={Object.values(loaderData.boards).every((r) => !r || boardState(r, false, nowMs, page) == null)}
+      // From the loader data until the cards report (useReportLive); no boards, no live data of its own.
+      live={
+        Object.keys(loaderData.boards).length
+          ? Object.values(loaderData.boards).every((r) => !r || boardState(r, false, nowMs, page) == null)
+          : undefined
+      }
+      // A board the server couldn't load has no answer yet: BrisbaneTransit says "Connecting…", not LIVE (THE-118).
+      pending={Object.values(loaderData.boards).some((r) => !r)}
     >
       <div className="mx-auto flex max-w-2xl flex-col gap-3.5">
         <h1 className="text-xl font-extrabold">Your trips</h1>
