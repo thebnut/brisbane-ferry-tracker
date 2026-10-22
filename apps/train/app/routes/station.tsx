@@ -178,7 +178,8 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   // The header pill follows the boards: from the loader data until each StationBoard reports (useReportLive).
   const seeded = [outbound, to ? inbound : null].every((r) => !r || boardState(r, false, nowMs, page) == null)
   return (
-    <Shell active="stations" strip={strip} live={seeded}>
+    // No outbound answer from the loader (it timed out): BrisbaneTransit says "Connecting…", not LIVE (THE-118).
+    <Shell active="stations" strip={strip} live={seeded} pending={!outbound}>
       <div className={to && inbound ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : 'mx-auto max-w-2xl'}>
         <StationBoard
           key={`${station.key}:${to?.key ?? ''}`}
