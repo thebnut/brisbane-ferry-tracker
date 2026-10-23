@@ -12,6 +12,8 @@ type AlertsAnswer = { rtState: string; generatedAt: number } & OfflineCopy & Rec
 interface AlertsQuery<T> {
   data?: T
   isError: boolean
+  /** TanStack's: the query has fetched since it started (from its seed). */
+  isFetched?: boolean
 }
 
 /** Loader answers a page came with (useCurrentAlerts' `seed`): network answers without a device arrival time. */
@@ -21,7 +23,8 @@ const seeds = new WeakSet<object>()
  * Is this alerts answer current enough to count (Codex r4, r5 on THE-118 PR 3)? Only a live one (the Alerts page's own
  * test) from the network, whose query's latest fetch didn't fail, while the connection is up. From the network means
  * stamped on arrival (noteCacheCopy's `receivedAt`, which the service worker's copies never get and which survives
- * TanStack's structural sharing, unlike the cache-copy mark) or a page's own loader answer (`seeded`), and not from a
+ * TanStack's structural sharing, unlike the cache-copy mark) or a page's own loader answer before the query has
+ * fetched anything (`seeded`; a later copy equal to it keeps the seed object, Codex r6), and not from a
  * page loaded from a cache (usePageCheck, null before hydration). Otherwise an old, open-ended alert stayed up as
  * "1 alert" for as long as the refetches failed or the service worker answered.
  */
@@ -41,14 +44,15 @@ export function isCurrentAlerts(
 
 /**
  * The query's answer when it is current (isCurrentAlerts), else null: the board header then shows plain "Alerts".
- * `seed`: the page's loader answer the query started from, if any.
+ * `seed`: the page's loader answer the query started from, if any; it counts until the query's first fetch.
  */
 export function useCurrentAlerts<T extends AlertsAnswer>(q: AlertsQuery<T>, seed?: T | null): T | null {
   const online = useOnline()
   const page = usePageCheck()
   if (seed) seeds.add(seed)
-  const { data, isError } = q
-  return data && isCurrentAlerts(data, { isError, online, page, seeded: seeds.has(data) }) ? data : null
+  const { data, isError, isFetched } = q
+  const seeded = !isFetched && !!data && seeds.has(data)
+  return data && isCurrentAlerts(data, { isError, online, page, seeded }) ? data : null
 }
 
 /**
