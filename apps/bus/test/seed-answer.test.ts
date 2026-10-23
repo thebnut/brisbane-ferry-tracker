@@ -3,19 +3,21 @@
  * R32-RT1: awaitingSeedAnswer against a real TanStack QueryClient, configured as every board's query is (a non-live
  * seed with seedUpdatedAt, retry 1): the board waits while its mount refetch is out and is judged once it answers.
  */
-import { awaitingSeedAnswer, seedUpdatedAt } from '@bft/ui/connectivity'
+import { awaitingSeedAnswer, pagePending, seedUpdatedAt } from '@bft/ui/connectivity'
 import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const seed = { generatedAt: 5_000, rtState: 'stale' }
 
-function observe(queryFn: () => Promise<typeof seed>) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 10_000 } } })
+function observe(queryFn: () => Promise<typeof seed>, key = 'board', initial: typeof seed | null = seed) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: 1, staleTime: 10_000, networkMode: 'offlineFirst' } },
+  })
   const observer = new QueryObserver(client, {
-    queryKey: ['board'],
+    queryKey: [key],
     queryFn,
-    initialData: seed,
-    initialDataUpdatedAt: seedUpdatedAt(seed),
+    initialData: initial ?? undefined,
+    initialDataUpdatedAt: seedUpdatedAt(initial),
   })
   // Subscribing is the board mounting: a seed updated at 0 is stale, so it refetches at once.
   const off = observer.subscribe(() => {})
@@ -57,5 +59,26 @@ describe('a non-live seed and its own first answer (R32-RT1)', () => {
     expect(observer.getCurrentResult().isError).toBe(true)
     expect(waiting(observer)).toBe(false)
     off()
+  })
+
+  it("a waiting seed never hides another board's HTTP failure (Codex r1)", async () => {
+    vi.useFakeTimers()
+    const waits = observe(() => new Promise(() => {}))
+    // Another board without a seed whose request fails with an HTTP error (the connection flag stays online).
+    const fails = observe(() => Promise.reject(new Error('HTTP 503')), 'other', null)
+    const page = () =>
+      pagePending([
+        { q: waits.observer.getCurrentResult(), state: 'stale' },
+        { q: fails.observer.getCurrentResult(), state: null },
+      ])
+    expect(page()).toBe(true)
+    // The first failure, while TanStack retries, and then the error.
+    await vi.advanceTimersByTimeAsync(10)
+    expect(page()).toBe(false)
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(fails.observer.getCurrentResult().isError).toBe(true)
+    expect(page()).toBe(false)
+    waits.off()
+    fails.off()
   })
 })

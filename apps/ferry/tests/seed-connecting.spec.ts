@@ -3,5 +3,10 @@ import { seedConnectingSizes } from '@bft/ui/e2e/seed-connecting.ts'
 import { pinUpcoming } from './upcoming.ts'
 
 seedConnectingSizes([
-  { name: 'ferry terminal', path: '/terminal/bulimba', departures: '**/__fixtures/v1/ferry/stops/*/departures*', pin: pinUpcoming },
+  {
+    name: 'ferry terminal',
+    path: '/terminal/bulimba',
+    departures: '**/__fixtures/v1/ferry/stops/*/departures*',
+    pin: pinUpcoming,
+  },
 ])

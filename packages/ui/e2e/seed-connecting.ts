@@ -89,7 +89,10 @@ export function seedConnectingSuite({
       await expect(page.locator('[data-banner=stale]')).toHaveCount(0)
     })
 
-    test('a stale first answer of its own: OFFLINE and "Live times delayed", as before', async ({ page, context }) => {
+    test('a stale first answer of its own: OFFLINE and "Live times delayed", as before', async ({
+      page,
+      context,
+    }) => {
       await prepare?.(page)
       const gate = await hold(context, 'stale')
       await page.goto(url)
@@ -113,7 +116,9 @@ const SIZES = [
 ] as const
 
 /** seedConnectingSuite for each board, at each size (each size in one project only, so it runs once). */
-export function seedConnectingSizes(boards: Array<{ name: string } & Parameters<typeof seedConnectingSuite>[0]>) {
+export function seedConnectingSizes(
+  boards: Array<{ name: string } & Parameters<typeof seedConnectingSuite>[0]>,
+) {
   for (const [size, project, use] of SIZES)
     test.describe(size, () => {
       test.beforeEach(() =>

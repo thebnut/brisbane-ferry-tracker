@@ -7,7 +7,7 @@
 import type { DeparturesResponse } from '@bft/core/contract'
 import { formatClock, Icon, minutesUntil } from '@bft/ui'
 import { type MiniDeparture, MyStopCard } from '@bft/ui/bus'
-import { awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { pagePending, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { Link } from 'react-router'
 import { SearchPanel } from '../components/SearchPanel.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
@@ -110,13 +110,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const live = ids.length
     ? online && views.every((v) => v.data && v.state == null && v.data.rtState === 'live')
     : undefined
-  // A saved stop still waiting for its first answer, none failed: BrisbaneTransit's header says "Connecting…" (THE-118).
-  // So does one still showing its non-live seed while its own refetch is out, while every other stop is live or
-  // waiting too, with no "delayed" banner (R32-RT1).
-  const waits = queries.map((q, i) => awaitingSeedAnswer(q, views[i]?.state ?? null))
-  const pending =
-    queries.some((q) => !q.data && !q.isError) ||
-    (waits.some(Boolean) && views.every((v, i) => waits[i] || v.state == null))
+  // A saved stop still waiting for its first answer, or still showing its non-live seed while its own refetch is out
+  // (R32-RT1), while no stop has failed or answered not live: BrisbaneTransit's header says "Connecting…" (THE-118),
+  // with no "delayed" banner.
+  const pending = pagePending(queries.map((q, i) => ({ q, state: views[i]?.state ?? null })))
   return (
     <>
       {/* LIVE only while every saved stop's board is live (each confirms itself after a cached page, R2-T7). A board

@@ -12,6 +12,7 @@ import {
   liveState,
   markCacheHits,
   noteCacheCopy,
+  pagePending,
   replacesBoard,
   reportOffline,
   reportOnline,
@@ -147,6 +148,42 @@ describe('awaitingSeedAnswer (R32-RT1)', () => {
     expect(awaitingSeedAnswer(asSeed({ generatedAt: 5_000, rtState: 'live' }), null)).toBe(false)
     expect(awaitingSeedAnswer(asSeed({ generatedAt: 5_000, rtState: 'live' }), 'stale')).toBe(false)
     expect(awaitingSeedAnswer({ ...seed, data: undefined }, 'stale')).toBe(false)
+  })
+})
+
+describe('pagePending (R32-RT1, Codex r1)', () => {
+  const stale = { generatedAt: 5_000, rtState: 'stale' }
+  const q = {
+    data: undefined as unknown,
+    dataUpdatedAt: 0,
+    errorUpdateCount: 0,
+    failureCount: 0,
+    isError: false,
+  }
+  const seed = { q: { ...q, data: stale }, state: 'stale' as const }
+  const loading = { q, state: null }
+  const live = { q: { ...q, data: stale, dataUpdatedAt: 6_000 }, state: null }
+  const staleAnswer = { q: { ...q, data: stale, dataUpdatedAt: 6_000 }, state: 'stale' as const }
+  const failed = { q: { ...q, isError: true, failureCount: 2, errorUpdateCount: 1 }, state: null }
+  const retrying = { q: { ...q, failureCount: 1 }, state: null }
+  it('pending while a board waits and every other is waiting or live', () => {
+    expect(pagePending([seed])).toBe(true)
+    expect(pagePending([loading])).toBe(true)
+    expect(pagePending([seed, loading])).toBe(true)
+    expect(pagePending([seed, live])).toBe(true)
+  })
+  it("a waiting board never hides another's failure: an HTTP error, a retry, or an own answer that isn't live", () => {
+    // An HTTP error leaves the connection flag online, and liveState(undefined) is null: still a failure.
+    expect(pagePending([seed, failed])).toBe(false)
+    expect(pagePending([seed, retrying])).toBe(false)
+    expect(pagePending([loading, staleAnswer])).toBe(false)
+    expect(pagePending([seed, staleAnswer])).toBe(false)
+    expect(pagePending([failed])).toBe(false)
+  })
+  it('not pending once every board has answered, or for a page without boards', () => {
+    expect(pagePending([live])).toBe(false)
+    expect(pagePending([staleAnswer])).toBe(false)
+    expect(pagePending([])).toBe(false)
   })
 })
 

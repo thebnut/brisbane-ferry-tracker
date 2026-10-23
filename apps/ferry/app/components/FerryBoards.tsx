@@ -9,7 +9,7 @@
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import { BottomSheet, DemoExitLink, formatAge, formatClock, OfflineBanner, useFixtureCookie } from '@bft/ui'
 import { BoardHeader, Chip, FilterRow, leavingFrom, NowChip } from '@bft/ui/board-header'
-import { awaitingSeedAnswer, sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
+import { pagePending, sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import {
@@ -232,13 +232,9 @@ export function FerryBoards({
   const updatedAt = Math.max(outData?.generatedAt ?? 0, backData?.generatedAt ?? 0)
   const fetching = boards.some((q) => q.isFetching)
   // A board still showing its non-live seed while its own refetch is out (R32-RT1).
-  const waits = (q: typeof out) => awaitingSeedAnswer(q, stateOf(q))
-  // No answer yet for any board (no data, no error), or a board waiting on its seed's refetch while every other board
-  // is live or waiting too (never hiding another board's failure): the header says "Connecting…", not OFFLINE, and
-  // there is no "delayed" banner (R32-RT1).
-  const pending =
-    (!outData && !backData && boards.every((q) => !q.isError)) ||
-    (boards.some(waits) && boards.every((q) => waits(q) || stateOf(q) == null))
+  // A board with no answer yet, or still showing its non-live seed while its own refetch is out (R32-RT1), while no
+  // board has failed or answered not live: the header says "Connecting…", not OFFLINE, with no "delayed" banner.
+  const pending = pagePending(boards.map((q) => ({ q, state: stateOf(q) })))
 
   const refresh = () => {
     for (const q of boards) void q.refetch()
