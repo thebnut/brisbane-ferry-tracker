@@ -4,7 +4,7 @@
 import type { TripResponse } from '@bft/core/contract'
 import { seedUpdatedAt } from '@bft/ui/connectivity'
 import { useQuery } from '@tanstack/react-query'
-import { type ApiFetcher, getJson, type Validate } from './api.ts'
+import { ApiError, type ApiFetcher, getJson, type Validate } from './api.ts'
 import { type DataMode, poll } from './queries.ts'
 
 export const fetchTrip = (
@@ -12,6 +12,9 @@ export const fetchTrip = (
   tripInstance: string,
   opts: { signal?: AbortSignal; validate?: Validate<TripResponse> } = {},
 ) => getJson(fetcher, `/v1/bus/trips/${encodeURIComponent(tripInstance)}`, opts.validate, opts.signal)
+
+/** A 404: the trip has run, or never was. The page says so, and polling stops. */
+export const isGone = (error: unknown) => error instanceof ApiError && error.status === 404
 
 export function useTrip(
   fetcher: ApiFetcher,
@@ -24,6 +27,7 @@ export function useTrip(
     queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance, { signal }),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: seedUpdatedAt(initial),
-    refetchInterval: poll,
+    refetchInterval: (q) => (isGone(q.state.error) ? false : poll(q)),
+    retry: (n, error) => !isGone(error) && n < 1,
   })
 }

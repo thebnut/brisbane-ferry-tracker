@@ -3,9 +3,9 @@
  * one header and status line (apps/transit/modes.config.ts, THE-118); the standalone site keeps these. Props it
  * doesn't use here (`back`) are the transit header's.
  */
-import { AppHeader, LivePill, SettingsPill, StatusStrip } from '@bft/ui'
+import { AppHeader, ConnectingPill, LivePill, SettingsPill, StatusStrip } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-train.svg?url'
-import { createContext, type ReactNode } from 'react'
+import { createContext, type MouseEvent, type ReactNode } from 'react'
 import { useOnline } from '../lib/useNow.ts'
 import { DesktopNav } from './nav.tsx'
 
@@ -20,22 +20,6 @@ export interface LiveProps {
 /** The page's live answer as Shell works it out, for the strip below the header. */
 export const ShellLive = createContext<LiveProps>({})
 
-/**
- * No answer yet and nothing has failed: neither LIVE nor OFFLINE (BrisbaneTransit's "Connecting…", THE-118). It never
- * carries data-live-claim, so the server render and early hydration claim nothing before the page's data arrives.
- */
-function ConnectingPill() {
-  return (
-    <span
-      data-connection="connecting"
-      className="flex items-center gap-1.5 rounded-full bg-sched-bg px-3 py-1.5 text-xs font-bold text-sched-text"
-    >
-      <span aria-hidden="true" className="size-2 rounded-full bg-gray-400 motion-safe:animate-pulse" />
-      Connecting…
-    </span>
-  )
-}
-
 export function SiteHeader({
   onSettings,
   live,
@@ -47,7 +31,7 @@ export function SiteHeader({
   /** Current section: shows the desktop section links (phones use the bottom nav). */
   active?: string
   /** The parent page, for a back link. */
-  back?: { href: string; label: string }
+  back?: { href: string; label: string; onClick?: (e: MouseEvent<HTMLAnchorElement>) => void }
 }) {
   const online = useOnline()
   return (
@@ -73,13 +57,16 @@ export function UpdatedStrip({
   updated,
   detail,
   children,
+  board,
 }: {
   updated: ReactNode
   detail?: string | null
   children?: ReactNode
+  /** On a board: below the board header, in the board's column (THE-118 PR 5). */
+  board?: boolean
 }) {
   return (
-    <StatusStrip updated={updated} detail={detail}>
+    <StatusStrip updated={updated} detail={detail} board={board}>
       {children}
     </StatusStrip>
   )

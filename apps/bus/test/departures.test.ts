@@ -1,6 +1,6 @@
 import type { Alert, Departure } from '@bft/core/contract'
 import { describe, expect, it } from 'vitest'
-import { detourRoutes, isActive, routesIn, rowStatus, rowViews } from '../app/lib/departures.ts'
+import { detourRoutes, isActive, leavingFrom, routesIn, rowStatus, rowViews } from '../app/lib/departures.ts'
 
 const NOW = 1_792_300_000_000
 const nowS = NOW / 1000
@@ -58,6 +58,13 @@ describe('row status (THE-118 PR 4: dot, word, one fact)', () => {
     })
     expect(st(c).status.text).toBe('Cancelled')
   })
+  it('a cancelled bus never points at the same route going the other way (release 15 review)', () => {
+    const c = dep({ status: 'cancelled', route: { id: '111-1', short: '111' }, directionId: 0 })
+    const back = dep({ route: { id: '111-1', short: '111' }, directionId: 1, schedDep: nowS + 6 * 60 })
+    const next = dep({ route: { id: '111-1', short: '111' }, directionId: 0, schedDep: nowS + 18 * 60 })
+    expect(st(c, [c, back]).status.text).toBe('Cancelled')
+    expect(st(c, [c, back, next]).status.text).toBe('Cancelled · next 111 in 18 min')
+  })
   it('skipped: not stopping here', () => {
     expect(st(dep({ status: 'skipped', gps: true }))).toMatchObject({
       status: { text: 'Not stopping here', dot: 'cancelled' },
@@ -111,5 +118,22 @@ describe('smoke round 2', () => {
       'No buses from this stop for the rest of today or tomorrow (19/10).',
     )
     expect(noneDue(['20261018', '20261019'], NOW, true)).toMatch(/^No buses on this route/)
+  })
+})
+
+describe('leavingFrom ("Depart from", THE-118 PR 5)', () => {
+  const AT = 1_800_000_000
+  const board = {
+    departures: [
+      dep({ tripInstance: 'early', schedDep: AT - 60, estDep: null }),
+      dep({ tripInstance: 'late', schedDep: AT - 60, estDep: AT + 120 }),
+      dep({ tripInstance: 'on', schedDep: AT, estDep: AT }),
+    ],
+  }
+  it('keeps what leaves at or after the time shown, a delayed bus too (Codex r2)', () => {
+    expect(leavingFrom(board, AT).departures.map((d) => d.tripInstance)).toEqual(['late', 'on'])
+  })
+  it('now: the board as it is', () => {
+    expect(leavingFrom(board, null)).toBe(board)
   })
 })

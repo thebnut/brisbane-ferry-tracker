@@ -16,7 +16,7 @@ import {
   StatusBadge,
   StoppingPattern,
 } from '@bft/ui'
-import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { asSeed, awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { SECTION, Shell, useReportLive } from '../components/Chrome.tsx'
@@ -135,7 +135,13 @@ function useLiveRows(key: string, q: ReturnType<typeof useDepartures>, nowMs: nu
   )
   // The header pill is LIVE only while every board on the page is.
   // No data is never live (a first request that failed with an HTTP error leaves the state null).
-  useReportLive(key, state == null && q.data != null, !q.data && !q.isError)
+  // A non-live seed whose own refetch is still out waits too (R32-RT1).
+  useReportLive(
+    key,
+    state == null && q.data != null,
+    (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
+    q.isError || q.failureCount > 0,
+  )
   return visibleRows(q.data?.departures ?? [], state, nowMs)
 }
 
@@ -370,7 +376,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           : undefined
       }
       // A board the server couldn't load has no answer yet: BrisbaneTransit says "Connecting…", not LIVE (THE-118).
-      pending={Object.values(loaderData.boards).some((r) => !r)}
+      // So does one with a non-live seed until its card's own answer (R32-RT1).
+      pending={Object.values(loaderData.boards).some(
+        (r) => !r || awaitingSeedAnswer(asSeed(r), boardState(r, false, nowMs, page)),
+      )}
     >
       <div className="mx-auto flex max-w-2xl flex-col gap-3.5">
         {BASE ? <ModeHomeTop /> : null}

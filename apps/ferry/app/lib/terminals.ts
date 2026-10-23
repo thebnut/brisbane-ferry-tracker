@@ -65,46 +65,45 @@ export function normalisePair(pair: StopPair | null | undefined): StopPair {
   return { outbound: choice(origin), inbound: choice(dest) }
 }
 
-/**
- * The pair a /terminal/<slug> page opens with (legacy App.jsx stopsForTerminal): keep the visitor's usual pairing if
- * it involves this terminal, otherwise head for Riverside (or Bulimba from Riverside).
- */
-export function pairForTerminal(terminal: Terminal, saved: StopPair | null): StopPair {
-  const origin = choice(terminal)
-  if (saved?.outbound.id === terminal.id) return normalisePair({ outbound: origin, inbound: saved.inbound })
-  if (saved?.inbound.id === terminal.id) return normalisePair({ outbound: origin, inbound: saved.outbound })
-  const destination = terminal.id === RIVERSIDE ? DEFAULT_STOPS.outbound : DEFAULT_STOPS.inbound
-  return normalisePair({ outbound: origin, inbound: destination })
+/** A terminal named in a URL: its slug (`?to=riverside`), or its stop id (the old `?from=317584&to=317590` links). */
+export const terminalByParam = (value: string | null | undefined): Terminal | null =>
+  value ? (terminalBySlug(value) ?? terminalById(value)) : null
+
+/** The "To" a board URL asks for: a terminal the origin reaches directly, else none. */
+export function destinationParam(origin: Terminal, value: string | null | undefined): Terminal | null {
+  const to = terminalByParam(value)
+  return to && to.id !== origin.id && origin.destinations.includes(to.id) ? to : null
+}
+
+/** A terminal's board (THE-118 PR 5), with its "To" (`?to=<slug>`) when one is set. */
+export const boardHref = (fromId: string, toId?: string | null): string => {
+  const from = terminalById(fromId)
+  const to = toId ? terminalById(toId) : null
+  return from ? `${terminalHref(from.slug)}${to ? `?to=${to.slug}` : ''}` : at('/')
+}
+
+/** A ferry's trip page (THE-118 PR 6), from the terminal you board at to your "To" when the board has one. */
+export const tripHref = (tripInstance: string, fromId: string, toId?: string | null): string => {
+  const q = new URLSearchParams()
+  const from = terminalById(fromId)
+  const to = toId ? terminalById(toId) : null
+  if (from) q.set('from', from.slug)
+  if (to) q.set('to', to.slug)
+  return `${at('/trip')}/${encodeURIComponent(tripInstance)}${q.size ? `?${q}` : ''}`
 }
 
 /**
- * The pair a deep link asks for (`?from=<stopId>&to=<stopId>`, R3-F2), checked against the known terminals and their
- * direct connections: an unknown origin is ignored (null); a missing or unreachable destination keeps the fallback
- * pair's destination when the origin reaches it, otherwise the origin's first destination.
+ * Where an old `/?from=<stopId>&to=<stopId>` link (R3-F2) now goes: that terminal's board, with "To" when the origin
+ * reaches it, keeping the link's other parameters. Null when it names no known origin (it stays a home link).
  */
-export function pairFromParams(params: URLSearchParams, fallback: StopPair): StopPair | null {
-  const origin = terminalById(params.get('from') ?? '')
+export function boardForOldLink(params: URLSearchParams): string | null {
+  const origin = terminalByParam(params.get('from'))
   if (!origin) return null
-  const to = params.get('to')
-  const wanted = to && origin.destinations.includes(to) ? to : fallback.inbound.id
-  return normalisePair({ outbound: choice(origin), inbound: { id: wanted, name: '' } })
+  const to = destinationParam(origin, params.get('to'))
+  const q = new URLSearchParams(to ? { to: to.slug } : {})
+  for (const [k, v] of params) if (k !== 'from' && k !== 'to') q.append(k, v)
+  return `${terminalHref(origin.slug)}${q.size ? `?${q}` : ''}`
 }
-
-/** Change the origin, keeping the destination when still reachable (legacy handleTemporaryOriginChange). */
-export function withOrigin(pair: StopPair, originId: string): StopPair {
-  const t = terminalById(originId)
-  if (!t) return pair
-  return normalisePair({ outbound: choice(t), inbound: pair.inbound })
-}
-
-export function withDestination(pair: StopPair, destinationId: string): StopPair {
-  const t = terminalById(destinationId)
-  if (!t) return pair
-  return { outbound: pair.outbound, inbound: choice(t) }
-}
-
-export const swapPair = (pair: StopPair): StopPair =>
-  normalisePair({ outbound: pair.inbound, inbound: pair.outbound })
 
 /** Distance in metres (haversine). */
 export function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {

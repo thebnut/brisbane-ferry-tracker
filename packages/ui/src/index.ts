@@ -4,6 +4,7 @@
  *  - `@bft/ui/map` (MapLibre, default export MapView)
  *  - `@bft/ui/stop-search` (Ark UI combobox)
  *  - `@bft/ui/bus` (the bus boards' elements: only the Bus pages load them)
+ *  - `@bft/ui/board-header` (the boards' header, filter row and "Now ▾": only the boards load them)
  */
 export * from './BottomSheet.tsx'
 export * from './board.tsx'
@@ -17,6 +18,5 @@ export * from './icons.tsx'
 export * from './multimodal.tsx'
 export * from './row.tsx'
 export * from './states.tsx'
-export * from './timeline.tsx'
 export * from './train.tsx'
 export * from './transit.tsx'

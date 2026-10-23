@@ -68,7 +68,7 @@ describe('Saved mixes every app’s own saved items', () => {
     localStorage.setItem(KEYS.SAVED, JSON.stringify([{ id: '1832', name: 'Cultural Centre, platform 1' }]))
     const items = readSavedItems()
     expect(items.map((i) => [i.mode, i.key, i.to, i.title, i.href])).toEqual([
-      ['ferry', '317584', '317590', 'Bulimba → Riverside', '/ferry?from=317584&to=317590'],
+      ['ferry', '317584', '317590', 'Bulimba → Riverside', '/ferry/terminal/bulimba?to=riverside'],
       [
         'train',
         'roma-street',
@@ -131,7 +131,7 @@ describe('Saved mixes every app’s own saved items', () => {
     const ferry = readSavedItems().filter((i) => i.mode === 'ferry')
     expect(ferry.map((i) => [i.id, i.title, i.href])).toEqual([
       ['ferry:317590>', 'Riverside', '/ferry/terminal/riverside'],
-      ['ferry:317584>317590', 'Bulimba → Riverside', '/ferry?from=317584&to=317590'],
+      ['ferry:317584>317590', 'Bulimba → Riverside', '/ferry/terminal/bulimba?to=riverside'],
     ])
   })
 

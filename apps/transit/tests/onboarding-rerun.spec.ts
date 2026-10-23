@@ -151,7 +151,7 @@ async function seedSaves(page: Page, prefs: unknown, favourites: unknown[] = FAV
 }
 
 /** The ferry favourite's card opens its trip's boards (THE-118). */
-const FERRY = '/ferry?from=317584&to=317590'
+const FERRY = '/ferry/terminal/bulimba?to=riverside'
 const TRIP = '/train/station/roma-street?to=indooroopilly'
 const CENTRAL = '/train/station/central'
 const BUS = '/bus/stop/10802'
@@ -245,4 +245,29 @@ test('THE-114: with no order of its own, a re-run opens in the default order and
   await rerunAndSave(page, ['From Bulimba', 'Central', 'Cultural Centre'], 'Cultural Centre')
   await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([FERRY, CENTRAL, TRIP, BUS])
   expect(await overlay(page)).toBeNull()
+})
+
+test('R23-O1: an overlay that is not JSON is replaced by the tray order on Save, so the new order sticks', async ({
+  page,
+}) => {
+  await seedSaves(page, null)
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('corrupted')) return
+    sessionStorage.setItem('corrupted', '1')
+    localStorage.setItem('bft-mytransit-prefs', '{bad json')
+  })
+  await page.goto('/')
+  // Unreadable: My Transit shows the default order, and no error.
+  await expect.poll(() => cardOrder(page)).toEqual([FERRY, CENTRAL, TRIP, BUS])
+  await rerunAndSave(page, ['From Bulimba', 'Central', 'Cultural Centre'], 'Cultural Centre')
+  // The tray's items in its order; the trip, which the tray never has, follows.
+  await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([FERRY, BUS, CENTRAL, TRIP])
+  expect(JSON.parse((await overlay(page)) ?? 'null')).toEqual({
+    v: 1,
+    order: ['ferry:317584>317590', 'bus:10802', 'train:central>'],
+    labels: {},
+  })
+  await expect(page.getByText(/Couldn.t save/)).toHaveCount(0)
+  await page.reload()
+  await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([FERRY, BUS, CENTRAL, TRIP])
 })

@@ -133,18 +133,41 @@ export function LivePill({ live = true }: LivePillProps) {
   )
 }
 
+/**
+ * No answer yet and nothing has failed: neither LIVE nor OFFLINE (BrisbaneTransit's "Connecting…", THE-118). It never
+ * carries data-live-claim, so the server render and early hydration claim nothing before the page's data arrives.
+ */
+export function ConnectingPill() {
+  return (
+    <span
+      data-connection="connecting"
+      className="flex items-center gap-1.5 rounded-full bg-sched-bg px-3 py-1.5 text-xs font-bold text-sched-text"
+    >
+      <span aria-hidden="true" className="size-2 rounded-full bg-gray-400 motion-safe:animate-pulse" />
+      Connecting…
+    </span>
+  )
+}
+
 export interface StatusStripProps {
   /** e.g. "Last updated 2:41 pm". Nothing while there is no data yet (never a status that contradicts LIVE, R3-X11). */
   updated?: ReactNode
   /** e.g. "updated 12 s ago". */
   detail?: ReactNode
   children?: ReactNode
+  /** On a board: one line below the board header, in the board's column (THE-118 PR 5), not a full-width band. */
+  board?: boolean
 }
 
-export function StatusStrip({ updated, detail, children }: StatusStripProps) {
+export function StatusStrip({ updated, detail, children, board = false }: StatusStripProps) {
   return (
-    <div data-status-strip="" className="bg-strip border-b border-ferry-orange/20">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-3 py-2 md:px-4">
+    <div data-status-strip="" className={board ? undefined : 'bg-strip border-b border-ferry-orange/20'}>
+      <div
+        className={cx(
+          'flex flex-wrap items-center justify-between gap-2',
+          board ? 'py-0.5' : 'mx-auto max-w-6xl px-3 py-2 md:px-4',
+        )}
+      >
         <p
           className="flex items-center gap-1.5 text-sm text-charcoal tabular dark:text-night-text"
           aria-live="polite"

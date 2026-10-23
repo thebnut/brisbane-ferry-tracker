@@ -4,7 +4,7 @@
  * rules the boards share: the status-line words, the soonest boardable row, the "Tomorrow" divider and tile text
  * colour on a line colour.
  */
-import type { ReactNode } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { cx } from './cx.ts'
 import { brisbaneDateKey, formatBusCountdown, formatDay, minutesBetween } from './format.ts'
 
@@ -192,6 +192,42 @@ const DOT: Record<StatusLine['dot'], string> = {
   live: 'bg-green-600',
   scheduled: 'bg-gray-400',
   cancelled: 'bg-red-600',
+}
+
+/**
+ * A board row's link state: the board's URL. The trip page's back link then goes back in history instead of opening the
+ * board again, so the board comes back where it was scrolled to (ScrollRestoration restores it on a back navigation).
+ */
+export const BOARD_STATE = 'bftBoard'
+export const boardState = (pathname: string, search: string) => ({ [BOARD_STATE]: `${pathname}${search}` })
+
+let hydrated = false
+
+/**
+ * A board's own state ("More departures", the Express filter), kept in the board's history entry: back from a trip
+ * finds the board as it was, so the row is there and the scroll comes back to it. Read only once the page has
+ * hydrated, so the first render matches the server's HTML.
+ */
+export function useKept<T extends boolean | string>(key: string, initial: T): [T, (value: T) => void] {
+  const k = `bftKept:${key}`
+  const [open, setOpen] = useState<T>(() => {
+    if (!hydrated) return initial
+    const kept = (history.state as { usr?: Record<string, unknown> } | null)?.usr?.[k]
+    return typeof kept === typeof initial ? (kept as T) : initial
+  })
+  useEffect(() => {
+    hydrated = true
+  }, [])
+  const set = (v: T) => {
+    setOpen(v)
+    try {
+      const s = (history.state ?? {}) as { usr?: Record<string, unknown> }
+      history.replaceState({ ...s, usr: { ...s.usr, [k]: v } }, '')
+    } catch {
+      // A history that refuses the write: it only forgets the board was open.
+    }
+  }
+  return [open, set]
 }
 
 export type LinkRenderer = (props: {

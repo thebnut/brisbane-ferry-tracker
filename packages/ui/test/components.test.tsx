@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { CountdownChip, StatusBadge } from '../src/board.tsx'
 import { OfflineBanner } from '../src/states.tsx'
-import { isPlatformChange, PlatformTile } from '../src/timeline.tsx'
 import { StoppingPattern } from '../src/train.tsx'
 import { RouteTile, routeTileVariant } from '../src/transit.tsx'
 
@@ -35,25 +34,6 @@ describe('StatusBadge', () => {
   ] as const)('%s shows %s', (kind, text) => {
     render(<StatusBadge kind={kind} />)
     expect(screen.getByText(text)).toHaveAttribute('data-badge', kind)
-  })
-})
-
-describe('PlatformTile', () => {
-  it('detects a change only when both platforms are known and differ', () => {
-    expect(isPlatformChange('7', '4')).toBe(true)
-    expect(isPlatformChange('4', '4')).toBe(false)
-    expect(isPlatformChange(' 4a', '4A')).toBe(false)
-    expect(isPlatformChange('4', null)).toBe(false)
-  })
-  it('renders the NOW tile with the old number struck through', () => {
-    render(<PlatformTile platform="7" scheduledPlatform="4" />)
-    const tile = screen.getByLabelText('Platform changed to 7, was 4')
-    expect(tile).toHaveTextContent('NOW74')
-    expect(tile).toHaveAttribute('data-platform-change', 'true')
-  })
-  it('renders a plain platform tile', () => {
-    render(<PlatformTile platform="4" scheduledPlatform="4" />)
-    expect(screen.getByLabelText('Platform 4')).toBeInTheDocument()
   })
 })
 

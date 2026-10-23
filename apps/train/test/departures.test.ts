@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   asScheduled,
   boardState,
+  nextInstead,
   offlineRows,
   platformChanges,
   trainCard,
@@ -151,5 +152,72 @@ describe('board state (F3/T5)', () => {
     const stale = visibleRows(rows, 'stale', NOW)
     expect(stale.map((d) => d.tripInstance)).toEqual(['T2@20261020'])
     expect(stale.every((d) => d.status === 'scheduled' && d.estDep == null && !d.gps)).toBe(true)
+  })
+})
+
+describe('a cancelled train\'s "next" heads the same way (release 15 review, P2)', () => {
+  // Sunnybank on the Beenleigh line, from the committed network patterns: BRBN/FGBN head for Beenleigh (next stop
+  // Altandi), BNBR heads for Bowen Hills (next stop Banoon). No stopsAfter, so each train's busiest pattern is used.
+  const sb = (i: number, route: string, long: string, headsign: string, over: Partial<Departure> = {}) =>
+    dep({
+      tripInstance: `sb${i}@20261020`,
+      route: { id: `${route}-1`, short: route, long, color: 'D53E45' },
+      headsign,
+      directionId: headsign.startsWith('Beenleigh') ? 0 : 1,
+      stopId: platform('sunnybank', '1'),
+      schedDep: nowS + (2 + i * 3) * 60,
+      estDep: nowS + (2 + i * 3) * 60,
+      stopsAfter: undefined,
+      ...over,
+    })
+  const cancelled = sb(0, 'BRBN', 'Brisbane City - Beenleigh', 'Beenleigh station', {
+    status: 'cancelled',
+    estDep: null,
+  })
+  const back = sb(1, 'BNBR', 'Beenleigh - Brisbane City', 'Bowen Hills station')
+  const same = sb(2, 'FGBN', 'Ferny Grove - Beenleigh', 'Beenleigh station')
+  const status = (rows: Departure[], to: string | null = null) =>
+    trainCard(rows[0] as Departure, NOW, 'sunnybank', to, nextInstead(rows, 0, 'sunnybank', to)).status.text
+
+  it('never suggests a train the other way on the same line', () => {
+    expect(trainCard(back, NOW, 'sunnybank', null).line.name).toBe('Beenleigh')
+    expect(nextInstead([cancelled, back], 0, 'sunnybank', null)).toBeUndefined()
+    expect(status([cancelled, back])).toBe('Cancelled')
+  })
+  it('suggests the next train the same way, past one going the other way', () => {
+    expect(nextInstead([cancelled, back, same], 0, 'sunnybank', null)).toBe(same)
+    expect(status([cancelled, back, same])).toBe('Cancelled · next Beenleigh line in 8 min')
+  })
+  it('a train the same way that calls at the destination (or the next stop) counts, from its own stopsAfter', () => {
+    const ids = (keys: string[]) =>
+      keys.map((k) => platform(k, '1') || (stationByKey(k)?.platforms[0]?.id ?? ''))
+    const toBeenleigh = sb(2, 'FGBN', 'Ferny Grove - Beenleigh', 'Beenleigh station', {
+      stopsAfter: ids(['altandi', 'beenleigh']),
+    })
+    const shortRun = sb(3, 'FGBN', 'Ferny Grove - Beenleigh', 'Beenleigh station', {
+      stopsAfter: ids(['altandi', 'runcorn']),
+    })
+    // Calls at the cancelled train's next stop (Altandi) though it turns short of Beenleigh: still the same way.
+    expect(nextInstead([cancelled, back, shortRun], 0, 'sunnybank', null)).toBe(shortRun)
+    expect(nextInstead([cancelled, toBeenleigh], 0, 'sunnybank', null)).toBe(toBeenleigh)
+  })
+  it('no compatible train: plain "Cancelled"', () => {
+    const goneBy = sb(2, 'FGBN', 'Ferny Grove - Beenleigh', 'Beenleigh station', {
+      status: 'cancelled',
+      estDep: null,
+    })
+    expect(status([cancelled, back, goneBy])).toBe('Cancelled')
+    // Nothing known about where the cancelled train goes: no guess.
+    const unknown = sb(0, 'XXXX', 'Nowhere - Somewhere', 'Somewhere station', {
+      status: 'cancelled',
+      estDep: null,
+    })
+    expect(nextInstead([unknown, back, same], 0, 'sunnybank', null)).toBeUndefined()
+  })
+  it("with a destination set, the board's trains (all going there) on the same line qualify", () => {
+    expect(nextInstead([cancelled, same], 0, 'sunnybank', 'beenleigh')).toBe(same)
+    expect(status([cancelled, same], 'beenleigh')).toBe('Cancelled · next Beenleigh line in 8 min')
+    // The same rule holds: a train the other way never qualifies, even if a board ever held one.
+    expect(nextInstead([cancelled, back], 0, 'sunnybank', 'beenleigh')).toBeUndefined()
   })
 })

@@ -73,6 +73,11 @@ export interface MapViewProps {
   zoom?: number
   /** Fit to the line or markers only once (default), or every time they change. */
   refit?: boolean
+  /**
+   * Fit once more whenever this changes: a vehicle to follow whose position arrives after the first fit (a trip's
+   * "Track on map", THE-118 PR 6).
+   */
+  fitKey?: string
   /** Once the style and the built-in layers are loaded, for callers that add their own (the stop picker's clusters). */
   onReady?: (map: MlMap) => void
   /**
@@ -229,6 +234,7 @@ export default function MapView({
   center = [153.03, -27.47],
   zoom = 12,
   refit = false,
+  fitKey,
   onReady,
   geolocation,
 }: MapViewProps) {
@@ -236,6 +242,7 @@ export default function MapView({
   const map = useRef<MlMap | null>(null)
   const placed = useRef<Marker[]>([])
   const fitted = useRef(false)
+  const fittedKey = useRef(fitKey)
   const [ready, setReady] = useState(false)
   // The map instance as state: the locate-me button mounts as soon as the map exists, before its style has loaded.
   const [instance, setInstance] = useState<MlMap | null>(null)
@@ -337,7 +344,7 @@ export default function MapView({
     placed.current = markers.map((mk) =>
       new Marker({ element: markerElement(mk) }).setLngLat([mk.lon, mk.lat]).addTo(m),
     )
-    if (!fitted.current || refit) {
+    if (!fitted.current || refit || fittedKey.current !== fitKey) {
       const pts = line?.length
         ? line.map(([lon, lat]) => ({ lat, lon }))
         : fitTo
@@ -347,9 +354,10 @@ export default function MapView({
       if (b) {
         m.fitBounds(b, { padding: 48, maxZoom: 15, duration: 0 })
         fitted.current = true
+        fittedKey.current = fitKey
       }
     }
-  }, [markers, fitTo, line, refit])
+  }, [markers, fitTo, line, refit, fitKey])
 
   useEffect(() => {
     const src = ready ? (map.current?.getSource('bft-stops') as GeoJSONSource | undefined) : undefined

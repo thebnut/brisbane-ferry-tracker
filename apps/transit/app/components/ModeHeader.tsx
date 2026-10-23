@@ -9,7 +9,7 @@
  */
 import { cx, Icon } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-transit.svg?url'
-import { lazy, Suspense, useState } from 'react'
+import { lazy, type MouseEvent, Suspense, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { type ConnectionState, connectionState } from '../lib/connection.ts'
 import { useOnline } from '../lib/useNow.ts'
@@ -21,6 +21,8 @@ const SettingsSheet = lazy(() => import('./SettingsSheet.tsx'))
 export interface BackLink {
   href: string
   label: string
+  /** A trip's back link goes back in history to the board it came from, keeping its scroll (@bft/ui/trip). */
+  onClick?: (e: MouseEvent<HTMLAnchorElement>) => void
 }
 
 /** The page's live answer for the header and the status line (see connectionState). */
@@ -77,7 +79,7 @@ export function ModeHeader({
   onSettings?: () => void
 }) {
   const { pathname } = useLocation()
-  const parent = back === undefined ? parentOf(pathname) : back
+  const parent: BackLink | null = back === undefined ? parentOf(pathname) : back
   const active = activeTab(pathname)
   const state = useConnection(live)
   const [settings, setSettings] = useState<boolean | null>(null)
@@ -88,6 +90,7 @@ export function ModeHeader({
           {parent ? (
             <Link
               to={parent.href}
+              onClick={parent.onClick}
               className="flex min-h-11 min-w-0 items-center gap-0.5 rounded-lg pr-2 font-bold text-aqua-text no-underline md:hidden dark:text-ferry-aqua-light"
             >
               <Icon name="chevronLeft" size={22} />

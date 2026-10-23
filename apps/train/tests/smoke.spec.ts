@@ -37,7 +37,7 @@ test('station board: platform tiles on the line colour, countdowns, no strips; h
 
 test('reachable-only picker narrows the board to one destination', async ({ page }) => {
   await page.goto('/station/bowen-hills')
-  await page.getByRole('button', { name: /Choose where you're going/ }).click()
+  await page.getByRole('button', { name: 'Going to…' }).click()
   const sheet = page.getByRole('dialog')
   const fg = sheet.locator('[data-line="Ferny Grove"]').first()
   await expect(fg).toBeVisible()
@@ -53,8 +53,8 @@ test('service detail shows the stopping pattern and the train', async ({ page })
   await page.goto('/station/central')
   await page.locator('[data-board=central] [data-testid=departure] a').first().click()
   await expect(page).toHaveURL(/\/trip\//)
-  await expect(page.getByRole('heading', { level: 1 })).toContainText(/to /)
-  await expect(page.getByRole('list', { name: 'Stopping pattern' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^To /)
+  await expect(page.getByRole('list', { name: 'Stops on your trip' })).toBeVisible()
   // TRIP_WS=1 in the test server: updates arrive over the hibernating-WebSocket prototype, polling stops.
   await expect(page.locator('[data-transport=websocket]')).toBeVisible()
 })

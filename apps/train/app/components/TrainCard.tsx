@@ -3,8 +3,8 @@
  * change), the destination, the status line with one fact (the line, or "arr 7:31" when going somewhere), and the big
  * countdown. With a destination, wide rows add the arrival and journey. The stopping pattern is in trip detail.
  */
-import { DepartureRow, PlatformLineTile } from '@bft/ui'
-import { Link } from 'react-router'
+import { boardState, DepartureRow, type LinkRenderer, PlatformLineTile } from '@bft/ui'
+import { Link, useLocation } from 'react-router'
 import { at } from '../lib/base.ts'
 import type { TrainCard as Model } from '../lib/departures.ts'
 
@@ -14,21 +14,16 @@ export function tripHref(card: Model, from: string, to: string | null) {
   return `${at('/trip')}/${encodeURIComponent(card.tripInstance)}?${q}`
 }
 
-const linkRenderer = ({
-  href,
-  className,
-  children,
-  label,
-}: {
-  href: string
-  className: string
-  children: React.ReactNode
-  label?: string
-}) => (
-  <Link to={href} className={className} aria-label={label}>
-    {children}
-  </Link>
-)
+/** The row's link to its trip page, carrying the board's URL so the trip's back link returns here (THE-118 PR 6). */
+function RowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
+  const { pathname, search } = useLocation()
+  return (
+    <Link to={href} className={className} aria-label={label} state={boardState(pathname, search)}>
+      {children}
+    </Link>
+  )
+}
+const linkRenderer: LinkRenderer = (props) => <RowLink {...props} />
 
 export function TrainCard({
   card,

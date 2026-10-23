@@ -390,6 +390,60 @@ export function seedUpdatedAt(initial: { generatedAt: number; rtState: string } 
   return initial.rtState === 'live' ? initial.generatedAt : 0
 }
 
+/** The parts of a TanStack query result awaitingSeedAnswer reads. */
+export interface SeededQuery {
+  data: unknown
+  dataUpdatedAt: number
+  errorUpdateCount: number
+  failureCount: number
+}
+
+/**
+ * Is this board still showing a non-live seed (its page's loader data, seedUpdatedAt 0) while its own first request
+ * is in flight (R32-RT1)? A cold API isolate answers `stale` or `unavailable` after RT_WAIT_MS, and the board's own
+ * request, a second later, is usually live: until it answers the board is pending ("Connecting…", no banner), never
+ * OFFLINE and never LIVE (its rows stay the seed's, as Scheduled). Pass the board's liveState: an offline board
+ * (offline browser, a copy from the service worker, a cached page's seed: R2-T7, R6-B1) is never pending. Once the
+ * board has an answer of its own (dataUpdatedAt), or its request failed (failureCount, errorUpdateCount), it is judged
+ * as usual. Bounded by trackedFetch: a request unanswered after LIVE_REQUEST_TIMEOUT_MS fails and reports offline.
+ * Server and hydration renders hold the seed with dataUpdatedAt 0 too, so the HTML says the same.
+ */
+export function awaitingSeedAnswer(q: SeededQuery, state: LiveState): boolean {
+  return (
+    q.data != null &&
+    q.dataUpdatedAt === 0 &&
+    q.errorUpdateCount === 0 &&
+    q.failureCount === 0 &&
+    state != null &&
+    state !== 'offline'
+  )
+}
+
+/**
+ * Is a page of several boards pending (R32-RT1)? Yes while at least one board is waiting (no answer yet, or a
+ * non-live seed's refetch still out: awaitingSeedAnswer) and every other board is waiting too or confirmed live (its
+ * own live answer, nothing failed since). A failed request (isError, or a first failure while TanStack retries) or an own answer that isn't live wins: a board
+ * still waiting never hides another board's failure, whether or not the connection flag noticed it (an HTTP error
+ * leaves it online).
+ */
+export function pagePending(
+  boards: Array<{ q: SeededQuery & { isError: boolean }; state: LiveState }>,
+): boolean {
+  type Board = (typeof boards)[number]
+  // Nothing has failed: no error, and no failure being retried. A board still showing live data from before a failed
+  // request counts as failed too (Codex r2).
+  const ok = ({ q }: Board) => !q.isError && q.failureCount === 0
+  const waiting = (b: Board) => ok(b) && (b.q.data == null || awaitingSeedAnswer(b.q, b.state))
+  return (
+    boards.some(waiting) && boards.every((b) => waiting(b) || (ok(b) && b.q.data != null && b.state == null))
+  )
+}
+
+/** A page's loader seed as its board's query holds it before any request of its own (for awaitingSeedAnswer). */
+export function asSeed(initial: { generatedAt: number; rtState: string }): SeededQuery {
+  return { data: initial, dataUpdatedAt: seedUpdatedAt(initial) ?? 0, errorUpdateCount: 0, failureCount: 0 }
+}
+
 /** The polled (live) queries of a TanStack QueryClient: what a reconnect refetches. Static data stays cached. */
 export interface RefetchableClient {
   refetchQueries(

@@ -31,7 +31,7 @@ export interface RedirectEnv {
 
 /** Each mode's pages, as `routes.ts` declares them (`*` excluded): matched against the request path. */
 const PAGES: Record<RedirectMode, readonly RegExp[]> = {
-  ferry: [/^\/terminal\/[^/]+$/, /^\/privacy$/, /^\/terms$/],
+  ferry: [/^\/terminal\/[^/]+$/, /^\/trip\/[^/]+$/, /^\/privacy$/, /^\/terms$/],
   train: [/^\/stations$/, /^\/station\/[^/]+$/, /^\/trip\/[^/]+$/, /^\/map$/, /^\/alerts$/],
   bus: [
     /^\/nearby$/,

@@ -24,14 +24,22 @@ export function SiteHeader({ back, ...live }: LiveProps & { back?: BackLink }) {
 export function UpdatedStrip({
   detail,
   children,
+  board,
 }: {
   updated: ReactNode
   detail?: string
   children?: ReactNode
+  board?: boolean
 }) {
   const { refresh, refreshing } = useRefetchLive()
   return (
-    <StatusLine {...claim(useContext(ShellLive))} detail={detail} onRefresh={refresh} refreshing={refreshing}>
+    <StatusLine
+      {...claim(useContext(ShellLive))}
+      detail={detail}
+      onRefresh={refresh}
+      refreshing={refreshing}
+      board={board}
+    >
       {children}
     </StatusLine>
   )

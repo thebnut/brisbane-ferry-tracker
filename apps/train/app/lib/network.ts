@@ -168,6 +168,23 @@ function isSubsequence(sub: string[], seq: string[]): boolean {
 export const MAX_STRIP_DOTS = 14
 
 /**
+ * The stations (keys) a departure from `from` calls at after it: its own `stopsAfter` (station keys), else the busiest
+ * known pattern for its route and headsign. Empty when neither is known.
+ */
+export function callsAfter(opts: {
+  from: string
+  stopsAfter: string[] | null
+  route: string
+  headsign: string
+}): string[] {
+  if (opts.stopsAfter) return opts.stopsAfter
+  const p = LINES.flatMap((l) => l.patterns).find(
+    (x) => x.route === opts.route && x.headsign === opts.headsign && x.stations.includes(opts.from),
+  )
+  return p ? p.stations.slice(p.stations.indexOf(opts.from) + 1) : []
+}
+
+/**
  * Stopping-pattern strip for a departure from `from` (T-Departures): the stations it calls at (`stopsAfter`, station
  * keys) laid on the fullest known pattern of the corridor, so stations an express runs through show as hollow dots.
  * Ends at `to` when given, otherwise at the terminus. Long runs keep the first stations and the end, with a gap.
@@ -182,13 +199,7 @@ export function stripFor(opts: {
   maxDots?: number
 }): PatternStop[] {
   const { from } = opts
-  let after = opts.stopsAfter
-  if (!after) {
-    const p = LINES.flatMap((l) => l.patterns).find(
-      (x) => x.route === opts.route && x.headsign === opts.headsign && x.stations.includes(from),
-    )
-    after = p ? p.stations.slice(p.stations.indexOf(from) + 1) : []
-  }
+  const after = callsAfter(opts)
   const endAt = opts.to && after.includes(opts.to) ? after.indexOf(opts.to) : after.length - 1
   const calls = after.slice(0, endAt + 1)
   if (calls.length === 0) return []
@@ -235,3 +246,15 @@ export function corridorFor(calls: string[]): string[] {
 
 /** Stations an express runs through between here and its end (for "skips 3"). */
 export const skippedCount = (strip: PatternStop[]) => strip.filter((s) => !s.stops).length
+
+/** The board header's platforms: "Platform 2", "Platforms 1–6" (a run), else "Platforms 1, 2, 4". */
+export function platformsText(codes: string[]): string | null {
+  if (codes.length === 0) return null
+  if (codes.length === 1) return `Platform ${codes[0]}`
+  const n = codes.map(Number).sort((a, b) => a - b)
+  const run = n.every((x, i) => Number.isInteger(x) && (i === 0 || x === (n[i - 1] as number) + 1))
+  return `Platforms ${run ? `${n[0]}–${n[n.length - 1]}` : codes.join(', ')}`
+}
+
+/** The lines through a station (each line once, whichever way it runs). */
+export const lineCount = (key: string) => new Set(reachableFrom(key).map((g) => g.line.name)).size

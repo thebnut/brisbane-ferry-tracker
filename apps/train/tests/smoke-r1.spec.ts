@@ -135,11 +135,12 @@ test('API unreachable while the browser says online: offline banner at the next 
 test('service page: no LIVE or GPS while offline (Codex review)', async ({ page, context }) => {
   await page.goto('/station/central')
   await page.locator('[data-board=central] [data-testid=departure] a').first().click()
-  await expect(page.getByRole('list', { name: 'Stopping pattern' })).toBeVisible()
+  await expect(page.getByRole('list', { name: 'Stops on your trip' })).toBeVisible()
   await context.setOffline(true)
   await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 2_000 })
-  await expect(page.locator('main [data-badge=live]')).toHaveCount(0)
-  await expect(page.locator('main [data-badge=gps]')).toHaveCount(0)
+  // The timetable only: no live words or GPS in the summary.
+  await expect(page.locator('main [data-trip-summary] [data-live-claim]')).toHaveCount(0)
+  await expect(page.locator('main [data-trip-status]')).not.toContainText(/Live|GPS/)
   await expect(page.getByText('LIVE', { exact: true })).toHaveCount(0)
   await context.setOffline(false)
 })
@@ -156,7 +157,9 @@ test('the server HTML never puts LIVE over stale boards (Codex review)', async (
   const html = await (await request.get('/station/roma-street?to=indooroopilly&rt=stale')).text()
   const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'))
   expect(header).not.toContain('>LIVE<')
-  expect(header).toContain('>OFFLINE<')
+  // Stale seeds: "Connecting…" until the boards' own answers, never OFFLINE first (R32-RT1).
+  expect(header).toContain('data-connection="connecting"')
+  expect(header).not.toContain('>OFFLINE<')
   const live = await (await request.get('/station/roma-street?to=indooroopilly')).text()
   expect(live.slice(live.indexOf('<header'), live.indexOf('</header>'))).toContain('>LIVE<')
 })

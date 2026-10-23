@@ -10,7 +10,7 @@ import {
 } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { type ApiFetcher, browserFetcher, fetchDepartures, fetchTrip } from './api.ts'
+import { type ApiFetcher, browserFetcher, fetchDepartures } from './api.ts'
 import { readOffline, writeOffline } from './storage.ts'
 
 export const POLL_MS = 15_000
@@ -53,6 +53,8 @@ export function departuresOptions(
   to: string,
   at: number | null,
   initial: DeparturesResponse | null,
+  /** False: no board to fill (the return board of a board with no "To"). */
+  enabled = true,
 ) {
   const queryKey = ['ferry', 'departures', mode.fixtures, mode.rt, from, to, at] as const
   return {
@@ -94,6 +96,7 @@ export function departuresOptions(
     initialData: initial ?? undefined,
     initialDataUpdatedAt: seedUpdatedAt(initial),
     refetchInterval: poll,
+    enabled,
   }
 }
 
@@ -104,17 +107,9 @@ export function useDepartures(
   to: string,
   at: number | null,
   initial: DeparturesResponse | null,
+  enabled = true,
 ) {
-  return useQuery(departuresOptions(fetcher, mode, from, to, at, initial))
-}
-
-export function useTrip(fetcher: ApiFetcher, mode: DataMode, tripInstance: string | null) {
-  return useQuery({
-    queryKey: ['ferry', 'trip', mode.fixtures, mode.rt, tripInstance],
-    queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance as string, signal),
-    enabled: !!tripInstance,
-    refetchInterval: poll,
-  })
+  return useQuery(departuresOptions(fetcher, mode, from, to, at, initial, enabled))
 }
 
 /** Bumped by another tab's storage writes (the event never fires for this tab's own). */

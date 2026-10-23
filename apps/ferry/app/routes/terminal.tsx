@@ -1,7 +1,8 @@
 /**
- * /terminal/:slug: server-rendered terminal page. Keeps the legacy URL, title, description, canonical, OG tags and
- * JSON-LD (scripts/postbuild.mjs), with live departure rows in the HTML from the loader instead of a build-time
- * timetable.
+ * /terminal/:slug (?to=<slug>): server-rendered terminal board (THE-118 PR 5): the terminal's departures, or with "To"
+ * only the ferries going there (and the return board on desktop). Keeps the legacy URL, title, description,
+ * canonical, OG tags and JSON-LD (scripts/postbuild.mjs) whatever `?to=` says, with live departure rows in the HTML
+ * from the loader instead of a build-time timetable. An unknown or unreachable `to` is dropped.
  */
 
 import type { Departure } from '@bft/core/contract'
@@ -10,16 +11,16 @@ import { VIA_NETWORK } from '@bft/ui/connectivity'
 import { data } from 'react-router'
 import { Footer, SECTION } from '../components/Chrome.tsx'
 import { FerryBoards } from '../components/FerryBoards.tsx'
-import { fetchDepartures } from '../lib/api.ts'
+import { DEPARTURE_LIMIT, fetchDepartures } from '../lib/api.ts'
 import { at } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { pageMeta, SITE_URL, terminalJsonLd, terminalMeta, terminalRoutes } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
-import { pairFromCookie } from '../lib/storage.ts'
 import {
+  choice,
+  destinationParam,
   nearbyTerminals,
-  pairForTerminal,
   TERMINALS,
   terminalBySlug,
   terminalHref,
@@ -30,22 +31,27 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const terminal = terminalBySlug(params.slug)
   if (!terminal) throw data(null, { status: 404 })
   const { fixtures, rt, fetcher, env, fallback } = loaderEnv(request, context)
-  const pair = pairForTerminal(terminal, pairFromCookie(request.headers.get('cookie')))
+  const to = destinationParam(terminal, new URL(request.url).searchParams.get('to'))
   const [outbound, inbound, all] = await Promise.all([
-    settle((signal) =>
-      fetchDepartures(fetcher, pair.outbound.id, pair.inbound.id, { signal, validate: validateDepartures }),
-    ),
-    settle((signal) =>
-      fetchDepartures(fetcher, pair.inbound.id, pair.outbound.id, { signal, validate: validateDepartures }),
-    ),
+    to
+      ? settle((signal) =>
+          fetchDepartures(fetcher, terminal.id, to.id, { signal, validate: validateDepartures }),
+        )
+      : null,
+    to?.destinations.includes(terminal.id)
+      ? settle((signal) =>
+          fetchDepartures(fetcher, to.id, terminal.id, { signal, validate: validateDepartures }),
+        )
+      : null,
     settle((signal) =>
       fetchDepartures(fetcher, terminal.id, '', { limit: 40, signal, validate: validateDepartures }),
     ),
   ])
   return {
     terminal,
-    pair,
-    outbound,
+    to: to ? choice(to) : null,
+    // Without "To", the board's rows are the first of the timetable's (the same answer at the board's own limit).
+    outbound: to ? outbound : all && { ...all, departures: all.departures.slice(0, DEPARTURE_LIMIT) },
     inbound,
     upcoming: all?.departures ?? [],
     renderedAt: Date.now(),
@@ -196,13 +202,13 @@ export default function TerminalPage({ loaderData }: Route.ComponentProps) {
   return (
     <>
       <FerryBoards
-        key={loaderData.terminal.id}
-        pair={loaderData.pair}
+        key={`${loaderData.terminal.id}:${loaderData.to?.id ?? ''}`}
+        from={choice(loaderData.terminal)}
+        to={loaderData.to}
         outbound={loaderData.outbound}
         inbound={loaderData.inbound}
         renderedAt={loaderData.renderedAt}
         mode={loaderData.mode}
-        terminalPage
       >
         <TerminalSection terminal={loaderData.terminal} upcoming={loaderData.upcoming} />
       </FerryBoards>

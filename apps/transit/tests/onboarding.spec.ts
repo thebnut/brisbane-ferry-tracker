@@ -62,7 +62,7 @@ test('first visit on My Transit: prompt → Yes → pick bus, train and ferry �
   await expect(page).toHaveURL(/\/$/)
   const main = page.locator('main')
   // The ferry favourite's card opens its trip's boards (THE-118).
-  await expect(main.locator('a[href^="/ferry?from="]').first()).toBeVisible({ timeout: 15_000 })
+  await expect(main.locator('a[href^="/ferry/terminal/"]').first()).toBeVisible({ timeout: 15_000 })
   await expect(main.locator('a[href="/train/station/central"]').first()).toBeVisible()
   await expect(main.locator('a[href^="/bus/stop/"]').first()).toBeVisible()
   // Each mode's own store and format.

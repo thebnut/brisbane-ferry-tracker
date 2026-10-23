@@ -1,4 +1,5 @@
 import { VIA_NETWORK } from '@bft/ui/connectivity'
+import { redirect } from 'react-router'
 import { Footer, SiteIntro } from '../components/Chrome.tsx'
 import { FerryBoards } from '../components/FerryBoards.tsx'
 import { fetchDepartures } from '../lib/api.ts'
@@ -6,16 +7,16 @@ import { validateDepartures } from '../lib/contract.server.ts'
 import { HOME_META, homeJsonLd, pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
 import { pairFromCookie } from '../lib/storage.ts'
-import { DEFAULT_STOPS, pairFromParams } from '../lib/terminals.ts'
+import { boardForOldLink, DEFAULT_STOPS } from '../lib/terminals.ts'
 import type { Route } from './+types/home'
 
 export async function loader({ request, context }: Route.LoaderArgs) {
+  // An old deep link (?from=&to=, R3-F2) opens that terminal's board with its "To" (THE-118 PR 5), not the saved pair.
+  const board = boardForOldLink(new URL(request.url).searchParams)
+  if (board) throw redirect(board, 302)
   const { fixtures, rt, fetcher, env, fallback } = loaderEnv(request, context)
   // The saved pair travels in a cookie so its rows are in the HTML; first visits get the default pair.
-  const saved = pairFromCookie(request.headers.get('cookie')) ?? DEFAULT_STOPS
-  // A deep link (?from=&to=) opens that pair for this visit without replacing the saved one (R3-F2).
-  const linked = pairFromParams(new URL(request.url).searchParams, saved)
-  const pair = linked ?? saved
+  const pair = pairFromCookie(request.headers.get('cookie')) ?? DEFAULT_STOPS
   const [outbound, inbound] = await Promise.all([
     settle((signal) =>
       fetchDepartures(fetcher, pair.outbound.id, pair.inbound.id, { signal, validate: validateDepartures }),
@@ -26,7 +27,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   ])
   return {
     pair,
-    deepLink: linked != null,
     outbound,
     inbound,
     renderedAt: Date.now(),
@@ -59,8 +59,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   return (
     <>
       <FerryBoards
-        pair={loaderData.pair}
-        deepLink={loaderData.deepLink}
+        from={loaderData.pair.outbound}
+        to={loaderData.pair.inbound}
+        home
         outbound={loaderData.outbound}
         inbound={loaderData.inbound}
         renderedAt={loaderData.renderedAt}

@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   asOfflineCopy,
+  asSeed,
+  awaitingSeedAnswer,
   dropDeparted,
   isNetworkAnswer,
   isOnline,
@@ -10,6 +12,7 @@ import {
   liveState,
   markCacheHits,
   noteCacheCopy,
+  pagePending,
   replacesBoard,
   reportOffline,
   reportOnline,
@@ -109,6 +112,83 @@ describe('seedUpdatedAt (R27-RT1)', () => {
     expect(seedUpdatedAt({ generatedAt: 5_000, rtState: 'live' })).toBe(5_000)
     for (const rtState of ['unavailable', 'stale', 'reloading'])
       expect(seedUpdatedAt({ generatedAt: 5_000, rtState })).toBe(0)
+  })
+})
+
+describe('awaitingSeedAnswer (R32-RT1)', () => {
+  const stale = { generatedAt: 5_000, rtState: 'stale' }
+  // A non-live seed as its query holds it before the board's own answer (seedUpdatedAt 0, nothing failed).
+  const seed = { data: stale, dataUpdatedAt: 0, errorUpdateCount: 0, failureCount: 0 }
+  it('a non-live seed waits for its own refetch: pending, whatever its liveState says short of offline', () => {
+    for (const state of ['stale', 'unavailable', 'reloading'] as const)
+      expect(awaitingSeedAnswer(seed, state)).toBe(true)
+    expect(awaitingSeedAnswer(asSeed(stale), 'stale')).toBe(true)
+  })
+  it('once its own answer arrives the board is judged as usual: live or not', () => {
+    // A live own answer (liveState null) and a non-live one: both have a dataUpdatedAt of their own.
+    expect(awaitingSeedAnswer({ ...seed, dataUpdatedAt: 6_000 }, null)).toBe(false)
+    expect(awaitingSeedAnswer({ ...seed, dataUpdatedAt: 6_000 }, 'stale')).toBe(false)
+    expect(awaitingSeedAnswer({ ...seed, dataUpdatedAt: 6_000 }, 'unavailable')).toBe(false)
+  })
+  it('a failed request ends the wait at once, even while TanStack retries it', () => {
+    expect(awaitingSeedAnswer({ ...seed, failureCount: 1 }, 'stale')).toBe(false)
+    expect(awaitingSeedAnswer({ ...seed, errorUpdateCount: 1 }, 'stale')).toBe(false)
+  })
+  it('an offline board never waits: offline browser, a service-worker copy, a cached page (R2-T7, R6-B1)', () => {
+    expect(awaitingSeedAnswer(seed, 'offline')).toBe(false)
+    // A cached page's seed, live or not: liveState says offline (unconfirmedBefore).
+    const cached = liveState(
+      { ...stale, rtSourceTimestamp: null },
+      { offline: false, nowMs: 10_000, unconfirmedBefore: 5_000 },
+    )
+    expect(cached).toBe('offline')
+    expect(awaitingSeedAnswer(seed, cached)).toBe(false)
+  })
+  it('a live seed and a board without a seed never wait', () => {
+    expect(awaitingSeedAnswer(asSeed({ generatedAt: 5_000, rtState: 'live' }), null)).toBe(false)
+    expect(awaitingSeedAnswer(asSeed({ generatedAt: 5_000, rtState: 'live' }), 'stale')).toBe(false)
+    expect(awaitingSeedAnswer({ ...seed, data: undefined }, 'stale')).toBe(false)
+  })
+})
+
+describe('pagePending (R32-RT1, Codex r1)', () => {
+  const stale = { generatedAt: 5_000, rtState: 'stale' }
+  const q = {
+    data: undefined as unknown,
+    dataUpdatedAt: 0,
+    errorUpdateCount: 0,
+    failureCount: 0,
+    isError: false,
+  }
+  const seed = { q: { ...q, data: stale }, state: 'stale' as const }
+  const loading = { q, state: null }
+  const live = { q: { ...q, data: stale, dataUpdatedAt: 6_000 }, state: null }
+  const staleAnswer = { q: { ...q, data: stale, dataUpdatedAt: 6_000 }, state: 'stale' as const }
+  const failed = { q: { ...q, isError: true, failureCount: 2, errorUpdateCount: 1 }, state: null }
+  const retrying = { q: { ...q, failureCount: 1 }, state: null }
+  it('pending while a board waits and every other is waiting or live', () => {
+    expect(pagePending([seed])).toBe(true)
+    expect(pagePending([loading])).toBe(true)
+    expect(pagePending([seed, loading])).toBe(true)
+    expect(pagePending([seed, live])).toBe(true)
+  })
+  it("a waiting board never hides another's failure: an HTTP error, a retry, or an own answer that isn't live", () => {
+    // An HTTP error leaves the connection flag online, and liveState(undefined) is null: still a failure.
+    expect(pagePending([seed, failed])).toBe(false)
+    expect(pagePending([seed, retrying])).toBe(false)
+    expect(pagePending([loading, staleAnswer])).toBe(false)
+    expect(pagePending([seed, staleAnswer])).toBe(false)
+    expect(pagePending([failed])).toBe(false)
+    // A board still showing live data from before its latest request failed, or while that request is retried (Codex r2).
+    expect(
+      pagePending([seed, { ...live, q: { ...live.q, isError: true, failureCount: 2, errorUpdateCount: 1 } }]),
+    ).toBe(false)
+    expect(pagePending([seed, { ...live, q: { ...live.q, failureCount: 1 } }])).toBe(false)
+  })
+  it('not pending once every board has answered, or for a page without boards', () => {
+    expect(pagePending([live])).toBe(false)
+    expect(pagePending([staleAnswer])).toBe(false)
+    expect(pagePending([])).toBe(false)
   })
 })
 

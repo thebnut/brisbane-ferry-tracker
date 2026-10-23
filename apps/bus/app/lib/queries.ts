@@ -26,6 +26,7 @@ import {
   fetchStopIndex,
   OFFLINE_LIMIT,
 } from './api.ts'
+import { leavingFrom } from './departures.ts'
 import { readOffline, writeOffline } from './storage.ts'
 
 export const POLL_MS = 15_000
@@ -144,15 +145,19 @@ export function departuresOptions(
   initial: DeparturesResponse | null,
   /** Only this route's departures (the stop page's ?route=). */
   route?: string,
+  /** "Depart from" (epoch s, the board's Now ▾ chip, THE-118 PR 5): buses from then; null is now. */
+  at: number | null = null,
 ) {
-  const queryKey = ['bus', 'departures', mode.fixtures, mode.rt, stopId, route] as const
+  const queryKey = ['bus', 'departures', mode.fixtures, mode.rt, stopId, route, at] as const
+  // A later time's board offline: the copies on hand from that time on.
+  const from = (b: Board | null): Board | null => b && leavingFrom(b, at)
   return {
     queryKey,
     queryFn: async ({ signal, client }: QueryFunctionContext<typeof queryKey>): Promise<Board> => {
       // The board on screen: offline, it may be fresher than any cached copy.
       const shown = client.getQueryData<Board>(queryKey)
       try {
-        const res = await fetchDepartures(fetcher, stopId, { signal, route })
+        const res = await fetchDepartures(fetcher, stopId, { signal, route, at })
         // A network answer, judged on this response (not on the connection flag, which another request may have just
         // cleared) and never older than the server board on screen (R6-B1). Not against the kept timetable: a network
         // answer from the edge cache can be a little older than it (release review).
@@ -162,11 +167,11 @@ export function departuresOptions(
         }
         // Offline but the service worker answered from its cache (maybe hours old): never show its stale live
         // estimates, and keep the board on screen if it has more departures to come.
-        return asOfflineTimetable(stopId, [shown, res], Date.now(), shown) ?? res
+        return from(asOfflineTimetable(stopId, [shown, res], Date.now(), shown)) ?? res
       } catch (error) {
         // Offline with no cached response: the board on screen or the saved timetable copy.
         if (offline()) {
-          const fallback = asOfflineTimetable(stopId, [shown], Date.now(), shown)
+          const fallback = from(asOfflineTimetable(stopId, [shown], Date.now(), shown))
           if (fallback) return fallback
         }
         throw error
@@ -204,8 +209,9 @@ export function useDepartures(
   stopId: string,
   initial: DeparturesResponse | null,
   route?: string,
+  at: number | null = null,
 ) {
-  return useQuery(departuresOptions(fetcher, mode, stopId, initial, route))
+  return useQuery(departuresOptions(fetcher, mode, stopId, initial, route, at))
 }
 
 export function useManyDepartures(

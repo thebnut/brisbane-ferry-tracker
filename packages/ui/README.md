@@ -13,8 +13,8 @@ Shared React 19 design system in the BrisbaneFerry look (round 2: `docs/design/t
   utilities (`bg-page`, `bg-header`, `bg-strip`, `bg-board-header`, `bg-hot`, `bg-more`, `bg-departing`) and `tabular`.
   It `@source`s the component files, so apps get their classes generated.
 - Components (`@bft/ui`): `AppHeader` (ferry: real lockup image with WebP `srcSet`; train/bus/transit: emblem +
-  two-line Poppins wordmark), `SettingsPill`, `LivePill`, `StatusStrip`, `PillButton`, `FilterPills`, `BoardHeader`,
-  `StopSelect`, `CountdownChip`, `StatusBadge`, `PrimaryButton`, `SecondaryButton`,
+  two-line Poppins wordmark), `SettingsPill`, `LivePill`, `StatusStrip`, `PillButton`, `FilterPills`, `BoardHeader` with `FilterRow`, `Chip` and `NowChip`
+  (board-header.tsx), `CountdownChip`, `StatusBadge`, `PrimaryButton`, `SecondaryButton`,
   `MoreButton`, `BottomNav`, `ModeTabs`, `RouteTile` (orange for Metro/CityGlider), `StoppingPattern` (`compact` dots-only strip with hollow run-through dots and `gapBefore`),
   `LineChip`, `ServiceTimeline` (vertical line, separate arr/dep, the train as a moving capsule), `BottomSheet` (native `<dialog>` in a portal), `AlertCard`, `LineStatus` (status chips incl. `works` and a text override),
   `EmptyState`, `ErrorState`, `OfflineBanner` ("Offline · scheduled", "Live times unavailable", stale, reloading).
