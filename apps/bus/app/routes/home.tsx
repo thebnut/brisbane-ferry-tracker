@@ -106,7 +106,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     for (const q of queries) q.refetch()
   }
   const activeAlerts = (alertsQ.data?.alerts ?? []).length
-  // No saved stops: no live data of its own (the header's default; BrisbaneTransit's claims nothing).
+  // No saved stops: no live data of its own, so the header claims nothing (as BrisbaneTransit's).
   const live = ids.length
     ? online && views.every((v) => v.data && v.state == null && v.data.rtState === 'live')
     : undefined

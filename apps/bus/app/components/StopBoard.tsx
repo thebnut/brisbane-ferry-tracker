@@ -2,6 +2,9 @@
 import type { Alert, Departure, DeparturesResponse } from '@bft/core/contract'
 import {
   brisbaneDateKey,
+  DayDivider,
+  DepartureRow,
+  dayDividers,
   dayMarker,
   ErrorState,
   formatClock,
@@ -10,10 +13,10 @@ import {
   routeTileVariant,
 } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
-import { RouteDepartureCard, SkeletonRows } from '@bft/ui/bus'
+import { SkeletonRows } from '@bft/ui/bus'
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { rowLabel, rowViews } from '../lib/departures.ts'
+import { rowViews } from '../lib/departures.ts'
 import { stopHref, tripHref } from '../lib/stops.ts'
 
 export const linkRenderer = ({
@@ -178,6 +181,11 @@ export function DepartureList({
   // The "First bus tomorrow" card is the first row, so the list starts after it (R2-B9).
   const rest = tonightDone && first ? views.slice(1) : views
   const shown = initialCount && !expanded ? rest.slice(0, initialCount) : rest
+  // "Tomorrow · Fri 23 Oct" above the first of tomorrow's rows (THE-118 PR 4), not a date on every time.
+  const dividers = dayDividers(
+    shown.map((v) => v.departure.estDep ?? v.departure.schedDep),
+    nowMs,
+  )
   return (
     <>
       {tonightDone && first ? (
@@ -206,22 +214,30 @@ export function DepartureList({
         </section>
       ) : null}
       <ol className="flex flex-col gap-2.5" aria-label="Departures">
-        {shown.map((v) => (
+        {shown.map((v, i) => (
           <li key={v.key}>
-            <RouteDepartureCard
-              route={v.departure.route.short}
-              routeLong={v.departure.route.long}
+            {dividers[i] ? <DayDivider>{dividers[i]}</DayDivider> : null}
+            <DepartureRow
+              tile={
+                <RouteTile
+                  route={v.departure.route.short}
+                  variant={routeTileVariant(v.departure.route.short, v.departure.route.long)}
+                  size="lg"
+                  className="max-[420px]:h-11 max-[420px]:min-w-13 max-[420px]:text-xl"
+                />
+              }
               destination={v.departure.headsign}
-              status={v.departure.status}
-              note={v.note}
-              noteTone={v.noteTone}
+              status={v.status}
+              // One fact: a detour first, then a busway platform other than this stop's, then GPS.
+              fact={
+                v.fact !== 'detour' && v.departure.platform && v.departure.stopId !== stopId
+                  ? `platform ${v.departure.platform}`
+                  : v.fact
+              }
               minutes={v.minutes}
               time={v.time}
-              dayMarker={v.dayMarker}
-              platform={v.departure.platform && v.departure.stopId !== stopId ? v.departure.platform : null}
               highlighted={v.highlighted}
               href={tripHref(v.departure.tripInstance, stopId)}
-              label={rowLabel(v)}
               renderLink={linkRenderer}
             />
           </li>

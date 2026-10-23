@@ -1,8 +1,35 @@
-/** One departure board: header strip, cards (5, then up to 13 with "More departures"), empty and error states. */
+/** One departure board: header strip, rows (5, then up to 13 with "More departures"), empty and error states. */
 import type { Departure } from '@bft/core/contract'
-import { BoardHeader, DepartureCard, EmptyState, ErrorState, MoreButton } from '@bft/ui'
+import {
+  BoardHeader,
+  cx,
+  DayDivider,
+  DepartureRow,
+  dayDividers,
+  EmptyState,
+  ErrorState,
+  MoreButton,
+  nextAlike,
+  soonestIndex,
+} from '@bft/ui'
 import { type ReactNode, useState } from 'react'
-import { cardModel } from '../lib/departures.ts'
+import { rowModel } from '../lib/departures.ts'
+
+/** The row's tile (THE-118 PR 4): the service (F1, F11, F21) in a circle, orange for express, aqua for all stops. */
+export function ServiceTile({ code, express = false }: { code: string; express?: boolean }) {
+  return (
+    <span
+      data-tile="service"
+      className={cx(
+        'flex size-13 shrink-0 items-center justify-center rounded-full text-lg font-extrabold text-white tabular max-[420px]:size-12',
+        express ? 'bg-ferry-orange-aa' : 'bg-aqua-text',
+      )}
+    >
+      <span className="sr-only">Service </span>
+      {code}
+    </span>
+  )
+}
 
 export interface DepartureListProps {
   id: string
@@ -38,6 +65,12 @@ export function DepartureList({
   const [more, setMore] = useState(false)
   const list = departures ?? []
   const shown = list.slice(0, more ? 13 : 5)
+  // The soonest ferry you can board gets the orange border (every board's rule); later days get a divider.
+  const soonest = soonestIndex(shown)
+  const dividers = dayDividers(
+    shown.map((d) => d.estDep ?? d.schedDep),
+    nowMs,
+  )
   return (
     <section aria-label={label} className="flex flex-col gap-3" data-board={id}>
       <BoardHeader onSwap={onSwap} trailing={trailing}>
@@ -62,11 +95,36 @@ export function DepartureList({
       ) : (
         <>
           <ol className="flex flex-col gap-3" aria-label="Departures">
-            {shown.map((d) => {
-              const { key, ...card } = cardModel(d, nowMs)
+            {shown.map((d, i) => {
+              const r = rowModel(
+                d,
+                nowMs,
+                d.status === 'cancelled'
+                  ? nextAlike(list, i, (x) => x.route.short === d.route.short)
+                  : undefined,
+              )
               return (
-                <li key={key} data-testid="departure">
-                  <DepartureCard {...card} onSelect={() => onSelect(d)} />
+                <li key={r.key}>
+                  {dividers[i] ? <DayDivider>{dividers[i]}</DayDivider> : null}
+                  <DepartureRow
+                    tile={<ServiceTile code={r.code} express={r.express} />}
+                    destination={r.destination}
+                    status={r.status}
+                    fact={r.fact}
+                    wideFact={r.express ? 'express' : null}
+                    extra={
+                      r.arrival ? (
+                        <>
+                          <span className="text-charcoal dark:text-night-text">Arrives {r.arrival}</span>
+                          {r.journey ? <span className="text-xs font-normal">{r.journey}</span> : null}
+                        </>
+                      ) : null
+                    }
+                    minutes={r.minutes}
+                    time={r.time}
+                    highlighted={i === soonest}
+                    onSelect={() => onSelect(d)}
+                  />
                 </li>
               )
             })}

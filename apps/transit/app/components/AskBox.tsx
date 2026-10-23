@@ -1,6 +1,6 @@
 /**
  * The Ask box (Phase 8 UI): "next train from Bowen Hills to the airport" → POST /v1/ask. Answer rows render with the
- * shared DepartureCard. An invisible Turnstile token goes with every question when Turnstile answers (the LLM
+ * shared DepartureRow. An invisible Turnstile token goes with every question when Turnstile answers (the LLM
  * fallback needs it; the deterministic parser doesn't), and every `ai.reason` gets a friendly line (ask.ts).
  */
 import { Icon, PrimaryButton } from '@bft/ui'
@@ -10,7 +10,7 @@ import { type AskResult, postAsk } from '../lib/ask.ts'
 import { ASK_EXAMPLES } from '../lib/ask-examples.ts'
 import { invisibleTurnstile } from '../lib/turnstile.ts'
 
-// Answer rows (shared DepartureCard) load with the first answer, keeping them off the home page's first load.
+// Answer rows (shared DepartureRow) load with the first answer, keeping them off the home page's first load.
 const AskAnswer = lazy(() => import('./AskAnswer.tsx'))
 
 export function AskBox() {

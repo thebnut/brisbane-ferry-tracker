@@ -6,7 +6,7 @@
  * (BrisbaneTransit's state, THE-118): neither LIVE nor OFFLINE. Each case renders the real route on the server, then
  * hydrates that HTML.
  */
-import { reportOnline, resetUnconfirmedBefore } from '@bft/ui/connectivity'
+import { reportOffline, reportOnline, resetUnconfirmedBefore } from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { act, cleanup, waitFor } from '@testing-library/react'
 import type { ComponentType } from 'react'
@@ -22,21 +22,34 @@ import {
   StaticRouterProvider,
   useLoaderData,
   useParams,
+  useRouteError,
 } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cloudflareContext } from '../app/lib/context.ts'
 import { handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import { makeQueryClient } from '../app/lib/queries.ts'
+import { ErrorBoundary } from '../app/root.tsx'
 import * as alerts from '../app/routes/alerts.tsx'
+import * as home from '../app/routes/home.tsx'
 import * as map from '../app/routes/map.tsx'
 import * as station from '../app/routes/station.tsx'
+import * as stations from '../app/routes/stations.tsx'
 import * as trip from '../app/routes/trip.tsx'
+import * as whatsNew from '../app/routes/whats-new.tsx'
 
 /** Tuesday 20 Oct 2026, 8:30 am Brisbane: the fixtures have live services. */
 const NOW_MS = Date.UTC(2026, 9, 19, 22, 30)
 
 // biome-ignore lint/suspicious/noExplicitAny: route modules have per-route generated types.
-type RouteModule = { default: ComponentType<any>; loader: (args: any) => unknown }
+type RouteModule = { default: ComponentType<any>; loader?: (args: any) => unknown }
+
+/** A page whose loader throws a 404: the root error boundary renders. */
+const missing: RouteModule = {
+  default: () => null,
+  loader: () => {
+    throw new Response('Not found', { status: 404 })
+  },
+}
 
 /** The API: down while the loader runs (no answer for it), then `after` for the page's own requests. */
 let loading = true
@@ -80,13 +93,14 @@ function routes(path: string, module: RouteModule, fixtures = false) {
       path: '/',
       loader: () => ({ mode: { fixtures, rt: null }, fixtures, tripWs: null, theme: 'system' }),
       Component: () => <Outlet />,
+      ErrorBoundary: () => <ErrorBoundary error={useRouteError()} params={{}} loaderData={undefined} />,
       children: [
         {
           path,
           loader: async (args: { request: Request; params: Record<string, string> }) => {
-            const data = await module.loader({ ...args, context })
+            const data = await module.loader?.({ ...args, context })
             loading = false
-            return data
+            return data ?? null
           },
           Component: () => <Page Component={module.default} />,
         },
@@ -98,11 +112,18 @@ function routes(path: string, module: RouteModule, fixtures = false) {
 const roots: Root[] = []
 
 /** Server-renders `url`, then hydrates that HTML with the same loader data, as the browser does. */
-async function serveAndHydrate(path: string, module: RouteModule, url: string, fixtures = false) {
+async function serveAndHydrate(
+  path: string,
+  module: RouteModule,
+  url: string,
+  fixtures = false,
+  online = true,
+) {
   const tree = routes(path, module, fixtures)
   const handler = createStaticHandler(tree)
   const ctx = await handler.query(new Request(`https://standalone.example${url}`))
   if (ctx instanceof Response) throw new Error(`unexpected ${ctx.status}`)
+  if (online === false) reportOffline()
   const html = renderToString(
     <QueryClientProvider client={makeQueryClient()}>
       <StaticRouterProvider
@@ -143,6 +164,16 @@ function expectConnecting(header: string | HTMLElement) {
   expect(html).not.toMatch(/>LIVE</)
   expect(html).not.toContain('OFFLINE')
   expect(html).toContain('Connecting…')
+}
+
+/** No claim at all: neither LIVE, OFFLINE nor "Connecting…" (BrisbaneTransit's connectionState: null). */
+function expectNoClaim(header: string | HTMLElement) {
+  const html = typeof header === 'string' ? header : header.outerHTML
+  expect(html).toContain('<header')
+  expect(html).not.toContain('data-live-claim')
+  expect(html).not.toMatch(/>LIVE</)
+  expect(html).not.toContain('OFFLINE')
+  expect(html).not.toContain('Connecting…')
 }
 
 afterEach(() => {
@@ -205,5 +236,31 @@ describe('standalone train header before any answer', () => {
     expectConnecting(page.serverHeader)
     expect(page.hydrationErrors).toEqual([])
     expectConnecting(page.header())
+  })
+})
+
+/** Pages with no live data of their own claim nothing while online, as BrisbaneTransit's header (Dev, 23 Oct). */
+describe('standalone train header on a page without live data', () => {
+  const pages: [string, string, RouteModule, string][] = [
+    ['stations', 'stations', stations, '/stations'],
+    ['home with nothing saved', '', home, '/'],
+    ["what's new", 'whats-new', whatsNew, '/whats-new'],
+    ['the error boundary', 'missing', missing, '/missing'],
+  ]
+  for (const [name, path, module, url] of pages) {
+    it(`${name}: no pill in the server HTML or after hydration`, async () => {
+      apiDown('hang')
+      const page = await serveAndHydrate(path, module, url)
+      expectNoClaim(page.serverHeader)
+      expect(page.hydrationErrors).toEqual([])
+      expectNoClaim(page.header())
+    })
+  }
+
+  it("offline: what's new still says OFFLINE", async () => {
+    apiDown('hang')
+    const page = await serveAndHydrate('whats-new', whatsNew, '/whats-new', false, false)
+    await waitFor(() => expect(page.header()).toHaveTextContent('OFFLINE'))
+    expect(page.header().querySelector('[data-live-claim]')).toBeNull()
   })
 })

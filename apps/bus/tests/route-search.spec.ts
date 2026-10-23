@@ -70,7 +70,8 @@ for (const how of ['an error', 'no network'] as const) {
       how === 'an error' ? r.fulfill({ status: 500, body: 'no' }) : r.abort('internetdisconnected'),
     )
     await page.goto('/')
-    await expect(page.getByRole('banner').getByText('LIVE')).toBeVisible()
+    // Home with nothing saved claims nothing while online (no live data of its own).
+    await expect(page.getByRole('banner').getByText('OFFLINE')).toHaveCount(0)
     await field(page, isMobile).fill('333')
     await field(page, isMobile).fill('Chermside')
     await field(page, isMobile).fill('010802')
@@ -82,8 +83,9 @@ for (const how of ['an error', 'no network'] as const) {
         .first(),
     ).toBeVisible()
     await expect(page.getByRole('list', { name: 'Matching routes' })).toHaveCount(0)
-    // Optional data: its failure never marks the app offline (LIVE stays).
-    await expect(page.getByRole('banner').getByText('LIVE')).toBeVisible()
+    // Optional data: its failure never marks the app offline (no OFFLINE).
+    await expect(page.getByRole('banner').getByText('OFFLINE')).toHaveCount(0)
+    await expect(page.locator('[data-banner=offline]')).toHaveCount(0)
   })
 }
 

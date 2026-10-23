@@ -1,7 +1,7 @@
 /**
  * The site header and the "Updated" strip. Their own module because BrisbaneTransit swaps exactly this file for its
  * one header and status line (apps/transit/modes.config.ts, THE-118); the standalone site keeps these. Props it
- * doesn't use here (`idle`, `back`) are the transit header's.
+ * doesn't use here (`back`) are the transit header's.
  */
 import { AppHeader, LivePill, SettingsPill, StatusStrip } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-train.svg?url'
@@ -38,8 +38,9 @@ function ConnectingPill() {
 
 export function SiteHeader({
   onSettings,
-  live = true,
+  live,
   pending = false,
+  idle = false,
   active,
 }: LiveProps & {
   onSettings?: () => void
@@ -53,9 +54,16 @@ export function SiteHeader({
     <AppHeader mode="train" logoSrc={emblem}>
       {active != null ? <DesktopNav active={active} /> : null}
       {onSettings ? <SettingsPill onClick={onSettings} compact /> : null}
-      {/* Still waiting for the page's first answer (a loader that timed out at SSR, a board not yet answered): no LIVE
-          before any answer. Offline wins, as in BrisbaneTransit's connectionState. */}
-      {pending && online ? <ConnectingPill /> : <LivePill live={live} />}
+      {/* BrisbaneTransit's connectionState: offline wins; then "Connecting…" while the page waits for its first answer
+          (a loader that timed out at SSR, a board not yet answered); a page with no live data of its own (no `live`,
+          or Shell's `idle`) claims nothing. */}
+      {!online ? (
+        <LivePill live={false} />
+      ) : pending ? (
+        <ConnectingPill />
+      ) : live === undefined || idle ? null : (
+        <LivePill live={live} />
+      )}
     </AppHeader>
   )
 }
