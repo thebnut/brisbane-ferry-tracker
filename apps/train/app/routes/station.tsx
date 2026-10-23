@@ -226,6 +226,7 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
               mode={mode}
               filter={filter}
               compactHeader
+              sub={BASE ? <StationAlerts station={to} mode={mode} nowMs={nowMs} /> : undefined}
             />
           </div>
         ) : null}

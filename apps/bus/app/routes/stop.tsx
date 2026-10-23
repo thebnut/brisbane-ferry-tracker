@@ -95,6 +95,22 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   ]
 }
 
+/**
+ * The board header's alert count in BrisbaneTransit (THE-118 PR 3): wider than the notices above the rows, so the count
+ * says what affects this stop at all. Bus alerts that name this stop or a route serving it (any effect), or that name
+ * no route or stop (a network-wide notice).
+ */
+export function boardAlerts(alerts: Alert[], stopId: string, routes: string[], nowS: number): Alert[] {
+  return alerts.filter(
+    (a) =>
+      isActive(a, nowS) &&
+      (a.modes.length === 0 || a.modes.includes('bus')) &&
+      ((a.routes.length === 0 && a.stops.length === 0) ||
+        a.stops.includes(stopId) ||
+        a.routes.some((r) => routes.includes(routeShortOf(r)))),
+  )
+}
+
 /** Alerts for this stop, or a detour on a route that serves it. */
 export function stopAlerts(alerts: Alert[], stopId: string, routes: string[], nowS: number): Alert[] {
   return alerts.filter(
@@ -192,7 +208,9 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
             {/* BrisbaneTransit: Alerts left the section bar for the board header (THE-118 PR 3). */}
             {BASE ? (
               <AlertCountLink
-                count={alertsQ.data ? here.length : null}
+                count={
+                  alertsQ.data ? boardAlerts(alerts, stopId, routes, Math.floor(now / 1000)).length : null
+                }
                 href={at('/alerts')}
                 renderLink={linkRenderer}
               />

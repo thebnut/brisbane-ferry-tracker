@@ -130,6 +130,16 @@ function suite(phone: boolean) {
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     })
 
+  if (!phone)
+    test('a train trip on desktop: both boards (and the return one) show their alert count (Codex r2)', async ({
+      page,
+    }) => {
+      await page.goto('/train/station/roma-street?to=indooroopilly')
+      await ready(page)
+      for (const board of ['roma-street', 'indooroopilly'])
+        await expect(page.locator(`[data-board="${board}"] [data-board-alerts] a`)).toBeVisible()
+    })
+
   test('the ferry count opens Alerts on the Ferry chip', async ({ page }) => {
     await page.goto('/alerts?mode=ferry')
     await expect(page.getByRole('button', { name: /^Ferry/ })).toHaveAttribute('aria-pressed', 'true')
