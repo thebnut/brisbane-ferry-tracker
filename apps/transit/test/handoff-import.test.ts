@@ -172,7 +172,7 @@ describe('mergeHandoff', () => {
     expect(JSON.parse(localStorage.getItem('brisbane-ferry-selected-stops') ?? '')).toEqual(PAIR)
     expect(localStorage.getItem('brisbane-ferry-remember-selection')).toBe('true')
     expect(localStorage.getItem('brisbane-ferry-selector-seen')).toBe('1')
-    expect(cookies().bft_pair).toBe('317584.317590')
+    expect(cookies().bft_pair).toBe('fav.317584.317590')
   })
 
   it('ferry: not remembered on the old site → this session only, as the ferry app does', async () => {

@@ -16,8 +16,8 @@ const IDLE: [string, string][] = [
 /** The idle page the offline case loads. */
 const [OFFLINE_PATH, OFFLINE_LABEL] = IDLE[0] as [string, string]
 
-/** The page's own LIVE board (the home boards), for the control and the header height. */
-const LIVE_PAGE = '/'
+/** A LIVE board (ferry home has none of its own since THE-118 PR 8), for the control and the header height. */
+const LIVE_PAGE = '/terminal/bulimba?to=riverside'
 
 /** React has hydrated the header (its element carries a fiber). */
 async function hydrated(page: Page) {

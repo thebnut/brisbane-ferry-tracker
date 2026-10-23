@@ -55,8 +55,10 @@ export function departuresOptions(
   initial: DeparturesResponse | null,
   /** False: no board to fill (the return board of a board with no "To"). */
   enabled = true,
+  /** Fewer rows than a board's (ferry home's cards): its own query, and never the board's offline copy. */
+  limit: number | null = null,
 ) {
-  const queryKey = ['ferry', 'departures', mode.fixtures, mode.rt, from, to, at] as const
+  const queryKey = ['ferry', 'departures', mode.fixtures, mode.rt, from, to, at, limit] as const
   return {
     queryKey,
     queryFn: async ({ signal, client }: QueryFunctionContext<typeof queryKey>) => {
@@ -68,20 +70,22 @@ export function departuresOptions(
           [
             client.getQueryData<DeparturesResponse>(queryKey),
             ...more,
+            // A card's few rows can be shown from the board's copy, which is a superset.
             readOffline(from, to) as DeparturesResponse | null,
           ],
           Date.now(),
         )
       const shown = client.getQueryData<DeparturesResponse>(queryKey)
       try {
-        const res = await fetchDepartures(fetcher, from, to, { at, signal })
+        const res = await fetchDepartures(fetcher, from, to, { at, limit: limit ?? undefined, signal })
         // Judged on this response, not only on the connection flag another request may have just cleared, and never
         // older than the server board on screen (R6-B1). Not against the kept copy: a network answer from the edge
         // cache can be a little older than it, and the board then stayed "Offline" for a poll (release review).
         if (replacesBoard(res, shown)) {
           // The kept copy only moves forward.
-          const kept = at ? null : (readOffline(from, to) as DeparturesResponse | null)
-          if (!at && !(kept && res.generatedAt < kept.generatedAt)) writeOffline(from, to, res)
+          const keep = !at && limit == null
+          const kept = keep ? (readOffline(from, to) as DeparturesResponse | null) : null
+          if (keep && !(kept && res.generatedAt < kept.generatedAt)) writeOffline(from, to, res)
           return res
         }
         // The service worker answered from its cache (maybe hours old): an offline board until a network answer.
@@ -108,8 +112,9 @@ export function useDepartures(
   at: number | null,
   initial: DeparturesResponse | null,
   enabled = true,
+  limit: number | null = null,
 ) {
-  return useQuery(departuresOptions(fetcher, mode, from, to, at, initial, enabled))
+  return useQuery(departuresOptions(fetcher, mode, from, to, at, initial, enabled, limit))
 }
 
 /** Bumped by another tab's storage writes (the event never fires for this tab's own). */

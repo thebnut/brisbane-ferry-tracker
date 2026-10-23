@@ -226,9 +226,9 @@ function desktop() {
     expect(req.board()).toEqual([])
   })
 
-  test('a row on the ferry home board opens beside its terminal and takes the focus', async ({ page }) => {
+  test('a row on a ferry board with To opens beside it and takes the focus', async ({ page }) => {
     await page.clock.install({ time: Date.now() })
-    await page.goto('/ferry')
+    await page.goto('/ferry/terminal/bulimba?to=riverside')
     await expect(page.locator('html[data-hydrated]')).toHaveCount(1)
     const row = rows(page).first()
     await row.focus()
@@ -236,7 +236,7 @@ function desktop() {
     await page.waitForURL(tripUrl('ferry'))
     await expect(panel(page)).toBeFocused()
     await page.keyboard.press('Escape')
-    await expect(page).toHaveURL('/ferry')
+    await expect(page).toHaveURL('/ferry/terminal/bulimba?to=riverside')
   })
 
   test("the trip's own answer counts in the header: not live beside a live board, no LIVE", async ({

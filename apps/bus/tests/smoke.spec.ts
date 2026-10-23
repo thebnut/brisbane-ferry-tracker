@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
+import { pinUpcoming } from './upcoming.ts'
 
 const watchErrors = (page: Page) => {
   const errors: string[] = []
@@ -46,9 +47,8 @@ test('first visit: search by name with a typo, open the stop, open a bus', async
 }, testInfo) => {
   const errors = watchErrors(page)
   await page.goto('/')
-  await expect(
-    page.getByRole('heading', { name: 'Live departures for every Brisbane bus stop' }),
-  ).toBeVisible()
+  // Bus home (THE-118 PR 8): the title over the search.
+  await expect(page.getByRole('heading', { level: 1, name: 'Bus' })).toBeVisible()
   const field = page.locator(isMobile ? '#stop-search' : '#stop-search-desktop')
   await field.fill('cultral centre')
   const results = page.getByRole('list', { name: 'Matching stops' }).locator('visible=true')
@@ -75,19 +75,17 @@ test('exact stop number search', async ({ page, isMobile }) => {
   )
 })
 
-test('My stops: saved stops render with their next buses', async ({ page, isMobile }, testInfo) => {
+test('Saved: saved stops render with their next buses', async ({ page, context, isMobile }, testInfo) => {
+  await pinUpcoming(context)
   await page.goto('/about')
   await saveStops(page)
   const errors = watchErrors(page)
   await page.goto('/')
-  if (isMobile) {
-    await expect(page.getByTestId('my-stop')).toHaveCount(2)
-    await expect(page.getByTestId('my-stop').first().locator('li')).toHaveCount(3)
-  } else {
-    await expect(
-      page.getByRole('region', { name: 'Cultural Centre station, platform 1' }).getByTestId('departure'),
-    ).toHaveCount(5)
-  }
+  // My Transit cards under Saved (THE-118 PR 8), at every width: each with its next bus.
+  const saved = page.locator('[data-home-section=saved]')
+  await expect(saved.locator('a')).toHaveCount(2)
+  await expect(saved.locator('a[href="/stop/10802"]')).toContainText('Cultural Centre station, platform 1')
+  await expect(saved.locator('[data-saved-time]').first()).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('home.png'), fullPage: !isMobile })
   expect(errors).toEqual([])
 })

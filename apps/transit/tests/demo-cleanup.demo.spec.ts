@@ -5,4 +5,8 @@
  */
 import { demoCleanupSuite } from '@bft/ui/e2e/demo-cleanup.ts'
 
-demoCleanupSuite({ path: '/ferry', pagesCache: 'transit-pages', installPages: ['/'] })
+demoCleanupSuite({
+  path: '/ferry/terminal/bulimba?to=riverside',
+  pagesCache: 'transit-pages',
+  installPages: ['/'],
+})

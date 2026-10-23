@@ -14,7 +14,7 @@ import { type Page, test } from '@playwright/test'
 test.use({ launchOptions: WEBGL_LAUNCH })
 
 async function openLiveMap(page: Page) {
-  await page.goto('/')
+  await page.goto('/terminal/bulimba?to=riverside')
   await page.getByRole('button', { name: 'Map', exact: true }).click()
   return page.getByRole('region', { name: 'Map of live ferry positions' })
 }

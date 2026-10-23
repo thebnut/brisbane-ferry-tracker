@@ -31,6 +31,7 @@ export function seedConnectingSuite({
   departures,
   pin,
   prepare,
+  cookie,
 }: {
   /** A board page with an SSR seed. */
   path: string
@@ -40,8 +41,13 @@ export function seedConnectingSuite({
   pin: (context: BrowserContext) => Promise<unknown>
   /** Runs before the first load (e.g. dismissing a first-run selector). */
   prepare?: (page: Page) => Promise<unknown>
+  /** A cookie the seed needs (ferry home's first saved trip, THE-118 PR 8), set for the server render too. */
+  cookie?: { name: string; value: string }
 }) {
   const url = `${path}${path.includes('?') ? '&' : '?'}rt=stale`
+  const withCookie = async (context: BrowserContext) => {
+    if (cookie) await context.addCookies([{ ...cookie, url: test.info().project.use.baseURL as string }])
+  }
 
   test.describe('R32-RT1: a stale SSR seed while its own refetch is out', () => {
     // page.route only sees requests the service worker doesn't answer.
@@ -64,8 +70,9 @@ export function seedConnectingSuite({
       return { release, asked: () => asked }
     }
 
-    test('the server render says Connecting…, not OFFLINE, and claims nothing', async ({ request }) => {
-      const html = await (await request.get(url)).text()
+    test('the server render says Connecting…, not OFFLINE, and claims nothing', async ({ context }) => {
+      await withCookie(context)
+      const html = await (await context.request.get(url)).text()
       expect(html).toContain('data-connection="connecting"')
       expect(html).not.toContain('>OFFLINE<')
       expect(html).not.toMatch(/data-banner="(?!demo")/)
@@ -73,6 +80,7 @@ export function seedConnectingSuite({
     })
 
     test('pending while the first answer is held, then LIVE once it arrives', async ({ page, context }) => {
+      await withCookie(context)
       await prepare?.(page)
       const gate = await hold(context, 'live')
       const t0 = Date.now()
@@ -93,6 +101,7 @@ export function seedConnectingSuite({
       page,
       context,
     }) => {
+      await withCookie(context)
       await prepare?.(page)
       const gate = await hold(context, 'stale')
       await page.goto(url)

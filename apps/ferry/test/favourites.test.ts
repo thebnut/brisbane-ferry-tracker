@@ -1,16 +1,18 @@
 // @vitest-environment jsdom
-/** THE-118 PR 1: ferry favourites, their one-time migration from the remembered pair, and the `bft_pair` mirror. */
+/**
+ * THE-118 PR 1: ferry favourites and their one-time migration from the remembered pair; PR 8: the `bft_pair` mirror of
+ * the first favourite, ferry home's headline.
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   addFerryFavourite,
   FAVOURITES_KEY,
-  firstFavouritePair,
   readFerryFavourites,
   removeFerryFavourite,
   writePairCookie,
 } from '../app/lib/favourites.ts'
 import { clearPair, savePair } from '../app/lib/save-pair.ts'
-import { PAIR_COOKIE, pairFromCookie, readSavedPair, STORAGE_KEYS } from '../app/lib/storage.ts'
+import { favouriteFromCookie, PAIR_COOKIE, readSavedPair, STORAGE_KEYS } from '../app/lib/storage.ts'
 import { BULIMBA, RIVERSIDE, terminalById, validDestinations } from '../app/lib/terminals.ts'
 
 const PAIR = JSON.stringify({
@@ -18,9 +20,8 @@ const PAIR = JSON.stringify({
   inbound: { id: RIVERSIDE, name: 'Riverside' },
 })
 const stored = () => JSON.parse(localStorage.getItem(FAVOURITES_KEY) ?? 'null')
-const cookie = () => pairFromCookie(document.cookie)
-/** The pair the home board opens with (FerryBoards): the saved pair, else the first favourite. */
-const readHomePair = () => readSavedPair() ?? firstFavouritePair()
+/** Ferry home's headline as the server reads it. */
+const cookie = () => favouriteFromCookie(document.cookie)
 const OTHER = validDestinations(RIVERSIDE).find((id) => id !== BULIMBA) as string
 
 beforeEach(() => {
@@ -96,7 +97,7 @@ describe('migration from the remembered pair', () => {
     expect(readFerryFavourites()).toEqual([])
     expect(() => addFerryFavourite({ from: BULIMBA, to: RIVERSIDE })).not.toThrow()
     expect(() => removeFerryFavourite({ from: BULIMBA, to: RIVERSIDE })).not.toThrow()
-    expect(readHomePair()).toBeNull()
+    expect(cookie()).toBeNull()
   })
 })
 
@@ -168,42 +169,49 @@ describe('the standalone stop selector', () => {
     clearPair()
     expect(readSavedPair()).toBeNull()
     expect(stored()).toEqual([{ from: RIVERSIDE, to: OTHER }])
-    expect(cookie()?.outbound.id).toBe(RIVERSIDE)
+    expect(cookie()).toEqual({ from: RIVERSIDE, to: OTHER })
   })
 })
 
-describe('the bft_pair cookie (SSR)', () => {
-  it('is the first ferry favourite when nothing is remembered', () => {
+describe("the bft_pair cookie (SSR): the first favourite, ferry home's headline", () => {
+  it('is the first ferry favourite', () => {
     addFerryFavourite({ from: RIVERSIDE, to: OTHER })
     addFerryFavourite({ from: BULIMBA, to: RIVERSIDE })
-    expect(document.cookie).toContain(`${PAIR_COOKIE}=${RIVERSIDE}.${OTHER}`)
-    expect(readHomePair()?.inbound.id).toBe(OTHER)
+    expect(document.cookie).toContain(`${PAIR_COOKIE}=fav.${RIVERSIDE}.${OTHER}`)
+    expect(cookie()).toEqual({ from: RIVERSIDE, to: OTHER })
   })
 
-  it('a first favourite with no "To" opens with its first destination', () => {
+  it('a first favourite with no "To" is the whole terminal', () => {
     addFerryFavourite({ from: RIVERSIDE, to: null })
-    const first = validDestinations(RIVERSIDE)[0]
-    expect(cookie()).toEqual(readHomePair())
-    expect(cookie()?.inbound.id).toBe(first)
+    expect(document.cookie).toContain(`${PAIR_COOKIE}=fav.${RIVERSIDE}.`)
+    expect(cookie()).toEqual({ from: RIVERSIDE, to: null })
   })
 
-  it("the remembered pair comes first, then this session's pair, as the board opens", () => {
+  it('remember off: a pair for this session only never heads ferry home (no phantom favourite)', () => {
+    savePair(JSON.parse(PAIR), false)
+    expect(cookie()).toBeNull()
     addFerryFavourite({ from: RIVERSIDE, to: OTHER })
     savePair(JSON.parse(PAIR), false)
-    expect(cookie()?.outbound.id).toBe(BULIMBA)
-    expect(readHomePair()?.outbound.id).toBe(BULIMBA)
-    savePair(JSON.parse(PAIR), true)
+    expect(cookie()).toEqual({ from: RIVERSIDE, to: OTHER })
+    // A pair left in localStorage with remember off isn't a favourite either.
+    localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, PAIR)
     writePairCookie()
-    expect(cookie()?.outbound.id).toBe(BULIMBA)
+    expect(cookie()).toEqual({ from: RIVERSIDE, to: OTHER })
   })
 
-  it('a pair kept on the device with remember off still wins, as the board picks it (Codex r1)', () => {
-    localStorage.setItem(STORAGE_KEYS.SELECTED_STOPS, PAIR)
-    localStorage.setItem(FAVOURITES_KEY, JSON.stringify([{ from: RIVERSIDE, to: OTHER }]))
-    writePairCookie()
-    expect(cookie()?.outbound.id).toBe(BULIMBA)
-    expect(readHomePair()?.outbound.id).toBe(BULIMBA)
-    expect(readFerryFavourites()).toEqual([{ from: RIVERSIDE, to: OTHER }])
+  it('remember on: the remembered pair is a favourite, at the end of the list', () => {
+    addFerryFavourite({ from: RIVERSIDE, to: OTHER })
+    savePair(JSON.parse(PAIR), true)
+    expect(cookie()).toEqual({ from: RIVERSIDE, to: OTHER })
+    removeFerryFavourite({ from: RIVERSIDE, to: OTHER })
+    expect(cookie()).toEqual({ from: BULIMBA, to: RIVERSIDE })
+  })
+
+  it("the older value (the home board's pair, maybe this session's) is never read as a favourite", () => {
+    expect(favouriteFromCookie(`${PAIR_COOKIE}=${BULIMBA}.${RIVERSIDE}`)).toBeNull()
+    expect(favouriteFromCookie(`${PAIR_COOKIE}=fav.999999.${RIVERSIDE}`)).toBeNull()
+    // An unreachable "To" reads as the whole terminal.
+    expect(favouriteFromCookie(`${PAIR_COOKIE}=fav.${BULIMBA}.999999`)).toEqual({ from: BULIMBA, to: null })
   })
 
   describe('a refused write (storage full) leaves the cookie on what storage holds', () => {
@@ -219,12 +227,11 @@ describe('the bft_pair cookie (SSR)', () => {
       })
     }
 
-    it('nothing saved yet: no cookie, so the next home board is not the unsaved trip', () => {
+    it('nothing saved yet: no cookie, so the next ferry home has no headline for the unsaved trip', () => {
       localStorage.setItem(FAVOURITES_KEY, '[]')
       refuseFavourites()
       expect(addFerryFavourite({ from: RIVERSIDE, to: OTHER })).toEqual([])
       expect(document.cookie).not.toContain(`${PAIR_COOKIE}=`)
-      expect(readHomePair()).toBeNull()
     })
 
     it('a favourite saved before: the cookie stays on it', () => {
@@ -232,8 +239,7 @@ describe('the bft_pair cookie (SSR)', () => {
       refuseFavourites()
       addFerryFavourite({ from: RIVERSIDE, to: OTHER })
       expect(readFerryFavourites()).toEqual([{ from: BULIMBA, to: RIVERSIDE }])
-      expect(cookie()?.outbound.id).toBe(BULIMBA)
-      expect(cookie()).toEqual(readHomePair())
+      expect(cookie()).toEqual({ from: BULIMBA, to: RIVERSIDE })
     })
   })
 

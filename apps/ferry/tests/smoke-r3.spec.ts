@@ -6,10 +6,14 @@
 import { offlineLoadSuite, reconnectSuite } from '@bft/ui/e2e/offline-suite.ts'
 import { expect, test } from '@playwright/test'
 
-offlineLoadSuite({ path: '/', unvisited: '/terminal/riverside', pagesCache: 'ferry-pages' })
+offlineLoadSuite({
+  path: '/terminal/bulimba?to=riverside',
+  unvisited: '/terminal/riverside',
+  pagesCache: 'ferry-pages',
+})
 
 reconnectSuite({
-  path: '/',
+  path: '/terminal/bulimba?to=riverside',
   prepare: (page) =>
     page.addInitScript(() => {
       localStorage.setItem('brisbane-ferry-remember-selection', 'true')
@@ -36,8 +40,8 @@ test('R3-F2: ?from=&to= opens that pair without replacing the saved one', async 
   ).not.toContain('317583')
   const html = await (await page.request.get('/?from=317583&to=317590')).text()
   expect(html).toContain('Hawthorne to Riverside')
-  // An unknown origin stays a home link: the default board.
+  // An unknown origin stays a home link: ferry home (THE-118 PR 8).
   await page.goto('/?from=nope&to=317590')
   await expect(page).toHaveURL('/?from=nope&to=317590')
-  await expect(page.locator('[data-board-header]').getByRole('heading')).toHaveText('Bulimba')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ferry')
 })
