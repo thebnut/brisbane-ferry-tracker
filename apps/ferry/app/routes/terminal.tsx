@@ -37,7 +37,7 @@ import {
   boardHref,
   choice,
   destinationParam,
-  mapHref,
+  mapForOldLink,
   nearbyTerminals,
   TERMINALS,
   type Terminal,
@@ -108,7 +108,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const terminal = terminalBySlug(params.slug)
   if (!terminal) throw data(null, { status: 404 })
   // The board's old map sheet (`?map=1`, `&trip=` from a trip's "Track on map"): the live ferry map (THE-118 PR 9).
-  if (url.searchParams.has('map')) throw redirect(mapHref(terminal.id, url.searchParams.get('trip')))
+  if (url.searchParams.has('map')) throw redirect(mapForOldLink(url.searchParams, terminal.id))
   const to = destinationParam(terminal, url.searchParams.get('to'))
   const [outbound, inbound, all] = await Promise.all([
     to

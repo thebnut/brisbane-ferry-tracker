@@ -52,6 +52,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'The bus map draws stops once you zoom in to streets, so it stays quick when you look at the whole city.',
       'The Ferry, Train and Bus homes show Live only when a trip they show has live times, not over timetabled ones.',
       'Old Brisbane Ferry links to a terminal (with ?stop= in them) open that terminal’s board again.',
+      'Old Brisbane Ferry links to the map open the live ferry map.',
+      'BrisbaneTrain’s bottom bar is Home, Map and Alerts. Every station is still listed under “All stations” on its home.',
     ],
   },
   {

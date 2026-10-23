@@ -189,7 +189,21 @@ function recentChip(r: SavedStop) {
   )
 }
 
-export function SearchPanel({ children, quick }: { children: ReactNode; quick?: ReactNode }) {
+/**
+ * The home's `<main>`: its title, the search and the page (`children`), as on Ferry and Train, so the h1 and the
+ * search field are in the main landmark. The footer comes after it.
+ */
+export function SearchPanel({
+  title,
+  children,
+  footer,
+  quick,
+}: {
+  title: ReactNode
+  children: ReactNode
+  footer?: ReactNode
+  quick?: ReactNode
+}) {
   const [query, setQuery] = useState('')
   const { result, loading, error, retry } = useStopSearch(query)
   const client = useQueryClient()
@@ -220,91 +234,96 @@ export function SearchPanel({ children, quick }: { children: ReactNode; quick?: 
     ) : null
   return (
     <>
-      {/* Desktop: field in the strip, results drop down over the page, the map beside them. */}
-      <div className={top ? 'mx-auto max-w-6xl px-4 pt-4' : 'mx-auto hidden max-w-6xl px-4 pt-4 md:block'}>
-        <div className="flex items-end gap-2">
-          <SearchField
-            label="Stop name or number"
-            placeholder="Stop name or number"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onClear={() => setQuery('')}
-            compact
-            id="stop-search-desktop"
-            className="flex-1"
-          />
-          {toggle}
-        </div>
-        {top && (quick || recent.length) ? (
-          <div className="mt-2.5 flex gap-2 overflow-x-auto [&>a]:min-h-11">
-            {quick}
-            {recent.map(recentChip)}
+      <main>
+        {title}
+        {/* Desktop: field in the strip, results drop down over the page, the map beside them. */}
+        <div className={top ? 'mx-auto max-w-6xl px-4 pt-4' : 'mx-auto hidden max-w-6xl px-4 pt-4 md:block'}>
+          <div className="flex items-end gap-2">
+            <SearchField
+              label="Stop name or number"
+              placeholder="Stop name or number"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onClear={() => setQuery('')}
+              compact
+              id="stop-search-desktop"
+              className="flex-1"
+            />
+            {toggle}
           </div>
-        ) : null}
-        {searching || map ? (
-          <div className="mt-3 flex items-start gap-4">
-            {searching ? (
-              <div className="max-w-2xl flex-1">
-                <Results
-                  query={query}
-                  result={result}
-                  loading={loading}
-                  error={error}
-                  onRetry={retryAll}
-                  upward={false}
-                />
-              </div>
-            ) : null}
-            {picker('wide')}
-          </div>
-        ) : null}
-      </div>
-      <div className={searching && !top ? 'hidden md:block' : undefined}>{children}</div>
-      {top ? null : (
-        <>
-          {/* Phones: results stack upward above the thumb-height sheet. */}
-          {searching ? (
-            <div
-              ref={scroller}
-              className="bg-page fixed inset-x-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+var(--bft-bottom-bar,58px)+166px)] z-30 overflow-y-auto px-4 pt-20 pb-3 md:hidden"
-            >
-              <div className="flex min-h-full flex-col justify-end">
-                <Results
-                  query={query}
-                  result={result}
-                  loading={loading}
-                  error={error}
-                  onRetry={retryAll}
-                  upward
-                />
-              </div>
+          {top && (quick || recent.length) ? (
+            <div className="mt-2.5 flex gap-2 overflow-x-auto [&>a]:min-h-11">
+              {quick}
+              {recent.map(recentChip)}
             </div>
           ) : null}
-          <div
-            data-bft-dock=""
-            className="fixed inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),6px)+var(--bft-bottom-bar,58px))] z-30 md:hidden"
-          >
-            <ThumbSheet label="Find a stop" className="pb-3">
-              <div className="flex flex-col gap-2.5">
-                <SearchField
-                  label={searching ? 'Stop name or number' : 'Find a stop'}
-                  placeholder="Stop name or number"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onClear={() => setQuery('')}
-                  id="stop-search"
-                />
-                <div className="flex gap-2 overflow-x-auto">
-                  {toggle}
-                  {quick}
-                  {recent.map(recentChip)}
+          {searching || map ? (
+            <div className="mt-3 flex items-start gap-4">
+              {searching ? (
+                <div className="max-w-2xl flex-1">
+                  <Results
+                    query={query}
+                    result={result}
+                    loading={loading}
+                    error={error}
+                    onRetry={retryAll}
+                    upward={false}
+                  />
+                </div>
+              ) : null}
+              {picker('wide')}
+            </div>
+          ) : null}
+        </div>
+        <div className={searching && !top ? 'hidden md:block' : undefined}>{children}</div>
+        {top ? null : (
+          <>
+            {/* Phones: results stack upward above the thumb-height sheet. */}
+            {searching ? (
+              <div
+                ref={scroller}
+                className="bg-page fixed inset-x-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+var(--bft-bottom-bar,58px)+166px)] z-30 overflow-y-auto px-4 pt-20 pb-3 md:hidden"
+              >
+                <div className="flex min-h-full flex-col justify-end">
+                  <Results
+                    query={query}
+                    result={result}
+                    loading={loading}
+                    error={error}
+                    onRetry={retryAll}
+                    upward
+                  />
                 </div>
               </div>
-            </ThumbSheet>
-          </div>
-        </>
-      )}
-      {picker('narrow')}
+            ) : null}
+            <div
+              data-bft-dock=""
+              className="fixed inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),6px)+var(--bft-bottom-bar,58px))] z-30 md:hidden"
+            >
+              <ThumbSheet label="Find a stop" className="pb-3">
+                <div className="flex flex-col gap-2.5">
+                  <SearchField
+                    label={searching ? 'Stop name or number' : 'Find a stop'}
+                    placeholder="Stop name or number"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onClear={() => setQuery('')}
+                    id="stop-search"
+                  />
+                  <div className="flex gap-2 overflow-x-auto">
+                    {toggle}
+                    {quick}
+                    {recent.map(recentChip)}
+                  </div>
+                </div>
+              </ThumbSheet>
+            </div>
+          </>
+        )}
+        {picker('narrow')}
+      </main>
+      {/* The footer, not the content, clears the fixed sheet: it comes last. */}
+      {footer ? <div className={searching && !top ? 'hidden md:block' : undefined}>{footer}</div> : null}
     </>
   )
 }

@@ -41,6 +41,7 @@ import { FIXTURE_COOKIE, favouriteFromCookie } from '../lib/storage.ts'
 import {
   boardForOldLink,
   boardHref,
+  mapForOldLink,
   normalisePair,
   type StopPair,
   TERMINALS,
@@ -58,9 +59,13 @@ const NearYou = lazy(() => import('../components/NearYou.tsx'))
 const StopSelector = lazy(() => import('../components/StopSelector.tsx'))
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  // An old deep link (?from=&to=, R3-F2) opens that terminal's board with its "To" (THE-118 PR 5).
-  const board = boardForOldLink(new URL(request.url).searchParams)
+  const params = new URL(request.url).searchParams
+  // An old deep link (?from=&to=, R3-F2) opens that terminal's board with its "To" (THE-118 PR 5). With `map=1` the
+  // board then opens its map, as the board's own old map link does.
+  const board = boardForOldLink(params)
   if (board) throw redirect(board, 302)
+  // A bare old map link (?map=1[&trip=], R37-M1): the live ferry map (THE-118 PR 9).
+  if (params.has('map')) throw redirect(mapForOldLink(params), 302)
   const { fixtures, rt, fetcher, env, fallback } = loaderEnv(request, context)
   const headline = favouriteFromCookie(request.headers.get('cookie'))
   const initial = headline

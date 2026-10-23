@@ -1,6 +1,7 @@
 /**
- * BrisbaneTrain section navigation (Home, Stations, Map, Alerts): the one-handed bottom nav on phones, links in the
- * header on desktop (T-Desktop has no bottom nav; smoke test T6). Kept in its own module
+ * BrisbaneTrain section navigation (Home, Map, Alerts): the one-handed bottom nav on phones, links in the header on
+ * desktop (T-Desktop has no bottom nav; smoke test T6). /stations is no longer a destination here (THE-118): it is the
+ * full list behind "All N stations" on home, as on BrisbaneTransit. Kept in its own module
  * because BrisbaneTransit swaps exactly this file at build time for its Mode Tabs (apps/transit/modes.config.ts), so
  * the train pages themselves are reused unchanged.
  */
@@ -10,7 +11,6 @@ import { at } from '../lib/base.ts'
 
 export const NAV: NavItem[] = [
   { key: 'home', label: 'Home', icon: 'home', href: at('/') },
-  { key: 'stations', label: 'Stations', icon: 'search', href: at('/stations') },
   { key: 'map', label: 'Map', icon: 'map', href: at('/map') },
   { key: 'alerts', label: 'Alerts', icon: 'bell', href: at('/alerts') },
 ]
