@@ -101,6 +101,11 @@ function headerTests(phone: boolean) {
       await page.goto(board)
       await page.locator('a[href*="/trip/"]').first().click()
       await page.waitForURL(/\/trip\//)
+      // Desktop opens the trip beside the board (THE-118 PR 7): this checks its own page.
+      if (!phone) {
+        await page.getByRole('link', { name: 'Open full page' }).click()
+        await page.waitForURL(/[?&]full=1/)
+      }
       await expectOneHeader(page, phone, back)
       if (phone)
         await expect(page.locator('header').getByRole('link', { name: back })).toHaveAttribute('href', board)
