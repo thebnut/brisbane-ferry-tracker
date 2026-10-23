@@ -12,6 +12,7 @@ import {
   type PageCheck,
   pollEvery,
   replacesBoard,
+  seedUpdatedAt,
   timetableStatus,
 } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQueries, useQuery } from '@tanstack/react-query'
@@ -172,7 +173,7 @@ export function departuresOptions(
       }
     },
     initialData: initial ?? undefined,
-    initialDataUpdatedAt: initial?.generatedAt,
+    initialDataUpdatedAt: seedUpdatedAt(initial),
     refetchInterval: poll,
   }
 }
@@ -223,7 +224,7 @@ export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsRe
     queryKey: ['bus', 'alerts', mode.fixtures, mode.rt],
     queryFn: ({ signal }) => fetchAlerts(fetcher, { signal }),
     initialData: initial ?? undefined,
-    initialDataUpdatedAt: initial?.generatedAt,
+    initialDataUpdatedAt: seedUpdatedAt(initial),
     staleTime: 60_000,
     refetchInterval: pollAlerts,
   })

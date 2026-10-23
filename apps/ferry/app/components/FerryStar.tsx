@@ -2,7 +2,7 @@
  * The ferry board's star (THE-118 PR 1): saves the terminal, with its "To" when there is one, as a ferry favourite
  * (favourites.ts), as many as the rider likes. Its own lazy chunk with the list's code and the toast, so none of it is
  * on the boards' first load. Saving shows "{Name} saved to My Transit · Undo" ("Pick a destination" too when there is
- * no "To"); a second tap unsaves.
+ * no "To"); a second tap unsaves. A change this device's storage refuses leaves the star as it was, and the toast says so.
  */
 
 export { firstFavouritePair, writePairCookie } from '../lib/favourites.ts'
@@ -18,20 +18,9 @@ import {
   isFerryFavourite,
   readFerryFavourites,
   removeFerryFavourite,
-  sameFerryFavourite,
 } from '../lib/favourites.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { terminalById } from '../lib/terminals.ts'
-
-/** Whether storage itself holds it (a refused write leaves it out). */
-function stored(f: FerryFavourite): boolean {
-  try {
-    const v: unknown = JSON.parse(localStorage.getItem(FAVOURITES_KEY) ?? '[]')
-    return Array.isArray(v) && v.some((x) => sameFerryFavourite(x as FerryFavourite, f))
-  } catch {
-    return false
-  }
-}
 
 const short = (id: string) => cleanStopName(terminalById(id)?.name ?? '')
 
@@ -69,15 +58,21 @@ export default function FerryStar({
     // What the button showed decides (a "Save" tap never unsaves one saved elsewhere since); the write is checked
     // against storage, so it never adds a trip twice.
     const adding = !saved
-    setList(
+    const after =
       adding === isFerryFavourite(f)
         ? readFerryFavourites()
         : adding
           ? addFerryFavourite(f)
-          : removeFerryFavourite(f),
-    )
+          : removeFerryFavourite(f)
+    setList(after)
+    // The star shows what storage holds; when it refused the change, the toast says so (R27-S1).
+    const kept = isFerryFavourite(f, after) === adding
     setToast(
-      adding ? { name, fav: f, kept: stored(f), pickDestination: to ? undefined : onPickDestination } : null,
+      !kept
+        ? { name, fav: f, kept, remove: !adding }
+        : adding
+          ? { name, fav: f, pickDestination: to ? undefined : onPickDestination }
+          : null,
     )
   }
   // Undo takes out the trip the toast is about, even if the board has moved to another since.

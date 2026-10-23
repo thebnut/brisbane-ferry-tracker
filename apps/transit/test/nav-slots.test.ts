@@ -6,9 +6,12 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import * as busHeader from '../app/modes/bus-header.tsx'
 import * as busNav from '../app/modes/bus-nav.tsx'
+import * as ferryHeader from '../app/modes/ferry-header.tsx'
+import * as trainHeader from '../app/modes/train-header.tsx'
 import * as trainNav from '../app/modes/train-nav.tsx'
-import { NAV_SLOTS, RERUN_SLOTS } from '../modes.config.ts'
+import { HEADER_SLOTS, NAV_SLOTS, RERUN_SLOTS } from '../modes.config.ts'
 
 const exportsOf = (path: string) =>
   [...readFileSync(path, 'utf8').matchAll(/^export (?:const|function) (\w+)/gm)].map((m) => m[1]).sort()
@@ -30,6 +33,23 @@ describe('nav slots', () => {
     expect(Object.keys(mod).sort()).toEqual(exportsOf(original(mode)))
     expect(mod.NAV.map((n) => `${n.key}:${n.label}`)).toEqual(navOf(original(mode)))
     for (const n of mod.NAV) expect(n.href.startsWith(`/${mode}`)).toBe(true)
+  })
+})
+
+describe('header slots (THE-118 PR 2)', () => {
+  const original = (mode: string) =>
+    fileURLToPath(new URL(`../../${mode}/app/components/header.tsx`, import.meta.url))
+
+  it("swap each mode app's header module for the one transit header", () => {
+    expect(Object.keys(HEADER_SLOTS).sort()).toEqual(['bus', 'ferry', 'train'].map(original).sort())
+  })
+
+  it.each([
+    ['ferry', ferryHeader],
+    ['train', trainHeader],
+    ['bus', busHeader],
+  ] as const)('%s replacement exports the same names', (mode, mod) => {
+    expect(Object.keys(mod).sort()).toEqual(exportsOf(original(mode)))
   })
 })
 

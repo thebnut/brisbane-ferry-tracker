@@ -88,7 +88,12 @@ export async function renderPage(spec: PageSpec): Promise<string> {
   )
   await screen.findAllByText(spec.ready, undefined, { timeout: 5000 })
   await waitFor(() => expect(container.querySelector('[aria-busy="true"]')).toBeNull())
-  const raw = container.innerHTML
+  // The header and the "Updated" strip are intended differences too (THE-118 PR 2): BrisbaneTransit's one header and
+  // status line (modes/<mode>-header.tsx) replace each app's own.
+  expect(container.querySelector('[data-status-line]') != null).toBe(!!spec.base)
+  const copy = container.cloneNode(true) as HTMLElement
+  for (const el of copy.querySelectorAll('header, [data-status-strip]')) el.remove()
+  const raw = copy.innerHTML
   if (spec.base) {
     // Not vacuous: the transit build really links under its prefix and really swapped the nav module.
     expect(raw).toContain(`href="${spec.base}/`)
@@ -103,7 +108,8 @@ function PageWithData({ Page }: { Page: ComponentType<{ loaderData: unknown; par
 
 /**
  * The intended differences only: the mount prefix in links, and navigation (the standalone app's own bottom/section
- * nav vs the Mode Tabs' section pills). Everything else must be byte-identical.
+ * nav vs the Mode Tabs' section pills); renderPage has already removed the header and the status strip. Everything
+ * else must be byte-identical.
  */
 export function normalise(html: string, base: string): string {
   let out = html

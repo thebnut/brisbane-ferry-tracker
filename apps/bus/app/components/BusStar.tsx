@@ -1,30 +1,25 @@
 /**
  * The star for a bus stop (THE-118 PR 1): on the stop board header, the trip dock and (icon only) the route page's stop
  * list. It saves the stop only, never the route filter. Saving shows "{Name} saved to My Transit · Undo"; a second
- * tap unsaves.
+ * tap unsaves. A change this device's storage refuses leaves the star as it was, and the toast says so.
  */
 import { SaveToast, type SaveToastMessage } from '@bft/ui/save-toast'
 import { StarButton } from '@bft/ui/star'
 import { useCallback, useState } from 'react'
-import { isSaved, KEYS, type SavedStop, toggleSaved, useSavedStops } from '../lib/storage.ts'
-
-/** Whether storage itself holds the stop (storage.ts keeps a copy in memory even when a write was refused). */
-function stored(id: string): boolean {
-  try {
-    const v: unknown = JSON.parse(localStorage.getItem(KEYS.SAVED) ?? '[]')
-    return Array.isArray(v) && v.some((s) => (s as { id?: unknown } | null)?.id === id)
-  } catch {
-    return false
-  }
-}
+import { isSaved, type SavedStop, toggleSaved, useSavedStops } from '../lib/storage.ts'
 
 /** Save/unsave a stop with the toast; one per page section (`toast` is the element to render once). */
 export function useBusSave() {
   const [toast, setToast] = useState<(SaveToastMessage & { stop: SavedStop }) | null>(null)
   const gone = useCallback(() => setToast(null), [])
   const toggle = (stop: SavedStop) => {
-    const added = toggleSaved(stop)
-    setToast(added ? { name: stop.name, kept: stored(stop.id), stop } : null)
+    const adding = !isSaved(stop.id)
+    toggleSaved(stop)
+    // isSaved reads storage again after a refused write (R27-S1): the star stays as it was, and the toast says so.
+    const kept = isSaved(stop.id) === adding
+    setToast(
+      !kept ? { name: stop.name, kept, remove: !adding, stop } : adding ? { name: stop.name, stop } : null,
+    )
   }
   const element = (
     <SaveToast

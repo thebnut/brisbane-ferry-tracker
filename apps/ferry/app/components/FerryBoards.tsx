@@ -13,7 +13,6 @@ import {
   formatClock,
   OfflineBanner,
   PillButton,
-  StatusStrip,
   StopSelect,
   useFixtureCookie,
 } from '@bft/ui'
@@ -41,9 +40,9 @@ import {
 } from '../lib/terminals.ts'
 import { generateTimeSlots } from '../lib/timeSlots.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
-import { SiteHeader } from './Chrome.tsx'
 import { DepartureList } from './DepartureList.tsx'
 import type FerryStar from './FerryStar.tsx'
+import { SiteHeader, UpdatedStrip } from './header.tsx'
 
 // If the map sheet's chunk can't load, the board stays up (the Map button just does nothing).
 const NoMap = (() => null) as never // renders nothing, whatever the props
@@ -136,8 +135,11 @@ export function FerryBoards({
     const saved = home ? readSavedPair() : null
     show(saved)
     setDepartAt(readDepartAt())
+    let live = true
     import('./FerryStar.tsx').then(
       (m) => {
+        // Gone before the chunk arrived (a quick navigation, or a test's teardown): nothing to update.
+        if (!live) return
         setStar(() => m.default)
         if (home && !saved) {
           show(m.firstFavouritePair())
@@ -147,6 +149,9 @@ export function FerryBoards({
       },
       () => {}, // Offline before the chunk was cached: no star until the next load.
     )
+    return () => {
+      live = false
+    }
   }, [terminalPage, deepLink, serverPair])
   // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0. Never from the data mode alone: an API
   // failure that fell back to fixtures (FIXTURE_FALLBACK) used to make demo mode stick for the session (R7-B1).
@@ -200,6 +205,8 @@ export function FerryBoards({
   // The time of the data shown (a service-worker copy keeps its own time), not when it was fetched.
   const updatedAt = Math.max(outData?.generatedAt ?? 0, backData?.generatedAt ?? 0)
   const fetching = out.isFetching || back.isFetching
+  // No answer yet for either board (no data, no error): the transit header says "Connecting…", not OFFLINE.
+  const pending = !outData && !backData && !out.isError && !back.isError
 
   const refresh = useCallback(() => {
     void out.refetch()
@@ -270,10 +277,14 @@ export function FerryBoards({
 
   return (
     <>
-      <SiteHeader onSettings={() => setShowSelector(true)} live={live} />
-      <StatusStrip
+      <SiteHeader onSettings={() => setShowSelector(true)} live={live} pending={pending} />
+      <UpdatedStrip
         updated={`Last updated ${updatedAt ? formatClock(Math.floor(updatedAt / 1000)) : formatClock(Math.floor(renderedAt / 1000))}`}
         detail={formatAge(sourceTimeS(latest, { nowMs: now, ...page }), now)}
+        onRefresh={refresh}
+        refreshing={fetching}
+        live={live}
+        pending={pending}
       >
         {express || filter === 'express' ? (
           <FilterPills
@@ -289,10 +300,7 @@ export function FerryBoards({
         <PillButton icon="map" pressed={showMap} onClick={() => setShowMap((v) => !v)}>
           Map
         </PillButton>
-        <PillButton icon="refresh" label="Refresh" onClick={refresh} disabled={fetching}>
-          <span className="sr-only md:not-sr-only">Refresh</span>
-        </PillButton>
-      </StatusStrip>
+      </UpdatedStrip>
 
       <main className="mx-auto max-w-6xl px-3 py-5 md:px-4 md:py-8">
         <div

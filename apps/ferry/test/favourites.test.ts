@@ -206,6 +206,37 @@ describe('the bft_pair cookie (SSR)', () => {
     expect(readFerryFavourites()).toEqual([{ from: RIVERSIDE, to: OTHER }])
   })
 
+  describe('a refused write (storage full) leaves the cookie on what storage holds', () => {
+    const refuseFavourites = () => {
+      const real = Storage.prototype.setItem
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+        this: Storage,
+        key: string,
+        value: string,
+      ) {
+        if (key === FAVOURITES_KEY) throw new DOMException('full', 'QuotaExceededError')
+        return real.call(this, key, value)
+      })
+    }
+
+    it('nothing saved yet: no cookie, so the next home board is not the unsaved trip', () => {
+      localStorage.setItem(FAVOURITES_KEY, '[]')
+      refuseFavourites()
+      expect(addFerryFavourite({ from: RIVERSIDE, to: OTHER })).toEqual([])
+      expect(document.cookie).not.toContain(`${PAIR_COOKIE}=`)
+      expect(readHomePair()).toBeNull()
+    })
+
+    it('a favourite saved before: the cookie stays on it', () => {
+      addFerryFavourite({ from: BULIMBA, to: RIVERSIDE })
+      refuseFavourites()
+      addFerryFavourite({ from: RIVERSIDE, to: OTHER })
+      expect(readFerryFavourites()).toEqual([{ from: BULIMBA, to: RIVERSIDE }])
+      expect(cookie()?.outbound.id).toBe(BULIMBA)
+      expect(cookie()).toEqual(readHomePair())
+    })
+  })
+
   it('is cleared when nothing is saved', () => {
     addFerryFavourite({ from: BULIMBA, to: RIVERSIDE })
     removeFerryFavourite({ from: BULIMBA, to: RIVERSIDE })

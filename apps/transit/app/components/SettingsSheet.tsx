@@ -29,7 +29,18 @@ export default function SettingsSheet({ open, onClose }: { open: boolean; onClos
     return t === 'light' || t === 'dark' || t === 'system' ? t : (root?.theme ?? 'system')
   })
   const [rerun, setRerun] = useState(false)
-  if (rerun) return <RerunHost onClose={onClose}>{(close) => <OnboardingRerun onClose={close} />}</RerunHost>
+  // The header keeps this sheet mounted once opened (focus goes back to the gear), so leave the picker on close.
+  if (rerun)
+    return (
+      <RerunHost
+        onClose={() => {
+          setRerun(false)
+          onClose()
+        }}
+      >
+        {(close) => <OnboardingRerun onClose={close} />}
+      </RerunHost>
+    )
   return (
     <BottomSheet open={open} onClose={onClose} title="Settings">
       <div className="flex flex-col gap-5">
