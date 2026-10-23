@@ -22,6 +22,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'On BrisbaneTransit boards, “Live · updated 12 s ago” now sits just above the departures. Tap it to refresh.',
       'While a BrisbaneTransit page loads, the header says “Connecting…” instead of briefly showing Offline.',
       'BrisbaneTrain says “Connecting…” too while a station’s times are still on their way, instead of showing Live before they arrive.',
+      'On the Brisbane Ferry, BrisbaneTrain and BrisbaneBus sites, pages without live times (like the map, the station list and What’s new) no longer show a Live badge.',
       'If your browser isn’t keeping changes, Save now tells you so instead of saying it saved.',
     ],
   },
