@@ -123,6 +123,9 @@ function suite(phone: boolean) {
         await expect(page.locator('html[data-hydrated]')).toHaveCount(1)
         const i = await pickRow(page, request, m)
         const row = page.locator(m.rows).nth(i)
+        // The board's lazy parts (star, alert count) are in: no layout shift moves the scroll after it is measured.
+        await expect(page.locator('[data-board-header] [data-star]')).toBeVisible()
+        await page.waitForLoadState('networkidle')
         await row.evaluate((el) => el.scrollIntoView({ block: 'center' }))
         const y = await page.evaluate(() => scrollY)
         expect(y, 'the board is scrolled to the row').toBeGreaterThan(0)
@@ -175,8 +178,8 @@ function suite(phone: boolean) {
         await expect(back).toHaveText(new RegExp(m.place))
         await back.click()
         await expect(page).toHaveURL(m.board)
-        await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(y - 40)
-        expect(Math.abs((await page.evaluate(() => scrollY)) - y)).toBeLessThan(40)
+        // Restored once the board has laid out again (its lazy parts can shift it for a moment first).
+        await expect.poll(async () => Math.abs((await page.evaluate(() => scrollY)) - y)).toBeLessThan(40)
       })
 
       test('the dock star saves the place you board at (with ?to=)', async ({ page, request }) => {
@@ -206,6 +209,65 @@ function suite(phone: boolean) {
         await link.click()
         await expect(page).toHaveURL(new RegExp(`^[^?]*${m.board.split('?')[0]}`))
       })
+    })
+
+  for (const m of MODES)
+    test(`${m.mode}: the inline map only while GPS is known`, async ({ page, context, request }) => {
+      await page.clock.install({ time: Date.now() })
+      await page.goto(m.board)
+      const i = await pickRow(page, request, m)
+      const href = (await page.locator(m.rows).nth(i).getAttribute('href')) as string
+      // The trip's polls: a fresh live answer with a vehicle at the boarding stop, then the same without one.
+      let gps = true
+      await context.route(`**/__fixtures/v1/${m.mode}/trips/**`, async (route) => {
+        try {
+          const res = await route.fetch()
+          const t = (await res.json()) as TripResponse
+          const at = t.stops.find((s) => m.key(s) === m.from) ?? (t.stops[0] as TripStop)
+          const vehicle = gps
+            ? { id: 'fx-v', label: '1907', lat: -27.47, lon: 153.02, ts: Math.floor(Date.now() / 1000), stopId: at.stopId, status: 'STOPPED_AT' }
+            : null
+          await route.fulfill({
+            response: res,
+            json: { ...t, rtState: 'live', rtSourceTimestamp: Math.floor(Date.now() / 1000), generatedAt: Date.now(), vehicle },
+          })
+        } catch (error) {
+          if (!/disposed|closed|Target page|Test ended/i.test(String(error))) throw error
+        }
+      })
+      await page.goto(href)
+      await expect(page.locator('html[data-hydrated]')).toHaveCount(1)
+      await page.clock.fastForward('00:16')
+      await expect(page.locator('[data-trip-map]')).toHaveCount(1)
+      await expect(page.locator('[data-trip-status]')).toContainText('GPS')
+      gps = false
+      await page.clock.fastForward('00:16')
+      await expect(page.locator('[data-trip-map]')).toHaveCount(0)
+      await expect(page.locator('[data-trip-status]')).not.toContainText('GPS')
+    })
+
+  for (const [mode, board, rows] of [
+    ['ferry', '/ferry/terminal/bulimba', '[data-board=outbound] [data-testid=departure] a'],
+    ['bus', '/bus/stop/10802', 'main [data-testid=departure] a'],
+  ] as const)
+    test(`${mode}: "More departures" is still open after a trip and back`, async ({ page }) => {
+      await page.goto(board)
+      await expect(page.locator('html[data-hydrated]')).toHaveCount(1)
+      const more = page.getByRole('button', { name: /More departures/ }).first()
+      test.skip(!(await more.isVisible()), 'no more departures at this hour')
+      const before = await page.locator(rows).count()
+      await more.click()
+      await expect.poll(() => page.locator(rows).count()).toBeGreaterThan(before)
+      const opened = await page.locator(rows).count()
+      const row = page.locator(rows).last()
+      await row.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+      const y = await page.evaluate(() => scrollY)
+      await row.click()
+      await page.waitForURL(new RegExp(`/${mode}/trip/`))
+      await page.goBack()
+      await expect(page).toHaveURL(board)
+      await expect(page.locator(rows)).toHaveCount(opened)
+      await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(y - 40)
     })
 
   test('the train live marker still moves down the line', async ({ page, context, request }) => {

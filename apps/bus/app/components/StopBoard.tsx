@@ -13,6 +13,7 @@ import {
   MoreButton,
   RouteTile,
   routeTileVariant,
+  useKeptMore,
 } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import { SkeletonRows } from '@bft/ui/bus'
@@ -104,7 +105,7 @@ export function DepartureList({
   saved,
   copyRanOut,
 }: DepartureListProps) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useKeptMore(stopId)
   if (!data) {
     if (isError)
       return (
@@ -257,7 +258,7 @@ export function DepartureList({
         ))}
       </ol>
       {initialCount && rest.length > initialCount ? (
-        <MoreButton onClick={() => setExpanded((e) => !e)} aria-expanded={expanded}>
+        <MoreButton onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
           {expanded ? 'Fewer departures' : 'More departures'}
         </MoreButton>
       ) : null}

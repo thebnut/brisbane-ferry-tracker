@@ -27,6 +27,7 @@ import {
   type TripLinkRenderer,
   TripBackLink,
   TripDock,
+  TripMap,
   TripNotFound,
   TripSummary,
   trackClass,
@@ -245,6 +246,33 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
             ) : null
           }
         />
+        {v ? (
+          <TripMap
+            markers={[
+              {
+                id: 'vehicle',
+                lat: v.lat,
+                lon: v.lon,
+                shape: 'square',
+                tone: 'allstops',
+                pulse: true,
+                label: `${train ?? 'Train'} live position`,
+              },
+              ...[boardKey, to]
+                .map((k) => (k ? stationByKey(k) : null))
+                .filter((s) => s != null)
+                .map((s) => ({
+                  id: s.key,
+                  lat: s.lat,
+                  lon: s.lon,
+                  shape: 'square' as const,
+                  tone: 'stop' as const,
+                  label: `${s.name} station`,
+                })),
+            ]}
+            label={`Map showing the train on its way to ${cleanStopName(trip.headsign)}`}
+          />
+        ) : null}
         <TripDock>
           <Link
             to={`${at('/map')}?${new URLSearchParams({ ...(boardKey ? { station: boardKey } : {}), trip: key })}`}

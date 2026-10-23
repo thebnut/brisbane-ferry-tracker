@@ -4,7 +4,8 @@
  * timeline from your stop (earlier stops and stops past your destination collapsed, the train's moving marker), the
  * dock ("Track on map" and the star) and the back link to the place. Only the trip pages load it.
  */
-import { type MouseEvent, type ReactNode, useState } from 'react'
+import { lazy, type MouseEvent, type ReactNode, Suspense, useEffect, useState } from 'react'
+import type { MapMarker } from './map/MapView.tsx'
 import { cx } from './cx.ts'
 import { Icon } from './icons.tsx'
 import { BigCountdown, BOARD_STATE, type StatusLine } from './row.tsx'
@@ -89,6 +90,8 @@ export interface TripFact {
   label: string
   value: ReactNode
   sub?: ReactNode
+  /** From the live feed (occupancy): hidden with the live words while a cached page is unconfirmed. */
+  claim?: boolean
 }
 
 export interface TripSummaryProps {
@@ -188,7 +191,8 @@ export function TripSummary({
           </span>
         ) : null}
         {vehicle ? (
-          <span className="text-sched-text dark:text-night-text/70">
+          // From the live feed, like GPS: hidden with the live words while a cached page is unconfirmed.
+          <span data-live-claim="" className="text-sched-text dark:text-night-text/70">
             <span aria-hidden="true">· </span>
             {vehicle}
           </span>
@@ -212,6 +216,7 @@ export function TripFacts({ facts }: { facts: Array<TripFact | null | false | un
         <div
           key={f.label}
           data-fact={f.label}
+          data-live-claim={f.claim ? '' : undefined}
           className="flex min-w-0 flex-col gap-0.5 rounded-[10px] bg-white/90 px-2.5 py-2 dark:bg-night-2"
         >
           <dt className="text-[11px] font-semibold text-sched-text dark:text-night-text/70">{f.label}</dt>
@@ -239,6 +244,7 @@ export function occupancyFact(occupancy: string | null | undefined): TripFact | 
   if (!o) return null
   return {
     label: 'Occupancy',
+    claim: true,
     value: o.text,
     sub: (
       <span role="img" aria-label={`${o.bars} of 4 bars`} className="mt-0.5 flex gap-0.5">
@@ -288,6 +294,11 @@ export interface YourTripProps {
   position?: number | null
   /** Its words, e.g. "Between Milton and Auchenflower". */
   positionLabel?: string | null
+  /**
+   * The position comes from the vehicle's GPS (ferry, bus), not the timetable (train): the capsule and its words are
+   * then live claims, hidden while a cached page is unconfirmed.
+   */
+  positionLive?: boolean
   /** Under the timeline (the train's "Live updates pushed over a WebSocket"). */
   footer?: ReactNode
 }
@@ -332,8 +343,10 @@ export function YourTrip({
   color,
   position = null,
   positionLabel,
+  positionLive = false,
   footer,
 }: YourTripProps) {
+  const claim = positionLive ? '' : undefined
   const [earlier, setEarlier] = useState(false)
   const [later, setLater] = useState(false)
   const from = Math.min(Math.max(0, board), Math.max(0, stops.length - 1))
@@ -360,7 +373,7 @@ export function YourTrip({
         <Toggle open={earlier} count={from} where="earlier" onClick={() => setEarlier((v) => !v)} />
       ) : null}
       {positionLabel && !onShown ? (
-        <p data-position-label="" className="mb-1 pl-1 text-xs font-semibold text-ferry-orange-deep dark:text-ferry-sunset">
+        <p data-position-label="" data-live-claim={claim} className="mb-1 pl-1 text-xs font-semibold text-ferry-orange-deep dark:text-ferry-sunset">
           {positionLabel}
         </p>
       ) : null}
@@ -404,6 +417,7 @@ export function YourTrip({
                 {i === at ? (
                   <span
                     data-train-position={position?.toFixed(2)}
+                    data-live-claim={claim}
                     className="absolute left-1/2 z-10 h-7.5 w-5.5 -translate-x-1/2 -translate-y-1/2 rounded-lg border-[3px] border-white bg-ferry-orange shadow-[0_0_0_2px_#FF6B35,0_0_14px_rgb(255_107_53/0.6)] transition-[top] duration-1000 motion-safe:animate-pulse motion-reduce:transition-none"
                     style={{ top: `calc(50% + ${frac * 100}%)` }}
                   />
@@ -449,7 +463,11 @@ export function YourTrip({
             </li>
           )
         })}
-        {positionLabel && onShown ? <li className="sr-only">{positionLabel}</li> : null}
+        {positionLabel && onShown ? (
+          <li data-live-claim={claim} className="sr-only">
+            {positionLabel}
+          </li>
+        ) : null}
       </ol>
       {to < stops.length - 1 ? (
         <Toggle open={later} count={stops.length - 1 - to} where="later" onClick={() => setLater((v) => !v)} />
@@ -470,6 +488,36 @@ export function positionFromVehicle(
   const i = vehicle?.stopId ? stopIds.indexOf(vehicle.stopId) : -1
   if (i < 0) return null
   return vehicle?.status === 'STOPPED_AT' || i === 0 ? i : i - 0.5
+}
+
+// ---------------------------------------------------------------------------
+// Map
+// ---------------------------------------------------------------------------
+
+// SafeMap is MapView behind a WebGL check and an error boundary, and loads MapLibre itself. If its own chunk can't
+// load, the page goes on without the map.
+const NoMap = (() => null) as never // renders nothing, whatever the props
+const SafeMap = lazy(() => import('./map/SafeMap.tsx').catch(() => ({ default: NoMap })))
+
+/**
+ * The vehicle's live position, inline. Pages render it only while GPS is known (never an empty map), and only after
+ * hydration: MapLibre is client-only.
+ */
+export function TripMap({ markers, label }: { markers: MapMarker[]; label: string }) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const box = 'h-64 w-full overflow-hidden rounded-card bg-map-ground md:h-72'
+  return (
+    <section aria-label="Live position" data-trip-map="" data-live-claim="">
+      {mounted ? (
+        <Suspense fallback={<div className={box} />}>
+          <SafeMap markers={markers} label={label} className={box} />
+        </Suspense>
+      ) : (
+        <div className={box} />
+      )}
+    </section>
+  )
 }
 
 // ---------------------------------------------------------------------------

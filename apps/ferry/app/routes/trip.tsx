@@ -22,7 +22,6 @@ import {
   vesselName,
 } from '@bft/ui'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
-import type { MapMarker } from '@bft/ui/map'
 import {
   backClick,
   occupancyFact,
@@ -31,12 +30,12 @@ import {
   type TripLinkRenderer,
   TripBackLink,
   TripDock,
+  TripMap,
   TripNotFound,
   TripSummary,
   trackClass,
   YourTrip,
 } from '@bft/ui/trip'
-import { lazy, Suspense, useEffect, useState } from 'react'
 import { data, Link } from 'react-router'
 import { Footer } from '../components/Chrome.tsx'
 import { ServiceTile } from '../components/DepartureList.tsx'
@@ -51,11 +50,6 @@ import { boardHref, destinationParam, terminalById, terminalByParam, tripStopNam
 import { fetchTrip, isGone, useTrip } from '../lib/trip-queries.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/trip'
-
-// SafeMap is MapView behind a WebGL check and an error boundary, and loads MapLibre itself. If its own chunk can't
-// load, the page goes on without the map.
-const NoMap = (() => null) as never // renders nothing, whatever the props
-const SafeMap = lazy(() => import('@bft/ui/safe-map').catch(() => ({ default: NoMap })))
 
 const TRIP_RE = /^.+@\d{8}$/
 
@@ -270,9 +264,10 @@ function TripBody({
         color={trip.route.color}
         position={cancelled ? null : position}
         positionLabel={positionLabel}
+        positionLive
       />
       {v ? (
-        <LiveMap
+        <TripMap
           markers={[
             {
               id: 'vehicle',
@@ -297,23 +292,5 @@ function TripBody({
         <FerryStar from={board.stopId} to={alight ? alight.stopId : null} />
       </TripDock>
     </>
-  )
-}
-
-/** The live position, inline and only when GPS is known (never an empty map). After hydration: MapLibre is client-only. */
-function LiveMap({ markers, label }: { markers: MapMarker[]; label: string }) {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-  const box = 'h-64 w-full overflow-hidden rounded-card bg-map-ground md:h-72'
-  return (
-    <section aria-label="Live position" data-trip-map="">
-      {mounted ? (
-        <Suspense fallback={<div className={box} />}>
-          <SafeMap markers={markers} label={label} className={box} />
-        </Suspense>
-      ) : (
-        <div className={box} />
-      )}
-    </section>
   )
 }

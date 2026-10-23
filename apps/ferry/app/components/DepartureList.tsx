@@ -12,6 +12,7 @@ import {
   MoreButton,
   nextAlike,
   soonestIndex,
+  useKeptMore,
 } from '@bft/ui'
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router'
@@ -73,7 +74,7 @@ export function DepartureList({
   tripHref,
   offline,
 }: DepartureListProps) {
-  const [more, setMore] = useState(false)
+  const [more, setMore] = useKeptMore(id)
   const list = departures ?? []
   const shown = list.slice(0, more ? 13 : 5)
   // The soonest ferry you can board gets the orange border (every board's rule); later days get a divider.
@@ -144,7 +145,7 @@ export function DepartureList({
             })}
           </ol>
           {list.length > 5 ? (
-            <MoreButton onClick={() => setMore((m) => !m)} aria-expanded={more}>
+            <MoreButton onClick={() => setMore(!more)} aria-expanded={more}>
               {more ? 'Show fewer' : `More departures (${Math.min(list.length - 5, 8)} more)`}
             </MoreButton>
           ) : null}

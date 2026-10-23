@@ -29,6 +29,7 @@ import {
   type TripLinkRenderer,
   TripBackLink,
   TripDock,
+  TripMap,
   TripNotFound,
   TripSummary,
   trackClass,
@@ -249,7 +250,24 @@ function TripBody({
         color="1E7C80"
         position={cancelled ? null : view.position}
         positionLabel={view.positionLabel}
+        positionLive
       />
+      {v ? (
+        <TripMap
+          markers={[
+            {
+              id: 'vehicle',
+              lat: v.lat,
+              lon: v.lon,
+              shape: 'diamond',
+              tone: 'allstops',
+              pulse: true,
+              label: `${v.label ? `Bus ${v.label}` : 'Bus'} live position`,
+            },
+          ]}
+          label={`Map showing the bus on its way to ${trip.headsign}`}
+        />
+      ) : null}
       <TripDock>
         <Link to={`${routeHref(trip.route.short)}?trip=${encodeURIComponent(tripKey)}`} className={trackClass}>
           <Icon name="map" size={20} />

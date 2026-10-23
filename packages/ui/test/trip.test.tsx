@@ -69,6 +69,17 @@ describe('YourTrip', () => {
     expect(container.querySelector('[data-train-position]')).not.toBeNull()
   })
 
+  it('a GPS position is a live claim; a timetable one (train) is not', () => {
+    const { container, rerender } = render(
+      <YourTrip stops={STOPS} board={4} position={1.5} positionLabel="The bus is heading to Stop 2" positionLive />,
+    )
+    expect(screen.getByText('The bus is heading to Stop 2')).toHaveAttribute('data-live-claim')
+    rerender(<YourTrip stops={STOPS} board={0} position={1.5} positionLive />)
+    expect(container.querySelector('[data-train-position]')).toHaveAttribute('data-live-claim')
+    rerender(<YourTrip stops={STOPS} board={0} position={1.5} />)
+    expect(container.querySelector('[data-train-position]')).not.toHaveAttribute('data-live-claim')
+  })
+
   it('positionFromVehicle: at a stop when stopped, half way from the one before when not', () => {
     const ids = ['a', 'b', 'c']
     expect(positionFromVehicle(ids, { stopId: 'b', status: 'STOPPED_AT' })).toBe(1)
@@ -120,6 +131,25 @@ describe('TripSummary', () => {
     expect(screen.getByText('7:11 am')).toBeInTheDocument()
     const line = document.querySelector('[data-trip-status]') as HTMLElement
     expect(line).toHaveTextContent('Live · on time· GPS· Mooroolbin II')
+  })
+  it('everything from the live feed is a live claim, hidden while a cached page is unconfirmed', () => {
+    render(
+      <TripSummary
+        tile={null}
+        kicker="Metro"
+        headsign="RBWH"
+        minutes={4}
+        time="8:14 am"
+        status={statusLine({ status: 'live', schedDep: 100, estDep: 100 })}
+        gps
+        vehicle="Bus 1907"
+        facts={[{ label: 'Departs', value: '8:14 am' }, occupancyFact('FEW_SEATS_AVAILABLE')]}
+      />,
+    )
+    expect(screen.getByText('Bus 1907').closest('[data-live-claim]')).not.toBeNull()
+    expect(screen.getByText('GPS').closest('[data-live-claim]')).not.toBeNull()
+    expect(screen.getByText('Few seats').closest('[data-live-claim]')).not.toBeNull()
+    expect(screen.getByText('8:14 am', { selector: 'dd' }).closest('[data-live-claim]')).toBeNull()
   })
   it('cancelled: no countdown and no "—", the clock time struck through', () => {
     const { container } = render(
