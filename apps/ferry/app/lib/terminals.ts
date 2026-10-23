@@ -102,6 +102,19 @@ export const mapHref = (terminalId?: string | null, trip?: string | null): strin
 }
 
 /**
+ * Where an old `?map=1[&trip=]` link (the board's map sheet, before THE-118 PR 9) now goes: the live ferry map on
+ * that terminal, following the trip when one is given, keeping the link's other parameters.
+ */
+export function mapForOldLink(params: URLSearchParams, terminalId?: string | null): string {
+  const href = mapHref(terminalId, params.get('trip'))
+  // The parameters the map URL replaces; the rest (e.g. `utm_*`) are kept.
+  const replaced = ['map', 'trip', 'terminal', 'from', 'stop', 'to']
+  const q = new URLSearchParams()
+  for (const [k, v] of params) if (!replaced.includes(k)) q.append(k, v)
+  return q.size ? `${href}${href.includes('?') ? '&' : '?'}${q}` : href
+}
+
+/**
  * Where an old `/?from=<stopId>&to=<stopId>` link (R3-F2) or `/?stop=<stopId>&to=<stopId>` link (the legacy site's,
  * R36-F1) now goes: that terminal's board, with "To" when the origin reaches it, keeping the link's other parameters.
  * Both take a stop id or a slug; a known `from` wins over `stop`. Null when it names no known origin (a home link).

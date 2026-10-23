@@ -3,6 +3,9 @@
  * terminal's board again, as `?from=` links do (R3-F2, THE-118 PR 5), with "To" when the origin reaches it and the
  * link's other parameters kept. `stop` takes a stop id or a slug; with both, a known `from` wins. Run on ferry home
  * (BrisbaneTransit's /ferry and the standalone ferry site's /) at 390×844 touch, 1280×900 and 1440×900.
+ *
+ * The board's old map links (`?map=1[&trip=]`, on ferry home or a terminal board) open the live ferry map (THE-118
+ * PR 9) on that terminal, keeping the link's other parameters (e.g. `utm_*`) too.
  */
 import { expect, type Page, test } from '@playwright/test'
 
@@ -26,6 +29,20 @@ const LINKS: Array<[string, string, string, string | null]> = [
     'Riverside',
   ],
   ['from=317583&stop=317584&to=317590', '/terminal/hawthorne?to=riverside', 'Hawthorne', 'Riverside'],
+]
+
+/** [old map link (a query on ferry home, or a board path and query), the map's query]. */
+const MAP_LINKS: Array<[string, string]> = [
+  ['?map=1&utm_source=x', '?utm_source=x'],
+  [
+    '?stop=317584&to=317590&map=1&trip=abc%4020200101&utm_source=x',
+    '?terminal=bulimba&trip=abc%4020200101&utm_source=x',
+  ],
+  ['/terminal/bulimba?map=1', '?terminal=bulimba'],
+  [
+    '/terminal/bulimba?to=riverside&map=1&trip=abc%4020200101&utm_source=x&utm_campaign=y',
+    '?terminal=bulimba&trip=abc%4020200101&utm_source=x&utm_campaign=y',
+  ],
 ]
 
 const board = (page: Page) => page.locator('[data-board=outbound]')
@@ -61,6 +78,24 @@ export function ferryStopLinkSuite({ home, base }: { home: string; base: string 
           await page.goto(at('stop=nope&to=317590'))
           await expect(page).toHaveURL(at('stop=nope&to=317590'))
           await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ferry')
+        })
+      })
+
+      test.describe('old ?map=1 links open the live ferry map, keeping their other parameters', () => {
+        const link = (l: string) => (l.startsWith('?') ? `${home}${l}` : `${base}${l}`)
+        for (const [l, q] of MAP_LINKS)
+          test(link(l), async ({ page }) => {
+            await page.goto(link(l))
+            await expect(page).toHaveURL(`${base}/map${q}`)
+            await expect(page.locator('[data-map-page=ferry]')).toBeVisible()
+          })
+
+        test('server redirects (302), so they work before any script', async ({ request }) => {
+          for (const [l, q] of MAP_LINKS) {
+            const res = await request.get(link(l), { maxRedirects: 0 })
+            expect(res.status(), l).toBe(302)
+            expect(res.headers().location, l).toBe(`${base}/map${q}`)
+          }
         })
       })
     })
