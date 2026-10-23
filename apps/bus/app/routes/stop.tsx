@@ -14,7 +14,15 @@ import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { BoardHeader, Chip, FilterRow, NowChip } from '@bft/ui/board-header'
 import { NoticeStrip } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
-import { FULL, PanelProvider, panelControls, samePlace, usePanelFocus, useWide } from '@bft/ui/panel'
+import {
+  FULL,
+  PanelProvider,
+  panelControls,
+  samePlace,
+  showBoard,
+  usePanelFocus,
+  useWide,
+} from '@bft/ui/panel'
 import { lazy, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   data,
@@ -170,6 +178,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
   // The trip alone: a phone or tablet, its full page, or a trip with no stop to show the board of.
   if (trip && (!wide || !stopId || search.has(FULL))) return <Outlet />
   if (!stopId) return null
+  showBoard('stop', { from: stopId, to: null, filter: loaderData.route ?? null })
   return <StopBoardPage loaderData={{ ...loaderData, stopId }} trip={trip} panel={trip ? <Outlet /> : null} />
 }
 

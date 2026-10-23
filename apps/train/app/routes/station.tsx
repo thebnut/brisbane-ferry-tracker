@@ -15,7 +15,15 @@ import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { BoardHeader, Chip, chipClass, FilterRow, NowChip } from '@bft/ui/board-header'
 import { sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { DestinationSheet } from '@bft/ui/destination-sheet'
-import { FULL, PanelProvider, panelControls, samePlace, usePanelFocus, useWide } from '@bft/ui/panel'
+import {
+  FULL,
+  PanelProvider,
+  panelControls,
+  samePlace,
+  showBoard,
+  usePanelFocus,
+  useWide,
+} from '@bft/ui/panel'
 import { StarButton } from '@bft/ui/star'
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -223,6 +231,7 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   // The trip alone: a phone or tablet, its full page, or a trip with no station to show the board of.
   if (trip && (!wide || !station || search.has(FULL))) return <Outlet />
   if (!station) return null
+  showBoard('station', { from: station.key, to: loaderData.to?.key ?? null, filter: null })
   return (
     <StationBoardPage loaderData={{ ...loaderData, station }} trip={trip} panel={trip ? <Outlet /> : null} />
   )
@@ -346,22 +355,24 @@ function StationBoardPage({
         </div>
         {/* The panel (1024 px and wider): the open trip, else the return board, else the station's map. */}
         <div className="board-panel" data-panel="">
-          {open ? (
-            <PanelProvider value={controls}>{panel}</PanelProvider>
-          ) : reverse ? (
-            <StationBoard
-              key={`${reverse.key}:${station.key}`}
-              from={reverse}
-              to={station}
-              initial={inbound}
-              nowMs={nowMs}
-              mode={mode}
-              filter={filter}
-              at={departAt}
-              returnBoard
-              alerts={BASE ? <StationAlerts station={reverse} mode={mode} nowMs={nowMs} /> : undefined}
-            />
-          ) : wide ? (
+          {open ? <PanelProvider value={controls}>{panel}</PanelProvider> : null}
+          {/* Kept mounted (hidden) beside an open trip, so closing it doesn't fetch the return board again. */}
+          {reverse ? (
+            <div hidden={!!open}>
+              <StationBoard
+                key={`${reverse.key}:${station.key}`}
+                from={reverse}
+                to={station}
+                initial={inbound}
+                nowMs={nowMs}
+                mode={mode}
+                filter={filter}
+                at={departAt}
+                returnBoard
+                alerts={BASE ? <StationAlerts station={reverse} mode={mode} nowMs={nowMs} /> : undefined}
+              />
+            </div>
+          ) : wide && !open ? (
             <Suspense fallback={<div className="h-80 rounded-card bg-map-ground" />}>
               <StationMap station={station} departures={latest?.departures ?? []} mode={mode} nowMs={nowMs} />
             </Suspense>

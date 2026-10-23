@@ -3,7 +3,7 @@
  * change), the destination, the status line with one fact (the line, or "arr 7:31" when going somewhere), and the big
  * countdown. With a destination, wide rows add the arrival and journey. The stopping pattern is in trip detail.
  */
-import { BOARD_STATE, boardState, DepartureRow, type LinkRenderer, PlatformLineTile } from '@bft/ui'
+import { boardState, DepartureRow, type LinkRenderer, PlatformLineTile } from '@bft/ui'
 import { Link, useLocation, useParams } from 'react-router'
 import { at } from '../lib/base.ts'
 import type { TrainCard as Model } from '../lib/departures.ts'
@@ -19,18 +19,16 @@ export function tripHref(card: Model, from: string, to: string | null) {
  */
 function RowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
   const { pathname, search } = useLocation()
-  // Desktop (THE-118 PR 7): the open trip's row is marked; a row picked beside it replaces it in history (the board
-  // stays behind it); and the board keeps its scroll when a row opens beside it.
+  // Desktop (THE-118 PR 7): the open trip's row is marked; a row picked beside it replaces it in history, keeping
+  // what that entry knew of the board (a trip is never recorded as the board); and the board keeps its scroll.
   const open = useParams().tripInstance
-  const usr = open ? (history.state?.usr as Record<string, unknown> | undefined) : undefined
-  const swap = typeof usr?.[BOARD_STATE] === 'string'
   return (
     <Link
       to={href}
       className={className}
       aria-label={label}
-      state={swap ? usr : boardState(pathname, search)}
-      replace={swap}
+      state={open ? history.state?.usr : boardState(pathname, search)}
+      replace={!!open}
       preventScrollReset={typeof matchMedia === 'function' && matchMedia('(min-width: 1024px)').matches}
       aria-current={open && href.split('?')[0]?.endsWith(`/${encodeURIComponent(open)}`) ? 'true' : undefined}
     >

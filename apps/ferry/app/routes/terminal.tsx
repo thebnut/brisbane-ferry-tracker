@@ -12,7 +12,15 @@
 import type { Departure } from '@bft/core/contract'
 import { formatClock } from '@bft/ui'
 import { VIA_NETWORK } from '@bft/ui/connectivity'
-import { FULL, PanelProvider, panelControls, samePlace, usePanelFocus, useWide } from '@bft/ui/panel'
+import {
+  FULL,
+  PanelProvider,
+  panelControls,
+  samePlace,
+  showBoard,
+  usePanelFocus,
+  useWide,
+} from '@bft/ui/panel'
 import {
   data,
   Outlet,
@@ -37,6 +45,7 @@ import {
   nearbyTerminals,
   TERMINALS,
   type Terminal,
+  terminalById,
   terminalByParam,
   terminalBySlug,
   terminalHref,
@@ -255,6 +264,11 @@ export default function TerminalPage({ loaderData }: Route.ComponentProps) {
   // The trip alone: a phone or tablet, its full page, or a trip with no terminal to show the board of.
   if (trip && alone) return <Outlet />
   if (!terminal) return null
+  showBoard('terminal', {
+    from: terminal.slug,
+    to: loaderData.to ? (terminalById(loaderData.to.id)?.slug ?? null) : null,
+    filter: null,
+  })
   return (
     <>
       <FerryBoards

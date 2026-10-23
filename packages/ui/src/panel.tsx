@@ -70,7 +70,8 @@ export const fromBoardRow = () =>
  * is open over it.
  */
 export function usePanelFocus(open: string | undefined, close: () => void) {
-  const last = useRef(open)
+  // A trip opened by a board row's link (also from another page's board, BrisbaneFerry's home) takes the focus too.
+  const last = useRef(fromBoardRow() ? undefined : open)
   const closeRef = useRef(close)
   closeRef.current = close
   useEffect(() => {
@@ -139,10 +140,19 @@ export function placeOf(url: URL, segment: string): Place | null {
 const pair = (p: Place) => `${p.from}>${p.to ?? ''}`
 const either = (p: Place) => [pair(p), p.to ? `${p.to}>${p.from}` : null]
 
+/** The board each layout shows (by its URL segment): a trip URL keeps it, so the trip says nothing about it. */
+const shown = new Map<string, Place>()
+
+/** The layout tells which board it shows (its loader's place, as `placeOf` would write it). Client only. */
+export function showBoard(segment: string, place: Omit<Place, 'trip'>) {
+  if (typeof document !== 'undefined') shown.set(segment, { ...place, trip: false })
+}
+
 /**
- * A board's layout `shouldRevalidate` (its URL `/<segment>/:id`): its loader runs again only when the place changes
- * (another stop, another destination, demo data on or off), not when a trip opens or closes beside it. A trip from the
- * return board (the other way) is the same board, and a trip beside a filtered board keeps the board's filter.
+ * A board's layout `shouldRevalidate` (its URL `/<segment>/:id`): its loader runs again only when the board changes
+ * (another stop, destination, direction or filter; demo data on or off), not when a trip opens or closes beside it. A
+ * trip from the return board (the other way) or beside a filtered board belongs to the board shown; leaving a trip for
+ * a board URL is the same board only when it is the one shown (⇄ from beside a trip is a new board).
  */
 export function samePlace(
   { currentUrl, nextUrl, formMethod }: { currentUrl: URL; nextUrl: URL; formMethod?: string },
@@ -152,12 +162,14 @@ export function samePlace(
   if (currentUrl.href === nextUrl.href) return false
   if (['fixtures', 'rt'].some((k) => currentUrl.searchParams.get(k) !== nextUrl.searchParams.get(k)))
     return false
-  const a = placeOf(currentUrl, segment)
-  const b = placeOf(nextUrl, segment)
-  if (!a || !b) return false
-  if (!a.trip && !b.trip) return pair(a) === pair(b) && a.filter === b.filter
-  const [board, trip] = a.trip ? [b, a] : [a, b]
-  return either(board).includes(pair(trip))
+  const now = placeOf(currentUrl, segment)
+  const next = placeOf(nextUrl, segment)
+  if (!now || !next) return false
+  const board = now.trip ? shown.get(segment) : now
+  if (!board) return false
+  return next.trip
+    ? either(board).includes(pair(next))
+    : pair(board) === pair(next) && board.filter === next.filter
 }
 
 /** A trip route's `shouldRevalidate`: not between its panel and its full page (the same trip, only `?full=` differs). */

@@ -1,7 +1,6 @@
 /** A stop's departure list (B-Departures): polls /v1 every 15 s, banners, loading/empty/error states. */
 import type { Alert, Departure, DeparturesResponse } from '@bft/core/contract'
 import {
-  BOARD_STATE,
   boardState,
   brisbaneDateKey,
   DayDivider,
@@ -43,19 +42,17 @@ export const linkRenderer = ({
  */
 function RowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
   const { pathname, search } = useLocation()
-  // Desktop (THE-118 PR 7): the open trip's row is marked; a row picked beside it replaces it in history (the board
-  // stays behind it); and the board keeps its scroll when a row opens beside it.
+  // Desktop (THE-118 PR 7): the open trip's row is marked; a row picked beside it replaces it in history, keeping
+  // what that entry knew of the board (a trip is never recorded as the board); and the board keeps its scroll.
   const open = useParams().tripInstance
-  const usr = open ? (history.state?.usr as Record<string, unknown> | undefined) : undefined
-  const swap = typeof usr?.[BOARD_STATE] === 'string'
   return (
     <Link
       to={href}
       className={className}
       aria-label={label}
       prefetch="intent"
-      state={swap ? usr : boardState(pathname, search)}
-      replace={swap}
+      state={open ? history.state?.usr : boardState(pathname, search)}
+      replace={!!open}
       preventScrollReset={typeof matchMedia === 'function' && matchMedia('(min-width: 1024px)').matches}
       aria-current={open && href.split('?')[0]?.endsWith(`/${encodeURIComponent(open)}`) ? 'true' : undefined}
     >

@@ -173,6 +173,69 @@ function desktop() {
       })
     })
 
+  test("⇄ from beside a trip opens the other way's board", async ({ page }) => {
+    for (const [b, other] of [
+      [BOARDS[0] as Board, 'Riverside'],
+      [BOARDS[2] as Board, 'Bowen Hills'],
+    ] as const) {
+      await openBoard(page, b)
+      await rows(page).first().click()
+      await expect(panel(page)).toBeVisible()
+      await page.locator('[data-filter-row]').getByRole('button', { name: 'Swap direction' }).click()
+      await expect(page).toHaveURL(
+        new RegExp(`/${b.mode}/(terminal|station)/[a-z-]+\\?to=${b.name.toLowerCase()}`),
+      )
+      await expect(header(page)).toContainText(other)
+      await expect(panel(page)).toHaveCount(0)
+    }
+  })
+
+  test('beside a trip opened from a link, another row replaces it and ✕ still opens the board', async ({
+    page,
+  }) => {
+    for (const b of BOARDS.filter((x) => x.idle === 'map')) {
+      await openBoard(page, b)
+      const [one, two] = (await rows(page).evaluateAll((as) =>
+        as.slice(0, 2).map((a) => a.getAttribute('href')),
+      )) as [string, string]
+      await page.goto(one)
+      await expect(panel(page)).toBeVisible()
+      await page.locator(`[data-board-column] a[href="${two}"]`).click()
+      await page.waitForURL((u) => `${u.pathname}${u.search}` === two)
+      await panel(page).getByRole('button', { name: 'Close trip details' }).click()
+      await expect(page).toHaveURL(b.url)
+      await expect(panel(page)).toHaveCount(0)
+    }
+  })
+
+  test('closing a trip after a while does not fetch the return board again', async ({ page }) => {
+    const b = BOARDS[2] as Board
+    await openBoard(page, b)
+    await expect(idle(page, 'return').locator('[data-testid=departure]').first()).toBeVisible()
+    await rows(page).first().click()
+    await expect(panel(page)).toBeVisible()
+    // Past the queries' 10 s freshness, short of the 15 s poll.
+    await page.clock.fastForward('00:12')
+    const req = watch(page)
+    await panel(page).getByRole('button', { name: 'Close trip details' }).click()
+    await expect(idle(page, 'return')).toBeVisible()
+    await page.waitForLoadState('networkidle')
+    expect(req.board()).toEqual([])
+  })
+
+  test('a row on the ferry home board opens beside its terminal and takes the focus', async ({ page }) => {
+    await page.clock.install({ time: Date.now() })
+    await page.goto('/ferry')
+    await expect(page.locator('html[data-hydrated]')).toHaveCount(1)
+    const row = rows(page).first()
+    await row.focus()
+    await page.keyboard.press('Enter')
+    await page.waitForURL(tripUrl('ferry'))
+    await expect(panel(page)).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(page).toHaveURL('/ferry')
+  })
+
   test('an expired trip beside the board says so, and ✕ goes back to the board', async ({ page }) => {
     for (const b of BOARDS.filter((x) => x.idle === 'map')) {
       const res = await page.goto(

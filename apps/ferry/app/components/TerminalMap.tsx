@@ -5,6 +5,7 @@
  */
 import type { Departure } from '@bft/core/contract'
 import { vesselName } from '@bft/ui'
+import { liveState, usePageCheck } from '@bft/ui/connectivity'
 import type { MapMarker } from '@bft/ui/map'
 import { useWide } from '@bft/ui/panel'
 import SafeMap from '@bft/ui/safe-map'
@@ -13,6 +14,7 @@ import type { ApiFetcher } from '../lib/api.ts'
 import { cleanStopName } from '../lib/names.ts'
 import type { DataMode } from '../lib/queries.ts'
 import { type StopChoice, terminalById } from '../lib/terminals.ts'
+import { useNow, useOnline } from '../lib/useNow.ts'
 import { useVehicles } from '../lib/vehicles.ts'
 
 interface Props {
@@ -31,11 +33,14 @@ export default function WideTerminalMap(props: Props) {
 
 function TerminalMap({ terminal, live, departures, fetcher, mode }: Props) {
   const vehicles = useVehicles(fetcher, mode, true)
+  // The positions' own answer must be live and fresh too, not only the board's (an old copy never pulses as live).
+  const nowMs = useNow(Date.now(), 5_000)
+  const fresh = liveState(vehicles.data, { offline: !useOnline(), nowMs, ...usePageCheck() }) == null
   const t = terminalById(terminal.id)
   const name = cleanStopName(terminal.name)
   const ferries = useMemo(() => {
     const byTrip = new Map(departures.map((d) => [d.tripInstance, d]))
-    const positions = live && vehicles.data?.rtState === 'live' ? vehicles.data.vehicles : []
+    const positions = live && fresh && vehicles.data?.rtState === 'live' ? vehicles.data.vehicles : []
     return positions.flatMap((v) => {
       const d = v.tripKey ? byTrip.get(v.tripKey) : undefined
       if (!d) return []
@@ -51,7 +56,7 @@ function TerminalMap({ terminal, live, departures, fetcher, mode }: Props) {
         },
       ]
     })
-  }, [vehicles.data, departures, live])
+  }, [vehicles.data, departures, live, fresh])
   const markers: MapMarker[] = useMemo(
     () => [
       ...(t

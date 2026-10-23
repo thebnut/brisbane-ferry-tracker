@@ -2,7 +2,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fullHref, isTripHref, onlyFullChanged, panelControls, samePlace } from '../src/panel.tsx'
+import { fullHref, isTripHref, onlyFullChanged, panelControls, samePlace, showBoard } from '../src/panel.tsx'
 import { BOARD_STATE } from '../src/row.tsx'
 import { TripPanelFrame } from '../src/trip.tsx'
 
@@ -12,26 +12,48 @@ const same = (a: string, b: string, segment = 'terminal', formMethod?: string) =
   samePlace({ currentUrl: U(a), nextUrl: U(b), formMethod }, segment)
 
 describe('samePlace', () => {
-  it('a trip opening and closing beside its board is the same place', () => {
+  const bulimba = () => showBoard('terminal', { from: 'bulimba', to: 'riverside', filter: null })
+
+  it('a trip opening and closing beside its board is the same board', () => {
+    bulimba()
     expect(same('/terminal/bulimba?to=riverside', '/trip/t1@20261023?from=bulimba&to=riverside')).toBe(true)
     expect(same('/trip/t1@20261023?from=bulimba&to=riverside', '/terminal/bulimba?to=riverside')).toBe(true)
-    expect(same('/terminal/bulimba', '/trip/t1@20261023?from=bulimba')).toBe(true)
     // Another row while a trip is open, and the full page.
-    expect(same('/trip/t1@20261023?from=bulimba', '/trip/t2@20261023?from=bulimba')).toBe(true)
-    expect(same('/trip/t1@20261023?from=bulimba', '/trip/t1@20261023?from=bulimba&full=1')).toBe(true)
+    expect(
+      same('/trip/t1@20261023?from=bulimba&to=riverside', '/trip/t2@20261023?from=bulimba&to=riverside'),
+    ).toBe(true)
+    expect(
+      same(
+        '/trip/t1@20261023?from=bulimba&to=riverside',
+        '/trip/t1@20261023?from=bulimba&to=riverside&full=1',
+      ),
+    ).toBe(true)
+    showBoard('terminal', { from: 'bulimba', to: null, filter: null })
+    expect(same('/terminal/bulimba', '/trip/t1@20261023?from=bulimba')).toBe(true)
   })
 
-  it("a return-board row's trip (the other way) is the same board", () => {
+  it("a return-board row's trip (the other way) belongs to the board shown", () => {
+    bulimba()
     expect(same('/terminal/bulimba?to=riverside', '/trip/t9@20261023?from=riverside&to=bulimba')).toBe(true)
     expect(
       same('/trip/t9@20261023?from=riverside&to=bulimba', '/trip/t1@20261023?from=bulimba&to=riverside'),
     ).toBe(true)
+    expect(same('/trip/t9@20261023?from=riverside&to=bulimba', '/terminal/bulimba?to=riverside')).toBe(true)
+  })
+
+  it('⇄, another destination or place from beside a trip is a new board', () => {
+    bulimba()
+    expect(same('/trip/t1@20261023?from=bulimba&to=riverside', '/terminal/riverside?to=bulimba')).toBe(false)
+    expect(same('/trip/t9@20261023?from=riverside&to=bulimba', '/terminal/riverside?to=bulimba')).toBe(false)
+    expect(same('/trip/t1@20261023?from=bulimba&to=riverside', '/terminal/bulimba')).toBe(false)
+    expect(same('/trip/t1@20261023?from=bulimba&to=riverside', '/trip/t5@20261023?from=hawthorne')).toBe(
+      false,
+    )
   })
 
   it('another place, destination, direction or demo mode runs the loader again', () => {
     expect(same('/terminal/bulimba', '/terminal/hawthorne')).toBe(false)
     expect(same('/terminal/bulimba', '/terminal/bulimba?to=riverside')).toBe(false)
-    // ⇄ swaps the board itself.
     expect(same('/terminal/bulimba?to=riverside', '/terminal/riverside?to=bulimba')).toBe(false)
     expect(same('/terminal/bulimba', '/trip/t1@20261023?from=hawthorne')).toBe(false)
     expect(same('/terminal/bulimba?to=riverside', '/trip/t1@20261023?from=bulimba')).toBe(false)
@@ -44,9 +66,11 @@ describe('samePlace', () => {
     expect(same('/terminal/bulimba', '/trip/t1@20261023?from=bulimba', 'terminal', 'POST')).toBe(false)
   })
 
-  it("a bus trip keeps its board's route filter; the filter itself changes the board", () => {
+  it("a bus trip keeps its board's route filter; changing the filter is a new board", () => {
+    showBoard('stop', { from: '10802', to: null, filter: '61' })
     expect(same('/stop/10802?route=61', '/trip/t1@20261023?from=10802', 'stop')).toBe(true)
     expect(same('/trip/t1@20261023?from=10802', '/stop/10802?route=61', 'stop')).toBe(true)
+    expect(same('/trip/t1@20261023?from=10802', '/stop/10802', 'stop')).toBe(false)
     expect(same('/stop/10802?route=61', '/stop/10802', 'stop')).toBe(false)
     expect(same('/stop/10802', '/trip/t1@20261023?from=10803', 'stop')).toBe(false)
   })
