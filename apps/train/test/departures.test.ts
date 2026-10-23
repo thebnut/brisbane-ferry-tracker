@@ -48,6 +48,11 @@ describe('trainCard', () => {
     expect(c.strip[0]?.id).toBe('central')
     expect(c.express).toBe(false)
     expect(c.label).toContain('platform 1')
+    // THE-118 PR 4: one fact, the line; with a destination, "arr 8:16 am" (the line moves to the wide row).
+    expect(c.status.text).toBe('Live · on time')
+    expect(c.fact).toBe('Ferny Grove line')
+    const going = trainCard(dep({ schedArrTo: nowS + 16 * 60 }), NOW, 'central', 'ferny-grove')
+    expect(going).toMatchObject({ fact: 'arr 8:16 am', lineFact: 'Ferny Grove line' })
   })
   it('marks an express and counts the stations it runs through', () => {
     const all = corridorFor(['central', 'ferny-grove']).slice(1)
@@ -60,18 +65,29 @@ describe('trainCard', () => {
     )
     expect(c.express).toBe(true)
     expect(c.skips).toBeGreaterThan(0)
+    expect(c.fact).toBe('Ferny Grove express')
   })
   it('a platform change carries both platforms into the card and the banner list', () => {
     const d = dep({ stopId: platform('central', '4'), platform: '4', scheduledPlatform: '1' })
     const c = trainCard(d, NOW, 'central', null)
     expect(c).toMatchObject({ platform: '4', scheduledPlatform: '1' })
-    expect(c.label).toContain('platform 4, changed from 1')
+    // Live: the status line says so (the row's tile gets the orange ring).
+    expect(c.status.text).toBe('Live · platform changed from 1')
+    expect(c.label).toContain('platform 4, live, platform changed from 1')
+    const late = trainCard({ ...d, estDep: d.schedDep + 180 }, NOW, 'central', null)
+    expect(late.status.text).toBe('Live · 3 min late · platform changed from 1')
+    // Not live (offline, stale): asScheduled drops the change, so no claim of one.
+    expect(trainCard(asScheduled(d), NOW, 'central', null).status.text).toBe('Scheduled')
     expect(platformChanges([d, dep()])).toEqual([d])
   })
   it('cancelled rows have no countdown and say so', () => {
     const c = trainCard(dep({ status: 'cancelled', estDep: null }), NOW, 'central', null)
-    expect(c).toMatchObject({ cancelled: true, minutes: null, note: 'This service is cancelled' })
+    expect(c).toMatchObject({ cancelled: true, minutes: null })
+    expect(c.status).toMatchObject({ status: 'cancelled', dot: 'cancelled', text: 'Cancelled' })
     expect(c.badges).toContain('cancelled')
+    const next = dep({ tripInstance: 'n@20261018', schedDep: nowS + 20 * 60, estDep: nowS + 20 * 60 })
+    const withNext = trainCard(dep({ status: 'cancelled', estDep: null }), NOW, 'central', null, next)
+    expect(withNext.status.text).toMatch(/^Cancelled · next .+ line in 20 min$/)
   })
   it('arrival time always has am/pm, and the journey is the difference of the shown minutes (T4, F2)', () => {
     // Departs 8:04:50, arrives 8:16:10: shown "8:04 am → 8:16 am", so 12 mins (not round(11.33) = 11).

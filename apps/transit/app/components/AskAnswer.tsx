@@ -1,5 +1,5 @@
-/** The Ask box's answer: text, a friendly note for any AI limit, and the rows as shared departure cards. */
-import { type BadgeKind, DepartureCard, dayMarker, RouteTile } from '@bft/ui'
+/** The Ask box's answer: text, a friendly note for any AI limit, and the rows as the boards' departure row. */
+import { DayDivider, DepartureRow, dayDividers, dayMarker, RouteTile, statusLine } from '@bft/ui'
 import type { AskDeparture, AskResult } from '../lib/ask.ts'
 
 /** Minutes after midnight of a "7:42 pm" clock text, or null. */
@@ -23,29 +23,29 @@ export function askDayMarkers(d: AskDeparture, nowMs: number) {
   const depS =
     dep == null ? approxS : approxS + (((((dep - localMin + 720) % 1440) + 1440) % 1440) - 720) * 60
   const arrS = dep != null && arr != null ? depS + ((arr - dep + 1440) % 1440) * 60 : null
-  return { dep: dayMarker(depS, nowMs), arr: arrS != null ? dayMarker(arrS, nowMs) : null }
+  return { depS, dep: dayMarker(depS, nowMs), arr: arrS != null ? dayMarker(arrS, nowMs) : null }
 }
 
 export function askRowProps(d: AskDeparture, nowMs = Date.now()) {
   const markers = askDayMarkers(d, nowMs)
   const cancelled = d.status === 'cancelled'
   const skipped = d.status === 'skipped'
-  const badges: BadgeKind[] = cancelled
-    ? ['cancelled']
-    : skipped
-      ? ['skipped']
-      : d.status === 'live'
-        ? ['live']
-        : d.status === 'unknown'
-          ? ['unknown']
-          : ['scheduled']
+  const arrival = d.arrives && !skipped ? { time: d.arrives, dayMarker: markers.arr } : null
   return {
     time: d.departs,
+    depS: markers.depS,
     dayMarker: markers.dep,
-    arrival: d.arrives && !skipped ? { time: d.arrives, dayMarker: markers.arr } : null,
-    badges,
-    service: `${d.route} to ${d.headsign}`.toUpperCase(),
-    note: skipped ? 'Not stopping here' : d.platform ? `Platform ${d.platform}` : null,
+    arrival,
+    // Rows carry no timetabled time, so a live row says "Live", not on time or late.
+    status: { status: d.status, ...statusLine({ status: d.status }) },
+    fact:
+      cancelled || skipped
+        ? null
+        : d.platform
+          ? `platform ${d.platform}`
+          : arrival
+            ? `arr ${arrival.time}${arrival.dayMarker ? ` ${arrival.dayMarker}` : ''}`
+            : null,
     // No countdown for a service you can't board.
     minutes: cancelled || skipped ? null : d.inMinutes,
     cancelled,
@@ -72,24 +72,31 @@ export default function AskAnswer({ result, nowMs = Date.now() }: { result: AskR
           {result.notice}
         </p>
       ) : null}
-      {result.departures.map((d, i) => {
-        const p = askRowProps(d, nowMs)
-        return (
-          <DepartureCard
-            key={`${d.tripInstance}:${d.departs}`}
-            time={p.time}
-            dayMarker={p.dayMarker}
-            arrival={p.arrival}
-            badges={p.badges}
-            service={p.service}
-            note={p.note}
-            minutes={p.minutes}
-            cancelled={p.cancelled}
-            highlighted={i === 0 && p.boardable}
-            leading={<RouteTile route={d.route} size="sm" />}
-          />
+      {(() => {
+        const rows = result.departures.map((d) => askRowProps(d, nowMs))
+        const dividers = dayDividers(
+          rows.map((p) => p.depS),
+          nowMs,
         )
-      })}
+        const soonest = rows.findIndex((p) => p.boardable)
+        return result.departures.map((d, i) => {
+          const p = rows[i] as (typeof rows)[number]
+          return (
+            <div key={`${d.tripInstance}:${d.departs}`}>
+              {dividers[i] ? <DayDivider>{dividers[i]}</DayDivider> : null}
+              <DepartureRow
+                tile={<RouteTile route={d.route} size="lg" />}
+                destination={d.headsign}
+                status={p.status}
+                fact={p.fact}
+                minutes={p.minutes}
+                time={p.time}
+                highlighted={i === soonest}
+              />
+            </div>
+          )
+        })
+      })()}
       {result.source === 'llm' ? (
         <p className="text-xs text-sched-text">Answered with help from AI, using only live Translink data.</p>
       ) : null}

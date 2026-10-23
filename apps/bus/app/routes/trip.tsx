@@ -6,6 +6,7 @@
 
 import type { TripResponse } from '@bft/core/contract'
 import {
+  BigCountdown,
   dayMarker,
   delayText,
   ErrorState,
@@ -20,7 +21,7 @@ import {
   StatusBadge,
   tripAsTimetable,
 } from '@bft/ui'
-import { BigCountdown, OccupancyMeter, SkeletonRows, TripTimeline } from '@bft/ui/bus'
+import { OccupancyMeter, SkeletonRows, TripTimeline } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { data, Link, useNavigate } from 'react-router'
 import { BusStar } from '../components/BusStar.tsx'

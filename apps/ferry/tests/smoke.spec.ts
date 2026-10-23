@@ -27,7 +27,7 @@ test('home renders both boards with countdown chips', async ({ page, context, is
   const outbound = page.locator('[data-board=outbound]')
   await expect(outbound.getByTestId('departure')).toHaveCount(5)
   await refreshBoards(page)
-  await expect(outbound.locator('[data-tone]').first()).toBeVisible()
+  await expect(outbound.locator('[data-countdown]').first()).toBeVisible()
   const inbound = page.locator('[data-board=inbound]')
   if (isMobile) {
     // Phones show one board with origin/destination dropdowns and swap.
@@ -132,7 +132,7 @@ test('offline shows the "Offline · scheduled" banner', async ({ page, context }
   await context.setOffline(true)
   await expect(page.getByText('Offline · scheduled')).toBeVisible()
   await expect(page.getByText('OFFLINE', { exact: true })).toBeVisible()
-  await expect(page.locator('[data-board=outbound] [data-badge=live]')).toHaveCount(0)
+  await expect(page.locator('[data-board=outbound] [data-dot=live]')).toHaveCount(0)
   await context.setOffline(false)
   await expect(page.getByText('Offline · scheduled')).toBeHidden()
 })

@@ -1,15 +1,10 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
-import { CountdownChip, DepartureCard, StatusBadge } from '../src/board.tsx'
+import { describe, expect, it } from 'vitest'
+import { CountdownChip, StatusBadge } from '../src/board.tsx'
 import { OfflineBanner } from '../src/states.tsx'
-import {
-  isPlatformChange,
-  PlatformTile,
-  RouteTile,
-  routeTileVariant,
-  StoppingPattern,
-} from '../src/transit.tsx'
+import { isPlatformChange, PlatformTile } from '../src/timeline.tsx'
+import { StoppingPattern } from '../src/train.tsx'
+import { RouteTile, routeTileVariant } from '../src/transit.tsx'
 
 describe('CountdownChip', () => {
   it.each([
@@ -40,35 +35,6 @@ describe('StatusBadge', () => {
   ] as const)('%s shows %s', (kind, text) => {
     render(<StatusBadge kind={kind} />)
     expect(screen.getByText(text)).toHaveAttribute('data-badge', kind)
-  })
-})
-
-describe('DepartureCard', () => {
-  it('shows times, badges, chip and opens on click', async () => {
-    const onSelect = vi.fn()
-    render(
-      <DepartureCard
-        time="7:42 pm"
-        arrival={{ time: '7:54 pm' }}
-        badges={['live', 'gps']}
-        service="EXPRESS · F11"
-        express
-        highlighted
-        minutes={4}
-        onSelect={onSelect}
-        label="7:42 pm express to Riverside"
-      />,
-    )
-    expect(screen.getByText('in 4 mins')).toBeInTheDocument()
-    expect(screen.getByText('LIVE')).toBeInTheDocument()
-    expect(screen.getByRole('article')).toHaveAttribute('data-highlighted', 'true')
-    await userEvent.click(screen.getByRole('button', { name: '7:42 pm express to Riverside' }))
-    expect(onSelect).toHaveBeenCalledOnce()
-  })
-  it('cancelled rows have no countdown', () => {
-    render(<DepartureCard time="8:01 pm" badges={['cancelled']} cancelled minutes={20} />)
-    expect(screen.queryByText('in 20 mins')).toBeNull()
-    expect(screen.getByRole('article')).toHaveAttribute('data-cancelled', 'true')
   })
 })
 

@@ -52,7 +52,17 @@ describe('skipped services', () => {
     expect(upcoming(rows, NOW).map((d) => d.status)).toEqual(['scheduled'])
   })
 
-  it('Ask rows: "Not stopping here", SKIPPED badge, no countdown, never highlighted', () => {
+  it('Ask rows: "Not stopping here", no countdown, never highlighted', () => {
+    const row0 = {
+      tripInstance: 't',
+      route: '66',
+      headsign: 'UQ Lakes',
+      platform: null,
+      departs: '7:31 pm',
+      inMinutes: 1,
+      arrives: '7:50 pm',
+      status: 'skipped' as const,
+    }
     const p = askRowProps({
       tripInstance: 't',
       route: '66',
@@ -64,11 +74,13 @@ describe('skipped services', () => {
       status: 'skipped',
     })
     expect(p).toMatchObject({
-      badges: ['skipped'],
+      status: { status: 'skipped', dot: 'cancelled', text: 'Not stopping here', claim: false },
+      fact: null,
       minutes: null,
-      note: 'Not stopping here',
       boardable: false,
     })
+    // A live Ask row has no timetabled time: it says "Live", never "on time" (THE-118 PR 4).
+    expect(askRowProps({ ...row0, status: 'live' }).status.text).toBe('Live')
   })
 
   it('Ask rows mark next-day times like the boards (X6)', () => {

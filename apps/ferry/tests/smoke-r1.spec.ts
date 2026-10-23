@@ -35,7 +35,7 @@ test.describe('phone width 360 px, longest stop names (F1)', () => {
       const board = page.locator('[data-board=outbound]')
       await expect(board.getByTestId('departure').first()).toBeVisible()
       await refreshBoards(page)
-      await expect(board.locator('[data-tone]').first()).toBeVisible()
+      await expect(board.locator('[data-countdown]').first()).toBeVisible()
       const { scrollWidth, innerWidth } = await page.evaluate(() => ({
         scrollWidth: document.documentElement.scrollWidth,
         innerWidth: window.innerWidth,
@@ -49,26 +49,28 @@ test.describe('phone width 360 px, longest stop names (F1)', () => {
       expect(d.x).toBeGreaterThanOrEqual(0)
       expect(d.x + d.width).toBeLessThanOrEqual(innerWidth)
 
-      // Every countdown chip is inside its card and never overlaps the times.
+      // Every countdown is inside its row and never overlaps the destination or the status line (THE-118 PR 4 row).
       const cards = board.getByTestId('departure')
       const n = await cards.count()
       let chips = 0
       for (let i = 0; i < n; i++) {
         const card = cards.nth(i)
-        const chip = card.locator('[data-tone]')
+        const chip = card.locator('[data-countdown]')
         if ((await chip.count()) === 0) continue
         chips++
         const c = await box(chip)
-        const a = await box(card.locator('article'))
+        const a = await box(card)
         expect(c.x).toBeGreaterThanOrEqual(a.x)
         expect(c.x + c.width).toBeLessThanOrEqual(a.x + a.width)
         expect(c.x + c.width).toBeLessThanOrEqual(innerWidth)
-        // Chip text isn't cut off inside the chip.
+        // Countdown text isn't cut off.
         expect(await chip.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
-        const t = await box(card.getByTestId('times'))
-        const overlaps =
-          t.x < c.x + c.width && c.x < t.x + t.width && t.y < c.y + c.height && c.y < t.y + t.height
-        expect(overlaps).toBe(false)
+        for (const part of [card.getByTestId('destination'), card.locator('[data-row-status]')]) {
+          const t = await box(part)
+          const overlaps =
+            t.x < c.x + c.width && c.x < t.x + t.width && t.y < c.y + c.height && c.y < t.y + t.height
+          expect(overlaps).toBe(false)
+        }
       }
       expect(chips).toBeGreaterThan(0)
       await page.screenshot({ path: testInfo.outputPath(`360-${from.id}-${to.id}.png`) })
@@ -104,19 +106,19 @@ test.describe('offline (F3)', () => {
     const board = page.locator('[data-board=outbound]')
     await expect(board.getByTestId('departure').first()).toBeVisible()
     await refreshBoards(page)
-    await expect(board.locator('[data-badge=live]').first()).toBeVisible()
+    await expect(board.locator('[data-dot=live]').first()).toBeVisible()
     // Lie-fi: navigator.onLine stays true, but the API can't be reached.
     // context.route also covers the service worker's own network requests.
     await context.route('**/v1/**', (route) => route.abort('internetdisconnected'))
     await page.getByRole('button', { name: 'Refresh' }).click()
     await expect(page.getByText('Offline · scheduled')).toBeVisible({ timeout: 3_000 })
-    await expect(board.locator('[data-badge=live]')).toHaveCount(0)
+    await expect(board.locator('[data-dot=live]')).toHaveCount(0)
     await expect(page.getByText('OFFLINE', { exact: true })).toBeVisible()
     // Back: the next successful request clears it.
     await context.unroute('**/v1/**')
     await page.getByRole('button', { name: 'Refresh' }).click()
     await expect(page.getByText('Offline · scheduled')).toBeHidden()
-    await expect(board.locator('[data-badge=live]').first()).toBeVisible()
+    await expect(board.locator('[data-dot=live]').first()).toBeVisible()
   })
 
   test('LIVE never comes back while offline (polls keep failing)', async ({ page, context }) => {
@@ -128,13 +130,13 @@ test.describe('offline (F3)', () => {
     const board = page.locator('[data-board=outbound]')
     await expect(board.getByTestId('departure').first()).toBeVisible()
     await refreshBoards(page)
-    await expect(board.locator('[data-badge=live]').first()).toBeVisible()
+    await expect(board.locator('[data-dot=live]').first()).toBeVisible()
     await context.setOffline(true)
     await expect(page.getByText('Offline · scheduled')).toBeVisible()
     // Two poll intervals (15 s): still offline, no live claims, no pulsing "Departing" for times that have passed.
     await page.waitForTimeout(32_000)
     await expect(page.getByText('Offline · scheduled')).toBeVisible()
-    await expect(board.locator('[data-badge=live]')).toHaveCount(0)
+    await expect(board.locator('[data-dot=live]')).toHaveCount(0)
     await expect(page.getByText('LIVE', { exact: true })).toHaveCount(0)
     await context.setOffline(false)
     await expect(page.getByText('Offline · scheduled')).toBeHidden()

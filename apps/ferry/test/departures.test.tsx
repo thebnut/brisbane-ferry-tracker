@@ -5,8 +5,8 @@ import {
   asScheduled,
   bannerState,
   boardState,
-  cardModel,
   hasExpress,
+  rowModel,
   visibleRows,
 } from '../app/lib/departures.ts'
 import { generateTimeSlots } from '../app/lib/timeSlots.ts'
@@ -31,53 +31,50 @@ const dep = (o: Partial<Departure>): Departure => ({
   ...o,
 })
 
-describe('cardModel', () => {
-  it('express live row: highlighted, badges, vessel and Sched Dept note, countdown', () => {
-    const c = cardModel(dep({}), NOW)
-    expect(c).toMatchObject({
+describe('rowModel (THE-118 PR 4)', () => {
+  it('express live row: service tile, headsign, "Live · on time", arr fact, countdown', () => {
+    const r = rowModel(dep({}), NOW)
+    expect(r).toMatchObject({
+      code: 'F11',
+      express: true,
+      destination: 'Riverside',
       time: '7:42 pm',
-      arrival: { time: '7:54 pm' },
-      badges: ['live', 'gps'],
-      service: 'EXPRESS · F11',
-      highlighted: true,
-      minutes: 4,
-      note: 'Mooroolbin II · Sched Dept: 7:42 pm',
+      arrival: '7:54 pm',
       journey: '12 mins',
+      fact: 'arr 7:54 pm',
+      minutes: 4,
+      status: { status: 'live', dot: 'live', text: 'Live · on time', claim: true },
     })
+    // The vessel, the journey line and badges are off the row now (trip detail has them).
+    expect(JSON.stringify(r)).not.toContain('Mooroolbin')
+    expect(r.label).toBe('7:42 pm F11 express to Riverside, Live, on time, arrives 7:54 pm')
   })
-  it('late row shows the scheduled time and lateness', () => {
-    const c = cardModel(
+  it('late and early rows say so from the clocks shown', () => {
+    const late = rowModel(
       dep({ route: { id: 'F1', short: 'F1' }, schedDep: s(19, 46), estDep: s(19, 49) }),
       NOW,
-      'x',
     )
-    expect(c.note).toContain('Scheduled: 7:46 pm')
-    expect(c.delay).toBe('3 min late')
-    expect(c.highlighted).toBe(false)
+    expect(late.status).toMatchObject({ text: 'Live · 3 min late', tone: 'late' })
+    expect(late.express).toBe(false)
+    expect(rowModel(dep({ schedDep: s(19, 46), estDep: s(19, 45) }), NOW).status.text).toBe(
+      'Live · 1 min early',
+    )
+    expect(rowModel(dep({ status: 'scheduled', estDep: null, gps: false }), NOW).status).toMatchObject({
+      text: 'Scheduled',
+      claim: false,
+    })
   })
-  it('cancelled row has no countdown', () => {
-    const c = cardModel(dep({ status: 'cancelled', estDep: null, gps: false }), NOW)
-    expect(c.minutes).toBeNull()
-    expect(c.cancelled).toBe(true)
-    expect(c.badges).toEqual(['cancelled'])
+  it('cancelled row: no countdown, no arrival, the next like it', () => {
+    const c = dep({ status: 'cancelled', estDep: null, gps: false })
+    const r = rowModel(c, NOW, dep({ schedDep: s(19, 58), estDep: s(19, 58) }))
+    expect(r).toMatchObject({ minutes: null, arrival: null, fact: null })
+    expect(r.status).toMatchObject({ dot: 'cancelled', text: 'Cancelled · next F11 in 20 min' })
+    expect(rowModel(dep({ status: 'skipped' }), NOW).status.text).toBe('Not stopping here')
   })
-  it('badges: LIVE, then GPS, then any other status, for every status (L8 budget offset)', () => {
-    const want: Record<Departure['status'], string[]> = {
-      live: ['live'],
-      scheduled: ['scheduled'],
-      cancelled: ['cancelled'],
-      skipped: ['skipped'],
-      unknown: ['unknown'],
-    }
-    for (const [status, badges] of Object.entries(want) as Array<[Departure['status'], string[]]>) {
-      expect(cardModel(dep({ status, gps: false }), NOW).badges, status).toEqual(badges)
-      const withGps = status === 'live' ? ['live', 'gps'] : ['gps', ...badges]
-      expect(cardModel(dep({ status, gps: true }), NOW).badges, `${status} gps`).toEqual(withGps)
-    }
-  })
-  it('next-day departures get the (DD/MM) marker', () => {
-    const c = cardModel(dep({ schedDep: s(29, 10), estDep: null, status: 'scheduled', gps: false }), NOW)
-    expect(c.dayMarker).toBe('(19/10)')
+  it('headsigns lose " ferry terminal"', () => {
+    expect(rowModel(dep({ headsign: 'Northshore Hamilton ferry terminal' }), NOW).destination).toBe(
+      'Northshore Hamilton',
+    )
   })
 })
 
@@ -154,5 +151,16 @@ describe('bannerState (R6-B1, Codex review round 5)', () => {
     expect(bannerState(['stale', null])).toBe('stale')
     expect(bannerState([null, null])).toBeNull()
     expect(bannerState([])).toBeNull()
+  })
+})
+
+describe('ServiceTile (THE-118 PR 4)', () => {
+  it('is a circle: orange for express, aqua for all stops', async () => {
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    const { ServiceTile } = await import('../app/components/DepartureList.tsx')
+    expect(renderToStaticMarkup(<ServiceTile code="F11" express />)).toMatch(
+      /rounded-full[^"]*bg-ferry-orange-aa/,
+    )
+    expect(renderToStaticMarkup(<ServiceTile code="F1" />)).toMatch(/rounded-full[^"]*bg-aqua-text/)
   })
 })

@@ -11,9 +11,9 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
 import { ReachableList } from '../components/ReachableList.tsx'
-import { boardHref } from '../components/StationBoard.tsx'
 import { cleanStopName } from '../lib/names.ts'
 import {
+  boardHref,
   isReachable,
   linesBetween,
   reachableFrom,

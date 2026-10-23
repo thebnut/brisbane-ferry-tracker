@@ -1,11 +1,7 @@
-/** Map /v1 departures to departure-card view models with the legacy ferry rules. */
+/** Map /v1 departures to departure-row view models with the legacy ferry rules. */
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import {
   arrivalAfter,
-  type BadgeKind,
-  type DepartureCardProps,
-  dayMarker,
-  delayText,
   dropDeparted,
   formatClock,
   formatDuration,
@@ -14,10 +10,12 @@ import {
   minutesBetween,
   minutesUntil,
   type PageCheck,
-  statusNote,
+  type RowStatus,
+  type StatusLine,
+  statusLine,
   timetableStatus,
-  vesselName,
 } from '@bft/ui'
+import { cleanStopName } from './names.ts'
 
 export const isExpress = (d: Departure) => d.route.short === 'F11'
 
@@ -37,44 +35,64 @@ export function asScheduled(d: Departure): Departure {
   return { ...d, status: timetableStatus(d.status), estDep: null, estArrTo: null, gps: false }
 }
 
-export function cardModel(d: Departure, nowMs: number): DepartureCardProps & { key: string } {
-  const express = isExpress(d)
-  const live = d.status === 'live'
+export interface RowModel {
+  key: string
+  /** Departure shown, epoch s. */
+  dep: number
+  code: string
+  express: boolean
+  destination: string
+  status: StatusLine & { status: RowStatus }
+  /** "arr 7:31" on a phone row; a wide row shows the arrival in its extra column instead. */
+  fact: string | null
+  arrival: string | null
+  journey: string | null
+  minutes: number | null
+  time: string
+  label: string
+}
+
+/**
+ * One row (THE-118 PR 4): the service tile, the headsign, "Live · 2 min late · arr 7:31", the countdown. The vessel,
+ * the journey line and the per-time date tag are in the details sheet and the Tomorrow divider now.
+ */
+export function rowModel(d: Departure, nowMs: number, next?: Departure): RowModel {
   const dep = effectiveDep(d)
   const rawArr = d.estArrTo ?? d.schedArrTo
   const arr = rawArr != null ? arrivalAfter(dep, rawArr) : null
-  // LIVE, then GPS, then any other status: every contract status is a badge kind.
-  const badges: BadgeKind[] = d.gps ? ['gps'] : []
-  if (live) badges.unshift('live')
-  else badges.push(d.status)
-
   // From the clock minutes shown, so "9:02 pm → 9:04 pm" always reads 2 mins.
   const journeyMins = arr != null ? minutesBetween(dep, arr) : null
-  const vessel = d.gps || live ? vesselName(d.vehicleId) : null
-  const parts: string[] = []
-  if (d.status === 'cancelled') parts.push('This service is cancelled')
-  else if (d.status === 'skipped') parts.push('Not stopping here')
-  else {
-    if (vessel) parts.push(vessel)
-    const s = statusNote(live, d.schedDep, d.estDep)
-    if (s) parts.push(s)
-    else if (journeyMins != null && journeyMins > 0) parts.push(`Journey ${formatDuration(journeyMins)}`)
+  const boardable = d.status !== 'cancelled' && d.status !== 'skipped'
+  const status = {
+    status: d.status,
+    ...statusLine({
+      status: d.status,
+      schedDep: d.schedDep,
+      estDep: d.estDep,
+      next: next && { name: d.route.short, minutes: minutesUntil(effectiveDep(next), nowMs) },
+    }),
   }
   const time = formatClock(dep)
+  const arrival = arr != null && boardable ? formatClock(arr) : null
+  const destination = cleanStopName(d.headsign)
   return {
     key: `${d.tripInstance}:${d.stopSequence}`,
-    time,
-    dayMarker: dayMarker(dep, nowMs),
-    arrival: arr != null ? { time: formatClock(arr), dayMarker: dayMarker(arr, nowMs) } : null,
+    dep,
+    code: d.route.short,
+    express: isExpress(d),
+    destination,
+    status,
+    fact: arrival ? `arr ${arrival}` : null,
+    arrival,
     journey: journeyMins != null && journeyMins > 0 ? formatDuration(journeyMins) : null,
-    badges,
-    service: serviceLabel(d),
-    express,
-    highlighted: express && d.status !== 'cancelled',
-    cancelled: d.status === 'cancelled',
-    note: parts.join(' · ') || null,
-    delay: live ? delayText(d.schedDep, d.estDep) : null,
-    minutes: d.status === 'cancelled' || d.status === 'skipped' ? null : minutesUntil(dep, nowMs),
+    minutes: boardable ? minutesUntil(dep, nowMs) : null,
+    time,
+    label: [
+      `${time} ${d.route.short}${isExpress(d) ? ' express' : ''} to ${destination}`,
+      ...status.text.split(' · '),
+    ]
+      .concat(arrival ? `arrives ${arrival}` : [])
+      .join(', '),
   }
 }
 

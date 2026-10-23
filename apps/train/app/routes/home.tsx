@@ -11,7 +11,7 @@ import {
   Icon,
   LineChip,
   minutesUntil,
-  PlatformTile,
+  PlatformLineTile,
   SecondaryButton,
   StatusBadge,
   StoppingPattern,
@@ -20,13 +20,12 @@ import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { SECTION, Shell, useReportLive } from '../components/Chrome.tsx'
-import { boardHref } from '../components/StationBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
 import { at, BASE } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { boardState, effectiveDep, trainCard, visibleRows } from '../lib/departures.ts'
 import { lineLabel } from '../lib/lineNames.ts'
-import { STATIONS, type Station, stationByKey, stationHref } from '../lib/network.ts'
+import { boardHref, STATIONS, type Station, stationByKey, stationHref } from '../lib/network.ts'
 import { canPrefetch, prefetchFavourites } from '../lib/offline.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import { HOME_META, homeJsonLd, pageMeta } from '../lib/seo.ts'
@@ -188,7 +187,12 @@ function FavouriteCard({
       {next ? (
         <>
           <span className="flex items-center gap-3">
-            <PlatformTile platform={next.platform} scheduledPlatform={next.scheduledPlatform} />
+            {/* The boards' tile (THE-118 PR 4): the platform on the line colour, ringed for a platform change. */}
+            <PlatformLineTile
+              platform={next.platform}
+              color={next.line.color}
+              changedFrom={next.status.status === 'live' ? next.scheduledPlatform : null}
+            />
             <span className="flex min-w-0 flex-1 flex-col gap-1">
               <span className="flex flex-wrap items-center gap-1.5">
                 {next.badges.map((b) => (

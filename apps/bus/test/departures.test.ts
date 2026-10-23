@@ -1,6 +1,6 @@
 import type { Alert, Departure } from '@bft/core/contract'
 import { describe, expect, it } from 'vitest'
-import { detourRoutes, isActive, noteFor, routesIn, rowLabel, rowViews } from '../app/lib/departures.ts'
+import { detourRoutes, isActive, routesIn, rowLabel, rowStatus, rowViews } from '../app/lib/departures.ts'
 
 const NOW = 1_792_300_000_000
 const nowS = NOW / 1000
@@ -32,29 +32,44 @@ const alert = (over: Partial<Alert>): Alert => ({
   ...over,
 })
 
-describe('departure notes', () => {
-  it('live: late, early, on time, GPS', () => {
-    expect(noteFor(dep({ status: 'live', estDep: nowS + 420 }), [], NOW, new Map())).toEqual({
-      note: '+2 min late',
-      tone: 'late',
+describe('row status (THE-118 PR 4: dot, word, one fact)', () => {
+  const st = (d: Departure, rows: Departure[] = [], detours = new Map<string, Alert>()) =>
+    rowStatus(d, rows.length ? rows : [d], NOW, detours)
+  it('live: late, early, on time; GPS is the fact', () => {
+    expect(st(dep({ status: 'live', estDep: nowS + 420 }))).toMatchObject({
+      status: { status: 'live', dot: 'live', text: 'Live · 2 min late', tone: 'late', claim: true },
+      fact: null,
     })
-    expect(noteFor(dep({ status: 'live', estDep: nowS + 240 }), [], NOW, new Map())).toEqual({
-      note: '1 min early',
-      tone: 'info',
+    expect(st(dep({ status: 'live', estDep: nowS + 240 })).status.text).toBe('Live · 1 min early')
+    expect(st(dep({ status: 'live', estDep: nowS + 300 })).status.text).toBe('Live · on time')
+    expect(st(dep({ status: 'live', estDep: nowS + 300, gps: true }))).toMatchObject({
+      status: { text: 'Live · on time' },
+      fact: 'GPS',
     })
-    expect(noteFor(dep({ status: 'live', estDep: nowS + 300 }), [], NOW, new Map()).note).toBe('On time')
-    expect(noteFor(dep({ status: 'live', estDep: nowS + 300, gps: true }), [], NOW, new Map()).note).toBe(
-      'GPS · On time',
-    )
+    expect(st(dep({})).status).toMatchObject({ text: 'Scheduled', dot: 'scheduled', claim: false })
   })
   it('cancelled points at the next bus on the same route', () => {
     const c = dep({ status: 'cancelled', route: { id: '111-1', short: '111' } })
+    const other = dep({ route: { id: '66-1', short: '66' }, schedDep: nowS + 6 * 60 })
     const next = dep({ route: { id: '111-1', short: '111' }, schedDep: nowS + 18 * 60 })
-    expect(noteFor(c, [c, next], NOW, new Map()).note).toBe('Next 111 in 18 min')
+    expect(st(c, [c, other, next])).toMatchObject({
+      status: { status: 'cancelled', dot: 'cancelled', text: 'Cancelled · next 111 in 18 min' },
+      fact: null,
+    })
+    expect(st(c).status.text).toBe('Cancelled')
   })
-  it('detours from active alerts', () => {
+  it('skipped: not stopping here', () => {
+    expect(st(dep({ status: 'skipped', gps: true }))).toMatchObject({
+      status: { text: 'Not stopping here', dot: 'cancelled' },
+      fact: null,
+    })
+  })
+  it('detours from active alerts are the fact', () => {
     const d = detourRoutes([alert({})], nowS)
-    expect(noteFor(dep({ route: { id: '111-1', short: '111' } }), [], NOW, d).note).toBe('Detour: see alerts')
+    expect(st(dep({ route: { id: '111-1', short: '111' } }), [], d).fact).toBe('detour')
+    expect(st(dep({ route: { id: '111-1', short: '111' }, status: 'live', gps: true }), [], d).fact).toBe(
+      'detour',
+    )
     expect(detourRoutes([alert({ activePeriods: [{ start: nowS + 3600 }] })], nowS).size).toBe(0)
     expect(isActive(alert({ activePeriods: [{ start: nowS - 10, end: nowS + 10 }] }), nowS)).toBe(true)
   })
@@ -71,7 +86,17 @@ describe('row views', () => {
     expect(v.map((x) => x.highlighted)).toEqual([false, true, false])
     expect(rowViews(rows, NOW, { routes: new Set(['M2']) })).toHaveLength(1)
     expect(routesIn(rows)).toEqual(['66', 'M2'])
-    expect(rowLabel(v[1] as (typeof v)[number])).toBe(`Route 66 to UQ Lakes, in 1 minutes, ${v[1]?.time}`)
+    expect(rowLabel(v[1] as (typeof v)[number])).toBe(
+      `Route 66 to UQ Lakes, in 1 minutes, ${v[1]?.time}, Scheduled`,
+    )
+    expect(rowLabel(v[0] as (typeof v)[number])).toBe('Route 66 to UQ Lakes, cancelled, next 66 in 1 min')
+    // A cancelled first row: the soonest highlight skips it (every board's rule).
+    expect(
+      rowViews(
+        [rows[0] as Departure, dep({ status: 'skipped', schedDep: nowS + 40 }), rows[2] as Departure],
+        NOW,
+      ).map((x) => x.highlighted),
+    ).toEqual([false, false, true])
   })
 })
 
