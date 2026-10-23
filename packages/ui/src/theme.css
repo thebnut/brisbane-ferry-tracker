@@ -133,6 +133,52 @@
   /* Spec gradient #EF4444 → #FF6B35, darkened so white 16px text passes AA (≥4.5:1 across the gradient). */
   background-image: linear-gradient(90deg, #dc2626, #c2410c);
 }
+/*
+ * The boards' column and panel (THE-118 PR 7): one column, then at 1024 px the board column (about 640 px) beside the
+ * 480 px panel, sticky below the sticky header (`--bft-panel-top`) and scrolling on its own. The grid marks the row
+ * whose trip is open (its link's aria-current). CSS rather than class lists in JS: the boards' first load is tight.
+ */
+@utility board-grid {
+  @media (width >= 64rem) {
+    display: grid;
+    grid-template-columns: minmax(0, 640px) 480px;
+    align-items: start;
+    justify-content: center;
+    gap: 1.5rem;
+  }
+  & a[aria-current="true"] {
+    outline: 3px solid var(--color-aqua-text);
+    outline-offset: 2px;
+  }
+}
+@utility board-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 42rem;
+  margin-inline: auto;
+  @media (width >= 64rem) {
+    max-width: none;
+    margin-inline: 0;
+  }
+}
+@utility board-panel {
+  display: none;
+  min-width: 0;
+  @media (width >= 64rem) {
+    position: sticky;
+    top: var(--bft-panel-top, 5rem);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: calc(100dvh - var(--bft-panel-top, 5rem) - 1rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.25rem;
+  }
+}
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }

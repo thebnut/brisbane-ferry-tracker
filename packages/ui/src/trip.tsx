@@ -8,6 +8,7 @@ import { lazy, type MouseEvent, type ReactNode, Suspense, useEffect, useState } 
 import { cx } from './cx.ts'
 import { Icon } from './icons.tsx'
 import type { MapMarker } from './map/MapView.tsx'
+import { type Panel, usePanel } from './panel.tsx'
 import { BigCountdown, BOARD_STATE, type StatusLine } from './row.tsx'
 
 // ---------------------------------------------------------------------------
@@ -37,7 +38,8 @@ export type TripLinkRenderer = (props: {
 
 /**
  * "‹ Bulimba" above the summary. Inside BrisbaneTransit a phone has it in the app bar already, so `barHasIt` keeps it
- * to desktop there.
+ * to desktop there. Only the trip's own page has it, so it also takes that page to the top: a board row's link keeps
+ * the board's scroll (THE-118 PR 7, for the trip beside the board), and back from the trip still restores it.
  */
 export function TripBackLink({
   href,
@@ -50,6 +52,9 @@ export function TripBackLink({
   renderLink: TripLinkRenderer
   barHasIt?: boolean
 }) {
+  useEffect(() => {
+    scrollTo(0, 0)
+  }, [])
   return (
     <div className={cx(barHasIt ? 'hidden md:flex' : 'flex')}>
       {renderLink({
@@ -130,6 +135,8 @@ export function TripSummary({
   facts = [],
   hot = false,
 }: TripSummaryProps) {
+  // Beside a board (THE-118 PR 7) the page's heading is the board's: the trip's is the next level.
+  const H = usePanel() ? 'h2' : 'h1'
   const cancelled = status.dot === 'cancelled'
   return (
     <section
@@ -151,7 +158,7 @@ export function TripSummary({
           >
             {kicker}
           </p>
-          <h1
+          <H
             id="trip-title"
             className={cx(
               'text-[22px] leading-tight font-extrabold text-charcoal [overflow-wrap:anywhere] dark:text-night-text',
@@ -159,7 +166,7 @@ export function TripSummary({
             )}
           >
             To {headsign}
-          </h1>
+          </H>
         </div>
         {cancelled || minutes == null ? (
           // Nothing to count down to: the clock time alone (struck when cancelled), never a "—".
@@ -593,6 +600,51 @@ export function TripNotFound({
         className: trackClass,
         children: place ? `See departures from ${place}` : 'See departures',
       })}
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Desktop panel
+// ---------------------------------------------------------------------------
+
+/**
+ * The trip as the board's right panel at 1024 px and wider (THE-118 PR 7): "Open full page" and ✕ above the same
+ * summary, timeline, map and dock. Labelled "Trip details"; the board's layout moves focus here when a row opens it.
+ */
+export function TripPanelFrame({ panel, children }: { panel: Panel; children: ReactNode }) {
+  const open = (e: MouseEvent<HTMLAnchorElement>) => {
+    // A modified click (a new tab) follows the link itself.
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    e.preventDefault()
+    panel.openFull()
+  }
+  return (
+    <section
+      aria-label="Trip details"
+      data-trip-panel=""
+      tabIndex={-1}
+      className="flex flex-col gap-3 rounded-card outline-none focus-visible:ring-2 focus-visible:ring-aqua-text"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <a
+          href={panel.fullHref}
+          onClick={open}
+          className="flex min-h-11 items-center gap-1 rounded-lg px-1 text-[15px] font-bold text-aqua-text no-underline hover:underline dark:text-ferry-aqua-light"
+        >
+          Open full page
+          <Icon name="chevronRight" size={18} />
+        </a>
+        <button
+          type="button"
+          onClick={panel.close}
+          aria-label="Close trip details"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/90 text-charcoal shadow-card transition hover:bg-ferry-orange-light dark:bg-night-card dark:text-night-text"
+        >
+          <Icon name="close" size={20} />
+        </button>
+      </div>
+      {children}
     </section>
   )
 }

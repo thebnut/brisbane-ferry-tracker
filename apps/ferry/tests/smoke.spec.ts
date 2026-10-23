@@ -63,7 +63,11 @@ test('a departure opens its trip page, from Bulimba to Riverside, and goes back 
   const stops = page.getByRole('list', { name: 'Stops on your trip' })
   await expect(stops.locator('[data-mine=board]')).toContainText('Bulimba')
   await expect(stops.locator('[data-mine=alight]')).toContainText('Riverside')
-  await page.getByRole('link', { name: 'Bulimba', exact: true }).click()
+  // Back: the trip page's "‹ Bulimba", or beside the board on desktop (THE-118 PR 7) its ✕.
+  await page
+    .getByRole('link', { name: 'Bulimba', exact: true })
+    .or(page.getByRole('button', { name: 'Close trip details' }))
+    .click()
   await expect(page).toHaveURL('/')
 })
 

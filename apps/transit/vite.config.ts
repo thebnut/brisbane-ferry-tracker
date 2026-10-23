@@ -94,8 +94,17 @@ export default defineConfig({
                   // status line (THE-118 PR 2) are on every page too: in their own chunk they cost ~1 KB gz more. The boards'
                   // alert count (THE-118 PR 3) is only on the boards. Their header and filter row (PR 5) stay here: in a
                   // chunk of their own they took ~1 KB off the transit pages but cost /ferry ~0.8 KB, past its budget. The
-                  // destination sheet (PR 5) is opened on demand. Trip detail (PR 6) is only on the trip pages.
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|trip\.tsx|[Oo]nboarding|WhatsNew|changelog|DestinationSheet)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
+                  // destination sheet (PR 5) is opened on demand. Trip detail (PR 6) is only on the trip pages. The
+                  // panel beside the boards (PR 7) loads with the trip; the boards' layouts' small part (board-route) is
+                  // only on the boards.
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|trip\.tsx|[Oo]nboarding|WhatsNew|changelog|DestinationSheet|panel\.tsx|board-route)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
+                },
+                // The boards' own part of the column-and-panel layout (THE-118 PR 7): each board URL's child route (nothing of
+                // its own) with the layouts' revalidation and width check, one chunk on every board's first load. The panel
+                // itself loads with the trip.
+                {
+                  name: 'board',
+                  test: /apps[\\/](ferry|train|bus)[\\/]app[\\/]routes[\\/]board\.tsx$|packages[\\/]ui[\\/]src[\\/]board-route\.ts$/,
                 },
                 // The bus boards' elements (@bft/ui/bus) that only the Bus pages load. After 'ui', so the modules they
                 // share stay there.

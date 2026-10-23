@@ -53,7 +53,7 @@ export default function StopMap({
   }, [vehicles.data, departures, stop, stopId, name])
   const busCount = markers.length - (stop ? 1 : 0)
   return (
-    <div className="flex flex-col gap-1.5">
+    <div data-place-map="" className="flex flex-col gap-1.5">
       <SafeMap
         markers={markers}
         fitTo={stop ? [`stop:${stopId}`] : undefined}

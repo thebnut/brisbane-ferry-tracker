@@ -1,7 +1,8 @@
 <p role="note" data-fixtures="true" class="bg-golden/25 px-3 py-1 text-center text-xs font-semibold text-charcoal dark:text-night-text">Demo data: a recorded weekday timetable with simulated live times, not real departures. <a href="?fixtures=0" data-demo-exit="" class="font-semibold underline">Exit demo</a>
 </p>
 <main class="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">
-<div class="flex flex-col gap-2.5">
+<div class="board-grid">
+<div class="board-column" data-board-column="">
 <div data-board-header="" class="bg-board-header flex flex-col gap-1.5 rounded-card border border-ferry-orange/10 px-3.5 pt-3 pb-1.5 shadow-sm">
 <div class="flex items-start justify-between gap-3">
 <div class="flex min-w-0 flex-col">
@@ -63,7 +64,6 @@
 </label>
 </fieldset>
 </div>
-<div class="grid grid-cols-1 gap-5 md:grid-cols-2">
 <section aria-label="Departures Roma Street → Indooroopilly" class="flex min-w-0 flex-col gap-2.5" data-board="roma-street">
 <ol class="flex flex-col gap-2.5" aria-label="Next trains from Roma Street → Indooroopilly">
 <li>
@@ -410,7 +410,9 @@
 </ol>
 <button type="button" class="bg-more min-h-12 w-full rounded-button border-2 border-ferry-orange/30 text-[15px] font-bold text-ferry-orange-deep transition hover:border-ferry-orange dark:text-ferry-sunset">More departures</button>
 </section>
-<div class="hidden md:block">
+</div>
+<div class="board-panel" data-panel="">
+<div>
 <section aria-label="Departures Indooroopilly → Roma Street" class="flex min-w-0 flex-col gap-2.5" data-board="indooroopilly">
 <div class="flex min-h-11 flex-wrap items-center justify-between gap-x-3">
 <h2 class="text-base font-bold text-aqua-text dark:text-ferry-aqua-light">Indooroopilly → Roma Street</h2>

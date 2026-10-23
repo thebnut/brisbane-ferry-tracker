@@ -86,7 +86,14 @@ test('train board inside the Train tab opens a service and comes back', async ({
   const first = page.locator('a[href^="/train/trip/"]').first()
   await first.click()
   await expect(page).toHaveURL(/\/train\/trip\//)
-  await expect(page.getByRole('link', { name: /Departures|Roma Street/ }).first()).toBeVisible()
+  await expect(page.locator('[data-trip-summary]')).toBeVisible()
+  // The way back: the trip page's link to the board, or beside the board on desktop (THE-118 PR 7) its ✕.
+  await expect(
+    page
+      .getByRole('link', { name: /Roma Street/ })
+      .or(page.getByRole('button', { name: 'Close trip details' }))
+      .first(),
+  ).toBeVisible()
   expect(errors).toEqual([])
 })
 

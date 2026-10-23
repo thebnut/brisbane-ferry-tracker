@@ -4,6 +4,9 @@
  * terminal, the status line with GPS and the vessel), the facts, "Your trip" from your terminal, a live map when GPS
  * is known, and the dock ("Track on map", the star). Server-rendered from /v1/ferry/trips, then polled. A trip that
  * has run (or never was) shows a friendly note that links back to the board.
+ *
+ * At 1024 px and wider the terminal board's layout shows this page as its right panel (THE-118 PR 7, `usePanel`):
+ * ✕ and "Open full page" instead of the header, back link and footer. `?full=1` is the full page at any width.
  */
 
 import type { TripResponse, TripStop } from '@bft/core/contract'
@@ -22,6 +25,7 @@ import {
   vesselName,
 } from '@bft/ui'
 import { awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { onlyFullChanged, usePanel, usePanelReport } from '@bft/ui/panel'
 import {
   backClick,
   occupancyFact,
@@ -32,11 +36,12 @@ import {
   type TripLinkRenderer,
   TripMap,
   TripNotFound,
+  TripPanelFrame,
   TripSummary,
   trackClass,
   YourTrip,
 } from '@bft/ui/trip'
-import { data, Link } from 'react-router'
+import { data, Link, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { Footer } from '../components/Chrome.tsx'
 import { ServiceTile } from '../components/DepartureList.tsx'
 import FerryStar from '../components/FerryStar.tsx'
@@ -90,6 +95,11 @@ export function headers() {
   return { 'cache-control': 'private, no-store' }
 }
 
+/** The panel and its full page are the same trip: no second fetch between them (THE-118 PR 7). */
+export function shouldRevalidate(args: ShouldRevalidateFunctionArgs) {
+  return onlyFullChanged(args.currentUrl, args.nextUrl) ? false : args.defaultShouldRevalidate
+}
+
 export const meta: Route.MetaFunction = ({ loaderData }) => {
   const t = loaderData?.trip
   const title = t
@@ -130,6 +140,31 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const back = fromT
     ? { href: boardHref(fromT.id, loaderData.to), label: cleanStopName(fromT.name), onClick: backClick }
     : { href: at('/'), label: 'Ferry', onClick: backClick }
+  const panel = usePanel()
+  // Beside the board, this trip's answer counts in the board's header (a trip that has gone claims nothing).
+  usePanelReport(panel, q, state, gone)
+  const content = (
+    <>
+      {!online ? (
+        <OfflineBanner
+          kind="offline"
+          detail="Showing the last update. Live times resume when you're back online."
+        />
+      ) : null}
+      {online && state != null && state !== 'offline' && !pending ? <OfflineBanner kind={state} /> : null}
+      {gone ? (
+        <TripNotFound place={fromT ? back.label : null} href={back.href} renderLink={linkRenderer} />
+      ) : !trip ? (
+        <p className="py-8 text-center text-sm text-sched-text" role="status">
+          {q.isError ? "Couldn't load this ferry. Retrying…" : 'Loading this ferry…'}
+        </p>
+      ) : (
+        <TripBody trip={trip} from={fromId} to={loaderData.to} now={now} />
+      )}
+    </>
+  )
+  // Beside the board (desktop): the board's header says what's live; the panel's own words follow this trip's answer.
+  if (panel) return <TripPanelFrame panel={panel}>{content}</TripPanelFrame>
   return (
     <>
       <SiteHeader
@@ -140,22 +175,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
       />
       <main className="mx-auto flex max-w-2xl flex-col gap-3 px-3 pt-2 pb-28 md:px-4 md:pt-4 md:pb-8">
         <TripBackLink href={back.href} label={back.label} renderLink={linkRenderer} barHasIt={!!BASE} />
-        {!online ? (
-          <OfflineBanner
-            kind="offline"
-            detail="Showing the last update. Live times resume when you're back online."
-          />
-        ) : null}
-        {online && state != null && state !== 'offline' && !pending ? <OfflineBanner kind={state} /> : null}
-        {gone ? (
-          <TripNotFound place={fromT ? back.label : null} href={back.href} renderLink={linkRenderer} />
-        ) : !trip ? (
-          <p className="py-8 text-center text-sm text-sched-text" role="status">
-            {q.isError ? "Couldn't load this ferry. Retrying…" : 'Loading this ferry…'}
-          </p>
-        ) : (
-          <TripBody trip={trip} from={fromId} to={loaderData.to} now={now} />
-        )}
+        {content}
       </main>
       <Footer />
     </>

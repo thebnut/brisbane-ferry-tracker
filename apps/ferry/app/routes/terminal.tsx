@@ -3,12 +3,27 @@
  * only the ferries going there (and the return board on desktop). Keeps the legacy URL, title, description,
  * canonical, OG tags and JSON-LD (scripts/postbuild.mjs) whatever `?to=` says, with live departure rows in the HTML
  * from the loader instead of a build-time timetable. An unknown or unreachable `to` is dropped.
+ *
+ * A layout over the board URL and the trip URL (THE-118 PR 7): at 1024 px and wider a row's trip opens in the board's
+ * right panel, so the board stays as it is (not fetched again) while the trip opens and closes. On a trip URL the
+ * board is the terminal it was opened from (`?from=`, `?to=`); below 1024, or with `?full=1`, the trip is its own page.
  */
 
 import type { Departure } from '@bft/core/contract'
-import { formatClock } from '@bft/ui'
+import { boardState, formatClock, type LinkRenderer } from '@bft/ui'
+import { FULL, isWide, notWide, onWide, type PanelState, samePlace, showBoard } from '@bft/ui/board-route'
 import { VIA_NETWORK } from '@bft/ui/connectivity'
-import { data } from 'react-router'
+import { lazy, Suspense, useState, useSyncExternalStore } from 'react'
+import {
+  data,
+  Link,
+  Outlet,
+  type ShouldRevalidateFunctionArgs,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router'
 import { Footer, SECTION } from '../components/Chrome.tsx'
 import { FerryBoards } from '../components/FerryBoards.tsx'
 import { DEPARTURE_LIMIT, fetchDepartures } from '../lib/api.ts'
@@ -18,20 +33,79 @@ import { cleanStopName } from '../lib/names.ts'
 import { pageMeta, SITE_URL, terminalJsonLd, terminalMeta, terminalRoutes } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
 import {
+  boardHref,
   choice,
   destinationParam,
   nearbyTerminals,
   TERMINALS,
+  type Terminal,
+  terminalById,
+  terminalByParam,
   terminalBySlug,
   terminalHref,
 } from '../lib/terminals.ts'
 import type { Route } from './+types/terminal'
 
+// The idle panel's map at 1024 px and wider (THE-118 PR 7): its chunk draws nothing narrower. If it can't load, no map.
+const NoMap = (() => null) as never // renders nothing, whatever the props
+// The trip as the board's panel (THE-118 PR 7): loaded with the trip, never on the board's first load.
+const TripPanelHost = lazy(() => import('@bft/ui/panel'))
+const TerminalMap = lazy(() => import('../components/TerminalMap.tsx').catch(() => ({ default: NoMap })))
+
+/**
+ * A terminal board row's link: the board's URL as its state, so the trip's back link returns here (THE-118 PR 6). The
+ * ferry home board keeps the plain one (DepartureList), off /ferry's first load.
+ */
+function DeskRowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
+  const { pathname, search } = useLocation()
+  // Desktop (THE-118 PR 7): the open trip's row is marked; a row picked beside it replaces it in history, keeping
+  // what that entry knew of the board (a trip is never recorded as the board); and the board keeps its scroll (a trip's
+  // own page starts at the top itself: TripBackLink).
+  const open = useParams().tripInstance
+  return (
+    <Link
+      to={href}
+      className={className}
+      aria-label={label}
+      state={open ? history.state?.usr : boardState(pathname, search)}
+      replace={!!open}
+      preventScrollReset
+      aria-current={(open && href.includes(`/${encodeURIComponent(open)}?`)) || undefined}
+    >
+      {children}
+    </Link>
+  )
+}
+const rowLink: LinkRenderer = (props) => <DeskRowLink {...props} />
+
+/** A trip URL's board: the terminal it was opened from and its "To" (`?from=`, `?to=`), or null. */
+function tripPlace(url: URL) {
+  const terminal = terminalByParam(url.searchParams.get('from'))
+  const to = terminal ? destinationParam(terminal, url.searchParams.get('to')) : null
+  return terminal ? { terminal, to } : null
+}
+
 export async function loader({ request, context, params }: Route.LoaderArgs) {
+  const url = new URL(request.url)
+  const { fixtures, rt, fetcher, env, fallback } = loaderEnv(request, context)
+  if (!params.slug) {
+    // The trip URL: the board beside it is fetched by the browser, and only on desktop (a phone shows the trip alone).
+    const place = tripPlace(url)
+    return {
+      terminal: place?.terminal ?? null,
+      to: place?.to ? choice(place.to) : null,
+      outbound: null,
+      inbound: null,
+      upcoming: null,
+      renderedAt: Date.now(),
+      via: VIA_NETWORK,
+      mode: { fixtures, rt, forced: env?.FIXTURES === '1', allowed: env?.ALLOW_FIXTURES === '1' },
+      siteUrl: env?.SITE_URL ?? SITE_URL,
+    }
+  }
   const terminal = terminalBySlug(params.slug)
   if (!terminal) throw data(null, { status: 404 })
-  const { fixtures, rt, fetcher, env, fallback } = loaderEnv(request, context)
-  const to = destinationParam(terminal, new URL(request.url).searchParams.get('to'))
+  const to = destinationParam(terminal, url.searchParams.get('to'))
   const [outbound, inbound, all] = await Promise.all([
     to
       ? settle((signal) =>
@@ -72,8 +146,13 @@ export function headers() {
   return { 'cache-control': 'private, no-store' }
 }
 
+/** Not again for a trip opening or closing beside the board, only for another terminal or "To" (THE-118 PR 7). */
+export function shouldRevalidate(args: ShouldRevalidateFunctionArgs) {
+  return samePlace(args, 'terminal') ? false : args.defaultShouldRevalidate
+}
+
 export const meta: Route.MetaFunction = ({ loaderData }) => {
-  if (!loaderData)
+  if (!loaderData?.terminal)
     return [{ title: 'Page not found | Brisbane Ferry' }, { name: 'robots', content: 'noindex' }]
   const m = terminalMeta(loaderData.terminal, loaderData.siteUrl)
   return [
@@ -90,13 +169,7 @@ const T = {
   td: 'border-b border-gray-100 py-1 pr-4 tabular',
 }
 
-function TerminalSection({
-  terminal,
-  upcoming,
-}: {
-  terminal: Route.ComponentProps['loaderData']['terminal']
-  upcoming: Departure[]
-}) {
+function TerminalSection({ terminal, upcoming }: { terminal: Terminal; upcoming: Departure[] }) {
   const routes = terminalRoutes(terminal)
   const others = TERMINALS.filter((t) => t.id !== terminal.id)
   return (
@@ -199,18 +272,68 @@ function TerminalSection({
 }
 
 export default function TerminalPage({ loaderData }: Route.ComponentProps) {
+  const { terminal } = loaderData
+  const trip = useParams().tripInstance
+  const wide = useSyncExternalStore(onWide, isWide, notWide)
+  const [search] = useSearchParams()
+  const { pathname, search: query } = useLocation()
+  const navigate = useNavigate()
+  const [panelState, setPanelState] = useState<PanelState | null>(null)
+  // Which board this layout shows, before a trip's full page returns (Codex r3): its own data, not a placeholder.
+  showBoard(
+    'terminal',
+    terminal && loaderData.upcoming
+      ? {
+          from: terminal.slug,
+          to: loaderData.to ? (terminalById(loaderData.to.id)?.slug ?? null) : null,
+          filter: null,
+        }
+      : null,
+  )
+  // The trip alone: a phone or tablet, its full page, or a trip with no terminal to show the board of.
+  if (trip && (!wide || !terminal || search.has(FULL))) return <Outlet />
+  if (!terminal) return null
   return (
     <>
       <FerryBoards
-        key={`${loaderData.terminal.id}:${loaderData.to?.id ?? ''}`}
-        from={choice(loaderData.terminal)}
+        key={`${terminal.id}:${loaderData.to?.id ?? ''}`}
+        from={choice(terminal)}
         to={loaderData.to}
         outbound={loaderData.outbound}
         inbound={loaderData.inbound}
         renderedAt={loaderData.renderedAt}
         mode={loaderData.mode}
+        idle={(live, departures) => (
+          <Suspense fallback={null}>
+            <TerminalMap
+              terminal={choice(terminal)}
+              live={live}
+              departures={departures}
+              mode={loaderData.mode}
+            />
+          </Suspense>
+        )}
+        panelState={trip ? panelState : null}
+        rowLink={rowLink}
+        track={search.has('map') ? (search.get('trip') ?? '') : null}
+        panel={
+          trip ? (
+            <Suspense fallback={null}>
+              <TripPanelHost
+                trip={trip}
+                board={boardHref(terminal.id, loaderData.to?.id)}
+                here={`${pathname}${query}`}
+                go={navigate}
+                back={() => navigate(-1)}
+                report={setPanelState}
+              >
+                <Outlet />
+              </TripPanelHost>
+            </Suspense>
+          ) : null
+        }
       >
-        <TerminalSection terminal={loaderData.terminal} upcoming={loaderData.upcoming} />
+        {loaderData.upcoming ? <TerminalSection terminal={terminal} upcoming={loaderData.upcoming} /> : null}
       </FerryBoards>
       <Footer />
     </>

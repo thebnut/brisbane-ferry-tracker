@@ -137,7 +137,8 @@ test('service page: no LIVE or GPS while offline (Codex review)', async ({ page,
   await page.locator('[data-board=central] [data-testid=departure] a').first().click()
   await expect(page.getByRole('list', { name: 'Stops on your trip' })).toBeVisible()
   await context.setOffline(true)
-  await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 2_000 })
+  // The trip's banner (beside the board on desktop, THE-118 PR 7, the board has its own).
+  await expect(page.locator('[data-banner=offline]').last()).toBeVisible({ timeout: 2_000 })
   // The timetable only: no live words or GPS in the summary.
   await expect(page.locator('main [data-trip-summary] [data-live-claim]')).toHaveCount(0)
   await expect(page.locator('main [data-trip-status]')).not.toContainText(/Live|GPS/)

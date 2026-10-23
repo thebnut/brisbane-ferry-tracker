@@ -7,7 +7,7 @@ import type { TripResponse } from '@bft/core/contract'
 import { seedUpdatedAt } from '@bft/ui/connectivity'
 import { useQuery } from '@tanstack/react-query'
 import { ApiError, type ApiFetcher, getJson, type Validate } from './api.ts'
-import { type DataMode, poll } from './queries.ts'
+import { type DataMode, POLL_MS, poll } from './queries.ts'
 
 export const fetchTrip = (
   fetcher: ApiFetcher,
@@ -28,6 +28,8 @@ export function useTrip(
     queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance, { signal }),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: seedUpdatedAt(initial),
+    // Fresh until the next poll: the panel and its full page (THE-118 PR 7) mount it again without a fetch.
+    staleTime: POLL_MS,
     refetchInterval: (q) => (isGone(q.state.error) ? false : poll(q)),
     retry: (n, error) => !isGone(error) && n < 1,
   })
