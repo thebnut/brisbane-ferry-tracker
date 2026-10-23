@@ -1,4 +1,5 @@
 import type { Departure } from '@bft/core/contract'
+import { generateTimeSlots } from '@bft/ui'
 import { describe, expect, it } from 'vitest'
 import {
   applyFilter,
@@ -9,7 +10,6 @@ import {
   rowModel,
   visibleRows,
 } from '../app/lib/departures.ts'
-import { generateTimeSlots } from '../app/lib/timeSlots.ts'
 
 const NOW = Date.UTC(2026, 9, 18, 9, 38) // 7:38 pm Brisbane
 const s = (h: number, m: number) => Date.UTC(2026, 9, 18, h - 10, m) / 1000

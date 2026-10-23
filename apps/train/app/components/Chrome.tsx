@@ -121,8 +121,11 @@ export function Shell({
     <LiveReport.Provider value={report}>
       <SiteHeader {...state} active={active} back={back} onSettings={() => setSettings(true)} />
       <FixtureNotice />
-      <ShellLive.Provider value={state}>{strip}</ShellLive.Provider>
-      <main className="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">{children}</main>
+      {/* The status strip reads the page's live answer: above the page, or a board's below its header (THE-118 PR 5). */}
+      <ShellLive.Provider value={state}>
+        {strip}
+        <main className="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">{children}</main>
+      </ShellLive.Provider>
       <Footer />
       <TrainNav active={active} />
       {/* Mounted from the first open on: closing the sheet (not unmounting it) gives focus back to Settings. */}

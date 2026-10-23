@@ -1,7 +1,6 @@
-/** One departure board: header strip, rows (5, then up to 13 with "More departures"), empty and error states. */
+/** One departure board: rows (5, then up to 13 with "More departures"), empty and error states. */
 import type { Departure } from '@bft/core/contract'
 import {
-  BoardHeader,
   cx,
   DayDivider,
   DepartureRow,
@@ -12,7 +11,7 @@ import {
   nextAlike,
   soonestIndex,
 } from '@bft/ui'
-import { type ReactNode, useState } from 'react'
+import { useState } from 'react'
 import { rowModel } from '../lib/departures.ts'
 
 /** The row's tile (THE-118 PR 4): the service (F1, F11, F21) in a circle, orange for express, aqua for all stops. */
@@ -35,9 +34,8 @@ export interface DepartureListProps {
   id: string
   /** Accessible board name, e.g. "Bulimba to Riverside". */
   label: string
-  header: ReactNode
-  onSwap?: () => void
-  trailing?: ReactNode
+  /** The return board beside the board on desktop: its own small title ("Riverside → Bulimba"). */
+  title?: string
   departures: Departure[] | null
   nowMs: number
   loading: boolean
@@ -51,9 +49,7 @@ export interface DepartureListProps {
 export function DepartureList({
   id,
   label,
-  header,
-  onSwap,
-  trailing,
+  title,
   departures,
   nowMs,
   loading,
@@ -73,9 +69,11 @@ export function DepartureList({
   )
   return (
     <section aria-label={label} className="flex flex-col gap-3" data-board={id}>
-      <BoardHeader onSwap={onSwap} trailing={trailing}>
-        {header}
-      </BoardHeader>
+      {title ? (
+        <h2 className="flex min-h-11 items-center text-base font-bold text-aqua-text dark:text-ferry-aqua-light">
+          {title}
+        </h2>
+      ) : null}
       {departures == null && loading ? (
         <div className="rounded-card bg-white/90 px-4 py-8 text-center shadow-card" role="status">
           <span

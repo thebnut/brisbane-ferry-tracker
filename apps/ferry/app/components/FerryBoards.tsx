@@ -1,23 +1,27 @@
 /**
- * The two departure boards for the selected pair (legacy App.jsx): status strip with All/Express, Map and Refresh,
- * rtState/offline banners, "Depart from" time, dropdown headers with swap, details sheet, live map and the stop
- * selector. Rendered on the server with the loader's rows, then polled every 15 s while visible.
+ * A ferry terminal's board (THE-118 PR 5): the board header (kicker, terminal, routes, alert count, star) with one
+ * filter row (All, To… ▾, ⇄, Express, Map, Now ▾), the status line, rtState/offline banners and the departures, with
+ * the details sheet, live map and stop selector. With a "To", desktop shows the return board beside it (until the
+ * return-board rule of THE-118 PR 7). Rendered on the server with the loader's rows, then polled every 15 s while
+ * visible.
  */
 
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import {
+  BoardHeader,
   BottomSheet,
+  Chip,
   DemoExitLink,
-  FilterPills,
+  FilterRow,
   formatAge,
   formatClock,
+  NowChip,
   OfflineBanner,
-  PillButton,
-  StopSelect,
   useFixtureCookie,
 } from '@bft/ui'
 import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
-import { lazy, type ReactNode, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import {
   applyFilter,
   asScheduled,
@@ -30,15 +34,7 @@ import {
 import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useDepartures, useFetcher, useShownData } from '../lib/queries.ts'
 import { FIXTURE_COOKIE, readDepartAt, readSavedPair, writeDepartAt } from '../lib/storage.ts'
-import {
-  type StopPair,
-  swapPair,
-  TERMINALS,
-  validDestinations,
-  withDestination,
-  withOrigin,
-} from '../lib/terminals.ts'
-import { generateTimeSlots } from '../lib/timeSlots.ts'
+import { boardHref, normalisePair, type StopChoice, type StopPair, terminalById } from '../lib/terminals.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type BoardAlerts from './BoardAlerts.tsx'
 import { DepartureList } from './DepartureList.tsx'
@@ -49,6 +45,8 @@ import { SiteHeader, UpdatedStrip } from './header.tsx'
 const NoMap = (() => null) as never // renders nothing, whatever the props
 const LiveMapSheet = lazy(() => import('./LiveMapSheet.tsx').catch(() => ({ default: NoMap })))
 const StopSelector = lazy(() => import('./StopSelector.tsx'))
+// The "To…" chip's sheet (Train's "Going to" sheet), off the first load.
+const ToSheet = lazy(() => import('./ToSheet.tsx'))
 // Opened from a departure: off the first load (R15-S1 offset: the skew-free clock code is on every page's first load).
 // The service worker precaches it; if it still can't load (offline before the worker was installed), a short sheet
 // says so and the boards stay, and the next tap tries again (Codex r2).
@@ -79,21 +77,24 @@ function DetailsUnavailable({ onClose }: { onClose: () => void }) {
 }
 
 export interface FerryBoardsProps {
-  /** Pair the server rendered (cookie pair, terminal page pair, or the default). */
-  pair: StopPair
+  /** The terminal the board is for. */
+  from: StopChoice
+  /** Its "To": only ferries going there, with arrival times. Null: every departure. */
+  to: StopChoice | null
+  /** The server's rows: from → to (every departure without a "To"). */
   outbound: DeparturesResponse | null
+  /** to → from, the desktop return board; null without a "To". */
   inbound: DeparturesResponse | null
   /** Server render time, epoch ms (hydration-stable clock). */
   renderedAt: number
   mode: DataMode
-  /** Terminal pages fix the origin and never open the selector on load. */
-  terminalPage?: boolean
-  /** The pair came from a ?from=&to= link: keep it (not the saved pair) and don't open the selector (R3-F2). */
-  deepLink?: boolean
+  /**
+   * Ferry home (/ferry): the board of the trip this device saved (the server's from the cookie). After hydration it
+   * follows the saved pair or the first favourite, and the stop selector changes it here; a terminal page navigates.
+   */
+  home?: boolean
   children?: ReactNode
 }
-
-const ALL_STOPS = TERMINALS.map((t) => ({ id: t.id, name: t.name }))
 
 function SheetFallback() {
   return (
@@ -103,24 +104,32 @@ function SheetFallback() {
   )
 }
 
+/** The board header's routes: "3 routes". */
+const routesText = (id: string) => {
+  const n = terminalById(id)?.routes.length ?? 0
+  return n ? `${n} route${n === 1 ? '' : 's'}` : null
+}
+
 export function FerryBoards({
-  pair: serverPair,
+  from: serverFrom,
+  to: serverTo,
   outbound,
   inbound,
   renderedAt,
   mode,
-  terminalPage,
-  deepLink,
+  home = false,
   children,
 }: FerryBoardsProps) {
-  const [pair, setPair] = useState(serverPair)
+  const [trip, setTrip] = useState({ from: serverFrom, to: serverTo })
   const [filter, setFilter] = useState<ServiceFilter>('all')
   const [departAt, setDepartAt] = useState<number | null>(null)
   const [selected, setSelected] = useState<{ d: Departure; direction: 'outbound' | 'inbound' } | null>(null)
   const [showMap, setShowMap] = useState(false)
   const [showSelector, setShowSelector] = useState(false)
+  const [showTo, setShowTo] = useState(false)
   const [Star, setStar] = useState<typeof FerryStar | null>(null)
   const [Alerts, setAlerts] = useState<typeof BoardAlerts | null>(null)
+  const navigate = useNavigate()
   const now = useNow(renderedAt, 5_000)
   const online = useOnline()
   const fetcher = useFetcher(mode)
@@ -129,10 +138,9 @@ export function FerryBoards({
   // prompt (P4, its own lazy slot), which replaced the stop selector opening by itself here. The star (THE-118) loads
   // then, with the favourites' code: with no saved pair, the home board opens the first favourite.
   useEffect(() => {
-    const home = !terminalPage && !deepLink
     const show = (p: StopPair | null) => {
-      if (p && (p.outbound.id !== serverPair.outbound.id || p.inbound.id !== serverPair.inbound.id))
-        setPair(p)
+      if (p && (p.outbound.id !== serverFrom.id || p.inbound.id !== serverTo?.id))
+        setTrip({ from: p.outbound, to: p.inbound })
     }
     const saved = home ? readSavedPair() : null
     show(saved)
@@ -151,7 +159,7 @@ export function FerryBoards({
       },
       () => {}, // Offline before the chunk was cached: no star until the next load.
     )
-    // The alert count beside Map: BrisbaneTransit's (THE-118 PR 3; nothing in this app), off the first load.
+    // The alert count in the board header: BrisbaneTransit's (THE-118 PR 3; nothing in this app), off the first load.
     import('./BoardAlerts.tsx').then(
       (m) => live && setAlerts(() => m.default),
       () => {},
@@ -159,31 +167,18 @@ export function FerryBoards({
     return () => {
       live = false
     }
-  }, [terminalPage, deepLink, serverPair])
+  }, [home, serverFrom, serverTo])
   // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0. Never from the data mode alone: an API
   // failure that fell back to fixtures (FIXTURE_FALLBACK) used to make demo mode stick for the session (R7-B1).
   useFixtureCookie(FIXTURE_COOKIE, mode.fixtures, mode.forced === true, mode.allowed === true)
 
-  const useInitial =
-    pair.outbound.id === serverPair.outbound.id &&
-    pair.inbound.id === serverPair.inbound.id &&
-    departAt == null
-  const out = useDepartures(
-    fetcher,
-    mode,
-    pair.outbound.id,
-    pair.inbound.id,
-    departAt,
-    useInitial ? outbound : null,
-  )
-  const back = useDepartures(
-    fetcher,
-    mode,
-    pair.inbound.id,
-    pair.outbound.id,
-    departAt,
-    useInitial ? inbound : null,
-  )
+  const fromId = trip.from.id
+  const toId = trip.to?.id ?? ''
+  const useInitial = fromId === serverFrom.id && toId === (serverTo?.id ?? '') && departAt == null
+  const out = useDepartures(fetcher, mode, fromId, toId, departAt, useInitial ? outbound : null)
+  // The return board (desktop), only with a "To".
+  const back = useDepartures(fetcher, mode, toId, fromId, departAt, useInitial ? inbound : null, !!trip.to)
+  const boards = trip.to ? [out, back] : [out]
 
   const offline = !online
   // Data that came with a cached page isn't live until its board's own fresh answer arrives (R2-T7).
@@ -194,8 +189,9 @@ export function FerryBoards({
   // the board is offline, after hydration, so the first render still matches the HTML, and once per change, not per
   // tick (L8); which copy is best still depends on the time.
   const holds = (q: typeof out) => departAt == null && stateOf(q) === 'offline'
-  const outData = useShownData(out.data, pair.outbound.id, pair.inbound.id, holds(out), now)
-  const backData = useShownData(back.data, pair.inbound.id, pair.outbound.id, holds(back), now)
+  const outData = useShownData(out.data, fromId, toId, holds(out), now)
+  const backShown = useShownData(back.data, toId, fromId, holds(back), now)
+  const backData = trip.to ? backShown : undefined
   const view = (q: typeof out, data: typeof outData) =>
     data ? applyFilter(visibleRows(data.departures, stateOf(q), now), filter) : null
   const outList = view(out, outData)
@@ -204,69 +200,42 @@ export function FerryBoards({
   const latest = outData ?? backData
   const outState = stateOf(out)
   const backState = stateOf(back)
-  const state = bannerState(out.data ? [outState, back.data ? backState : null] : [backState])
+  const state = bannerState(
+    out.data ? [outState, trip.to && back.data ? backState : null] : [trip.to ? backState : null],
+  )
   // Every board with data is live (after a cached page each board confirms itself with its own data, R2-T7): the
   // header's LIVE and the map, which shows both directions.
-  const boardsLive = [out, back].every((q) => !q.data || stateOf(q) == null)
+  const boardsLive = boards.every((q) => !q.data || stateOf(q) == null)
   const live = latest?.rtState === 'live' && boardsLive
   // The time of the data shown (a service-worker copy keeps its own time), not when it was fetched.
   const updatedAt = Math.max(outData?.generatedAt ?? 0, backData?.generatedAt ?? 0)
-  const fetching = out.isFetching || back.isFetching
-  // No answer yet for either board (no data, no error): the transit header says "Connecting…", not OFFLINE.
-  const pending = !outData && !backData && !out.isError && !back.isError
+  const fetching = boards.some((q) => q.isFetching)
+  // No answer yet for any board (no data, no error): the transit header says "Connecting…", not OFFLINE.
+  const pending = !outData && !backData && boards.every((q) => !q.isError)
 
-  const refresh = useCallback(() => {
-    void out.refetch()
-    void back.refetch()
-  }, [out, back])
-
-  const changePair = (next: StopPair) => {
-    setPair(next)
-    setSelected(null)
+  const refresh = () => {
+    for (const q of boards) void q.refetch()
   }
 
-  // The selector has saved the pair (savePair).
+  // The board for another trip: a terminal page's URL (`?to=`), so back works and the link can be shared.
+  const open = (next: string, nextTo: string | null) => {
+    setShowTo(false)
+    setSelected(null)
+    navigate(boardHref(next, nextTo))
+  }
+
+  // The selector has saved the pair (savePair): home shows it here; a terminal page opens its board.
   const save = (next: StopPair) => {
     setShowSelector(false)
     setDepartAt(null)
     writeDepartAt(null)
-    changePair(next)
+    if (!home) return open(next.outbound.id, next.inbound.id)
+    setTrip({ from: next.outbound, to: next.inbound })
+    setSelected(null)
   }
 
-  // Recompute the "Depart from" slots once an hour, not on every clock tick.
-  const hour = Math.floor(now / 3_600_000)
-  const slots = useMemo(() => generateTimeSlots(hour * 3_600_000), [hour])
-  const departSelect = (
-    <label className="flex min-w-0 items-center gap-2 text-xs font-medium text-aqua-text md:text-sm">
-      <span className="shrink-0">Depart from:</span>
-      <select
-        value={departAt ?? ''}
-        onChange={(e) => {
-          const v = e.target.value ? Number(e.target.value) : null
-          setDepartAt(v)
-          writeDepartAt(v)
-        }}
-        className="h-9 min-w-0 truncate rounded-button border-2 border-ferry-orange/30 bg-white px-2 font-semibold text-aqua-text hover:border-ferry-orange"
-      >
-        <option value="">Now</option>
-        {slots.map((s) =>
-          s.type === 'separator' ? (
-            <option key="sep" disabled value="sep">
-              {s.label}
-            </option>
-          ) : (
-            <option key={s.at} value={s.at}>
-              {s.label}
-            </option>
-          ),
-        )}
-      </select>
-    </label>
-  )
-
-  const destOptions = ALL_STOPS.filter((s) => validDestinations(pair.outbound.id).includes(s.id))
-  const fromName = cleanStopName(pair.outbound.name)
-  const toName = cleanStopName(pair.inbound.name)
+  const fromName = cleanStopName(trip.from.name)
+  const toName = trip.to ? cleanStopName(trip.to.name) : ''
   // The open details sheet follows the latest data and the freshness of its own board (Codex review).
   const selectedQ = selected?.direction === 'outbound' ? out : back
   const degraded = stateOf(selectedQ) != null
@@ -279,172 +248,110 @@ export function FerryBoards({
       ) ?? selected.d
     return degraded ? asScheduled(fresh) : fresh
   })()
-  const selectedTo = selected?.direction === 'outbound' ? pair.inbound : pair.outbound
-  const selectedFrom = selected?.direction === 'outbound' ? pair.outbound : pair.inbound
+  const selectedTo = selected?.direction === 'outbound' ? trip.to : trip.from
+  const selectedFrom = selected?.direction === 'outbound' ? trip.from : (trip.to ?? trip.from)
 
   return (
     <>
       <SiteHeader onSettings={() => setShowSelector(true)} live={live} pending={pending} />
-      <UpdatedStrip
-        updated={`Last updated ${updatedAt ? formatClock(Math.floor(updatedAt / 1000)) : formatClock(Math.floor(renderedAt / 1000))}`}
-        detail={formatAge(sourceTimeS(latest, { nowMs: now, ...page }), now)}
-        onRefresh={refresh}
-        refreshing={fetching}
-        live={live}
-        pending={pending}
-      >
-        {express || filter === 'express' ? (
-          <FilterPills
-            label="Services"
-            value={filter}
-            onChange={setFilter}
-            options={[
-              { value: 'all', label: 'All' },
-              { value: 'express', label: 'Express' },
+
+      <main className="mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-6">
+        <div className={trip.to ? 'flex flex-col gap-3' : 'mx-auto flex max-w-2xl flex-col gap-3'}>
+          <BoardHeader
+            kicker="Ferry terminal"
+            as="h2"
+            name={fromName}
+            facts={[
+              routesText(fromId),
+              Alerts ? <Alerts key="alerts" fetcher={fetcher} mode={mode} /> : null,
             ]}
-          />
-        ) : null}
-        <PillButton icon="map" pressed={showMap} onClick={() => setShowMap((v) => !v)}>
-          Map
-        </PillButton>
-        {Alerts ? <Alerts fetcher={fetcher} mode={mode} /> : null}
-      </UpdatedStrip>
-
-      <main className="mx-auto max-w-6xl px-3 py-5 md:px-4 md:py-8">
-        <div
-          className={`mb-4 flex-col gap-2 md:flex md:min-h-12 md:flex-row md:items-center md:justify-between ${state ? 'flex' : 'hidden'}`}
-        >
-          {state ? <OfflineBanner kind={state} /> : <span className="hidden md:block" />}
-          <div className="hidden md:block">{departSelect}</div>
-        </div>
-
-        {mode.fixtures ? (
-          <p
-            role="note"
-            data-banner="demo"
-            className="mb-4 rounded-card border border-aqua-text/30 bg-ferry-light-blue px-3.5 py-2.5 text-sm text-charcoal"
+            star={
+              Star ? (
+                <Star from={fromId} to={trip.to?.id ?? null} onPickDestination={() => setShowTo(true)} />
+              ) : (
+                <span aria-hidden="true" className="block h-11 w-24 shrink-0" />
+              )
+            }
           >
-            <strong className="font-bold">Demo data.</strong> A recorded weekday timetable with simulated live
-            times, not today's real departures. <DemoExitLink />
-          </p>
-        ) : null}
-
-        {/* Phone: origin and destination dropdowns with swap; one board (outbound). */}
-        <div className="mb-3 flex items-center gap-2 rounded-card border-2 border-ferry-orange/30 bg-white/90 px-2.5 py-2 shadow-lg md:hidden">
-          <StopSelect
-            label="From"
-            value={pair.outbound.id}
-            options={ALL_STOPS}
-            onChange={(id) => changePair(withOrigin(pair, id))}
-          />
-          <button
-            type="button"
-            onClick={() => changePair(swapPair(pair))}
-            aria-label="Swap direction"
-            className="flex size-10 shrink-0 items-center justify-center rounded-full text-ferry-orange-dark hover:bg-ferry-orange-light"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
-            >
-              <path
-                d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            <FilterRow label="Filter ferries">
+              <Chip pressed={filter === 'all'} onClick={() => setFilter('all')}>
+                All
+              </Chip>
+              <Chip opens on={!!trip.to} onClick={() => setShowTo(true)}>
+                {trip.to ? `To ${toName}` : 'To…'}
+              </Chip>
+              {trip.to ? (
+                <Chip icon="swap" label="Swap direction" onClick={() => open(toId, fromId)} />
+              ) : null}
+              {express || filter === 'express' ? (
+                <Chip pressed={filter === 'express'} onClick={() => setFilter('express')}>
+                  Express
+                </Chip>
+              ) : null}
+              <Chip icon="map" pressed={showMap} onClick={() => setShowMap((v) => !v)}>
+                Map
+              </Chip>
+              <NowChip
+                value={departAt}
+                onChange={(v) => {
+                  setDepartAt(v)
+                  writeDepartAt(v)
+                }}
+                nowMs={now}
               />
-            </svg>
-          </button>
-          <StopSelect
-            label="To"
-            value={pair.inbound.id}
-            options={destOptions}
-            onChange={(id) => changePair(withDestination(pair, id))}
+            </FilterRow>
+          </BoardHeader>
+          <UpdatedStrip
+            board
+            updated={`Last updated ${formatClock(Math.floor((updatedAt || renderedAt) / 1000))}`}
+            detail={formatAge(sourceTimeS(latest, { nowMs: now, ...page }), now)}
+            onRefresh={refresh}
+            refreshing={fetching}
+            live={live}
+            pending={pending}
           />
-        </div>
 
-        <div className="grid gap-6 md:grid-cols-2 md:gap-8">
-          <DepartureList
-            id="outbound"
-            label={`${fromName} to ${toName}`}
-            header={
-              <>
-                <span className="truncate md:hidden">
-                  {fromName} → {toName}
-                </span>
-                <span className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
-                  <StopSelect
-                    label="From"
-                    value={pair.outbound.id}
-                    options={ALL_STOPS}
-                    onChange={(id) => changePair(withOrigin(pair, id))}
-                  />
-                  <span aria-hidden="true">→</span>
-                  <StopSelect
-                    label="To"
-                    value={pair.inbound.id}
-                    options={destOptions}
-                    onChange={(id) => changePair(withDestination(pair, id))}
-                  />
-                </span>
-              </>
-            }
-            trailing={
-              <>
-                <div className="flex min-w-0 md:hidden">{departSelect}</div>
-                {Star ? (
-                  <Star
-                    from={pair.outbound.id}
-                    to={pair.inbound.id}
-                    onPickDestination={() => setShowSelector(true)}
-                  />
-                ) : (
-                  <span aria-hidden="true" className="block h-11 w-24" />
-                )}
-              </>
-            }
-            departures={outList}
-            nowMs={now}
-            loading={out.isPending}
-            error={out.isError}
-            onRetry={() => void out.refetch()}
-            offline={outState === 'offline'}
-            onSelect={(d) => setSelected({ d, direction: 'outbound' })}
-          />
-          <div className="hidden md:block">
+          {state ? <OfflineBanner kind={state} /> : null}
+
+          {mode.fixtures ? (
+            <p
+              role="note"
+              data-banner="demo"
+              className="rounded-card border border-aqua-text/30 bg-ferry-light-blue px-3.5 py-2.5 text-sm text-charcoal"
+            >
+              <strong className="font-bold">Demo data.</strong> A recorded weekday timetable with simulated
+              live times, not today's real departures. <DemoExitLink />
+            </p>
+          ) : null}
+
+          <div className={trip.to ? 'grid gap-6 md:grid-cols-2 md:gap-8' : undefined}>
             <DepartureList
-              id="inbound"
-              label={`${toName} to ${fromName}`}
-              header={
-                <span className="flex min-w-0 flex-1 items-center gap-2">
-                  <StopSelect
-                    label="From"
-                    value={pair.inbound.id}
-                    options={ALL_STOPS}
-                    onChange={(id) => changePair(withDestination(pair, id))}
-                  />
-                  <span aria-hidden="true">→</span>
-                  <StopSelect
-                    label="To"
-                    value={pair.outbound.id}
-                    options={ALL_STOPS}
-                    onChange={(id) => changePair(withOrigin(pair, id))}
-                  />
-                </span>
-              }
-              onSwap={() => changePair(swapPair(pair))}
-              departures={backList}
+              id="outbound"
+              label={trip.to ? `${fromName} to ${toName}` : `Departures from ${fromName}`}
+              departures={outList}
               nowMs={now}
-              loading={back.isPending}
-              error={back.isError}
-              onRetry={() => void back.refetch()}
-              offline={backState === 'offline'}
-              onSelect={(d) => setSelected({ d, direction: 'inbound' })}
+              loading={out.isPending}
+              error={out.isError}
+              onRetry={() => void out.refetch()}
+              offline={outState === 'offline'}
+              onSelect={(d) => setSelected({ d, direction: 'outbound' })}
             />
+            {trip.to ? (
+              <div className="hidden md:block">
+                <DepartureList
+                  id="inbound"
+                  label={`${toName} to ${fromName}`}
+                  title={`${toName} → ${fromName}`}
+                  departures={backList}
+                  nowMs={now}
+                  loading={back.isPending}
+                  error={back.isError}
+                  onRetry={() => void back.refetch()}
+                  offline={backState === 'offline'}
+                  onSelect={(d) => setSelected({ d, direction: 'inbound' })}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       </main>
@@ -457,8 +364,8 @@ export function FerryBoards({
             departure={selectedNow}
             live={!degraded}
             fromName={selectedFrom.name}
-            toName={selectedTo.name}
-            toId={selectedTo.id}
+            toName={selectedTo?.name ?? selectedNow.headsign}
+            toId={selectedTo?.id ?? null}
             nowMs={now}
             fetcher={fetcher}
             mode={mode}
@@ -469,23 +376,34 @@ export function FerryBoards({
       {showMap ? (
         <Suspense fallback={<SheetFallback />}>
           <LiveMapSheet
-            pair={pair}
+            from={trip.from}
+            to={trip.to}
             live={boardsLive}
-            departures={[...(out.data?.departures ?? []), ...(back.data?.departures ?? [])]}
+            departures={boards.flatMap((q) => q.data?.departures ?? [])}
             fetcher={fetcher}
             mode={mode}
             onClose={() => setShowMap(false)}
             onSelect={(d) => {
               setShowMap(false)
-              setSelected({ d, direction: d.stopId === pair.outbound.id ? 'outbound' : 'inbound' })
+              setSelected({ d, direction: d.stopId === fromId ? 'outbound' : 'inbound' })
             }}
+          />
+        </Suspense>
+      ) : null}
+      {showTo ? (
+        <Suspense fallback={<SheetFallback />}>
+          <ToSheet
+            from={trip.from}
+            to={trip.to}
+            onPick={(id) => open(fromId, id)}
+            onClose={() => setShowTo(false)}
           />
         </Suspense>
       ) : null}
       {showSelector ? (
         <Suspense fallback={<SheetFallback />}>
           <StopSelector
-            initial={pair}
+            initial={normalisePair({ outbound: trip.from, inbound: trip.to ?? { id: '', name: '' } })}
             fetcher={fetcher}
             onSave={save}
             onClose={() => setShowSelector(false)}

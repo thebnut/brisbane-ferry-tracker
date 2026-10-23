@@ -8,14 +8,15 @@ import type { ReactNode } from 'react'
 import { DOT, type LiveProps, useConnection } from './ModeHeader.tsx'
 
 /**
- * "● Live · updated 12 s ago" above the rows; tapping it refreshes the page's live data. The page's own controls
- * (filters, Map) sit on its right until THE-118 PR 3 and 5 move them.
+ * "● Live · updated 12 s ago" above the rows; tapping it refreshes the page's live data. On a board it sits below the
+ * board header (`board`, THE-118 PR 5), whose filter row has the board's controls; other pages' controls sit on its right.
  */
 export function StatusLine({
   detail,
   onRefresh,
   refreshing,
   children,
+  board = false,
   ...live
 }: LiveProps & {
   /** "updated 12 s ago" (formatAge). */
@@ -24,6 +25,8 @@ export function StatusLine({
   onRefresh?: () => void
   refreshing?: boolean
   children?: ReactNode
+  /** On a board: below the board header, in the board's column (THE-118 PR 5), not a full-width line. */
+  board?: boolean
 }) {
   const state = useConnection(live)
   const words =
@@ -33,8 +36,13 @@ export function StatusLine({
   if (!words && !children) return null
   const Line = onRefresh ? 'button' : 'p'
   return (
-    <div data-status-strip="" className="border-b border-ferry-orange/15">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-2 px-3 md:px-4">
+    <div data-status-strip="" className={board ? '-my-1' : 'border-b border-ferry-orange/15'}>
+      <div
+        className={cx(
+          'flex flex-wrap items-center justify-between gap-x-2',
+          board ? null : 'mx-auto max-w-6xl px-3 md:px-4',
+        )}
+      >
         <Line
           type={onRefresh ? 'button' : undefined}
           onClick={() => refreshing || onRefresh?.()}

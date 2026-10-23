@@ -139,12 +139,19 @@ export interface StatusStripProps {
   /** e.g. "updated 12 s ago". */
   detail?: ReactNode
   children?: ReactNode
+  /** On a board: one line below the board header, in the board's column (THE-118 PR 5), not a full-width band. */
+  board?: boolean
 }
 
-export function StatusStrip({ updated, detail, children }: StatusStripProps) {
+export function StatusStrip({ updated, detail, children, board = false }: StatusStripProps) {
   return (
-    <div data-status-strip="" className="bg-strip border-b border-ferry-orange/20">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-3 py-2 md:px-4">
+    <div data-status-strip="" className={board ? undefined : 'bg-strip border-b border-ferry-orange/20'}>
+      <div
+        className={cx(
+          'flex flex-wrap items-center justify-between gap-2',
+          board ? 'py-0.5' : 'mx-auto max-w-6xl px-3 py-2 md:px-4',
+        )}
+      >
         <p
           className="flex items-center gap-1.5 text-sm text-charcoal tabular dark:text-night-text"
           aria-live="polite"

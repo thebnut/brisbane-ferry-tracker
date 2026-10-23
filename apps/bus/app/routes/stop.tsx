@@ -5,7 +5,7 @@
  */
 
 import type { Alert } from '@bft/core/contract'
-import { FilterPills, PillButton } from '@bft/ui'
+import { BoardHeader, Chip, FilterRow, NowChip } from '@bft/ui'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { NoticeStrip } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
@@ -124,7 +124,16 @@ export function stopAlerts(alerts: Alert[], stopId: string, routes: string[], no
 export default function StopPage({ loaderData }: Route.ComponentProps) {
   const { stopId } = loaderData
   const { mode, fetcher } = useApi()
-  const q = useDepartures(fetcher, mode, stopId, loaderData.departures, loaderData.route)
+  // "Depart from" (the Now ▾ chip, THE-118 PR 5): null is now, which the loader's rows are for.
+  const [departAt, setDepartAt] = useState<number | null>(null)
+  const q = useDepartures(
+    fetcher,
+    mode,
+    stopId,
+    departAt ? null : loaderData.departures,
+    loaderData.route,
+    departAt,
+  )
   const alertsQ = useAlerts(fetcher, mode, loaderData.alerts)
   const now = useNow(loaderData.renderedAt)
   const saved = useSavedStops()
@@ -136,7 +145,13 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
   // Timetable only unless the data is live and fresh (offline, cached copy, stale).
   const online = useOnline()
   const page = usePageCheck()
-  const { data: res, state } = liveView(stopId, q.data, now, online, page)
+  const view = liveView(stopId, q.data, now, online, page)
+  const state = view.state
+  // A later time's board: from that time on, whichever copy is shown (an offline copy runs from now).
+  const res =
+    departAt && view.data
+      ? { ...view.data, departures: view.data.departures.filter((d) => d.schedDep >= departAt) }
+      : view.data
   const name = res?.stop.name ?? `Stop ${stopId}`
   const routes = useMemo(() => (res ? routesIn(res.departures) : []), [res])
   const platform = res?.departures.find((d) => d.stopId === stopId)?.platform ?? null
@@ -158,57 +173,20 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
 
   return (
     <>
-      <SiteHeader live={state == null && res?.rtState === 'live'} pending={pending} />
-      <UpdatedStrip
-        updatedAt={res?.generatedAt ?? null}
-        source={res}
-        nowMs={now}
-        onRefresh={() => q.refetch()}
-        refreshing={q.isFetching}
-        live={state == null && res?.rtState === 'live'}
-        pending={pending}
-      >
+      <SiteHeader live={state == null && res?.rtState === 'live'} pending={pending}>
         <DesktopNav active="" />
-      </UpdatedStrip>
-      {routes.length > 1 || res ? (
-        <div className="bg-strip border-b border-ferry-orange/20">
-          <div className="mx-auto flex max-w-3xl items-center gap-1.5 overflow-x-auto px-4 py-2">
-            {routes.length > 1 || only ? (
-              <FilterPills
-                label="Filter by route"
-                value={pick}
-                // ?route= came from the API filtered: "All routes" loads the whole board.
-                onChange={
-                  only
-                    ? (v) => {
-                        if (v === 'all') navigate(stopHref(stopId))
-                      }
-                    : setRoute
-                }
-                options={[
-                  { value: 'all', label: 'All routes' },
-                  ...(only ? [only] : routes.slice(0, 12)).map((r) => ({ value: r, label: r })),
-                ]}
-              />
-            ) : null}
-            <PillButton icon="map" pressed={showMap} onClick={() => setShowMap((s) => !s)}>
-              Map
-            </PillButton>
-          </div>
-        </div>
-      ) : null}
+      </SiteHeader>
       <main className="mx-auto flex max-w-3xl flex-col gap-2.5 px-4 pt-3 pb-4">
-        <div className="bg-board-header flex items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-3.5 py-2.5">
-          <div className="flex min-w-0 flex-col">
-            <h1 className="text-base font-bold text-aqua-text md:text-lg dark:text-ferry-aqua-light">
-              {name}
-            </h1>
-            <span className="text-xs text-sched-text dark:text-night-text/70">
-              {stopMeta(stopId, platform)}
-            </span>
-            {/* BrisbaneTransit: Alerts left the section bar for the board header (THE-118 PR 3). */}
-            {BASE ? (
+        <BoardHeader
+          kicker="Bus stop"
+          name={name}
+          facts={[
+            stopMeta(stopId, platform),
+            routes.length ? `${routes.length} route${routes.length === 1 ? '' : 's'}` : null,
+            // BrisbaneTransit: Alerts left the section bar for the board header (THE-118 PR 3).
+            BASE ? (
               <AlertCountLink
+                key="alerts"
                 count={
                   currentAlerts
                     ? boardAlerts(currentAlerts.alerts, stopId, routes, Math.floor(now / 1000)).length
@@ -217,10 +195,43 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
                 href={at('/alerts')}
                 renderLink={linkRenderer}
               />
+            ) : null,
+          ]}
+          star={<BusStar id={stopId} name={name} />}
+        >
+          <FilterRow label="Filter departures">
+            {routes.length > 1 || only ? (
+              <>
+                <Chip
+                  pressed={pick === 'all'}
+                  // ?route= came from the API filtered: "All routes" loads the whole board.
+                  onClick={() => (only ? navigate(stopHref(stopId)) : setRoute('all'))}
+                >
+                  All routes
+                </Chip>
+                {(only ? [only] : routes.slice(0, 12)).map((r) => (
+                  <Chip key={r} pressed={pick === r} onClick={() => (only ? undefined : setRoute(r))}>
+                    {r}
+                  </Chip>
+                ))}
+              </>
             ) : null}
-          </div>
-          <BusStar id={stopId} name={name} />
-        </div>
+            <Chip icon="map" pressed={showMap} onClick={() => setShowMap((s) => !s)}>
+              Map
+            </Chip>
+            <NowChip value={departAt} onChange={setDepartAt} nowMs={now} />
+          </FilterRow>
+        </BoardHeader>
+        <UpdatedStrip
+          board
+          updatedAt={res?.generatedAt ?? null}
+          source={res}
+          nowMs={now}
+          onRefresh={() => q.refetch()}
+          refreshing={q.isFetching}
+          live={state == null && res?.rtState === 'live'}
+          pending={pending}
+        />
         <DataBanner
           offline={state === 'offline'}
           rtState={res?.rtState}

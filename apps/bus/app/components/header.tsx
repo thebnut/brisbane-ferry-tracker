@@ -61,6 +61,7 @@ export function UpdatedStrip({
   onRefresh,
   refreshing,
   children,
+  board,
 }: LiveProps & {
   updatedAt: number | null
   /** The response whose TransLink source age is shown ("updated 12 s ago", skew-free: @bft/ui sourceTimeS). */
@@ -69,10 +70,13 @@ export function UpdatedStrip({
   onRefresh?: () => void
   refreshing?: boolean
   children?: ReactNode
+  /** On a board: below the board header, in the board's column (THE-118 PR 5). */
+  board?: boolean
 }) {
   const page = usePageCheck()
   return (
     <StatusStrip
+      board={board}
       updated={
         updatedAt ? (
           <>

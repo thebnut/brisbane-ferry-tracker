@@ -16,6 +16,7 @@ export function UpdatedStrip({
   onRefresh,
   refreshing,
   children,
+  board,
   ...live
 }: LiveProps & {
   updated: string
@@ -23,9 +24,10 @@ export function UpdatedStrip({
   onRefresh: () => void
   refreshing: boolean
   children?: ReactNode
+  board?: boolean
 }) {
   return (
-    <StatusLine {...live} detail={detail} onRefresh={onRefresh} refreshing={refreshing}>
+    <StatusLine {...live} detail={detail} onRefresh={onRefresh} refreshing={refreshing} board={board}>
       {children}
     </StatusLine>
   )

@@ -1,13 +1,11 @@
 /**
- * A station's departure board (T-Departures): board header "From → To" with the reachable-only "to" picker and swap,
- * platform-change banner, rtState/offline banners, departure cards, "More departures". Rendered on the server with
- * the loader's rows, then polled every 15 s while visible.
+ * A station's departure board (T-Departures): platform-change banner, rtState/offline banners, departure rows, "More
+ * departures". The board header with its filter row, star and "Going to" sheet is the page's (station.tsx, THE-118 PR
+ * 5). Rendered on the server with the loader's rows, then polled every 15 s while visible.
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
 import {
-  BoardHeader,
-  BottomSheet,
   DayDivider,
   dayDividers,
   EmptyState,
@@ -17,17 +15,14 @@ import {
   MoreButton,
   nextAlike,
   OfflineBanner,
-  SecondaryButton,
   soonestIndex,
 } from '@bft/ui'
 import { usePageCheck } from '@bft/ui/connectivity'
 import { SaveToast, type SaveToastMessage } from '@bft/ui/save-toast'
-import { StarButton } from '@bft/ui/star'
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
 import { boardState, platformChanges, type ServiceFilter, trainCard, visibleRows } from '../lib/departures.ts'
-import { boardHref, isReachable, lineFor, type Station } from '../lib/network.ts'
+import { lineFor, type Station } from '../lib/network.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import {
   FAVOURITES_KEY,
@@ -40,7 +35,6 @@ import {
 } from '../lib/storage.ts'
 import { useOnline } from '../lib/useNow.ts'
 import { useReportLive } from './Chrome.tsx'
-import { ReachableList } from './ReachableList.tsx'
 import { TrainCard } from './TrainCard.tsx'
 
 export const MORE_LIMIT = 30
@@ -110,8 +104,8 @@ export function StationBoard({
   mode,
   filter,
   onData,
-  compactHeader = false,
-  sub,
+  at = null,
+  returnBoard = false,
 }: {
   from: Station
   to: Station | null
@@ -121,26 +115,25 @@ export function StationBoard({
   filter: ServiceFilter
   /** Reports the latest response (for the status strip and the express filter). */
   onData?: (res: DeparturesResponse | undefined) => void
-  /** Second board on desktop: no picker, just the title and swap. */
-  compactHeader?: boolean
-  /** A line under the title (BrisbaneTransit's alert count, THE-118 PR 3). */
-  sub?: ReactNode
+  /** "Depart from" (epoch s, the Now ▾ chip): trains from then; null is now, which `initial` is for. */
+  at?: number | null
+  /** The return board beside it on desktop: its own small title. */
+  returnBoard?: boolean
 }) {
-  const navigate = useNavigate()
   const fetcher = useFetcher(mode)
   const online = useOnline()
   const [more, setMore] = useState(false)
-  const [picker, setPicker] = useState(false)
   const limit = more ? MORE_LIMIT : DEPARTURE_LIMIT
   const q = useDepartures(
     fetcher,
     mode,
     from.key,
     to?.key ?? null,
-    limit === DEPARTURE_LIMIT ? initial : null,
+    limit === DEPARTURE_LIMIT && at == null ? initial : null,
     limit,
+    at,
   )
-  const res = q.data ?? (more ? initial : undefined) ?? undefined
+  const res = q.data ?? (more && at == null ? initial : undefined) ?? undefined
   useEffect(() => onData?.(res), [onData, res])
   // useOnline is false while offline, and also when the API calls fail or the service worker answers from its cache.
   const offline = !online || (res as { offline?: boolean } | undefined)?.offline === true
@@ -177,9 +170,7 @@ export function StationBoard({
     cards.map((c) => c.dep),
     nowMs,
   )
-  const canSwap = !!to && isReachable(to.key, from.key)
   const title = `${from.name}${to ? ` → ${to.name}` : ''}`
-  const star = useStar({ from: from.key, to: to?.key ?? null }, title, () => setPicker(true))
 
   return (
     <section
@@ -187,31 +178,11 @@ export function StationBoard({
       className="flex min-w-0 flex-col gap-2.5"
       data-board={from.key}
     >
-      <BoardHeader
-        as="h2"
-        onSwap={canSwap && to ? () => navigate(boardHref(to.key, from.key)) : undefined}
-        sub={sub}
-        trailing={
-          compactHeader ? undefined : <StarButton saved={star.saved} onToggle={star.toggle} name={title} />
-        }
-      >
-        {compactHeader ? (
-          <span className="truncate text-base font-bold">{title}</span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setPicker(true)}
-            aria-label={`${title}. Choose where you're going`}
-            className="flex min-w-0 items-center gap-1 text-left text-base font-bold"
-          >
-            <span className="truncate">{title}</span>
-            {to ? null : (
-              <span className="shrink-0 text-sm font-semibold text-ferry-orange-deep">· Going to…</span>
-            )}
-            <Icon name="chevronDown" size={18} className="shrink-0 text-ferry-orange" />
-          </button>
-        )}
-      </BoardHeader>
+      {returnBoard ? (
+        <h2 className="flex min-h-11 items-center text-base font-bold text-aqua-text dark:text-ferry-aqua-light">
+          {title}
+        </h2>
+      ) : null}
 
       {changes.map((d) => (
         <div
@@ -284,40 +255,6 @@ export function StationBoard({
       (res.departures.length >= DEPARTURE_LIMIT || filter === 'express') ? (
         <MoreButton onClick={() => setMore(true)}>More departures</MoreButton>
       ) : null}
-
-      {compactHeader ? null : star.toast}
-      {compactHeader ? null : (
-        <BottomSheet
-          open={picker}
-          onClose={() => setPicker(false)}
-          title={`Going to, from ${from.name}`}
-          subtitle={
-            <span className="text-xs text-sched-text">Only stations with a direct train are shown.</span>
-          }
-        >
-          <div className="flex flex-col gap-3 px-4 py-4">
-            {to ? (
-              <SecondaryButton
-                className="min-h-10 self-start px-4 text-sm"
-                onClick={() => {
-                  setPicker(false)
-                  navigate(boardHref(from.key, null))
-                }}
-              >
-                Any destination
-              </SecondaryButton>
-            ) : null}
-            <ReachableList
-              from={from}
-              selected={to?.key ?? null}
-              onPick={(k) => {
-                setPicker(false)
-                navigate(boardHref(from.key, k))
-              }}
-            />
-          </div>
-        </BottomSheet>
-      )}
     </section>
   )
 }

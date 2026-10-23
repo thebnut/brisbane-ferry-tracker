@@ -25,6 +25,7 @@ export function UpdatedStrip({
   onRefresh,
   refreshing,
   children: _sections,
+  board,
   ...live
 }: LiveProps & {
   updatedAt: number | null
@@ -34,6 +35,7 @@ export function UpdatedStrip({
   refreshing?: boolean
   /** The bus pages' desktop section pills: gone with the section bars (THE-118 PR 3). */
   children?: ReactNode
+  board?: boolean
 }) {
   const page = usePageCheck()
   // A page with live data but no refresh of its own (the route page's vehicles): tapping refetches its live queries.
@@ -45,6 +47,7 @@ export function UpdatedStrip({
       detail={formatAge(sourceTimeS(source, { nowMs, ...page }), nowMs)}
       onRefresh={fallback ? own.refresh : onRefresh}
       refreshing={fallback ? own.refreshing : refreshing}
+      board={board}
     />
   )
 }

@@ -10,11 +10,13 @@ import { useMemo } from 'react'
 import type { ApiFetcher } from '../lib/api.ts'
 import { cleanStopName } from '../lib/names.ts'
 import type { DataMode } from '../lib/queries.ts'
-import { type StopPair, terminalById } from '../lib/terminals.ts'
+import { type StopChoice, terminalById } from '../lib/terminals.ts'
 import { useVehicles } from '../lib/vehicles.ts'
 
 export interface LiveMapSheetProps {
-  pair: StopPair
+  /** The board's terminal and its "To" (none: every ferry from it). */
+  from: StopChoice
+  to: StopChoice | null
   /** false when the boards are offline/stale: positions are not shown. */
   live: boolean
   departures: Departure[]
@@ -25,7 +27,8 @@ export interface LiveMapSheetProps {
 }
 
 export default function LiveMapSheet({
-  pair,
+  from,
+  to,
   live,
   departures,
   fetcher,
@@ -40,7 +43,7 @@ export default function LiveMapSheet({
   const shown = relevant.length > 0 ? relevant : positions
 
   const markers: MapMarker[] = useMemo(() => {
-    const terminals = [terminalById(pair.outbound.id), terminalById(pair.inbound.id)]
+    const terminals = [terminalById(from.id), to ? terminalById(to.id) : null]
       .filter((t) => t != null)
       .map((t) => ({ id: t.id, lat: t.lat, lon: t.lng, tone: 'stop' as const, label: `${t.name} terminal` }))
     const ferries = shown.map((v) => {
@@ -57,7 +60,7 @@ export default function LiveMapSheet({
       }
     })
     return [...terminals, ...ferries]
-  }, [shown, byTrip, pair, onSelect])
+  }, [shown, byTrip, from, to, onSelect])
 
   return (
     <BottomSheet
@@ -69,7 +72,7 @@ export default function LiveMapSheet({
           {!live || (vehicles.data && vehicles.data.rtState !== 'live')
             ? 'Live positions are unavailable right now.'
             : relevant.length > 0
-              ? `${relevant.length} ferr${relevant.length === 1 ? 'y' : 'ies'} between ${cleanStopName(pair.outbound.name)} and ${cleanStopName(pair.inbound.name)}`
+              ? `${relevant.length} ferr${relevant.length === 1 ? 'y' : 'ies'} ${to ? `between ${cleanStopName(from.name)} and ${cleanStopName(to.name)}` : `from ${cleanStopName(from.name)}`}`
               : vehicles.isPending
                 ? 'Loading ferry positions…'
                 : 'No ferries on this route right now. Showing all ferries with GPS.'}
@@ -78,7 +81,7 @@ export default function LiveMapSheet({
     >
       <SafeMap
         markers={markers}
-        fitTo={[pair.outbound.id, pair.inbound.id]}
+        fitTo={to ? [from.id, to.id] : [from.id]}
         label="Map of live ferry positions"
         className="h-[60dvh] w-full overflow-hidden rounded-card bg-map-ground"
       />
