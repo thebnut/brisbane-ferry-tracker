@@ -8,6 +8,8 @@ import { cx } from './cx.ts'
 import { Icon, type IconName } from './icons.tsx'
 import { generateTimeSlots } from './time-slots.ts'
 
+export { generateTimeSlots, type Slot } from './time-slots.ts'
+
 export interface BoardHeaderProps {
   /** "TRAIN STATION", "BUS STOP", "FERRY TERMINAL". */
   kicker: string

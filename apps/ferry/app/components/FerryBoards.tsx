@@ -7,18 +7,8 @@
  */
 
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
-import {
-  BoardHeader,
-  BottomSheet,
-  Chip,
-  DemoExitLink,
-  FilterRow,
-  formatAge,
-  formatClock,
-  NowChip,
-  OfflineBanner,
-  useFixtureCookie,
-} from '@bft/ui'
+import { BottomSheet, DemoExitLink, formatAge, formatClock, OfflineBanner, useFixtureCookie } from '@bft/ui'
+import { BoardHeader, Chip, FilterRow, NowChip } from '@bft/ui/board-header'
 import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'

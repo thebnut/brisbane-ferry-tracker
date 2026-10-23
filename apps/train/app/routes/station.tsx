@@ -5,8 +5,9 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { BoardHeader, Chip, chipClass, FilterRow, formatAge, formatClock, Icon, NowChip } from '@bft/ui'
+import { formatAge, formatClock, Icon } from '@bft/ui'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
+import { BoardHeader, Chip, chipClass, FilterRow, NowChip } from '@bft/ui/board-header'
 import { sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { DestinationSheet } from '@bft/ui/destination-sheet'
 import { StarButton } from '@bft/ui/star'

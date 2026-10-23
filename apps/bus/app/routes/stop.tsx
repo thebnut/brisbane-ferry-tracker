@@ -5,8 +5,8 @@
  */
 
 import type { Alert } from '@bft/core/contract'
-import { BoardHeader, Chip, FilterRow, NowChip } from '@bft/ui'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
+import { BoardHeader, Chip, FilterRow, NowChip } from '@bft/ui/board-header'
 import { NoticeStrip } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'

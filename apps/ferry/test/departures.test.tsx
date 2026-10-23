@@ -1,5 +1,5 @@
 import type { Departure } from '@bft/core/contract'
-import { generateTimeSlots } from '@bft/ui'
+import { generateTimeSlots } from '@bft/ui/board-header'
 import { describe, expect, it } from 'vitest'
 import {
   applyFilter,
