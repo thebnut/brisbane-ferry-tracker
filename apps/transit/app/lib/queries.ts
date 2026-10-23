@@ -7,6 +7,7 @@ import {
   type OfflineCopy,
   pollEvery,
   replacesBoard,
+  seedUpdatedAt,
 } from '@bft/ui/connectivity'
 import { type QueryFunctionContext, useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
@@ -45,7 +46,7 @@ export function useAlerts(fetcher: ApiFetcher, mode: DataMode, initial: AlertsRe
     queryKey: ['transit', 'alerts', 'all', mode.fixtures, mode.rt],
     queryFn: ({ signal }) => fetchAlerts(fetcher, { signal }),
     initialData: initial ?? undefined,
-    initialDataUpdatedAt: initial?.generatedAt,
+    initialDataUpdatedAt: seedUpdatedAt(initial),
     staleTime: 60_000,
     refetchInterval: pollAlerts,
   })

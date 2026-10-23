@@ -378,6 +378,18 @@ export function retryWhenBack(retry: () => void, intervalMs = OFFLINE_RETRY_MS):
   }
 }
 
+/**
+ * `initialDataUpdatedAt` for a live query seeded with its page's loader data: its `generatedAt` when it was live, so
+ * the first poll comes 15 s later as before. Otherwise 0, so the board asks again the moment it mounts (R27-RT1):
+ * a cold API isolate answers scheduled rows (`unavailable`) once its realtime wait runs out (RT_WAIT_MS), and the
+ * board then showed OFFLINE until its first poll while a warm answer was a few hundred ms away. Never makes data
+ * look live: the new answer is judged like any other (liveState).
+ */
+export function seedUpdatedAt(initial: { generatedAt: number; rtState: string } | null | undefined) {
+  if (!initial) return undefined
+  return initial.rtState === 'live' ? initial.generatedAt : 0
+}
+
 /** The polled (live) queries of a TanStack QueryClient: what a reconnect refetches. Static data stays cached. */
 export interface RefetchableClient {
   refetchQueries(
