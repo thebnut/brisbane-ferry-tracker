@@ -21,6 +21,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'BrisbaneTransit has one simpler header on every page: a back button and the settings gear on phones, and every mode in one bar on computers.',
       'On BrisbaneTransit boards, “Live · updated 12 s ago” now sits just above the departures. Tap it to refresh.',
       'While a BrisbaneTransit page loads, the header says “Connecting…” instead of briefly showing Offline.',
+      'BrisbaneTrain says “Connecting…” too while a station’s times are still on their way, instead of showing Live before they arrive.',
       'If your browser isn’t keeping changes, Save now tells you so instead of saying it saved.',
       'On BrisbaneTransit phones, the five tabs are now the only bar at the bottom of the screen, so nothing covers the last departures.',
       'Find a station or a stop from the search at the top of the Train and Bus tabs. Each board has a Map button and shows its alerts.',
