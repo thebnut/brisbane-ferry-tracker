@@ -4,8 +4,8 @@
  * link's other parameters kept. `stop` takes a stop id or a slug; with both, a known `from` wins. Run on ferry home
  * (BrisbaneTransit's /ferry and the standalone ferry site's /) at 390×844 touch, 1280×900 and 1440×900.
  *
- * The board's old map links (`?map=1[&trip=]`, on ferry home or a terminal board) open the live ferry map (THE-118
- * PR 9) on that terminal, keeping the link's other parameters (e.g. `utm_*`) too.
+ * The board's old map links (`?map=1[&trip=]`, on a terminal board, or bare on ferry home: R37-M1) open the live ferry
+ * map (THE-118 PR 9), on that terminal, keeping the link's other parameters (e.g. `utm_*`) too.
  */
 import { expect, type Page, test } from '@playwright/test'
 
@@ -31,13 +31,20 @@ const LINKS: Array<[string, string, string, string | null]> = [
   ['from=317583&stop=317584&to=317590', '/terminal/hawthorne?to=riverside', 'Hawthorne', 'Riverside'],
 ]
 
-/** [old map link (a query on ferry home, or a board path and query), the map's query]. */
-const MAP_LINKS: Array<[string, string]> = [
+/**
+ * [old map link (a query on ferry home, or a board path and query), the map's query, the first redirect's target
+ * when it isn't the map: a `?stop=`/`?from=` link goes by that terminal's board, as the board's own map link does].
+ */
+const MAP_LINKS: Array<[string, string, string?]> = [
+  ['?map=1', ''],
   ['?map=1&utm_source=x', '?utm_source=x'],
+  ['?map=1&trip=abc%4020200101&utm_source=x', '?trip=abc%4020200101&utm_source=x'],
   [
     '?stop=317584&to=317590&map=1&trip=abc%4020200101&utm_source=x',
     '?terminal=bulimba&trip=abc%4020200101&utm_source=x',
+    '/terminal/bulimba?to=riverside&map=1&trip=abc%4020200101&utm_source=x',
   ],
+  ['?from=317584&map=1', '?terminal=bulimba', '/terminal/bulimba?map=1'],
   ['/terminal/bulimba?map=1', '?terminal=bulimba'],
   [
     '/terminal/bulimba?to=riverside&map=1&trip=abc%4020200101&utm_source=x&utm_campaign=y',
@@ -91,10 +98,14 @@ export function ferryStopLinkSuite({ home, base }: { home: string; base: string 
           })
 
         test('server redirects (302), so they work before any script', async ({ request }) => {
-          for (const [l, q] of MAP_LINKS) {
+          for (const [l, q, via] of MAP_LINKS) {
             const res = await request.get(link(l), { maxRedirects: 0 })
             expect(res.status(), l).toBe(302)
-            expect(res.headers().location, l).toBe(`${base}/map${q}`)
+            expect(res.headers().location, l).toBe(`${base}${via ?? `/map${q}`}`)
+            if (!via) continue
+            const next = await request.get(`${base}${via}`, { maxRedirects: 0 })
+            expect(next.status(), via).toBe(302)
+            expect(next.headers().location, via).toBe(`${base}/map${q}`)
           }
         })
       })

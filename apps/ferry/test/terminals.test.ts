@@ -121,6 +121,19 @@ describe('old ?map=1 links open the live ferry map', () => {
     )
     expect(mapForOldLink(p('map=1'))).toBe('/map')
   })
+  it('a bare home link (R37-M1): the whole map, carrying the trip and the other parameters', () => {
+    expect(mapForOldLink(p('map=1&trip=abc%4020200101&utm_source=x'))).toBe(
+      '/map?trip=abc%4020200101&utm_source=x',
+    )
+  })
+  it('a ?stop=/?from= link with map=1 goes by the terminal board, which keeps map and trip for its own redirect', () => {
+    expect(boardForOldLink(p('stop=317584&to=317590&map=1&trip=t1&utm_source=x'))).toBe(
+      '/terminal/bulimba?to=riverside&map=1&trip=t1&utm_source=x',
+    )
+    expect(mapForOldLink(p('to=riverside&map=1&trip=t1&utm_source=x'), '317584')).toBe(
+      '/map?terminal=bulimba&trip=t1&utm_source=x',
+    )
+  })
   it("keeps the link's other parameters, dropping only those the map URL replaces", () => {
     expect(mapForOldLink(p('map=1&utm_source=x&utm_medium=y'), '317584')).toBe(
       '/map?terminal=bulimba&utm_source=x&utm_medium=y',
