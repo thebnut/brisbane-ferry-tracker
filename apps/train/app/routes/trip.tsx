@@ -95,7 +95,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
 
   if (!trip || !view) {
     return (
-      <Shell active="stations" pending={!q.isError}>
+      // Loading: "Connecting…". Failed: not live (no answer is never LIVE), as a failed board says.
+      <Shell active="stations" live={q.isError ? false : undefined} pending={!q.isError}>
         <p className="py-8 text-center text-sm text-sched-text" role="status">
           {q.isError ? "Couldn't load this service. Retrying…" : 'Loading service…'}
         </p>
