@@ -142,6 +142,8 @@ function suite(wide: boolean) {
         await expect(rows.nth(2).locator('[data-row-status]')).toContainText('Live · 3 min late')
         await expect(rows.nth(0).locator('[data-row-status]')).toContainText(/^Cancelled/)
         await expect(rows.nth(0).locator('[data-dot=cancelled]')).toHaveCount(1)
+        // A cancelled service never counts down: a dash and the struck clock time.
+        await expect(rows.nth(0).locator('[data-countdown]')).toHaveAttribute('data-countdown', 'cancelled')
         await expect(rows.nth(4).locator('[data-row-status]')).toContainText(/^Scheduled/)
         // The tile per mode.
         if (mode.name === 'bus') await expect(live).toContainText('Route 61')

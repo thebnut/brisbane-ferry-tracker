@@ -81,6 +81,17 @@ describe('skipped services', () => {
     })
     // A live Ask row has no timetabled time: it says "Live", never "on time" (THE-118 PR 4).
     expect(askRowProps({ ...row0, status: 'live' }).status.text).toBe('Live')
+    // A train answer with a platform and an arrival keeps both: arr on phones, platform plus the arrival column wide
+    // (Codex r1).
+    expect(askRowProps({ ...row0, status: 'live', platform: '4', arrives: '8:03 pm' })).toMatchObject({
+      fact: 'arr 8:03 pm',
+      wideFact: 'platform 4',
+      extra: 'Arrives 8:03 pm',
+    })
+    expect(askRowProps({ ...row0, status: 'scheduled', platform: '4', arrives: null })).toMatchObject({
+      fact: 'platform 4',
+      extra: null,
+    })
   })
 
   it('Ask rows mark next-day times like the boards (X6)', () => {

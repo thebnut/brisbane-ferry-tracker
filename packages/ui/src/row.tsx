@@ -214,7 +214,7 @@ export interface DepartureRowProps {
   wideFact?: string | null
   /** Wide rows only: arrival and journey, or occupancy. Hidden on phones. */
   extra?: ReactNode
-  /** Whole minutes until departure; null for a row you can't board (no countdown). */
+  /** Whole minutes until departure; null (or a cancelled or skipped status) shows no countdown. */
   minutes: number | null
   time: string
   highlighted?: boolean
@@ -243,6 +243,8 @@ export function DepartureRow({
   renderLink,
 }: DepartureRowProps) {
   const cancelled = status.status === 'cancelled'
+  // A service you can't board never counts down, whatever minutes the board passed (Codex r1).
+  const blocked = cancelled || status.status === 'skipped'
   const shownFact = (f: string | null | undefined, cls?: string) =>
     f ? <span className={cx('text-sched-text dark:text-night-text/70', cls)}>{f}</span> : null
   const className = cx(
@@ -250,7 +252,7 @@ export function DepartureRow({
     highlighted
       ? 'bg-hot border-2 border-ferry-orange shadow-hot'
       : 'border-2 border-transparent bg-white/90 shadow-card hover:border-ferry-orange/40 dark:bg-night-card',
-    (cancelled || status.status === 'skipped') && 'opacity-90',
+    blocked && 'opacity-90',
   )
   const children = (
     <>
@@ -306,7 +308,7 @@ export function DepartureRow({
           {extra}
         </span>
       ) : null}
-      <BigCountdown minutes={minutes ?? 0} time={time} cancelled={minutes == null} />
+      <BigCountdown minutes={minutes ?? 0} time={time} cancelled={blocked || minutes == null} />
     </>
   )
   return (

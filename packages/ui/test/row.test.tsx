@@ -282,3 +282,19 @@ describe('DepartureRow separators', () => {
     expect(dot(null, null, null)).toBeNull()
   })
 })
+
+describe("rows you can't board (Codex r1)", () => {
+  it.each(['cancelled', 'skipped'] as const)('a %s row never counts down, even when given minutes', (st) => {
+    const { container } = render(
+      <DepartureRow
+        tile={null}
+        destination="X"
+        status={{ status: st, ...statusLine({ status: st }) }}
+        minutes={4}
+        time="7:42 pm"
+      />,
+    )
+    expect(container.querySelector('[data-countdown]')).toHaveAttribute('data-countdown', 'cancelled')
+    expect(container.textContent).not.toContain('4 min')
+  })
+})

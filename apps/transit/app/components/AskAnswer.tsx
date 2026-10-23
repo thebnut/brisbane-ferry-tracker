@@ -38,14 +38,20 @@ export function askRowProps(d: AskDeparture, nowMs = Date.now()) {
     arrival,
     // Rows carry no timetabled time, so a live row says "Live", not on time or late.
     status: { status: d.status, ...statusLine({ status: d.status }) },
+    // The arrival on phones (else the platform); wide rows show the platform and an arrival column (Codex r1).
     fact:
       cancelled || skipped
         ? null
-        : d.platform
-          ? `platform ${d.platform}`
-          : arrival
-            ? `arr ${arrival.time}${arrival.dayMarker ? ` ${arrival.dayMarker}` : ''}`
+        : arrival
+          ? `arr ${arrival.time}${arrival.dayMarker ? ` ${arrival.dayMarker}` : ''}`
+          : d.platform
+            ? `platform ${d.platform}`
             : null,
+    wideFact: cancelled || skipped || !d.platform ? null : `platform ${d.platform}`,
+    extra:
+      arrival && !cancelled
+        ? `Arrives ${arrival.time}${arrival.dayMarker ? ` ${arrival.dayMarker}` : ''}`
+        : null,
     // No countdown for a service you can't board.
     minutes: cancelled || skipped ? null : d.inMinutes,
     cancelled,
@@ -89,6 +95,8 @@ export default function AskAnswer({ result, nowMs = Date.now() }: { result: AskR
                 destination={d.headsign}
                 status={p.status}
                 fact={p.fact}
+                wideFact={p.wideFact}
+                extra={p.extra}
                 minutes={p.minutes}
                 time={p.time}
                 highlighted={i === soonest}
