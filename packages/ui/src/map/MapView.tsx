@@ -163,7 +163,15 @@ export function markerElement(m: MapMarker): HTMLElement {
     // A tap target of 44 px around the small pin: an invisible area inside the button (its clicks are the button's).
     const hit = document.createElement('span')
     hit.dataset.hit = ''
-    Object.assign(hit.style, { position: 'absolute', inset: `${(size - 44) / 2}px`, borderRadius: '999px' })
+    Object.assign(hit.style, {
+      position: 'absolute',
+      left: '50%',
+      top: '50%',
+      width: '44px',
+      height: '44px',
+      transform: 'translate(-50%, -50%)',
+      borderRadius: '999px',
+    })
     el.appendChild(hit)
     el.addEventListener('click', m.onClick)
   }

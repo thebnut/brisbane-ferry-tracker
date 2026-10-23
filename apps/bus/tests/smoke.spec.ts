@@ -112,7 +112,7 @@ test('route filter, and the Map chip opens the bus map on the stop', async ({ pa
   await expect(rows.first()).toBeVisible()
   for (const t of await rows.allTextContents()) expect(t).toMatch(new RegExp(`^Route ${route}(?![0-9])`))
   // The Map chip opens the bus map on this stop (THE-118 PR 9).
-  await page.getByRole('link', { name: 'Map', exact: true }).click()
+  await page.getByRole('group', { name: 'Filter by route' }).getByRole('link', { name: 'Map' }).click()
   await expect(page).toHaveURL(/\/map\?stop=10802$/)
   await expect(page.getByRole('region', { name: /Map of \d+ live buses/ })).toBeVisible()
 })

@@ -274,13 +274,15 @@ function trackTests() {
       test.slow()
       const { href, key } = await firstTrip(page, m.board)
       // The bus map asks for the trip's route: any route answers with these buses. Later the vehicle moves far off
-      // the first view (about 8 km north-east), and the map follows it.
+      // the first view (about 20 km north-east), and the map follows it.
       let moved = false
-      await serveVehicles(context, m.mode, () =>
-        twoNear(m.mode, { trip: key }).map((v) =>
-          moved && v.tripKey === key ? { ...v, lat: v.lat + 0.06, lon: v.lon + 0.06 } : v,
-        ),
-      )
+      let servedMoved = false
+      await serveVehicles(context, m.mode, () => {
+        servedMoved = moved
+        return twoNear(m.mode, { trip: key }).map((v) =>
+          moved && v.tripKey === key ? { ...v, lat: v.lat + 0.15, lon: v.lon + 0.15 } : v,
+        )
+      })
       await page.goto(href)
       await expect(page.locator('html[data-hydrated]')).toHaveCount(1)
       await page.getByRole('link', { name: 'Track on map' }).first().click()
@@ -292,23 +294,27 @@ function trackTests() {
       await expect(page.locator('[data-map-card]')).toContainText('your trip')
       await idle(page)
       expect(await inView(page, pin)).toBe(true)
-      const before = await page.locator(pin).boundingBox()
+      // Its distance on screen from a pin that stays put (a stop, a station or a terminal).
+      const apart = async () => {
+        const a = await page.locator(pin).boundingBox()
+        const b = await page
+          .locator('[data-map-page] .bft-marker:not([aria-label$="your trip"])')
+          .first()
+          .boundingBox()
+        return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0
+      }
+      const before = await apart()
       moved = true
-      // The next poll (every 15 s) brings the new position: the map moves with it.
+      // The next poll (every 15 s) brings the new position, about 20 km away (off the first view at any zoom these
+      // pages use):
+      // the pin moves far from the fixed one, and the map follows it.
+      await expect.poll(() => servedMoved, { timeout: 45_000, intervals: [1_000] }).toBe(true)
       await expect
-        .poll(
-          async () =>
-            (await idle(page)) &&
-            (await inView(page, pin)) &&
-            (await page.locator(pin).boundingBox())?.y !== before?.y,
-          {
-            timeout: 45_000,
-            intervals: [1_000],
-          },
-        )
-        .toBe(true)
-      const box = await map(page).boundingBox()
-      expect(await inView(page, pin), `in ${JSON.stringify(box)}`).toBe(true)
+        .poll(async () => (await apart()) - before, { timeout: 10_000, intervals: [500] })
+        .toBeGreaterThan(150)
+      await expect.poll(() => inView(page, pin), { timeout: 10_000, intervals: [500] }).toBe(true)
+      await idle(page)
+      expect(await inView(page, pin)).toBe(true)
     })
 }
 
