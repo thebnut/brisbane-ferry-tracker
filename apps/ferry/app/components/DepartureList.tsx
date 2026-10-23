@@ -14,28 +14,14 @@ import {
   soonestIndex,
   useKept,
 } from '@bft/ui'
-import { Link, useLocation, useParams } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { rowModel } from '../lib/departures.ts'
 
-/**
- * A row's link to its trip page, carrying the board's URL so the trip's back link returns here (THE-118 PR 6).
- */
+/** A row's link to its trip page, carrying the board's URL so the trip's back link returns here (THE-118 PR 6). */
 function RowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
   const { pathname, search } = useLocation()
-  // Desktop (THE-118 PR 7): the open trip's row is marked; a row picked beside it replaces it in history, keeping
-  // what that entry knew of the board (a trip is never recorded as the board); and the board keeps its scroll (a trip's
-  // own page starts at the top itself: TripBackLink).
-  const open = useParams().tripInstance
   return (
-    <Link
-      to={href}
-      className={className}
-      aria-label={label}
-      state={open ? history.state?.usr : boardState(pathname, search)}
-      replace={!!open}
-      preventScrollReset
-      aria-current={(open && href.includes(`/${encodeURIComponent(open)}?`)) || undefined}
-    >
+    <Link to={href} className={className} aria-label={label} state={boardState(pathname, search)}>
       {children}
     </Link>
   )
@@ -73,6 +59,8 @@ export interface DepartureListProps {
   tripHref: (d: Departure) => string
   /** Offline: an empty board means no usable timetable copy, never "finished for today" (R2-B6). */
   offline?: boolean
+  /** The rows' links: a terminal page's know about the trip beside the board (THE-118 PR 7). */
+  renderLink?: LinkRenderer
 }
 
 export function DepartureList({
@@ -86,6 +74,7 @@ export function DepartureList({
   onRetry,
   tripHref,
   offline,
+  renderLink = linkRenderer,
 }: DepartureListProps) {
   const [more, setMore] = useKept<boolean>(`more:${id}`, false)
   const list = departures ?? []
@@ -151,7 +140,7 @@ export function DepartureList({
                     time={r.time}
                     highlighted={i === soonest}
                     href={tripHref(d)}
-                    renderLink={linkRenderer}
+                    renderLink={renderLink}
                   />
                 </li>
               )

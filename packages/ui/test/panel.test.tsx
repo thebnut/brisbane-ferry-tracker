@@ -2,16 +2,20 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  fullHref,
-  isTripHref,
-  onlyFullChanged,
-  type PanelState,
-  panelControls,
-  samePlace,
-  showBoard,
-  withPanel,
-} from '../src/panel.tsx'
+import { type PanelState, samePlace, showBoard } from '../src/board-route.ts'
+import { type LiveState, pagePending } from '../src/connectivity.ts'
+import { fullHref, isTripHref, onlyFullChanged, panelControls } from '../src/panel.tsx'
+
+/** A board's header with the trip beside it, as the bus layout and FerryBoards combine them. */
+const withPanel = (
+  live: boolean,
+  pending: boolean,
+  board: PanelState['q'],
+  state: LiveState,
+  panel: PanelState | null,
+) =>
+  panel ? { live: live && panel.live, pending: pagePending([{ q: board, state }, panel]) } : { live, pending }
+
 import { BOARD_STATE } from '../src/row.tsx'
 import { TripPanelFrame } from '../src/trip.tsx'
 

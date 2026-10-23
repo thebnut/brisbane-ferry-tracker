@@ -13,19 +13,20 @@ import type { DeparturesResponse } from '@bft/core/contract'
 import { formatAge, formatClock, Icon, useKept } from '@bft/ui'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { BoardHeader, Chip, chipClass, FilterRow, NowChip } from '@bft/ui/board-header'
+import { FULL, isWide, notWide, onWide, samePlace, showBoard } from '@bft/ui/board-route'
 import { asSeed, awaitingSeedAnswer, sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { DestinationSheet } from '@bft/ui/destination-sheet'
-import {
-  FULL,
-  PanelProvider,
-  panelControls,
-  samePlace,
-  showBoard,
-  usePanelFocus,
-  useWide,
-} from '@bft/ui/panel'
 import { StarButton } from '@bft/ui/star'
-import { lazy, type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  lazy,
+  type ReactNode,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import {
   data,
   Link,
@@ -66,6 +67,8 @@ import type { Route } from './+types/station'
 
 // The idle panel's map at 1024 px and wider (THE-118 PR 7), loaded only there. If its chunk can't load, no map.
 const NoMap = (() => null) as never // renders nothing, whatever the props
+// The trip as the board's panel (THE-118 PR 7): loaded with the trip, never on the board's first load.
+const TripPanelHost = lazy(() => import('@bft/ui/panel'))
 const StationMap = lazy(() => import('../components/StationMap.tsx').catch(() => ({ default: NoMap })))
 
 /** A trip URL's board: the station it was opened from and its destination (`?from=`, `?to=`), or null. */
@@ -226,15 +229,16 @@ type Data = Route.ComponentProps['loaderData']
 export default function StationPage({ loaderData }: Route.ComponentProps) {
   const { station } = loaderData
   const trip = useParams().tripInstance
-  const wide = useWide()
+  const wide = useSyncExternalStore(onWide, isWide, notWide)
   const [search] = useSearchParams()
+  // Which board this layout shows, before a trip's full page returns (Codex r3): its own data, not a placeholder.
+  showBoard(
+    'station',
+    station && loaderData.board ? { from: station.key, to: loaderData.to?.key ?? null, filter: null } : null,
+  )
   // The trip alone: a phone or tablet, its full page, or a trip with no station to show the board of.
   if (trip && (!wide || !station || search.has(FULL))) return <Outlet />
   if (!station) return null
-  showBoard(
-    'station',
-    loaderData.board ? { from: station.key, to: loaderData.to?.key ?? null, filter: null } : null,
-  )
   return (
     <StationBoardPage loaderData={{ ...loaderData, station }} trip={trip} panel={trip ? <Outlet /> : null} />
   )
@@ -280,15 +284,8 @@ function StationBoardPage({
     setPicker(false)
     navigate(boardHref(station.key, k))
   }
-  const wide = useWide()
+  const wide = useSyncExternalStore(onWide, isWide, notWide)
   const { pathname, search } = useLocation()
-  const controls = panelControls(
-    (href, opts) => navigate(href, opts),
-    () => navigate(-1),
-    boardHref(station.key, to?.key ?? null),
-    `${pathname}${search}`,
-  )
-  usePanelFocus(open, controls.close)
 
   // The header pill follows the boards: from the loader data until each StationBoard reports (useReportLive).
   const seeds = [outbound, to ? inbound : null]
@@ -362,7 +359,19 @@ function StationBoardPage({
         </div>
         {/* The panel (1024 px and wider): the open trip, else the return board, else the station's map. */}
         <div className="board-panel" data-panel="">
-          {open ? <PanelProvider value={controls}>{panel}</PanelProvider> : null}
+          {open ? (
+            <Suspense fallback={null}>
+              <TripPanelHost
+                trip={open}
+                board={boardHref(station.key, to?.key ?? null)}
+                here={`${pathname}${search}`}
+                go={navigate}
+                back={() => navigate(-1)}
+              >
+                {panel}
+              </TripPanelHost>
+            </Suspense>
+          ) : null}
           {/* Kept mounted (hidden) beside an open trip, so closing it doesn't fetch the return board again. */}
           {reverse ? (
             <div hidden={!!open}>

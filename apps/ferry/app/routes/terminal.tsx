@@ -10,21 +10,13 @@
  */
 
 import type { Departure } from '@bft/core/contract'
-import { formatClock } from '@bft/ui'
+import { boardState, formatClock, type LinkRenderer } from '@bft/ui'
+import { FULL, isWide, notWide, onWide, type PanelState, samePlace, showBoard } from '@bft/ui/board-route'
 import { VIA_NETWORK } from '@bft/ui/connectivity'
-import {
-  FULL,
-  PanelProvider,
-  type PanelState,
-  panelControls,
-  samePlace,
-  showBoard,
-  usePanelFocus,
-  useWide,
-} from '@bft/ui/panel'
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useState, useSyncExternalStore } from 'react'
 import {
   data,
+  Link,
   Outlet,
   type ShouldRevalidateFunctionArgs,
   useLocation,
@@ -56,7 +48,35 @@ import type { Route } from './+types/terminal'
 
 // The idle panel's map at 1024 px and wider (THE-118 PR 7): its chunk draws nothing narrower. If it can't load, no map.
 const NoMap = (() => null) as never // renders nothing, whatever the props
+// The trip as the board's panel (THE-118 PR 7): loaded with the trip, never on the board's first load.
+const TripPanelHost = lazy(() => import('@bft/ui/panel'))
 const TerminalMap = lazy(() => import('../components/TerminalMap.tsx').catch(() => ({ default: NoMap })))
+
+/**
+ * A terminal board row's link: the board's URL as its state, so the trip's back link returns here (THE-118 PR 6). The
+ * ferry home board keeps the plain one (DepartureList), off /ferry's first load.
+ */
+function DeskRowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
+  const { pathname, search } = useLocation()
+  // Desktop (THE-118 PR 7): the open trip's row is marked; a row picked beside it replaces it in history, keeping
+  // what that entry knew of the board (a trip is never recorded as the board); and the board keeps its scroll (a trip's
+  // own page starts at the top itself: TripBackLink).
+  const open = useParams().tripInstance
+  return (
+    <Link
+      to={href}
+      className={className}
+      aria-label={label}
+      state={open ? history.state?.usr : boardState(pathname, search)}
+      replace={!!open}
+      preventScrollReset
+      aria-current={(open && href.includes(`/${encodeURIComponent(open)}?`)) || undefined}
+    >
+      {children}
+    </Link>
+  )
+}
+const rowLink: LinkRenderer = (props) => <DeskRowLink {...props} />
 
 /** A trip URL's board: the terminal it was opened from and its "To" (`?from=`, `?to=`), or null. */
 function tripPlace(url: URL) {
@@ -254,32 +274,25 @@ function TerminalSection({ terminal, upcoming }: { terminal: Terminal; upcoming:
 export default function TerminalPage({ loaderData }: Route.ComponentProps) {
   const { terminal } = loaderData
   const trip = useParams().tripInstance
-  const wide = useWide()
+  const wide = useSyncExternalStore(onWide, isWide, notWide)
   const [search] = useSearchParams()
   const { pathname, search: query } = useLocation()
   const navigate = useNavigate()
   const [panelState, setPanelState] = useState<PanelState | null>(null)
-  // ✕ and "Open full page" for the trip beside the board; focus into the panel and back to the row.
-  const controls = panelControls(
-    (to, opts) => navigate(to, opts),
-    () => navigate(-1),
-    terminal ? boardHref(terminal.id, loaderData.to?.id) : '',
-    `${pathname}${query}`,
-    setPanelState,
-  )
-  const alone = !wide || !terminal || search.has(FULL)
-  usePanelFocus(alone ? undefined : trip, controls.close)
-  // The trip alone: a phone or tablet, its full page, or a trip with no terminal to show the board of.
-  if (trip && alone) return <Outlet />
-  if (!terminal) return null
+  // Which board this layout shows, before a trip's full page returns (Codex r3): its own data, not a placeholder.
   showBoard(
     'terminal',
-    loaderData.upcoming && {
-      from: terminal.slug,
-      to: loaderData.to ? (terminalById(loaderData.to.id)?.slug ?? null) : null,
-      filter: null,
-    },
+    terminal && loaderData.upcoming
+      ? {
+          from: terminal.slug,
+          to: loaderData.to ? (terminalById(loaderData.to.id)?.slug ?? null) : null,
+          filter: null,
+        }
+      : null,
   )
+  // The trip alone: a phone or tablet, its full page, or a trip with no terminal to show the board of.
+  if (trip && (!wide || !terminal || search.has(FULL))) return <Outlet />
+  if (!terminal) return null
   return (
     <>
       <FerryBoards
@@ -301,12 +314,22 @@ export default function TerminalPage({ loaderData }: Route.ComponentProps) {
           </Suspense>
         )}
         panelState={trip ? panelState : null}
+        rowLink={rowLink}
         track={search.has('map') ? (search.get('trip') ?? '') : null}
         panel={
           trip ? (
-            <PanelProvider value={controls}>
-              <Outlet />
-            </PanelProvider>
+            <Suspense fallback={null}>
+              <TripPanelHost
+                trip={trip}
+                board={boardHref(terminal.id, loaderData.to?.id)}
+                here={`${pathname}${query}`}
+                go={navigate}
+                back={() => navigate(-1)}
+                report={setPanelState}
+              >
+                <Outlet />
+              </TripPanelHost>
+            </Suspense>
           ) : null
         }
       >

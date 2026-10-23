@@ -10,24 +10,16 @@
  */
 
 import type { Alert } from '@bft/core/contract'
+import { boardState, type LinkRenderer } from '@bft/ui'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { BoardHeader, Chip, FilterRow, NowChip } from '@bft/ui/board-header'
+import { FULL, isWide, notWide, onWide, type PanelState, samePlace, showBoard } from '@bft/ui/board-route'
 import { NoticeStrip } from '@bft/ui/bus'
-import { awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
-import {
-  FULL,
-  PanelProvider,
-  type PanelState,
-  panelControls,
-  samePlace,
-  showBoard,
-  usePanelFocus,
-  useWide,
-  withPanel,
-} from '@bft/ui/panel'
-import { lazy, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react'
+import { awaitingSeedAnswer, pagePending, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { lazy, type ReactNode, Suspense, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import {
   data,
+  Link,
   Outlet,
   redirect,
   type ShouldRevalidateFunctionArgs,
@@ -55,7 +47,36 @@ import type { Route } from './+types/stop'
 
 // If this small chunk can't load, the page goes on without its map (SafeMap inside covers MapLibre itself).
 const NoMap = (() => null) as never // renders nothing, whatever the props
+// The trip as the board's panel (THE-118 PR 7): loaded with the trip, never on the board's first load.
+const TripPanelHost = lazy(() => import('@bft/ui/panel'))
 const StopMap = lazy(() => import('../components/StopMap.tsx').catch(() => ({ default: NoMap })))
+
+/**
+ * A stop board row's link: the board's URL as its state, so the trip's back link returns here (THE-118 PR 6). Bus home
+ * keeps the plain one (StopBoard), off its first load.
+ */
+function DeskRowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
+  const { pathname, search } = useLocation()
+  // Desktop (THE-118 PR 7): the open trip's row is marked; a row picked beside it replaces it in history, keeping
+  // what that entry knew of the board (a trip is never recorded as the board); and the board keeps its scroll (a trip's
+  // own page starts at the top itself: TripBackLink).
+  const open = useParams().tripInstance
+  return (
+    <Link
+      to={href}
+      className={className}
+      aria-label={label}
+      prefetch="intent"
+      state={open ? history.state?.usr : boardState(pathname, search)}
+      replace={!!open}
+      preventScrollReset
+      aria-current={(open && href.includes(`/${encodeURIComponent(open)}?`)) || undefined}
+    >
+      {children}
+    </Link>
+  )
+}
+const deskRowLink: LinkRenderer = (props) => <DeskRowLink {...props} />
 
 const STOP_RE = /^[\w-]{1,32}$/
 
@@ -175,12 +196,16 @@ type Data = Route.ComponentProps['loaderData']
 export default function StopPage({ loaderData }: Route.ComponentProps) {
   const { stopId } = loaderData
   const trip = useParams().tripInstance
-  const wide = useWide()
+  const wide = useSyncExternalStore(onWide, isWide, notWide)
   const [search] = useSearchParams()
+  // Which board this layout shows, before a trip's full page returns (Codex r3): its own data, not a placeholder.
+  showBoard(
+    'stop',
+    stopId && loaderData.board ? { from: stopId, to: null, filter: loaderData.route ?? null } : null,
+  )
   // The trip alone: a phone or tablet, its full page, or a trip with no stop to show the board of.
   if (trip && (!wide || !stopId || search.has(FULL))) return <Outlet />
   if (!stopId) return null
-  showBoard('stop', loaderData.board ? { from: stopId, to: null, filter: loaderData.route ?? null } : null)
   return <StopBoardPage loaderData={{ ...loaderData, stopId }} trip={trip} panel={trip ? <Outlet /> : null} />
 }
 
@@ -241,25 +266,15 @@ function StopBoardPage({
     if (res?.stop.name) pushRecent({ id: stopId, name: res.stop.name })
   }, [res?.stop.name, stopId])
 
-  const wide = useWide()
+  const wide = useSyncExternalStore(onWide, isWide, notWide)
   const { pathname, search } = useLocation()
   const [panelState, setPanelState] = useState<PanelState | null>(null)
-  const controls = panelControls(
-    (href, opts) => navigate(href, opts),
-    () => navigate(-1),
-    `${stopHref(stopId)}${only ? `?route=${encodeURIComponent(only)}` : ''}`,
-    `${pathname}${search}`,
-    setPanelState,
-  )
-  usePanelFocus(open, controls.close)
   // The header counts the open trip's own answer like a board's (R32-RT1).
-  const head = withPanel(
-    state == null && res?.rtState === 'live',
-    pending,
-    q,
-    state,
-    open ? panelState : null,
-  )
+  const live = state == null && res?.rtState === 'live'
+  const panelOn = open ? panelState : null
+  const head = panelOn
+    ? { live: live && panelOn.live, pending: pagePending([{ q, state }, panelOn]) }
+    : { live, pending }
   // At 1024 px and wider with no trip open, the panel has the stop's map: never a second one in the column.
   const panelMap = wide && !open
 
@@ -355,6 +370,7 @@ function StopBoardPage({
             offline={state === 'offline'}
             saved={isSaved}
             copyRanOut={state === 'offline' && hasTimetableCopy(stopId)}
+            renderLink={deskRowLink}
           />
           {routes.length ? (
             <section className="mt-4" aria-labelledby="routes-here">
@@ -379,7 +395,18 @@ function StopBoardPage({
         {/* The panel (1024 px and wider): the open trip, else the stop's map. */}
         <div className="board-panel" data-panel="">
           {open ? (
-            <PanelProvider value={controls}>{panel}</PanelProvider>
+            <Suspense fallback={null}>
+              <TripPanelHost
+                trip={open}
+                board={`${stopHref(stopId)}${only ? `?route=${encodeURIComponent(only)}` : ''}`}
+                here={`${pathname}${search}`}
+                go={navigate}
+                back={() => navigate(-1)}
+                report={setPanelState}
+              >
+                {panel}
+              </TripPanelHost>
+            </Suspense>
           ) : wide ? (
             <Suspense fallback={<div className="h-80 rounded-card bg-map-ground" />}>
               <StopMap stopId={stopId} name={name} departures={res?.departures ?? []} />

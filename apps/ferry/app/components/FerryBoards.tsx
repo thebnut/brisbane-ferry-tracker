@@ -14,6 +14,7 @@ import {
   DemoExitLink,
   formatAge,
   formatClock,
+  type LinkRenderer,
   OfflineBanner,
   useFixtureCookie,
   useKept,
@@ -108,6 +109,8 @@ export interface FerryBoardsProps {
   panelState?: { q: SeededQuery & { isError: boolean }; state: LiveState; live: boolean } | null
   /** A trip's "Track on map" (the terminal page's `?map=1&trip=`): the trip to follow on the open map, '' for none. */
   track?: string | null
+  /** The rows' links (the terminal page's, THE-118 PR 7). */
+  rowLink?: LinkRenderer
   children?: ReactNode
 }
 
@@ -137,6 +140,7 @@ export function FerryBoards({
   idle,
   panelState,
   track,
+  rowLink,
   children,
 }: FerryBoardsProps) {
   const [trip, setTrip] = useState({ from: serverFrom, to: serverTo })
@@ -358,6 +362,7 @@ export function FerryBoards({
             onRetry={() => void out.refetch()}
             offline={outState === 'offline'}
             tripHref={(d) => tripHref(d.tripInstance, fromId, trip.to?.id)}
+            renderLink={rowLink}
           />
         </div>
         {/* The panel (1024 px and wider): the open trip, else the return board, else the terminal's map. */}
@@ -375,6 +380,7 @@ export function FerryBoards({
                 onRetry={() => void back.refetch()}
                 offline={backState === 'offline'}
                 tripHref={(d) => tripHref(d.tripInstance, toId, fromId)}
+                renderLink={rowLink}
               />
             ) : (
               idle?.(boardsLive, out.data?.departures ?? [])

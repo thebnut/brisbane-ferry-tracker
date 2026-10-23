@@ -5,11 +5,11 @@
  */
 import type { Departure } from '@bft/core/contract'
 import { vesselName } from '@bft/ui'
+import { isWide, notWide, onWide } from '@bft/ui/board-route'
 import { liveState, usePageCheck } from '@bft/ui/connectivity'
 import type { MapMarker } from '@bft/ui/map'
-import { useWide } from '@bft/ui/panel'
 import SafeMap from '@bft/ui/safe-map'
-import { useMemo } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useFetcher } from '../lib/queries.ts'
 import { type StopChoice, terminalById } from '../lib/terminals.ts'
@@ -26,7 +26,7 @@ interface Props {
 
 /** Only at 1024 px and wider, where the panel shows (a phone fetches no positions for a hidden map). */
 export default function WideTerminalMap(props: Props) {
-  return useWide() ? <TerminalMap {...props} /> : null
+  return useSyncExternalStore(onWide, isWide, notWide) ? <TerminalMap {...props} /> : null
 }
 
 function TerminalMap({ terminal, live, departures, mode }: Props) {

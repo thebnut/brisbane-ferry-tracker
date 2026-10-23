@@ -155,7 +155,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
     `trip:${key}`,
     gone || (state == null && raw != null),
     !gone && (waiting || (!raw && !q.isError)),
-    !gone && q.isError,
+    !gone && (q.isError || q.failureCount > 0),
   )
 
   const head = (

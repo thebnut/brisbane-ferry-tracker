@@ -17,7 +17,7 @@ import {
 } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import { SkeletonRows } from '@bft/ui/bus'
-import { Link, useLocation, useParams } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { rowViews } from '../lib/departures.ts'
 import { stopHref, tripHref } from '../lib/stops.ts'
 
@@ -37,25 +37,16 @@ export const linkRenderer = ({
   </Link>
 )
 
-/**
- * A row's link to its trip page, carrying the board's URL so the trip's back link returns here (THE-118 PR 6).
- */
+/** A row's link to its trip page, carrying the board's URL so the trip's back link returns here (THE-118 PR 6). */
 function RowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
   const { pathname, search } = useLocation()
-  // Desktop (THE-118 PR 7): the open trip's row is marked; a row picked beside it replaces it in history, keeping
-  // what that entry knew of the board (a trip is never recorded as the board); and the board keeps its scroll (a trip's
-  // own page starts at the top itself: TripBackLink).
-  const open = useParams().tripInstance
   return (
     <Link
       to={href}
       className={className}
       aria-label={label}
       prefetch="intent"
-      state={open ? history.state?.usr : boardState(pathname, search)}
-      replace={!!open}
-      preventScrollReset
-      aria-current={(open && href.includes(`/${encodeURIComponent(open)}?`)) || undefined}
+      state={boardState(pathname, search)}
     >
       {children}
     </Link>
@@ -79,6 +70,8 @@ export interface DepartureListProps {
   saved?: boolean
   /** This device has a timetable copy for the stop, now run out (a stop viewed before, saved or not). */
   copyRanOut?: boolean
+  /** The rows' links: a stop page's know about the trip beside the board (THE-118 PR 7). */
+  renderLink?: LinkRenderer
 }
 
 /** True when every row is on a later Brisbane day (nothing more tonight). */
@@ -118,6 +111,7 @@ export function DepartureList({
   offline,
   saved,
   copyRanOut,
+  renderLink = rowLink,
 }: DepartureListProps) {
   const [expanded, setExpanded] = useKept<boolean>(`more:${stopId}`, false)
   if (!data) {
@@ -266,7 +260,7 @@ export function DepartureList({
               time={v.time}
               highlighted={v.highlighted}
               href={tripHref(v.departure.tripInstance, stopId)}
-              renderLink={rowLink}
+              renderLink={renderLink}
             />
           </li>
         ))}

@@ -1,34 +1,14 @@
 /**
- * Desktop master–detail (THE-118 PR 7). At 1024 px and wider every board is a column of about 640 px beside a 480 px
- * panel (board-grid, board-column and board-panel in theme.css). A row opens its trip in the panel at the trip's own
- * URL, so back closes it and the link can be shared; with no row open the panel shows the return board (a destination
- * is set) or the place's map. Below 1024 a row opens the trip's full page, as before.
- *
- * Each board's route module is a layout over the board URL and the trip URL: the board stays mounted while the panel
- * opens and closes, and its `shouldRevalidate` (samePlace) keeps the board's loader from running again. This module is
- * what the layouts and the trip pages share: the panel's controls, its focus and Esc, and the revalidation rule. The
- * boards' rows carry their few desktop props themselves (each app's RowLink): the boards' first load is tight, and
- * BrisbaneFerry's home board has no panel. The panel's chrome is in `@bft/ui/trip` (TripPanelFrame).
+ * The trip panel beside a board (THE-118 PR 7, see board-route.ts): what the board's layout gives the trip page (its
+ * context: ✕, "Open full page", the report of its own answer), the panel's focus and Esc. Loaded with the trip, never on
+ * a board's first load. The panel's chrome is TripPanelFrame in `@bft/ui/trip`.
  */
-import { createContext, useContext, useEffect, useRef, useSyncExternalStore } from 'react'
-import { type LiveState, pagePending, type SeededQuery } from './connectivity.ts'
+import { createContext, type ReactNode, useContext, useEffect, useRef } from 'react'
+import { FULL, type PanelState } from './board-route.ts'
+import type { LiveState, SeededQuery } from './connectivity.ts'
 import { BOARD_STATE } from './row.tsx'
 
-/** Where the board gets its panel. */
-export const WIDE = '(min-width: 1024px)'
-
-/** Client-only: false on the server and wherever matchMedia is missing. */
-export const isWide = () => typeof matchMedia === 'function' && matchMedia(WIDE).matches
-
-const subscribe = (change: () => void) => {
-  if (typeof matchMedia !== 'function') return () => {}
-  const m = matchMedia(WIDE)
-  m.addEventListener('change', change)
-  return () => m.removeEventListener('change', change)
-}
-
-/** Is the board wide enough for its panel? False on the server and while hydrating, so the first render matches. */
-export const useWide = () => useSyncExternalStore(subscribe, isWide, () => false)
+export type { PanelState }
 
 /** Is `href` the trip page of `tripInstance` (with or without a query)? */
 export function isTripHref(href: string, tripInstance: string): boolean {
@@ -44,17 +24,6 @@ export interface Panel {
   fullHref: string
   /** The trip's own answer for the page header, which the board's layout combines with the board's (R32-RT1). */
   report?: (state: PanelState | null) => void
-}
-
-/**
- * The trip's answer beside the board, as one more board for `pagePending` (R32-RT1): a trip still waiting keeps the
- * header at "Connecting…" only while nothing else has failed or answered not live, and its own failure or non-live
- * answer wins over a board still waiting. `live`: its own answer is live.
- */
-export interface PanelState {
-  q: SeededQuery & { isError: boolean }
-  state: LiveState
-  live: boolean
 }
 
 /**
@@ -82,23 +51,10 @@ export function usePanelReport(
   }, [report, gone, has, isError, failureCount, dataUpdatedAt, errorUpdateCount, state])
 }
 
-/** The trip beside the board, for the board's own `pagePending` and LIVE (a page with one board of its own). */
-export const withPanel = (
-  live: boolean,
-  pending: boolean,
-  board: PanelState['q'],
-  state: LiveState,
-  panel: PanelState | null,
-) =>
-  panel ? { live: live && panel.live, pending: pagePending([{ q: board, state }, panel]) } : { live, pending }
-
 const PanelContext = createContext<Panel | null>(null)
 export const PanelProvider = PanelContext.Provider
 /** Null: the trip is its own full page. */
 export const usePanel = () => useContext(PanelContext)
-
-/** The full page's search parameter: at desktop width the trip URL is the panel without it. */
-export const FULL = 'full'
 
 /** `href` (a path with its search) with `?full=1`. */
 export function fullHref(href: string): string {
@@ -114,28 +70,25 @@ export const fromBoardRow = () =>
   'string'
 
 /**
- * The panel's focus: into the panel when a trip opens (Enter on a row), back to that trip's row when it closes (Esc, ✕
- * or browser back), in the board column or the return board beside it. Esc closes the panel unless a sheet or dialog
- * is open over it.
+ * The panel's focus: into the panel when a row opens a trip (Enter on a row; on mount only when a row's link opened it,
+ * not for a trip opened from a link), back to that trip's row when the panel closes (Esc, ✕ or browser back), in the
+ * board column or the return board beside it. Esc closes the panel unless a sheet or dialog is open over it.
  */
-export function usePanelFocus(open: string | undefined, close: () => void) {
-  // A trip opened by a board row's link (also from another page's board, BrisbaneFerry's home) takes the focus too.
-  const last = useRef(fromBoardRow() ? undefined : open)
+function usePanelFocus(trip: string, close: () => void) {
+  const first = useRef(true)
+  const open = useRef(trip)
+  open.current = trip
   const closeRef = useRef(close)
   closeRef.current = close
+  // biome-ignore lint/correctness/useExhaustiveDependencies: again for each trip the panel shows (another row picked).
   useEffect(() => {
-    const prev = last.current
-    last.current = open
-    if (open === prev) return
+    const mount = first.current
+    first.current = false
     // The panel is in view already (sticky): no scroll for the focus.
-    if (open) document.querySelector<HTMLElement>('[data-trip-panel]')?.focus({ preventScroll: true })
-    else if (prev)
-      [...document.querySelectorAll<HTMLAnchorElement>('.board-grid a[href*="/trip/"]')]
-        .find((a) => isTripHref(a.getAttribute('href') ?? '', prev))
-        ?.focus()
-  }, [open])
+    if (!mount || fromBoardRow())
+      document.querySelector<HTMLElement>('[data-trip-panel]')?.focus({ preventScroll: true })
+  }, [trip])
   useEffect(() => {
-    if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return
       if (document.querySelector('dialog[open], [role="dialog"][data-state="open"]')) return
@@ -143,8 +96,17 @@ export function usePanelFocus(open: string | undefined, close: () => void) {
       closeRef.current()
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open])
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      // Closed: once the board has its idle panel back, the focus goes to the row of the trip that was open.
+      const last = open.current
+      setTimeout(() =>
+        [...document.querySelectorAll<HTMLAnchorElement>('.board-grid a[href*="/trip/"]')]
+          .find((a) => isTripHref(a.getAttribute('href') ?? '', last))
+          ?.focus(),
+      )
+    }
+  }, [])
 }
 
 type Go = (to: string, opts?: { replace?: boolean; state?: unknown; preventScrollReset?: boolean }) => void
@@ -172,66 +134,32 @@ export function panelControls(
   }
 }
 
-/** The board a URL is for: its place, destination and any filter the loader applies (a bus stop's `?route=`). */
-export interface Place {
-  from: string
-  to: string | null
-  filter: string | null
-  /** A trip URL (the board is the one it was opened from), not the board's own. */
-  trip: boolean
-}
-
 /**
- * A URL's place as written (`/<segment>/:id?to=&route=`, or a trip's `?from=&to=`): no lookups, so the client's
- * revalidation never loads the places' tables. A link that names one another way (an id for a slug) only costs a loader
- * run.
+ * The trip as the board's panel, loaded with the trip (each board's layout imports it lazily): the trip page's context
+ * (✕, "Open full page", its report to the header), focus into the panel when a row opens it and back to that row when
+ * it closes, and Esc. `board` is the board's URL, `here` the trip's; `go` and `back` are the router's.
  */
-export function placeOf(url: URL, segment: string): Place | null {
-  const own = new RegExp(`/${segment}/([^/]+)$`).exec(url.pathname)?.[1]
-  const from = own ? decodeURIComponent(own) : url.searchParams.get('from')
-  const q = url.searchParams
-  return from ? { from, to: q.get('to'), filter: q.get('route'), trip: !own } : null
-}
-
-const pair = (p: Place) => `${p.from}>${p.to ?? ''}`
-const either = (p: Place) => [pair(p), p.to ? `${p.to}>${p.from}` : null]
-
-/** The board each layout shows (by its URL segment): a trip URL keeps it, so the trip says nothing about it. */
-const shown = new Map<string, Place>()
-
-/**
- * The layout tells which board it shows (its loader's place, as `placeOf` would write it), or null while its data is
- * only a trip URL's placeholder (a trip opened from a link): then leaving the trip for the board runs the board's loader
- * once, for what only it has (the place's own section and meta). Client only.
- */
-export function showBoard(segment: string, place: Omit<Place, 'trip'> | null) {
-  if (typeof document === 'undefined') return
-  if (place) shown.set(segment, { ...place, trip: false })
-  else shown.delete(segment)
-}
-
-/**
- * A board's layout `shouldRevalidate` (its URL `/<segment>/:id`): its loader runs again only when the board changes
- * (another stop, destination, direction or filter; demo data on or off), not when a trip opens or closes beside it. A
- * trip from the return board (the other way) or beside a filtered board belongs to the board shown; leaving a trip for
- * a board URL is the same board only when it is the one shown (⇄ from beside a trip is a new board).
- */
-export function samePlace(
-  { currentUrl, nextUrl, formMethod }: { currentUrl: URL; nextUrl: URL; formMethod?: string },
-  segment: string,
-): boolean {
-  if (formMethod && formMethod !== 'GET') return false
-  if (currentUrl.href === nextUrl.href) return false
-  if (['fixtures', 'rt'].some((k) => currentUrl.searchParams.get(k) !== nextUrl.searchParams.get(k)))
-    return false
-  const now = placeOf(currentUrl, segment)
-  const next = placeOf(nextUrl, segment)
-  if (!now || !next) return false
-  const board = now.trip ? shown.get(segment) : now
-  if (!board) return false
-  return next.trip
-    ? either(board).includes(pair(next))
-    : pair(board) === pair(next) && board.filter === next.filter
+export default function TripPanelHost({
+  trip,
+  board,
+  here,
+  go,
+  back,
+  report,
+  children,
+}: {
+  trip: string
+  board: string
+  here: string
+  go: Go
+  back: () => void
+  /** The trip's own answer for the header (train reports through its Shell instead). */
+  report?: Panel['report']
+  children: ReactNode
+}) {
+  const panel = panelControls(go, back, board, here, report)
+  usePanelFocus(trip, panel.close)
+  return <PanelContext.Provider value={panel}>{children}</PanelContext.Provider>
 }
 
 /** A trip route's `shouldRevalidate`: not between its panel and its full page (the same trip, only `?full=` differs). */
