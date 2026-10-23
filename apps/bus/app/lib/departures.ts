@@ -12,6 +12,14 @@ import {
 } from '@bft/ui'
 import { routeShortOf } from './stops.ts'
 
+/**
+ * A "Depart from" board (the Now ▾ chip, THE-118 PR 5): only departures leaving at or after `at` (epoch s), by the time
+ * shown, so a bus timetabled just before it but running late enough still counts (Codex r2). A timetable copy (offline
+ * or not live) has no estimates, so its timetabled times decide.
+ */
+export const leavingFrom = <T extends { departures: Departure[] }>(res: T, at: number | null): T =>
+  at ? { ...res, departures: res.departures.filter((d) => (d.estDep ?? d.schedDep) >= at) } : res
+
 export interface RowView {
   key: string
   departure: Departure

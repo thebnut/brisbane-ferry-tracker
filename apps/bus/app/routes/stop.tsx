@@ -17,7 +17,7 @@ import { DepartureList, linkRenderer } from '../components/StopBoard.tsx'
 import { ApiError, fetchAlerts, fetchDepartures, fetchRouteIndex } from '../lib/api.ts'
 import { at, BASE } from '../lib/base.ts'
 import { validateAlerts, validateDepartures, validateRouteIndex } from '../lib/contract.server.ts'
-import { isActive, routesIn } from '../lib/departures.ts'
+import { isActive, leavingFrom, routesIn } from '../lib/departures.ts'
 import { useApi } from '../lib/mode.ts'
 import { liveView, refreshOfflineCopy, useAlerts, useDepartures } from '../lib/queries.ts'
 import { cachedRouteIndex } from '../lib/route-index.server.ts'
@@ -148,10 +148,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
   const view = liveView(stopId, q.data, now, online, page)
   const state = view.state
   // A later time's board: from that time on, whichever copy is shown (an offline copy runs from now).
-  const res =
-    departAt && view.data
-      ? { ...view.data, departures: view.data.departures.filter((d) => d.schedDep >= departAt) }
-      : view.data
+  const res = view.data && leavingFrom(view.data, departAt)
   const name = res?.stop.name ?? `Stop ${stopId}`
   const routes = useMemo(() => (res ? routesIn(res.departures) : []), [res])
   const platform = res?.departures.find((d) => d.stopId === stopId)?.platform ?? null

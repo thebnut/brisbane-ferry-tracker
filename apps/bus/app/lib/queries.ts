@@ -26,6 +26,7 @@ import {
   fetchStopIndex,
   OFFLINE_LIMIT,
 } from './api.ts'
+import { leavingFrom } from './departures.ts'
 import { readOffline, writeOffline } from './storage.ts'
 
 export const POLL_MS = 15_000
@@ -149,8 +150,7 @@ export function departuresOptions(
 ) {
   const queryKey = ['bus', 'departures', mode.fixtures, mode.rt, stopId, route, at] as const
   // A later time's board offline: the copies on hand from that time on.
-  const from = (b: Board | null): Board | null =>
-    b && at ? { ...b, departures: b.departures.filter((d) => d.schedDep >= at) } : b
+  const from = (b: Board | null): Board | null => b && leavingFrom(b, at)
   return {
     queryKey,
     queryFn: async ({ signal, client }: QueryFunctionContext<typeof queryKey>): Promise<Board> => {
