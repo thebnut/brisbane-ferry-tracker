@@ -6,7 +6,9 @@
  *
  * Each board's own polls get crafted rows relative to now (the first paint is the fixtures'): a cancelled service,
  * then live on time, live late, a live platform change (train) and one after Brisbane midnight. The page clock is
- * installed at the real time so the board's 15 s poll can be fast-forwarded.
+ * installed, so the board's 15 s poll can be fast-forwarded, at noon Brisbane time on the day the suite runs: well clear
+ * of midnight, so only the last row is tomorrow's whatever the time (at the real time, the rows 4–20 minutes ahead
+ * crossed midnight from about 23:52). `DEPARTURE_ROW_AT` (an ISO time) runs it as if at another time.
  */
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import { expect, type Locator, type Page, test } from '@playwright/test'
@@ -23,6 +25,11 @@ const DAY = 86_400
 const TZ = 'Australia/Brisbane'
 /** Brisbane midnight at the start of the next day, epoch s (UTC+10, no DST). */
 const nextMidnight = (s: number) => Math.floor((s + 10 * 3600) / DAY) * DAY - 10 * 3600 + DAY
+/** Noon Brisbane time on the day the suite runs (or on `DEPARTURE_ROW_AT`'s day), epoch ms. */
+const pinnedNowMs = () => {
+  const runS = Math.floor((Date.parse(process.env.DEPARTURE_ROW_AT ?? '') || Date.now()) / 1000)
+  return (nextMidnight(runS) - DAY + 12 * 3600) * 1000
+}
 
 interface Mode {
   name: string
@@ -91,7 +98,7 @@ function rows(mode: Mode, template: Departure, nowS: number): Departure[] {
 }
 
 async function open(page: Page, mode: Mode) {
-  const nowMs = Date.now()
+  const nowMs = pinnedNowMs()
   const nowS = Math.floor(nowMs / 1000)
   await page.clock.install({ time: nowMs })
   await page.context().route(mode.glob, async (route) => {
@@ -105,7 +112,8 @@ async function open(page: Page, mode: Mode) {
           ...body,
           rtState: 'live',
           rtSourceTimestamp: nowS,
-          generatedAt: Date.now(),
+          // On the page's clock (the poll is 16 s in), as the source time is.
+          generatedAt: nowMs + 16_000,
           departures: rows(mode, template, nowS),
         },
       })
