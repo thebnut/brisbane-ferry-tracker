@@ -37,19 +37,24 @@ const LiveMapSheet = lazy(() => import('./LiveMapSheet.tsx').catch(() => ({ defa
 const StopSelector = lazy(() => import('./StopSelector.tsx'))
 // The "To…" chip's sheet (Train's "Going to" sheet), off the first load. If its chunk can't load (offline before the
 // service worker cached it), a short sheet says so and the board stays; the next tap tries again, as DetailsSheet.
-const loadToSheet = () => lazy(() => import('./ToSheet.tsx').catch(() => ({ default: ToUnavailable })))
+// It stays mounted once opened, so closing it gives focus back to the chip (Codex r4).
+let toLoad = 0
+let toFailed = false
+const loadToSheet = () => {
+  toLoad++
+  toFailed = false
+  return lazy(() =>
+    import('./ToSheet.tsx').catch(() => {
+      toFailed = true
+      return { default: ToUnavailable }
+    }),
+  )
+}
 let ToSheet = loadToSheet()
 
-function ToUnavailable({ onClose }: { onClose: () => void }) {
+function ToUnavailable({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <BottomSheet
-      open
-      onClose={() => {
-        ToSheet = loadToSheet()
-        onClose()
-      }}
-      title="Choose where you're going"
-    >
+    <BottomSheet open={open} onClose={onClose} title="Choose where you're going">
       <p className="px-5 pb-5 text-sm">
         Destinations can't load without a connection. Try again once you're back online.
       </p>
@@ -135,10 +140,16 @@ export function FerryBoards({
   const [selected, setSelected] = useState<{ d: Departure; direction: 'outbound' | 'inbound' } | null>(null)
   const [showMap, setShowMap] = useState(false)
   const [showSelector, setShowSelector] = useState(false)
-  const [showTo, setShowTo] = useState(false)
+  // Null until first opened (then the sheet stays mounted: closing it gives focus back to the chip).
+  const [showTo, setShowTo] = useState<boolean | null>(null)
   const [Star, setStar] = useState<typeof FerryStar | null>(null)
   const [Alerts, setAlerts] = useState<typeof BoardAlerts | null>(null)
   const navigate = useNavigate()
+  const openTo = () => {
+    // The last try couldn't load the sheet: try again.
+    if (toFailed) ToSheet = loadToSheet()
+    setShowTo(true)
+  }
   const now = useNow(renderedAt, 5_000)
   const online = useOnline()
   const fetcher = useFetcher(mode)
@@ -277,7 +288,7 @@ export function FerryBoards({
             ]}
             star={
               Star ? (
-                <Star from={fromId} to={trip.to?.id ?? null} onPickDestination={() => setShowTo(true)} />
+                <Star from={fromId} to={trip.to?.id ?? null} onPickDestination={openTo} />
               ) : (
                 <span aria-hidden="true" className="block h-11 w-24 shrink-0" />
               )
@@ -287,7 +298,7 @@ export function FerryBoards({
               <Chip pressed={filter === 'all'} onClick={() => setFilter('all')}>
                 All
               </Chip>
-              <Chip opens on={!!trip.to} onClick={() => setShowTo(true)}>
+              <Chip opens on={!!trip.to} onClick={openTo}>
                 {trip.to ? `To ${toName}` : 'To…'}
               </Chip>
               {trip.to ? (
@@ -400,9 +411,11 @@ export function FerryBoards({
           />
         </Suspense>
       ) : null}
-      {showTo ? (
-        <Suspense fallback={<SheetFallback />}>
+      {showTo != null ? (
+        <Suspense fallback={showTo ? <SheetFallback /> : null}>
           <ToSheet
+            key={toLoad}
+            open={showTo}
             from={trip.from}
             to={trip.to}
             onPick={(id) => open(fromId, id)}

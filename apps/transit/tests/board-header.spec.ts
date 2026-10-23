@@ -171,6 +171,26 @@ function suite(desktop: boolean) {
       await expect(page.getByRole('dialog', { name: 'To, from Bulimba' })).toBeVisible()
     })
 
+    test('keyboard: "To…" opens its sheet; Escape gives focus back to the chip (Codex r4)', async ({
+      page,
+    }) => {
+      await page.goto('/ferry/terminal/bulimba')
+      const chip = chips(page).getByRole('button', { name: 'To…' })
+      await chip.focus()
+      await page.keyboard.press('Enter')
+      const sheet = page.getByRole('dialog', { name: 'To, from Bulimba' })
+      await expect(sheet).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(sheet).toBeHidden()
+      await expect(chip).toBeFocused()
+      // Again, then a pick by keyboard.
+      await page.keyboard.press('Enter')
+      await expect(sheet).toBeVisible()
+      await sheet.getByRole('button', { name: 'Riverside', exact: true }).focus()
+      await page.keyboard.press('Enter')
+      await expect(page).toHaveURL('/ferry/terminal/bulimba?to=riverside')
+    })
+
     test('⇄ flips the direction', async ({ page }) => {
       await page.goto('/ferry/terminal/bulimba?to=riverside')
       await chips(page).getByRole('button', { name: 'Swap direction' }).click()

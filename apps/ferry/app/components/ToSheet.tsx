@@ -7,11 +7,13 @@ import { cleanStopName } from '../lib/names.ts'
 import { type StopChoice, TERMINALS } from '../lib/terminals.ts'
 
 export default function ToSheet({
+  open,
   from,
   to,
   onPick,
   onClose,
 }: {
+  open: boolean
   from: StopChoice
   to: StopChoice | null
   /** A terminal, or null for any destination. */
@@ -25,7 +27,7 @@ export default function ToSheet({
   const name = cleanStopName(from.name)
   return (
     <DestinationSheet
-      open
+      open={open}
       onClose={onClose}
       title={`To, from ${name}`}
       note="Only terminals with a direct ferry are shown."
