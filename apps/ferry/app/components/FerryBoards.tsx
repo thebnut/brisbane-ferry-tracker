@@ -8,7 +8,7 @@
 
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import { BottomSheet, DemoExitLink, formatAge, formatClock, OfflineBanner, useFixtureCookie } from '@bft/ui'
-import { BoardHeader, Chip, FilterRow, NowChip } from '@bft/ui/board-header'
+import { BoardHeader, Chip, FilterRow, leavingFrom, NowChip } from '@bft/ui/board-header'
 import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -202,7 +202,8 @@ export function FerryBoards({
   const backShown = useShownData(back.data, toId, fromId, holds(back), now)
   const backData = trip.to ? backShown : undefined
   const view = (q: typeof out, data: typeof outData) =>
-    data ? applyFilter(visibleRows(data.departures, stateOf(q), now), filter) : null
+    // A later time's board: rows from then on, again once the live estimates are dropped (Codex r3).
+    data ? applyFilter(leavingFrom(visibleRows(data.departures, stateOf(q), now), departAt), filter) : null
   const outList = view(out, outData)
   const backList = view(back, backData)
   const express = hasExpress(outData?.departures, backData?.departures)

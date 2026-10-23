@@ -17,6 +17,7 @@ import {
   OfflineBanner,
   soonestIndex,
 } from '@bft/ui'
+import { leavingFrom } from '@bft/ui/board-header'
 import { usePageCheck } from '@bft/ui/connectivity'
 import { SaveToast, type SaveToastMessage } from '@bft/ui/save-toast'
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
@@ -165,7 +166,8 @@ export function StationBoard({
 
   const cards = useMemo(() => {
     // Not live: timetable only, no live estimates or platform changes, and nothing that has already left.
-    const rows = visibleRows(res?.departures ?? [], state, nowMs)
+    // A later time's board: rows from then on, again once the live estimates are dropped (Codex r3).
+    const rows = leavingFrom(visibleRows(res?.departures ?? [], state, nowMs), at)
     const line = (d: (typeof rows)[number]) => lineFor(d.route, d.headsign).name
     const list = rows.map((d, i) =>
       trainCard(
@@ -177,7 +179,7 @@ export function StationBoard({
       ),
     )
     return filter === 'express' ? list.filter((c) => c.express) : list
-  }, [res, nowMs, from.key, to?.key, filter, state])
+  }, [res, nowMs, from.key, to?.key, filter, state, at])
   // Offline with nothing to show before this board's first answer since the page loaded (an offline reload starts
   // with the cached page's data, maybe last night's): its copies on hand are still being read, so it is loading, not
   // "no saved timetable" (R6-B1).

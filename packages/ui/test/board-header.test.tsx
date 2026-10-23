@@ -2,7 +2,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { BoardHeader, Chip, chipClass, FilterRow, NowChip } from '../src/board-header.tsx'
+import { BoardHeader, Chip, chipClass, FilterRow, leavingFrom, NowChip } from '../src/board-header.tsx'
 import { DestinationChoices, DestinationSheet } from '../src/DestinationSheet.tsx'
 
 const NOW = Date.UTC(2026, 9, 22, 9, 38) // 7:38 pm Thu 22 Oct, Brisbane
@@ -112,5 +112,24 @@ describe('DestinationSheet', () => {
     expect(screen.getByRole('button', { name: 'Riverside' })).toHaveAttribute('aria-pressed', 'true')
     await userEvent.click(screen.getByRole('button', { name: 'Any destination' }))
     expect(onAny).toHaveBeenCalled()
+  })
+})
+
+describe('leavingFrom', () => {
+  const AT = 1_800_000_000
+  const rows = [
+    { id: 'gone', schedDep: AT - 60, estDep: null },
+    { id: 'late', schedDep: AT - 60, estDep: AT + 120 },
+    { id: 'on', schedDep: AT, estDep: AT },
+  ]
+  it('rows leaving at or after the time, by the time shown (a late one counts)', () => {
+    expect(leavingFrom(rows, AT).map((r) => r.id)).toEqual(['late', 'on'])
+  })
+  it('a board that dropped its estimates (offline, stale) shows none timetabled before it (Codex r3)', () => {
+    const scheduled = rows.map((r) => ({ ...r, estDep: null }))
+    expect(leavingFrom(scheduled, AT).map((r) => r.id)).toEqual(['on'])
+  })
+  it('now: every row', () => {
+    expect(leavingFrom(rows, null)).toBe(rows)
   })
 })
