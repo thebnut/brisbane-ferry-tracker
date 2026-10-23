@@ -296,7 +296,8 @@ export function DepartureRow({
           {extra ? (
             <>
               {shownFact(fact, '@lg:hidden')}
-              {shownFact(wideFact, 'hidden @lg:inline')}
+              {/* Screen-reader text on phones, so the row's name keeps it ("Ferny Grove express", Codex r3). */}
+              {shownFact(wideFact, 'sr-only @lg:not-sr-only')}
             </>
           ) : (
             shownFact(fact)

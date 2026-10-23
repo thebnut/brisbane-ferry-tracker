@@ -223,7 +223,7 @@ describe('DepartureRow', () => {
     )
     expect(container.querySelector('[data-extra]')?.className).toMatch(/\bhidden\b.*@lg:flex/)
     expect(screen.getByText('arr 7:54 pm').className).toContain('@lg:hidden')
-    expect(screen.getByText('Beenleigh line').className).toMatch(/\bhidden\b.*@lg:inline/)
+    expect(screen.getByText('Beenleigh line').className).toMatch(/\bsr-only @lg:not-sr-only/)
   })
   it('a cancelled row strikes the destination and has no countdown', () => {
     render(

@@ -168,6 +168,8 @@ function suite(wide: boolean) {
         await expect(target).not.toHaveAccessibleName(/Live|on time/)
         await expect(target).toHaveAccessibleName(mode.name === 'train' ? /Ferny Grove/ : /Destination 1/)
         await page.evaluate(() => document.documentElement.removeAttribute('data-live-unconfirmed'))
+        // The line (or "express") stays in the name on phones, where "arr …" is the visible fact (Codex r3).
+        if (mode.name === 'train') await expect(target).toHaveAccessibleName(/Ferny Grove line/)
         // No LIVE/GPS/SCHEDULED pills, and no "(23/10)" date tags.
         await expect(list.locator('[data-badge]')).toHaveCount(0)
         await expect(list).not.toContainText(/\(\d\d\/\d\d\)|LIVE|SCHEDULED|GPS ·/)
