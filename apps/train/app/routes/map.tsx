@@ -5,6 +5,7 @@
  */
 import type { Vehicle } from '@bft/core/contract'
 import { LineChip, StatusBadge } from '@bft/ui'
+import { liveState, usePageCheck } from '@bft/ui/connectivity'
 import type { MapMarker } from '@bft/ui/map'
 import SafeMap from '@bft/ui/safe-map'
 import { useMemo, useState } from 'react'
@@ -18,7 +19,7 @@ import { useFetcher, useTrip, useVehicles } from '../lib/queries.ts'
 import { pageMeta } from '../lib/seo.ts'
 import { getEnv, isFixtureMode, siteInfo } from '../lib/server.server.ts'
 import { vehicleStatusText } from '../lib/trip.ts'
-import { useMounted } from '../lib/useNow.ts'
+import { useMounted, useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/map'
 
 export function loader({ request, context }: Route.LoaderArgs) {
@@ -92,6 +93,8 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
   const { mode, station } = loaderData
   const fetcher = useFetcher(mode)
   const q = useVehicles(fetcher, mode, true)
+  // The header claims LIVE only from the trains' own fresh answer (shared liveState); none yet: "Connecting…".
+  const state = liveState(q.data, { offline: !useOnline(), nowMs: useNow(Date.now()), ...usePageCheck() })
   const [selected, setSelected] = useState<string | null>(null)
   const vehicles = q.data?.vehicles ?? []
   const centre = stationByKey(station) ?? (stationByKey('central') as Station)
@@ -137,7 +140,7 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
   )
 
   return (
-    <Shell active="map">
+    <Shell active="map" live={q.data != null && state == null} pending={!q.data && !q.isError}>
       <div className="relative mx-auto max-w-6xl">
         {mounted ? (
           <SafeMap
