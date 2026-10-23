@@ -156,7 +156,9 @@ test('the server HTML never puts LIVE over stale boards (Codex review)', async (
   const html = await (await request.get('/station/roma-street?to=indooroopilly&rt=stale')).text()
   const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'))
   expect(header).not.toContain('>LIVE<')
-  expect(header).toContain('>OFFLINE<')
+  // Stale seeds: "Connecting…" until the boards' own answers, never OFFLINE first (R32-RT1).
+  expect(header).toContain('data-connection="connecting"')
+  expect(header).not.toContain('>OFFLINE<')
   const live = await (await request.get('/station/roma-street?to=indooroopilly')).text()
   expect(live.slice(live.indexOf('<header'), live.indexOf('</header>'))).toContain('>LIVE<')
 })
