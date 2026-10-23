@@ -154,6 +154,23 @@ function suite(desktop: boolean) {
       await expect(page).toHaveURL('/ferry/terminal/bulimba')
     })
 
+    test('the "To…" sheet unable to load leaves the board up, and the next tap tries again (Codex r1)', async ({
+      page,
+    }) => {
+      await page.goto('/ferry/terminal/bulimba')
+      let block = true
+      await page.route('**/assets/ToSheet-*.js', (route) => (block ? route.abort() : route.continue()))
+      await chips(page).getByRole('button', { name: 'To…' }).click()
+      const sheet = page.getByRole('dialog', { name: "Choose where you're going" })
+      await expect(sheet).toContainText("can't load without a connection")
+      await page.keyboard.press('Escape')
+      await expect(sheet).toHaveCount(0)
+      await expect(page.locator('[data-board=outbound]')).toBeVisible()
+      block = false
+      await chips(page).getByRole('button', { name: 'To…' }).click()
+      await expect(page.getByRole('dialog', { name: 'To, from Bulimba' })).toBeVisible()
+    })
+
     test('⇄ flips the direction', async ({ page }) => {
       await page.goto('/ferry/terminal/bulimba?to=riverside')
       await chips(page).getByRole('button', { name: 'Swap direction' }).click()

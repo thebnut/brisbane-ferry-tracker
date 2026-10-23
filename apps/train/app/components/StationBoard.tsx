@@ -45,10 +45,23 @@ export const MORE_LIMIT = 30
  */
 export function useStar(f: Favourite, name: string, pickDestination: () => void) {
   const [list, setList] = useState<Favourite[]>([])
-  /** `evicted`: the favourite a full list let go to make room (MAX_FAVOURITES), and its place, for Undo. */
+  /**
+   * `fav`: the favourite the toast is about, which Undo takes out even after the page has moved to another board (the
+   * star lives on the station page, THE-118 PR 5). `evicted`: the one a full list let go to make room (MAX_FAVOURITES),
+   * and its place, for Undo.
+   */
   const [toast, setToast] = useState<
-    (SaveToastMessage & { evicted: { fav: Favourite; at: number } | null }) | null
+    (SaveToastMessage & { fav: Favourite; evicted: { fav: Favourite; at: number } | null }) | null
   >(null)
+  // On another board, "Pick a destination" would pick for that board, not the saved one: only Undo stays.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the board.
+  useEffect(
+    () =>
+      setToast((t) =>
+        t?.pickDestination && !sameFavourite(t.fav, f) ? { ...t, pickDestination: undefined } : t,
+      ),
+    [f.from, f.to],
+  )
   // The list as stored, again when another tab changes it.
   useEffect(() => {
     const read = () => setList(readFavourites())
@@ -76,18 +89,21 @@ export function useStar(f: Favourite, name: string, pickDestination: () => void)
     const evicted = adding && at >= 0 ? { fav: before[at] as Favourite, at } : null
     setToast(
       !kept
-        ? { name, evicted: null, kept, remove: !adding }
+        ? { name, fav: f, evicted: null, kept, remove: !adding }
         : adding
-          ? { name, evicted, pickDestination: f.to ? undefined : pickDestination }
+          ? { name, fav: f, evicted, pickDestination: f.to ? undefined : pickDestination }
           : null,
     )
   }
   const undo = () => {
+    if (!toast) return
+    const fav = toast.fav
     let now = readFavourites()
-    if (now.some((x) => sameFavourite(x, f))) now = writeFavourites(now.filter((x) => !sameFavourite(x, f)))
+    if (now.some((x) => sameFavourite(x, fav)))
+      now = writeFavourites(now.filter((x) => !sameFavourite(x, fav)))
     // The one a full list let go comes back at its place, unless it was saved again since, or the list is full again
     // (saved to elsewhere since): it never pushes another favourite out.
-    const ev = toast?.evicted
+    const ev = toast.evicted
     if (ev && now.length < MAX_FAVOURITES && !now.some((x) => sameFavourite(x, ev.fav)))
       now = writeFavourites([...now.slice(0, ev.at), ev.fav, ...now.slice(ev.at)])
     setList(readFavourites())

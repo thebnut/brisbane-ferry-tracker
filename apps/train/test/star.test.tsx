@@ -76,4 +76,22 @@ describe('train board star', () => {
     act(() => screen.getByRole('button', { name: 'Pick a destination' }).click())
     expect(picked).toBe(1)
   })
+
+  it('Undo takes out the favourite its toast is about, after the page has moved to another board (THE-118 PR 5, Codex r1)', () => {
+    localStorage.setItem(FAVOURITES_KEY, JSON.stringify([{ from: 'roma-street', to: null }]))
+    const { result, rerender } = renderHook(({ f, name }) => useStar(f, name, () => {}), {
+      initialProps: { f: { from: 'central', to: null as string | null }, name: 'Central' },
+    })
+    act(() => result.current.toggle())
+    expect(readFavourites()).toContainEqual({ from: 'central', to: null })
+    // The station page moves on to Roma Street (saved before) while the toast is up.
+    rerender({ f: { from: 'roma-street', to: null }, name: 'Roma Street' })
+    const { unmount } = render(result.current.toast)
+    // Saved without a destination, but no "Pick a destination" for another board.
+    expect(screen.queryByRole('button', { name: 'Pick a destination' })).toBeNull()
+    act(() => screen.getByRole('button', { name: 'Undo' }).click())
+    unmount()
+    expect(readFavourites()).toEqual([{ from: 'roma-street', to: null }])
+    expect(result.current.saved).toBe(true)
+  })
 })

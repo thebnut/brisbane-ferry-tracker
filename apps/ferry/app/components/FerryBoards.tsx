@@ -35,8 +35,27 @@ import { SiteHeader, UpdatedStrip } from './header.tsx'
 const NoMap = (() => null) as never // renders nothing, whatever the props
 const LiveMapSheet = lazy(() => import('./LiveMapSheet.tsx').catch(() => ({ default: NoMap })))
 const StopSelector = lazy(() => import('./StopSelector.tsx'))
-// The "To…" chip's sheet (Train's "Going to" sheet), off the first load.
-const ToSheet = lazy(() => import('./ToSheet.tsx'))
+// The "To…" chip's sheet (Train's "Going to" sheet), off the first load. If its chunk can't load (offline before the
+// service worker cached it), a short sheet says so and the board stays; the next tap tries again, as DetailsSheet.
+const loadToSheet = () => lazy(() => import('./ToSheet.tsx').catch(() => ({ default: ToUnavailable })))
+let ToSheet = loadToSheet()
+
+function ToUnavailable({ onClose }: { onClose: () => void }) {
+  return (
+    <BottomSheet
+      open
+      onClose={() => {
+        ToSheet = loadToSheet()
+        onClose()
+      }}
+      title="Choose where you're going"
+    >
+      <p className="px-5 pb-5 text-sm">
+        Destinations can't load without a connection. Try again once you're back online.
+      </p>
+    </BottomSheet>
+  )
+}
 // Opened from a departure: off the first load (R15-S1 offset: the skew-free clock code is on every page's first load).
 // The service worker precaches it; if it still can't load (offline before the worker was installed), a short sheet
 // says so and the boards stay, and the next tap tries again (Codex r2).
