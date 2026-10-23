@@ -17,6 +17,7 @@ const onlyIn = (project: string) =>
 const PAGES = [
   '/ferry',
   '/ferry/terminal/bulimba',
+  '/ferry/map',
   '/train',
   '/train/stations',
   '/train/station/central',

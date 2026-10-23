@@ -110,6 +110,9 @@ export function markerElement(m: MapMarker): HTMLElement {
   const shape = m.shape ?? 'circle'
   const colour = TONE_COLOUR[m.tone ?? 'allstops']
   el.className = 'bft-marker'
+  // The pin's shape and tone, for the map pages' tests (THE-118 PR 9).
+  el.dataset.shape = shape
+  el.dataset.tone = m.tone ?? 'allstops'
   el.setAttribute('aria-label', m.label)
   el.title = m.label
   if (m.onClick) (el as HTMLButtonElement).type = 'button'

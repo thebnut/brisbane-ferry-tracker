@@ -88,6 +88,7 @@ export function Shell({
   live: dataLive,
   pending = false,
   back,
+  bleed = false,
   children,
 }: {
   active: string
@@ -101,6 +102,8 @@ export function Shell({
   pending?: boolean
   /** The parent page, for the header's back link (BrisbaneTransit). */
   back?: { href: string; label: string; onClick?: (e: MouseEvent<HTMLAnchorElement>) => void }
+  /** A full-bleed page (the map, THE-118 PR 9): its own `<main>`, and no footer. */
+  bleed?: boolean
   children: ReactNode
 }) {
   const [settings, setSettings] = useState<boolean | null>(null)
@@ -139,9 +142,13 @@ export function Shell({
       {/* The status strip reads the page's live answer: above the page, or a board's below its header (THE-118 PR 5). */}
       <ShellLive.Provider value={state}>
         {strip}
-        <main className="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">{children}</main>
+        {bleed ? (
+          children
+        ) : (
+          <main className="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">{children}</main>
+        )}
       </ShellLive.Provider>
-      <Footer />
+      {bleed ? null : <Footer />}
       <TrainNav active={active} />
       {/* Mounted from the first open on: closing the sheet (not unmounting it) gives focus back to Settings. */}
       {settings != null ? (

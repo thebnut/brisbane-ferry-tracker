@@ -27,6 +27,7 @@ describe('transitPath (P6 mapping)', () => {
     ['ferry', '/', '/ferry'],
     ['ferry', '/terminal/bulimba', '/ferry/terminal/bulimba'],
     ['ferry', '/privacy', '/ferry/privacy'],
+    ['ferry', '/map', '/ferry/map'],
     ['ferry', '/terms', '/ferry/terms'],
     ['ferry', '/feedback', '/feedback'],
     ['train', '/', '/train'],

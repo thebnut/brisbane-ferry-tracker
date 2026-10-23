@@ -8,7 +8,7 @@
  * decides (HomeSaved.tsx, with the favourites' code).
  */
 import type { DeparturesResponse } from '@bft/core/contract'
-import { DemoExitLink, OfflineBanner, useFixtureCookie, useGeolocation } from '@bft/ui'
+import { DemoExitLink, Icon, OfflineBanner, useFixtureCookie, useGeolocation } from '@bft/ui'
 import { asSeed, awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import {
   AboutTimes,
@@ -28,6 +28,7 @@ import { Footer } from '../components/Chrome.tsx'
 import type HomeSaved from '../components/HomeSaved.tsx'
 import { SiteHeader } from '../components/header.tsx'
 import { fetchDepartures } from '../lib/api.ts'
+import { at } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { boardState } from '../lib/departures.ts'
 import { CARD_ROWS, type Trip, useTripCard } from '../lib/home-card.ts'
@@ -187,13 +188,27 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       <SiteHeader onSettings={() => setSelector(true)} live={reports.live} pending={reports.pending} />
       <main className="mx-auto flex max-w-2xl flex-col gap-6 px-3.5 pt-4 pb-4 md:px-4">
         <HomeTitle title="Ferry">
-          {mounted ? (
-            <Suspense fallback={<SearchPlaceholder label="Find a terminal" placeholder="Terminal name" />}>
-              <TerminalSearch />
-            </Suspense>
-          ) : (
-            <SearchPlaceholder label="Find a terminal" placeholder="Terminal name" />
-          )}
+          {/* The search, and the live ferry map beside it (THE-118 PR 9), as on Train. */}
+          <div className="flex items-end gap-2">
+            <div className="min-w-0 flex-1">
+              {mounted ? (
+                <Suspense
+                  fallback={<SearchPlaceholder label="Find a terminal" placeholder="Terminal name" />}
+                >
+                  <TerminalSearch />
+                </Suspense>
+              ) : (
+                <SearchPlaceholder label="Find a terminal" placeholder="Terminal name" />
+              )}
+            </div>
+            <Link
+              to={at('/map')}
+              className="flex min-h-12 shrink-0 items-center gap-1.5 rounded-full border-2 border-ferry-orange/30 bg-white px-3.5 text-sm font-bold text-aqua-text no-underline dark:bg-night-card dark:text-ferry-aqua-light"
+            >
+              <Icon name="map" size={18} />
+              Map
+            </Link>
+          </div>
         </HomeTitle>
         {mode.fixtures ? (
           <p

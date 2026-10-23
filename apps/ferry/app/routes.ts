@@ -7,6 +7,8 @@ export default [
     route('terminal/:slug', 'routes/board.tsx'),
     route('trip/:tripInstance', 'routes/trip.tsx'),
   ]),
+  // The live ferry map (THE-118 PR 9), which replaced the board's map sheet.
+  route('map', 'routes/map.tsx'),
   route('privacy', 'routes/privacy.tsx'),
   route('terms', 'routes/terms.tsx'),
   route('feedback', 'routes/feedback.tsx'),

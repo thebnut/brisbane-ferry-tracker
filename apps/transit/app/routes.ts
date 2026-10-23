@@ -20,6 +20,7 @@ export default [
         route('terminal/:slug', app('ferry', 'board.tsx'), { id: 'ferry/board' }),
         route('trip/:tripInstance', app('ferry', 'trip.tsx'), { id: 'ferry/trip' }),
       ]),
+      route('map', app('ferry', 'map.tsx'), { id: 'ferry/map' }),
       route('privacy', app('ferry', 'privacy.tsx'), { id: 'ferry/privacy' }),
       route('terms', app('ferry', 'terms.tsx'), { id: 'ferry/terms' }),
     ]),

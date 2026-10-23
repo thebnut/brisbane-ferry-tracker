@@ -47,6 +47,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Extra services run outside the timetable now show where they’re going and their platform, and say “Extra service” instead of a delay.',
       'Ferry, Train and Bus each open on the same simple home: a search, your saved trips and stops, the nearest ones once you choose to share your location, and popular places.',
       'Your first saved ferry trip sits at the top of Ferry with a big countdown to its next departure. Save a trip with the star on any board.',
+      'Ferry has a full-screen live map like Train and Bus: every terminal and every ferry with GPS. Open it from Ferry’s home or a terminal’s Map button.',
+      'A board’s Map button opens the map on that terminal, station or stop, and “Track on map” on a trip follows your ferry, train or bus.',
+      'The bus map draws stops once you zoom in to streets, so it stays quick when you look at the whole city.',
     ],
   },
   {

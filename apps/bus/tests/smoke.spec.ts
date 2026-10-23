@@ -102,7 +102,7 @@ test('save and unsave a stop', async ({ page }) => {
   await expect(page.getByText('Mater Hill station, platform 1').locator('visible=true').first()).toBeVisible()
 })
 
-test('route filter and per-stop map', async ({ page }) => {
+test('route filter, and the Map chip opens the bus map on the stop', async ({ page }) => {
   await page.goto('/stop/10802')
   // The first route pill, not a fixed route: pills follow departure order, which depends on the time of day.
   const pill = page.getByRole('group', { name: 'Filter by route' }).getByRole('button').nth(1)
@@ -111,8 +111,10 @@ test('route filter and per-stop map', async ({ page }) => {
   const rows = page.getByTestId('departure')
   await expect(rows.first()).toBeVisible()
   for (const t of await rows.allTextContents()) expect(t).toMatch(new RegExp(`^Route ${route}(?![0-9])`))
-  await page.getByRole('button', { name: 'Map' }).click()
-  await expect(page.getByRole('region', { name: /Map of Cultural Centre/ })).toBeVisible()
+  // The Map chip opens the bus map on this stop (THE-118 PR 9).
+  await page.getByRole('link', { name: 'Map', exact: true }).click()
+  await expect(page).toHaveURL(/\/map\?stop=10802$/)
+  await expect(page.getByRole('region', { name: /Map of \d+ bus stops/ })).toBeVisible()
 })
 
 test('nearby from a position, including stops across the tile edge', async ({ page }, testInfo) => {

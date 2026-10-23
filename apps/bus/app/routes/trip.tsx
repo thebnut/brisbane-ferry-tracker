@@ -52,7 +52,7 @@ import { validateRoute, validateTrip } from '../lib/contract.server.ts'
 import { useApi } from '../lib/mode.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
-import { routeHref, stopHref } from '../lib/stops.ts'
+import { stopHref } from '../lib/stops.ts'
 import { at, needsStopNames, schedAt, stopNamesFor, timeline, unnamedStop } from '../lib/trip.ts'
 import { fetchTrip, isGone, useTrip } from '../lib/trip-queries.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
@@ -290,7 +290,8 @@ function TripBody({
       ) : null}
       <TripDock>
         <Link
-          to={`${routeHref(trip.route.short)}?trip=${encodeURIComponent(tripKey)}`}
+          // The bus map following this bus among its route's (THE-118 PR 9).
+          to={`${appAt('/map')}?${new URLSearchParams({ route: trip.route.short, trip: tripKey, ...(from ? { stop: from } : {}) })}`}
           className={trackClass}
         >
           <Icon name="map" size={20} />

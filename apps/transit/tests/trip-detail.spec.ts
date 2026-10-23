@@ -348,7 +348,7 @@ function suite(phone: boolean) {
       await expect(express).toHaveAttribute('aria-pressed', 'true')
     })
 
-  test('ferry: "Track on map" opens the board\'s map following this trip\'s ferry', async ({
+  test('ferry: "Track on map" opens the live ferry map following this trip\'s ferry', async ({
     page,
     context,
     request,
@@ -385,9 +385,10 @@ function suite(phone: boolean) {
     await page.goto(href)
     await expect(page.locator('html[data-hydrated]')).toHaveCount(1)
     await page.locator('[data-trip-dock]').getByRole('link', { name: 'Track on map' }).click()
-    await expect(page).toHaveURL(/map=1/)
+    // The map page (THE-118 PR 9), which replaced the board's map sheet.
+    await expect(page).toHaveURL(/\/ferry\/map\?terminal=bulimba&trip=/)
     expect(new URL(page.url()).searchParams.get('trip')).toBe(key)
-    await expect(page.getByRole('dialog', { name: 'Live ferry map' })).toContainText('Following Mudlark')
+    await expect(page.locator('[data-map-card]')).toContainText('Mudlark · your trip')
   })
 
   test('the train live marker still moves down the line', async ({ page, context, request }) => {

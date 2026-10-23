@@ -1,7 +1,8 @@
 /**
  * A ferry terminal's board (THE-118 PR 5): the board header (kicker, terminal, routes, alert count, star) with one
  * filter row (All, To… ▾, ⇄, Express, Map, Now ▾), the status line, rtState/offline banners and the departures
- * (each row opens its trip page, THE-118 PR 6), with the live map and stop selector. Rendered on the server with the
+ * (each row opens its trip page, THE-118 PR 6) and the stop selector; Map opens the live ferry map on this terminal
+ * (THE-118 PR 9). Rendered on the server with the
  * loader's rows, then polled every 15 s while visible.
  *
  * At 1024 px and wider the board is a column beside a panel (THE-118 PR 7): the trip a row opened, else with a "To" the
@@ -14,12 +15,13 @@ import {
   DemoExitLink,
   formatAge,
   formatClock,
+  Icon,
   type LinkRenderer,
   OfflineBanner,
   useFixtureCookie,
   useKept,
 } from '@bft/ui'
-import { BoardHeader, Chip, FilterRow, leavingFrom, NowChip } from '@bft/ui/board-header'
+import { BoardHeader, Chip, chipClass, FilterRow, leavingFrom, NowChip } from '@bft/ui/board-header'
 import {
   type LiveState,
   pagePending,
@@ -28,7 +30,7 @@ import {
   usePageCheck,
 } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import {
   applyFilter,
   bannerState,
@@ -42,6 +44,7 @@ import { type DataMode, useDepartures, useFetcher, useShownData } from '../lib/q
 import { FIXTURE_COOKIE, readDepartAt, writeDepartAt } from '../lib/storage.ts'
 import {
   boardHref,
+  mapHref,
   normalisePair,
   type StopChoice,
   type StopPair,
@@ -54,9 +57,6 @@ import { DepartureList } from './DepartureList.tsx'
 import type FerryStar from './FerryStar.tsx'
 import { SiteHeader, UpdatedStrip } from './header.tsx'
 
-// If the map sheet's chunk can't load, the board stays up (the Map button just does nothing).
-const NoMap = (() => null) as never // renders nothing, whatever the props
-const LiveMapSheet = lazy(() => import('./LiveMapSheet.tsx').catch(() => ({ default: NoMap })))
 const StopSelector = lazy(() => import('./StopSelector.tsx'))
 // The "To…" chip's sheet (Train's "Going to" sheet), off the first load. If its chunk can't load (offline before the
 // service worker cached it), a short sheet says so and the board stays; the next tap tries again.
@@ -102,8 +102,6 @@ export interface FerryBoardsProps {
   idle?: (live: boolean, departures: Departure[]) => ReactNode
   /** The open trip's own answer, which the header counts like a board's (R32-RT1). */
   panelState?: { q: SeededQuery & { isError: boolean }; state: LiveState; live: boolean } | null
-  /** A trip's "Track on map" (the terminal page's `?map=1&trip=`): the trip to follow on the open map, '' for none. */
-  track?: string | null
   /** The rows' links (the terminal page's, THE-118 PR 7). */
   rowLink?: LinkRenderer
   children?: ReactNode
@@ -133,16 +131,12 @@ export function FerryBoards({
   panel,
   idle,
   panelState,
-  track,
   rowLink,
   children,
 }: FerryBoardsProps) {
   const trip = { from: serverFrom, to: serverTo }
   const [filter, setFilter] = useKept<ServiceFilter>('filter', 'all')
   const [departAt, setDepartAt] = useState<number | null>(null)
-  const [showMap, setShowMap] = useState(false)
-  // The trip a trip page's "Track on map" follows (`?trip=`).
-  const [follow, setFollow] = useState<string | null>(null)
   const [showSelector, setShowSelector] = useState(false)
   // Null until first opened (then the sheet stays mounted: closing it gives focus back to the chip).
   const [showTo, setShowTo] = useState<boolean | null>(null)
@@ -183,12 +177,6 @@ export function FerryBoards({
   // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0. Never from the data mode alone: an API
   // failure that fell back to fixtures (FIXTURE_FALLBACK) used to make demo mode stick for the session (R7-B1).
   useFixtureCookie(FIXTURE_COOKIE, mode.fixtures, mode.forced === true, mode.allowed === true)
-  // A trip's "Track on map" (THE-118 PR 6): the board with its map open, also from the panel beside it (PR 7).
-  useEffect(() => {
-    if (track == null) return
-    setShowMap(true)
-    setFollow(track || null)
-  }, [track])
 
   const fromId = trip.from.id
   const toId = trip.to?.id ?? ''
@@ -297,9 +285,11 @@ export function FerryBoards({
                   Express
                 </Chip>
               ) : null}
-              <Chip icon="map" pressed={showMap} onClick={() => setShowMap((v) => !v)}>
+              {/* The live ferry map, on this terminal (THE-118 PR 9). */}
+              <Link to={mapHref(fromId)} className={chipClass()}>
+                <Icon name="map" size={18} />
                 Map
-              </Chip>
+              </Link>
               <NowChip
                 value={departAt}
                 onChange={(v) => {
@@ -371,30 +361,6 @@ export function FerryBoards({
 
       {children}
 
-      {showMap ? (
-        <Suspense fallback={<SheetFallback />}>
-          <LiveMapSheet
-            from={trip.from}
-            to={trip.to}
-            live={boardsLive}
-            departures={boards.flatMap((q) => q.data?.departures ?? [])}
-            fetcher={fetcher}
-            mode={mode}
-            follow={follow}
-            onClose={() => {
-              setShowMap(false)
-              setFollow(null)
-            }}
-            onSelect={(d) =>
-              navigate(
-                d.stopId === fromId
-                  ? tripHref(d.tripInstance, fromId, trip.to?.id)
-                  : tripHref(d.tripInstance, toId, fromId),
-              )
-            }
-          />
-        </Suspense>
-      ) : null}
       {showTo != null ? (
         <Suspense fallback={showTo ? <SheetFallback /> : null}>
           <ToSheet

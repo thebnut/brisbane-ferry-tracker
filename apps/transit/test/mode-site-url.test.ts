@@ -151,7 +151,8 @@ async function urlsOf(mode: string, file: string, siteUrl: string): Promise<stri
 describe('every mounted mode page', () => {
   it('covers all of them', () => {
     // Each board is a layout (its meta) over its own URL (board.tsx, no meta of its own) and the trip URL (THE-118 PR 7).
-    expect(PAGES.length).toBe(22)
+    // Ferry's map page (THE-118 PR 9).
+    expect(PAGES.length).toBe(23)
   })
 
   it.each(['production', 'production-preview', 'staging', undefined])(

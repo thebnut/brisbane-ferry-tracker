@@ -18,6 +18,7 @@
     "./destination-sheet": "./src/DestinationSheet.tsx",
     "./board-header": "./src/board-header.tsx",
     "./mode-home": "./src/mode-home.tsx",
+    "./map-page": "./src/map-page.tsx",
     "./save-toast": "./src/SaveToast.tsx",
     "./map": "./src/map/MapView.tsx",
     "./safe-map": "./src/map/SafeMap.tsx",
