@@ -9,7 +9,7 @@ test.use({ launchOptions: WEBGL_LAUNCH })
 
 test('R14-M1: opening the map asks only for fonts the basemap serves, and nothing 404s', async ({ page }) => {
   const seen = watchMapRequests(page)
-  await page.goto('/')
+  await page.goto('/terminal/bulimba?to=riverside')
   // The selector opens from Settings (P4: a first visit gets the onboarding prompt).
   await page.getByRole('button', { name: 'Settings' }).click()
   const sheet = page.getByRole('dialog', { name: 'Select ferry stops' })

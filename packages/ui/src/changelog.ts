@@ -45,6 +45,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'On a computer, tapping a departure opens its trip beside the board, so you can check one service after another. Back or Esc closes it, and “Open full page” gives it the whole screen.',
       'With a destination set on a computer, the trips back the other way sit beside the board. Without one, there’s a small map of the stop and what’s heading there.',
       'Extra services run outside the timetable now show where they’re going and their platform, and say “Extra service” instead of a delay.',
+      'Ferry, Train and Bus each open on the same simple home: a search, your saved trips and stops, the nearest ones once you choose to share your location, and popular places.',
+      'Your first saved ferry trip sits at the top of Ferry with a big countdown to its next departure. Save a trip with the star on any board.',
     ],
   },
   {

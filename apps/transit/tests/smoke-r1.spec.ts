@@ -5,11 +5,12 @@ test('Ferry tab: no stop selector opens by itself (X1; P4 moved the first visit 
   page,
 }) => {
   await page.goto('/ferry')
-  await expect(page.locator('[data-board=outbound]').getByTestId('departure').first()).toBeVisible()
+  await expect(page.locator('html[data-hydrated]')).toHaveCount(1)
+  await expect(page.getByRole('heading', { level: 1, name: 'Ferry' })).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'Select ferry stops' })).toBeHidden()
   for (let i = 0; i < 2; i++) {
     await page.reload()
-    await expect(page.locator('[data-board=outbound]').getByTestId('departure').first()).toBeVisible()
+    await expect(page.locator('html[data-hydrated]')).toHaveCount(1)
     await expect(page.getByRole('dialog', { name: 'Select ferry stops' })).toBeHidden()
   }
 })

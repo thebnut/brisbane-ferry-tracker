@@ -14,7 +14,11 @@ const rememberBulimbaRiverside = async (page: Page) => {
   })
 }
 
-test('home renders both boards with countdown chips', async ({ page, context, isMobile }, testInfo) => {
+test('a terminal board with To renders both boards with countdown chips', async ({
+  page,
+  context,
+  isMobile,
+}, testInfo) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   page.on('console', (m) => {
@@ -23,7 +27,7 @@ test('home renders both boards with countdown chips', async ({ page, context, is
   await rememberBulimbaRiverside(page)
   // A chip and a LIVE row at any hour.
   await pinUpcoming(context)
-  await page.goto('/')
+  await page.goto('/terminal/bulimba?to=riverside')
   const outbound = page.locator('[data-board=outbound]')
   await expect(outbound.getByTestId('departure')).toHaveCount(5)
   await refreshBoards(page)
@@ -47,7 +51,7 @@ test('home renders both boards with countdown chips', async ({ page, context, is
 
 test('more departures expands to 13', async ({ page }) => {
   await rememberBulimbaRiverside(page)
-  await page.goto('/')
+  await page.goto('/terminal/bulimba?to=riverside')
   const outbound = page.locator('[data-board=outbound]')
   await outbound.getByRole('button', { name: /More departures/ }).click()
   await expect(outbound.getByTestId('departure')).toHaveCount(13)
@@ -57,7 +61,7 @@ test('a departure opens its trip page, from Bulimba to Riverside, and goes back 
   page,
 }) => {
   await rememberBulimbaRiverside(page)
-  await page.goto('/')
+  await page.goto('/terminal/bulimba?to=riverside')
   await page.locator('[data-board=outbound] [data-testid=departure] a').first().click()
   await expect(page).toHaveURL(/\/trip\/[^?]+\?from=bulimba&to=riverside$/)
   const stops = page.getByRole('list', { name: 'Stops on your trip' })
@@ -68,11 +72,11 @@ test('a departure opens its trip page, from Bulimba to Riverside, and goes back 
     .getByRole('link', { name: 'Bulimba', exact: true })
     .or(page.getByRole('button', { name: 'Close trip details' }))
     .click()
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/terminal/bulimba?to=riverside')
 })
 
 test('the stop selector (Settings): changing stops updates the boards', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/terminal/bulimba?to=riverside')
   // The selector no longer opens by itself (P4: the first visit gets the onboarding prompt): Settings opens it.
   await page.getByRole('button', { name: 'Settings' }).click()
   const sheet = page.getByRole('dialog', { name: 'Select ferry stops' })
@@ -133,7 +137,7 @@ test('sitemap keeps the legacy URLs', async ({ request }) => {
 
 test('offline shows the "Offline · scheduled" banner', async ({ page, context }) => {
   await rememberBulimbaRiverside(page)
-  await page.goto('/')
+  await page.goto('/terminal/bulimba?to=riverside')
   await expect(page.locator('[data-board=outbound]').getByTestId('departure').first()).toBeVisible()
   await context.setOffline(true)
   await expect(page.getByText('Offline · scheduled')).toBeVisible()
@@ -148,7 +152,7 @@ test('first visit is cached for an offline reload (service worker)', async ({ pa
   // routing, so this checks the pieces; the offline reload itself was verified in desktop Chrome with the server
   // stopped (see the PR).
   await rememberBulimbaRiverside(page)
-  await page.goto('/')
+  await page.goto('/terminal/bulimba?to=riverside')
   await expect(page.locator('[data-board=outbound]').getByTestId('departure').first()).toBeVisible()
   const cachedHtml = () =>
     page.evaluate(async () => {
@@ -170,7 +174,7 @@ test('first visit is cached for an offline reload (service worker)', async ({ pa
 
 test('live data unavailable shows its banner', async ({ page }) => {
   await rememberBulimbaRiverside(page)
-  await page.goto('/?rt=unavailable')
+  await page.goto('/terminal/bulimba?to=riverside&rt=unavailable')
   await expect(page.getByText('Live times unavailable')).toBeVisible()
 })
 

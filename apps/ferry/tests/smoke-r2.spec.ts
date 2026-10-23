@@ -6,7 +6,7 @@
  */
 import { expect, type Page, test } from '@playwright/test'
 
-const PAGES = ['/']
+const PAGES = ['/terminal/bulimba?to=riverside']
 
 /** Records every frame in which a LIVE or GPS claim is visible, from the first paint on. */
 const recordLiveClaims = (page: Page) =>
@@ -92,7 +92,7 @@ test("a cached page: the header and an inbound departure wait for the inbound bo
   })
   // Serve the page as the service worker's page cache does (markCachedPages marks the <html> tag).
   await context.route(
-    (url) => url.pathname === '/',
+    (url) => url.pathname === '/terminal/bulimba',
     async (route) => {
       if (route.request().resourceType() !== 'document') return route.continue()
       const res = await route.fetch()
@@ -109,7 +109,7 @@ test("a cached page: the header and an inbound departure wait for the inbound bo
     await held
     await route.continue()
   })
-  await page.goto('/')
+  await page.goto('/terminal/bulimba?to=riverside')
   await page.waitForResponse((r) => r.url().includes('/stops/317584/departures') && r.ok(), {
     timeout: 45_000,
   })
@@ -141,7 +141,7 @@ test('a cached page: the live map (both directions) waits for every board, not j
     )
   })
   await context.route(
-    (url) => url.pathname === '/',
+    (url) => url.pathname === '/terminal/bulimba',
     async (route) => {
       if (route.request().resourceType() !== 'document') return route.continue()
       const res = await route.fetch()
@@ -158,7 +158,7 @@ test('a cached page: the live map (both directions) waits for every board, not j
     await held
     await route.continue()
   })
-  await page.goto('/')
+  await page.goto('/terminal/bulimba?to=riverside')
   await page.waitForResponse((r) => r.url().includes('/stops/317590/departures') && r.ok(), {
     timeout: 45_000,
   })

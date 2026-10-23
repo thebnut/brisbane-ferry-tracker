@@ -140,14 +140,22 @@ export function saveFerryPair(p: FerryHandoff): void {
     localStorage.removeItem(f.remember)
     localStorage.removeItem(f.pair)
   }
-  setCookie(
-    `${f.cookie}=${pair.outbound.id}.${pair.inbound.id}; path=/; samesite=lax${p.remember ? `; ${YEAR}` : ''}`,
-  )
   // As save-pair.ts: a remembered pair joins the ferry favourites, at the end.
-  const favs = Array.isArray(had) ? had : []
+  let favs = Array.isArray(had) ? had : []
   const fav = { from: pair.outbound.id, to: pair.inbound.id }
-  if (p.remember && !favs.some((x) => x?.from === fav.from && (x?.to ?? null) === fav.to))
-    localStorage.setItem(f.favourites, JSON.stringify([...favs, fav]))
+  if (p.remember && !favs.some((x) => x?.from === fav.from && (x?.to ?? null) === fav.to)) {
+    favs = [...favs, fav]
+    localStorage.setItem(f.favourites, JSON.stringify(favs))
+  }
+  // favourites.ts writePairCookie: the first favourite (a known terminal, its "To" when reachable), else none.
+  const first = favs.find((x) => typeof x?.from === 'string' && terminalById(x.from))
+  const origin = first ? terminalById(first.from) : null
+  const to = origin && typeof first?.to === 'string' && origin.destinations.includes(first.to) ? first.to : ''
+  setCookie(
+    origin
+      ? `${f.cookie}=fav.${origin.id}.${to}; path=/; samesite=lax; ${YEAR}`
+      : `${f.cookie}=; path=/; samesite=lax; max-age=0`,
+  )
   // The stop selector doesn't open by itself for someone who already chose their stops.
   localStorage.setItem(f.seen, '1')
 }
@@ -188,7 +196,7 @@ function writeLedger(change: { done?: string[]; pending?: string[]; dropped?: st
   localStorage.setItem(LEDGER_KEY, JSON.stringify(next))
 }
 
-/** A cookie a store writes, and whether it outlives the session (the ferry pair's only when remembered). */
+/** A cookie a store writes, and whether it outlives the session. */
 type CookieSpec = [name: string, persistent: boolean]
 
 /** The current values of some storage keys and cookies, and a function that puts them back as they were. */
@@ -238,9 +246,12 @@ function tryLedger(change: Parameters<typeof writeLedger>[0]): void {
   }
 }
 
-/** The ferry pair's cookie lasts a year only while the pair is remembered (ferry save-pair.ts). */
+/**
+ * The ferry cookie lasts a year when it holds a favourite (favourites.ts writePairCookie, THE-118 PR 8). An older
+ * value (the board's pair) may have been a session cookie, so it is put back as one.
+ */
 const FERRY_COOKIES = (): CookieSpec[] => [
-  [STORES.ferry.cookie, localStorage.getItem(STORES.ferry.remember) === 'true'],
+  [STORES.ferry.cookie, new RegExp(`(^|; )${STORES.ferry.cookie}=fav\\.`).test(document.cookie)],
 ]
 const FERRY_KEYS = (): [Storage, string][] => [
   [localStorage, STORES.ferry.pair],

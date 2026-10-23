@@ -35,7 +35,7 @@ describe('ferry onboarding', () => {
       inbound: { id: RIVERSIDE, name: r?.name },
     })
     expect(localStorage.getItem(STORAGE_KEYS.REMEMBER_SELECTION)).toBe('true')
-    expect(document.cookie).toContain(`${PAIR_COOKIE}=${BULIMBA}.${RIVERSIDE}`)
+    expect(document.cookie).toContain(`${PAIR_COOKIE}=fav.${BULIMBA}.${RIVERSIDE}`)
     expect(readSavedPair()?.inbound.id).toBe(RIVERSIDE)
     expect(ferryHasSaved()).toBe(true)
     // The selector never opens by itself after this, as after its own Save.

@@ -1,17 +1,29 @@
 /**
- * / (B-Home, B-Desktop): "My stops" cards with each saved stop's next 3 buses, and the search-first stop finder.
- * Saved stops travel in a cookie (first 3) so their rows are in the server HTML. Desktop shows full boards side by
- * side.
+ * Bus home (THE-118 PR 8, the mode-home skeleton): the title and the stop search (search-first, as before), Saved
+ * (saved stops as My Transit cards with each one's next buses; the first 3 travel in a cookie so their rows are in
+ * the server HTML), Near you (once the device's position is known), busy stops as chips, and the SEO copy closed
+ * under "About bus times".
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { formatClock, Icon, isExtraService, minutesUntil } from '@bft/ui'
-import { type MiniDeparture, MyStopCard } from '@bft/ui/bus'
-import { pagePending, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { Icon, SavedTripCard, useGeolocation } from '@bft/ui'
+import { asSeed, awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import {
+  AboutTimes,
+  HomeSection,
+  homeCard,
+  LiveReports,
+  PlaceChips,
+  SavedEmpty,
+  UseLocationRow,
+  useLiveReports,
+  useReportLive,
+} from '@bft/ui/mode-home'
+import { lazy, Suspense } from 'react'
 import { Link } from 'react-router'
 import { SearchPanel } from '../components/SearchPanel.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
-import { DepartureList, linkRenderer } from '../components/StopBoard.tsx'
+import { linkRenderer } from '../components/StopBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
 import { at } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
@@ -19,10 +31,13 @@ import { useApi } from '../lib/mode.ts'
 import { liveView, useAlerts, useManyDepartures } from '../lib/queries.ts'
 import { HOME_META, pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
-import { stopHref, stopMeta } from '../lib/stops.ts'
+import { stopHref } from '../lib/stops.ts'
 import { type SavedStop, savedFromCookie, useSavedStops } from '../lib/storage.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/home'
+
+// Only once the position is known.
+const NearYou = lazy(() => import('../components/NearYou.tsx'))
 
 /** Suggestions for a first visit (busiest busway platforms and city stops). */
 export const POPULAR: SavedStop[] = [
@@ -63,34 +78,56 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   return pageMeta({ ...HOME_META, url: `${siteUrl}/`, siteUrl })
 }
 
-function miniRows(res: DeparturesResponse | undefined, nowMs: number): MiniDeparture[] {
-  if (!res) return []
-  return res.departures.slice(0, 3).map((d) => {
-    const at = d.estDep ?? d.schedDep
-    const delay = d.estDep != null ? Math.round((d.estDep - d.schedDep) / 60) : 0
-    const status =
-      d.status === 'cancelled'
-        ? 'CANCELLED'
-        : d.status !== 'live'
-          ? 'SCHEDULED'
-          : isExtraService(d.tripInstance)
-            ? 'LIVE · Extra service'
-            : `LIVE · ${delay >= 1 ? `+${delay} min late` : delay <= -1 ? `${-delay} min early` : 'on time'}`
-    return {
-      key: `${d.tripInstance}:${d.stopSequence}`,
-      route: d.route.short,
-      routeLong: d.route.long,
-      destination: d.headsign,
-      status,
-      live: d.status === 'live',
-      minutes: minutesUntil(at, nowMs),
-      time: formatClock(at),
-    }
-  })
-}
-
 const chip =
   'flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-ferry-orange/20 bg-white/90 px-3.5 text-[13px] font-semibold whitespace-nowrap text-aqua-text dark:bg-night-card dark:text-ferry-aqua-light'
+
+/** One saved stop as a My Transit card (its query is the home's), reported to the header like a board. */
+function StopCard({
+  stop,
+  q,
+  nowMs,
+}: {
+  stop: SavedStop
+  q: ReturnType<typeof useManyDepartures>[number]
+  nowMs: number
+}) {
+  const online = useOnline()
+  const { data, state } = liveView(stop.id, q.data, nowMs, online, usePageCheck())
+  // No data is never live; a non-live seed whose own refetch is still out waits (R32-RT1).
+  useReportLive(
+    `stop:${stop.id}`,
+    state == null && q.data != null && q.data.rtState === 'live',
+    (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
+    q.isError || q.failureCount > 0,
+  )
+  const card = homeCard('bus', data, nowMs, stop.name || data?.stop.name || `Stop ${stop.id}`, stop.id)
+  return (
+    <SavedTripCard
+      mode="bus"
+      label={card.label}
+      title={card.title}
+      live={card.live}
+      time={card.time}
+      detail={card.detail}
+      minutes={card.minutes}
+      later={card.later}
+      empty={
+        q.isError && !q.data
+          ? "Couldn't load live times. Retrying…"
+          : !data
+            ? 'Getting live buses…'
+            : card.time
+              ? null
+              : state === 'offline'
+                ? 'Offline: no more times in the saved timetable.'
+                : 'No buses due.'
+      }
+      loading={!data && !q.isError}
+      href={stopHref(stop.id)}
+      renderLink={linkRenderer}
+    />
+  )
+}
 
 export default function Home({ loaderData }: Route.ComponentProps) {
   const { mode, fetcher } = useApi()
@@ -108,30 +145,32 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     for (const q of queries) q.refetch()
   }
   const activeAlerts = (alertsQ.data?.alerts ?? []).length
-  // No saved stops: no live data of its own, so the header claims nothing (as BrisbaneTransit's).
-  const live = ids.length
-    ? online && views.every((v) => v.data && v.state == null && v.data.rtState === 'live')
-    : undefined
-  // A saved stop still waiting for its first answer, or still showing its non-live seed while its own refetch is out
-  // (R32-RT1), while no stop has failed or answered not live: BrisbaneTransit's header says "Connecting…" (THE-118),
-  // with no "delayed" banner.
-  const pending = pagePending(queries.map((q, i) => ({ q, state: views[i]?.state ?? null })))
+  // Until the cards report (after hydration): the server's saved stops. LIVE only while every one is live (each
+  // confirms itself after a cached page, R2-T7); one still waiting is not live (R7-T1) but "Connecting…" while nothing
+  // has failed (R32-RT1). No saved stops and no position: no live rows, so the header claims nothing (#159).
+  // Only the stops still saved: one taken out since (here or in another tab) claims nothing (Codex r1).
+  const seeds = ids.filter((id) => id in loaderData.initial).map((id) => loaderData.initial[id] ?? null)
+  const seedState = (r: DeparturesResponse) => liveView('', r, now, true, page).state
+  const reports = useLiveReports({
+    live: seeds.length ? seeds.every((r) => r && seedState(r) == null && r.rtState === 'live') : undefined,
+    pending: seeds.some((r) => !r || awaitingSeedAnswer(asSeed(r), seedState(r))),
+  })
+  const { geo, locate } = useGeolocation()
   return (
-    <>
-      {/* LIVE only while every saved stop's board is live (each confirms itself after a cached page, R2-T7). A board
-          still waiting for its answer is not live (R7-T1). */}
-      <SiteHeader live={live} pending={pending} />
+    <LiveReports value={reports.report}>
+      <SiteHeader live={reports.live} pending={reports.pending} />
       <UpdatedStrip
         updatedAt={first?.generatedAt ?? null}
         source={first}
         nowMs={now}
         onRefresh={ids.length ? refetchAll : undefined}
         refreshing={queries.some((q) => q.isFetching)}
-        live={live}
-        pending={pending}
+        live={reports.live}
+        pending={reports.pending}
       >
         <DesktopNav active="home" />
       </UpdatedStrip>
+      <h1 className="mx-auto max-w-6xl px-4 pt-4 text-[28px] leading-tight font-extrabold">Bus</h1>
       <SearchPanel
         quick={
           <Link to={at('/nearby')} className={chip}>
@@ -140,113 +179,53 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </Link>
         }
       >
-        <main className="mx-auto flex max-w-6xl flex-col gap-3 px-4 pt-3.5 pb-6">
-          <h1 className="text-xl font-extrabold md:sr-only">My stops</h1>
+        <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pt-3.5 pb-6">
           {first ? (
             <DataBanner
               offline={views.some((v) => v.state === 'offline')}
-              rtState={pending ? undefined : first.rtState}
+              rtState={reports.pending ? undefined : first.rtState}
               hasData
               generation={first.staticGeneration}
             />
           ) : null}
-          {saved.length === 0 ? (
-            <FirstVisit />
-          ) : (
-            <>
-              {/* Phones: compact cards with the next 3 buses. */}
-              <div className="flex flex-col gap-3 md:hidden">
-                {saved.map((s, i) => {
-                  const res = views[i]?.data
-                  const name = s.name || res?.stop.name || `Stop ${s.id}`
-                  return (
-                    <MyStopCard
-                      key={s.id}
-                      name={name}
-                      meta={stopMeta(s.id)}
-                      href={stopHref(s.id)}
-                      departures={miniRows(res, now)}
-                      highlighted={i === 0}
-                      renderLink={linkRenderer}
-                      empty={
-                        queries[i]?.isError
-                          ? "Couldn't load live times. Retrying…"
-                          : !online && !res?.departures.length
-                            ? 'Offline: no more times in the saved timetable.'
-                            : res
-                              ? 'No buses due.'
-                              : 'Getting live buses…'
-                      }
-                    />
-                  )
-                })}
-              </div>
-              {/* Desktop: full boards side by side. */}
-              <div className="hidden flex-wrap gap-6 md:flex">
-                {saved.map((s, i) => {
-                  const q = queries[i]
-                  const res = views[i]?.data
-                  return (
-                    <section
-                      key={s.id}
-                      className="flex min-w-0 flex-[1_1_420px] flex-col gap-3"
-                      aria-label={s.name || res?.stop.name}
-                    >
-                      <div className="bg-board-header flex items-center justify-between gap-2 rounded-card border border-ferry-orange/10 px-4 py-3 shadow-sm">
-                        <h2 className="text-[17px] font-bold text-aqua-text dark:text-ferry-aqua-light">
-                          <Link to={stopHref(s.id)}>{s.name || res?.stop.name || `Stop ${s.id}`}</Link>
-                        </h2>
-                        <span className="text-[13px] text-sched-text">{stopMeta(s.id)}</span>
-                      </div>
-                      <DepartureList
-                        stopId={s.id}
-                        data={res}
-                        isError={!!q?.isError}
-                        onRetry={() => q?.refetch()}
-                        nowMs={now}
-                        alerts={alertsQ.data?.alerts ?? []}
-                        initialCount={5}
-                        offline={!online}
-                        saved
-                      />
-                    </section>
-                  )
-                })}
-              </div>
-            </>
-          )}
+          <HomeSection id="saved" title="Saved">
+            {saved.length ? (
+              saved.map((s, i) => (
+                <StopCard key={s.id} stop={s} q={queries[i] as (typeof queries)[number]} nowMs={now} />
+              ))
+            ) : (
+              <SavedEmpty />
+            )}
+          </HomeSection>
+          <HomeSection id="near" title="Near you">
+            {geo.state === 'ok' ? (
+              <Suspense fallback={null}>
+                <NearYou lat={geo.lat} lon={geo.lon} nowMs={now} />
+              </Suspense>
+            ) : (
+              <UseLocationRow state={geo.state} onLocate={locate} what="stops" />
+            )}
+          </HomeSection>
+          <HomeSection id="popular" title="Busy stops">
+            <PlaceChips
+              places={POPULAR.map((s) => ({ href: stopHref(s.id), name: s.name }))}
+              renderLink={linkRenderer}
+            />
+          </HomeSection>
+          <AboutTimes title="About bus times">
+            <h2 className="text-base font-bold text-aqua-text dark:text-ferry-aqua-light">
+              Live departures for every Brisbane bus stop
+            </h2>
+            <p className="mt-2 text-sm text-gray-700 dark:text-night-text/80">
+              Search by stop name or number, or find stops near you. Tap the star on a stop to keep it here
+              with its next buses.
+            </p>
+          </AboutTimes>
         </main>
         {/* The footer, not the content, clears the fixed sheet: it comes last. */}
         <Footer aboveSheet />
       </SearchPanel>
       <BusNav active="home" alertCount={activeAlerts || undefined} />
-    </>
-  )
-}
-
-function FirstVisit() {
-  return (
-    <section
-      className="flex flex-col gap-3 rounded-card bg-white/90 px-4 py-4 shadow-card dark:bg-night-card"
-      aria-labelledby="first-visit"
-    >
-      <h2 id="first-visit" className="text-base font-bold text-aqua-text dark:text-ferry-aqua-light">
-        Live departures for every Brisbane bus stop
-      </h2>
-      <p className="text-sm text-gray-700 dark:text-night-text/80">
-        Search by stop name or number, or find stops near you. Tap the star on a stop to keep it here with its
-        next three buses.
-      </p>
-      <h3 className="text-sm font-semibold text-gray-700 dark:text-night-text/80">Busy stops</h3>
-      <ul className="flex flex-wrap gap-2">
-        {POPULAR.map((s) => (
-          <li key={s.id}>
-            <Link to={stopHref(s.id)} className={chip}>
-              {s.name}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
+    </LiveReports>
   )
 }

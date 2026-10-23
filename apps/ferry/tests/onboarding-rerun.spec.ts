@@ -17,7 +17,8 @@ import { expect, type Page, test } from '@playwright/test'
 
 test.use({ storageState: FIRST_VISIT })
 
-const board = (page: Page) => page.locator('[data-board=outbound]')
+/** Ferry home's headline: its first saved trip (THE-118 PR 8). */
+const headline = (page: Page) => page.locator('[data-headline]')
 const pair = (page: Page) =>
   page.evaluate(() => JSON.parse(localStorage.getItem('brisbane-ferry-selected-stops') ?? 'null'))
 
@@ -46,7 +47,7 @@ test('fresh device: onboarding, then Settings re-runs it with the pair in the tr
     .click()
   await first.getByRole('combobox', { name: 'To' }).selectOption({ label: 'Bulimba' })
   await first.getByRole('button', { name: 'Save' }).click()
-  await expect(board(page)).toHaveAttribute('aria-label', 'Riverside to Bulimba')
+  await expect(headline(page)).toContainText('Riverside → Bulimba')
 
   await openRerun(page)
   await expect(rerunTrayNames(page)).toHaveText(['From Riverside'])
@@ -56,12 +57,12 @@ test('fresh device: onboarding, then Settings re-runs it with the pair in the tr
   await addTerminal(rerunTray(page), 'bulimba', /^Bulimba/)
   await rerunTray(page).getByRole('combobox', { name: 'To' }).selectOption({ label: 'Riverside' })
   await rerunTray(page).getByRole('button', { name: 'Save' }).click()
-  await expect(board(page)).toHaveAttribute('aria-label', 'Bulimba to Riverside')
+  await expect(headline(page)).toContainText('Bulimba → Riverside')
   expect(await pair(page)).toEqual({
     outbound: { id: '317584', name: 'Bulimba' },
     inbound: { id: '317590', name: 'Riverside' },
   })
-  expect(await (await page.request.get('/')).text()).toContain('Bulimba to Riverside')
+  expect(await (await page.request.get('/')).text()).toContain('Bulimba → Riverside')
   await page.reload()
   await expectNoPrompt(page)
   expect(errors).toEqual([])
@@ -84,7 +85,7 @@ test('Cancel changes nothing; taking the trip out and saving unsaves the pair; t
     )
   })
   await page.goto('/')
-  await expect(board(page)).toHaveAttribute('aria-label', 'Riverside to Bulimba')
+  await expect(headline(page)).toContainText('Riverside → Bulimba')
   await openRerun(page)
   await rerunTray(page).getByRole('button', { name: 'Remove Riverside' }).click()
   await cancelRerun(page)
@@ -92,7 +93,8 @@ test('Cancel changes nothing; taking the trip out and saving unsaves the pair; t
   await openRerun(page)
   await rerunTray(page).getByRole('button', { name: 'Remove Riverside' }).click()
   await rerunTray(page).getByRole('button', { name: 'Save' }).click()
-  await expect(board(page)).toHaveAttribute('aria-label', 'Bulimba to Riverside')
+  await expect(page.getByText('Tap ☆ on any board to save it.')).toBeVisible()
+  await expect(headline(page)).toHaveCount(0)
   expect(await pair(page)).toBeNull()
   await expectNoPrompt(page)
 })

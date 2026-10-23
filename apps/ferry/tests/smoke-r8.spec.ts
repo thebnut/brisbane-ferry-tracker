@@ -7,7 +7,7 @@ import { coldStartSuite } from '@bft/ui/e2e/cold-start.ts'
 import { pinUpcoming } from './upcoming.ts'
 
 coldStartSuite({
-  path: '/',
+  path: '/terminal/bulimba?to=riverside',
   departures: /\/v1\/ferry\/stops\/[^/]+\/departures/,
   pin: (context) => pinUpcoming(context),
   // Each load is a first visit, as after Dev's "Clear site data": nothing answered, so the onboarding prompt (P4,

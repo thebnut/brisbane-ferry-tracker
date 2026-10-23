@@ -5,8 +5,6 @@
  * no "To"); a second tap unsaves. A change this device's storage refuses leaves the star as it was, and the toast says so.
  */
 
-export { firstFavouritePair, writePairCookie } from '../lib/favourites.ts'
-
 import { SaveToast, type SaveToastMessage } from '@bft/ui/save-toast'
 import { StarButton } from '@bft/ui/star'
 import { useCallback, useEffect, useState } from 'react'

@@ -6,7 +6,11 @@
 import { offlineLoadSuite, reconnectSuite } from '@bft/ui/e2e/offline-suite.ts'
 import { expect, test } from '@playwright/test'
 
-offlineLoadSuite({ path: '/ferry', unvisited: '/train/station/central', pagesCache: 'transit-pages' })
+offlineLoadSuite({
+  path: '/ferry/terminal/bulimba?to=riverside',
+  unvisited: '/train/station/central',
+  pagesCache: 'transit-pages',
+})
 
 test.describe('R3-X8: geo tiles never 404', () => {
   // Bulimba: the r7hu cells Dev's device asked for, most of them without ferry stops.

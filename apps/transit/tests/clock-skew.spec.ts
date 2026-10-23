@@ -23,7 +23,7 @@ const savedAcrossModes = (page: import('@playwright/test').Page) =>
     )
   })
 
-clockSkewSuite({ path: '/ferry?stop=317584', pin: pinUpcoming })
+clockSkewSuite({ path: '/ferry/terminal/bulimba', pin: pinUpcoming })
 clockSkewSuite({ path: '/ferry', label: 'ferry home', prepare: savedAcrossModes, pin: pinUpcoming })
 clockSkewSuite({ path: '/train/station/central', pin: pinUpcoming })
 clockSkewSuite({ path: '/bus/stop/10802', pin: pinUpcoming })

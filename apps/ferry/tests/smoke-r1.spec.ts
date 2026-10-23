@@ -31,7 +31,7 @@ test.describe('phone width 360 px, longest stop names (F1)', () => {
       await remember(page, from, to)
       // A departure due in 10 minutes at any hour, so there is always a chip to measure.
       await pinUpcoming(context)
-      await page.goto('/')
+      await page.goto('/terminal/bulimba?to=riverside')
       const board = page.locator('[data-board=outbound]')
       await expect(board.getByTestId('departure').first()).toBeVisible()
       await refreshBoards(page)
@@ -84,7 +84,7 @@ test.describe('phone width 360 px while offline', () => {
   test.use({ viewport: { width: 360, height: 740 } })
   test('the header still fits with the OFFLINE pill', async ({ page, context }) => {
     await remember(page, UQ, NORTHSHORE)
-    await page.goto('/')
+    await page.goto('/terminal/bulimba?to=riverside')
     await expect(page.locator('[data-board=outbound]').getByTestId('departure').first()).toBeVisible()
     await context.setOffline(true)
     await expect(page.getByText('OFFLINE', { exact: true })).toBeVisible()
@@ -104,7 +104,7 @@ test.describe('offline (F3)', () => {
     await remember(page, { id: '317584', name: 'Bulimba' }, { id: '317590', name: 'Riverside' })
     // A LIVE row at any hour (the precondition for both tests).
     await pinUpcoming(context)
-    await page.goto('/')
+    await page.goto('/terminal/bulimba?to=riverside')
     const board = page.locator('[data-board=outbound]')
     await expect(board.getByTestId('departure').first()).toBeVisible()
     await refreshBoards(page)
@@ -128,7 +128,7 @@ test.describe('offline (F3)', () => {
     await remember(page, { id: '317584', name: 'Bulimba' }, { id: '317590', name: 'Riverside' })
     // A LIVE row at any hour (the precondition for both tests).
     await pinUpcoming(context)
-    await page.goto('/')
+    await page.goto('/terminal/bulimba?to=riverside')
     const board = page.locator('[data-board=outbound]')
     await expect(board.getByTestId('departure').first()).toBeVisible()
     await refreshBoards(page)

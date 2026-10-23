@@ -94,12 +94,13 @@ test('"Not now" is final: no prompt on a reload or another visit', async ({ page
   await expectNoPrompt(page)
 })
 
-test('Ferry tab first visit (the old path): no stop selector and no prompt over the default board; "Not now" on My Transit leaves the selector one tap away', async ({
+test('Ferry tab first visit: no stop selector and no prompt over ferry home; "Not now" on My Transit leaves the selector one tap away', async ({
   page,
 }) => {
   await page.goto('/ferry')
-  const board = page.locator('[data-board=outbound]')
-  await expect(board).toHaveAttribute('aria-label', 'Bulimba to Riverside')
+  // THE-118 PR 8: ferry home, nothing saved yet.
+  const empty = page.getByText('Tap ☆ on any board to save it.')
+  await expect(empty).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'Select ferry stops' })).toHaveCount(0)
   await expectNoPrompt(page)
   await page.goto('/')
@@ -108,7 +109,7 @@ test('Ferry tab first visit (the old path): no stop selector and no prompt over 
   // Written as the old first visit did, so nothing else changes.
   expect(await page.evaluate(() => localStorage.getItem('brisbane-ferry-selector-seen'))).toBe('1')
   await page.goto('/ferry')
-  await expect(board).toHaveAttribute('aria-label', 'Bulimba to Riverside')
+  await expect(empty).toBeVisible()
   await page.getByRole('button', { name: 'Settings' }).click()
   await expect(page.getByRole('dialog', { name: 'Select ferry stops' })).toBeVisible()
 })

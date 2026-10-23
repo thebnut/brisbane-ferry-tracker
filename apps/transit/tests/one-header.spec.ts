@@ -111,7 +111,12 @@ function headerTests(phone: boolean) {
         await expect(page.locator('header').getByRole('link', { name: back })).toHaveAttribute('href', board)
     })
 
-  for (const path of ['/ferry', '/train/station/central', '/bus/stop/10802', '/bus/route/333'])
+  for (const path of [
+    '/ferry/terminal/bulimba?to=riverside',
+    '/train/station/central',
+    '/bus/stop/10802',
+    '/bus/route/333',
+  ])
     test(`${path}: tapping the status line refreshes`, async ({ page }) => {
       await page.goto(path)
       const line = page.locator('[data-status-line]')

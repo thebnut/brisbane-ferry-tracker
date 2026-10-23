@@ -29,15 +29,12 @@ async function addByName(page: Page, query: string, name: RegExp) {
   await tray(page).getByRole('button', { name }).first().click({ timeout: 20_000 })
 }
 
-test('first visit (the old home, then the prompt) → Yes → pick 3 stops → Save → My stops', async ({
-  page,
-}) => {
+test('first visit (bus home, then the prompt) → Yes → pick 3 stops → Save → My stops', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   await page.goto('/')
-  await expect(
-    page.getByRole('heading', { name: 'Live departures for every Brisbane bus stop' }),
-  ).toBeVisible()
+  // Bus home (THE-118 PR 8): the title over the search.
+  await expect(page.getByRole('heading', { level: 1, name: 'Bus' })).toBeVisible()
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Yes' }).click()
   await expect(picker(page)).toBeVisible()

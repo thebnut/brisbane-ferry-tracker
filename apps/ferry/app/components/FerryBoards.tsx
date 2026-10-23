@@ -39,7 +39,7 @@ import {
 } from '../lib/departures.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useDepartures, useFetcher, useShownData } from '../lib/queries.ts'
-import { FIXTURE_COOKIE, readDepartAt, readSavedPair, writeDepartAt } from '../lib/storage.ts'
+import { FIXTURE_COOKIE, readDepartAt, writeDepartAt } from '../lib/storage.ts'
 import {
   boardHref,
   normalisePair,
@@ -96,14 +96,9 @@ export interface FerryBoardsProps {
   /** Server render time, epoch ms (hydration-stable clock). */
   renderedAt: number
   mode: DataMode
-  /**
-   * Ferry home (/ferry): the board of the trip this device saved (the server's from the cookie). After hydration it
-   * follows the saved pair or the first favourite, and the stop selector changes it here; a terminal page navigates.
-   */
-  home?: boolean
   /** The trip page beside the board (the trip URL at 1024 px and wider, the layout's: THE-118 PR 7). */
   panel?: ReactNode
-  /** With no trip open and no "To": the terminal's map (the layout's, so the home board's first load has none). */
+  /** With no trip open and no "To": the terminal's map (the layout's). */
   idle?: (live: boolean, departures: Departure[]) => ReactNode
   /** The open trip's own answer, which the header counts like a board's (R32-RT1). */
   panelState?: { q: SeededQuery & { isError: boolean }; state: LiveState; live: boolean } | null
@@ -135,7 +130,6 @@ export function FerryBoards({
   inbound,
   renderedAt,
   mode,
-  home = false,
   panel,
   idle,
   panelState,
@@ -143,7 +137,7 @@ export function FerryBoards({
   rowLink,
   children,
 }: FerryBoardsProps) {
-  const [trip, setTrip] = useState({ from: serverFrom, to: serverTo })
+  const trip = { from: serverFrom, to: serverTo }
   const [filter, setFilter] = useKept<ServiceFilter>('filter', 'all')
   const [departAt, setDepartAt] = useState<number | null>(null)
   const [showMap, setShowMap] = useState(false)
@@ -164,28 +158,16 @@ export function FerryBoards({
   const online = useOnline()
   const fetcher = useFetcher(mode)
 
-  // After hydration: saved pair (home only), session "Depart from", fixture cookie. A first visit gets the onboarding
-  // prompt (P4, its own lazy slot), which replaced the stop selector opening by itself here. The star (THE-118) loads
-  // then, with the favourites' code: with no saved pair, the home board opens the first favourite.
+  // After hydration: session "Depart from", fixture cookie. A first visit gets the onboarding prompt (P4, its own lazy
+  // slot), which replaced the stop selector opening by itself here. The star (THE-118) loads then, with the
+  // favourites' code.
   useEffect(() => {
-    const show = (p: StopPair | null) => {
-      if (p && (p.outbound.id !== serverFrom.id || p.inbound.id !== serverTo?.id))
-        setTrip({ from: p.outbound, to: p.inbound })
-    }
-    const saved = home ? readSavedPair() : null
-    show(saved)
     setDepartAt(readDepartAt())
     let live = true
     import('./FerryStar.tsx').then(
       (m) => {
         // Gone before the chunk arrived (a quick navigation, or a test's teardown): nothing to update.
-        if (!live) return
-        setStar(() => m.default)
-        if (home && !saved) {
-          show(m.firstFavouritePair())
-          // The cookie again, so the next load renders that pair (a session-only pair's cookie ends with the session).
-          m.writePairCookie()
-        }
+        if (live) setStar(() => m.default)
       },
       () => {}, // Offline before the chunk was cached: no star until the next load.
     )
@@ -197,7 +179,7 @@ export function FerryBoards({
     return () => {
       live = false
     }
-  }, [home, serverFrom, serverTo])
+  }, [])
   // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0. Never from the data mode alone: an API
   // failure that fell back to fixtures (FIXTURE_FALLBACK) used to make demo mode stick for the session (R7-B1).
   useFixtureCookie(FIXTURE_COOKIE, mode.fixtures, mode.forced === true, mode.allowed === true)
@@ -264,13 +246,12 @@ export function FerryBoards({
     navigate(boardHref(next, nextTo))
   }
 
-  // The selector has saved the pair (savePair): home shows it here; a terminal page opens its board.
+  // The selector has saved the pair (savePair): its board opens.
   const save = (next: StopPair) => {
     setShowSelector(false)
     setDepartAt(null)
     writeDepartAt(null)
-    if (!home) return open(next.outbound.id, next.inbound.id)
-    setTrip({ from: next.outbound, to: next.inbound })
+    open(next.outbound.id, next.inbound.id)
   }
 
   const fromName = cleanStopName(trip.from.name)

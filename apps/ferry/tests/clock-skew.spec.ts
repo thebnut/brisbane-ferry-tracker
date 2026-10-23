@@ -15,9 +15,9 @@ const selectStops = (page: import('@playwright/test').Page) =>
   })
 
 clockSkewSuite({
-  path: '/',
-  label: 'ferry home, Bulimba ⇄ Riverside',
+  path: '/terminal/bulimba?to=riverside',
+  label: 'Bulimba ⇄ Riverside',
   prepare: selectStops,
   pin: pinUpcoming,
 })
-clockSkewSuite({ path: '/?stop=317584', label: 'ferry home from a shared link', pin: pinUpcoming })
+clockSkewSuite({ path: '/terminal/bulimba', label: 'a shared terminal link', pin: pinUpcoming })

@@ -22,7 +22,7 @@ const ready = (page: Page) => expect(page.locator('html[data-hydrated]')).toHave
 const BOARDS: Array<[mode: string, path: string, alerts: RegExp]> = [
   ['bus', '/bus/stop/10802?rt=unavailable', /\/bus\/alerts$/],
   ['train', '/train/station/central', /\/train\/alerts$/],
-  ['ferry', '/ferry', /\/alerts\?mode=ferry$/],
+  ['ferry', '/ferry/terminal/bulimba?to=riverside', /\/alerts\?mode=ferry$/],
 ]
 
 function suite() {
