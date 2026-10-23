@@ -6,18 +6,16 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { AlertCountLink, isCurrentAlerts, useCurrentAlerts } from '../src/AlertCountLink.tsx'
-import {
-  noteCacheCopy,
-  type PageCheck,
-  reportOffline,
-  reportOnline,
-  SW_CACHE_HEADER,
-} from '../src/connectivity.ts'
+import { noteCacheCopy, type PageCheck, reportOnline, SW_CACHE_HEADER } from '../src/connectivity.ts'
 
 const NOW = Date.UTC(2026, 9, 23, 9, 0)
-const answer = (over: Partial<{ rtState: string; generatedAt: number; offline: boolean }> = {}) => ({
+const answer = (
+  over: Partial<{ rtState: string; generatedAt: number; offline: boolean; receivedAt: number }> = {},
+) => ({
   rtState: 'live',
   generatedAt: NOW,
+  // Stamped on arrival (noteCacheCopy): a network answer.
+  receivedAt: 1,
   ...over,
 })
 const page: PageCheck = { unconfirmedBefore: null, arrivedAt: 0 }
@@ -39,13 +37,17 @@ describe('isCurrentAlerts', () => {
       expect(isCurrentAlerts(answer({ rtState }), ok), rtState).toBe(false)
   })
 
-  it('not for a service-worker copy, an offline copy, or while offline', () => {
-    const cached = noteCacheCopy(new Response('{}', { headers: { [SW_CACHE_HEADER]: 'sw' } }), answer())
+  it('not for a service-worker copy (or any copy of one), an offline copy, or while offline', () => {
+    const { receivedAt: _, ...unstamped } = answer()
+    const cached = noteCacheCopy(new Response('{}', { headers: { [SW_CACHE_HEADER]: 'sw' } }), unstamped)
     expect(isCurrentAlerts(cached, ok)).toBe(false)
+    // TanStack's structural sharing may store a copy of it: still not counted (Codex r5).
+    expect(isCurrentAlerts({ ...cached }, ok)).toBe(false)
+    // A network answer is stamped, and so is the copy TanStack keeps.
+    const network = noteCacheCopy(new Response('{}'), { ...unstamped })
+    expect(isCurrentAlerts({ ...network }, ok)).toBe(true)
     expect(isCurrentAlerts(answer({ offline: true }), ok)).toBe(false)
     expect(isCurrentAlerts(answer(), { ...ok, online: false })).toBe(false)
-    reportOffline()
-    expect(isCurrentAlerts(answer(), ok)).toBe(false)
   })
 
   it('not for data that came with a page loaded from a cache, nor before hydration', () => {
@@ -54,6 +56,13 @@ describe('isCurrentAlerts', () => {
     expect(isCurrentAlerts(answer({ generatedAt: NOW + 20_000 }), unconfirmed)).toBe(true)
     expect(isCurrentAlerts(answer(), { ...ok, page: null })).toBe(false)
     expect(isCurrentAlerts(undefined, ok)).toBe(false)
+  })
+
+  it("a page's own loader answer counts without an arrival stamp", () => {
+    const { receivedAt: _, ...seed } = answer()
+    expect(isCurrentAlerts(seed, ok)).toBe(false)
+    expect(isCurrentAlerts(seed, { ...ok, seeded: true })).toBe(true)
+    expect(isCurrentAlerts(seed, { ...ok, seeded: true, isError: true })).toBe(false)
   })
 })
 

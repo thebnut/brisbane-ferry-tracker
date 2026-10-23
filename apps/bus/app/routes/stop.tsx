@@ -141,7 +141,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
   const routes = useMemo(() => (res ? routesIn(res.departures) : []), [res])
   const platform = res?.departures.find((d) => d.stopId === stopId)?.platform ?? null
   const alerts = alertsQ.data?.alerts ?? []
-  const currentAlerts = useCurrentAlerts(alertsQ)
+  const currentAlerts = useCurrentAlerts(alertsQ, loaderData.alerts)
   const here = stopAlerts(alerts, stopId, routes, Math.floor(now / 1000))
   const isSaved = saved.some((s) => s.id === stopId)
   // No answer yet (no data, no error): BrisbaneTransit's header says "Connecting…", not OFFLINE (THE-118).

@@ -4,6 +4,7 @@
  * links there, and keeps polling while the board stays open (Codex r1).
  */
 import type { Alert, AlertsResponse } from '@bft/core/contract'
+import { reportOnline, SW_CACHE_HEADER } from '@bft/ui/connectivity'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen } from '@testing-library/react'
 import { createRoutesStub } from 'react-router'
@@ -31,7 +32,10 @@ const answer = (alerts: Alert[]): AlertsResponse => ({
   alerts,
 })
 
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.useRealTimers()
+  reportOnline()
+})
 
 function mount(fetcher: (path: string) => Promise<Response>) {
   const Stub = createRoutesStub([
@@ -87,6 +91,27 @@ describe('ferry board alert count', () => {
       await vi.advanceTimersByTimeAsync(65_000)
     })
     expect(await screen.findByRole('link', { name: 'Alerts' })).toHaveAttribute('href', '/alerts?mode=ferry')
+  })
+
+  it('a service-worker copy is never counted, even once the connection is back (Codex r5)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const first = answer([alert({ id: 'f' })])
+    let cached = false
+    mount(async () =>
+      cached
+        ? // The old answer again, from the service worker's cache.
+          new Response(JSON.stringify(first), { status: 200, headers: { [SW_CACHE_HEADER]: 'sw' } })
+        : new Response(JSON.stringify(first), { status: 200 }),
+    )
+    expect(await screen.findByRole('link', { name: '1 alert' })).toBeInTheDocument()
+    cached = true
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(61_000)
+    })
+    expect(await screen.findByRole('link', { name: 'Alerts' })).toBeInTheDocument()
+    // Another request reached the network.
+    act(() => reportOnline())
+    expect(screen.getByRole('link', { name: 'Alerts' })).toBeInTheDocument()
   })
 
   it('a non-live answer is not counted', async () => {
