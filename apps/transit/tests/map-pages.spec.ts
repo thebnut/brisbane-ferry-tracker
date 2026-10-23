@@ -167,6 +167,26 @@ function shellTests() {
     })
 }
 
+function controlsTests() {
+  for (const url of ['/ferry/map?terminal=howard-smith-wharves', '/train/map?station=fortitude-valley'])
+    test(`${url}: a long place name's filters stay clear of the locate-me button, 44 px tall`, async ({
+      page,
+    }) => {
+      await page.goto(url)
+      const locate = page.getByRole('button', { name: 'Show my location' })
+      await expect(locate).toBeVisible({ timeout: 30_000 })
+      const button = (await locate.boundingBox()) as { x: number; y: number; width: number; height: number }
+      const chips = page.locator('[data-map-page] fieldset button')
+      await expect(chips).toHaveCount(2)
+      for (const chip of await chips.all()) {
+        const box = (await chip.boundingBox()) as { x: number; y: number; width: number; height: number }
+        expect(box.height).toBeGreaterThanOrEqual(44)
+        const clear = box.x + box.width <= button.x || box.y >= button.y + button.height
+        expect(clear, `${await chip.textContent()} overlaps the locate-me button`).toBe(true)
+      }
+    })
+}
+
 function pinTests() {
   test('ferry: circles for terminals and ferries at street and city zoom', async ({ page, context }) => {
     await serveVehicles(context, 'ferry', twoNear('ferry'))
@@ -413,6 +433,7 @@ function noWebGLTests() {
 function suite(shellOnly = false) {
   shellTests()
   if (shellOnly) return
+  controlsTests()
   pinTests()
   chipTests()
   trackTests()

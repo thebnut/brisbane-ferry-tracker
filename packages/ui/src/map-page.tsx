@@ -119,7 +119,11 @@ export function MapPageShell({
         <div className={cx(MAP_BOX, 'animate-pulse')} role="status" aria-label="Loading map" />
       )}
       {controls ? (
-        <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-2 pr-16">{controls}</div>
+        // Left of the map's locate-me button (top right, 44 px): long place names wrap instead of reaching it. Only the
+        // controls themselves take taps; the map stays draggable between them.
+        <div className="pointer-events-none absolute top-3 right-16 left-3 z-10 flex flex-wrap items-center gap-2 *:pointer-events-auto">
+          {controls}
+        </div>
       ) : null}
       <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex flex-col items-start gap-2 md:right-auto md:max-w-md">
         {status ? (

@@ -153,7 +153,7 @@ function FerryMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
         bottomBar={!!BASE}
         controls={
           terminal ? (
-            <fieldset className="flex gap-2">
+            <fieldset className="flex min-w-0 flex-wrap gap-2">
               <legend className="sr-only">Ferries shown</legend>
               <Chip pressed={!all} onClick={() => setAll(false)}>
                 From {name}

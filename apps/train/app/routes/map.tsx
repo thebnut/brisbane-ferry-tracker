@@ -199,7 +199,7 @@ function TrainMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
         bottomBar
         controls={
           station ? (
-            <fieldset className="flex gap-2">
+            <fieldset className="flex min-w-0 flex-wrap gap-2">
               <legend className="sr-only">Trains shown</legend>
               <Chip pressed={!all} onClick={() => setAll(false)}>
                 At {centre.name}
