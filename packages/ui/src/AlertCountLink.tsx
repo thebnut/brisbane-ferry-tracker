@@ -2,8 +2,15 @@
  * The alert count in a board header (`@bft/ui/alert-count`, THE-118 PR 3: Alerts left BrisbaneTransit's section bar).
  * Its own entry, so only the boards that show it load it.
  */
-import type { ReactNode } from 'react'
-import { type OfflineCopy, type PageCheck, type Received, useOnline, usePageCheck } from './connectivity.ts'
+import { type ReactNode, useEffect, useReducer } from 'react'
+import {
+  deviceNow,
+  type OfflineCopy,
+  type PageCheck,
+  type Received,
+  useOnline,
+  usePageCheck,
+} from './connectivity.ts'
 import { cx } from './cx.ts'
 import { Icon } from './icons.tsx'
 
@@ -16,6 +23,15 @@ interface AlertsQuery<T> {
   isFetched?: boolean
 }
 
+/**
+ * An alerts answer counts for this long after it reached the device (Codex release review of f943ff5). The boards poll
+ * alerts every 60 s (pollEvery(60_000)) and an answer takes up to LIVE_REQUEST_TIMEOUT_MS (8 s) to arrive, so a board
+ * that is polling always has a newer one by then, with 22 s to spare for a late timer; a failed poll already hides the
+ * count (isError). This covers polls that stopped: a hidden tab (TanStack pauses refetchInterval) or a sleeping device,
+ * whose old answer otherwise showed as current while the refetch on return was pending.
+ */
+export const ALERTS_MAX_AGE_MS = 90_000
+
 /** Loader answers a page came with (useCurrentAlerts' `seed`): network answers without a device arrival time. */
 const seeds = new WeakSet<object>()
 
@@ -26,7 +42,8 @@ const seeds = new WeakSet<object>()
  * TanStack's structural sharing, unlike the cache-copy mark) or a page's own loader answer before the query has
  * fetched anything (`seeded`; a later copy equal to it keeps the seed object, Codex r6), and not from a
  * page loaded from a cache (usePageCheck, null before hydration). Otherwise an old, open-ended alert stayed up as
- * "1 alert" for as long as the refetches failed or the service worker answered.
+ * "1 alert" for as long as the refetches failed or the service worker answered. And recent: no older than
+ * ALERTS_MAX_AGE_MS on the device's own clock (alertsArrivedAt), never the device clock against a server time.
  */
 export function isCurrentAlerts(
   data: AlertsAnswer | undefined,
@@ -35,11 +52,29 @@ export function isCurrentAlerts(
     online,
     page,
     seeded = false,
-  }: { isError: boolean; online: boolean; page: PageCheck | null; seeded?: boolean },
+    now = deviceNow(),
+  }: {
+    isError: boolean
+    online: boolean
+    page: PageCheck | null
+    seeded?: boolean
+    /** deviceNow(): read at each call by default. */
+    now?: number
+  },
 ): boolean {
   if (!data || isError || !online || !page || data.rtState !== 'live' || data.offline === true) return false
   if (page.unconfirmedBefore != null && data.generatedAt <= page.unconfirmedBefore) return false
-  return data.receivedAt != null || seeded
+  const at = alertsArrivedAt(data, page, seeded)
+  return at != null && now - at <= ALERTS_MAX_AGE_MS
+}
+
+/**
+ * When a network answer reached the device, on deviceNow's clock: its own stamp (Received: noteCacheCopy, or
+ * stampNavigation for a client navigation's loader answer), else for the page's own loader seed when this page was
+ * requested (PageCheck.arrivedAt, an upper bound on its age). Null when it is not known to be a network answer.
+ */
+function alertsArrivedAt(data: Received, page: PageCheck, seeded: boolean): number | null {
+  return data.receivedAt ?? (seeded ? page.arrivedAt : null)
 }
 
 /**
@@ -52,7 +87,22 @@ export function useCurrentAlerts<T extends AlertsAnswer>(q: AlertsQuery<T>, seed
   if (seed) seeds.add(seed)
   const { data, isError, isFetched } = q
   const seeded = !isFetched && !!data && seeds.has(data)
-  return data && isCurrentAlerts(data, { isError, online, page, seeded }) ? data : null
+  const current = !!data && isCurrentAlerts(data, { isError, online, page, seeded })
+  // Renders again as the answer gets too old, without waiting for a poll: at that moment, and when the tab is shown
+  // again (a hidden tab's timers run late).
+  const [, recheck] = useReducer((n: number) => n + 1, 0)
+  const expiresAt =
+    current && data && page ? (alertsArrivedAt(data, page, seeded) ?? 0) + ALERTS_MAX_AGE_MS : null
+  useEffect(() => {
+    if (expiresAt == null) return
+    const timer = setTimeout(recheck, Math.max(0, expiresAt - deviceNow()) + 1)
+    document.addEventListener('visibilitychange', recheck)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', recheck)
+    }
+  }, [expiresAt])
+  return current ? data : null
 }
 
 /**
