@@ -90,17 +90,57 @@ export function storeTray(
 }
 
 /**
+ * A stored overlay My Transit can't use and that no migration will upgrade (R23-O1): not JSON, not an object or a list,
+ * or a current-version one with no usable order. readPrefs shows the default order for it and never rewrites it, so a
+ * tray's new order needs a fresh overlay. Its names are kept when it has them. Null when there is no overlay, it's
+ * usable, it's a shape a migration upgrades (an older version), or it's a newer version this code can't read.
+ */
+function brokenOverlay(): { labels: unknown } | null {
+  try {
+    const raw = localStorage.getItem(OVERLAY_KEY)
+    if (raw == null) return null
+    let prefs: unknown
+    try {
+      prefs = JSON.parse(raw)
+    } catch {
+      return { labels: undefined }
+    }
+    if (Array.isArray(prefs)) return null
+    if (typeof prefs !== 'object' || prefs === null) return { labels: undefined }
+    const { v, order, labels } = prefs as { v?: unknown; order?: unknown; labels?: unknown }
+    if (v !== OVERLAY_VERSION) return null
+    return Array.isArray(order) && order.length > 0 ? null : { labels }
+  } catch {
+    return null
+  }
+}
+
+/**
  * After a re-run's Save: the overlay, if this device has one, takes the tray's order (names and the rest are kept).
  * A tray saved as it opened writes nothing. With no overlay, or one in a shape this code doesn't write (another
- * version), nothing is written; blocked storage changes nothing. saved-prefs.ts readPrefs still checks whatever it
- * reads.
+ * version), nothing is written; one My Transit can't use at all (brokenOverlay) is replaced by a fresh one in the
+ * tray's order. Blocked storage changes nothing. saved-prefs.ts readPrefs still checks whatever it reads.
  */
 export function keepTrayOrder(before: readonly TrayItem[], after: readonly TrayItem[]): void {
   const was = before.map(savedId)
   const now = after.map(savedId)
   if (was.join('\n') === now.join('\n')) return
   const overlay = readOverlay()
-  if (!overlay) return
+  if (!overlay) {
+    const broken = brokenOverlay()
+    if (!broken) return
+    // The tray's items in its order; items it never had follow in the default order (saved-prefs.ts applyPrefs).
+    const labels =
+      typeof broken.labels === 'object' && broken.labels !== null && !Array.isArray(broken.labels)
+        ? broken.labels
+        : {}
+    try {
+      localStorage.setItem(OVERLAY_KEY, JSON.stringify({ v: OVERLAY_VERSION, order: now, labels }))
+    } catch {
+      // Storage blocked or full: My Transit keeps the order it has.
+    }
+    return
+  }
   const next = trayOrder(overlay.ids, was, now)
   // Entry by entry, not joined: a hand-edited order can hold anything, and joining an object coerces it (and can throw).
   if (next.length === overlay.order.length && next.every((id, i) => id === overlay.order[i])) return
