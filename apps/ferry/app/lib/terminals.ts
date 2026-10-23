@@ -82,6 +82,16 @@ export const boardHref = (fromId: string, toId?: string | null): string => {
   return from ? `${terminalHref(from.slug)}${to ? `?to=${to.slug}` : ''}` : at('/')
 }
 
+/** A ferry's trip page (THE-118 PR 6), from the terminal you board at to your "To" when the board has one. */
+export const tripHref = (tripInstance: string, fromId: string, toId?: string | null): string => {
+  const q = new URLSearchParams()
+  const from = terminalById(fromId)
+  const to = toId ? terminalById(toId) : null
+  if (from) q.set('from', from.slug)
+  if (to) q.set('to', to.slug)
+  return `${at('/trip')}/${encodeURIComponent(tripInstance)}${q.size ? `?${q}` : ''}`
+}
+
 /**
  * Where an old `/?from=<stopId>&to=<stopId>` link (R3-F2) now goes: that terminal's board, with "To" when the origin
  * reaches it, keeping the link's other parameters. Null when it names no known origin (it stays a home link).

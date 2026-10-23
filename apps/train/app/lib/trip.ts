@@ -4,7 +4,8 @@
  * train's position as a fractional row index for the moving capsule.
  */
 import type { TripResponse, TripStop } from '@bft/core/contract'
-import { delayText, formatClock, type TimelineKind, type TimelineStop } from '@bft/ui'
+import { delayText, formatClock } from '@bft/ui'
+import type { TimelineKind, TimelineStop } from '@bft/ui/trip'
 import { cleanStopName } from './names.ts'
 import { corridorFor, platformOf, stationByKey, stationKeyOfStop } from './network.ts'
 
@@ -60,8 +61,8 @@ export function buildTimeline(
     const parts: string[] = []
     if (skipped) parts.push('Not stopping (changed today)')
     else if (past) parts.push(last ? 'Arrived' : 'Departed')
-    if (key === from && !past) parts.push('Your station')
-    if (key === to) parts.push('Your stop')
+    if (key === from && !past) parts.push('You board')
+    if (key === to) parts.push('You get off')
     if (platform && !skipped)
       parts.push(scheduled ? `platform ${platform} (changed from ${scheduled})` : `platform ${platform}`)
     if (last && !past) parts.push('Terminates')

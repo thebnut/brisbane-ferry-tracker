@@ -15,6 +15,7 @@ import {
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import {
+  ApiError,
   type ApiFetcher,
   browserFetcher,
   DEPARTURE_LIMIT,
@@ -131,6 +132,8 @@ export function useDepartures(
   return useQuery(departuresOptions(fetcher, mode, from, to, limit, initial, at))
 }
 
+const gone = (error: unknown) => error instanceof ApiError && error.status === 404
+
 export function useTrip(
   fetcher: ApiFetcher,
   mode: DataMode,
@@ -143,8 +146,10 @@ export function useTrip(
     queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance, { signal }),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: seedUpdatedAt(initial),
-    // When the WebSocket prototype pushes updates, polling is off (see useTripSocket).
-    refetchInterval: enabled ? poll : false,
+    // When the WebSocket prototype pushes updates, polling is off (see useTripSocket). A service that has gone (404)
+    // stays gone: the page says so.
+    refetchInterval: (q) => (enabled && !gone(q.state.error) ? poll(q) : false),
+    retry: (n, error) => !gone(error) && n < 1,
   })
 }
 

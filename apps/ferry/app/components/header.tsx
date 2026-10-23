@@ -1,13 +1,13 @@
 /**
  * The site header and the "Last updated" strip. Their own module because BrisbaneTransit swaps exactly this file for
  * its one header and status line (apps/transit/modes.config.ts, THE-118); the standalone site keeps these. Props it
- * doesn't use here (`pending`) are the transit header's.
+ * doesn't use here (`pending`, `back`) are the transit header's.
  */
 import { AppHeader, LivePill, PillButton, SettingsPill, StatusStrip } from '@bft/ui'
 import lockup489 from '@bft/ui/assets/ferry-lockup.webp?url'
 import lockup236 from '@bft/ui/assets/ferry-lockup-236.webp?url'
 import lockup360 from '@bft/ui/assets/ferry-lockup-360.webp?url'
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { useOnline } from '../lib/useNow.ts'
 
 export interface LiveProps {
@@ -17,7 +17,14 @@ export interface LiveProps {
   pending?: boolean
 }
 
-export function SiteHeader({ onSettings, live }: LiveProps & { onSettings?: () => void }) {
+export function SiteHeader({
+  onSettings,
+  live,
+}: LiveProps & {
+  onSettings?: () => void
+  /** The parent page, for the transit header's back link (a trip's board). */
+  back?: { href: string; label: string; onClick?: (e: MouseEvent<HTMLAnchorElement>) => void }
+}) {
   const online = useOnline()
   return (
     <AppHeader

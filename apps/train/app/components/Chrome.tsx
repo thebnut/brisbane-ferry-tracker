@@ -7,6 +7,7 @@ import { DemoExitLink } from '@bft/ui'
 import {
   createContext,
   lazy,
+  type MouseEvent,
   type ReactNode,
   Suspense,
   useCallback,
@@ -90,7 +91,7 @@ export function Shell({
   /** Still waiting for the page's first answer (no data, no error), until the boards report (useReportLive). */
   pending?: boolean
   /** The parent page, for the header's back link (BrisbaneTransit). */
-  back?: { href: string; label: string }
+  back?: { href: string; label: string; onClick?: (e: MouseEvent<HTMLAnchorElement>) => void }
   children: ReactNode
 }) {
   const [settings, setSettings] = useState<boolean | null>(null)

@@ -1,12 +1,12 @@
 /**
  * A ferry terminal's board (THE-118 PR 5): the board header (kicker, terminal, routes, alert count, star) with one
- * filter row (All, To… ▾, ⇄, Express, Map, Now ▾), the status line, rtState/offline banners and the departures, with
- * the details sheet, live map and stop selector. With a "To", desktop shows the return board beside it (until the
+ * filter row (All, To… ▾, ⇄, Express, Map, Now ▾), the status line, rtState/offline banners and the departures
+ * (each row opens its trip page, THE-118 PR 6), with the live map and stop selector. With a "To", desktop shows the return board beside it (until the
  * return-board rule of THE-118 PR 7). Rendered on the server with the loader's rows, then polled every 15 s while
  * visible.
  */
 
-import type { Departure, DeparturesResponse } from '@bft/core/contract'
+import type { DeparturesResponse } from '@bft/core/contract'
 import { BottomSheet, DemoExitLink, formatAge, formatClock, OfflineBanner, useFixtureCookie } from '@bft/ui'
 import { BoardHeader, Chip, FilterRow, leavingFrom, NowChip } from '@bft/ui/board-header'
 import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
@@ -14,7 +14,6 @@ import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import {
   applyFilter,
-  asScheduled,
   bannerState,
   boardState,
   hasExpress,
@@ -24,7 +23,14 @@ import {
 import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useDepartures, useFetcher, useShownData } from '../lib/queries.ts'
 import { FIXTURE_COOKIE, readDepartAt, readSavedPair, writeDepartAt } from '../lib/storage.ts'
-import { boardHref, normalisePair, type StopChoice, type StopPair, terminalById } from '../lib/terminals.ts'
+import {
+  boardHref,
+  normalisePair,
+  type StopChoice,
+  type StopPair,
+  terminalById,
+  tripHref,
+} from '../lib/terminals.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type BoardAlerts from './BoardAlerts.tsx'
 import { DepartureList } from './DepartureList.tsx'
@@ -36,7 +42,7 @@ const NoMap = (() => null) as never // renders nothing, whatever the props
 const LiveMapSheet = lazy(() => import('./LiveMapSheet.tsx').catch(() => ({ default: NoMap })))
 const StopSelector = lazy(() => import('./StopSelector.tsx'))
 // The "To…" chip's sheet (Train's "Going to" sheet), off the first load. If its chunk can't load (offline before the
-// service worker cached it), a short sheet says so and the board stays; the next tap tries again, as DetailsSheet.
+// service worker cached it), a short sheet says so and the board stays; the next tap tries again.
 // It stays mounted once opened, so closing it gives focus back to the chip (Codex r4).
 let toLoad = 0
 let toFailed = false
@@ -61,35 +67,6 @@ function ToUnavailable({ open, onClose }: { open: boolean; onClose: () => void }
     </BottomSheet>
   )
 }
-// Opened from a departure: off the first load (R15-S1 offset: the skew-free clock code is on every page's first load).
-// The service worker precaches it; if it still can't load (offline before the worker was installed), a short sheet
-// says so and the boards stay, and the next tap tries again (Codex r2).
-const loadDetails = () =>
-  lazy(() =>
-    import('./DetailsSheet.tsx').then(
-      (m) => ({ default: m.DetailsSheet }),
-      () => ({ default: DetailsUnavailable }),
-    ),
-  )
-let DetailsSheet = loadDetails()
-
-function DetailsUnavailable({ onClose }: { onClose: () => void }) {
-  return (
-    <BottomSheet
-      open
-      onClose={() => {
-        DetailsSheet = loadDetails()
-        onClose()
-      }}
-      title="Departure details"
-    >
-      <p className="px-5 pb-5 text-sm">
-        Details can't load without a connection. Try again once you're back online.
-      </p>
-    </BottomSheet>
-  )
-}
-
 export interface FerryBoardsProps {
   /** The terminal the board is for. */
   from: StopChoice
@@ -137,7 +114,6 @@ export function FerryBoards({
   const [trip, setTrip] = useState({ from: serverFrom, to: serverTo })
   const [filter, setFilter] = useState<ServiceFilter>('all')
   const [departAt, setDepartAt] = useState<number | null>(null)
-  const [selected, setSelected] = useState<{ d: Departure; direction: 'outbound' | 'inbound' } | null>(null)
   const [showMap, setShowMap] = useState(false)
   const [showSelector, setShowSelector] = useState(false)
   // Null until first opened (then the sheet stays mounted: closing it gives focus back to the chip).
@@ -165,6 +141,8 @@ export function FerryBoards({
     const saved = home ? readSavedPair() : null
     show(saved)
     setDepartAt(readDepartAt())
+    // A trip page's "Track on map" (THE-118 PR 6): the board with its map open.
+    if (new URLSearchParams(location.search).has('map')) setShowMap(true)
     let live = true
     import('./FerryStar.tsx').then(
       (m) => {
@@ -241,7 +219,6 @@ export function FerryBoards({
   // The board for another trip: a terminal page's URL (`?to=`), so back works and the link can be shared.
   const open = (next: string, nextTo: string | null) => {
     setShowTo(false)
-    setSelected(null)
     navigate(boardHref(next, nextTo))
   }
 
@@ -252,26 +229,10 @@ export function FerryBoards({
     writeDepartAt(null)
     if (!home) return open(next.outbound.id, next.inbound.id)
     setTrip({ from: next.outbound, to: next.inbound })
-    setSelected(null)
   }
 
   const fromName = cleanStopName(trip.from.name)
   const toName = trip.to ? cleanStopName(trip.to.name) : ''
-  // The open details sheet follows the latest data and the freshness of its own board (Codex review).
-  const selectedQ = selected?.direction === 'outbound' ? out : back
-  const degraded = stateOf(selectedQ) != null
-  const selectedNow = (() => {
-    if (!selected) return null
-    const list = selectedQ.data?.departures ?? []
-    const fresh =
-      list.find(
-        (x) => x.tripInstance === selected.d.tripInstance && x.stopSequence === selected.d.stopSequence,
-      ) ?? selected.d
-    return degraded ? asScheduled(fresh) : fresh
-  })()
-  const selectedTo = selected?.direction === 'outbound' ? trip.to : trip.from
-  const selectedFrom = selected?.direction === 'outbound' ? trip.from : (trip.to ?? trip.from)
-
   return (
     <>
       <SiteHeader onSettings={() => setShowSelector(true)} live={live} pending={pending} />
@@ -355,7 +316,7 @@ export function FerryBoards({
               error={out.isError}
               onRetry={() => void out.refetch()}
               offline={outState === 'offline'}
-              onSelect={(d) => setSelected({ d, direction: 'outbound' })}
+              tripHref={(d) => tripHref(d.tripInstance, fromId, trip.to?.id)}
             />
             {trip.to ? (
               <div className="hidden md:block">
@@ -369,7 +330,7 @@ export function FerryBoards({
                   error={back.isError}
                   onRetry={() => void back.refetch()}
                   offline={backState === 'offline'}
-                  onSelect={(d) => setSelected({ d, direction: 'inbound' })}
+                  tripHref={(d) => tripHref(d.tripInstance, toId, fromId)}
                 />
               </div>
             ) : null}
@@ -379,21 +340,6 @@ export function FerryBoards({
 
       {children}
 
-      {selectedNow ? (
-        <Suspense fallback={<SheetFallback />}>
-          <DetailsSheet
-            departure={selectedNow}
-            live={!degraded}
-            fromName={selectedFrom.name}
-            toName={selectedTo?.name ?? selectedNow.headsign}
-            toId={selectedTo?.id ?? null}
-            nowMs={now}
-            fetcher={fetcher}
-            mode={mode}
-            onClose={() => setSelected(null)}
-          />
-        </Suspense>
-      ) : null}
       {showMap ? (
         <Suspense fallback={<SheetFallback />}>
           <LiveMapSheet
@@ -404,10 +350,13 @@ export function FerryBoards({
             fetcher={fetcher}
             mode={mode}
             onClose={() => setShowMap(false)}
-            onSelect={(d) => {
-              setShowMap(false)
-              setSelected({ d, direction: d.stopId === fromId ? 'outbound' : 'inbound' })
-            }}
+            onSelect={(d) =>
+              navigate(
+                d.stopId === fromId
+                  ? tripHref(d.tripInstance, fromId, trip.to?.id)
+                  : tripHref(d.tripInstance, toId, fromId),
+              )
+            }
           />
         </Suspense>
       ) : null}

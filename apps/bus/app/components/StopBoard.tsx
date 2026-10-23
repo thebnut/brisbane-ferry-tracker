@@ -1,6 +1,7 @@
 /** A stop's departure list (B-Departures): polls /v1 every 15 s, banners, loading/empty/error states. */
 import type { Alert, Departure, DeparturesResponse } from '@bft/core/contract'
 import {
+  boardState,
   brisbaneDateKey,
   DayDivider,
   DepartureRow,
@@ -8,6 +9,7 @@ import {
   dayMarker,
   ErrorState,
   formatClock,
+  type LinkRenderer,
   MoreButton,
   RouteTile,
   routeTileVariant,
@@ -15,7 +17,7 @@ import {
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import { SkeletonRows } from '@bft/ui/bus'
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { rowViews } from '../lib/departures.ts'
 import { stopHref, tripHref } from '../lib/stops.ts'
 
@@ -34,6 +36,17 @@ export const linkRenderer = ({
     {children}
   </Link>
 )
+
+/** A row's link to its trip page, carrying the board's URL so the trip's back link returns here (THE-118 PR 6). */
+function RowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
+  const { pathname, search } = useLocation()
+  return (
+    <Link to={href} className={className} aria-label={label} prefetch="intent" state={boardState(pathname, search)}>
+      {children}
+    </Link>
+  )
+}
+const rowLink: LinkRenderer = (props) => <RowLink {...props} />
 
 export interface DepartureListProps {
   stopId: string
@@ -238,7 +251,7 @@ export function DepartureList({
               time={v.time}
               highlighted={v.highlighted}
               href={tripHref(v.departure.tripInstance, stopId)}
-              renderLink={linkRenderer}
+              renderLink={rowLink}
             />
           </li>
         ))}

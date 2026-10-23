@@ -1,18 +1,32 @@
-/** One departure board: rows (5, then up to 13 with "More departures"), empty and error states. */
+/** One departure board: rows (5, then up to 13 with "More departures") linking to their trip pages, empty and error states. */
 import type { Departure } from '@bft/core/contract'
 import {
+  boardState,
   cx,
   DayDivider,
   DepartureRow,
   dayDividers,
   EmptyState,
   ErrorState,
+  type LinkRenderer,
   MoreButton,
   nextAlike,
   soonestIndex,
 } from '@bft/ui'
 import { useState } from 'react'
+import { Link, useLocation } from 'react-router'
 import { rowModel } from '../lib/departures.ts'
+
+/** A row's link to its trip page, carrying the board's URL so the trip's back link returns here (THE-118 PR 6). */
+function RowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
+  const { pathname, search } = useLocation()
+  return (
+    <Link to={href} className={className} aria-label={label} state={boardState(pathname, search)}>
+      {children}
+    </Link>
+  )
+}
+const linkRenderer: LinkRenderer = (props) => <RowLink {...props} />
 
 /** The row's tile (THE-118 PR 4): the service (F1, F11, F21) in a circle, orange for express, aqua for all stops. */
 export function ServiceTile({ code, express = false }: { code: string; express?: boolean }) {
@@ -41,7 +55,8 @@ export interface DepartureListProps {
   loading: boolean
   error: boolean
   onRetry: () => void
-  onSelect: (d: Departure) => void
+  /** The departure's trip page. */
+  tripHref: (d: Departure) => string
   /** Offline: an empty board means no usable timetable copy, never "finished for today" (R2-B6). */
   offline?: boolean
 }
@@ -55,7 +70,7 @@ export function DepartureList({
   loading,
   error,
   onRetry,
-  onSelect,
+  tripHref,
   offline,
 }: DepartureListProps) {
   const [more, setMore] = useState(false)
@@ -121,7 +136,8 @@ export function DepartureList({
                     minutes={r.minutes}
                     time={r.time}
                     highlighted={i === soonest}
-                    onSelect={() => onSelect(d)}
+                    href={tripHref(d)}
+                    renderLink={linkRenderer}
                   />
                 </li>
               )

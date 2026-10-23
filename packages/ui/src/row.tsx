@@ -194,6 +194,13 @@ const DOT: Record<StatusLine['dot'], string> = {
   cancelled: 'bg-red-600',
 }
 
+/**
+ * A board row's link state: the board's URL. The trip page's back link then goes back in history instead of opening the
+ * board again, so the board comes back where it was scrolled to (ScrollRestoration restores it on a back navigation).
+ */
+export const BOARD_STATE = 'bftBoard'
+export const boardState = (pathname: string, search: string) => ({ [BOARD_STATE]: `${pathname}${search}` })
+
 export type LinkRenderer = (props: {
   href: string
   className: string

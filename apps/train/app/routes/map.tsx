@@ -28,6 +28,8 @@ export function loader({ request, context }: Route.LoaderArgs) {
   const fixtures = isFixtureMode(request, env)
   return {
     station: stationByKey(url.searchParams.get('station'))?.key ?? null,
+    // A trip page's "Track on map" (THE-118 PR 6): that train is selected once its position is in.
+    trip: /^.+@\d{8}$/.test(url.searchParams.get('trip') ?? '') ? url.searchParams.get('trip') : null,
     mode: { fixtures, rt: fixtures ? url.searchParams.get('rt') : null },
     site: siteInfo(env),
   }
@@ -90,7 +92,7 @@ function SelectedTrain({ v, mode }: { v: Vehicle; mode: Route.ComponentProps['lo
 }
 
 export default function MapPage({ loaderData }: Route.ComponentProps) {
-  const { mode, station } = loaderData
+  const { mode, station, trip } = loaderData
   const fetcher = useFetcher(mode)
   const q = useVehicles(fetcher, mode, true)
   // The header claims LIVE only from the trains' own fresh answer (shared liveState); none yet: "Connecting…".
@@ -129,7 +131,8 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
     ],
     [vehicles, station],
   )
-  const sel = vehicles.find((v) => v.id === selected) ?? null
+  const sel =
+    vehicles.find((v) => v.id === selected) ?? (selected == null ? vehicles.find((v) => trip && v.tripKey === trip) : null) ?? null
   const mounted = useMounted()
   const placeholder = (
     <div
