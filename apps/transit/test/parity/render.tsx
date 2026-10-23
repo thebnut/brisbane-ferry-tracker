@@ -43,8 +43,8 @@ export interface PageSpec {
   fixtures: (url: URL, nowMs: number) => Promise<Response>
   /** Text that shows once the page has its rows. */
   ready: RegExp
-  /** The swapped nav's label inside BrisbaneTransit (absent for ferry, which has no section nav). */
-  transitNav?: string
+  /** The page is a board: inside BrisbaneTransit its header has the alert count (THE-118 PR 3). */
+  boardAlerts?: boolean
 }
 
 export function withFixtureFetch(fixtures: PageSpec['fixtures']) {
@@ -95,9 +95,11 @@ export async function renderPage(spec: PageSpec): Promise<string> {
   for (const el of copy.querySelectorAll('header, [data-status-strip]')) el.remove()
   const raw = copy.innerHTML
   if (spec.base) {
-    // Not vacuous: the transit build really links under its prefix and really swapped the nav module.
+    // Not vacuous: the transit build really links under its prefix, really swapped the nav module (no section bar,
+    // THE-118 PR 3) and really shows the board's alert count.
     expect(raw).toContain(`href="${spec.base}/`)
-    if (spec.transitNav) expect(raw).toContain(`aria-label="${spec.transitNav}"`)
+    expect(raw).not.toMatch(/<nav aria-label="[^"]*[Ss]ections"/)
+    if (spec.boardAlerts) expect(raw).toContain('data-board-alerts')
   } else expect(raw).not.toMatch(/href="\/(ferry|train|bus)\//)
   return normalise(raw, spec.base)
 }
@@ -107,20 +109,24 @@ function PageWithData({ Page }: { Page: ComponentType<{ loaderData: unknown; par
 }
 
 /**
- * The intended differences only: the mount prefix in links, and navigation (the standalone app's own bottom/section
- * nav vs the Mode Tabs' section pills); renderPage has already removed the header and the status strip. Everything
- * else must be byte-identical.
+ * The intended differences only: the mount prefix in links, navigation (the standalone app's own bottom/section nav;
+ * BrisbaneTransit has none, THE-118 PR 3) and the transit board header's alert count; renderPage has already removed
+ * the header and the status strip. Everything else must be byte-identical.
  */
 export function normalise(html: string, base: string): string {
   let out = html
-  // Navigation landmarks: the swapped nav module (bus "Main"/"Sections", train "Main"; transit "… sections").
-  out = out.replace(/<nav aria-label="(Main|Sections|Bus sections|Train sections)"[\s\S]*?<\/nav>/g, '<nav/>')
+  // Navigation landmarks: the standalone apps' nav module (bus "Main"/"Sections", train "Main").
+  out = out.replace(/<nav aria-label="(Main|Sections)"[\s\S]*?<\/nav>/g, '<nav/>')
   // The bus and train apps wrap their phone nav in a div.
   out = out.replace(/<div class="md:hidden"><nav\/><\/div>/g, '<nav/>')
   // Where and how many nav landmarks each build has is part of the intended difference too: the standalone train app
-  // adds header links on desktop (T-Desktop), where BrisbaneTransit keeps its section pills (train-nav.tsx). The
-  // transit build's own swapped nav is asserted separately (renderPage's `transitNav`).
+  // adds header links on desktop (T-Desktop). BrisbaneTransit's lack of a section bar is asserted in renderPage.
   out = out.replaceAll('<nav/>', '')
+  // BrisbaneTransit's alert count in the board header (AlertCountLink; train wraps it in BoardHeader's `sub` line).
+  out = out.replace(
+    /<div class="flex basis-full items-center"><span data-board-alerts="" class="contents">[\s\S]*?<\/a><\/span><\/div>|<span data-board-alerts="" class="contents">[\s\S]*?<\/a><\/span>/g,
+    '',
+  )
   // Asset URLs in tests are absolute file paths (/@fs/<checkout>/packages/…): drop the checkout location.
   out = out.replaceAll(`/@fs${join(process.cwd(), '..', '..')}/`, '/@fs/')
   if (base) out = out.replaceAll(`href="${base}/`, 'href="/').replaceAll(`href="${base}"`, 'href="/"')

@@ -33,8 +33,11 @@ export function ModeBar() {
           )}
         />
       </div>
-      {/* Phones: room for the Mode Tabs (and a mode's section pills just above them). */}
-      <div className="h-28 md:hidden" aria-hidden="true" />
+      {/* Phones: room for the Mode Tabs, the only bottom layer (THE-118 PR 3). */}
+      <div
+        className="h-[calc(var(--bft-bottom-bar)+env(safe-area-inset-bottom))] md:hidden"
+        aria-hidden="true"
+      />
     </>
   )
 }

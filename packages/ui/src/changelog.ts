@@ -24,6 +24,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       'BrisbaneTrain says “Connecting…” too while a station’s times are still on their way, instead of showing Live before they arrive.',
       'On the Brisbane Ferry, BrisbaneTrain and BrisbaneBus sites, pages without live times (like the map, the station list and What’s new) no longer show a Live badge.',
       'If your browser isn’t keeping changes, Save now tells you so instead of saying it saved.',
+      'On BrisbaneTransit phones, the five tabs are now the only bar at the bottom of the screen, so nothing covers the last departures.',
+      'Find a station or a stop from the search at the top of the Train and Bus tabs. Each board has a Map button and shows its alerts.',
+      'Tap the tab you’re on again to go back to that mode’s home.',
+      'The “Set up your favourite stops?” question now sits at the top of My Transit instead of floating over the boards.',
     ],
   },
   {

@@ -12,20 +12,11 @@ import { useRefetchLive } from './refetch-live.ts'
 
 export function SiteHeader({
   back,
-  children,
+  children: _sections,
   ...live
 }: LiveProps & { back?: BackLink; children?: ReactNode }) {
-  return (
-    <>
-      <ModeHeader {...live} back={back} />
-      {/* The map's desktop section pills, until THE-118 PR 3 removes them. */}
-      {children ? (
-        <div className="hidden border-b border-ferry-orange/15 md:block">
-          <div className="mx-auto flex max-w-6xl px-4 py-1.5">{children}</div>
-        </div>
-      ) : null}
-    </>
-  )
+  // The map's desktop section pills (its only children) are gone with the section bars (THE-118 PR 3).
+  return <ModeHeader {...live} back={back} />
 }
 
 export function UpdatedStrip({
@@ -33,7 +24,7 @@ export function UpdatedStrip({
   nowMs,
   onRefresh,
   refreshing,
-  children,
+  children: _sections,
   ...live
 }: LiveProps & {
   updatedAt: number | null
@@ -41,6 +32,7 @@ export function UpdatedStrip({
   nowMs: number
   onRefresh?: () => void
   refreshing?: boolean
+  /** The bus pages' desktop section pills: gone with the section bars (THE-118 PR 3). */
   children?: ReactNode
 }) {
   const page = usePageCheck()
@@ -53,8 +45,6 @@ export function UpdatedStrip({
       detail={formatAge(sourceTimeS(source, { nowMs, ...page }), nowMs)}
       onRefresh={fallback ? own.refresh : onRefresh}
       refreshing={fallback ? own.refreshing : refreshing}
-    >
-      {children}
-    </StatusLine>
+    />
   )
 }

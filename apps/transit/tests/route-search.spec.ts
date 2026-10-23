@@ -4,11 +4,12 @@
  */
 import { expect, test } from '@playwright/test'
 
-test('Bus tab: type "333" → Routes → pick a stop → departures for that route', async ({ page, isMobile }) => {
+test('Bus tab: type "333" → Routes → pick a stop → departures for that route', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   await page.goto('/bus')
-  await page.locator(isMobile ? '#stop-search' : '#stop-search-desktop').fill('333')
+  // The search at the top of the Bus tab at every width (THE-118 PR 3: no thumb-height sheet on phones).
+  await page.locator('#stop-search-desktop').fill('333')
   const route = page
     .getByRole('list', { name: 'Matching routes' })
     .locator('visible=true')
