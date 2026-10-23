@@ -6,7 +6,7 @@
 
 import type { DeparturesResponse } from '@bft/core/contract'
 import { FilterPills, formatAge, formatClock } from '@bft/ui'
-import { AlertCountLink } from '@bft/ui/alert-count'
+import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { useCallback, useEffect, useState } from 'react'
 import { data, Link } from 'react-router'
@@ -141,8 +141,8 @@ function StationAbout({ station }: { station: Station }) {
  * section bar). Mounted only in that build, so the standalone site makes no extra request.
  */
 function StationAlerts({ station, mode, nowMs }: { station: Station; mode: DataMode; nowMs: number }) {
-  const q = useAlerts(useFetcher(mode), mode, null)
-  const count = q.data ? stationAlerts(q.data.alerts, station, Math.floor(nowMs / 1000)).length : null
+  const data = useCurrentAlerts(useAlerts(useFetcher(mode), mode, null))
+  const count = data ? stationAlerts(data.alerts, station, Math.floor(nowMs / 1000)).length : null
   return (
     <AlertCountLink
       count={count}

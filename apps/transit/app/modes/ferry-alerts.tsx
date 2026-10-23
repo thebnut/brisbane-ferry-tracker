@@ -6,8 +6,8 @@
 
 import type { AlertsResponse } from '@bft/core/contract'
 import type { BoardAlertsProps } from '@bft/ferry/app/components/BoardAlerts.tsx'
-import { AlertCountLink } from '@bft/ui/alert-count'
-import { pollEvery } from '@bft/ui/connectivity'
+import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
+import { noteCacheCopy, pollEvery } from '@bft/ui/connectivity'
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
@@ -26,16 +26,18 @@ export default function FerryAlerts({ fetcher, mode }: BoardAlertsProps) {
     queryFn: async ({ signal }): Promise<AlertsResponse> => {
       const res = await fetcher('/v1/alerts', { signal })
       if (!res.ok) throw new Error(`HTTP ${res.status} for /v1/alerts`)
-      return res.json()
+      // Marked like every API reader's body (getJson): a service-worker copy is never counted.
+      return noteCacheCopy(res, await res.json())
     },
     staleTime: 60_000,
     refetchInterval: poll,
   })
   const stopMode = stopModeOf()
   const nowS = Date.now() / 1000
+  const data = useCurrentAlerts(q)
   // What the Alerts page's Ferry chip counts.
-  const count = q.data
-    ? q.data.alerts.filter((a) => notOver(a, nowS) && inMode(a, 'ferry', alertModes(a, stopMode))).length
+  const count = data
+    ? data.alerts.filter((a) => notOver(a, nowS) && inMode(a, 'ferry', alertModes(a, stopMode))).length
     : null
   return <AlertCountLink count={count} href={FERRY_ALERTS} renderLink={link} />
 }

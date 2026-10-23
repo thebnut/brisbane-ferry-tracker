@@ -6,7 +6,7 @@
 
 import type { Alert } from '@bft/core/contract'
 import { FilterPills, PillButton } from '@bft/ui'
-import { AlertCountLink } from '@bft/ui/alert-count'
+import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { NoticeStrip } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
@@ -141,6 +141,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
   const routes = useMemo(() => (res ? routesIn(res.departures) : []), [res])
   const platform = res?.departures.find((d) => d.stopId === stopId)?.platform ?? null
   const alerts = alertsQ.data?.alerts ?? []
+  const currentAlerts = useCurrentAlerts(alertsQ)
   const here = stopAlerts(alerts, stopId, routes, Math.floor(now / 1000))
   const isSaved = saved.some((s) => s.id === stopId)
   // No answer yet (no data, no error): BrisbaneTransit's header says "Connecting…", not OFFLINE (THE-118).
@@ -209,7 +210,9 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
             {BASE ? (
               <AlertCountLink
                 count={
-                  alertsQ.data ? boardAlerts(alerts, stopId, routes, Math.floor(now / 1000)).length : null
+                  currentAlerts
+                    ? boardAlerts(currentAlerts.alerts, stopId, routes, Math.floor(now / 1000)).length
+                    : null
                 }
                 href={at('/alerts')}
                 renderLink={linkRenderer}

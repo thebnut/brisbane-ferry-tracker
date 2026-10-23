@@ -72,6 +72,33 @@ describe('ferry board alert count', () => {
     expect(fetcher.mock.calls.length).toBeGreaterThanOrEqual(2)
   })
 
+  it('a refetch that fails takes the count away: an old answer is never kept up as "1 alert" (Codex r4)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let fail = false
+    mount(async () =>
+      fail
+        ? new Response('nope', { status: 503 })
+        : new Response(JSON.stringify(answer([alert({ id: 'f' })])), { status: 200 }),
+    )
+    expect(await screen.findByRole('link', { name: '1 alert' })).toBeInTheDocument()
+    fail = true
+    await act(async () => {
+      // The next poll, and its one retry.
+      await vi.advanceTimersByTimeAsync(65_000)
+    })
+    expect(await screen.findByRole('link', { name: 'Alerts' })).toHaveAttribute('href', '/alerts?mode=ferry')
+  })
+
+  it('a non-live answer is not counted', async () => {
+    mount(
+      async () =>
+        new Response(JSON.stringify({ ...answer([alert({ id: 'f' })]), rtState: 'unavailable' }), {
+          status: 200,
+        }),
+    )
+    expect(await screen.findByRole('link', { name: 'Alerts' })).toBeInTheDocument()
+  })
+
   it('a failed answer leaves a plain "Alerts" link', async () => {
     mount(async () => new Response('nope', { status: 503 }))
     expect(await screen.findByRole('link', { name: 'Alerts' })).toHaveAttribute('href', '/alerts?mode=ferry')
