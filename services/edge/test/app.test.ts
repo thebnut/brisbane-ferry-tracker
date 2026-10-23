@@ -360,6 +360,7 @@ describe('other /v1 routes', () => {
         { seq: 2, stopId: '317586', arrTime: epoch(D, '08:06:00') },
       ],
     )
+    ;(named.tripUpdate as { tripProperties?: unknown }).tripProperties = { tripHeadsign: 'Hawthorne' }
     s.up.set(
       'TripUpdates/Ferry',
       feed(s.nowS(), [
@@ -369,7 +370,7 @@ describe('other /v1 routes', () => {
           { seq: 2, stopId: '317586', arrTime: epoch(D, '08:05:00'), depTime: epoch(D, '08:05:30') },
           { seq: 3, stopId: '317590', arrTime: epoch(D, '08:12:00') },
         ]),
-        { ...named, tripUpdate: { ...named.tripUpdate, tripProperties: { tripHeadsign: 'Hawthorne' } } },
+        named,
       ]),
     )
     for (let i = 0; i < 3; i++) {
