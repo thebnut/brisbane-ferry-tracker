@@ -199,7 +199,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
           ]}
           star={<BusStar id={stopId} name={name} />}
         >
-          <FilterRow label="Filter departures">
+          <FilterRow label="Filter by route">
             {routes.length > 1 || only ? (
               <>
                 <Chip

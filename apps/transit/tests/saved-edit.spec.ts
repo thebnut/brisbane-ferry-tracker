@@ -6,7 +6,7 @@
 import { expect, type Page, test } from '@playwright/test'
 
 /** The ferry favourite's card opens its trip's boards (THE-118). */
-const FERRY = '/ferry?from=317584&to=317590'
+const FERRY = '/ferry/terminal/bulimba?to=riverside'
 const TRAIN = '/train/station/roma-street?to=indooroopilly'
 const BUS = '/bus/stop/10802'
 const BUS_NAME = 'Cultural Centre station, platform 1'

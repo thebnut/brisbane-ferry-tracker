@@ -19,7 +19,7 @@ import {
 } from '@bft/ui'
 import { usePageCheck } from '@bft/ui/connectivity'
 import { SaveToast, type SaveToastMessage } from '@bft/ui/save-toast'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
 import { boardState, platformChanges, type ServiceFilter, trainCard, visibleRows } from '../lib/departures.ts'
 import { lineFor, type Station } from '../lib/network.ts'
@@ -106,6 +106,7 @@ export function StationBoard({
   onData,
   at = null,
   returnBoard = false,
+  alerts,
 }: {
   from: Station
   to: Station | null
@@ -119,6 +120,8 @@ export function StationBoard({
   at?: number | null
   /** The return board beside it on desktop: its own small title. */
   returnBoard?: boolean
+  /** Beside the return board's title: its station's alert count (BrisbaneTransit, THE-118 PR 3). */
+  alerts?: ReactNode
 }) {
   const fetcher = useFetcher(mode)
   const online = useOnline()
@@ -179,9 +182,10 @@ export function StationBoard({
       data-board={from.key}
     >
       {returnBoard ? (
-        <h2 className="flex min-h-11 items-center text-base font-bold text-aqua-text dark:text-ferry-aqua-light">
-          {title}
-        </h2>
+        <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3">
+          <h2 className="text-base font-bold text-aqua-text dark:text-ferry-aqua-light">{title}</h2>
+          {alerts}
+        </div>
       ) : null}
 
       {changes.map((d) => (

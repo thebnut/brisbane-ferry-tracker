@@ -43,11 +43,13 @@ test.describe('phone width 360 px, longest stop names (F1)', () => {
       expect(scrollWidth).toBeLessThanOrEqual(innerWidth)
       expect(innerWidth).toBe(360)
 
-      // "Depart from" select fully on screen.
-      const depart = board.getByRole('combobox').filter({ hasText: 'Now' })
-      const d = await box(depart)
-      expect(d.x).toBeGreaterThanOrEqual(0)
-      expect(d.x + d.width).toBeLessThanOrEqual(innerWidth)
+      // The board header (THE-118 PR 5): its name and star fully on screen; the chip row scrolls on its own.
+      const head = page.locator('[data-board-header]')
+      for (const l of [head.getByRole('heading'), head.locator('[data-star]')]) {
+        const d = await box(l)
+        expect(d.x).toBeGreaterThanOrEqual(0)
+        expect(d.x + d.width).toBeLessThanOrEqual(innerWidth)
+      }
 
       // Every countdown is inside its row and never overlaps the destination or the status line (THE-118 PR 4 row).
       const cards = board.getByTestId('departure')

@@ -275,6 +275,7 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
                 filter={filter}
                 at={departAt}
                 returnBoard
+                alerts={BASE ? <StationAlerts station={to} mode={mode} nowMs={nowMs} /> : undefined}
               />
             </div>
           ) : null}

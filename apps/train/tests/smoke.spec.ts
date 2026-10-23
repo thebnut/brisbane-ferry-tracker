@@ -37,7 +37,7 @@ test('station board: platform tiles on the line colour, countdowns, no strips; h
 
 test('reachable-only picker narrows the board to one destination', async ({ page }) => {
   await page.goto('/station/bowen-hills')
-  await page.getByRole('button', { name: /Choose where you're going/ }).click()
+  await page.getByRole('button', { name: 'Going to…' }).click()
   const sheet = page.getByRole('dialog')
   const fg = sheet.locator('[data-line="Ferny Grove"]').first()
   await expect(fg).toBeVisible()

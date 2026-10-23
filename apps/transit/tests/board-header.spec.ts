@@ -20,7 +20,13 @@ const onlyIn = (project: string) =>
   )
 
 const BOARDS = [
-  { mode: 'bus', url: '/bus/stop/10802', kicker: 'Bus stop', name: /Cultural Centre/, chips: ['All routes', 'Map', 'Now'] },
+  {
+    mode: 'bus',
+    url: '/bus/stop/10802',
+    kicker: 'Bus stop',
+    name: /Cultural Centre/,
+    chips: ['All routes', 'Map', 'Now'],
+  },
   {
     mode: 'train',
     url: '/train/station/central',
@@ -59,7 +65,9 @@ const both = (a: string, b: string) => {
 function suite(desktop: boolean) {
   for (const b of BOARDS)
     test.describe(b.mode, () => {
-      test('header: kicker, name, sub-line with the alert count, labelled star; then the chips', async ({ page }) => {
+      test('header: kicker, name, sub-line with the alert count, labelled star; then the chips', async ({
+        page,
+      }) => {
         await page.goto(b.url)
         const h = header(page)
         await expect(h.locator('[data-kicker]')).toHaveText(b.kicker)
@@ -68,9 +76,9 @@ function suite(desktop: boolean) {
         await expect(h.locator('[data-star]')).toHaveText(/^Saved?\b/)
         for (const c of b.chips) await expect(chips(page).getByText(c, { exact: true }).first()).toBeVisible()
         // Every chip is a 44 px target.
-        for (const box of await chips(page).locator('[data-chip], a').evaluateAll((els) =>
-          els.map((e) => e.getBoundingClientRect().height),
-        ))
+        for (const box of await chips(page)
+          .locator('[data-chip], a')
+          .evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height)))
           expect(box).toBeGreaterThanOrEqual(44)
         // One page width: the chip row scrolls on its own, the page doesn't.
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -92,7 +100,9 @@ function suite(desktop: boolean) {
         await page.goto(b.url)
         const select = chips(page).getByLabel('Depart from')
         const value = await select.locator('option:not([disabled])').nth(1).getAttribute('value')
-        const asked = page.waitForRequest((r) => r.url().includes('/departures') && r.url().includes(`at=${value}`))
+        const asked = page.waitForRequest(
+          (r) => r.url().includes('/departures') && r.url().includes(`at=${value}`),
+        )
         await select.selectOption(value as string)
         await asked
         const words = chips(page).locator('[data-chip=now] > span')
@@ -127,7 +137,10 @@ function suite(desktop: boolean) {
 
     test('a terminal board without "To" lists every departure; the sheet sets "To"', async ({ page }) => {
       await page.goto('/ferry/terminal/bulimba')
-      await expect(page.locator('[data-board=outbound]')).toHaveAttribute('aria-label', 'Departures from Bulimba')
+      await expect(page.locator('[data-board=outbound]')).toHaveAttribute(
+        'aria-label',
+        'Departures from Bulimba',
+      )
       await expect(page.locator('[data-board=inbound]')).toHaveCount(0)
       await expect(chips(page).getByRole('button', { name: 'Swap direction' })).toHaveCount(0)
       await chips(page).getByRole('button', { name: 'To…' }).click()
