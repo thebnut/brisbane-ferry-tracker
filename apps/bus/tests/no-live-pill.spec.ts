@@ -15,6 +15,9 @@ const IDLE: [string, string][] = [
   ['/no-such-page', 'the error page'],
 ]
 
+/** The idle page the offline case loads. */
+const [OFFLINE_PATH, OFFLINE_LABEL] = IDLE[0] as [string, string]
+
 /** The page's own LIVE board (a stop board), for the control and the header height. */
 const LIVE_PAGE = '/stop/10802'
 
@@ -81,8 +84,8 @@ for (const [name, viewport] of [
       })
     }
 
-    test(`offline: ${IDLE[0][1]} still says OFFLINE`, async ({ page, context }) => {
-      await page.goto(IDLE[0][0])
+    test(`offline: ${OFFLINE_LABEL} still says OFFLINE`, async ({ page, context }) => {
+      await page.goto(OFFLINE_PATH)
       await hydrated(page)
       await context.setOffline(true)
       await expect(page.locator('header').getByText('OFFLINE', { exact: true })).toBeVisible()
