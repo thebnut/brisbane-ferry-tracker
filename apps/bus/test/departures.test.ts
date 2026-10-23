@@ -58,6 +58,13 @@ describe('row status (THE-118 PR 4: dot, word, one fact)', () => {
     })
     expect(st(c).status.text).toBe('Cancelled')
   })
+  it('a cancelled bus never points at the same route going the other way (release 15 review)', () => {
+    const c = dep({ status: 'cancelled', route: { id: '111-1', short: '111' }, directionId: 0 })
+    const back = dep({ route: { id: '111-1', short: '111' }, directionId: 1, schedDep: nowS + 6 * 60 })
+    const next = dep({ route: { id: '111-1', short: '111' }, directionId: 0, schedDep: nowS + 18 * 60 })
+    expect(st(c, [c, back]).status.text).toBe('Cancelled')
+    expect(st(c, [c, back, next]).status.text).toBe('Cancelled · next 111 in 18 min')
+  })
   it('skipped: not stopping here', () => {
     expect(st(dep({ status: 'skipped', gps: true }))).toMatchObject({
       status: { text: 'Not stopping here', dot: 'cancelled' },

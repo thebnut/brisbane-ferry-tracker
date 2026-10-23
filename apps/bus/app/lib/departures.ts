@@ -60,7 +60,10 @@ export function rowStatus(
       ? nextAlike(
           rows,
           rows.indexOf(d),
-          (r) => r.route.short === d.route.short && effective(r) > effective(d),
+          // The same way too: a stop a route serves in both directions (a terminus, an interchange stand) must
+          // never suggest a bus going back where this one came from.
+          (r) =>
+            r.route.short === d.route.short && r.directionId === d.directionId && effective(r) > effective(d),
         )
       : undefined
   const status = {
