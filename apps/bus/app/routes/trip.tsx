@@ -4,6 +4,10 @@
  * "Not reported" tile), "Your trip" from your stop with the bus riding the line, and the dock ("Track on map", the
  * star). Server-rendered from /v1/bus/trips, then polled. A trip that has run (or never was) shows a friendly note that
  * links back to the stop.
+ *
+ * At 1024 px and wider the stop board's layout shows this page as its right panel (THE-118 PR 7, `usePanel`): ✕ and
+ * "Open full page" instead of the header, status strip, back link, footer and tab bar. `?full=1` is the full page at
+ * any width.
  */
 
 import type { TripResponse } from '@bft/core/contract'
@@ -23,6 +27,7 @@ import {
 } from '@bft/ui'
 import { SkeletonRows } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { onlyFullChanged, usePanel } from '@bft/ui/panel'
 import {
   backClick,
   occupancyFact,
@@ -31,11 +36,12 @@ import {
   type TripLinkRenderer,
   TripMap,
   TripNotFound,
+  TripPanelFrame,
   TripSummary,
   trackClass,
   YourTrip,
 } from '@bft/ui/trip'
-import { data, Link } from 'react-router'
+import { data, Link, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { BusStar } from '../components/BusStar.tsx'
 import { BusNav, DataBanner, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute } from '../lib/api.ts'
@@ -89,6 +95,11 @@ export function headers() {
   return { 'cache-control': 'private, no-store' }
 }
 
+/** The panel and its full page are the same trip: no second fetch between them (THE-118 PR 7). */
+export function shouldRevalidate(args: ShouldRevalidateFunctionArgs) {
+  return onlyFullChanged(args.currentUrl, args.nextUrl) ? false : args.defaultShouldRevalidate
+}
+
 export const meta: Route.MetaFunction = ({ loaderData }) => {
   const t = loaderData?.trip
   const title = t ? `Route ${t.route.short} to ${t.headsign} | BrisbaneBus` : 'Bus trip | BrisbaneBus'
@@ -138,6 +149,31 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const back = from
     ? { href: stopHref(from), label: fromName ?? unnamedStop(from), onClick: backClick }
     : { href: appAt('/'), label: 'Bus', onClick: backClick }
+  const panel = usePanel()
+  const content = (
+    <>
+      <DataBanner
+        rtState={state != null && state !== 'offline' ? state : trip?.rtState}
+        hasData={!!trip}
+        generation={trip?.staticGeneration}
+      />
+      {gone ? (
+        <TripNotFound place={from ? back.label : null} href={back.href} renderLink={linkRenderer} />
+      ) : !trip ? (
+        q.isError ? (
+          <p className="py-8 text-center text-sm text-sched-text" role="status">
+            Couldn't load this bus. Retrying…
+          </p>
+        ) : (
+          <SkeletonRows count={3} label="Getting this bus…" />
+        )
+      ) : (
+        <TripBody trip={trip} tripKey={key} from={from} now={now} stopNames={loaderData.stopNames} />
+      )}
+    </>
+  )
+  // Beside the board (desktop): the board's header says what's live; the panel's own words follow this trip's answer.
+  if (panel) return <TripPanelFrame panel={panel}>{content}</TripPanelFrame>
   return (
     <>
       <SiteHeader live={gone ? undefined : live} pending={pending} back={back} />
@@ -152,24 +188,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
       />
       <main className="mx-auto flex max-w-2xl flex-col gap-3 px-4 pt-3.5 pb-28 md:pb-8">
         <TripBackLink href={back.href} label={back.label} renderLink={linkRenderer} barHasIt={!!BASE} />
-        <DataBanner
-          rtState={state != null && state !== 'offline' ? state : trip?.rtState}
-          hasData={!!trip}
-          generation={trip?.staticGeneration}
-        />
-        {gone ? (
-          <TripNotFound place={from ? back.label : null} href={back.href} renderLink={linkRenderer} />
-        ) : !trip ? (
-          q.isError ? (
-            <p className="py-8 text-center text-sm text-sched-text" role="status">
-              Couldn't load this bus. Retrying…
-            </p>
-          ) : (
-            <SkeletonRows count={3} label="Getting this bus…" />
-          )
-        ) : (
-          <TripBody trip={trip} tripKey={key} from={from} now={now} stopNames={loaderData.stopNames} />
-        )}
+        {content}
       </main>
       <Footer />
       <BusNav active="" />

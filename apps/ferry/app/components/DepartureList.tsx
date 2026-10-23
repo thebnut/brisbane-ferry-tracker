@@ -1,6 +1,7 @@
 /** One departure board: rows (5, then up to 13 with "More departures") linking to their trip pages, empty and error states. */
 import type { Departure } from '@bft/core/contract'
 import {
+  BOARD_STATE,
   boardState,
   cx,
   DayDivider,
@@ -14,14 +15,29 @@ import {
   soonestIndex,
   useKept,
 } from '@bft/ui'
-import { Link, useLocation } from 'react-router'
+import { Link, useLocation, useParams } from 'react-router'
 import { rowModel } from '../lib/departures.ts'
 
-/** A row's link to its trip page, carrying the board's URL so the trip's back link returns here (THE-118 PR 6). */
+/**
+ * A row's link to its trip page, carrying the board's URL so the trip's back link returns here (THE-118 PR 6).
+ */
 function RowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
   const { pathname, search } = useLocation()
+  // Desktop (THE-118 PR 7): the open trip's row is marked; a row picked beside it replaces it in history (the board
+  // stays behind it); and the board keeps its scroll when a row opens beside it.
+  const open = useParams().tripInstance
+  const usr = open ? (history.state?.usr as Record<string, unknown> | undefined) : undefined
+  const swap = typeof usr?.[BOARD_STATE] === 'string'
   return (
-    <Link to={href} className={className} aria-label={label} state={boardState(pathname, search)}>
+    <Link
+      to={href}
+      className={className}
+      aria-label={label}
+      state={swap ? usr : boardState(pathname, search)}
+      replace={swap}
+      preventScrollReset={typeof matchMedia === 'function' && matchMedia('(min-width: 1024px)').matches}
+      aria-current={open && href.split('?')[0]?.endsWith(`/${encodeURIComponent(open)}`) ? 'true' : undefined}
+    >
       {children}
     </Link>
   )

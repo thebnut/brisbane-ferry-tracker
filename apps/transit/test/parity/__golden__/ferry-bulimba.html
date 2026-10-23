@@ -1,5 +1,5 @@
-<main class="mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-6">
-<div class="mx-auto flex max-w-2xl flex-col gap-3">
+<main class="board-grid mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-6">
+<div class="board-column" data-board-column="">
 <div data-board-header="" class="bg-board-header flex flex-col gap-1.5 rounded-card border border-ferry-orange/10 px-3.5 pt-3 pb-1.5 shadow-sm">
 <div class="flex items-start justify-between gap-3">
 <div class="flex min-w-0 flex-col">
@@ -51,7 +51,6 @@
 <p role="note" data-banner="demo" class="rounded-card border border-aqua-text/30 bg-ferry-light-blue px-3.5 py-2.5 text-sm text-charcoal">
 <strong class="font-bold">Demo data.</strong> A recorded weekday timetable with simulated live times, not today's real departures. <a href="?fixtures=0" data-demo-exit="" class="font-semibold underline">Exit demo</a>
 </p>
-<div>
 <section aria-label="Departures from Bulimba" class="flex flex-col gap-3" data-board="outbound">
 <ol class="flex flex-col gap-3" aria-label="Departures">
 <li>
@@ -158,6 +157,7 @@
 <button type="button" class="bg-more min-h-12 w-full rounded-button border-2 border-ferry-orange/30 text-[15px] font-bold text-ferry-orange-deep transition hover:border-ferry-orange dark:text-ferry-sunset" aria-expanded="false">More departures (8 more)</button>
 </section>
 </div>
+<div class="board-panel" data-panel="">
 </div>
 </main>
 <section class="mx-auto max-w-6xl px-4 pt-4 pb-2 text-charcoal" data-terminal-page="bulimba" aria-labelledby="terminal-heading">

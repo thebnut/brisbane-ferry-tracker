@@ -2,6 +2,11 @@
  * /stop/:stopId: server-rendered stop board (B-Departures). The loader fetches /v1 departures in-process so the
  * rows are in the HTML; the client then polls every 15 s. Route filter pills, the Save star (My Transit), alert strip and a
  * lazy per-stop map with the buses heading here.
+ *
+ * A layout over the board URL and the trip URL (THE-118 PR 7): at 1024 px and wider the board is a column beside a
+ * panel, which shows the trip a row opened, else the stop's map. The board stays as it is (not fetched again) while
+ * the trip opens and closes. On a trip URL the board is the stop it was opened from (`?from=`); below 1024, or with
+ * `?full=1`, the trip is its own page.
  */
 
 import type { Alert } from '@bft/core/contract'
@@ -9,8 +14,18 @@ import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { BoardHeader, Chip, FilterRow, NowChip } from '@bft/ui/board-header'
 import { NoticeStrip } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { data, redirect, useNavigate } from 'react-router'
+import { FULL, PanelProvider, panelControls, samePlace, usePanelFocus, useWide } from '@bft/ui/panel'
+import { lazy, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react'
+import {
+  data,
+  Outlet,
+  redirect,
+  type ShouldRevalidateFunctionArgs,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router'
 import { BusStar } from '../components/BusStar.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { DepartureList, linkRenderer } from '../components/StopBoard.tsx'
@@ -32,9 +47,26 @@ import type { Route } from './+types/stop'
 const NoMap = (() => null) as never // renders nothing, whatever the props
 const StopMap = lazy(() => import('../components/StopMap.tsx').catch(() => ({ default: NoMap })))
 
+const STOP_RE = /^[\w-]{1,32}$/
+
 export async function loader({ request, context, params }: Route.LoaderArgs) {
+  if (!params.stopId) {
+    // The trip URL: the board beside it is fetched by the browser, and only on desktop (a phone shows the trip alone).
+    const { env } = loaderEnv(request, context)
+    const from = new URL(request.url).searchParams.get('from')
+    return {
+      stopId: from && STOP_RE.test(from) ? from : null,
+      departures: null,
+      alerts: null,
+      board: false,
+      route: undefined,
+      renderedAt: Date.now(),
+      via: VIA_NETWORK,
+      siteUrl: env?.SITE_URL ?? SITE_URL,
+    }
+  }
   const stopId = params.stopId
-  if (!/^[\w-]{1,32}$/.test(stopId)) throw data(null, { status: 404 })
+  if (!STOP_RE.test(stopId)) throw data(null, { status: 404 })
   // The page shows the public stop number ("Stop 010813"), so people type and share it: send it to the stop's page
   // instead of asking the API for an id that doesn't exist (two 404s per visit, R3-B10).
   const canonical = canonicalStopId(stopId)
@@ -73,6 +105,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     stopId,
     departures,
     alerts,
+    board: true,
     renderedAt: Date.now(),
     via: VIA_NETWORK,
     siteUrl: env?.SITE_URL ?? SITE_URL,
@@ -84,8 +117,14 @@ export function headers() {
   return { 'cache-control': 'private, no-store' }
 }
 
+/** Not again for a trip opening or closing beside the board, only for another stop or route filter (THE-118 PR 7). */
+export function shouldRevalidate(args: ShouldRevalidateFunctionArgs) {
+  return samePlace(args, 'stop') ? false : args.defaultShouldRevalidate
+}
+
 export const meta: Route.MetaFunction = ({ loaderData }) => {
-  if (!loaderData) return [{ title: 'Stop not found | BrisbaneBus' }, { name: 'robots', content: 'noindex' }]
+  if (!loaderData?.stopId)
+    return [{ title: 'Stop not found | BrisbaneBus' }, { name: 'robots', content: 'noindex' }]
   const name = loaderData.departures?.stop.name ?? `Stop ${loaderData.stopId}`
   const routes = loaderData.departures ? routesIn(loaderData.departures.departures) : []
   const m = stopMetaTags(loaderData.stopId, name, routes, loaderData.siteUrl)
@@ -121,7 +160,29 @@ export function stopAlerts(alerts: Alert[], stopId: string, routes: string[], no
   )
 }
 
+type Data = Route.ComponentProps['loaderData']
+
 export default function StopPage({ loaderData }: Route.ComponentProps) {
+  const { stopId } = loaderData
+  const trip = useParams().tripInstance
+  const wide = useWide()
+  const [search] = useSearchParams()
+  // The trip alone: a phone or tablet, its full page, or a trip with no stop to show the board of.
+  if (trip && (!wide || !stopId || search.has(FULL))) return <Outlet />
+  if (!stopId) return null
+  return <StopBoardPage loaderData={{ ...loaderData, stopId }} trip={trip} panel={trip ? <Outlet /> : null} />
+}
+
+function StopBoardPage({
+  loaderData,
+  trip: open,
+  panel,
+}: {
+  loaderData: Data & { stopId: string }
+  /** The trip open in the panel (the trip URL, desktop), and the trip page as the panel. */
+  trip?: string
+  panel: ReactNode
+}) {
   const { stopId } = loaderData
   const { mode, fetcher } = useApi()
   // "Depart from" (the Now ▾ chip, THE-118 PR 5): null is now, which the loader's rows are for.
@@ -168,114 +229,141 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
     if (res?.stop.name) pushRecent({ id: stopId, name: res.stop.name })
   }, [res?.stop.name, stopId])
 
+  const wide = useWide()
+  const { pathname, search } = useLocation()
+  const controls = panelControls(
+    (href, opts) => navigate(href, opts),
+    () => navigate(-1),
+    `${stopHref(stopId)}${only ? `?route=${encodeURIComponent(only)}` : ''}`,
+    `${pathname}${search}`,
+  )
+  usePanelFocus(open, controls.close)
+  // At 1024 px and wider with no trip open, the panel has the stop's map: never a second one in the column.
+  const panelMap = wide && !open
+
   return (
     <>
       <SiteHeader live={state == null && res?.rtState === 'live'} pending={pending}>
         <DesktopNav active="" />
       </SiteHeader>
-      <main className="mx-auto flex max-w-3xl flex-col gap-2.5 px-4 pt-3 pb-4">
-        <BoardHeader
-          kicker="Bus stop"
-          name={name}
-          facts={[
-            stopMeta(stopId, platform),
-            routes.length ? `${routes.length} route${routes.length === 1 ? '' : 's'}` : null,
-            // BrisbaneTransit: Alerts left the section bar for the board header (THE-118 PR 3).
-            BASE ? (
-              <AlertCountLink
-                key="alerts"
-                count={
-                  currentAlerts
-                    ? boardAlerts(currentAlerts.alerts, stopId, routes, Math.floor(now / 1000)).length
-                    : null
-                }
-                href={at('/alerts')}
-                renderLink={linkRenderer}
-              />
-            ) : null,
-          ]}
-          star={<BusStar id={stopId} name={name} />}
+      <main className="board-grid mx-auto max-w-6xl px-4 pt-3 pb-4">
+        <div
+          data-board-column=""
+          className="mx-auto flex w-full max-w-[46rem] min-w-0 flex-col gap-2.5 lg:mx-0 lg:max-w-none"
         >
-          <FilterRow label="Filter by route">
-            {routes.length > 1 || only ? (
-              <>
-                <Chip
-                  pressed={pick === 'all'}
-                  // ?route= came from the API filtered: "All routes" loads the whole board.
-                  onClick={() => (only ? navigate(stopHref(stopId)) : setRoute('all'))}
-                >
-                  All routes
-                </Chip>
-                {(only ? [only] : routes.slice(0, 12)).map((r) => (
-                  <Chip key={r} pressed={pick === r} onClick={() => (only ? undefined : setRoute(r))}>
-                    {r}
-                  </Chip>
-                ))}
-              </>
-            ) : null}
-            <Chip icon="map" pressed={showMap} onClick={() => setShowMap((s) => !s)}>
-              Map
-            </Chip>
-            <NowChip value={departAt} onChange={setDepartAt} nowMs={now} />
-          </FilterRow>
-        </BoardHeader>
-        <UpdatedStrip
-          board
-          updatedAt={res?.generatedAt ?? null}
-          source={res}
-          nowMs={now}
-          onRefresh={() => q.refetch()}
-          refreshing={q.isFetching}
-          live={state == null && res?.rtState === 'live'}
-          pending={pending}
-        />
-        <DataBanner
-          offline={state === 'offline'}
-          rtState={res?.rtState}
-          hasData={!!res?.departures.length}
-          generation={res?.staticGeneration}
-        />
-        {here.slice(0, 2).map((a) => (
-          <NoticeStrip key={a.id} href={at('/alerts')} renderLink={linkRenderer}>
-            {a.header}
-          </NoticeStrip>
-        ))}
-        {showMap ? (
-          <Suspense fallback={<div className="h-72 animate-pulse rounded-card bg-map-ground" />}>
-            <StopMap stopId={stopId} name={name} departures={res?.departures ?? []} />
-          </Suspense>
-        ) : null}
-        <DepartureList
-          stopId={stopId}
-          data={res}
-          isError={q.isError}
-          onRetry={() => q.refetch()}
-          nowMs={now}
-          alerts={alerts}
-          routes={pick === 'all' ? null : new Set([pick])}
-          offline={state === 'offline'}
-          saved={isSaved}
-          copyRanOut={state === 'offline' && hasTimetableCopy(stopId)}
-        />
-        {routes.length ? (
-          <section className="mt-4" aria-labelledby="routes-here">
-            <h2 id="routes-here" className="text-sm font-semibold text-gray-700 dark:text-night-text/80">
-              Routes from {name}
-            </h2>
-            <ul className="mt-2 flex flex-wrap gap-2 text-sm">
-              {routes.map((r) => (
-                <li key={r}>
-                  <a
-                    href={routeHref(r)}
-                    className="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 font-semibold text-aqua-text hover:border-ferry-orange/50 dark:bg-night-card dark:text-ferry-aqua-light"
+          <BoardHeader
+            kicker="Bus stop"
+            name={name}
+            facts={[
+              stopMeta(stopId, platform),
+              routes.length ? `${routes.length} route${routes.length === 1 ? '' : 's'}` : null,
+              // BrisbaneTransit: Alerts left the section bar for the board header (THE-118 PR 3).
+              BASE ? (
+                <AlertCountLink
+                  key="alerts"
+                  count={
+                    currentAlerts
+                      ? boardAlerts(currentAlerts.alerts, stopId, routes, Math.floor(now / 1000)).length
+                      : null
+                  }
+                  href={at('/alerts')}
+                  renderLink={linkRenderer}
+                />
+              ) : null,
+            ]}
+            star={<BusStar id={stopId} name={name} />}
+          >
+            <FilterRow label="Filter by route">
+              {routes.length > 1 || only ? (
+                <>
+                  <Chip
+                    pressed={pick === 'all'}
+                    // ?route= came from the API filtered: "All routes" loads the whole board.
+                    onClick={() => (only ? navigate(stopHref(stopId)) : setRoute('all'))}
                   >
-                    Route {r}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+                    All routes
+                  </Chip>
+                  {(only ? [only] : routes.slice(0, 12)).map((r) => (
+                    <Chip key={r} pressed={pick === r} onClick={() => (only ? undefined : setRoute(r))}>
+                      {r}
+                    </Chip>
+                  ))}
+                </>
+              ) : null}
+              <Chip icon="map" pressed={showMap || panelMap} onClick={() => setShowMap((s) => !s)}>
+                Map
+              </Chip>
+              <NowChip value={departAt} onChange={setDepartAt} nowMs={now} />
+            </FilterRow>
+          </BoardHeader>
+          <UpdatedStrip
+            board
+            updatedAt={res?.generatedAt ?? null}
+            source={res}
+            nowMs={now}
+            onRefresh={() => q.refetch()}
+            refreshing={q.isFetching}
+            live={state == null && res?.rtState === 'live'}
+            pending={pending}
+          />
+          <DataBanner
+            offline={state === 'offline'}
+            rtState={res?.rtState}
+            hasData={!!res?.departures.length}
+            generation={res?.staticGeneration}
+          />
+          {here.slice(0, 2).map((a) => (
+            <NoticeStrip key={a.id} href={at('/alerts')} renderLink={linkRenderer}>
+              {a.header}
+            </NoticeStrip>
+          ))}
+          {showMap && !panelMap ? (
+            <Suspense fallback={<div className="h-72 animate-pulse rounded-card bg-map-ground" />}>
+              <StopMap stopId={stopId} name={name} departures={res?.departures ?? []} />
+            </Suspense>
+          ) : null}
+          <DepartureList
+            stopId={stopId}
+            data={res}
+            isError={q.isError}
+            onRetry={() => q.refetch()}
+            nowMs={now}
+            alerts={alerts}
+            routes={pick === 'all' ? null : new Set([pick])}
+            offline={state === 'offline'}
+            saved={isSaved}
+            copyRanOut={state === 'offline' && hasTimetableCopy(stopId)}
+          />
+          {routes.length ? (
+            <section className="mt-4" aria-labelledby="routes-here">
+              <h2 id="routes-here" className="text-sm font-semibold text-gray-700 dark:text-night-text/80">
+                Routes from {name}
+              </h2>
+              <ul className="mt-2 flex flex-wrap gap-2 text-sm">
+                {routes.map((r) => (
+                  <li key={r}>
+                    <a
+                      href={routeHref(r)}
+                      className="inline-block rounded-full border border-ferry-orange/20 bg-white/80 px-3 py-1 font-semibold text-aqua-text hover:border-ferry-orange/50 dark:bg-night-card dark:text-ferry-aqua-light"
+                    >
+                      Route {r}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
+        {/* The panel (1024 px and wider): the open trip, else the stop's map. */}
+        <div className="board-panel" data-panel="">
+          {open ? (
+            <PanelProvider value={controls}>{panel}</PanelProvider>
+          ) : wide ? (
+            <Suspense fallback={<div className="h-80 rounded-card bg-map-ground" />}>
+              <StopMap stopId={stopId} name={name} departures={res?.departures ?? []} />
+            </Suspense>
+          ) : null}
+        </div>
       </main>
       <Footer />
       <BusNav active="" alertCount={here.length || undefined} />

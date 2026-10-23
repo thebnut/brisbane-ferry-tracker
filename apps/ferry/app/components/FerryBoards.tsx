@@ -1,9 +1,11 @@
 /**
  * A ferry terminal's board (THE-118 PR 5): the board header (kicker, terminal, routes, alert count, star) with one
  * filter row (All, To… ▾, ⇄, Express, Map, Now ▾), the status line, rtState/offline banners and the departures
- * (each row opens its trip page, THE-118 PR 6), with the live map and stop selector. With a "To", desktop shows the return board beside it (until the
- * return-board rule of THE-118 PR 7). Rendered on the server with the loader's rows, then polled every 15 s while
- * visible.
+ * (each row opens its trip page, THE-118 PR 6), with the live map and stop selector. Rendered on the server with the
+ * loader's rows, then polled every 15 s while visible.
+ *
+ * At 1024 px and wider the board is a column beside a panel (THE-118 PR 7): the trip a row opened, else with a "To" the
+ * return board, else the terminal's map. Narrower, ⇄ flips the direction instead.
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
@@ -19,7 +21,7 @@ import {
 import { BoardHeader, Chip, FilterRow, leavingFrom, NowChip } from '@bft/ui/board-header'
 import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import {
   applyFilter,
   bannerState,
@@ -49,6 +51,8 @@ import { SiteHeader, UpdatedStrip } from './header.tsx'
 const NoMap = (() => null) as never // renders nothing, whatever the props
 const LiveMapSheet = lazy(() => import('./LiveMapSheet.tsx').catch(() => ({ default: NoMap })))
 const StopSelector = lazy(() => import('./StopSelector.tsx'))
+// The idle panel's map at 1024 px and wider (THE-118 PR 7): its chunk draws nothing narrower.
+const TerminalMap = lazy(() => import('./TerminalMap.tsx').catch(() => ({ default: NoMap })))
 // The "To…" chip's sheet (Train's "Going to" sheet), off the first load. If its chunk can't load (offline before the
 // service worker cached it), a short sheet says so and the board stays; the next tap tries again.
 // It stays mounted once opened, so closing it gives focus back to the chip (Codex r4).
@@ -92,6 +96,9 @@ export interface FerryBoardsProps {
    * follows the saved pair or the first favourite, and the stop selector changes it here; a terminal page navigates.
    */
   home?: boolean
+  /** The trip open in the panel (the trip URL, desktop), and the trip page as the panel (the layout's, THE-118 PR 7). */
+  trip?: string
+  panel?: ReactNode
   children?: ReactNode
 }
 
@@ -117,6 +124,8 @@ export function FerryBoards({
   renderedAt,
   mode,
   home = false,
+  trip: openTrip,
+  panel,
   children,
 }: FerryBoardsProps) {
   const [trip, setTrip] = useState({ from: serverFrom, to: serverTo })
@@ -131,6 +140,7 @@ export function FerryBoards({
   const [Star, setStar] = useState<typeof FerryStar | null>(null)
   const [Alerts, setAlerts] = useState<typeof BoardAlerts | null>(null)
   const navigate = useNavigate()
+  const { search } = useLocation()
   const openTo = () => {
     // The last try couldn't load the sheet: try again.
     if (toFailed) ToSheet = loadToSheet()
@@ -151,12 +161,6 @@ export function FerryBoards({
     const saved = home ? readSavedPair() : null
     show(saved)
     setDepartAt(readDepartAt())
-    // A trip page's "Track on map" (THE-118 PR 6): the board with its map open.
-    const q = new URLSearchParams(location.search)
-    if (q.has('map')) {
-      setShowMap(true)
-      setFollow(q.get('trip'))
-    }
     let live = true
     import('./FerryStar.tsx').then(
       (m) => {
@@ -183,6 +187,13 @@ export function FerryBoards({
   // Demo mode lasts an hour from ?fixtures=1 and ends with ?fixtures=0. Never from the data mode alone: an API
   // failure that fell back to fixtures (FIXTURE_FALLBACK) used to make demo mode stick for the session (R7-B1).
   useFixtureCookie(FIXTURE_COOKIE, mode.fixtures, mode.forced === true, mode.allowed === true)
+  // A trip's "Track on map" (THE-118 PR 6): the board with its map open, also from the panel beside it (PR 7).
+  useEffect(() => {
+    const q = new URLSearchParams(search)
+    if (!q.has('map')) return
+    setShowMap(true)
+    setFollow(q.get('trip'))
+  }, [search])
 
   const fromId = trip.from.id
   const toId = trip.to?.id ?? ''
@@ -251,8 +262,8 @@ export function FerryBoards({
     <>
       <SiteHeader onSettings={() => setShowSelector(true)} live={live} pending={pending} />
 
-      <main className="mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-6">
-        <div className={trip.to ? 'flex flex-col gap-3' : 'mx-auto flex max-w-2xl flex-col gap-3'}>
+      <main className="board-grid mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-6">
+        <div className="board-column" data-board-column="">
           <BoardHeader
             kicker="Ferry terminal"
             as="h2"
@@ -320,35 +331,46 @@ export function FerryBoards({
             </p>
           ) : null}
 
-          <div className={trip.to ? 'grid gap-6 md:grid-cols-2 md:gap-8' : undefined}>
+          <DepartureList
+            id="outbound"
+            label={trip.to ? `${fromName} to ${toName}` : `Departures from ${fromName}`}
+            departures={outList}
+            nowMs={now}
+            loading={out.isPending}
+            error={out.isError}
+            onRetry={() => void out.refetch()}
+            offline={outState === 'offline'}
+            tripHref={(d) => tripHref(d.tripInstance, fromId, trip.to?.id)}
+          />
+        </div>
+        {/* The panel (1024 px and wider): the open trip, else the return board, else the terminal's map. */}
+        <div className="board-panel" data-panel="">
+          {openTrip ? (
+            panel
+          ) : trip.to ? (
             <DepartureList
-              id="outbound"
-              label={trip.to ? `${fromName} to ${toName}` : `Departures from ${fromName}`}
-              departures={outList}
+              id="inbound"
+              label={`${toName} to ${fromName}`}
+              title={`${toName} → ${fromName}`}
+              departures={backList}
               nowMs={now}
-              loading={out.isPending}
-              error={out.isError}
-              onRetry={() => void out.refetch()}
-              offline={outState === 'offline'}
-              tripHref={(d) => tripHref(d.tripInstance, fromId, trip.to?.id)}
+              loading={back.isPending}
+              error={back.isError}
+              onRetry={() => void back.refetch()}
+              offline={backState === 'offline'}
+              tripHref={(d) => tripHref(d.tripInstance, toId, fromId)}
             />
-            {trip.to ? (
-              <div className="hidden md:block">
-                <DepartureList
-                  id="inbound"
-                  label={`${toName} to ${fromName}`}
-                  title={`${toName} → ${fromName}`}
-                  departures={backList}
-                  nowMs={now}
-                  loading={back.isPending}
-                  error={back.isError}
-                  onRetry={() => void back.refetch()}
-                  offline={backState === 'offline'}
-                  tripHref={(d) => tripHref(d.tripInstance, toId, fromId)}
-                />
-              </div>
-            ) : null}
-          </div>
+          ) : (
+            <Suspense fallback={null}>
+              <TerminalMap
+                terminal={trip.from}
+                live={boardsLive}
+                departures={out.data?.departures ?? []}
+                fetcher={fetcher}
+                mode={mode}
+              />
+            </Suspense>
+          )}
         </div>
       </main>
 

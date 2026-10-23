@@ -41,6 +41,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Ferry trips now open as their own page you can share, instead of a pop-up, and ‹ takes you back to the board where you left it.',
       'Save from a trip too: it saves the stop you board at, and where you’re getting off when you chose a destination.',
       'Trip pages leave out details that aren’t known, instead of showing “—” or “Not reported”.',
+      'On a computer, tapping a departure opens its trip beside the board, so you can check one service after another. Back or Esc closes it, and “Open full page” gives it the whole screen.',
+      'With a destination set on a computer, the trips back the other way sit beside the board. Without one, there’s a small map of the stop and what’s heading there.',
     ],
   },
   {

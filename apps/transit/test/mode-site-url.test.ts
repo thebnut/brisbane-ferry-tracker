@@ -150,7 +150,8 @@ async function urlsOf(mode: string, file: string, siteUrl: string): Promise<stri
 
 describe('every mounted mode page', () => {
   it('covers all of them', () => {
-    expect(PAGES.length).toBe(19)
+    // Each board is a layout (its meta) over its own URL (board.tsx, no meta of its own) and the trip URL (THE-118 PR 7).
+    expect(PAGES.length).toBe(22)
   })
 
   it.each(['production', 'production-preview', 'staging', undefined])(
@@ -161,7 +162,8 @@ describe('every mounted mode page', () => {
         const site = urls[mode]
         const found = await urlsOf(mode, file, site)
         for (const u of found) expect(u.startsWith(`${site}/`), `${mode}/${file}: ${u}`).toBe(true)
-        // Pages with SEO tags emit them: not vacuous.
+        // Pages with SEO tags emit them: not vacuous. A board URL's tags are its layout's.
+        if (file === 'board.tsx') continue
         if (!['trip.tsx'].includes(file) || mode === 'bus')
           expect(found.length, `${mode}/${file}`).toBeGreaterThan(0)
       }
