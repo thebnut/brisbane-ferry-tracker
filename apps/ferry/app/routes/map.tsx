@@ -214,6 +214,8 @@ function FerryMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
           fitTo={fitTo}
           // The followed ferry's position can arrive after the first fit: fit again once it does.
           fitKey={followed?.id ?? ''}
+          // And keep it in view as it moves.
+          follow={followed ? [followed.lon, followed.lat] : null}
           label={`Map of ${ferries.length} live ferries${terminal ? ` near ${name}` : ''}`}
           className={MAP_BOX}
           unavailable={

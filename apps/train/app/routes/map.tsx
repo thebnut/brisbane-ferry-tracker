@@ -196,6 +196,8 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
           fitTo={fitTo}
           // The tracked train's position can arrive after the first fit: fit again once it does.
           fitKey={trackedId}
+          // And keep it in view as it moves.
+          follow={tracked ? [tracked.lon, tracked.lat] : null}
           label={`Map of ${vehicles.length} live trains${station ? ` near ${centre.name}` : ''}`}
           className={MAP_BOX}
           unavailable={

@@ -5,10 +5,10 @@
  * says "Zoom in to see bus stops". Scope toggle: around you (or `?lat=&lon=`) or your saved stops. Tap a stop for its
  * board.
  *
- * A stop board's Map chip opens it on that stop (`?stop=`); a trip's "Track on map" follows that bus among its route's
- * live buses (`?route=&trip=`). Bus positions are live claims: shown only while their own answer is live and fresh,
- * and only then does the header say LIVE ("Connecting…" until it arrives). Without a route there are no positions,
- * and the header claims nothing.
+ * A stop board's Map chip opens it on that stop with the buses heading there (`?stop=`); a trip's "Track on map"
+ * follows that bus among its route's live buses (`?route=&trip=`). Bus positions are live claims: shown only while
+ * their own answer is live and fresh, and only then does the header say LIVE ("Connecting…" until it arrives).
+ * Without a stop or a route there are no positions, and the header claims nothing.
  */
 import { useGeolocation } from '@bft/ui'
 import { SegmentedControl } from '@bft/ui/bus'
@@ -16,6 +16,7 @@ import { liveState, pagePending, usePageCheck } from '@bft/ui/connectivity'
 import type { MapMarker, ViewBounds } from '@bft/ui/map'
 import { MAP_BOX, MapCard, MapLegend, MapPageShell } from '@bft/ui/map-page'
 import SafeMap from '@bft/ui/safe-map'
+import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { BusNav, DesktopNav, SiteHeader } from '../components/Shell.tsx'
@@ -23,7 +24,7 @@ import { at } from '../lib/base.ts'
 import { cellsCovering, positionFromParams } from '../lib/geo.ts'
 import { useGeoTiles } from '../lib/geo-queries.ts'
 import { useApi } from '../lib/mode.ts'
-import { useStopIndex } from '../lib/queries.ts'
+import { departuresOptions, useStopIndex } from '../lib/queries.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
 import { getEnv } from '../lib/server.server.ts'
 import { routeShortOf, stopHref, tripHref } from '../lib/stops.ts'
@@ -69,13 +70,28 @@ export default function MapPage() {
   const index = useStopIndex(fetcher, mode, scope === 'saved' || !!stopId)
   const focus = stopId ? index.byKey.get(stopId) : undefined
 
-  // The route's live buses ("Track on map"), live claims like any board's (R32-RT1).
-  const vehicles = useVehicles(fetcher, mode, route, !!route)
+  // The route's live buses ("Track on map"), or on a stop the buses heading there: live claims like any board's
+  // (R32-RT1).
+  const vehicles = useVehicles(fetcher, mode, route, !!route || !!stopId)
+  const departures = useQuery({
+    ...departuresOptions(fetcher, mode, stopId ?? '', null),
+    enabled: !route && !!stopId,
+  })
   const nowMs = useNow(Date.now())
   const state = liveState(vehicles.data, { offline: !useOnline(), nowMs, ...usePageCheck() })
   const live = vehicles.data != null && state == null
   const data = vehicles.data
-  const buses = useMemo(() => (live ? (data?.vehicles ?? []) : []), [live, data])
+  const trips = departures.data?.departures
+  const buses = useMemo(() => {
+    if (!live) return []
+    const all = data?.vehicles ?? []
+    if (route) return all
+    const heading = new Set((trips ?? []).map((d) => d.tripInstance))
+    return all.filter((v) => v.tripKey && heading.has(v.tripKey))
+  }, [live, data, route, trips])
+  /** Which buses the page shows: the route's, or those heading to the stop. */
+  const which = route ? `on route ${route}` : focus ? `heading to ${focus.name}` : ''
+  const withBuses = !!route || !!stopId
   const tracked = trip ? (buses.find((v) => v.tripKey === trip) ?? null) : null
 
   const stops = useMemo(() => {
@@ -127,11 +143,11 @@ export default function MapPage() {
         shape: 'diamond' as const,
         pulse: true,
         tone: v === tracked ? ('selected' as const) : ('allstops' as const),
-        label: `${v.label ? `Bus ${v.label}` : 'Bus'} on route ${route}${v === tracked ? ', your trip' : ''}`,
+        label: `${v.label ? `Bus ${v.label}` : 'Bus'}${v.routeId ? ` on route ${routeShortOf(v.routeId)}` : ''}${v === tracked ? ', your trip' : ''}`,
         onClick: () => setSelected(v.id),
       })),
     ],
-    [fLat, fLon, focus, buses, tracked, route, navigate],
+    [fLat, fLon, focus, buses, tracked, navigate],
   )
   // The followed bus once its position is in, else the stop the board opened the map on.
   const fitTo = useMemo(
@@ -159,7 +175,7 @@ export default function MapPage() {
           Try again
         </button>
       </>
-    ) : route && (vehicles.isError || (vehicles.data && !live)) ? (
+    ) : withBuses && (vehicles.isError || (vehicles.data && !live)) ? (
       'Live positions are unavailable right now.'
     ) : trip && vehicles.data && !tracked ? (
       "Your bus isn't sending its position right now."
@@ -168,15 +184,15 @@ export default function MapPage() {
   return (
     <>
       <SiteHeader
-        live={route ? live : undefined}
-        pending={route ? pagePending([{ q: vehicles, state }]) : false}
+        live={withBuses ? live : undefined}
+        pending={withBuses ? pagePending([{ q: vehicles, state }]) : false}
         back={focus ? { href: stopHref(focus.key), label: focus.name } : undefined}
       >
         <DesktopNav active="map" />
       </SiteHeader>
       <MapPageShell
         mode="bus"
-        title={route ? `Live buses on route ${route}` : 'Bus stop map'}
+        title={route ? `Live buses on route ${route}` : focus ? `Bus map: ${focus.name}` : 'Bus stop map'}
         bottomBar
         // Left only: the map's own locate-me button (THE-112) sits top right.
         controls={
@@ -216,12 +232,12 @@ export default function MapPage() {
           <MapLegend
             shape="diamond"
             items={[
-              ...(route ? [{ label: `Route ${route}`, tone: 'vehicle' as const }] : []),
+              ...(withBuses ? [{ label: route ? `Route ${route}` : 'Bus', tone: 'vehicle' as const }] : []),
               { label: 'Stop', tone: 'stop' },
             ]}
           >
             <span data-map-count="" className="font-normal text-sched-text dark:text-night-text/70">
-              {route ? `${buses.length} with live positions` : `${stops.length} stops shown`}
+              {withBuses ? `${buses.length} with live positions` : `${stops.length} stops shown`}
             </span>
           </MapLegend>
         }
@@ -239,8 +255,12 @@ export default function MapPage() {
           fitTo={fitTo}
           // The stop's place and the followed bus arrive after the map starts: fit again once each does.
           fitKey={tracked ? `v:${tracked.id}` : (focus?.key ?? '')}
+          // And keep it in view as it moves.
+          follow={tracked ? [tracked.lon, tracked.lat] : null}
           label={
-            route ? `Map of ${buses.length} live buses on route ${route}` : `Map of ${stops.length} bus stops`
+            withBuses
+              ? `Map of ${buses.length} live buses ${which}`.trim()
+              : `Map of ${stops.length} bus stops`
           }
           className={MAP_BOX}
           loading={<div className={`${MAP_BOX} animate-pulse`} />}

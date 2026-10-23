@@ -114,7 +114,7 @@ test('route filter, and the Map chip opens the bus map on the stop', async ({ pa
   // The Map chip opens the bus map on this stop (THE-118 PR 9).
   await page.getByRole('link', { name: 'Map', exact: true }).click()
   await expect(page).toHaveURL(/\/map\?stop=10802$/)
-  await expect(page.getByRole('region', { name: /Map of \d+ bus stops/ })).toBeVisible()
+  await expect(page.getByRole('region', { name: /Map of \d+ live buses/ })).toBeVisible()
 })
 
 test('nearby from a position, including stops across the tile edge', async ({ page }, testInfo) => {

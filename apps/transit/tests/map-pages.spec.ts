@@ -43,7 +43,7 @@ const NEAR: Record<Mode, { lat: number; lon: number }> = {
 async function serveVehicles(
   context: BrowserContext,
   mode: Mode,
-  vehicles: Array<Omit<Vehicle, 'ts'>>,
+  vehicles: Array<Omit<Vehicle, 'ts'>> | (() => Array<Omit<Vehicle, 'ts'>>),
   opts: { rtState?: string; hold?: Promise<unknown> } = {},
 ) {
   await context.route(`**/__fixtures/v1/${mode}/vehicles*`, async (route) => {
@@ -59,7 +59,7 @@ async function serveVehicles(
           rtState: opts.rtState ?? 'live',
           rtSourceTimestamp: ts,
           generatedAt: Date.now(),
-          vehicles: vehicles.map((v) => ({ ...v, ts })),
+          vehicles: (typeof vehicles === 'function' ? vehicles() : vehicles).map((v) => ({ ...v, ts })),
         },
       })
     } catch (error) {
@@ -240,7 +240,27 @@ function chipTests() {
       await expect(page.locator(pin)).toHaveCount(1, { timeout: 30_000 })
       await idle(page)
       expect(await inView(page, pin)).toBe(true)
+      if (b.mode === 'ferry') {
+        // A terminal pin is a link to its board: a 44 px tap target around the small pin.
+        const hit = await page.locator(`${pin} [data-hit]`).boundingBox()
+        expect(hit?.width).toBeGreaterThanOrEqual(44)
+        expect(hit?.height).toBeGreaterThanOrEqual(44)
+      }
     })
+
+  test('bus: on a stop, the map shows the live buses heading there and no others', async ({
+    page,
+    context,
+  }) => {
+    const { key } = await firstTrip(page, '/bus/stop/10802')
+    // One bus on the board's first departure, one on a trip that doesn't stop here.
+    await serveVehicles(context, 'bus', twoNear('bus', { trip: key }))
+    await page.locator('[data-filter-row]').getByRole('link', { name: 'Map' }).click()
+    await expect(page).toHaveURL('/bus/map?stop=10802')
+    await expect(vehicleMarkers(page)).toHaveCount(1, { timeout: 30_000 })
+    await expect(vehicleMarkers(page)).toHaveAttribute('data-shape', 'diamond')
+    await expect(page.locator('header [data-connection="live"]').first()).toHaveText('LIVE')
+  })
 }
 
 function trackTests() {
@@ -251,9 +271,16 @@ function trackTests() {
   ] as const
   for (const m of MODES)
     test(`${m.mode}: "Track on map" follows that trip's vehicle`, async ({ page, context }) => {
+      test.slow()
       const { href, key } = await firstTrip(page, m.board)
-      // The bus map asks for the trip's route: any route answers with these buses.
-      await serveVehicles(context, m.mode, twoNear(m.mode, { trip: key }))
+      // The bus map asks for the trip's route: any route answers with these buses. Later the vehicle moves far off
+      // the first view (about 8 km north-east), and the map follows it.
+      let moved = false
+      await serveVehicles(context, m.mode, () =>
+        twoNear(m.mode, { trip: key }).map((v) =>
+          moved && v.tripKey === key ? { ...v, lat: v.lat + 0.06, lon: v.lon + 0.06 } : v,
+        ),
+      )
       await page.goto(href)
       await expect(page.locator('html[data-hydrated]')).toHaveCount(1)
       await page.getByRole('link', { name: 'Track on map' }).first().click()
@@ -265,6 +292,23 @@ function trackTests() {
       await expect(page.locator('[data-map-card]')).toContainText('your trip')
       await idle(page)
       expect(await inView(page, pin)).toBe(true)
+      const before = await page.locator(pin).boundingBox()
+      moved = true
+      // The next poll (every 15 s) brings the new position: the map moves with it.
+      await expect
+        .poll(
+          async () =>
+            (await idle(page)) &&
+            (await inView(page, pin)) &&
+            (await page.locator(pin).boundingBox())?.y !== before?.y,
+          {
+            timeout: 45_000,
+            intervals: [1_000],
+          },
+        )
+        .toBe(true)
+      const box = await map(page).boundingBox()
+      expect(await inView(page, pin), `in ${JSON.stringify(box)}`).toBe(true)
     })
 }
 
