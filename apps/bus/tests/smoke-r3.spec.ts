@@ -41,8 +41,9 @@ test('R3-B10: the public stop number with its leading zero opens the stop (no 40
 
 reconnectSuite({ path: '/stop/10802' })
 
-test('R3-X11: the home page never shows "Timetable" next to the LIVE badge', async ({ page }) => {
+test('R3-X11: the home page never shows "Timetable" next to the header pill', async ({ page }) => {
   await page.goto('/')
-  await expect(page.locator('header').getByText('LIVE', { exact: true })).toBeVisible()
+  // Nothing saved: no live data of its own, so no pill either way (as BrisbaneTransit's header).
+  await expect(page.locator('header').getByText(/^(LIVE|OFFLINE)$/)).toHaveCount(0)
   await expect(page.getByText('Timetable', { exact: true })).toHaveCount(0)
 })

@@ -20,7 +20,7 @@ export interface LiveProps {
 const SettingsSheet = lazy(() => import('./SettingsSheet.tsx'))
 
 export function SiteHeader({
-  live = true,
+  live,
   children,
 }: LiveProps & {
   children?: ReactNode
@@ -39,8 +39,9 @@ export function SiteHeader({
         <span className="hidden md:inline">
           <SettingsPill onClick={() => setSettings(true)} />
         </span>
-        {/* Never LIVE while offline, whatever the page's data says. */}
-        <LivePill live={live && online} />
+        {/* Never LIVE while offline, whatever the page's data says. A page with no live data of its own claims nothing
+            while online, as BrisbaneTransit's connectionState. */}
+        {!online ? <LivePill live={false} /> : live === undefined ? null : <LivePill live={live} />}
       </AppHeader>
       {/* Mounted from the first open on: closing the sheet (not unmounting it) gives focus back to Settings. */}
       {settings != null ? (
