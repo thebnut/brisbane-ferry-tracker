@@ -52,12 +52,20 @@ for (const how of DATA_FAILURES) {
     const picker = page.getByLabel('Train stations map', { exact: true })
     const inSheet = picker.getByRole('status').filter({ hasText: "Couldn't load the station list" })
     const retry = inSheet.getByRole('button', { name: 'Try again' })
+    // Hit-test only once the map has drawn and settled (MapView's data-map-idle), as on BrisbaneTransit's Train tab.
+    // Its first frames (a 1024×2058 canvas at the phone's 2.625 DPR) come about every 2 s on a GPU shared with
+    // parallel workers, and the trial click needs several frames, so it timed out at 5 s with Try again uncovered.
+    // Idle, the map draws nothing.
+    const settled = () => expect(picker.locator('[data-map-idle]')).toBeAttached({ timeout: 20_000 })
+    await settled()
     await expectUnobscured(retry)
     // A station's card opens above the map's bottom edge too: the notice moves up, never under it (Codex review).
     await picker.getByRole('button', { name: /Stations in view/ }).click()
     await picker.getByRole('list', { name: 'Train stations in view' }).getByRole('button').first().click()
     const card = picker.locator('[data-stop-card]')
     await expect(card).toBeVisible()
+    // Picking a station moves the map: wait for it to settle again.
+    await settled()
     await expectUnobscured(retry)
     await expectUnobscured(card.getByRole('button', { name: /^Close / }))
 
