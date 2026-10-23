@@ -108,7 +108,8 @@ test('terminal page has departure rows, canonical and JSON-LD in the raw HTML', 
     )
   }
   if ((await due('317584', '317590')) || (await due('317590', '317584')))
-    expect(html).toMatch(/in \d+ mins?|Departing/)
+    // THE-118 PR 4: the shared row's countdown (BigCountdown): "N min", or "Now" when due.
+    expect(html).toMatch(/data-countdown="\d+"><span[^>]*>(?:\d+ min|Now)<\/span>/)
 })
 
 test('unknown terminal and unknown paths are 404 with noindex', async ({ request }) => {
