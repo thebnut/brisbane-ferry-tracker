@@ -44,7 +44,7 @@ import { useApi } from '../lib/mode.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
 import { routeHref, stopHref } from '../lib/stops.ts'
-import { at, needsStopNames, schedAt, stopNamesFor, timeline } from '../lib/trip.ts'
+import { at, needsStopNames, schedAt, stopNamesFor, timeline, unnamedStop } from '../lib/trip.ts'
 import { fetchTrip, isGone, useTrip } from '../lib/trip-queries.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/trip'
@@ -132,10 +132,10 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const fromName = from
     ? (trip?.stops.find((s) => s.stopId === from)?.name ?? loaderData.trip?.stops.find((s) => s.stopId === from)?.name)
     : undefined
-  const back =
-    from && fromName
-      ? { href: stopHref(from), label: fromName, onClick: backClick }
-      : { href: appAt('/'), label: 'Bus', onClick: backClick }
+  // A trip the page can't name the stop for (it has gone) still goes back to that stop, by its number.
+  const back = from
+    ? { href: stopHref(from), label: fromName ?? unnamedStop(from), onClick: backClick }
+    : { href: appAt('/'), label: 'Bus', onClick: backClick }
   return (
     <>
       <SiteHeader live={gone ? undefined : live} pending={pending} back={back} />
@@ -156,7 +156,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
           generation={trip?.staticGeneration}
         />
         {gone ? (
-          <TripNotFound place={fromName ?? null} href={back.href} renderLink={linkRenderer} />
+          <TripNotFound place={from ? back.label : null} href={back.href} renderLink={linkRenderer} />
         ) : !trip ? (
           q.isError ? (
             <p className="py-8 text-center text-sm text-sched-text" role="status">
@@ -237,7 +237,7 @@ function TripBody({
             ? {
                 label: 'Journey',
                 value: formatDuration(Math.max(0, minutesBetween(dep, end))),
-                sub: `to ${lastName}, ${formatClock(end)}`,
+                sub: `Arrive ${formatClock(end)}`,
               }
             : null,
           occupancyFact(v?.occupancy),

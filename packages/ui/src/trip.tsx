@@ -481,6 +481,7 @@ export function TripDock({ children }: { children: ReactNode }) {
   return (
     <div
       data-bft-dock=""
+      data-trip-dock=""
       className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+var(--bft-bottom-bar,64px))] z-20 border-t border-ferry-orange/20 bg-white/95 px-4 py-3 backdrop-blur md:static md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none dark:bg-night-2/95 md:dark:bg-transparent"
     >
       <div className="mx-auto flex max-w-2xl items-center gap-2.5 [&>*]:flex-1">{children}</div>
