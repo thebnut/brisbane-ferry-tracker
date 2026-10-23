@@ -191,6 +191,25 @@ function suite(desktop: boolean) {
       await expect(page).toHaveURL('/ferry/terminal/bulimba?to=riverside')
     })
 
+    test('a sheet reopened before its close event arrives stays open', async ({ page }) => {
+      await page.goto('/ferry/terminal/bulimba')
+      await chips(page).getByRole('button', { name: 'To…' }).click()
+      const sheet = page.getByRole('dialog', { name: 'To, from Bulimba' })
+      await expect(sheet).toBeVisible()
+      // Escape closes the dialog at once, but its close event is queued: a reopen in between must survive it.
+      await page.evaluate(async () => {
+        const d = document.querySelector('dialog[open]') as HTMLDialogElement
+        d.dispatchEvent(new Event('cancel', { cancelable: true }))
+        await Promise.resolve()
+        const chip = [...document.querySelectorAll<HTMLButtonElement>('[data-filter-row] button')].find(
+          (b) => b.textContent?.trim() === 'To…',
+        )
+        chip?.click()
+      })
+      await page.waitForTimeout(300)
+      await expect(sheet).toBeVisible()
+    })
+
     test('⇄ flips the direction', async ({ page }) => {
       await page.goto('/ferry/terminal/bulimba?to=riverside')
       await chips(page).getByRole('button', { name: 'Swap direction' }).click()
