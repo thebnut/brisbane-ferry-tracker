@@ -1,6 +1,7 @@
 /**
- * First-visit onboarding (P4) in BrisbaneTransit: offered once, on any tab, when nothing is saved in any mode (and no
- * favourites were handed over from a mode site). Yes opens the map picker (OnboardingPicker.tsx, lazy: MapLibre loads
+ * First-visit onboarding (P4) in BrisbaneTransit: offered once, inline at the top of My Transit (THE-118 PR 3: never a
+ * floating card over the boards), when nothing is saved in any mode (and no favourites were handed over from a mode
+ * site). Yes opens the map picker (OnboardingPicker.tsx, lazy: MapLibre loads
  * only then) with a mode switch.
  *
  * Ferry's stop selector no longer opens by itself on the Ferry tab's first visit (this prompt replaced it); a device
@@ -51,6 +52,9 @@ export default function Onboarding() {
     <OnboardingPrompt
       offer={() => shouldOffer({ anySaved: anySaved(), seenBefore: ferrySeen() })}
       onAnswer={markSelectorSeen}
+      inline
+      // In the page flow, not over anyone's thumb: no need to wait for a quiet moment.
+      quietMs={0}
       renderPicker={(close) => <Picker onClose={close} />}
     />
   )

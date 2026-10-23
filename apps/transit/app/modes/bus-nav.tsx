@@ -1,12 +1,12 @@
 /**
  * Replaces apps/bus/app/components/nav.tsx inside BrisbaneTransit (modes.config.ts). The bus pages are unchanged; the
- * bottom bar is the Mode Tabs (mode-layout.tsx), so the bus sections become a pill row just above it on phones and
- * stay as the status-strip pills on desktop. Same exports as the original (test/nav-slots.test.ts).
+ * five Mode Tabs (mode-layout.tsx) are the only bottom layer, so the My stops/Nearby/Map/Alerts section pills render
+ * nothing here (THE-118 PR 3): My stops is the Bus tab, Map a chip on the board and the home, Alerts the count in the
+ * board header. Same exports as the original (test/nav-slots.test.ts).
  */
 
 import { at } from '@bft/bus/app/lib/base.ts'
-import { type NavItem, SectionTabs } from '@bft/ui'
-import { SECTION_BAR, sectionLink } from './section-link.tsx'
+import type { NavItem } from '@bft/ui'
 
 export const NAV: NavItem[] = [
   { key: 'home', label: 'My stops', icon: 'star', href: at('/') },
@@ -15,30 +15,10 @@ export const NAV: NavItem[] = [
   { key: 'alerts', label: 'Alerts', icon: 'alert', href: at('/alerts') },
 ]
 
-export function BusNav({ active, alertCount }: { active: string; alertCount?: number }) {
-  const items = NAV.map((i) =>
-    i.key === 'alerts' && alertCount ? { ...i, label: `Alerts (${alertCount})` } : i,
-  )
-  return (
-    <SectionTabs
-      label="Bus sections"
-      items={items}
-      active={active}
-      renderLink={sectionLink}
-      className={`${SECTION_BAR} md:hidden`}
-    />
-  )
+export function BusNav(_: { active: string; alertCount?: number }) {
+  return null
 }
 
-/** Desktop: the same pills in the status strip (as the standalone bus app). */
-export function DesktopNav({ active }: { active: string }) {
-  return (
-    <SectionTabs
-      label="Bus sections"
-      items={NAV}
-      active={active}
-      renderLink={sectionLink}
-      className="hidden md:block [&_ul]:p-0"
-    />
-  )
+export function DesktopNav(_: { active: string }) {
+  return null
 }

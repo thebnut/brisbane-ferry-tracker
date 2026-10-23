@@ -8,6 +8,7 @@ import type { Alert, AlertsResponse } from '@bft/core/contract'
 import { ChipFilter, type ChipOption, EmptyState, ErrorState, ModeAlertCard, type TransitMode } from '@bft/ui'
 import { VIA_NETWORK } from '@bft/ui/connectivity'
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { TransitFooter, TransitHeader, TransitStrip } from '../components/Chrome.tsx'
 import {
   ALERT_MODES,
@@ -82,7 +83,12 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
   const stopMode = useMemo(() => stopModeOf(train?.isTrainPlatform), [train])
   const modesOf = (a: Alert) =>
     (a.id in loaderData.modes ? loaderData.modes[a.id] : alertModes(a, stopMode, train?.trainLinesOf)) ?? null
-  const [filter, setFilter] = useState<Filter>('all')
+  // `?mode=ferry` opens on that mode's chip: the ferry board's alert count links here (THE-118 PR 3).
+  const [params] = useSearchParams()
+  const [filter, setFilter] = useState<Filter>(() => {
+    const m = params.get('mode')
+    return ALERT_MODES.includes(m as TransitMode) ? (m as TransitMode) : 'all'
+  })
   const all = useMemo(() => sortAlerts(q.data?.alerts ?? [], nowS), [q.data, nowS])
   const mine = scope ? all.filter((a) => impactOn(a, scope)) : []
   const other = all.filter((a) => inNoMode(a, modesOf(a)))

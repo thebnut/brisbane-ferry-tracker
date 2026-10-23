@@ -74,7 +74,8 @@ test("bus stop page: server-rendered rows, links stay inside the Bus tab, canoni
   )
   expect(html).toContain('href="/bus/route/')
   expect(html).not.toMatch(/href="\/route\//)
-  expect(html).toContain('aria-label="Bus sections"')
+  // No section bar inside BrisbaneTransit (THE-118 PR 3): the Mode Tabs are the only nav.
+  expect(html).not.toContain('aria-label="Bus sections"')
 })
 
 test('train board inside the Train tab opens a service and comes back', async ({ page }) => {

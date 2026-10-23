@@ -91,8 +91,9 @@ export default defineConfig({
                   // demo-cleanup and handoff-codec (P6b's import) are loaded on demand: off every page's first load. The
                   // map stop picker (P3) is lazy, and its Map button is only on the stop searches (below). Onboarding (P4)
                   // loads after hydration. What's new (WhatsNew, changelog) stays in its route's chunk. The one header and
-                  // status line (THE-118 PR 2) are on every page too: in their own chunk they cost ~1 KB gz more.
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|[Oo]nboarding|WhatsNew|changelog)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
+                  // status line (THE-118 PR 2) are on every page too: in their own chunk they cost ~1 KB gz more. The boards'
+                  // alert count (THE-118 PR 3) is only on the boards.
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|[Oo]nboarding|WhatsNew|changelog)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
                 },
                 // The bus boards' elements (@bft/ui/bus) that only the Bus pages load. After 'ui', so the modules they
                 // share stay there.

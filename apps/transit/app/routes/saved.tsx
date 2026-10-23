@@ -360,9 +360,22 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   const [items, setItems] = useState<SavedItem[] | null>(null)
   // Editing and deleting (THE-114, THE-115): their own chunk, loaded after hydration, off the first load.
   const [rows, setRows] = useState<typeof import('../components/SavedRows.tsx') | null>(null)
+  // First-visit onboarding (P4), inline at the top of this page only (THE-118 PR 3), off the first load: a device that
+  // hasn't answered the prompt loads it now, and it checks the rest (nothing saved, no handoff). The key is
+  // @bft/ui/onboarding's ONBOARDING_KEY, spelled here so that module stays off the first load.
+  const [Onboarding, setOnboarding] = useState<ComponentType | null>(null)
   useEffect(() => {
     setItems(applyPrefs(readSavedItems(), readPrefs()))
     void import('../components/SavedRows.tsx').then(setRows)
+    try {
+      if (!localStorage.getItem('bft-onboarding'))
+        import('../components/Onboarding.tsx').then(
+          (m) => setOnboarding(() => m.default),
+          () => {},
+        )
+    } catch {
+      // Storage blocked: never asked.
+    }
   }, [])
   const { mode, fetcher } = useApi()
   const qs = useSavedDepartures(fetcher, mode, items ?? [])
@@ -410,6 +423,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
         <h1 className="text-[22px] font-extrabold" suppressHydrationWarning>
           {greeting(now)}
         </h1>
+        {Onboarding ? <Onboarding /> : null}
         <AskBox />
         {/* A card built from offline copies keeps the banner until its own network answer (R6-B1), and so does a page
             served from the device's copy until a card has one (R7-T1). */}

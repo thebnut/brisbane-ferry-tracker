@@ -41,9 +41,9 @@
 }
 
 /*
- * Height of the bottom bars on phones. Fixed panels in the bus pages (search sheet, trip footer) sit above
- * var(--bft-bottom-bar, 58px); here the Mode Tabs (60px) carry a mode's section pills (44px) on top.
+ * Height of the bottom bar on phones. Fixed panels in the bus pages (the trip footer) sit above
+ * var(--bft-bottom-bar, 58px); here the five Mode Tabs are the only bottom layer (THE-118 PR 3): 64px.
  */
 :root {
-  --bft-bottom-bar: 104px;
+  --bft-bottom-bar: 64px;
 }

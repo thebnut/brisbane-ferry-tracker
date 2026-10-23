@@ -23,6 +23,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       'While a BrisbaneTransit page loads, the header says “Connecting…” instead of briefly showing Offline.',
       'BrisbaneTrain says “Connecting…” too while a station’s times are still on their way, instead of showing Live before they arrive.',
       'If your browser isn’t keeping changes, Save now tells you so instead of saying it saved.',
+      'On BrisbaneTransit phones, the five tabs are now the only bar at the bottom of the screen, so nothing covers the last departures.',
+      'Find a station or a stop from the search at the top of the Train and Bus tabs. Each board has a Map button and shows its alerts.',
+      'Tap the tab you’re on again to go back to that mode’s home.',
+      'The “Set up your favourite stops?” question now sits at the top of My Transit instead of floating over the boards.',
     ],
   },
   {

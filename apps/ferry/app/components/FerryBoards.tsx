@@ -40,6 +40,7 @@ import {
 } from '../lib/terminals.ts'
 import { generateTimeSlots } from '../lib/timeSlots.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
+import type BoardAlerts from './BoardAlerts.tsx'
 import { DepartureList } from './DepartureList.tsx'
 import type FerryStar from './FerryStar.tsx'
 import { SiteHeader, UpdatedStrip } from './header.tsx'
@@ -119,6 +120,7 @@ export function FerryBoards({
   const [showMap, setShowMap] = useState(false)
   const [showSelector, setShowSelector] = useState(false)
   const [Star, setStar] = useState<typeof FerryStar | null>(null)
+  const [Alerts, setAlerts] = useState<typeof BoardAlerts | null>(null)
   const now = useNow(renderedAt, 5_000)
   const online = useOnline()
   const fetcher = useFetcher(mode)
@@ -148,6 +150,11 @@ export function FerryBoards({
         }
       },
       () => {}, // Offline before the chunk was cached: no star until the next load.
+    )
+    // The alert count beside Map: BrisbaneTransit's (THE-118 PR 3; nothing in this app), off the first load.
+    import('./BoardAlerts.tsx').then(
+      (m) => live && setAlerts(() => m.default),
+      () => {},
     )
     return () => {
       live = false
@@ -300,6 +307,7 @@ export function FerryBoards({
         <PillButton icon="map" pressed={showMap} onClick={() => setShowMap((v) => !v)}>
           Map
         </PillButton>
+        {Alerts ? <Alerts fetcher={fetcher} mode={mode} /> : null}
       </UpdatedStrip>
 
       <main className="mx-auto max-w-6xl px-3 py-5 md:px-4 md:py-8">

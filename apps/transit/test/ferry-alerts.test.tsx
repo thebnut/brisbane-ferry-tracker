@@ -1,0 +1,131 @@
+// @vitest-environment jsdom
+/**
+ * THE-118 PR 3: the ferry board's alert count (modes/ferry-alerts.tsx) counts what the Alerts page's Ferry chip would,
+ * links there, and keeps polling while the board stays open (Codex r1).
+ */
+import type { Alert, AlertsResponse } from '@bft/core/contract'
+import { reportOnline, SW_CACHE_HEADER } from '@bft/ui/connectivity'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { act, render, screen } from '@testing-library/react'
+import { createRoutesStub } from 'react-router'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { makeQueryClient } from '../app/lib/query-client.ts'
+import FerryAlerts from '../app/modes/ferry-alerts.tsx'
+
+const alert = (over: Partial<Alert>): Alert => ({
+  id: 'a',
+  header: 'Notice',
+  activePeriods: [],
+  routes: [],
+  stops: [],
+  modes: ['ferry'],
+  ...over,
+})
+
+const answer = (alerts: Alert[]): AlertsResponse => ({
+  schemaVersion: 1,
+  staticGeneration: 'g',
+  serviceDates: ['20261020'],
+  rtSourceTimestamp: 1,
+  rtState: 'live',
+  generatedAt: Date.now(),
+  alerts,
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  reportOnline()
+})
+
+function mount(fetcher: (path: string) => Promise<Response>) {
+  const Stub = createRoutesStub([
+    {
+      path: '/ferry',
+      Component: () => <FerryAlerts fetcher={fetcher} mode={{ fixtures: false, rt: null }} />,
+    },
+  ])
+  render(
+    <QueryClientProvider client={makeQueryClient()}>
+      <Stub initialEntries={['/ferry']} />
+    </QueryClientProvider>,
+  )
+}
+
+describe('ferry board alert count', () => {
+  it('counts ferry and network-wide alerts that are not over, links to Alerts on the Ferry chip, and polls', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const now = Date.now() / 1000
+    let alerts = [
+      alert({ id: 'f' }),
+      alert({ id: 'all', modes: [] }),
+      alert({ id: 'bus', modes: ['bus'] }),
+      alert({ id: 'over', activePeriods: [{ start: now - 7200, end: now - 3600 }] }),
+    ]
+    const fetcher = vi.fn(async (path: string) => {
+      expect(path).toBe('/v1/alerts')
+      return new Response(JSON.stringify(answer(alerts)), { status: 200 })
+    })
+    mount(fetcher)
+    const link = await screen.findByRole('link', { name: '2 alerts' })
+    expect(link).toHaveAttribute('href', '/alerts?mode=ferry')
+    alerts = [...alerts, alert({ id: 'new' })]
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(61_000)
+    })
+    expect(await screen.findByRole('link', { name: '3 alerts' })).toBeInTheDocument()
+    expect(fetcher.mock.calls.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('a refetch that fails takes the count away: an old answer is never kept up as "1 alert" (Codex r4)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let fail = false
+    mount(async () =>
+      fail
+        ? new Response('nope', { status: 503 })
+        : new Response(JSON.stringify(answer([alert({ id: 'f' })])), { status: 200 }),
+    )
+    expect(await screen.findByRole('link', { name: '1 alert' })).toBeInTheDocument()
+    fail = true
+    await act(async () => {
+      // The next poll, and its one retry.
+      await vi.advanceTimersByTimeAsync(65_000)
+    })
+    expect(await screen.findByRole('link', { name: 'Alerts' })).toHaveAttribute('href', '/alerts?mode=ferry')
+  })
+
+  it('a service-worker copy is never counted, even once the connection is back (Codex r5)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const first = answer([alert({ id: 'f' })])
+    let cached = false
+    mount(async () =>
+      cached
+        ? // The old answer again, from the service worker's cache.
+          new Response(JSON.stringify(first), { status: 200, headers: { [SW_CACHE_HEADER]: 'sw' } })
+        : new Response(JSON.stringify(first), { status: 200 }),
+    )
+    expect(await screen.findByRole('link', { name: '1 alert' })).toBeInTheDocument()
+    cached = true
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(61_000)
+    })
+    expect(await screen.findByRole('link', { name: 'Alerts' })).toBeInTheDocument()
+    // Another request reached the network.
+    act(() => reportOnline())
+    expect(screen.getByRole('link', { name: 'Alerts' })).toBeInTheDocument()
+  })
+
+  it('a non-live answer is not counted', async () => {
+    mount(
+      async () =>
+        new Response(JSON.stringify({ ...answer([alert({ id: 'f' })]), rtState: 'unavailable' }), {
+          status: 200,
+        }),
+    )
+    expect(await screen.findByRole('link', { name: 'Alerts' })).toBeInTheDocument()
+  })
+
+  it('a failed answer leaves a plain "Alerts" link', async () => {
+    mount(async () => new Response('nope', { status: 503 }))
+    expect(await screen.findByRole('link', { name: 'Alerts' })).toHaveAttribute('href', '/alerts?mode=ferry')
+  })
+})

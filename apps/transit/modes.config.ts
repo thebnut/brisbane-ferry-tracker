@@ -11,7 +11,8 @@
  *    Each app's header module (`app/components/header.tsx`: its lockup header and "Updated" strip) resolves to
  *    `app/modes/<mode>-header.tsx`, the one BrisbaneTransit header and status line (THE-118).
  *    The same way, each app's re-run onboarding picker (`app/components/OnboardingRerun.tsx`, THE-113) resolves to
- *    transit's, so "Set up My Transit stops" in a mode tab's Settings edits every mode's stops.
+ *    transit's, so "Set up My Transit stops" in a mode tab's Settings edits every mode's stops. And the ferry board's
+ *    alert count (`app/components/BoardAlerts.tsx`, nothing standalone) resolves to transit's (THE-118 PR 3).
  */
 import { fileURLToPath } from 'node:url'
 import type { Plugin } from 'vite'
@@ -64,14 +65,23 @@ export const RERUN_SLOTS: Record<string, string> = Object.fromEntries(
   ]),
 )
 
+/** The ferry board's alert count (BoardAlerts, nothing in BrisbaneFerry) → transit's, which links to Alerts (THE-118 PR 3). */
+export const ALERTS_SLOTS: Record<string, string> = {
+  [`${appsDir}ferry/app/components/BoardAlerts.tsx`]: fileURLToPath(
+    new URL('./app/modes/ferry-alerts.tsx', import.meta.url),
+  ),
+}
+
 export function navSlots(): Plugin {
   return {
     name: 'bft:transit-nav-slots',
     enforce: 'pre',
     async resolveId(id, importer, options) {
-      if (!importer || !/(nav|header|OnboardingRerun)\.tsx$/.test(id)) return null
+      if (!importer || !/(nav|header|OnboardingRerun|BoardAlerts)\.tsx$/.test(id)) return null
       const r = await this.resolve(id, importer, { ...options, skipSelf: true })
-      return r ? (NAV_SLOTS[r.id] ?? HEADER_SLOTS[r.id] ?? RERUN_SLOTS[r.id] ?? null) : null
+      return r
+        ? (NAV_SLOTS[r.id] ?? HEADER_SLOTS[r.id] ?? RERUN_SLOTS[r.id] ?? ALERTS_SLOTS[r.id] ?? null)
+        : null
     },
   }
 }

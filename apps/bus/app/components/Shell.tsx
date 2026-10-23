@@ -3,7 +3,7 @@ import type { RtState } from '@bft/core/contract'
 import { DemoExitLink, OfflineBanner } from '@bft/ui'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import { at } from '../lib/base.ts'
+import { at, BASE } from '../lib/base.ts'
 import { ATTRIBUTION } from '../lib/seo.ts'
 import { useOnline } from '../lib/useNow.ts'
 
@@ -55,12 +55,13 @@ export { BusNav, DesktopNav, NAV } from './nav.tsx'
 
 /**
  * The page footer. On phones it ends clear of the bottom nav; `aboveSheet` (the home) also clears the fixed "Find a
- * stop" sheet above the nav (SearchPanel, about 162 px tall), so its last links can still be tapped.
+ * stop" sheet above the nav (SearchPanel, about 162 px tall), so its last links can still be tapped. BrisbaneTransit has
+ * no sheet (THE-118 PR 3).
  */
 export function Footer({ aboveSheet = false }: { aboveSheet?: boolean }) {
   return (
     <footer
-      className={`mt-10 border-t border-gray-200 py-8 ${aboveSheet ? 'pb-[calc(max(env(safe-area-inset-bottom),6px)+var(--bft-bottom-bar,58px)+166px+1.5rem)]' : 'pb-32'} md:pb-8 dark:border-night-card`}
+      className={`mt-10 border-t border-gray-200 py-8 ${aboveSheet && !BASE ? 'pb-[calc(max(env(safe-area-inset-bottom),6px)+var(--bft-bottom-bar,58px)+166px+1.5rem)]' : 'pb-32'} md:pb-8 dark:border-night-card`}
     >
       <div className="mx-auto max-w-6xl px-4 text-center text-sm text-gray-700 dark:text-night-text/80">
         <p>

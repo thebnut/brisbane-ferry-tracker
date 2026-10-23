@@ -1,6 +1,7 @@
 /**
  * P4: first-visit onboarding in BrisbaneTransit, from a real first visit (no storage state; the other specs start
- * with the prompt answered). The prompt comes up once, after an idle moment, only when nothing is saved in any mode;
+ * with the prompt answered). The prompt comes up once, inline at the top of My Transit (THE-118 PR 3: never over the
+ * boards), only when nothing is saved in any mode;
  * Yes opens the map picker in multi-select mode with a mode switch, and one Save fills each mode's own store, which
  * My Transit lists. The Ferry tab's stop selector no longer opens by itself (the prompt replaced it).
  */
@@ -81,29 +82,33 @@ test('first visit on My Transit: prompt → Yes → pick bus, train and ferry �
   expect(errors).toEqual([])
 })
 
-test('"Not now" is final: no prompt on a reload or another tab', async ({ page }) => {
-  await page.goto('/nearby')
+test('"Not now" is final: no prompt on a reload or another visit', async ({ page }) => {
+  await page.goto('/')
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Not now' }).click()
   await expect(prompt(page)).toHaveCount(0)
   await page.reload()
   await expectNoPrompt(page)
-  await page.goto('/bus')
+  await page.goto('/nearby')
+  await page.goto('/')
   await expectNoPrompt(page)
 })
 
-test('Ferry tab first visit (the old path): no stop selector, the default board, then the prompt; "Not now" keeps the board and the selector is one tap away', async ({
+test('Ferry tab first visit (the old path): no stop selector and no prompt over the default board; "Not now" on My Transit leaves the selector one tap away', async ({
   page,
 }) => {
   await page.goto('/ferry')
   const board = page.locator('[data-board=outbound]')
   await expect(board).toHaveAttribute('aria-label', 'Bulimba to Riverside')
   await expect(page.getByRole('dialog', { name: 'Select ferry stops' })).toHaveCount(0)
+  await expectNoPrompt(page)
+  await page.goto('/')
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Not now' }).click()
-  await expect(board).toHaveAttribute('aria-label', 'Bulimba to Riverside')
   // Written as the old first visit did, so nothing else changes.
   expect(await page.evaluate(() => localStorage.getItem('brisbane-ferry-selector-seen'))).toBe('1')
+  await page.goto('/ferry')
+  await expect(board).toHaveAttribute('aria-label', 'Bulimba to Riverside')
   await page.getByRole('button', { name: 'Settings' }).click()
   await expect(page.getByRole('dialog', { name: 'Select ferry stops' })).toBeVisible()
 })
@@ -124,7 +129,7 @@ test('no prompt when something is already saved, or for a device the Ferry selec
 
 test('no prompt for an older Ferry-tab visitor (selector seen)', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('brisbane-ferry-selector-seen', '1'))
-  await page.goto('/ferry')
+  await page.goto('/')
   await expectNoPrompt(page)
 })
 
@@ -136,6 +141,7 @@ test('no prompt after favourites are handed over (P6b import), during or after i
   await expect(page.locator('[data-handoff-notice]')).toBeVisible()
   await expectNoPrompt(page)
   await page.goto('/nearby')
+  await page.goto('/')
   await expectNoPrompt(page)
 })
 
@@ -143,11 +149,12 @@ test('without WebGL: Map unavailable, and the list and search still fill the tra
   page,
 }) => {
   await disableWebGL(page)
-  await page.goto('/train')
+  await page.goto('/')
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Yes' }).click()
   await expect(picker(page).getByText('Map unavailable on this device')).toBeVisible()
-  // Opened on the tab's mode. The keyboard list of stations in view, then the search.
+  // Train: the keyboard list of stations in view, then the search.
+  await picker(page).getByRole('button', { name: 'Train', exact: true }).click()
   await picker(page)
     .getByRole('button', { name: /Stations in view \([1-9]\d*\)/ })
     .click({ timeout: 20_000 })
@@ -187,67 +194,48 @@ test('keyboard: the prompt never takes focus, and the picker traps it and closes
 })
 
 for (const size of PHONE_WIDTHS) {
-  test(`${size.width} px: the prompt leaves every tab's fixed controls usable; Bus search and Map work (R15)`, async ({
+  test(`${size.width} px: the prompt is inline on My Transit, clear of the Mode Tabs; no prompt over the boards, whose controls stay usable (THE-118 PR 3)`, async ({
     page,
   }, info) => {
-    test.skip(info.project.name !== 'phone', 'the search sheet and section pills are fixed on phones only')
+    test.skip(info.project.name !== 'phone', 'the Mode Tabs are the bottom bar on phones only')
     await page.setViewportSize(size)
-    await page.goto('/bus')
+    await page.goto('/')
     await expectPrompt(page)
+    await expect(page.locator('main [data-onboarding-prompt]')).toHaveCount(1)
     await expectPromptClearOfDocks(page)
-    const field = page.locator('#stop-search')
+    await expectUnobscured(prompt(page).getByRole('button', { name: 'Yes' }))
+    await expectUnobscured(prompt(page).getByRole('button', { name: 'Not now' }))
+    // The boards and mode homes: no prompt; the Bus search and Map are in the page and usable.
+    for (const path of ['/bus', '/train', '/ferry']) {
+      await page.goto(path)
+      await expectNoPrompt(page)
+    }
+    await page.goto('/bus')
+    const field = page.getByRole('searchbox', { name: 'Stop name or number' })
     const map = page.getByRole('button', { name: 'Show stops on a map' }).locator('visible=true')
     await expectUnobscured(field)
     await expectUnobscured(map)
-    await expectUnobscured(page.getByRole('navigation', { name: 'Bus sections' }).getByRole('link').last())
-    await field.click()
-    await expect(field).toBeFocused()
-    await field.blur()
-    await map.click()
-    await expect(map).toHaveAttribute('aria-pressed', 'true')
-    await expect(prompt(page)).toBeVisible()
-    // The other tabs: the prompt sits clear of the Mode Tabs and section pills there too.
-    for (const path of ['/', '/train', '/ferry']) {
-      await page.goto(path)
-      await expectPrompt(page)
-      await expectPromptClearOfDocks(page)
-    }
   })
 }
 
-test('client navigation to the Bus tab: the prompt clears the search sheet from its first frame (R15, Codex r1)', async ({
+test('client navigation from My Transit to the Bus tab: the prompt stays behind on My Transit (THE-118 PR 3)', async ({
   page,
 }, info) => {
-  test.skip(info.project.name !== 'phone', 'the search sheet is phone-only')
+  test.skip(info.project.name !== 'phone', 'the Mode Tabs are the bottom bar on phones only')
   await page.setViewportSize(PHONE_WIDTHS[0] as { width: number; height: number })
   await page.goto('/')
   await expectPrompt(page)
-  // The prompt stays mounted across the client navigation; check the first frame the sheet is in.
-  const firstFrame = page.evaluate(
-    () =>
-      new Promise<string[]>((resolve) => {
-        const hits = () => {
-          const out: string[] = []
-          for (const sel of ['#stop-search', 'button[aria-label="Show stops on a map"]']) {
-            const el = [...document.querySelectorAll<HTMLElement>(sel)].find((e) => e.offsetParent)
-            if (!el) return null
-            const r = el.getBoundingClientRect()
-            const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
-            out.push(
-              at && (at === el || el.contains(at)) ? 'self' : (at?.outerHTML.slice(0, 80) ?? 'nothing'),
-            )
-          }
-          return out
-        }
-        new MutationObserver((_, o) => {
-          if (!document.querySelector('#stop-search')) return
-          o.disconnect()
-          requestAnimationFrame(() => resolve(hits() ?? ['not rendered']))
-        }).observe(document.body, { childList: true, subtree: true })
-      }),
-  )
-  await page.locator('[data-bft-dock] a[href="/bus"]').click()
-  expect(await firstFrame).toEqual(['self', 'self'])
-  await expect(prompt(page)).toBeVisible()
-  await expectPromptClearOfDocks(page)
+  await page
+    .getByRole('navigation', { name: 'Modes' })
+    .getByRole('link', { name: 'Bus', exact: true })
+    .click()
+  await expect(page).toHaveURL(/\/bus$/)
+  await expect(prompt(page)).toHaveCount(0)
+  await expectUnobscured(page.getByRole('searchbox', { name: 'Stop name or number' }))
+  // Not answered: back on My Transit it is still there.
+  await page
+    .getByRole('navigation', { name: 'Modes' })
+    .getByRole('link', { name: 'My Transit', exact: true })
+    .click()
+  await expectPrompt(page)
 })
