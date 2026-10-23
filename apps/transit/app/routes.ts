@@ -16,6 +16,7 @@ export default [
     ...prefix('ferry', [
       index(app('ferry', 'home.tsx'), { id: 'ferry/home' }),
       route('terminal/:slug', app('ferry', 'terminal.tsx'), { id: 'ferry/terminal' }),
+      route('trip/:tripInstance', app('ferry', 'trip.tsx'), { id: 'ferry/trip' }),
       route('privacy', app('ferry', 'privacy.tsx'), { id: 'ferry/privacy' }),
       route('terms', app('ferry', 'terms.tsx'), { id: 'ferry/terms' }),
     ]),

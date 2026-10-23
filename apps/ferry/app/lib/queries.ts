@@ -10,7 +10,7 @@ import {
 } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { type ApiFetcher, browserFetcher, fetchDepartures, fetchTrip } from './api.ts'
+import { type ApiFetcher, browserFetcher, fetchDepartures } from './api.ts'
 import { readOffline, writeOffline } from './storage.ts'
 
 export const POLL_MS = 15_000
@@ -110,15 +110,6 @@ export function useDepartures(
   enabled = true,
 ) {
   return useQuery(departuresOptions(fetcher, mode, from, to, at, initial, enabled))
-}
-
-export function useTrip(fetcher: ApiFetcher, mode: DataMode, tripInstance: string | null) {
-  return useQuery({
-    queryKey: ['ferry', 'trip', mode.fixtures, mode.rt, tripInstance],
-    queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance as string, signal),
-    enabled: !!tripInstance,
-    refetchInterval: poll,
-  })
 }
 
 /** Bumped by another tab's storage writes (the event never fires for this tab's own). */

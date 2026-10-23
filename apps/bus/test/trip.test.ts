@@ -33,17 +33,27 @@ const trip = (vehicle: TripResponse['vehicle']): TripResponse => ({
 })
 
 describe('trip timeline', () => {
-  it('puts the bus at the stop it reports, past before, terminus last', () => {
+  it('puts the bus at the stop it reports, past before, your stop the board row, terminus last', () => {
     const v = { id: 'v', lat: 0, lon: 0, ts: T0, stopId: 'b', status: 'STOPPED_AT' }
     const t = timeline(trip(v), 'c', (T0 + 130) * 1000)
-    expect(t.map((s) => s.kind)).toEqual(['past', 'here', 'here', 'end'])
-    expect(t[1]?.meta).toBe('Bus is here')
-    expect(t[2]?.meta).toBe('Your stop')
-    expect(t[3]?.meta).toContain('Terminus')
+    expect(t.rows.map((s) => s.kind)).toEqual(['passed', 'stop', 'stop', 'terminus'])
+    expect(t.position).toBe(1)
+    expect(t.positionLabel).toBe('The bus is at Stop b')
+    expect(t.board).toBe(2)
+    expect(t.rows[2]?.note).toBe('You board')
+    expect(t.rows[3]?.note).toContain('Terminus')
   })
-  it('without a position, stops whose time has passed are past', () => {
+  it('a bus heading to a stop rides half way from the one before', () => {
+    const v = { id: 'v', lat: 0, lon: 0, ts: T0, stopId: 'c', status: 'IN_TRANSIT_TO' }
+    const t = timeline(trip(v), 'c', (T0 + 130) * 1000)
+    expect(t.position).toBe(1.5)
+    expect(t.positionLabel).toBe('The bus is heading to Stop c')
+  })
+  it('without a position, stops whose time has passed are passed; no capsule', () => {
     const t = timeline(trip(null), null, (T0 + 250) * 1000)
-    expect(t.map((s) => s.kind)).toEqual(['past', 'past', 'past', 'end'])
+    expect(t.rows.map((s) => s.kind)).toEqual(['passed', 'passed', 'passed', 'terminus'])
+    expect(t.position).toBeNull()
+    expect(t.board).toBe(0)
   })
   it('names stops from the route file when the trip carries only ids (B1)', () => {
     const t = trip(null)
@@ -70,7 +80,7 @@ describe('trip timeline', () => {
     } as RouteFile
     const names = stopNamesFor(t, route)
     expect(names).toEqual({ a: 'Adelaide Street', c: 'Cultural Centre' })
-    expect(timeline(t, null, T0 * 1000, names).map((s) => s.name)).toEqual([
+    expect(timeline(t, null, T0 * 1000, names).rows.map((s) => s.name)).toEqual([
       'Adelaide Street',
       'Stop b',
       'Cultural Centre',
@@ -92,7 +102,7 @@ describe('trip timeline', () => {
       const { name: _name, ...rest } = stop(id, i)
       return id === '64' ? { ...rest, name: 'Adelaide Street Stop 64 near Albert St' } : rest
     })
-    const rows = timeline(t, null, (T0 - 60) * 1000)
+    const { rows } = timeline(t, null, (T0 - 60) * 1000)
     expect(rows.map((r) => r.name)).toEqual([
       'Stop 000142',
       'Adelaide Street Stop 64 near Albert St',
@@ -100,8 +110,8 @@ describe('trip timeline', () => {
       'Stop 004521',
     ])
     // A named stop still shows its stop number in the meta line; an unnamed one already has it as its name.
-    expect(rows[0]?.meta).toBeUndefined()
-    expect(rows[1]?.meta).toBe('Stop 000064')
-    expect(rows[2]?.meta).toBeUndefined()
+    expect(rows[0]?.note).toBeUndefined()
+    expect(rows[1]?.note).toBe('Stop 000064')
+    expect(rows[2]?.note).toBeUndefined()
   })
 })

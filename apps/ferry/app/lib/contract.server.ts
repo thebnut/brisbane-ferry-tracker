@@ -18,6 +18,7 @@ export function validator<S extends z.ZodType>(schema: S, what: string): Validat
 }
 
 export const validateDepartures = validator(DeparturesResponse, 'departures')
+export const validateTrip = validator(TripResponse, 'trip')
 
 /** Schema for a proxied /v1 path, or null when the path has no contract (passed through untouched). */
 export function schemaForPath(pathname: string): z.ZodType | null {

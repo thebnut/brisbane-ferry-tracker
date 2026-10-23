@@ -5,7 +5,7 @@
  */
 import { AppHeader, LivePill, SettingsPill, StatusStrip } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-train.svg?url'
-import { createContext, type ReactNode } from 'react'
+import { createContext, type MouseEvent, type ReactNode } from 'react'
 import { useOnline } from '../lib/useNow.ts'
 import { DesktopNav } from './nav.tsx'
 
@@ -47,7 +47,7 @@ export function SiteHeader({
   /** Current section: shows the desktop section links (phones use the bottom nav). */
   active?: string
   /** The parent page, for a back link. */
-  back?: { href: string; label: string }
+  back?: { href: string; label: string; onClick?: (e: MouseEvent<HTMLAnchorElement>) => void }
 }) {
   const online = useOnline()
   return (

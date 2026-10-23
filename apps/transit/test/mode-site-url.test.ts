@@ -150,7 +150,7 @@ async function urlsOf(mode: string, file: string, siteUrl: string): Promise<stri
 
 describe('every mounted mode page', () => {
   it('covers all of them', () => {
-    expect(PAGES.length).toBe(18)
+    expect(PAGES.length).toBe(19)
   })
 
   it.each(['production', 'production-preview', 'staging', undefined])(

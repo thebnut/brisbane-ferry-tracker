@@ -6,7 +6,7 @@
 import { AppHeader, formatAge, formatClock, LivePill, PillButton, SettingsPill, StatusStrip } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
-import { lazy, type ReactNode, Suspense, useState } from 'react'
+import { lazy, type MouseEvent, type ReactNode, Suspense, useState } from 'react'
 import { useOnline } from '../lib/useNow.ts'
 
 export interface LiveProps {
@@ -25,7 +25,7 @@ export function SiteHeader({
 }: LiveProps & {
   children?: ReactNode
   /** The parent page, for a back link. */
-  back?: { href: string; label: string }
+  back?: { href: string; label: string; onClick?: (e: MouseEvent<HTMLAnchorElement>) => void }
 }) {
   const [settings, setSettings] = useState<boolean | null>(null)
   const online = useOnline()

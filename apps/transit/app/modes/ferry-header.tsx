@@ -4,11 +4,15 @@
  * gear still opens its stop selector. Same exports as the original (test/nav-slots.test.ts).
  */
 import type { ReactNode } from 'react'
-import { type LiveProps, ModeHeader } from '../components/ModeHeader.tsx'
+import { type BackLink, type LiveProps, ModeHeader } from '../components/ModeHeader.tsx'
 import { StatusLine } from '../components/StatusLine.tsx'
 
-export function SiteHeader({ onSettings, ...live }: LiveProps & { onSettings?: () => void }) {
-  return <ModeHeader {...live} onSettings={onSettings} />
+export function SiteHeader({
+  onSettings,
+  back,
+  ...live
+}: LiveProps & { onSettings?: () => void; back?: BackLink }) {
+  return <ModeHeader {...live} onSettings={onSettings} back={back} />
 }
 
 export function UpdatedStrip({

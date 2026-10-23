@@ -3,7 +3,7 @@
  * them: in SSR loaders (contract.server.ts) and in the Worker's same-origin /v1 proxy (workers/app.ts), which
  * answers 502 when the API drifts from the contract. The browser bundle carries only the contract's types, not zod.
  */
-import type { DeparturesResponse, TripResponse } from '@bft/core/contract'
+import type { DeparturesResponse } from '@bft/core/contract'
 import { noteCacheCopy, trackedFetch } from '@bft/ui/connectivity'
 
 export type ApiErrorKind = 'network' | 'http' | 'contract'
@@ -81,6 +81,3 @@ export const fetchDepartures = (
     validate?: Validate<DeparturesResponse>
   } = {},
 ) => getJson(fetcher, departuresPath(from, to, opts), opts.validate, opts.signal)
-
-export const fetchTrip = (fetcher: ApiFetcher, tripInstance: string, signal?: AbortSignal) =>
-  getJson<TripResponse>(fetcher, `/v1/ferry/trips/${encodeURIComponent(tripInstance)}`, undefined, signal)
