@@ -5,7 +5,7 @@
 
 import type { Alert } from '@bft/core/contract'
 import { AlertCard, ErrorState, FilterPills, formatWhen, Icon, LineStatus } from '@bft/ui'
-import { VIA_NETWORK } from '@bft/ui/connectivity'
+import { liveState, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { useEffect, useMemo, useState } from 'react'
 import { SECTION, Shell } from '../components/Chrome.tsx'
 import {
@@ -25,7 +25,7 @@ import { useAlerts, useFetcher } from '../lib/queries.ts'
 import { pageMeta } from '../lib/seo.ts'
 import { loaderEnv, settle, siteInfo } from '../lib/server.server.ts'
 import { type Favourite, readFavourites } from '../lib/storage.ts'
-import { useNow } from '../lib/useNow.ts'
+import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/alerts'
 
 export async function loader({ request, context }: Route.LoaderArgs) {
@@ -77,7 +77,10 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
   const { mode, renderedAt } = loaderData
   const fetcher = useFetcher(mode)
   const q = useAlerts(fetcher, mode, loaderData.alerts)
-  const nowS = Math.floor(useNow(renderedAt, 30_000) / 1000)
+  const nowMs = useNow(renderedAt, 30_000)
+  const nowS = Math.floor(nowMs / 1000)
+  // The header claims LIVE only from the alerts' own fresh answer (shared liveState); none yet: "Connecting…".
+  const state = liveState(q.data, { offline: !useOnline(), nowMs, ...usePageCheck() })
   const [favs, setFavs] = useState<Favourite[]>([])
   useEffect(() => setFavs(readFavourites()), [])
   const [view, setView] = useState<'mine' | 'all'>('all')
@@ -101,7 +104,7 @@ export default function Alerts({ loaderData }: Route.ComponentProps) {
     view === 'mine' ? alerts.filter((a) => !affectsMe(a)) : alerts.filter((a) => !mine.includes(a))
 
   return (
-    <Shell active="alerts">
+    <Shell active="alerts" live={q.data != null && state == null} pending={!q.data && !q.isError}>
       <div className="mx-auto flex max-w-2xl flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-xl font-extrabold">Service alerts</h1>

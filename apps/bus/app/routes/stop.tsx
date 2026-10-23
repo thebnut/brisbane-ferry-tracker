@@ -6,6 +6,7 @@
 
 import type { Alert } from '@bft/core/contract'
 import { FilterPills, PillButton } from '@bft/ui'
+import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { NoticeStrip } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
@@ -14,7 +15,7 @@ import { BusStar } from '../components/BusStar.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { DepartureList, linkRenderer } from '../components/StopBoard.tsx'
 import { ApiError, fetchAlerts, fetchDepartures, fetchRouteIndex } from '../lib/api.ts'
-import { at } from '../lib/base.ts'
+import { at, BASE } from '../lib/base.ts'
 import { validateAlerts, validateDepartures, validateRouteIndex } from '../lib/contract.server.ts'
 import { isActive, routesIn } from '../lib/departures.ts'
 import { useApi } from '../lib/mode.ts'
@@ -94,6 +95,22 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
   ]
 }
 
+/**
+ * The board header's alert count in BrisbaneTransit (THE-118 PR 3): wider than the notices above the rows, so the count
+ * says what affects this stop at all. Bus alerts that name this stop or a route serving it (any effect), or that name
+ * no route or stop (a network-wide notice).
+ */
+export function boardAlerts(alerts: Alert[], stopId: string, routes: string[], nowS: number): Alert[] {
+  return alerts.filter(
+    (a) =>
+      isActive(a, nowS) &&
+      (a.modes.length === 0 || a.modes.includes('bus')) &&
+      ((a.routes.length === 0 && a.stops.length === 0) ||
+        a.stops.includes(stopId) ||
+        a.routes.some((r) => routes.includes(routeShortOf(r)))),
+  )
+}
+
 /** Alerts for this stop, or a detour on a route that serves it. */
 export function stopAlerts(alerts: Alert[], stopId: string, routes: string[], nowS: number): Alert[] {
   return alerts.filter(
@@ -124,6 +141,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
   const routes = useMemo(() => (res ? routesIn(res.departures) : []), [res])
   const platform = res?.departures.find((d) => d.stopId === stopId)?.platform ?? null
   const alerts = alertsQ.data?.alerts ?? []
+  const currentAlerts = useCurrentAlerts(alertsQ, loaderData.alerts)
   const here = stopAlerts(alerts, stopId, routes, Math.floor(now / 1000))
   const isSaved = saved.some((s) => s.id === stopId)
   // No answer yet (no data, no error): BrisbaneTransit's header says "Connecting…", not OFFLINE (THE-118).
@@ -188,6 +206,18 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
             <span className="text-xs text-sched-text dark:text-night-text/70">
               {stopMeta(stopId, platform)}
             </span>
+            {/* BrisbaneTransit: Alerts left the section bar for the board header (THE-118 PR 3). */}
+            {BASE ? (
+              <AlertCountLink
+                count={
+                  currentAlerts
+                    ? boardAlerts(currentAlerts.alerts, stopId, routes, Math.floor(now / 1000)).length
+                    : null
+                }
+                href={at('/alerts')}
+                renderLink={linkRenderer}
+              />
+            ) : null}
           </div>
           <BusStar id={stopId} name={name} />
         </div>

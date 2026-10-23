@@ -90,9 +90,11 @@ export interface BoardHeaderProps {
   onSwap?: () => void
   trailing?: ReactNode
   as?: 'h2' | 'div'
+  /** A line under the title, the whole width (BrisbaneTransit's alert count, THE-118 PR 3). */
+  sub?: ReactNode
 }
 
-export function BoardHeader({ children, onSwap, trailing, as: Tag = 'div' }: BoardHeaderProps) {
+export function BoardHeader({ children, onSwap, trailing, as: Tag = 'div', sub }: BoardHeaderProps) {
   return (
     // Wraps: when the title (at least 12rem) and the trailing control don't fit side by side on a narrow phone, the
     // control drops to its own line rather than pushing the page wider.
@@ -111,6 +113,7 @@ export function BoardHeader({ children, onSwap, trailing, as: Tag = 'div' }: Boa
           <Icon name="swap" size={18} />
         </button>
       ) : null}
+      {sub ? <div className="flex basis-full items-center">{sub}</div> : null}
     </div>
   )
 }

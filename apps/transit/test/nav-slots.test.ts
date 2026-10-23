@@ -11,7 +11,7 @@ import * as busNav from '../app/modes/bus-nav.tsx'
 import * as ferryHeader from '../app/modes/ferry-header.tsx'
 import * as trainHeader from '../app/modes/train-header.tsx'
 import * as trainNav from '../app/modes/train-nav.tsx'
-import { HEADER_SLOTS, NAV_SLOTS, RERUN_SLOTS } from '../modes.config.ts'
+import { ALERTS_SLOTS, HEADER_SLOTS, NAV_SLOTS, RERUN_SLOTS } from '../modes.config.ts'
 
 const exportsOf = (path: string) =>
   [...readFileSync(path, 'utf8').matchAll(/^export (?:const|function) (\w+)/gm)].map((m) => m[1]).sort()
@@ -64,5 +64,14 @@ describe('re-run onboarding slots (THE-113)', () => {
         ]),
       ),
     )
+  })
+})
+
+describe('board alerts slot (THE-118 PR 3)', () => {
+  it("the ferry board's empty alert slot resolves to transit's alert count", () => {
+    const own = (path: string) => fileURLToPath(new URL(path, import.meta.url))
+    expect(ALERTS_SLOTS).toEqual({
+      [own('../../ferry/app/components/BoardAlerts.tsx')]: own('../app/modes/ferry-alerts.tsx'),
+    })
   })
 })
