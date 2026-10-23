@@ -421,17 +421,22 @@ export function awaitingSeedAnswer(q: SeededQuery, state: LiveState): boolean {
 
 /**
  * Is a page of several boards pending (R32-RT1)? Yes while at least one board is waiting (no answer yet, or a
- * non-live seed's refetch still out: awaitingSeedAnswer) and every other board is waiting too or confirmed live. A
- * failed request (isError, or a first failure while TanStack retries) or an own answer that isn't live wins: a board
+ * non-live seed's refetch still out: awaitingSeedAnswer) and every other board is waiting too or confirmed live (its
+ * own live answer, nothing failed since). A failed request (isError, or a first failure while TanStack retries) or an own answer that isn't live wins: a board
  * still waiting never hides another board's failure, whether or not the connection flag noticed it (an HTTP error
  * leaves it online).
  */
 export function pagePending(
   boards: Array<{ q: SeededQuery & { isError: boolean }; state: LiveState }>,
 ): boolean {
-  const waiting = ({ q, state }: (typeof boards)[number]) =>
-    !q.isError && q.failureCount === 0 && (q.data == null || awaitingSeedAnswer(q, state))
-  return boards.some(waiting) && boards.every((b) => waiting(b) || (b.q.data != null && b.state == null))
+  type Board = (typeof boards)[number]
+  // Nothing has failed: no error, and no failure being retried. A board still showing live data from before a failed
+  // request counts as failed too (Codex r2).
+  const ok = ({ q }: Board) => !q.isError && q.failureCount === 0
+  const waiting = (b: Board) => ok(b) && (b.q.data == null || awaitingSeedAnswer(b.q, b.state))
+  return (
+    boards.some(waiting) && boards.every((b) => waiting(b) || (ok(b) && b.q.data != null && b.state == null))
+  )
 }
 
 /** A page's loader seed as its board's query holds it before any request of its own (for awaitingSeedAnswer). */

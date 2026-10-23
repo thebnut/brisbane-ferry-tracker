@@ -179,6 +179,11 @@ describe('pagePending (R32-RT1, Codex r1)', () => {
     expect(pagePending([loading, staleAnswer])).toBe(false)
     expect(pagePending([seed, staleAnswer])).toBe(false)
     expect(pagePending([failed])).toBe(false)
+    // A board still showing live data from before its latest request failed, or while that request is retried (Codex r2).
+    expect(
+      pagePending([seed, { ...live, q: { ...live.q, isError: true, failureCount: 2, errorUpdateCount: 1 } }]),
+    ).toBe(false)
+    expect(pagePending([seed, { ...live, q: { ...live.q, failureCount: 1 } }])).toBe(false)
   })
   it('not pending once every board has answered, or for a page without boards', () => {
     expect(pagePending([live])).toBe(false)

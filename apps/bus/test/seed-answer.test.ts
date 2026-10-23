@@ -81,4 +81,26 @@ describe('a non-live seed and its own first answer (R32-RT1)', () => {
     waits.off()
     fails.off()
   })
+
+  it('nor a failure on a board still showing live data from before it (Codex r2)', async () => {
+    vi.useFakeTimers()
+    const waits = observe(() => new Promise(() => {}))
+    // A live seed from 20 s ago (so it refetches at once) whose request then fails with an HTTP error.
+    const old = { generatedAt: Date.now() - 20_000, rtState: 'live' }
+    const fails = observe(() => Promise.reject(new Error('HTTP 503')), 'other', old)
+    const page = () =>
+      pagePending([
+        { q: waits.observer.getCurrentResult(), state: 'stale' },
+        { q: fails.observer.getCurrentResult(), state: null },
+      ])
+    expect(page()).toBe(true)
+    await vi.advanceTimersByTimeAsync(10)
+    expect(fails.observer.getCurrentResult().data).toBe(old)
+    expect(page()).toBe(false)
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(fails.observer.getCurrentResult().isError).toBe(true)
+    expect(page()).toBe(false)
+    waits.off()
+    fails.off()
+  })
 })
