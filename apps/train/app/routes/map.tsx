@@ -132,7 +132,9 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
     [vehicles, station],
   )
   const sel =
-    vehicles.find((v) => v.id === selected) ?? (selected == null ? vehicles.find((v) => trip && v.tripKey === trip) : null) ?? null
+    vehicles.find((v) => v.id === selected) ??
+    (selected == null ? vehicles.find((v) => trip && v.tripKey === trip) : null) ??
+    null
   const mounted = useMounted()
   const placeholder = (
     <div

@@ -19,7 +19,7 @@ import {
 } from '@bft/ui'
 import { leavingFrom } from '@bft/ui/board-header'
 import { usePageCheck } from '@bft/ui/connectivity'
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo } from 'react'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
 import {
   boardState,

@@ -5,9 +5,9 @@
  * dock ("Track on map" and the star) and the back link to the place. Only the trip pages load it.
  */
 import { lazy, type MouseEvent, type ReactNode, Suspense, useEffect, useState } from 'react'
-import type { MapMarker } from './map/MapView.tsx'
 import { cx } from './cx.ts'
 import { Icon } from './icons.tsx'
+import type { MapMarker } from './map/MapView.tsx'
 import { BigCountdown, BOARD_STATE, type StatusLine } from './row.tsx'
 
 // ---------------------------------------------------------------------------
@@ -182,7 +182,11 @@ export function TripSummary({
           data-live-claim={status.claim ? '' : undefined}
           className={cx('inline-flex items-center gap-1.5', TONE[status.tone])}
         >
-          <span aria-hidden="true" data-dot={status.dot} className={cx('size-2 rounded-full', DOT[status.dot])} />
+          <span
+            aria-hidden="true"
+            data-dot={status.dot}
+            className={cx('size-2 rounded-full', DOT[status.dot])}
+          />
           {status.text}
         </span>
         {gps ? (
@@ -210,7 +214,10 @@ export function TripFacts({ facts }: { facts: Array<TripFact | null | false | un
   return (
     <dl
       data-trip-facts=""
-      className={cx('grid gap-2', shown.length === 3 ? 'grid-cols-3' : shown.length === 2 ? 'grid-cols-2' : '')}
+      className={cx(
+        'grid gap-2',
+        shown.length === 3 ? 'grid-cols-3' : shown.length === 2 ? 'grid-cols-2' : '',
+      )}
     >
       {shown.map((f) => (
         <div
@@ -251,7 +258,10 @@ export function occupancyFact(occupancy: string | null | undefined): TripFact | 
         {[0, 1, 2, 3].map((i) => (
           <span
             key={i}
-            className={cx('h-2 w-3 rounded-[2px]', i < o.bars ? 'bg-ferry-orange-aa' : 'bg-gray-200 dark:bg-night-card')}
+            className={cx(
+              'h-2 w-3 rounded-[2px]',
+              i < o.bars ? 'bg-ferry-orange-aa' : 'bg-gray-200 dark:bg-night-card',
+            )}
           />
         ))}
       </span>
@@ -373,7 +383,11 @@ export function YourTrip({
         <Toggle open={earlier} count={from} where="earlier" onClick={() => setEarlier((v) => !v)} />
       ) : null}
       {positionLabel && !onShown ? (
-        <p data-position-label="" data-live-claim={claim} className="mb-1 pl-1 text-xs font-semibold text-ferry-orange-deep dark:text-ferry-sunset">
+        <p
+          data-position-label=""
+          data-live-claim={claim}
+          className="mb-1 pl-1 text-xs font-semibold text-ferry-orange-deep dark:text-ferry-sunset"
+        >
           {positionLabel}
         </p>
       ) : null}
@@ -411,7 +425,11 @@ export function YourTrip({
                         : 'size-3.5 border-[3px] border-white',
                   )}
                   style={
-                    mine ? undefined : skip ? { borderColor: c } : { background: lineCol, boxShadow: `0 0 0 1px ${lineCol}` }
+                    mine
+                      ? undefined
+                      : skip
+                        ? { borderColor: c }
+                        : { background: lineCol, boxShadow: `0 0 0 1px ${lineCol}` }
                   }
                 />
                 {i === at ? (
@@ -437,7 +455,9 @@ export function YourTrip({
                 >
                   {s.name}
                 </span>
-                {s.note ? <span className="text-xs text-gray-600 dark:text-night-text/70">{s.note}</span> : null}
+                {s.note ? (
+                  <span className="text-xs text-gray-600 dark:text-night-text/70">{s.note}</span>
+                ) : null}
               </span>
               <span
                 className={cx(
@@ -470,7 +490,12 @@ export function YourTrip({
         ) : null}
       </ol>
       {to < stops.length - 1 ? (
-        <Toggle open={later} count={stops.length - 1 - to} where="later" onClick={() => setLater((v) => !v)} />
+        <Toggle
+          open={later}
+          count={stops.length - 1 - to}
+          where="later"
+          onClick={() => setLater((v) => !v)}
+        />
       ) : null}
       {footer}
     </section>

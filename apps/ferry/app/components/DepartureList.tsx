@@ -14,7 +14,6 @@ import {
   soonestIndex,
   useKeptMore,
 } from '@bft/ui'
-import { useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { rowModel } from '../lib/departures.ts'
 

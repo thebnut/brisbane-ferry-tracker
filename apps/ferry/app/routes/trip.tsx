@@ -27,9 +27,9 @@ import {
   occupancyFact,
   positionFromVehicle,
   type TimelineStop,
-  type TripLinkRenderer,
   TripBackLink,
   TripDock,
+  type TripLinkRenderer,
   TripMap,
   TripNotFound,
   TripSummary,
@@ -92,7 +92,9 @@ export function headers() {
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {
   const t = loaderData?.trip
-  const title = t ? `${t.route.short} to ${cleanStopName(t.headsign)} | Brisbane Ferry` : 'Ferry trip | Brisbane Ferry'
+  const title = t
+    ? `${t.route.short} to ${cleanStopName(t.headsign)} | Brisbane Ferry`
+    : 'Ferry trip | Brisbane Ferry'
   // Trip pages are per-day and change every few seconds: never indexed.
   return [{ title }, { name: 'robots', content: 'noindex' }]
 }
@@ -137,7 +139,10 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
       <main className="mx-auto flex max-w-2xl flex-col gap-3 px-3 pt-2 pb-28 md:px-4 md:pt-4 md:pb-8">
         <TripBackLink href={back.href} label={back.label} renderLink={linkRenderer} barHasIt={!!BASE} />
         {!online ? (
-          <OfflineBanner kind="offline" detail="Showing the last update. Live times resume when you're back online." />
+          <OfflineBanner
+            kind="offline"
+            detail="Showing the last update. Live times resume when you're back online."
+          />
         ) : null}
         {online && state != null && state !== 'offline' ? <OfflineBanner kind={state} /> : null}
         {gone ? (
@@ -201,8 +206,7 @@ function TripBody({
       id: `${s.stopId}:${s.stopSequence}`,
       name: nameOf(s),
       kind: passes ? 'skip' : past ? 'passed' : i === stops.length - 1 ? 'terminus' : 'stop',
-      note:
-        i === b ? 'You board' : i === a ? 'You get off' : passes ? 'Not stopping' : undefined,
+      note: i === b ? 'You board' : i === a ? 'You get off' : passes ? 'Not stopping' : undefined,
       arr: !passes && i > 0 && s.schedArr != null ? formatClock(s.estArr ?? s.schedArr) : null,
       dep: !passes && s.schedDep != null ? formatClock(s.estDep ?? s.schedDep) : null,
       delay: s.status === 'live' ? delayText(s.schedDep ?? s.schedArr ?? 0, s.estDep ?? s.estArr) : null,
@@ -239,7 +243,12 @@ function TripBody({
           dep != null && {
             label: 'Departs',
             value: formatClock(dep),
-            sub: late && sched != null ? `Timetabled ${formatClock(sched)}` : fromT ? cleanStopName(fromT.name) : null,
+            sub:
+              late && sched != null
+                ? `Timetabled ${formatClock(sched)}`
+                : fromT
+                  ? cleanStopName(fromT.name)
+                  : null,
           },
           arr != null && dep != null
             ? {
@@ -279,7 +288,13 @@ function TripBody({
             },
             ...[fromT, toT]
               .filter((t) => t != null)
-              .map((t) => ({ id: t.id, lat: t.lat, lon: t.lng, tone: 'stop' as const, label: `${t.name} terminal` })),
+              .map((t) => ({
+                id: t.id,
+                lat: t.lat,
+                lon: t.lng,
+                tone: 'stop' as const,
+                label: `${t.name} terminal`,
+              })),
           ]}
           label={`Map showing ${vessel ?? 'the ferry'} on its way to ${cleanStopName(trip.headsign)}`}
         />

@@ -35,14 +35,21 @@ describe('YourTrip', () => {
     expect(earlier).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(earlier)
     expect(names()).toEqual(['Stop 0', 'Stop 1', 'Stop 2', 'Stop 3', 'Stop 4', 'Stop 5'])
-    expect(screen.getByRole('button', { name: 'Hide 3 earlier stops' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: 'Hide 3 earlier stops' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    )
     await userEvent.click(later)
     expect(names()).toHaveLength(8)
   })
 
   it('your stop and your get-off stop are bold; stops it runs through are struck through', () => {
     const { container } = render(
-      <YourTrip stops={[stop(0), stop(1, { kind: 'skip', dep: null }), stop(2), stop(3)]} board={0} alight={2} />,
+      <YourTrip
+        stops={[stop(0), stop(1, { kind: 'skip', dep: null }), stop(2), stop(3)]}
+        board={0}
+        alight={2}
+      />,
     )
     expect(container.querySelector('[data-mine=board] .font-extrabold')).toHaveTextContent('Stop 0')
     expect(container.querySelector('[data-mine=alight] .font-extrabold')).toHaveTextContent('Stop 2')
@@ -57,7 +64,9 @@ describe('YourTrip', () => {
   })
 
   it('the capsule moves on the rows shown; on a collapsed stretch its words say where', async () => {
-    const { container, rerender } = render(<YourTrip stops={STOPS} board={2} position={3.5} positionLabel="Between 3 and 4" />)
+    const { container, rerender } = render(
+      <YourTrip stops={STOPS} board={2} position={3.5} positionLabel="Between 3 and 4" />,
+    )
     const capsule = container.querySelector('[data-train-position]') as HTMLElement
     expect(capsule.dataset.trainPosition).toBe('3.50')
     expect(capsule.style.top).toMatch(/calc\((50% \+ 50%|100%)\)/)
@@ -71,7 +80,13 @@ describe('YourTrip', () => {
 
   it('a GPS position is a live claim; a timetable one (train) is not', () => {
     const { container, rerender } = render(
-      <YourTrip stops={STOPS} board={4} position={1.5} positionLabel="The bus is heading to Stop 2" positionLive />,
+      <YourTrip
+        stops={STOPS}
+        board={4}
+        position={1.5}
+        positionLabel="The bus is heading to Stop 2"
+        positionLive
+      />,
     )
     expect(screen.getByText('The bus is heading to Stop 2')).toHaveAttribute('data-live-claim')
     rerender(<YourTrip stops={STOPS} board={0} position={1.5} positionLive />)
@@ -167,7 +182,14 @@ describe('TripSummary', () => {
   })
   it('a scheduled trip claims nothing live: no GPS, no live words', () => {
     const { container } = render(
-      <TripSummary tile={null} kicker="Bus" headsign="UQ" minutes={9} time="8:14 am" status={statusLine({ status: 'scheduled' })} />,
+      <TripSummary
+        tile={null}
+        kicker="Bus"
+        headsign="UQ"
+        minutes={9}
+        time="8:14 am"
+        status={statusLine({ status: 'scheduled' })}
+      />,
     )
     expect(container.querySelector('[data-live-claim]')).toBeNull()
     expect(container.textContent).toContain('Scheduled')

@@ -26,9 +26,9 @@ import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import {
   backClick,
   occupancyFact,
-  type TripLinkRenderer,
   TripBackLink,
   TripDock,
+  type TripLinkRenderer,
   TripMap,
   TripNotFound,
   TripSummary,
@@ -131,7 +131,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   // No data is never live (a first request that failed with an HTTP error leaves the state null).
   const live = state == null && shown != null
   const fromName = from
-    ? (trip?.stops.find((s) => s.stopId === from)?.name ?? loaderData.trip?.stops.find((s) => s.stopId === from)?.name)
+    ? (trip?.stops.find((s) => s.stopId === from)?.name ??
+      loaderData.trip?.stops.find((s) => s.stopId === from)?.name)
     : undefined
   // A trip the page can't name the stop for (it has gone) still goes back to that stop, by its number.
   const back = from
@@ -167,13 +168,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
             <SkeletonRows count={3} label="Getting this bus…" />
           )
         ) : (
-          <TripBody
-            trip={trip}
-            tripKey={key}
-            from={from}
-            now={now}
-            stopNames={loaderData.stopNames}
-          />
+          <TripBody trip={trip} tripKey={key} from={from} now={now} stopNames={loaderData.stopNames} />
         )}
       </main>
       <Footer />
@@ -269,7 +264,10 @@ function TripBody({
         />
       ) : null}
       <TripDock>
-        <Link to={`${routeHref(trip.route.short)}?trip=${encodeURIComponent(tripKey)}`} className={trackClass}>
+        <Link
+          to={`${routeHref(trip.route.short)}?trip=${encodeURIComponent(tripKey)}`}
+          className={trackClass}
+        >
           <Icon name="map" size={20} />
           Track on map
         </Link>

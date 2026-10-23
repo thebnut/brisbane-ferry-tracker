@@ -24,9 +24,9 @@ import { StarButton } from '@bft/ui/star'
 import {
   backClick,
   occupancyFact,
-  type TripLinkRenderer,
   TripBackLink,
   TripDock,
+  type TripLinkRenderer,
   TripMap,
   TripNotFound,
   TripSummary,
@@ -60,7 +60,9 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const to = stationByKey(url.searchParams.get('to'))?.key ?? null
   const { fixtures, rt, fetcher, env } = loaderEnv(request, context)
   let gone = !TRIP_RE.test(key)
-  const trip = gone ? null : await settle((signal) => fetchTrip(fetcher, key, { signal, validate: validateTrip }))
+  const trip = gone
+    ? null
+    : await settle((signal) => fetchTrip(fetcher, key, { signal, validate: validateTrip }))
   if (!trip && !gone) {
     // Unknown trips say so; an API that is down still renders the page, which retries on the client.
     const probe = await settle((signal) => fetcher(`/v1/train/trips/${encodeURIComponent(key)}`, { signal }))

@@ -17,7 +17,6 @@ import {
 } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import { SkeletonRows } from '@bft/ui/bus'
-import { useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { rowViews } from '../lib/departures.ts'
 import { stopHref, tripHref } from '../lib/stops.ts'
@@ -42,7 +41,13 @@ export const linkRenderer = ({
 function RowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
   const { pathname, search } = useLocation()
   return (
-    <Link to={href} className={className} aria-label={label} prefetch="intent" state={boardState(pathname, search)}>
+    <Link
+      to={href}
+      className={className}
+      aria-label={label}
+      prefetch="intent"
+      state={boardState(pathname, search)}
+    >
       {children}
     </Link>
   )

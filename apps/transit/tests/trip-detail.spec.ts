@@ -52,7 +52,8 @@ const MODES: Mode[] = [
     from: '317584',
     to: '317590',
     storage: 'bft-ferry-favourites',
-    saved: (v) => (v as Array<{ from: string; to: string | null }>).some((f) => f.from === '317584' && f.to === '317590'),
+    saved: (v) =>
+      (v as Array<{ from: string; to: string | null }>).some((f) => f.from === '317584' && f.to === '317590'),
     gone: '/ferry/trip/no-such-trip@20200101?from=bulimba&to=riverside',
     gonePlace: 'Bulimba',
   },
@@ -66,7 +67,10 @@ const MODES: Mode[] = [
     from: 'central',
     to: 'bowen-hills',
     storage: 'bft-train-favourites',
-    saved: (v) => (v as Array<{ from: string; to: string | null }>).some((f) => f.from === 'central' && f.to === 'bowen-hills'),
+    saved: (v) =>
+      (v as Array<{ from: string; to: string | null }>).some(
+        (f) => f.from === 'central' && f.to === 'bowen-hills',
+      ),
     gone: '/train/trip/no-such-trip@20200101?from=central',
     gonePlace: 'Central',
   },
@@ -136,7 +140,9 @@ function suite(phone: boolean) {
         const summary = page.locator('[data-trip-summary]')
         await expect(summary.getByRole('heading', { level: 1 })).toHaveText(/^To /)
         await expect(summary.locator('[data-kicker]')).toHaveText(m.kicker)
-        await expect(summary.locator('[data-trip-status]')).toHaveText(/Live|Scheduled|Cancelled|Status unknown/)
+        await expect(summary.locator('[data-trip-status]')).toHaveText(
+          /Live|Scheduled|Cancelled|Status unknown/,
+        )
         const facts = summary.locator('[data-trip-facts] [data-fact]')
         await expect(facts.first()).toHaveAttribute('data-fact', 'Departs')
         expect(await facts.count()).toBeLessThanOrEqual(3)
@@ -225,11 +231,25 @@ function suite(phone: boolean) {
           const t = (await res.json()) as TripResponse
           const at = t.stops.find((s) => m.key(s) === m.from) ?? (t.stops[0] as TripStop)
           const vehicle = gps
-            ? { id: 'fx-v', label: '1907', lat: -27.47, lon: 153.02, ts: Math.floor(Date.now() / 1000), stopId: at.stopId, status: 'STOPPED_AT' }
+            ? {
+                id: 'fx-v',
+                label: '1907',
+                lat: -27.47,
+                lon: 153.02,
+                ts: Math.floor(Date.now() / 1000),
+                stopId: at.stopId,
+                status: 'STOPPED_AT',
+              }
             : null
           await route.fulfill({
             response: res,
-            json: { ...t, rtState: 'live', rtSourceTimestamp: Math.floor(Date.now() / 1000), generatedAt: Date.now(), vehicle },
+            json: {
+              ...t,
+              rtState: 'live',
+              rtSourceTimestamp: Math.floor(Date.now() / 1000),
+              generatedAt: Date.now(),
+              vehicle,
+            },
           })
         } catch (error) {
           if (!/disposed|closed|Target page|Test ended/i.test(String(error))) throw error
@@ -308,7 +328,9 @@ function suite(phone: boolean) {
     await expect(capsule).toBeVisible()
     const first = Number(await capsule.getAttribute('data-train-position'))
     await page.clock.fastForward('01:30')
-    await expect.poll(async () => Number(await capsule.getAttribute('data-train-position'))).toBeGreaterThan(first)
+    await expect
+      .poll(async () => Number(await capsule.getAttribute('data-train-position')))
+      .toBeGreaterThan(first)
   })
 }
 

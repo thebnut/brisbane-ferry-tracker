@@ -53,7 +53,9 @@ test('more departures expands to 13', async ({ page }) => {
   await expect(outbound.getByTestId('departure')).toHaveCount(13)
 })
 
-test('a departure opens its trip page, from Bulimba to Riverside, and goes back (THE-118 PR 6)', async ({ page }) => {
+test('a departure opens its trip page, from Bulimba to Riverside, and goes back (THE-118 PR 6)', async ({
+  page,
+}) => {
   await rememberBulimbaRiverside(page)
   await page.goto('/')
   await page.locator('[data-board=outbound] [data-testid=departure] a').first().click()

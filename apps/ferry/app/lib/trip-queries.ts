@@ -17,7 +17,12 @@ export const fetchTrip = (
 
 export const isGone = (error: unknown) => error instanceof ApiError && error.status === 404
 
-export function useTrip(fetcher: ApiFetcher, mode: DataMode, tripInstance: string, initial: TripResponse | null) {
+export function useTrip(
+  fetcher: ApiFetcher,
+  mode: DataMode,
+  tripInstance: string,
+  initial: TripResponse | null,
+) {
   return useQuery({
     queryKey: ['ferry', 'trip', mode.fixtures, mode.rt, tripInstance],
     queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance, { signal }),
