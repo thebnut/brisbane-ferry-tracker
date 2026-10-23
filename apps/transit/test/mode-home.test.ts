@@ -99,14 +99,19 @@ const CASES: Array<[name: string, item: SavedItem, data: DeparturesResponse | un
       title: 'Bulimba → Riverside',
       href: '/',
     },
-    res('ferry', 'Bulimba ferry terminal', [
-      dep({
-        route: { id: 'F11', short: 'F11' },
-        vehicleId: 'v_Mooroolbin II',
-        status: 'live',
-        estDep: s + 60,
-      }),
-    ]),
+    res(
+      'ferry',
+      'Bulimba ferry terminal',
+      [
+        dep({
+          route: { id: 'F11', short: 'F11' },
+          vehicleId: 'v_Mooroolbin II',
+          status: 'live',
+          estDep: s + 60,
+        }),
+      ],
+      { to: { key: '317590', name: 'Riverside ferry terminal' } },
+    ),
   ],
   [
     'ferry, not live',
@@ -120,8 +125,11 @@ describe("a mode home's saved card says what My Transit's says", () => {
     it(name, () => {
       const mine = homeCard(item.mode, data, NOW, item.title, item.key)
       const theirs = cardModel(item, data, NOW)
-      for (const k of ['label', 'title', 'live', 'time', 'detail', 'minutes', 'later', 'next'] as const)
+      for (const k of ['label', 'title', 'live', 'time', 'minutes', 'later', 'next'] as const)
         expect(mine[k], k).toEqual(theirs[k])
+      // A whole ferry terminal's card says where the ferry is going too (Codex r3).
+      if (item.mode === 'ferry' && !item.to) expect(mine.detail).toBe(`F1 · To UQ Lakes`)
+      else expect(mine.detail, 'detail').toEqual(theirs.detail)
     })
 
   it('the big countdown gets the clock time and the next-day marker', () => {

@@ -131,7 +131,8 @@ describe('sections', () => {
 describe('homeCard', () => {
   const NOW = Date.UTC(2026, 9, 19, 9, 30)
   const s = NOW / 1000
-  const d = (schedDep: number, estDep: number | null = null, status = 'scheduled') => ({
+  const d = (schedDep: number, estDep: number | null = null, status = 'scheduled', tripInstance = 't@1') => ({
+    tripInstance,
     status,
     schedDep,
     estDep,
@@ -154,5 +155,18 @@ describe('homeCard', () => {
     )
     expect(card.minutes).toBe(2)
     expect(card.next).toBe(s + 120)
+  })
+
+  it('an extra service says so; an arrival is never before the departure shown (Codex r3)', () => {
+    const extra = { ...d(s + 120, s + 300, 'live', 'rt:abc'), schedArrTo: s + 280, estArrTo: null }
+    const card = homeCard(
+      'bus',
+      { rtState: 'live', stop: { name: 'Stop' }, to: null, departures: [extra] },
+      NOW,
+      'Stop',
+      '1',
+    )
+    expect(card.detail).toBe('Extra service · Stop 1')
+    expect(card.time).toBe('7:35 pm → 7:35 pm')
   })
 })

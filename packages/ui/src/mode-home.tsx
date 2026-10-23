@@ -15,7 +15,15 @@
 
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 import { cx } from './cx.ts'
-import { dayMarker, formatClock, formatDistance, minutesUntil, vesselName } from './format.ts'
+import {
+  arrivalAfter,
+  dayMarker,
+  formatClock,
+  formatDistance,
+  isExtraService,
+  minutesUntil,
+  vesselName,
+} from './format.ts'
 import { Icon } from './icons.tsx'
 import { MODE_TEXT, ModePin, ModeTile, NearbyDepartureRow, type TransitMode } from './multimodal.tsx'
 import { BigCountdown } from './row.tsx'
@@ -105,6 +113,7 @@ export interface CardResponse {
   stop: { name: string }
   to: { name: string } | null
   departures: ReadonlyArray<{
+    tripInstance: string
     status: string
     schedDep: number
     estDep: number | null
@@ -142,7 +151,9 @@ export function homeCard(
     .sort((a, b) => (a.estDep ?? a.schedDep) - (b.estDep ?? b.schedDep))
   const first = rows[0]
   const dep = first ? (first.estDep ?? first.schedDep) : null
-  const arr = first ? (first.estArrTo ?? first.schedArrTo) : null
+  const rawArr = first ? (first.estArrTo ?? first.schedArrTo) : null
+  // Never before the departure shown (estimates can disagree), as the boards' arrivalAfter.
+  const arr = dep != null && rawArr != null ? arrivalAfter(dep, rawArr) : null
   let label: string
   let detail: string | null = null
   if (mode === 'bus') {
@@ -160,8 +171,16 @@ export function homeCard(
       : null
   } else {
     label = `Ferry · ${first && /^F1\d$/.test(first.route.short) ? 'Express' : 'All stops'}`
-    detail = first ? [first.route.short, vesselName(first.vehicleId)].filter(Boolean).join(' · ') : null
+    // A whole terminal (no "To"): where the ferry is going too (Codex r3).
+    detail = first
+      ? [first.route.short, res?.to ? null : `To ${bare(first.headsign)}`, vesselName(first.vehicleId)]
+          .filter(Boolean)
+          .join(' · ')
+      : null
   }
+  // A service outside the timetable (#171): said so, as on the boards.
+  if (first && detail && first.status === 'live' && isExtraService(first.tripInstance))
+    detail = `Extra service · ${detail}`
   return {
     label,
     title,
