@@ -43,7 +43,9 @@ const NEAR: Record<Mode, { lat: number; lon: number }> = {
 async function serveVehicles(
   context: BrowserContext,
   mode: Mode,
-  vehicles: Array<Omit<Vehicle, 'ts'>> | (() => Array<Omit<Vehicle, 'ts'>>),
+  vehicles:
+    | Array<Omit<Vehicle, 'ts'>>
+    | (() => Array<Omit<Vehicle, 'ts'>> | Promise<Array<Omit<Vehicle, 'ts'>>>),
   opts: { rtState?: string; hold?: Promise<unknown> } = {},
 ) {
   await context.route(`**/__fixtures/v1/${mode}/vehicles*`, async (route) => {
@@ -59,7 +61,10 @@ async function serveVehicles(
           rtState: opts.rtState ?? 'live',
           rtSourceTimestamp: ts,
           generatedAt: Date.now(),
-          vehicles: (typeof vehicles === 'function' ? vehicles() : vehicles).map((v) => ({ ...v, ts })),
+          vehicles: (await (typeof vehicles === 'function' ? vehicles() : vehicles)).map((v) => ({
+            ...v,
+            ts,
+          })),
         },
       })
     } catch (error) {
@@ -181,6 +186,7 @@ function pinTests() {
   test('train: squares for stations and trains at street and city zoom', async ({ page, context }) => {
     await serveVehicles(context, 'train', twoNear('train'))
     await page.goto('/train/map?station=central')
+    await page.getByRole('button', { name: 'All trains' }).click()
     await expect(vehicleMarkers(page)).toHaveCount(2)
     const street = await idle(page)
     const count = await markers(page).count()
@@ -248,19 +254,37 @@ function chipTests() {
       }
     })
 
-  test('bus: on a stop, the map shows the live buses heading there and no others', async ({
-    page,
-    context,
-  }) => {
-    const { key } = await firstTrip(page, '/bus/stop/10802')
-    // One bus on the board's first departure, one on a trip that doesn't stop here.
-    await serveVehicles(context, 'bus', twoNear('bus', { trip: key }))
-    await page.locator('[data-filter-row]').getByRole('link', { name: 'Map' }).click()
-    await expect(page).toHaveURL('/bus/map?stop=10802')
-    await expect(vehicleMarkers(page)).toHaveCount(1, { timeout: 30_000 })
-    await expect(vehicleMarkers(page)).toHaveAttribute('data-shape', 'diamond')
-    await expect(page.locator('header [data-connection="live"]').first()).toHaveText('LIVE')
-  })
+  for (const p of [
+    {
+      mode: 'train',
+      url: '/train/map?station=central',
+      departures: '**/__fixtures/v1/train/stops/central/departures*',
+    },
+    { mode: 'bus', url: '/bus/map?stop=10802', departures: '**/__fixtures/v1/bus/stops/10802/departures*' },
+  ] as const)
+    test(`${p.mode}: on a place, only the live vehicles on its departures`, async ({ page, context }) => {
+      // The key of the first departure the map page itself is answered with: one vehicle on it, one on a trip that
+      // doesn't call here (whatever the time, the trip is on the page's own departures).
+      let first!: (key: string) => void
+      const key = new Promise<string>((r) => {
+        first = r
+      })
+      await context.route(p.departures, async (route) => {
+        try {
+          const res = await route.fetch()
+          const body = await res.json()
+          if (body.departures?.[0]) first(body.departures[0].tripInstance)
+          await route.fulfill({ response: res, json: body })
+        } catch (error) {
+          if (!/disposed|closed|Target page|Test ended/i.test(String(error))) throw error
+        }
+      })
+      await serveVehicles(context, p.mode, async () => twoNear(p.mode, { trip: await key }))
+      await page.goto(p.url)
+      await expect(vehicleMarkers(page)).toHaveCount(1, { timeout: 30_000 })
+      await expect(vehicleMarkers(page)).toHaveAttribute('data-shape', SHAPE[p.mode])
+      await expect(page.locator('header [data-connection="live"]').first()).toHaveText('LIVE')
+    })
 }
 
 function trackTests() {

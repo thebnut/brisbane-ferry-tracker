@@ -6,13 +6,16 @@
  */
 import type { Vehicle } from '@bft/core/contract'
 import { LineChip, StatusBadge } from '@bft/ui'
+import { Chip } from '@bft/ui/board-header'
 import { liveState, pagePending, usePageCheck } from '@bft/ui/connectivity'
 import type { MapMarker } from '@bft/ui/map'
 import { MAP_BOX, MapCard, MapLegend, MapPageShell } from '@bft/ui/map-page'
 import SafeMap from '@bft/ui/safe-map'
+import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { Shell } from '../components/Chrome.tsx'
+import { DEPARTURE_LIMIT } from '../lib/api.ts'
 import { at } from '../lib/base.ts'
 import { lineLabel } from '../lib/lineNames.ts'
 import { cleanStopName } from '../lib/names.ts'
@@ -24,7 +27,7 @@ import {
   stationHref,
   stationKeyOfStop,
 } from '../lib/network.ts'
-import { useFetcher, useTrip, useVehicles } from '../lib/queries.ts'
+import { departuresOptions, useFetcher, useTrip, useVehicles } from '../lib/queries.ts'
 import { pageMeta } from '../lib/seo.ts'
 import { getEnv, isFixtureMode, siteInfo } from '../lib/server.server.ts'
 import { vehicleStatusText } from '../lib/trip.ts'
@@ -107,7 +110,12 @@ function SelectedTrain({
   )
 }
 
+/** A new station or trip starts the page afresh (its filter and selection). */
 export default function MapPage({ loaderData }: Route.ComponentProps) {
+  return <TrainMap key={`${loaderData.station ?? ''}:${loaderData.trip ?? ''}`} loaderData={loaderData} />
+}
+
+function TrainMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
   const { mode, station, trip } = loaderData
   const fetcher = useFetcher(mode)
   const q = useVehicles(fetcher, mode, true)
@@ -122,6 +130,18 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
   // A trip page's "Track on map": that train, highlighted and in view once its position is in.
   const tracked = trip ? (vehicles.find((v) => v.tripKey === trip) ?? null) : null
   const trackedId = tracked?.id ?? ''
+  // A station's Map chip: only the trains on its departures ("All trains" shows the rest); the tracked one always.
+  const [all, setAll] = useState(!station)
+  const deps = useQuery({
+    ...departuresOptions(fetcher, mode, station ?? '', null, DEPARTURE_LIMIT, null),
+    enabled: !!station,
+  })
+  const atStation = useMemo(() => {
+    const trips = new Set((deps.data?.departures ?? []).map((d) => d.tripInstance))
+    return vehicles.filter((v) => v.tripKey && trips.has(v.tripKey))
+  }, [vehicles, deps.data])
+  const base = all ? vehicles : atStation
+  const shown = tracked && !base.includes(tracked) ? [...base, tracked] : base
   const fitTo = useMemo(
     () => [
       ...[...STATIONS]
@@ -142,7 +162,7 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
         tone: s.key === station ? ('selected' as const) : ('stop' as const),
         label: `${s.name} station`,
       })),
-      ...vehicles.map((v) => ({
+      ...shown.map((v) => ({
         id: `v:${v.id}`,
         lat: v.lat,
         lon: v.lon,
@@ -153,7 +173,7 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
         onClick: () => setSelected(v.id),
       })),
     ],
-    [vehicles, station, trackedId],
+    [shown, station, trackedId],
   )
   const sel = vehicles.find((v) => v.id === selected) ?? (selected == null ? tracked : null)
   const status =
@@ -161,7 +181,9 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
       ? 'Live positions are unavailable right now.'
       : trip && q.data && !tracked
         ? "Your train isn't sending its position right now."
-        : null
+        : !all && deps.data && atStation.length === 0
+          ? `No trains at ${centre.name} have live positions right now.`
+          : null
 
   return (
     <Shell
@@ -175,6 +197,19 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
         mode="train"
         title={station ? `Live train map: ${centre.name}` : 'Live train map'}
         bottomBar
+        controls={
+          station ? (
+            <fieldset className="flex gap-2">
+              <legend className="sr-only">Trains shown</legend>
+              <Chip pressed={!all} onClick={() => setAll(false)}>
+                At {centre.name}
+              </Chip>
+              <Chip pressed={all} onClick={() => setAll(true)}>
+                All trains
+              </Chip>
+            </fieldset>
+          ) : null
+        }
         status={status}
         card={sel ? <SelectedTrain v={sel} mode={mode} yours={sel === tracked} /> : null}
         legend={
@@ -186,7 +221,7 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
             ]}
           >
             <span data-map-count="" className="font-normal text-sched-text dark:text-night-text/70">
-              {vehicles.length} with live positions
+              {shown.length} with live positions
             </span>
           </MapLegend>
         }
@@ -198,7 +233,7 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
           fitKey={trackedId}
           // And keep it in view as it moves.
           follow={tracked ? [tracked.lon, tracked.lat] : null}
-          label={`Map of ${vehicles.length} live trains${station ? ` near ${centre.name}` : ''}`}
+          label={`Map of ${shown.length} live trains${station ? ` near ${centre.name}` : ''}`}
           className={MAP_BOX}
           unavailable={
             <Link
