@@ -164,6 +164,43 @@ describe('keepTrayOrder', () => {
     expect(localStorage.getItem(PREFS_KEY)).toBeNull()
   })
 
+  it.each([
+    ['not JSON', '{bad json'],
+    ['a number', '7'],
+    ['null', 'null'],
+    ['an order that is not a list', JSON.stringify({ v: 1, order: 'nope', labels: {} })],
+    ['no order', JSON.stringify({ v: 1, labels: {} })],
+    ['an empty order', JSON.stringify({ v: 1, order: [], labels: {} })],
+  ])('replaces an overlay My Transit cannot use (%s) with the tray order (R23-O1)', (_, raw) => {
+    localStorage.setItem(PREFS_KEY, raw)
+    keepTrayOrder([ferry, central, cultural], [cultural, central, ferry])
+    expect(stored()).toEqual({
+      v: 1,
+      order: [savedId(cultural), savedId(central), savedId(ferry)],
+      labels: {},
+    })
+  })
+
+  it('keeps the names of a current overlay with no usable order (R23-O1)', () => {
+    const labels = { [savedId(cultural)]: 'Work' }
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ v: 1, order: { 0: 'x' }, labels }))
+    keepTrayOrder([ferry, cultural], [cultural, ferry])
+    expect(stored()).toEqual({ v: 1, order: [savedId(cultural), savedId(ferry)], labels })
+  })
+
+  it('leaves an older overlay (a bare list) for readPrefs to upgrade', () => {
+    const old = JSON.stringify([savedId(ferry), savedId(cultural)])
+    localStorage.setItem(PREFS_KEY, old)
+    keepTrayOrder([ferry, cultural], [cultural, ferry])
+    expect(localStorage.getItem(PREFS_KEY)).toBe(old)
+  })
+
+  it('writes nothing over a broken overlay when the tray is saved as it opened', () => {
+    localStorage.setItem(PREFS_KEY, '{bad json')
+    keepTrayOrder([ferry, cultural], [ferry, cultural])
+    expect(localStorage.getItem(PREFS_KEY)).toBe('{bad json')
+  })
+
   it('leaves an overlay it cannot read (a newer version) as it is', () => {
     const future = JSON.stringify({ v: 9, order: [savedId(ferry), savedId(cultural)], labels: {} })
     localStorage.setItem(PREFS_KEY, future)
