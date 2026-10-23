@@ -204,21 +204,21 @@ export const boardState = (pathname: string, search: string) => ({ [BOARD_STATE]
 let hydrated = false
 
 /**
- * A board's "More departures", kept in the board's history entry: back from a trip finds it still open, so the row
- * is there and the scroll comes back to it. Read only once the page has hydrated, so the first render matches the
- * server's HTML.
+ * A board's own state ("More departures", the Express filter), kept in the board's history entry: back from a trip
+ * finds the board as it was, so the row is there and the scroll comes back to it. Read only once the page has
+ * hydrated, so the first render matches the server's HTML.
  */
-export function useKeptMore(key: string): [boolean, (open: boolean) => void] {
-  const k = `bftMore:${key}`
-  const [open, setOpen] = useState(() => {
-    if (!hydrated) return false
-    const usr = (history.state as { usr?: Record<string, unknown> } | null)?.usr
-    return usr?.[k] === true
+export function useKept<T extends boolean | string>(key: string, initial: T): [T, (value: T) => void] {
+  const k = `bftKept:${key}`
+  const [open, setOpen] = useState<T>(() => {
+    if (!hydrated) return initial
+    const kept = (history.state as { usr?: Record<string, unknown> } | null)?.usr?.[k]
+    return typeof kept === typeof initial ? (kept as T) : initial
   })
   useEffect(() => {
     hydrated = true
   }, [])
-  const set = (v: boolean) => {
+  const set = (v: T) => {
     setOpen(v)
     try {
       const s = (history.state ?? {}) as { usr?: Record<string, unknown> }

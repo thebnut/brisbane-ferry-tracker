@@ -300,7 +300,10 @@ function TripBody({
         />
       ) : null}
       <TripDock>
-        <Link to={`${boardHref(board.stopId, to)}${to ? '&' : '?'}map=1`} className={trackClass}>
+        <Link
+          to={`${boardHref(board.stopId, to)}${to ? '&' : '?'}map=1&trip=${encodeURIComponent(trip.tripInstance)}`}
+          className={trackClass}
+        >
           <Icon name="map" size={20} />
           Track on map
         </Link>

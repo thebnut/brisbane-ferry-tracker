@@ -15,7 +15,7 @@ import {
   MoreButton,
   OfflineBanner,
   soonestIndex,
-  useKeptMore,
+  useKept,
 } from '@bft/ui'
 import { leavingFrom } from '@bft/ui/board-header'
 import { usePageCheck } from '@bft/ui/connectivity'
@@ -66,7 +66,7 @@ export function StationBoard({
 }) {
   const fetcher = useFetcher(mode)
   const online = useOnline()
-  const [more, setMore] = useKeptMore(from.key)
+  const [more, setMore] = useKept<boolean>(`more:${from.key}`, false)
   const limit = more ? MORE_LIMIT : DEPARTURE_LIMIT
   const q = useDepartures(
     fetcher,

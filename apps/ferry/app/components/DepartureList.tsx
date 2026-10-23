@@ -12,7 +12,7 @@ import {
   MoreButton,
   nextAlike,
   soonestIndex,
-  useKeptMore,
+  useKept,
 } from '@bft/ui'
 import { Link, useLocation } from 'react-router'
 import { rowModel } from '../lib/departures.ts'
@@ -73,7 +73,7 @@ export function DepartureList({
   tripHref,
   offline,
 }: DepartureListProps) {
-  const [more, setMore] = useKeptMore(id)
+  const [more, setMore] = useKept<boolean>(`more:${id}`, false)
   const list = departures ?? []
   const shown = list.slice(0, more ? 13 : 5)
   // The soonest ferry you can board gets the orange border (every board's rule); later days get a divider.

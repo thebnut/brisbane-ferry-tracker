@@ -7,7 +7,15 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { BottomSheet, DemoExitLink, formatAge, formatClock, OfflineBanner, useFixtureCookie } from '@bft/ui'
+import {
+  BottomSheet,
+  DemoExitLink,
+  formatAge,
+  formatClock,
+  OfflineBanner,
+  useFixtureCookie,
+  useKept,
+} from '@bft/ui'
 import { BoardHeader, Chip, FilterRow, leavingFrom, NowChip } from '@bft/ui/board-header'
 import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
@@ -112,9 +120,11 @@ export function FerryBoards({
   children,
 }: FerryBoardsProps) {
   const [trip, setTrip] = useState({ from: serverFrom, to: serverTo })
-  const [filter, setFilter] = useState<ServiceFilter>('all')
+  const [filter, setFilter] = useKept<ServiceFilter>('filter', 'all')
   const [departAt, setDepartAt] = useState<number | null>(null)
   const [showMap, setShowMap] = useState(false)
+  // The trip a trip page's "Track on map" follows (`?trip=`).
+  const [follow, setFollow] = useState<string | null>(null)
   const [showSelector, setShowSelector] = useState(false)
   // Null until first opened (then the sheet stays mounted: closing it gives focus back to the chip).
   const [showTo, setShowTo] = useState<boolean | null>(null)
@@ -142,7 +152,11 @@ export function FerryBoards({
     show(saved)
     setDepartAt(readDepartAt())
     // A trip page's "Track on map" (THE-118 PR 6): the board with its map open.
-    if (new URLSearchParams(location.search).has('map')) setShowMap(true)
+    const q = new URLSearchParams(location.search)
+    if (q.has('map')) {
+      setShowMap(true)
+      setFollow(q.get('trip'))
+    }
     let live = true
     import('./FerryStar.tsx').then(
       (m) => {
@@ -349,7 +363,11 @@ export function FerryBoards({
             departures={boards.flatMap((q) => q.data?.departures ?? [])}
             fetcher={fetcher}
             mode={mode}
-            onClose={() => setShowMap(false)}
+            follow={follow}
+            onClose={() => {
+              setShowMap(false)
+              setFollow(null)
+            }}
             onSelect={(d) =>
               navigate(
                 d.stopId === fromId
