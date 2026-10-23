@@ -70,6 +70,10 @@ describe('rowModel (THE-118 PR 4)', () => {
     expect(r.status).toMatchObject({ dot: 'cancelled', text: 'Cancelled · next F11 in 20 min' })
     expect(rowModel(dep({ status: 'skipped' }), NOW).status.text).toBe('Not stopping here')
   })
+  it('an extra service (rt: key) says so, never on time, late or early (R35-U1)', () => {
+    const extra = dep({ tripInstance: 'rt:EXTRA@20261018', schedDep: s(19, 46), estDep: s(19, 46) })
+    expect(rowModel(extra, NOW).status).toMatchObject({ text: 'Live · Extra service', claim: true })
+  })
   it('headsigns lose " ferry terminal"', () => {
     expect(rowModel(dep({ headsign: 'Northshore Hamilton ferry terminal' }), NOW).destination).toBe(
       'Northshore Hamilton',

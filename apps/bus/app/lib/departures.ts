@@ -3,6 +3,7 @@ import type { Alert, Departure } from '@bft/core/contract'
 import {
   dayMarker,
   formatClock,
+  isExtraService,
   minutesUntil,
   nextAlike,
   type RowStatus,
@@ -72,6 +73,7 @@ export function rowStatus(
       status: d.status,
       schedDep: d.schedDep,
       estDep: d.estDep,
+      extra: isExtraService(d.tripInstance),
       next: next && { name: d.route.short, minutes: minutesUntil(effective(next), nowMs) },
     }),
   }
