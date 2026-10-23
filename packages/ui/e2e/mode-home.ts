@@ -172,6 +172,25 @@ function suite(spec: HomeSpec) {
     await expect(page.locator('header [data-live-claim]').first()).toBeVisible({ timeout: 15_000 })
   })
 
+  if (spec.mode !== 'train')
+    test('the last saved item taken out (another tab): the header claims nothing again (Codex r1)', async ({
+      page,
+      context,
+    }) => {
+      await spec.pin(context)
+      await seed(page, spec, 1, true)
+      await page.goto(spec.path)
+      await expect(page.locator('header [data-live-claim]').first()).toBeVisible({ timeout: 15_000 })
+      // Another tab unsaves it: this page hears the storage event.
+      await page.evaluate((key) => {
+        localStorage.setItem(key, '[]')
+        dispatchEvent(new StorageEvent('storage', { key }))
+      }, spec.saved.key)
+      await expect(section(page, 'saved')).toContainText('Tap ☆ on any board to save it.')
+      await expect(page.locator('header [data-live-claim]')).toHaveCount(0)
+      await expect(page.locator('header [data-connection]')).toHaveCount(0)
+    })
+
   test('several saved: one card each, in the saved order', async ({ page, context }) => {
     await spec.pin(context)
     await seed(page, spec, 3, false)

@@ -28,10 +28,15 @@ function Row({ id, name, metres, nowMs }: { id: string; name: string; metres: nu
     (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
     q.isError || q.failureCount > 0,
   )
-  const d = data?.departures.find(
-    (r) =>
-      r.status !== 'cancelled' && r.status !== 'skipped' && minutesUntil(r.estDep ?? r.schedDep, nowMs) >= 0,
-  )
+  // Soonest first by the time shown: dropping stale estimates keeps their order (Codex r1).
+  const d = [...(data?.departures ?? [])]
+    .sort((a, b) => (a.estDep ?? a.schedDep) - (b.estDep ?? b.schedDep))
+    .find(
+      (r) =>
+        r.status !== 'cancelled' &&
+        r.status !== 'skipped' &&
+        minutesUntil(r.estDep ?? r.schedDep, nowMs) >= 0,
+    )
   return (
     <NearPlaceRow
       mode="bus"

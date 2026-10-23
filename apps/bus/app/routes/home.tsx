@@ -148,7 +148,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   // Until the cards report (after hydration): the server's saved stops. LIVE only while every one is live (each
   // confirms itself after a cached page, R2-T7); one still waiting is not live (R7-T1) but "Connecting…" while nothing
   // has failed (R32-RT1). No saved stops and no position: no live rows, so the header claims nothing (#159).
-  const seeds = Object.values(loaderData.initial)
+  // Only the stops still saved: one taken out since (here or in another tab) claims nothing (Codex r1).
+  const seeds = ids.filter((id) => id in loaderData.initial).map((id) => loaderData.initial[id] ?? null)
   const seedState = (r: DeparturesResponse) => liveView('', r, now, true, page).state
   const reports = useLiveReports({
     live: seeds.length ? seeds.every((r) => r && seedState(r) == null && r.rtState === 'live') : undefined,

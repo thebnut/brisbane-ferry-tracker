@@ -203,21 +203,20 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     })
   }, [fetcher])
   const { geo, locate } = useGeolocation()
+  // The server's boards of the trips still saved: one taken out since claims nothing (Codex r1).
+  const seeds = favourites
+    .map((f) => favouriteId(f))
+    .filter((id) => id in loaderData.boards)
+    .map((id) => loaderData.boards[id] ?? null)
 
   return (
     <Shell
       active="home"
       // From the loader data until the cards report (useReportLive); no boards, no live data of its own.
-      live={
-        Object.keys(loaderData.boards).length
-          ? Object.values(loaderData.boards).every((r) => !r || boardState(r, false, nowMs, page) == null)
-          : undefined
-      }
+      live={seeds.length ? seeds.every((r) => !r || boardState(r, false, nowMs, page) == null) : undefined}
       // A board the server couldn't load has no answer yet: BrisbaneTransit says "Connecting…", not LIVE (THE-118).
       // So does one with a non-live seed until its card's own answer (R32-RT1).
-      pending={Object.values(loaderData.boards).some(
-        (r) => !r || awaitingSeedAnswer(asSeed(r), boardState(r, false, nowMs, page)),
-      )}
+      pending={seeds.some((r) => !r || awaitingSeedAnswer(asSeed(r), boardState(r, false, nowMs, page)))}
     >
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
         <HomeTitle title="Train">

@@ -136,7 +136,10 @@ export function homeCard(
   stopKey: string,
 ): HomeCard {
   // Only boardable services: a cancelled or skipped (not stopping here) one is never "next".
-  const rows = (res?.departures ?? []).filter((d) => d.status !== 'cancelled' && d.status !== 'skipped')
+  // Soonest first by the time shown: a board that dropped its live estimates keeps their order (Codex r1).
+  const rows = (res?.departures ?? [])
+    .filter((d) => d.status !== 'cancelled' && d.status !== 'skipped')
+    .sort((a, b) => (a.estDep ?? a.schedDep) - (b.estDep ?? b.schedDep))
   const first = rows[0]
   const dep = first ? (first.estDep ?? first.schedDep) : null
   const arr = first ? (first.estArrTo ?? first.schedArrTo) : null

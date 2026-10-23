@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import {
   AboutTimes,
+  homeCard,
   LiveReports,
   SavedEmpty,
   UseLocationRow,
@@ -124,5 +125,34 @@ describe('sections', () => {
     expect(screen.getByText(/Location is off/)).toBeTruthy()
     rerender(<UseLocationRow state="locating" onLocate={locate} what="stops" />)
     expect((screen.getByRole('button', { name: 'Locating…' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('homeCard', () => {
+  const NOW = Date.UTC(2026, 9, 19, 9, 30)
+  const s = NOW / 1000
+  const d = (schedDep: number, estDep: number | null = null, status = 'scheduled') => ({
+    status,
+    schedDep,
+    estDep,
+    schedArrTo: null,
+    estArrTo: null,
+    route: { short: '66' },
+    headsign: 'UQ Lakes',
+    platform: null,
+    vehicleId: null,
+  })
+
+  it('the next departure is the soonest by the time shown, whatever order the rows came in (Codex r1)', () => {
+    // A board that dropped its live estimates keeps the live order: 10 min (was due in 1) before 2 min.
+    const card = homeCard(
+      'bus',
+      { rtState: 'stale', stop: { name: 'Stop' }, to: null, departures: [d(s + 600), d(s + 120)] },
+      NOW,
+      'Stop',
+      '1',
+    )
+    expect(card.minutes).toBe(2)
+    expect(card.next).toBe(s + 120)
   })
 })
