@@ -49,7 +49,6 @@ export interface RowModel {
   journey: string | null
   minutes: number | null
   time: string
-  label: string
 }
 
 /**
@@ -87,12 +86,6 @@ export function rowModel(d: Departure, nowMs: number, next?: Departure): RowMode
     journey: journeyMins != null && journeyMins > 0 ? formatDuration(journeyMins) : null,
     minutes: boardable ? minutesUntil(dep, nowMs) : null,
     time,
-    label: [
-      `${time} ${d.route.short}${isExpress(d) ? ' express' : ''} to ${destination}`,
-      ...status.text.split(' · '),
-    ]
-      .concat(arrival ? `arrives ${arrival}` : [])
-      .join(', '),
   }
 }
 

@@ -47,7 +47,6 @@ describe('trainCard', () => {
     expect(c.headsign).toBe('Ferny Grove')
     expect(c.strip[0]?.id).toBe('central')
     expect(c.express).toBe(false)
-    expect(c.label).toContain('platform 1')
     // THE-118 PR 4: one fact, the line; with a destination, "arr 8:16 am" (the line moves to the wide row).
     expect(c.status.text).toBe('Live · on time')
     expect(c.fact).toBe('Ferny Grove line')
@@ -73,7 +72,6 @@ describe('trainCard', () => {
     expect(c).toMatchObject({ platform: '4', scheduledPlatform: '1' })
     // Live: the status line says so (the row's tile gets the orange ring).
     expect(c.status.text).toBe('Live · platform changed from 1')
-    expect(c.label).toContain('platform 4, live, platform changed from 1')
     const late = trainCard({ ...d, estDep: d.schedDep + 180 }, NOW, 'central', null)
     expect(late.status.text).toBe('Live · 3 min late · platform changed from 1')
     // Not live (offline, stale): asScheduled drops the change, so no claim of one.

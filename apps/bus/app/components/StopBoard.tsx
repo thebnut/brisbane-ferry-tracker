@@ -16,7 +16,7 @@ import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import { SkeletonRows } from '@bft/ui/bus'
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { rowLabel, rowViews } from '../lib/departures.ts'
+import { rowViews } from '../lib/departures.ts'
 import { stopHref, tripHref } from '../lib/stops.ts'
 
 export const linkRenderer = ({
@@ -238,7 +238,6 @@ export function DepartureList({
               time={v.time}
               highlighted={v.highlighted}
               href={tripHref(v.departure.tripInstance, stopId)}
-              label={rowLabel(v)}
               renderLink={linkRenderer}
             />
           </li>

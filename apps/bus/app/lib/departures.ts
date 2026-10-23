@@ -100,19 +100,3 @@ export function routesIn(rows: Departure[]): string[] {
   for (const d of rows) if (!seen.includes(d.route.short)) seen.push(d.route.short)
   return seen
 }
-
-/** Accessible one-line summary of a row. */
-export function rowLabel(v: RowView): string {
-  const d = v.departure
-  const when =
-    d.status === 'cancelled'
-      ? 'cancelled'
-      : v.minutes < 1
-        ? 'departing now'
-        : `in ${v.minutes} minutes, ${v.time}`
-  // The status line after "cancelled" without its first word ("next 60 in 15 min"), as a list for screen readers.
-  const status = [...v.status.text.split(' · ').slice(d.status === 'cancelled' ? 1 : 0), v.fact].filter(
-    Boolean,
-  )
-  return [`Route ${d.route.short} to ${d.headsign}`, when, ...status].join(', ')
-}

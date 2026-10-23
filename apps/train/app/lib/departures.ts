@@ -65,8 +65,6 @@ export interface TrainCard {
   fact: string | null
   /** The line, on a wide row whose extra column shows the arrival. */
   lineFact: string | null
-  /** Accessible summary of the whole card. */
-  label: string
 }
 
 export function trainCard(
@@ -113,8 +111,6 @@ export function trainCard(
   }
   const lineFact = skips > 0 ? `${line.name} express` : lineLabel(line.name)
   const arrText = arr != null ? `arr ${formatClock(arr)}` : null
-  // A platform change is in the status words ("platform changed from 5").
-  const platformText = d.platform ? `platform ${d.platform}` : 'platform not known'
   return {
     key: `${d.tripInstance}:${d.stopSequence}`,
     tripInstance: d.tripInstance,
@@ -138,11 +134,6 @@ export function trainCard(
     // A row you can't board has no fact: "Cancelled · next Ferny Grove line in 12 min" already names the line.
     fact: cancelled || skipped ? null : to && arrText ? arrText : lineFact,
     lineFact: cancelled || skipped ? null : lineFact,
-    label: [
-      `${time}${skips > 0 ? ' express' : ''} to ${headsign}`,
-      platformText,
-      status.text.split(' · ').join(', ').toLowerCase(),
-    ].join(', '),
   }
 }
 

@@ -47,7 +47,6 @@ describe('rowModel (THE-118 PR 4)', () => {
     })
     // The vessel, the journey line and badges are off the row now (trip detail has them).
     expect(JSON.stringify(r)).not.toContain('Mooroolbin')
-    expect(r.label).toBe('7:42 pm F11 express to Riverside, Live, on time, arrives 7:54 pm')
   })
   it('late and early rows say so from the clocks shown', () => {
     const late = rowModel(

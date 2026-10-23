@@ -222,7 +222,10 @@ export interface DepartureRowProps {
   href?: string
   renderLink?: LinkRenderer
   onSelect?: () => void
-  /** Accessible summary for the link or button. */
+  /**
+   * An accessible name for the link or button, overriding its content. Boards leave it out: the content's name
+   * leaves out the live words while the live guard hides them, a label would not (Codex r2).
+   */
   label?: string
 }
 
@@ -280,7 +283,7 @@ export function DepartureRow({
               className={cx('size-2 rounded-full', DOT[status.dot])}
             />
             {status.text}
-            {fact || wideFact ? (
+            {(extra ? fact || wideFact : fact) ? (
               // With an extra column the phone and wide facts differ: the dot shows only where a fact does.
               <span
                 aria-hidden="true"

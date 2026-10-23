@@ -1,6 +1,6 @@
 import type { Alert, Departure } from '@bft/core/contract'
 import { describe, expect, it } from 'vitest'
-import { detourRoutes, isActive, routesIn, rowLabel, rowStatus, rowViews } from '../app/lib/departures.ts'
+import { detourRoutes, isActive, routesIn, rowStatus, rowViews } from '../app/lib/departures.ts'
 
 const NOW = 1_792_300_000_000
 const nowS = NOW / 1000
@@ -86,10 +86,6 @@ describe('row views', () => {
     expect(v.map((x) => x.highlighted)).toEqual([false, true, false])
     expect(rowViews(rows, NOW, { routes: new Set(['M2']) })).toHaveLength(1)
     expect(routesIn(rows)).toEqual(['66', 'M2'])
-    expect(rowLabel(v[1] as (typeof v)[number])).toBe(
-      `Route 66 to UQ Lakes, in 1 minutes, ${v[1]?.time}, Scheduled`,
-    )
-    expect(rowLabel(v[0] as (typeof v)[number])).toBe('Route 66 to UQ Lakes, cancelled, next 66 in 1 min')
     // A cancelled first row: the soonest highlight skips it (every board's rule).
     expect(
       rowViews(

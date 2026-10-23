@@ -160,6 +160,14 @@ function suite(wide: boolean) {
           // No stopping strip on the row any more.
           await expect(list.locator('[data-compact]')).toHaveCount(0)
         }
+        // The row's accessible name is its content: it says Live while live, and nothing live while the live guard
+        // hides the claims (an unconditional aria-label would, Codex r2).
+        const target = live.locator('a, button').first()
+        await expect(target).toHaveAccessibleName(/Live/)
+        await page.evaluate(() => document.documentElement.setAttribute('data-live-unconfirmed', ''))
+        await expect(target).not.toHaveAccessibleName(/Live|on time/)
+        await expect(target).toHaveAccessibleName(mode.name === 'train' ? /Ferny Grove/ : /Destination 1/)
+        await page.evaluate(() => document.documentElement.removeAttribute('data-live-unconfirmed'))
         // No LIVE/GPS/SCHEDULED pills, and no "(23/10)" date tags.
         await expect(list.locator('[data-badge]')).toHaveCount(0)
         await expect(list).not.toContainText(/\(\d\d\/\d\d\)|LIVE|SCHEDULED|GPS ·/)

@@ -67,7 +67,6 @@ export function TrainCard({
       time={card.time}
       highlighted={highlighted}
       href={tripHref(card, from, to)}
-      label={card.label}
       renderLink={linkRenderer}
     />
   )

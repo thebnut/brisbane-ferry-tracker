@@ -279,6 +279,8 @@ describe('DepartureRow separators', () => {
     expect(dot(null, 'express', 'Arrives 7:54 pm')).toBe('hidden @lg:inline')
     expect(dot('arr 7:54 pm', 'Beenleigh line', 'Arrives 7:54 pm')).toBe('')
     expect(dot('GPS', 'GPS', null)).toBe('')
+    // No extra column: only the phone fact shows, so a wide fact alone never leaves a dangling dot (Codex r2).
+    expect(dot(null, 'express', null)).toBeNull()
     expect(dot(null, null, null)).toBeNull()
   })
 })

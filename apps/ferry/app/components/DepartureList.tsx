@@ -124,7 +124,6 @@ export function DepartureList({
                     time={r.time}
                     highlighted={i === soonest}
                     onSelect={() => onSelect(d)}
-                    label={r.label}
                   />
                 </li>
               )
