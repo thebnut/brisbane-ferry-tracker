@@ -1,13 +1,11 @@
 /**
- * A station's departure board (T-Departures): board header "From → To" with the reachable-only "to" picker and swap,
- * platform-change banner, rtState/offline banners, departure cards, "More departures". Rendered on the server with
- * the loader's rows, then polled every 15 s while visible.
+ * A station's departure board (T-Departures): platform-change banner, rtState/offline banners, departure rows, "More
+ * departures". The board header with its filter row, star and "Going to" sheet is the page's (station.tsx, THE-118 PR
+ * 5). Rendered on the server with the loader's rows, then polled every 15 s while visible.
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
 import {
-  BoardHeader,
-  BottomSheet,
   DayDivider,
   dayDividers,
   EmptyState,
@@ -17,17 +15,15 @@ import {
   MoreButton,
   nextAlike,
   OfflineBanner,
-  SecondaryButton,
   soonestIndex,
 } from '@bft/ui'
+import { leavingFrom } from '@bft/ui/board-header'
 import { usePageCheck } from '@bft/ui/connectivity'
 import { SaveToast, type SaveToastMessage } from '@bft/ui/save-toast'
-import { StarButton } from '@bft/ui/star'
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
 import { boardState, platformChanges, type ServiceFilter, trainCard, visibleRows } from '../lib/departures.ts'
-import { boardHref, isReachable, lineFor, type Station } from '../lib/network.ts'
+import { lineFor, type Station } from '../lib/network.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import {
   FAVOURITES_KEY,
@@ -40,7 +36,6 @@ import {
 } from '../lib/storage.ts'
 import { useOnline } from '../lib/useNow.ts'
 import { useReportLive } from './Chrome.tsx'
-import { ReachableList } from './ReachableList.tsx'
 import { TrainCard } from './TrainCard.tsx'
 
 export const MORE_LIMIT = 30
@@ -51,10 +46,23 @@ export const MORE_LIMIT = 30
  */
 export function useStar(f: Favourite, name: string, pickDestination: () => void) {
   const [list, setList] = useState<Favourite[]>([])
-  /** `evicted`: the favourite a full list let go to make room (MAX_FAVOURITES), and its place, for Undo. */
+  /**
+   * `fav`: the favourite the toast is about, which Undo takes out even after the page has moved to another board (the
+   * star lives on the station page, THE-118 PR 5). `evicted`: the one a full list let go to make room (MAX_FAVOURITES),
+   * and its place, for Undo.
+   */
   const [toast, setToast] = useState<
-    (SaveToastMessage & { evicted: { fav: Favourite; at: number } | null }) | null
+    (SaveToastMessage & { fav: Favourite; evicted: { fav: Favourite; at: number } | null }) | null
   >(null)
+  // On another board, "Pick a destination" would pick for that board, not the saved one: only Undo stays.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the board.
+  useEffect(
+    () =>
+      setToast((t) =>
+        t?.pickDestination && !sameFavourite(t.fav, f) ? { ...t, pickDestination: undefined } : t,
+      ),
+    [f.from, f.to],
+  )
   // The list as stored, again when another tab changes it.
   useEffect(() => {
     const read = () => setList(readFavourites())
@@ -82,18 +90,21 @@ export function useStar(f: Favourite, name: string, pickDestination: () => void)
     const evicted = adding && at >= 0 ? { fav: before[at] as Favourite, at } : null
     setToast(
       !kept
-        ? { name, evicted: null, kept, remove: !adding }
+        ? { name, fav: f, evicted: null, kept, remove: !adding }
         : adding
-          ? { name, evicted, pickDestination: f.to ? undefined : pickDestination }
+          ? { name, fav: f, evicted, pickDestination: f.to ? undefined : pickDestination }
           : null,
     )
   }
   const undo = () => {
+    if (!toast) return
+    const fav = toast.fav
     let now = readFavourites()
-    if (now.some((x) => sameFavourite(x, f))) now = writeFavourites(now.filter((x) => !sameFavourite(x, f)))
+    if (now.some((x) => sameFavourite(x, fav)))
+      now = writeFavourites(now.filter((x) => !sameFavourite(x, fav)))
     // The one a full list let go comes back at its place, unless it was saved again since, or the list is full again
     // (saved to elsewhere since): it never pushes another favourite out.
-    const ev = toast?.evicted
+    const ev = toast.evicted
     if (ev && now.length < MAX_FAVOURITES && !now.some((x) => sameFavourite(x, ev.fav)))
       now = writeFavourites([...now.slice(0, ev.at), ev.fav, ...now.slice(ev.at)])
     setList(readFavourites())
@@ -110,8 +121,9 @@ export function StationBoard({
   mode,
   filter,
   onData,
-  compactHeader = false,
-  sub,
+  at = null,
+  returnBoard = false,
+  alerts,
 }: {
   from: Station
   to: Station | null
@@ -121,26 +133,27 @@ export function StationBoard({
   filter: ServiceFilter
   /** Reports the latest response (for the status strip and the express filter). */
   onData?: (res: DeparturesResponse | undefined) => void
-  /** Second board on desktop: no picker, just the title and swap. */
-  compactHeader?: boolean
-  /** A line under the title (BrisbaneTransit's alert count, THE-118 PR 3). */
-  sub?: ReactNode
+  /** "Depart from" (epoch s, the Now ▾ chip): trains from then; null is now, which `initial` is for. */
+  at?: number | null
+  /** The return board beside it on desktop: its own small title. */
+  returnBoard?: boolean
+  /** Beside the return board's title: its station's alert count (BrisbaneTransit, THE-118 PR 3). */
+  alerts?: ReactNode
 }) {
-  const navigate = useNavigate()
   const fetcher = useFetcher(mode)
   const online = useOnline()
   const [more, setMore] = useState(false)
-  const [picker, setPicker] = useState(false)
   const limit = more ? MORE_LIMIT : DEPARTURE_LIMIT
   const q = useDepartures(
     fetcher,
     mode,
     from.key,
     to?.key ?? null,
-    limit === DEPARTURE_LIMIT ? initial : null,
+    limit === DEPARTURE_LIMIT && at == null ? initial : null,
     limit,
+    at,
   )
-  const res = q.data ?? (more ? initial : undefined) ?? undefined
+  const res = q.data ?? (more && at == null ? initial : undefined) ?? undefined
   useEffect(() => onData?.(res), [onData, res])
   // useOnline is false while offline, and also when the API calls fail or the service worker answers from its cache.
   const offline = !online || (res as { offline?: boolean } | undefined)?.offline === true
@@ -153,7 +166,8 @@ export function StationBoard({
 
   const cards = useMemo(() => {
     // Not live: timetable only, no live estimates or platform changes, and nothing that has already left.
-    const rows = visibleRows(res?.departures ?? [], state, nowMs)
+    // A later time's board: rows from then on, again once the live estimates are dropped (Codex r3).
+    const rows = leavingFrom(visibleRows(res?.departures ?? [], state, nowMs), at)
     const line = (d: (typeof rows)[number]) => lineFor(d.route, d.headsign).name
     const list = rows.map((d, i) =>
       trainCard(
@@ -165,7 +179,7 @@ export function StationBoard({
       ),
     )
     return filter === 'express' ? list.filter((c) => c.express) : list
-  }, [res, nowMs, from.key, to?.key, filter, state])
+  }, [res, nowMs, from.key, to?.key, filter, state, at])
   // Offline with nothing to show before this board's first answer since the page loaded (an offline reload starts
   // with the cached page's data, maybe last night's): its copies on hand are still being read, so it is loading, not
   // "no saved timetable" (R6-B1).
@@ -177,9 +191,7 @@ export function StationBoard({
     cards.map((c) => c.dep),
     nowMs,
   )
-  const canSwap = !!to && isReachable(to.key, from.key)
   const title = `${from.name}${to ? ` → ${to.name}` : ''}`
-  const star = useStar({ from: from.key, to: to?.key ?? null }, title, () => setPicker(true))
 
   return (
     <section
@@ -187,31 +199,12 @@ export function StationBoard({
       className="flex min-w-0 flex-col gap-2.5"
       data-board={from.key}
     >
-      <BoardHeader
-        as="h2"
-        onSwap={canSwap && to ? () => navigate(boardHref(to.key, from.key)) : undefined}
-        sub={sub}
-        trailing={
-          compactHeader ? undefined : <StarButton saved={star.saved} onToggle={star.toggle} name={title} />
-        }
-      >
-        {compactHeader ? (
-          <span className="truncate text-base font-bold">{title}</span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setPicker(true)}
-            aria-label={`${title}. Choose where you're going`}
-            className="flex min-w-0 items-center gap-1 text-left text-base font-bold"
-          >
-            <span className="truncate">{title}</span>
-            {to ? null : (
-              <span className="shrink-0 text-sm font-semibold text-ferry-orange-deep">· Going to…</span>
-            )}
-            <Icon name="chevronDown" size={18} className="shrink-0 text-ferry-orange" />
-          </button>
-        )}
-      </BoardHeader>
+      {returnBoard ? (
+        <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3">
+          <h2 className="text-base font-bold text-aqua-text dark:text-ferry-aqua-light">{title}</h2>
+          {alerts}
+        </div>
+      ) : null}
 
       {changes.map((d) => (
         <div
@@ -284,40 +277,6 @@ export function StationBoard({
       (res.departures.length >= DEPARTURE_LIMIT || filter === 'express') ? (
         <MoreButton onClick={() => setMore(true)}>More departures</MoreButton>
       ) : null}
-
-      {compactHeader ? null : star.toast}
-      {compactHeader ? null : (
-        <BottomSheet
-          open={picker}
-          onClose={() => setPicker(false)}
-          title={`Going to, from ${from.name}`}
-          subtitle={
-            <span className="text-xs text-sched-text">Only stations with a direct train are shown.</span>
-          }
-        >
-          <div className="flex flex-col gap-3 px-4 py-4">
-            {to ? (
-              <SecondaryButton
-                className="min-h-10 self-start px-4 text-sm"
-                onClick={() => {
-                  setPicker(false)
-                  navigate(boardHref(from.key, null))
-                }}
-              >
-                Any destination
-              </SecondaryButton>
-            ) : null}
-            <ReachableList
-              from={from}
-              selected={to?.key ?? null}
-              onPick={(k) => {
-                setPicker(false)
-                navigate(boardHref(from.key, k))
-              }}
-            />
-          </div>
-        </BottomSheet>
-      )}
     </section>
   )
 }

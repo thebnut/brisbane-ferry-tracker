@@ -64,7 +64,11 @@ export function BottomSheet({ open, onClose, title, subtitle, children }: Bottom
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      onClose={onClose}
+      // The close event is queued after close(): a sheet reopened before it arrives (Escape, then Enter on the chip)
+      // must not be closed by the stale event.
+      onClose={() => {
+        if (!ref.current?.open) onClose()
+      }}
       onKeyDown={wrapTabFocus}
       onCancel={(e) => {
         e.preventDefault()

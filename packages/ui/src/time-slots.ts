@@ -37,3 +37,13 @@ export function generateTimeSlots(nowMs: number): Slot[] {
   }
   return slots.slice(0, 10)
 }
+
+/**
+ * A "Depart from" board's rows (THE-118 PR 5): only those leaving at or after `at` (epoch s) by the time shown, so a
+ * service timetabled just before it but running late enough still counts. Applied after a board drops its live
+ * estimates (offline, stale): the API's own cutoff counted them, and the timetabled time then decides (Codex r2, r3).
+ */
+export const leavingFrom = <T extends { estDep: number | null; schedDep: number }>(
+  rows: T[],
+  at: number | null,
+): T[] => (at ? rows.filter((d) => (d.estDep ?? d.schedDep) >= at) : rows)

@@ -136,8 +136,9 @@ function suite(phone: boolean) {
     }) => {
       await page.goto('/train/station/roma-street?to=indooroopilly')
       await ready(page)
-      for (const board of ['roma-street', 'indooroopilly'])
-        await expect(page.locator(`[data-board="${board}"] [data-board-alerts] a`)).toBeVisible()
+      // The station's in the board header (THE-118 PR 5), the return board's beside its title.
+      await expect(page.locator('[data-board-header] [data-board-alerts] a')).toBeVisible()
+      await expect(page.locator('[data-board="indooroopilly"] [data-board-alerts] a')).toBeVisible()
     })
 
   test('the ferry count opens Alerts on the Ferry chip', async ({ page }) => {

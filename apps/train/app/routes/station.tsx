@@ -5,14 +5,18 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { FilterPills, formatAge, formatClock } from '@bft/ui'
+import { formatAge, formatClock, Icon } from '@bft/ui'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
+import { BoardHeader, Chip, chipClass, FilterRow, NowChip } from '@bft/ui/board-header'
 import { sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { DestinationSheet } from '@bft/ui/destination-sheet'
+import { StarButton } from '@bft/ui/star'
 import { useCallback, useEffect, useState } from 'react'
-import { data, Link } from 'react-router'
+import { data, Link, useNavigate } from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
 import { UpdatedStrip } from '../components/header.tsx'
-import { StationBoard } from '../components/StationBoard.tsx'
+import { ReachableList } from '../components/ReachableList.tsx'
+import { StationBoard, useStar } from '../components/StationBoard.tsx'
 import { stationAlerts } from '../lib/alerts.ts'
 import { fetchDepartures } from '../lib/api.ts'
 import { at, BASE } from '../lib/base.ts'
@@ -20,7 +24,10 @@ import { validateDepartures } from '../lib/contract.server.ts'
 import { boardState, type ServiceFilter } from '../lib/departures.ts'
 import { lineLabel } from '../lib/lineNames.ts'
 import {
+  boardHref,
   isReachable,
+  lineCount,
+  platformsText,
   reachableFrom,
   STATIONS,
   type Station,
@@ -159,7 +166,11 @@ function StationAlerts({ station, mode, nowMs }: { station: Station; mode: DataM
 export default function StationPage({ loaderData }: Route.ComponentProps) {
   const { station, to, outbound, inbound, mode, renderedAt } = loaderData
   const nowMs = useNow(renderedAt, 1000)
+  const navigate = useNavigate()
   const [filter, setFilter] = useState<ServiceFilter>('all')
+  // "Depart from" (the Now ▾ chip, THE-118 PR 5): null is now, which the loader's rows are for.
+  const [departAt, setDepartAt] = useState<number | null>(null)
+  const [picker, setPicker] = useState(false)
   const [latest, setLatest] = useState<DeparturesResponse | undefined>(outbound ?? undefined)
   const onData = useCallback((r: DeparturesResponse | undefined) => r && setLatest(r), [])
   const page = usePageCheck()
@@ -167,70 +178,110 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   // Reset the filter when moving between stations.
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the trip.
   useEffect(() => setFilter('all'), [station.key, to?.key])
-
-  const strip = (
-    <UpdatedStrip
-      updated={
-        <>
-          Updated{' '}
-          <strong className="text-aqua-text dark:text-ferry-aqua-light">
-            {formatClock(Math.floor((latest?.generatedAt ?? renderedAt) / 1000))}
-          </strong>
-        </>
-      }
-      detail={src ? formatAge(src, nowMs) : undefined}
-    >
-      <FilterPills
-        label="Services"
-        value={filter}
-        onChange={setFilter}
-        options={[
-          { value: 'all', label: 'All' },
-          { value: 'express', label: 'Express' },
-        ]}
-      />
-      <Link
-        to={`${at('/map')}?station=${station.key}`}
-        className="flex h-9 items-center rounded-full border border-ferry-orange/20 bg-white px-3 text-xs font-semibold text-aqua-text md:text-sm dark:bg-night-card dark:text-ferry-aqua-light"
-      >
-        Map
-      </Link>
-    </UpdatedStrip>
-  )
+  const title = `${station.name}${to ? ` → ${to.name}` : ''}`
+  // The star saves the board as it is: the station, with "Going to" when set (THE-118 PR 1).
+  const star = useStar({ from: station.key, to: to?.key ?? null }, title, () => setPicker(true))
+  // With a destination, ⇄ flips the direction (phones have no return board beside it).
+  const reverse = to && isReachable(to.key, station.key) ? to : null
+  const lines = lineCount(station.key)
+  const go = (k: string | null) => {
+    setPicker(false)
+    navigate(boardHref(station.key, k))
+  }
 
   // The header pill follows the boards: from the loader data until each StationBoard reports (useReportLive).
   const seeded = [outbound, to ? inbound : null].every((r) => !r || boardState(r, false, nowMs, page) == null)
   return (
     // No outbound answer from the loader (it timed out): BrisbaneTransit says "Connecting…", not LIVE (THE-118).
-    <Shell active="stations" strip={strip} live={seeded} pending={!outbound}>
-      <div className={to && inbound ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : 'mx-auto max-w-2xl'}>
-        <StationBoard
-          key={`${station.key}:${to?.key ?? ''}`}
-          from={station}
-          to={to}
-          initial={outbound}
-          nowMs={nowMs}
-          mode={mode}
-          filter={filter}
-          onData={onData}
-          sub={BASE ? <StationAlerts station={station} mode={mode} nowMs={nowMs} /> : undefined}
+    <Shell active="stations" live={seeded} pending={!outbound}>
+      <div className={to && inbound ? 'flex flex-col gap-2.5' : 'mx-auto flex max-w-2xl flex-col gap-2.5'}>
+        <BoardHeader
+          kicker="Train station"
+          as="h2"
+          name={station.name}
+          facts={[
+            platformsText(station.platforms.map((p) => p.code)),
+            lines ? `${lines} line${lines === 1 ? '' : 's'}` : null,
+            BASE ? <StationAlerts key="alerts" station={station} mode={mode} nowMs={nowMs} /> : null,
+          ]}
+          star={<StarButton saved={star.saved} onToggle={star.toggle} name={title} />}
+        >
+          <FilterRow label="Filter trains">
+            <Chip pressed={filter === 'all'} onClick={() => setFilter('all')}>
+              All
+            </Chip>
+            <Chip opens on={!!to} onClick={() => setPicker(true)}>
+              {to ? `To ${to.name}` : 'Going to…'}
+            </Chip>
+            {reverse ? (
+              <Chip
+                icon="swap"
+                label="Swap direction"
+                onClick={() => navigate(boardHref(reverse.key, station.key))}
+              />
+            ) : null}
+            <Chip pressed={filter === 'express'} onClick={() => setFilter('express')}>
+              Express
+            </Chip>
+            <Link to={`${at('/map')}?station=${station.key}`} className={chipClass()}>
+              <Icon name="map" size={18} />
+              Map
+            </Link>
+            <NowChip value={departAt} onChange={setDepartAt} nowMs={nowMs} />
+          </FilterRow>
+        </BoardHeader>
+        <UpdatedStrip
+          board
+          updated={
+            <>
+              Updated{' '}
+              <strong className="text-aqua-text dark:text-ferry-aqua-light">
+                {formatClock(Math.floor((latest?.generatedAt ?? renderedAt) / 1000))}
+              </strong>
+            </>
+          }
+          detail={src ? formatAge(src, nowMs) : undefined}
         />
-        {to && inbound ? (
-          <div className="hidden md:block">
-            <StationBoard
-              key={`${to.key}:${station.key}`}
-              from={to}
-              to={station}
-              initial={inbound}
-              nowMs={nowMs}
-              mode={mode}
-              filter={filter}
-              compactHeader
-              sub={BASE ? <StationAlerts station={to} mode={mode} nowMs={nowMs} /> : undefined}
-            />
-          </div>
-        ) : null}
+        <div className={to && inbound ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : undefined}>
+          <StationBoard
+            key={`${station.key}:${to?.key ?? ''}`}
+            from={station}
+            to={to}
+            initial={outbound}
+            nowMs={nowMs}
+            mode={mode}
+            filter={filter}
+            onData={onData}
+            at={departAt}
+          />
+          {to && inbound ? (
+            <div className="hidden md:block">
+              <StationBoard
+                key={`${to.key}:${station.key}`}
+                from={to}
+                to={station}
+                initial={inbound}
+                nowMs={nowMs}
+                mode={mode}
+                filter={filter}
+                at={departAt}
+                returnBoard
+                alerts={BASE ? <StationAlerts station={to} mode={mode} nowMs={nowMs} /> : undefined}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
+      {star.toast}
+      <DestinationSheet
+        open={picker}
+        onClose={() => setPicker(false)}
+        title={`Going to, from ${station.name}`}
+        note="Only stations with a direct train are shown."
+        onAny={to ? () => go(null) : undefined}
+      >
+        <ReachableList from={station} selected={to?.key ?? null} onPick={go} />
+      </DestinationSheet>
       <StationAbout station={station} />
     </Shell>
   )

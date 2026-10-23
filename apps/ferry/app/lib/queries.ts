@@ -53,6 +53,8 @@ export function departuresOptions(
   to: string,
   at: number | null,
   initial: DeparturesResponse | null,
+  /** False: no board to fill (the return board of a board with no "To"). */
+  enabled = true,
 ) {
   const queryKey = ['ferry', 'departures', mode.fixtures, mode.rt, from, to, at] as const
   return {
@@ -94,6 +96,7 @@ export function departuresOptions(
     initialData: initial ?? undefined,
     initialDataUpdatedAt: seedUpdatedAt(initial),
     refetchInterval: poll,
+    enabled,
   }
 }
 
@@ -104,8 +107,9 @@ export function useDepartures(
   to: string,
   at: number | null,
   initial: DeparturesResponse | null,
+  enabled = true,
 ) {
-  return useQuery(departuresOptions(fetcher, mode, from, to, at, initial))
+  return useQuery(departuresOptions(fetcher, mode, from, to, at, initial, enabled))
 }
 
 export function useTrip(fetcher: ApiFetcher, mode: DataMode, tripInstance: string | null) {

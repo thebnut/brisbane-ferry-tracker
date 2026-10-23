@@ -16,11 +16,10 @@ import { readOffline as readBusOffline, readSaved as readBusSaved } from '@bft/b
 import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import { cleanStopName } from '@bft/ferry/app/lib/names.ts'
 import { STORAGE_KEYS as FERRY_KEYS, readOffline as readFerryOffline } from '@bft/ferry/app/lib/storage.ts'
-import { terminalById, terminalHref } from '@bft/ferry/app/lib/terminals.ts'
+import { boardHref as ferryBoardHref, terminalById } from '@bft/ferry/app/lib/terminals.ts'
 import { readFavourites, readOfflineDay } from '@bft/train/app/lib/storage.ts'
 import { timetableStatus } from '@bft/ui/connectivity'
 import { stationName, trainBoardHref } from './hrefs.ts'
-import { MODE_BASES } from './modes.ts'
 import { safe } from './storage.ts'
 
 export interface SavedItem {
@@ -68,9 +67,6 @@ export function readFerry(): FerryFavourite[] {
   return out
 }
 
-/** The ferry boards for one trip (the home page's ?from=&to= deep link). */
-export const ferryBoardHref = (from: string, to: string) => `${MODE_BASES.ferry}?from=${from}&to=${to}`
-
 /** Ferry favourites, then train favourites, then bus stops, each in its own store's order. */
 export function readSavedItems(): SavedItem[] {
   const out: SavedItem[] = []
@@ -85,7 +81,8 @@ export function readSavedItems(): SavedItem[] {
       key: f.from,
       to: f.to,
       title: to ? `${cleanStopName(from.name)} → ${cleanStopName(to.name)}` : cleanStopName(from.name),
-      href: to ? ferryBoardHref(f.from, f.to as string) : terminalHref(from.slug),
+      // The terminal's board, with "To" set (THE-118 PR 5).
+      href: ferryBoardHref(f.from, f.to),
     })
   }
   for (const f of readFavourites())

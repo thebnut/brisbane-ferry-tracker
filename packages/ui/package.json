@@ -12,6 +12,8 @@
     "./bus": "./src/bus.tsx",
     "./star": "./src/star.tsx",
     "./alert-count": "./src/AlertCountLink.tsx",
+    "./destination-sheet": "./src/DestinationSheet.tsx",
+    "./board-header": "./src/board-header.tsx",
     "./save-toast": "./src/SaveToast.tsx",
     "./map": "./src/map/MapView.tsx",
     "./safe-map": "./src/map/SafeMap.tsx",

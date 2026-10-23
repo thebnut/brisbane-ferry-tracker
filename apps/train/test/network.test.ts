@@ -4,7 +4,9 @@ import {
   corridorFor,
   isReachable,
   LINES,
+  lineCount,
   platformOf,
+  platformsText,
   reachableFrom,
   STATIONS,
   stationByKey,
@@ -111,5 +113,19 @@ describe('stopping-pattern strip', () => {
     const strip = stripFor({ from: 'roma-street', stopsAfter: null, route: 'BRFG', headsign: 'Ferny Grove' })
     expect(strip[0]?.id).toBe('roma-street')
     expect(strip.length).toBeGreaterThan(2)
+  })
+})
+
+describe('board header facts (THE-118 PR 5)', () => {
+  it('platforms: one, a run, else a list', () => {
+    expect(platformsText([])).toBeNull()
+    expect(platformsText(['2'])).toBe('Platform 2')
+    expect(platformsText(['3', '1', '2'])).toBe('Platforms 1–3')
+    expect(platformsText(['1', '2', '4'])).toBe('Platforms 1, 2, 4')
+  })
+  it('lines through a station, each once', () => {
+    // Each line counts once, though Roma Street lists it once per direction.
+    expect(lineCount('roma-street')).toBeGreaterThan(5)
+    expect(lineCount('roma-street')).toBeLessThan(reachableFrom('roma-street').length)
   })
 })

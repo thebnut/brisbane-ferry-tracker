@@ -38,8 +38,10 @@ export interface DetailsSheetProps {
   /** false when the boards are offline/stale: no live claims or positions. */
   live: boolean
   fromName: string
+  /** The board's "To", else where the ferry is going (its headsign). */
   toName: string
-  toId: string
+  /** The board's "To"; null on a board without one (no arrival, the whole trip on). */
+  toId: string | null
   nowMs: number
   fetcher: ApiFetcher
   mode: DataMode
@@ -79,11 +81,11 @@ export function DetailsSheet({
           stops: s.status !== 'skipped' && (s.pickup !== 1 || s.dropOff !== 1),
         }))
       : []
-  const destIdx = from >= 0 ? tripStops.slice(from).findIndex((s) => s.stopId === toId) : -1
+  const destIdx = from >= 0 && toId ? tripStops.slice(from).findIndex((s) => s.stopId === toId) : -1
   const visiblePattern = destIdx >= 0 ? pattern.slice(0, destIdx + 1) : pattern
 
   const fromT = terminalById(d.stopId)
-  const toT = terminalById(toId)
+  const toT = toId ? terminalById(toId) : null
   const markers = [
     ...(vehicle
       ? [
@@ -146,26 +148,29 @@ export function DetailsSheet({
           ) : null}
           {late ? <p className="mt-1 text-sm font-medium text-cancel-text">{late}</p> : null}
         </div>
-        <div className="rounded-card bg-ferry-light-blue/60 p-4">
-          <p className="text-sm text-gray-700">Arrival at {cleanStopName(toName)}</p>
-          {arr != null ? (
-            <>
-              <p className="text-2xl font-extrabold tabular">
-                {formatClock(arr)}
-                {dayMarker(arr, nowMs) ? (
-                  <span className="ml-2 text-lg font-medium text-ferry-orange-deep">
-                    {dayMarker(arr, nowMs)}
-                  </span>
-                ) : null}
-              </p>
-              <p className="mt-1 text-sm text-sched-text">
-                Journey time: {formatDuration(minutesBetween(dep, arr))}
-              </p>
-            </>
-          ) : (
-            <p className="text-lg text-sched-text">Arrival time not available</p>
-          )}
-        </div>
+        {/* No "To" on the board: no arrival to show (the stopping pattern runs on to the end). */}
+        {toId ? (
+          <div className="rounded-card bg-ferry-light-blue/60 p-4">
+            <p className="text-sm text-gray-700">Arrival at {cleanStopName(toName)}</p>
+            {arr != null ? (
+              <>
+                <p className="text-2xl font-extrabold tabular">
+                  {formatClock(arr)}
+                  {dayMarker(arr, nowMs) ? (
+                    <span className="ml-2 text-lg font-medium text-ferry-orange-deep">
+                      {dayMarker(arr, nowMs)}
+                    </span>
+                  ) : null}
+                </p>
+                <p className="mt-1 text-sm text-sched-text">
+                  Journey time: {formatDuration(minutesBetween(dep, arr))}
+                </p>
+              </>
+            ) : (
+              <p className="text-lg text-sched-text">Arrival time not available</p>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <h3 className="mt-5 mb-2 text-base font-semibold text-aqua-text">Stopping pattern</h3>

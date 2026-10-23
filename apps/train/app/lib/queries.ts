@@ -66,8 +66,10 @@ export function departuresOptions(
   to: string | null,
   limit: number,
   initial: DeparturesResponse | null,
+  /** "Depart from" (epoch s, the board's Now ▾ chip, THE-118 PR 5): trains from then; null is now. */
+  at: number | null = null,
 ) {
-  const queryKey = ['train', 'departures', mode.fixtures, mode.rt, from, to, limit] as const
+  const queryKey = ['train', 'departures', mode.fixtures, mode.rt, from, to, limit, at] as const
   type Board = DeparturesResponse & OfflineCopy
   /** The saved full-day timetable as a board of scheduled times. */
   const savedDay = (nowMs: number): Board | null => {
@@ -83,7 +85,7 @@ export function departuresOptions(
       mode: 'train',
       stop: { key: from, name: from, stopIds: [] },
       to: to ? { key: to, name: to } : null,
-      departures: offlineRows(day.departures, Math.floor(nowMs / 1000), limit),
+      departures: offlineRows(day.departures, Math.max(Math.floor(nowMs / 1000), at ?? 0), limit),
       offline: true,
       deviceStamped: true,
     }
@@ -99,7 +101,7 @@ export function departuresOptions(
       }
       const shown = client.getQueryData<Board>(queryKey)
       try {
-        const res = await fetchDepartures(fetcher, from, to, { limit, signal })
+        const res = await fetchDepartures(fetcher, from, to, { limit, at, signal })
         // Judged on this response, not only on the connection flag another request may have just cleared, and never
         // older than the server board on screen (R6-B1). A board built from the saved day carries no server time (its
         // `generatedAt` is the device's savedAt), so it never holds a network answer back (release review).
@@ -124,8 +126,9 @@ export function useDepartures(
   to: string | null,
   initial: DeparturesResponse | null,
   limit = DEPARTURE_LIMIT,
+  at: number | null = null,
 ) {
-  return useQuery(departuresOptions(fetcher, mode, from, to, limit, initial))
+  return useQuery(departuresOptions(fetcher, mode, from, to, limit, initial, at))
 }
 
 export function useTrip(

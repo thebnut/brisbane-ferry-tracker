@@ -11,7 +11,7 @@ const BOARDS = {
   ferry: {
     path: '/ferry',
     name: 'Bulimba → Riverside',
-    card: '/ferry?from=317584&to=317590',
+    card: '/ferry/terminal/bulimba?to=riverside',
     store: 'bft-ferry-favourites',
     entry: { from: '317584', to: '317590' },
   },
@@ -225,7 +225,7 @@ function modeTests() {
       await first.click()
       await expect(first).toHaveAttribute('aria-pressed', 'true', { timeout: 1000 })
     }).toPass()
-    await page.goto('/ferry?from=317590&to=317584')
+    await page.goto('/ferry/terminal/riverside?to=bulimba')
     const second = star(page, 'Riverside → Bulimba')
     await expect(async () => {
       await second.click()
@@ -236,8 +236,8 @@ function modeTests() {
       { from: '317590', to: '317584' },
     ])
     await page.goto('/')
-    await expect(page.locator('main a[href="/ferry?from=317584&to=317590"]')).toBeVisible()
-    await expect(page.locator('main a[href="/ferry?from=317590&to=317584"]')).toBeVisible()
+    await expect(page.locator('main a[href="/ferry/terminal/bulimba?to=riverside"]')).toBeVisible()
+    await expect(page.locator('main a[href="/ferry/terminal/riverside?to=bulimba"]')).toBeVisible()
   })
 }
 

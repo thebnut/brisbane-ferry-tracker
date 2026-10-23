@@ -10,7 +10,12 @@ import {
   soonestIndex,
   statusLine,
 } from '@bft/ui'
+import { leavingFrom as rowsFrom } from '@bft/ui/board-header'
 import { routeShortOf } from './stops.ts'
+
+/** A "Depart from" board (the Now ▾ chip, THE-118 PR 5): its departures leaving at or after `at` (@bft/ui). */
+export const leavingFrom = <T extends { departures: Departure[] }>(res: T, at: number | null): T =>
+  at ? { ...res, departures: rowsFrom(res.departures, at) } : res
 
 export interface RowView {
   key: string

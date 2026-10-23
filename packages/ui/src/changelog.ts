@@ -33,6 +33,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Ferry departures show the service (F1, F11) and where the ferry is heading.',
       'Departures after midnight sit under a “Tomorrow” heading instead of a date on every time.',
       'The first service you can still catch is the one highlighted, on every board, never a cancelled one.',
+      'Every board starts the same way: what kind of stop it is, its name, its routes or platforms and alerts, and the Save button.',
+      'One row of filters under it: All, where you’re going, Express, Map and a “Now” button to see departures from a later time, now on train and bus boards too.',
+      'Ferry terminals work like train stations: a terminal’s page lists every ferry leaving it, and “To…” narrows it to one destination. Links to your saved ferry trips open with the destination set.',
+      'With a destination set, the ⇄ button flips your trip the other way.',
     ],
   },
   {

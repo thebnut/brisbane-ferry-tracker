@@ -1,6 +1,6 @@
 import type { Alert, Departure } from '@bft/core/contract'
 import { describe, expect, it } from 'vitest'
-import { detourRoutes, isActive, routesIn, rowStatus, rowViews } from '../app/lib/departures.ts'
+import { detourRoutes, isActive, leavingFrom, routesIn, rowStatus, rowViews } from '../app/lib/departures.ts'
 
 const NOW = 1_792_300_000_000
 const nowS = NOW / 1000
@@ -111,5 +111,22 @@ describe('smoke round 2', () => {
       'No buses from this stop for the rest of today or tomorrow (19/10).',
     )
     expect(noneDue(['20261018', '20261019'], NOW, true)).toMatch(/^No buses on this route/)
+  })
+})
+
+describe('leavingFrom ("Depart from", THE-118 PR 5)', () => {
+  const AT = 1_800_000_000
+  const board = {
+    departures: [
+      dep({ tripInstance: 'early', schedDep: AT - 60, estDep: null }),
+      dep({ tripInstance: 'late', schedDep: AT - 60, estDep: AT + 120 }),
+      dep({ tripInstance: 'on', schedDep: AT, estDep: AT }),
+    ],
+  }
+  it('keeps what leaves at or after the time shown, a delayed bus too (Codex r2)', () => {
+    expect(leavingFrom(board, AT).departures.map((d) => d.tripInstance)).toEqual(['late', 'on'])
+  })
+  it('now: the board as it is', () => {
+    expect(leavingFrom(board, null)).toBe(board)
   })
 })

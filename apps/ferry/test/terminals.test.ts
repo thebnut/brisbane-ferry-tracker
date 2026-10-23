@@ -3,16 +3,16 @@ import { describe, expect, it } from 'vitest'
 import { TEMPORARY_CONNECTIVITY } from '../../../src/utils/ferryStops.js'
 import { TERMINALS as LEGACY } from '../../../src/utils/terminals.js'
 import {
+  boardForOldLink,
+  boardHref,
   DEFAULT_STOPS,
+  destinationParam,
   normalisePair,
-  pairForTerminal,
-  pairFromParams,
-  swapPair,
   TERMINALS,
   terminalById,
+  terminalByParam,
   terminalBySlug,
   tripStopName,
-  withOrigin,
 } from '../app/lib/terminals.ts'
 
 describe('terminals generated from GTFS', () => {
@@ -43,43 +43,50 @@ describe('pair rules', () => {
       DEFAULT_STOPS,
     )
   })
-  it('terminal pages head for Riverside, or Bulimba from Riverside, unless the saved pair involves them', () => {
-    const hawthorne = terminalBySlug('hawthorne')
-    const riverside = terminalBySlug('riverside')
-    if (!hawthorne || !riverside) throw new Error('missing terminal')
-    expect(pairForTerminal(hawthorne, null).inbound.id).toBe('317590')
-    expect(pairForTerminal(riverside, null).inbound.id).toBe('317584')
-    const saved = {
-      outbound: { id: '317584', name: 'Bulimba' },
-      inbound: { id: '317583', name: 'Hawthorne' },
-    }
-    expect(pairForTerminal(hawthorne, saved)).toMatchObject({
-      outbound: { id: '317583' },
-      inbound: { id: '317584' },
-    })
+})
+
+describe('terminal board URLs (THE-118 PR 5)', () => {
+  const bulimba = terminalBySlug('bulimba')
+  const dockside = terminalBySlug('dockside')
+  if (!bulimba || !dockside) throw new Error('missing terminal')
+  it('names a terminal by slug or by stop id', () => {
+    expect(terminalByParam('hawthorne')?.id).toBe('317583')
+    expect(terminalByParam('317583')?.slug).toBe('hawthorne')
+    expect(terminalByParam('nope')).toBeNull()
+    expect(terminalByParam(null)).toBeNull()
   })
-  it('changing origin keeps a still-reachable destination; swap swaps', () => {
-    const p = withOrigin(DEFAULT_STOPS, '317583')
-    expect(p).toMatchObject({ outbound: { id: '317583' }, inbound: { id: '317590' } })
-    expect(swapPair(DEFAULT_STOPS)).toMatchObject({ outbound: { id: '317590' }, inbound: { id: '317584' } })
+  it('"To" is a terminal the origin reaches directly, else none', () => {
+    expect(destinationParam(bulimba, 'riverside')?.id).toBe('317590')
+    expect(destinationParam(bulimba, '317587')?.slug).toBe('teneriffe') // F21 across the river
+    expect(destinationParam(bulimba, 'bulimba')).toBeNull()
+    // Dockside only reaches Sydney Street.
+    expect(destinationParam(dockside, 'riverside')).toBeNull()
+    expect(destinationParam(dockside, 'sydney-street')?.id).toBe('317589')
+    expect(destinationParam(bulimba, 'nope')).toBeNull()
+  })
+  it('links a board with its "To" by slug', () => {
+    expect(boardHref('317584', '317590')).toBe('/terminal/bulimba?to=riverside')
+    expect(boardHref('317584', null)).toBe('/terminal/bulimba')
+    expect(boardHref('nope', '317590')).toBe('/')
   })
 })
 
-describe('pairFromParams (R3-F2 deep links)', () => {
+describe('old ?from=&to= links (R3-F2) open the terminal board', () => {
   const p = (q: string) => new URLSearchParams(q)
-  it('opens a known, directly connected pair', () => {
-    expect(pairFromParams(p('from=317583&to=317590'), DEFAULT_STOPS)).toEqual({
-      outbound: { id: '317583', name: 'Hawthorne' },
-      inbound: { id: '317590', name: 'Riverside' },
-    })
+  it('with "To" when the origin reaches it', () => {
+    expect(boardForOldLink(p('from=317583&to=317590'))).toBe('/terminal/hawthorne?to=riverside')
+    expect(boardForOldLink(p('from=317584&to=317587'))).toBe('/terminal/bulimba?to=teneriffe')
   })
-  it('ignores an unknown origin and fixes an unreachable or missing destination', () => {
-    expect(pairFromParams(p('from=999&to=317590'), DEFAULT_STOPS)).toBeNull()
-    expect(pairFromParams(p('to=317590'), DEFAULT_STOPS)).toBeNull()
-    // Dockside only reaches Sydney Street.
-    expect(pairFromParams(p('from=317581&to=317590'), DEFAULT_STOPS)?.inbound.id).toBe('317589')
-    // No destination: keep the saved one when reachable.
-    expect(pairFromParams(p('from=317583'), DEFAULT_STOPS)?.inbound.id).toBe('317590')
+  it('without "To" when it is missing or unreachable; none for an unknown origin', () => {
+    expect(boardForOldLink(p('from=317581&to=317590'))).toBe('/terminal/dockside')
+    expect(boardForOldLink(p('from=317583'))).toBe('/terminal/hawthorne')
+    expect(boardForOldLink(p('from=999&to=317590'))).toBeNull()
+    expect(boardForOldLink(p('to=317590'))).toBeNull()
+  })
+  it("keeps the link's other parameters", () => {
+    expect(boardForOldLink(p('from=317584&to=317590&fixtures=1'))).toBe(
+      '/terminal/bulimba?to=riverside&fixtures=1',
+    )
   })
 })
 

@@ -40,15 +40,18 @@ export function UpdatedStrip({
   onRefresh,
   refreshing,
   children,
+  board,
 }: LiveProps & {
   updated: string
   detail: string | null
   onRefresh: () => void
   refreshing: boolean
   children?: ReactNode
+  /** On a board: below the board header, in the board's column (THE-118 PR 5). */
+  board?: boolean
 }) {
   return (
-    <StatusStrip updated={updated} detail={detail}>
+    <StatusStrip updated={updated} detail={detail} board={board}>
       {children}
       <PillButton icon="refresh" label="Refresh" onClick={onRefresh} disabled={refreshing}>
         <span className="sr-only md:not-sr-only">Refresh</span>

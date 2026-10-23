@@ -73,13 +73,16 @@ export function UpdatedStrip({
   updated,
   detail,
   children,
+  board,
 }: {
   updated: ReactNode
   detail?: string | null
   children?: ReactNode
+  /** On a board: below the board header, in the board's column (THE-118 PR 5). */
+  board?: boolean
 }) {
   return (
-    <StatusStrip updated={updated} detail={detail}>
+    <StatusStrip updated={updated} detail={detail} board={board}>
       {children}
     </StatusStrip>
   )
