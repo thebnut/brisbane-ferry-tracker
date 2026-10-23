@@ -5,6 +5,7 @@
  */
 
 import {
+  awaitingSeedAnswer,
   CountdownChip,
   formatClock,
   formatDuration,
@@ -90,6 +91,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const page = usePageCheck()
   const state = liveState(raw ?? undefined, { offline: !online, nowMs, ...page })
   const trip = raw && state != null ? tripAsTimetable(raw) : raw
+  // A non-live seed whose own refetch is still out: "Connecting…", no banner (R32-RT1).
+  const waiting = raw === q.data && awaitingSeedAnswer(q, state)
   const nowS = Math.floor(nowMs / 1000)
   const view = useMemo(() => (trip ? buildTimeline(trip, nowS, from, to) : null), [trip, nowS, from, to])
 
@@ -122,6 +125,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
     <Shell
       active="stations"
       live={state == null}
+      pending={waiting}
       back={backName ? { href: backTo, label: cleanStopName(backName) } : undefined}
     >
       <div className="mx-auto flex max-w-2xl flex-col gap-3.5">
@@ -138,7 +142,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
             detail="Showing the last update. Live positions resume when you're back online."
           />
         ) : null}
-        {online && state != null && state !== 'offline' ? <OfflineBanner kind={state} /> : null}
+        {online && state != null && state !== 'offline' && !waiting ? <OfflineBanner kind={state} /> : null}
         <section
           aria-labelledby="trip-title"
           className={

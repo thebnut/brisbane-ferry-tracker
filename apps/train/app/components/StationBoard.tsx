@@ -17,7 +17,7 @@ import {
   soonestIndex,
 } from '@bft/ui'
 import { leavingFrom } from '@bft/ui/board-header'
-import { usePageCheck } from '@bft/ui/connectivity'
+import { awaitingSeedAnswer, usePageCheck } from '@bft/ui/connectivity'
 import { SaveToast, type SaveToastMessage } from '@bft/ui/save-toast'
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
@@ -167,8 +167,14 @@ export function StationBoard({
   // Data that came with a cached page isn't live until this board's own fresh answer arrives (R2-T7).
   const page = usePageCheck()
   const state = boardState(res, offline, nowMs, page)
+  // A non-live seed whose own refetch is still out: pending ("Connecting…", no banner), never OFFLINE (R32-RT1).
+  const waiting = res === q.data && awaitingSeedAnswer(q, state)
   // No data is never live (a first request that failed with an HTTP error leaves liveState null).
-  useReportLive(`board:${from.key}>${to?.key ?? ''}`, state == null && res != null, !res && !q.isError)
+  useReportLive(
+    `board:${from.key}>${to?.key ?? ''}`,
+    state == null && res != null,
+    (!res && !q.isError) || waiting,
+  )
 
   const cards = useMemo(() => {
     // Not live: timetable only, no live estimates or platform changes, and nothing that has already left.
@@ -227,7 +233,7 @@ export function StationBoard({
         </div>
       ))}
 
-      {state ? (
+      {state && !waiting ? (
         <OfflineBanner
           kind={state}
           detail={

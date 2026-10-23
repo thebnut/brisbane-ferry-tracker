@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   asOfflineCopy,
+  asSeed,
+  awaitingSeedAnswer,
   dropDeparted,
   isNetworkAnswer,
   isOnline,
@@ -109,6 +111,42 @@ describe('seedUpdatedAt (R27-RT1)', () => {
     expect(seedUpdatedAt({ generatedAt: 5_000, rtState: 'live' })).toBe(5_000)
     for (const rtState of ['unavailable', 'stale', 'reloading'])
       expect(seedUpdatedAt({ generatedAt: 5_000, rtState })).toBe(0)
+  })
+})
+
+describe('awaitingSeedAnswer (R32-RT1)', () => {
+  const stale = { generatedAt: 5_000, rtState: 'stale' }
+  // A non-live seed as its query holds it before the board's own answer (seedUpdatedAt 0, nothing failed).
+  const seed = { data: stale, dataUpdatedAt: 0, errorUpdateCount: 0, failureCount: 0 }
+  it('a non-live seed waits for its own refetch: pending, whatever its liveState says short of offline', () => {
+    for (const state of ['stale', 'unavailable', 'reloading'] as const)
+      expect(awaitingSeedAnswer(seed, state)).toBe(true)
+    expect(awaitingSeedAnswer(asSeed(stale), 'stale')).toBe(true)
+  })
+  it('once its own answer arrives the board is judged as usual: live or not', () => {
+    // A live own answer (liveState null) and a non-live one: both have a dataUpdatedAt of their own.
+    expect(awaitingSeedAnswer({ ...seed, dataUpdatedAt: 6_000 }, null)).toBe(false)
+    expect(awaitingSeedAnswer({ ...seed, dataUpdatedAt: 6_000 }, 'stale')).toBe(false)
+    expect(awaitingSeedAnswer({ ...seed, dataUpdatedAt: 6_000 }, 'unavailable')).toBe(false)
+  })
+  it('a failed request ends the wait at once, even while TanStack retries it', () => {
+    expect(awaitingSeedAnswer({ ...seed, failureCount: 1 }, 'stale')).toBe(false)
+    expect(awaitingSeedAnswer({ ...seed, errorUpdateCount: 1 }, 'stale')).toBe(false)
+  })
+  it('an offline board never waits: offline browser, a service-worker copy, a cached page (R2-T7, R6-B1)', () => {
+    expect(awaitingSeedAnswer(seed, 'offline')).toBe(false)
+    // A cached page's seed, live or not: liveState says offline (unconfirmedBefore).
+    const cached = liveState(
+      { ...stale, rtSourceTimestamp: null },
+      { offline: false, nowMs: 10_000, unconfirmedBefore: 5_000 },
+    )
+    expect(cached).toBe('offline')
+    expect(awaitingSeedAnswer(seed, cached)).toBe(false)
+  })
+  it('a live seed and a board without a seed never wait', () => {
+    expect(awaitingSeedAnswer(asSeed({ generatedAt: 5_000, rtState: 'live' }), null)).toBe(false)
+    expect(awaitingSeedAnswer(asSeed({ generatedAt: 5_000, rtState: 'live' }), 'stale')).toBe(false)
+    expect(awaitingSeedAnswer({ ...seed, data: undefined }, 'stale')).toBe(false)
   })
 })
 

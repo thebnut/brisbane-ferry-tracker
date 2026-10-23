@@ -3,7 +3,7 @@
  * one header and status line (apps/transit/modes.config.ts, THE-118); the standalone site keeps these. Props it
  * doesn't use here (`back`) are the transit header's.
  */
-import { AppHeader, LivePill, SettingsPill, StatusStrip } from '@bft/ui'
+import { AppHeader, ConnectingPill, LivePill, SettingsPill, StatusStrip } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-train.svg?url'
 import { createContext, type ReactNode } from 'react'
 import { useOnline } from '../lib/useNow.ts'
@@ -19,22 +19,6 @@ export interface LiveProps {
 
 /** The page's live answer as Shell works it out, for the strip below the header. */
 export const ShellLive = createContext<LiveProps>({})
-
-/**
- * No answer yet and nothing has failed: neither LIVE nor OFFLINE (BrisbaneTransit's "Connecting…", THE-118). It never
- * carries data-live-claim, so the server render and early hydration claim nothing before the page's data arrives.
- */
-function ConnectingPill() {
-  return (
-    <span
-      data-connection="connecting"
-      className="flex items-center gap-1.5 rounded-full bg-sched-bg px-3 py-1.5 text-xs font-bold text-sched-text"
-    >
-      <span aria-hidden="true" className="size-2 rounded-full bg-gray-400 motion-safe:animate-pulse" />
-      Connecting…
-    </span>
-  )
-}
 
 export function SiteHeader({
   onSettings,

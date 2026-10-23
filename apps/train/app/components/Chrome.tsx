@@ -113,8 +113,9 @@ export function Shell({
   const live = online && (reported.length ? reported.every((r) => r === true) : dataLive !== false)
   const state: LiveProps = {
     live,
-    // Like `live`: from the page until its boards report, then theirs.
-    pending: reported.length ? reported.includes('pending') : pending,
+    // Like `live`: from the page until its boards report, then theirs. A board whose own answer isn't live wins: a
+    // board still waiting never hides another's failure (R32-RT1).
+    pending: reported.length ? reported.includes('pending') && !reported.includes(false) : pending,
     idle: dataLive === undefined && reported.length === 0,
   }
   return (

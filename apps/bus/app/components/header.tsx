@@ -1,9 +1,18 @@
 /**
  * The site header (lockup, Settings, LIVE) and the "Updated" strip. Their own module because BrisbaneTransit swaps
  * exactly this file for its one header and status line (apps/transit/modes.config.ts, THE-118); the standalone site
- * keeps these. Props it doesn't use here (`pending`, `back`) are the transit header's.
+ * keeps these. Props it doesn't use here (`back`) are the transit header's.
  */
-import { AppHeader, formatAge, formatClock, LivePill, PillButton, SettingsPill, StatusStrip } from '@bft/ui'
+import {
+  AppHeader,
+  ConnectingPill,
+  formatAge,
+  formatClock,
+  LivePill,
+  PillButton,
+  SettingsPill,
+  StatusStrip,
+} from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-bus.svg?url'
 import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useState } from 'react'
@@ -21,6 +30,7 @@ const SettingsSheet = lazy(() => import('./SettingsSheet.tsx'))
 
 export function SiteHeader({
   live,
+  pending = false,
   children,
 }: LiveProps & {
   children?: ReactNode
@@ -39,9 +49,16 @@ export function SiteHeader({
         <span className="hidden md:inline">
           <SettingsPill onClick={() => setSettings(true)} />
         </span>
-        {/* Never LIVE while offline, whatever the page's data says. A page with no live data of its own claims nothing
+        {/* Never LIVE while offline, whatever the page's data says. Then "Connecting…" while the page waits for its
+            first answer (R32-RT1: or a non-live seed's own answer). A page with no live data of its own claims nothing
             while online, as BrisbaneTransit's connectionState. */}
-        {!online ? <LivePill live={false} /> : live === undefined ? null : <LivePill live={live} />}
+        {!online ? (
+          <LivePill live={false} />
+        ) : pending ? (
+          <ConnectingPill />
+        ) : live === undefined ? null : (
+          <LivePill live={live} />
+        )}
       </AppHeader>
       {/* Mounted from the first open on: closing the sheet (not unmounting it) gives focus back to Settings. */}
       {settings != null ? (
