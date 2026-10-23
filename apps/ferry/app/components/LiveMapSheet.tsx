@@ -88,6 +88,8 @@ export default function LiveMapSheet({
       <SafeMap
         markers={markers}
         fitTo={[from.id, ...(to ? [to.id] : []), ...(followed ? [followed.id] : [])]}
+        // The followed ferry's position can arrive after the first fit: fit again once it does.
+        fitKey={followed?.id ?? ''}
         label="Map of live ferry positions"
         className="h-[60dvh] w-full overflow-hidden rounded-card bg-map-ground"
       />
