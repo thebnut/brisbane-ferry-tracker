@@ -160,7 +160,7 @@
     display: none;
   }
   [data-board-facts] > [data-fact]:not(:empty) ~ [data-fact]:not(:empty)::before {
-    content: '·' / '';
+    content: "·" / "";
     margin-inline-end: 0.375rem;
   }
   /* biome-ignore-start lint/complexity/noImportantStyles: reduced motion must beat component animations. */

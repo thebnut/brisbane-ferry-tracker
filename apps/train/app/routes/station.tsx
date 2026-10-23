@@ -25,6 +25,8 @@ import { lineLabel } from '../lib/lineNames.ts'
 import {
   boardHref,
   isReachable,
+  lineCount,
+  platformsText,
   reachableFrom,
   STATIONS,
   type Station,
@@ -139,18 +141,6 @@ function StationAbout({ station }: { station: Station }) {
     </section>
   )
 }
-
-/** The board header's platforms: "Platform 2", "Platforms 1–6" (a run), else "Platforms 1, 2, 4". */
-export function platformsText(codes: string[]): string | null {
-  if (codes.length === 0) return null
-  if (codes.length === 1) return `Platform ${codes[0]}`
-  const n = codes.map(Number).sort((a, b) => a - b)
-  const run = n.every((x, i) => Number.isInteger(x) && (i === 0 || x === (n[i - 1] as number) + 1))
-  return `Platforms ${run ? `${n[0]}–${n[n.length - 1]}` : codes.join(', ')}`
-}
-
-/** The lines through a station (each line once, whichever way it runs). */
-const lineCount = (key: string) => new Set(reachableFrom(key).map((g) => g.line.name)).size
 
 /**
  * BrisbaneTransit: the alert count in the board header, linking to the train alerts (THE-118 PR 3: Alerts left the

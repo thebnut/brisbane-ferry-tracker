@@ -123,9 +123,10 @@ export function normalise(html: string, base: string): string {
   // adds header links on desktop (T-Desktop). BrisbaneTransit's lack of a section bar is asserted in renderPage.
   out = out.replaceAll('<nav/>', '')
   // BrisbaneTransit's alert count in the board header's sub-line (AlertCountLink, THE-118 PR 3 and 5), and the empty
-  // fact a standalone app's alert slot leaves there (it renders nothing; the stylesheet hides it).
+  // fact a standalone app's alert slot leaves there (it renders nothing; the stylesheet hides it); the train return
+  // board's beside its title.
   out = out.replace(
-    /<span data-fact=""><span data-board-alerts="" class="contents">[\s\S]*?<\/a><\/span><\/span>|<span data-fact=""><\/span>/g,
+    /<span data-fact=""[^>]*><span data-board-alerts="" class="contents">[\s\S]*?<\/a><\/span><\/span>|<span data-fact=""[^>]*><\/span>|<span data-board-alerts="" class="contents">[\s\S]*?<\/a><\/span>/g,
     '',
   )
   // Asset URLs in tests are absolute file paths (/@fs/<checkout>/packages/…): drop the checkout location.
