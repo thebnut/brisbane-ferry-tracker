@@ -19,7 +19,7 @@ import {
   statusLine,
   tripAsTimetable,
 } from '@bft/ui'
-import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { StarButton } from '@bft/ui/star'
 import {
   backClick,
@@ -116,6 +116,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const page = usePageCheck()
   const state = liveState(raw ?? undefined, { offline: !online, nowMs, ...page })
   const trip = raw && state != null ? tripAsTimetable(raw) : raw
+  // A non-live seed whose own refetch is still out: "Connecting…", no banner (R32-RT1).
+  const waiting = !gone && raw === q.data && awaitingSeedAnswer(q, state)
   const nowS = Math.floor(nowMs / 1000)
   const view = useMemo(() => (trip ? buildTimeline(trip, nowS, from, to) : null), [trip, nowS, from, to])
 
@@ -141,7 +143,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
           detail="Showing the last update. Live positions resume when you're back online."
         />
       ) : null}
-      {online && state != null && state !== 'offline' ? <OfflineBanner kind={state} /> : null}
+      {online && state != null && state !== 'offline' && !waiting ? <OfflineBanner kind={state} /> : null}
     </>
   )
 
@@ -197,7 +199,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const train = v ? `Train ${v.label ?? v.id}${vStatus ? `, ${vStatus.toLowerCase()}` : ''}` : null
 
   return (
-    <Shell active="stations" live={state == null} back={back}>
+    <Shell active="stations" live={state == null} pending={waiting} back={back}>
       <div className="mx-auto flex max-w-2xl flex-col gap-3">
         {head}
         <TripSummary

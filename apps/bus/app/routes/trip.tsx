@@ -8,6 +8,7 @@
 
 import type { TripResponse } from '@bft/core/contract'
 import {
+  awaitingSeedAnswer,
   dayMarker,
   delayText,
   formatClock,
@@ -127,7 +128,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const page = usePageCheck()
   const state = liveState(shown, { offline: !online, nowMs: now, ...page })
   const trip = shown && state != null ? tripAsTimetable(shown) : shown
-  const pending = !gone && !shown && !q.isError
+  // No answer yet, or a non-live seed whose own refetch is still out (R32-RT1): "Connecting…", no banner.
+  const pending = !gone && ((!shown && !q.isError) || awaitingSeedAnswer(q, state))
   // No data is never live (a first request that failed with an HTTP error leaves the state null).
   const live = state == null && shown != null
   const fromName = from
@@ -153,7 +155,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
       <main className="mx-auto flex max-w-2xl flex-col gap-3 px-4 pt-3.5 pb-28 md:pb-8">
         <TripBackLink href={back.href} label={back.label} renderLink={linkRenderer} barHasIt={!!BASE} />
         <DataBanner
-          rtState={state != null && state !== 'offline' ? state : trip?.rtState}
+          rtState={pending ? undefined : state != null && state !== 'offline' ? state : trip?.rtState}
           hasData={!!trip}
           generation={trip?.staticGeneration}
         />

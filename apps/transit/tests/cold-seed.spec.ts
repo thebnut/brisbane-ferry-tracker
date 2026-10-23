@@ -17,7 +17,9 @@ test('a board the page rendered without live times asks again at once', async ({
 }) => {
   // The server render is the cold answer: ?rt=unavailable for the loader.
   const html = await (await request.get('/bus/stop/10802?rt=unavailable')).text()
-  expect(html).toContain('data-banner="unavailable"')
+  // Rendered from the cold answer: "Connecting…" until the board's own answer, with no banner (R32-RT1).
+  expect(html).toContain('data-connection="connecting"')
+  expect(html).not.toContain('data-banner="unavailable"')
 
   await pinUpcoming(context)
   // The board's own requests reach a warm isolate: live (registered last, so it runs before pinUpcoming).

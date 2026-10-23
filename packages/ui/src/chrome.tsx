@@ -133,6 +133,22 @@ export function LivePill({ live = true }: LivePillProps) {
   )
 }
 
+/**
+ * No answer yet and nothing has failed: neither LIVE nor OFFLINE (BrisbaneTransit's "Connecting…", THE-118). It never
+ * carries data-live-claim, so the server render and early hydration claim nothing before the page's data arrives.
+ */
+export function ConnectingPill() {
+  return (
+    <span
+      data-connection="connecting"
+      className="flex items-center gap-1.5 rounded-full bg-sched-bg px-3 py-1.5 text-xs font-bold text-sched-text"
+    >
+      <span aria-hidden="true" className="size-2 rounded-full bg-gray-400 motion-safe:animate-pulse" />
+      Connecting…
+    </span>
+  )
+}
+
 export interface StatusStripProps {
   /** e.g. "Last updated 2:41 pm". Nothing while there is no data yet (never a status that contradicts LIVE, R3-X11). */
   updated?: ReactNode

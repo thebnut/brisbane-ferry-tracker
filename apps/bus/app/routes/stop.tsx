@@ -8,7 +8,7 @@ import type { Alert } from '@bft/core/contract'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { BoardHeader, Chip, FilterRow, NowChip } from '@bft/ui/board-header'
 import { NoticeStrip } from '@bft/ui/bus'
-import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { data, redirect, useNavigate } from 'react-router'
 import { BusStar } from '../components/BusStar.tsx'
@@ -156,8 +156,9 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
   const currentAlerts = useCurrentAlerts(alertsQ, loaderData.alerts)
   const here = stopAlerts(alerts, stopId, routes, Math.floor(now / 1000))
   const isSaved = saved.some((s) => s.id === stopId)
-  // No answer yet (no data, no error): BrisbaneTransit's header says "Connecting…", not OFFLINE (THE-118).
-  const pending = !q.data && !q.isError
+  // No answer yet (no data, no error), or a non-live seed whose own refetch is still out (R32-RT1): the header says
+  // "Connecting…", not OFFLINE (THE-118), with no "delayed" banner.
+  const pending = (!q.data && !q.isError) || awaitingSeedAnswer(q, state)
 
   // Keep this stop's longer timetable on the device at once, not only from the first poll (R6-B1).
   useEffect(() => {
@@ -231,7 +232,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
         />
         <DataBanner
           offline={state === 'offline'}
-          rtState={res?.rtState}
+          rtState={pending ? undefined : res?.rtState}
           hasData={!!res?.departures.length}
           generation={res?.staticGeneration}
         />
