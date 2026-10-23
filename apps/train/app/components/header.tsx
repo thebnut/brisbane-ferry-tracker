@@ -1,11 +1,12 @@
 /**
  * The site header and the "Updated" strip. Their own module because BrisbaneTransit swaps exactly this file for its
  * one header and status line (apps/transit/modes.config.ts, THE-118); the standalone site keeps these. Props it
- * doesn't use here (`pending`, `idle`, `back`) are the transit header's.
+ * doesn't use here (`idle`, `back`) are the transit header's.
  */
 import { AppHeader, LivePill, SettingsPill, StatusStrip } from '@bft/ui'
 import emblem from '@bft/ui/assets/emblem-train.svg?url'
 import { createContext, type ReactNode } from 'react'
+import { useOnline } from '../lib/useNow.ts'
 import { DesktopNav } from './nav.tsx'
 
 export interface LiveProps {
@@ -19,9 +20,26 @@ export interface LiveProps {
 /** The page's live answer as Shell works it out, for the strip below the header. */
 export const ShellLive = createContext<LiveProps>({})
 
+/**
+ * No answer yet and nothing has failed: neither LIVE nor OFFLINE (BrisbaneTransit's "Connecting…", THE-118). It never
+ * carries data-live-claim, so the server render and early hydration claim nothing before the page's data arrives.
+ */
+function ConnectingPill() {
+  return (
+    <span
+      data-connection="connecting"
+      className="flex items-center gap-1.5 rounded-full bg-sched-bg px-3 py-1.5 text-xs font-bold text-sched-text"
+    >
+      <span aria-hidden="true" className="size-2 rounded-full bg-gray-400 motion-safe:animate-pulse" />
+      Connecting…
+    </span>
+  )
+}
+
 export function SiteHeader({
   onSettings,
   live = true,
+  pending = false,
   active,
 }: LiveProps & {
   onSettings?: () => void
@@ -30,11 +48,14 @@ export function SiteHeader({
   /** The parent page, for a back link. */
   back?: { href: string; label: string }
 }) {
+  const online = useOnline()
   return (
     <AppHeader mode="train" logoSrc={emblem}>
       {active != null ? <DesktopNav active={active} /> : null}
       {onSettings ? <SettingsPill onClick={onSettings} compact /> : null}
-      <LivePill live={live} />
+      {/* Still waiting for the page's first answer (a loader that timed out at SSR, a board not yet answered): no LIVE
+          before any answer. Offline wins, as in BrisbaneTransit's connectionState. */}
+      {pending && online ? <ConnectingPill /> : <LivePill live={live} />}
     </AppHeader>
   )
 }
