@@ -78,6 +78,11 @@ export interface MapViewProps {
    * "Track on map", THE-118 PR 6).
    */
   fitKey?: string
+  /**
+   * A vehicle to keep in view ([lon, lat]): the map moves to it whenever its position changes (a trip's "Track on map",
+   * THE-118 PR 9), keeping the zoom, until the rider drags the map themselves.
+   */
+  follow?: [number, number] | null
   /** Once the style and the built-in layers are loaded, for callers that add their own (the stop picker's clusters). */
   onReady?: (map: MlMap) => void
   /**
@@ -110,6 +115,9 @@ export function markerElement(m: MapMarker): HTMLElement {
   const shape = m.shape ?? 'circle'
   const colour = TONE_COLOUR[m.tone ?? 'allstops']
   el.className = 'bft-marker'
+  // The pin's shape and tone, for the map pages' tests (THE-118 PR 9).
+  el.dataset.shape = shape
+  el.dataset.tone = m.tone ?? 'allstops'
   el.setAttribute('aria-label', m.label)
   el.title = m.label
   if (m.onClick) (el as HTMLButtonElement).type = 'button'
@@ -151,7 +159,22 @@ export function markerElement(m: MapMarker): HTMLElement {
     })
     el.appendChild(ring)
   }
-  if (m.onClick) el.addEventListener('click', m.onClick)
+  if (m.onClick) {
+    // A tap target of 44 px around the small pin: an invisible area inside the button (its clicks are the button's).
+    const hit = document.createElement('span')
+    hit.dataset.hit = ''
+    Object.assign(hit.style, {
+      position: 'absolute',
+      left: '50%',
+      top: '50%',
+      width: '44px',
+      height: '44px',
+      transform: 'translate(-50%, -50%)',
+      borderRadius: '999px',
+    })
+    el.appendChild(hit)
+    el.addEventListener('click', m.onClick)
+  }
   return el
 }
 
@@ -235,6 +258,7 @@ export default function MapView({
   zoom = 12,
   refit = false,
   fitKey,
+  follow,
   onReady,
   geolocation,
 }: MapViewProps) {
@@ -243,6 +267,7 @@ export default function MapView({
   const placed = useRef<Marker[]>([])
   const fitted = useRef(false)
   const fittedKey = useRef(fitKey)
+  const dragged = useRef(false)
   const [ready, setReady] = useState(false)
   // The map instance as state: the locate-me button mounts as soon as the map exists, before its style has loaded.
   const [instance, setInstance] = useState<MlMap | null>(null)
@@ -326,6 +351,10 @@ export default function MapView({
       report()
     })
     m.on('moveend', report)
+    // A drag by the rider (not our own moves) stops following the vehicle.
+    m.on('dragstart', () => {
+      dragged.current = true
+    })
     return () => {
       for (const mk of placed.current) mk.remove()
       placed.current = []
@@ -358,6 +387,15 @@ export default function MapView({
       }
     }
   }, [markers, fitTo, line, refit, fitKey])
+
+  const followLon = follow?.[0]
+  const followLat = follow?.[1]
+  useEffect(() => {
+    const m = map.current
+    if (!ready || !m || followLon == null || followLat == null || dragged.current) return
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    m.easeTo({ center: [followLon, followLat], duration: still ? 0 : 600 })
+  }, [ready, followLon, followLat])
 
   useEffect(() => {
     const src = ready ? (map.current?.getSource('bft-stops') as GeoJSONSource | undefined) : undefined

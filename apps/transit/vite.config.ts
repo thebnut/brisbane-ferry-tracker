@@ -96,8 +96,8 @@ export default defineConfig({
                   // chunk of their own they took ~1 KB off the transit pages but cost /ferry ~0.8 KB, past its budget. The
                   // destination sheet (PR 5) is opened on demand. Trip detail (PR 6) is only on the trip pages. The
                   // panel beside the boards (PR 7) loads with the trip; the boards' layouts' small part (board-route) is
-                  // only on the boards.
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|trip\.tsx|[Oo]nboarding|WhatsNew|changelog|DestinationSheet|panel\.tsx|board-route|mode-home)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
+                  // only on the boards. The map pages' shell (PR 9) loads with the map pages.
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|trip\.tsx|[Oo]nboarding|WhatsNew|changelog|DestinationSheet|panel\.tsx|board-route|mode-home|map-page)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
                 },
                 // The boards' own part of the column-and-panel layout (THE-118 PR 7): each board URL's child route (nothing of
                 // its own) with the layouts' revalidation and width check, one chunk on every board's first load. The panel
@@ -114,6 +114,8 @@ export default defineConfig({
                 // The mode homes' skeleton (THE-118 PR 8): only /ferry, /train and /bus load it. Without this group it rode
                 // in the ferry departures' chunk, which put ferry code on the Train and Bus homes.
                 { name: 'mode-home', test: /packages[\\/]ui[\\/]src[\\/]mode-home\.tsx$/ },
+                // The map pages' shell (THE-118 PR 9): only /ferry/map, /train/map and /bus/map load it.
+                { name: 'map-page', test: /packages[\\/]ui[\\/]src[\\/]map-page\.tsx$/ },
                 // The Map button beside the stop searches (P3): its own small chunk, so the ferry stop selector and the
                 // train station search don't load the bus elements for it.
                 { name: 'ui-map-toggle', test: /packages[\\/]ui[\\/]src[\\/](MapToggle\.tsx|map-pref\.ts)$/ },

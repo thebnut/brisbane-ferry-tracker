@@ -36,6 +36,7 @@ const PAGES: [string, string][] = [
   ['/', '/ferry'],
   ['/terminal/bulimba?x=1', '/ferry/terminal/bulimba?x=1'],
   ['/privacy', '/ferry/privacy'],
+  ['/map', '/ferry/map'],
   ['/terms', '/ferry/terms'],
   ['/feedback', '/feedback'],
   ['/nope', '/ferry'],

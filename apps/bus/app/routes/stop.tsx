@@ -1,7 +1,7 @@
 /**
  * /stop/:stopId: server-rendered stop board (B-Departures). The loader fetches /v1 departures in-process so the
- * rows are in the HTML; the client then polls every 15 s. Route filter pills, the Save star (My Transit), alert strip and a
- * lazy per-stop map with the buses heading here.
+ * rows are in the HTML; the client then polls every 15 s. Route filter pills, the Save star (My Transit), alert strip and
+ * a Map chip to the bus map on this stop (THE-118 PR 9).
  *
  * A layout over the board URL and the trip URL (THE-118 PR 7): at 1024 px and wider the board is a column beside a
  * panel, which shows the trip a row opened, else the stop's map. The board stays as it is (not fetched again) while
@@ -10,9 +10,9 @@
  */
 
 import type { Alert } from '@bft/core/contract'
-import { boardState, type LinkRenderer } from '@bft/ui'
+import { boardState, Icon, type LinkRenderer } from '@bft/ui'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
-import { BoardHeader, Chip, FilterRow, NowChip } from '@bft/ui/board-header'
+import { BoardHeader, Chip, chipClass, FilterRow, NowChip } from '@bft/ui/board-header'
 import { FULL, isWide, notWide, onWide, type PanelState, samePlace, showBoard } from '@bft/ui/board-route'
 import { NoticeStrip } from '@bft/ui/bus'
 import { awaitingSeedAnswer, pagePending, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
@@ -238,7 +238,6 @@ function StopBoardPage({
   const only = loaderData.route
   const pick = only ?? route
   const navigate = useNavigate()
-  const [showMap, setShowMap] = useState(false)
   // Timetable only unless the data is live and fresh (offline, cached copy, stale).
   const online = useOnline()
   const page = usePageCheck()
@@ -275,9 +274,6 @@ function StopBoardPage({
   const head = panelOn
     ? { live: live && panelOn.live, pending: pagePending([{ q, state }, panelOn]) }
     : { live, pending }
-  // At 1024 px and wider with no trip open, the panel has the stop's map: never a second one in the column.
-  const panelMap = wide && !open
-
   return (
     <>
       <SiteHeader live={head.live} pending={head.pending}>
@@ -327,9 +323,11 @@ function StopBoardPage({
                   ))}
                 </>
               ) : null}
-              <Chip icon="map" pressed={showMap || panelMap} onClick={() => setShowMap((s) => !s)}>
+              {/* The bus map on this stop (THE-118 PR 9). */}
+              <Link to={`${at('/map')}?stop=${encodeURIComponent(stopId)}`} className={chipClass()}>
+                <Icon name="map" size={18} />
                 Map
-              </Chip>
+              </Link>
               <NowChip value={departAt} onChange={setDepartAt} nowMs={now} />
             </FilterRow>
           </BoardHeader>
@@ -354,11 +352,6 @@ function StopBoardPage({
               {a.header}
             </NoticeStrip>
           ))}
-          {showMap && !panelMap ? (
-            <Suspense fallback={<div className="h-72 animate-pulse rounded-card bg-map-ground" />}>
-              <StopMap stopId={stopId} name={name} departures={res?.departures ?? []} />
-            </Suspense>
-          ) : null}
           <DepartureList
             stopId={stopId}
             data={res}

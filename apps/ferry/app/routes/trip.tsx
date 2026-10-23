@@ -52,7 +52,14 @@ import { validateTrip } from '../lib/contract.server.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { useFetcher } from '../lib/queries.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
-import { boardHref, destinationParam, terminalById, terminalByParam, tripStopName } from '../lib/terminals.ts'
+import {
+  boardHref,
+  destinationParam,
+  mapHref,
+  terminalById,
+  terminalByParam,
+  tripStopName,
+} from '../lib/terminals.ts'
 import { fetchTrip, isGone, useTrip } from '../lib/trip-queries.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/trip'
@@ -328,10 +335,7 @@ function TripBody({
         />
       ) : null}
       <TripDock>
-        <Link
-          to={`${boardHref(board.stopId, to)}${to ? '&' : '?'}map=1&trip=${encodeURIComponent(trip.tripInstance)}`}
-          className={trackClass}
-        >
+        <Link to={mapHref(board.stopId, trip.tripInstance)} className={trackClass}>
           <Icon name="map" size={20} />
           Track on map
         </Link>

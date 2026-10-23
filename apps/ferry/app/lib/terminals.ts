@@ -92,6 +92,15 @@ export const tripHref = (tripInstance: string, fromId: string, toId?: string | n
   return `${at('/trip')}/${encodeURIComponent(tripInstance)}${q.size ? `?${q}` : ''}`
 }
 
+/** The live ferry map (THE-118 PR 9) on a terminal, following a trip's ferry when one is given. */
+export const mapHref = (terminalId?: string | null, trip?: string | null): string => {
+  const q = new URLSearchParams()
+  const t = terminalId ? terminalById(terminalId) : null
+  if (t) q.set('terminal', t.slug)
+  if (trip) q.set('trip', trip)
+  return `${at('/map')}${q.size ? `?${q}` : ''}`
+}
+
 /**
  * Where an old `/?from=<stopId>&to=<stopId>` link (R3-F2) or `/?stop=<stopId>&to=<stopId>` link (the legacy site's,
  * R36-F1) now goes: that terminal's board, with "To" when the origin reaches it, keeping the link's other parameters.

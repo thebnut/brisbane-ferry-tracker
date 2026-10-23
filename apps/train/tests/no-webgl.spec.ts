@@ -11,7 +11,8 @@ test('/map without WebGL: panel plus a link to the station list', async ({ page 
     'href',
     '/stations',
   )
-  await expect(page.getByText(/trains with live positions/)).toBeVisible()
+  // The legend's count (the map page shell, THE-118 PR 9).
+  await expect(page.getByText(/\d+ with live positions/)).toBeVisible()
   expect(seen.errors).toEqual([])
   expect(seen.mapChunks).toEqual([])
 })
