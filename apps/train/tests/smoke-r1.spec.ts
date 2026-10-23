@@ -49,7 +49,7 @@ test.describe('phone width 360 px (T1, T4)', () => {
     const board = page.locator('[data-board=central]')
     await expect(board.getByTestId('departure').first()).toBeVisible()
     await pinned
-    await expect(board.locator('[data-tone]').first()).toBeVisible()
+    await expect(board.locator('[data-countdown]').first()).toBeVisible()
     const { scrollWidth, innerWidth } = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
       innerWidth: window.innerWidth,
@@ -59,23 +59,23 @@ test.describe('phone width 360 px (T1, T4)', () => {
     let checked = 0
     for (let i = 0; i < (await cards.count()); i++) {
       const card = cards.nth(i)
-      const chip = card.locator('[data-tone]')
-      const times = card.getByTestId('times')
-      if ((await chip.count()) === 0 || (await times.count()) === 0) continue
+      const chip = card.locator('[data-countdown]')
+      if ((await chip.count()) === 0) continue
       checked++
       const c = await box(chip)
-      const t = await box(times)
-      const overlaps =
-        t.x < c.x + c.width && c.x < t.x + t.width && t.y < c.y + c.height && c.y < t.y + t.height
-      expect(overlaps, `card ${i}: times and countdown overlap`).toBe(false)
+      // The countdown never overlaps the destination or the status line (THE-118 PR 4 row), and stays on screen.
+      for (const part of [card.getByTestId('destination'), card.locator('[data-row-status]')]) {
+        const t = await box(part)
+        const overlaps =
+          t.x < c.x + c.width && c.x < t.x + t.width && t.y < c.y + c.height && c.y < t.y + t.height
+        expect(overlaps, `card ${i}: countdown overlaps`).toBe(false)
+      }
       expect(c.x + c.width).toBeLessThanOrEqual(innerWidth)
-      // Each time chunk fits inside the times column (nothing runs under the chip).
-      expect(await times.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
-      // T4: "9:25 pm", never a bare "9:25".
-      const text = (await times.innerText()).replace(/\s+/g, ' ')
-      expect(text).toMatch(/^\d{1,2}:\d{2} (am|pm)/)
-      // (" arriving " is the screen-reader text after the arrow.)
-      if (text.includes('→')) expect(text).toMatch(/→ (arriving )?\d{1,2}:\d{2} (am|pm)/)
+      expect(await chip.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
+      // T4: "9:25 pm", never a bare "9:25"; with a destination, "arr 9:56 pm" in the status line.
+      expect((await chip.innerText()).replace(/\s+/g, ' ')).toMatch(/\d{1,2}:\d{2} (am|pm)/)
+      const status = await card.locator('[data-row-status]').innerText()
+      if (status.includes('arr ')) expect(status).toMatch(/arr \d{1,2}:\d{2} (am|pm)/)
     }
     expect(checked).toBeGreaterThan(0)
     await page.screenshot({ path: testInfo.outputPath('central-ferny-grove-360.png') })
@@ -105,13 +105,13 @@ test('offline: the banner at once, no LIVE badge, and it stays that way (T5)', a
   await pinUpcoming(context)
   await page.goto('/station/central')
   const board = page.locator('[data-board=central]')
-  await expect(board.locator('[data-badge=live]').first()).toBeVisible({ timeout: 20_000 })
+  await expect(board.locator('[data-dot=live]').first()).toBeVisible({ timeout: 20_000 })
   await context.setOffline(true)
   await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 2_000 })
-  await expect(board.locator('[data-badge=live]')).toHaveCount(0)
+  await expect(board.locator('[data-dot=live]')).toHaveCount(0)
   await page.waitForTimeout(32_000)
   await expect(page.locator('[data-banner=offline]')).toBeVisible()
-  await expect(board.locator('[data-badge=live]')).toHaveCount(0)
+  await expect(board.locator('[data-dot=live]')).toHaveCount(0)
   await context.setOffline(false)
   await expect(page.locator('[data-banner=offline]')).toBeHidden()
 })
@@ -124,12 +124,12 @@ test('API unreachable while the browser says online: offline banner at the next 
   await pinUpcoming(context)
   await page.goto('/station/central')
   const board = page.locator('[data-board=central]')
-  await expect(board.locator('[data-badge=live]').first()).toBeVisible({ timeout: 20_000 })
+  await expect(board.locator('[data-dot=live]').first()).toBeVisible({ timeout: 20_000 })
   // context.route also covers the service worker's own network requests.
   await context.route('**/v1/**', (route) => route.abort('internetdisconnected'))
   // Polls run every 15 s.
   await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 20_000 })
-  await expect(board.locator('[data-badge=live]')).toHaveCount(0)
+  await expect(board.locator('[data-dot=live]')).toHaveCount(0)
 })
 
 test('service page: no LIVE or GPS while offline (Codex review)', async ({ page, context }) => {

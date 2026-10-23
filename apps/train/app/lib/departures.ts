@@ -4,7 +4,6 @@ import {
   arrivalAfter,
   type BadgeKind,
   dayMarker,
-  delayText,
   dropDeparted,
   formatClock,
   formatDuration,
@@ -14,9 +13,12 @@ import {
   minutesUntil,
   type PageCheck,
   type PatternStop,
-  statusNote,
+  type RowStatus,
+  type StatusLine,
+  statusLine,
   timetableStatus,
 } from '@bft/ui'
+import { lineLabel } from './lineNames.ts'
 import { cleanStopName } from './names.ts'
 import { type DisplayLine, lineFor, stationKeyOfStop, stripFor } from './network.ts'
 
@@ -40,6 +42,8 @@ export function asScheduled(d: Departure): Departure {
 export interface TrainCard {
   key: string
   tripInstance: string
+  /** Departure shown, epoch s. */
+  dep: number
   time: string
   dayMarker: string | null
   arrival: { time: string; dayMarker: string | null } | null
@@ -52,16 +56,25 @@ export interface TrainCard {
   strip: PatternStop[]
   platform: string | null
   scheduledPlatform: string | null
-  note: string | null
-  delay: string | null
   minutes: number | null
   cancelled: boolean
   skipped: boolean
-  /** Accessible summary of the whole card. */
-  label: string
+  /** The row's status line (THE-118 PR 4): "Live · 2 min late", "Live · platform changed from 5", "Cancelled · next…". */
+  status: StatusLine & { status: RowStatus }
+  /** Its one fact: "arr 7:31" with a destination, else the line ("Beenleigh line", "Ferny Grove express"). */
+  fact: string | null
+  /** The line, on a wide row whose extra column shows the arrival. */
+  lineFact: string | null
 }
 
-export function trainCard(d: Departure, nowMs: number, from: string, to: string | null): TrainCard {
+export function trainCard(
+  d: Departure,
+  nowMs: number,
+  from: string,
+  to: string | null,
+  /** A cancelled row: the next train on its line you can board. */
+  next?: Departure,
+): TrainCard {
   const live = d.status === 'live'
   const dep = effectiveDep(d)
   const rawArr = d.estArrTo ?? d.schedArrTo
@@ -86,19 +99,22 @@ export function trainCard(d: Departure, nowMs: number, from: string, to: string 
   const skipped = d.status === 'skipped'
   const time = formatClock(dep)
   const scheduledPlatform = d.scheduledPlatform ?? null
-  const note = cancelled
-    ? 'This service is cancelled'
-    : skipped
-      ? 'Not stopping here'
-      : (statusNote(live, d.schedDep, d.estDep) ?? null)
-  const platformText = d.platform
-    ? scheduledPlatform
-      ? `platform ${d.platform}, changed from ${scheduledPlatform}`
-      : `platform ${d.platform}`
-    : 'platform not known'
+  const status = {
+    status: d.status,
+    ...statusLine({
+      status: d.status,
+      schedDep: d.schedDep,
+      estDep: d.estDep,
+      platformFrom: live ? scheduledPlatform : null,
+      next: next && { name: lineLabel(line.name), minutes: minutesUntil(effectiveDep(next), nowMs) },
+    }),
+  }
+  const lineFact = skips > 0 ? `${line.name} express` : lineLabel(line.name)
+  const arrText = arr != null ? `arr ${formatClock(arr)}` : null
   return {
     key: `${d.tripInstance}:${d.stopSequence}`,
     tripInstance: d.tripInstance,
+    dep,
     time,
     dayMarker: dayMarker(dep, nowMs),
     arrival: arr != null ? { time: formatClock(arr), dayMarker: dayMarker(arr, nowMs) } : null,
@@ -111,16 +127,13 @@ export function trainCard(d: Departure, nowMs: number, from: string, to: string 
     strip,
     platform: d.platform,
     scheduledPlatform,
-    note,
-    delay: live ? delayText(d.schedDep, d.estDep) : null,
     minutes: cancelled || skipped ? null : minutesUntil(dep, nowMs),
     cancelled,
     skipped,
-    label: [
-      `${time}${skips > 0 ? ' express' : ''} to ${headsign}`,
-      platformText,
-      cancelled ? 'cancelled' : skipped ? 'not stopping here' : live ? 'live' : 'scheduled',
-    ].join(', '),
+    status,
+    // A row you can't board has no fact: "Cancelled · next Ferny Grove line in 12 min" already names the line.
+    fact: cancelled || skipped ? null : to && arrText ? arrText : lineFact,
+    lineFact: cancelled || skipped ? null : lineFact,
   }
 }
 

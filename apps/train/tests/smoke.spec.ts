@@ -16,13 +16,20 @@ test('station page has departure rows in the server HTML', async ({ request }) =
   expect(html).toContain('"@type":"TrainStation"')
 })
 
-test('station board: platform tiles, strips, countdowns; hydrates cleanly', async ({ page }, testInfo) => {
+test('station board: platform tiles on the line colour, countdowns, no strips; hydrates cleanly', async ({
+  page,
+}, testInfo) => {
   const errors = collectErrors(page)
   await page.goto('/station/roma-street?to=indooroopilly')
   const board = page.locator('[data-board=roma-street]')
   await expect(board.getByTestId('departure').first()).toBeVisible()
   await expect(board.getByRole('img', { name: /Platform/ }).first()).toBeVisible()
-  await expect(board.getByRole('list', { name: /Stops from here to Indooroopilly/ }).first()).toBeVisible()
+  // THE-118 PR 4: the stopping pattern moved to trip detail; the row says the line or "arr …" instead.
+  await expect(board.getByRole('list', { name: /Stops from here to/ })).toHaveCount(0)
+  await expect(board.locator('[data-row-status]').first()).toContainText(
+    /arr \d{1,2}:\d{2} (am|pm)|line|express/,
+  )
+  await expect(board.locator('[data-countdown]').first()).toBeVisible()
   await expect(page.getByText(/updated \d+ s ago/)).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('station.png') })
   expect(errors).toEqual([])
@@ -93,11 +100,9 @@ test('favourite shows on home and its day is saved for offline', async ({ page, 
   await context.setOffline(true)
   await expect(page.getByText('Offline · scheduled').first()).toBeVisible()
   await expect(page.getByText(/saved timetable/).first()).toBeVisible()
-  // Offline cards claim nothing live: no LIVE/GPS badges, no platform-change tiles.
+  // Offline rows claim nothing live: no live dot, no platform-change ring.
   const board = page.locator('[data-board=roma-street]')
-  await expect(board.locator('[data-badge=live], [data-badge=gps], [data-platform-change=true]')).toHaveCount(
-    0,
-  )
+  await expect(board.locator('[data-dot=live], [data-platform-change=true]')).toHaveCount(0)
 })
 
 test('sitemap lists all 154 stations; robots keeps staging out', async ({ request }) => {

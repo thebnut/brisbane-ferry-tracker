@@ -8,13 +8,17 @@ import type { DeparturesResponse } from '@bft/core/contract'
 import {
   BoardHeader,
   BottomSheet,
+  DayDivider,
+  dayDividers,
   EmptyState,
   ErrorState,
   formatClock,
   Icon,
   MoreButton,
+  nextAlike,
   OfflineBanner,
   SecondaryButton,
+  soonestIndex,
 } from '@bft/ui'
 import { usePageCheck } from '@bft/ui/connectivity'
 import { SaveToast, type SaveToastMessage } from '@bft/ui/save-toast'
@@ -23,7 +27,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react
 import { useNavigate } from 'react-router'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
 import { boardState, platformChanges, type ServiceFilter, trainCard, visibleRows } from '../lib/departures.ts'
-import { isReachable, type Station, stationHref } from '../lib/network.ts'
+import { boardHref, isReachable, lineFor, type Station } from '../lib/network.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import {
   FAVOURITES_KEY,
@@ -98,8 +102,6 @@ export function useStar(f: Favourite, name: string, pickDestination: () => void)
   return { saved, toggle, toast: <SaveToast toast={toast} onGone={gone} onUndo={undo} /> }
 }
 
-export const boardHref = (from: string, to: string | null) => `${stationHref(from)}${to ? `?to=${to}` : ''}`
-
 export function StationBoard({
   from,
   to,
@@ -152,7 +154,16 @@ export function StationBoard({
   const cards = useMemo(() => {
     // Not live: timetable only, no live estimates or platform changes, and nothing that has already left.
     const rows = visibleRows(res?.departures ?? [], state, nowMs)
-    const list = rows.map((d) => trainCard(d, nowMs, from.key, to?.key ?? null))
+    const line = (d: (typeof rows)[number]) => lineFor(d.route, d.headsign).name
+    const list = rows.map((d, i) =>
+      trainCard(
+        d,
+        nowMs,
+        from.key,
+        to?.key ?? null,
+        d.status === 'cancelled' ? nextAlike(rows, i, (r) => line(r) === line(d)) : undefined,
+      ),
+    )
     return filter === 'express' ? list.filter((c) => c.express) : list
   }, [res, nowMs, from.key, to?.key, filter, state])
   // Offline with nothing to show before this board's first answer since the page loaded (an offline reload starts
@@ -160,7 +171,12 @@ export function StationBoard({
   // "no saved timetable" (R6-B1).
   const checking = state === 'offline' && cards.length === 0 && !q.isFetchedAfterMount
   const changes = res && state == null ? platformChanges(res.departures) : []
-  const firstLive = cards.findIndex((c) => !c.cancelled)
+  // The soonest train you can board gets the orange border (every board's rule); later days get a divider.
+  const soonest = soonestIndex(cards.map((c) => c.status))
+  const dividers = dayDividers(
+    cards.map((c) => c.dep),
+    nowMs,
+  )
   const canSwap = !!to && isReachable(to.key, from.key)
   const title = `${from.name}${to ? ` → ${to.name}` : ''}`
   const star = useStar({ from: from.key, to: to?.key ?? null }, title, () => setPicker(true))
@@ -256,12 +272,8 @@ export function StationBoard({
       <ol className="flex flex-col gap-2.5" aria-label={`Next trains from ${title}`}>
         {cards.map((c, i) => (
           <li key={c.key}>
-            <TrainCard
-              card={c}
-              from={from.key}
-              to={to?.key ?? null}
-              highlighted={i === firstLive && c.express}
-            />
+            {dividers[i] ? <DayDivider>{dividers[i]}</DayDivider> : null}
+            <TrainCard card={c} from={from.key} to={to?.key ?? null} highlighted={i === soonest} />
           </li>
         ))}
       </ol>

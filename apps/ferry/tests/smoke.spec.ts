@@ -27,7 +27,7 @@ test('home renders both boards with countdown chips', async ({ page, context, is
   const outbound = page.locator('[data-board=outbound]')
   await expect(outbound.getByTestId('departure')).toHaveCount(5)
   await refreshBoards(page)
-  await expect(outbound.locator('[data-tone]').first()).toBeVisible()
+  await expect(outbound.locator('[data-countdown]').first()).toBeVisible()
   const inbound = page.locator('[data-board=inbound]')
   if (isMobile) {
     // Phones show one board with origin/destination dropdowns and swap.
@@ -108,7 +108,8 @@ test('terminal page has departure rows, canonical and JSON-LD in the raw HTML', 
     )
   }
   if ((await due('317584', '317590')) || (await due('317590', '317584')))
-    expect(html).toMatch(/in \d+ mins?|Departing/)
+    // THE-118 PR 4: the shared row's countdown (BigCountdown): "N min", or "Now" when due.
+    expect(html).toMatch(/data-countdown="-?\d+"><span[^>]*>(?:\d+ min|Now)<\/span>/)
 })
 
 test('unknown terminal and unknown paths are 404 with noindex', async ({ request }) => {
@@ -132,7 +133,7 @@ test('offline shows the "Offline · scheduled" banner', async ({ page, context }
   await context.setOffline(true)
   await expect(page.getByText('Offline · scheduled')).toBeVisible()
   await expect(page.getByText('OFFLINE', { exact: true })).toBeVisible()
-  await expect(page.locator('[data-board=outbound] [data-badge=live]')).toHaveCount(0)
+  await expect(page.locator('[data-board=outbound] [data-dot=live]')).toHaveCount(0)
   await context.setOffline(false)
   await expect(page.getByText('Offline · scheduled')).toBeHidden()
 })

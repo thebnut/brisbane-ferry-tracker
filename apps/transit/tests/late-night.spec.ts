@@ -113,6 +113,8 @@ test('the Ask summary says "tomorrow" for a next-day answer at 11 pm (R2-X6b)', 
   await ask.press('Enter')
   const summary = page.getByText(/^Next buses from/)
   await expect(summary).toContainText(`5:20 am tomorrow (${TOMORROW})`)
-  // The answer's card shows the same day.
-  await expect(page.locator('[data-highlighted]').first()).toContainText(`(${TOMORROW})`)
+  // The answer's row sits under the same day's "Tomorrow" divider (THE-118 PR 4), not a date on its time.
+  const row = page.locator('[data-highlighted]').first()
+  await expect(row.locator('xpath=preceding-sibling::*[@data-day-divider]')).toHaveText(/^Tomorrow · /)
+  await expect(row).not.toContainText(`(${TOMORROW})`)
 })

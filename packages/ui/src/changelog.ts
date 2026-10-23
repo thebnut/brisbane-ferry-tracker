@@ -28,6 +28,11 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Find a station or a stop from the search at the top of the Train and Bus tabs. Each board has a Map button and shows its alerts.',
       'Tap the tab you’re on again to go back to that mode’s home.',
       'The “Set up your favourite stops?” question now sits at the top of My Transit instead of floating over the boards.',
+      'Every board now lists departures the same way: what you board on the left, where it goes, a dot and a word for live or scheduled, and a big countdown.',
+      'Train departures show the platform on the line’s colour, with an orange ring when the platform has changed.',
+      'Ferry departures show the service (F1, F11) and where the ferry is heading.',
+      'Departures after midnight sit under a “Tomorrow” heading instead of a date on every time.',
+      'The first service you can still catch is the one highlighted, on every board, never a cancelled one.',
     ],
   },
   {
