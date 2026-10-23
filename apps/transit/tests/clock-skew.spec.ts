@@ -24,7 +24,14 @@ const savedAcrossModes = (page: import('@playwright/test').Page) =>
   })
 
 clockSkewSuite({ path: '/ferry/terminal/bulimba', pin: pinUpcoming })
-clockSkewSuite({ path: '/ferry', label: 'ferry home', prepare: savedAcrossModes, pin: pinUpcoming })
+clockSkewSuite({
+  path: '/ferry',
+  label: 'ferry home',
+  prepare: savedAcrossModes,
+  // A home is LIVE only over a live row it shows (R36-L1): an hour ahead, so a device clock 30 min fast hasn't seen
+  // the pinned ferry leave yet, whatever the hour.
+  pin: (c) => pinUpcoming(c, undefined, 3_600),
+})
 clockSkewSuite({ path: '/train/station/central', pin: pinUpcoming })
 clockSkewSuite({ path: '/bus/stop/10802', pin: pinUpcoming })
 clockSkewSuite({

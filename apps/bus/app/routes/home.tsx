@@ -14,7 +14,10 @@ import {
   homeCard,
   LiveReports,
   PlaceChips,
+  pageLive,
+  reportValue,
   SavedEmpty,
+  showsLive,
   UseLocationRow,
   useLiveReports,
   useReportLive,
@@ -93,14 +96,16 @@ function StopCard({
 }) {
   const online = useOnline()
   const { data, state } = liveView(stop.id, q.data, nowMs, online, usePageCheck())
-  // No data is never live; a non-live seed whose own refetch is still out waits (R32-RT1).
+  const card = homeCard('bus', data, nowMs, stop.name || data?.stop.name || `Stop ${stop.id}`, stop.id)
+  // No data is never live; a non-live seed whose own refetch is still out waits (R32-RT1). LIVE only over a live row
+  // it shows (R36-L1).
   useReportLive(
     `stop:${stop.id}`,
     state == null && q.data != null && q.data.rtState === 'live',
     (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
     q.isError || q.failureCount > 0,
+    card.liveRows,
   )
-  const card = homeCard('bus', data, nowMs, stop.name || data?.stop.name || `Stop ${stop.id}`, stop.id)
   return (
     <SavedTripCard
       mode="bus"
@@ -152,7 +157,19 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const seeds = ids.filter((id) => id in loaderData.initial).map((id) => loaderData.initial[id] ?? null)
   const seedState = (r: DeparturesResponse) => liveView('', r, now, true, page).state
   const reports = useLiveReports({
-    live: seeds.length ? seeds.every((r) => r && seedState(r) == null && r.rtState === 'live') : undefined,
+    // Live data with no live row shown claims nothing (R36-L1).
+    live: seeds.length
+      ? pageLive(
+          seeds.map((r) =>
+            reportValue(
+              !!r && seedState(r) == null && r.rtState === 'live',
+              false,
+              false,
+              !!r && showsLive(liveView('', r, now, true, page).data),
+            ),
+          ),
+        ).live
+      : undefined,
     pending: seeds.some((r) => !r || awaitingSeedAnswer(asSeed(r), seedState(r))),
   })
   const { geo, locate } = useGeolocation()

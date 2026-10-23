@@ -47,6 +47,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Extra services run outside the timetable now show where they’re going and their platform, and say “Extra service” instead of a delay.',
       'Ferry, Train and Bus each open on the same simple home: a search, your saved trips and stops, the nearest ones once you choose to share your location, and popular places.',
       'Your first saved ferry trip sits at the top of Ferry with a big countdown to its next departure. Save a trip with the star on any board.',
+      'The Ferry, Train and Bus homes show Live only when a trip they show has live times, not over timetabled ones.',
+      'Old Brisbane Ferry links to a terminal (with ?stop= in them) open that terminal’s board again.',
     ],
   },
   {
