@@ -33,15 +33,17 @@ export function useTripCard(
   const online = useOnline()
   const page = usePageCheck()
   const state = boardState(q.data, !online, nowMs, page)
-  // A card with no answer yet, or a non-live seed whose own refetch is out, waits (R32-RT1).
+  const data = q.data && { ...q.data, departures: visibleRows(q.data.departures, state, nowMs) }
+  const card = homeCard('ferry', data, nowMs, tripTitle(trip), trip.from)
+  // A card with no answer yet, or a non-live seed whose own refetch is out, waits (R32-RT1). LIVE only over a live
+  // row it shows (R36-L1).
   useReportLive(
     `ferry:${trip.from}>${trip.to ?? ''}`,
     state == null && q.data != null,
     (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
     q.isError || q.failureCount > 0,
+    card.liveRows,
   )
-  const data = q.data && { ...q.data, departures: visibleRows(q.data.departures, state, nowMs) }
-  const card = homeCard('ferry', data, nowMs, tripTitle(trip), trip.from)
   return {
     card,
     href: boardHref(trip.from, trip.to),

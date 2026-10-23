@@ -7,7 +7,7 @@
 
 import type { DeparturesResponse } from '@bft/core/contract'
 import { Icon, SavedTripCard, useGeolocation } from '@bft/ui'
-import { asSeed, awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { asSeed, awaitingSeedAnswer, type PageCheck, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import {
   AboutTimes,
   CHIP,
@@ -15,8 +15,11 @@ import {
   HomeTitle,
   homeCard,
   PlaceChips,
+  pageLive,
+  reportValue,
   SavedEmpty,
   SearchPlaceholder,
+  showsLive,
   UseLocationRow,
 } from '@bft/ui/mode-home'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
@@ -119,6 +122,21 @@ const linkTo = ({ href, className, children }: { href: string; className: string
 
 const bare = (s: Station | null) => s?.name.replace(/ station$/, '') ?? ''
 
+/** The server's boards as the cards will report them (a missing one waits); undefined: only timetabled trains. */
+const seedsLive = (seeds: (DeparturesResponse | null)[], nowMs: number, page: PageCheck | null) =>
+  pageLive(
+    seeds.map((r) => {
+      if (!r) return reportValue(false, true, false, false)
+      const state = boardState(r, false, nowMs, page)
+      return reportValue(
+        state == null,
+        false,
+        false,
+        showsLive({ ...r, departures: visibleRows(r.departures, state, nowMs) }),
+      )
+    }),
+  ).live
+
 /** One saved trip as a My Transit card: its next trains, timetable only unless live, reported to the header. */
 function FavouriteCard({
   fav,
@@ -141,14 +159,6 @@ function FavouriteCard({
     nowMs,
     page,
   )
-  // The header pill is LIVE only while every card is. No data is never live (a first request that failed with an
-  // HTTP error leaves the state null). A non-live seed whose own refetch is still out waits too (R32-RT1).
-  useReportLive(
-    `fav:${fav.from}>${fav.to ?? ''}`,
-    state == null && q.data != null,
-    (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
-    q.isError || q.failureCount > 0,
-  )
   const from = stationByKey(fav.from)
   const to = stationByKey(fav.to)
   const card = homeCard(
@@ -157,6 +167,16 @@ function FavouriteCard({
     nowMs,
     to ? `${bare(from)} → ${bare(to)}` : bare(from),
     fav.from,
+  )
+  // The header pill is LIVE only while no card is stale and one shows a live train (R36-L1). No data is never live (a
+  // first request that failed with an HTTP error leaves the state null). A non-live seed whose own refetch is still
+  // out waits too (R32-RT1).
+  useReportLive(
+    `fav:${fav.from}>${fav.to ?? ''}`,
+    state == null && q.data != null,
+    (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
+    q.isError || q.failureCount > 0,
+    card.liveRows,
   )
   return (
     <div data-testid="favourite">
@@ -213,7 +233,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     <Shell
       active="home"
       // From the loader data until the cards report (useReportLive); no boards, no live data of its own.
-      live={seeds.length ? seeds.every((r) => !r || boardState(r, false, nowMs, page) == null) : undefined}
+      // Live data with no live train shown claims nothing (R36-L1).
+      live={seeds.length ? seedsLive(seeds, nowMs, page) : undefined}
       // A board the server couldn't load has no answer yet: BrisbaneTransit says "Connecting…", not LIVE (THE-118).
       // So does one with a non-live seed until its card's own answer (R32-RT1).
       pending={seeds.some((r) => !r || awaitingSeedAnswer(asSeed(r), boardState(r, false, nowMs, page)))}

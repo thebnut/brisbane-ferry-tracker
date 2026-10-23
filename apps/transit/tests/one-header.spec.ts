@@ -5,6 +5,7 @@
  * failure.
  */
 import { type BrowserContext, expect, type Page, test } from '@playwright/test'
+import { pinUpcoming } from './upcoming.ts'
 
 /** Runs a describe block's tests in one project only (each size runs once). */
 const onlyIn = (project: string) =>
@@ -137,7 +138,7 @@ async function holdDepartures(context: BrowserContext, page: Page, glob: string)
     open = r
   })
   await context.route(glob, async (route) =>
-    (await gate) === 'abort' ? route.abort('failed') : route.continue(),
+    (await gate) === 'abort' ? route.abort('failed') : route.fallback(),
   )
   await page.addInitScript(() => {
     const seen: Record<string, number> = {}
@@ -179,6 +180,8 @@ function connectionTests() {
       context,
     }) => {
       await page.addInitScript(home.seed)
+      // A home is LIVE only over a live row it shows (R36-L1): one is due and live at any hour.
+      await pinUpcoming(context, home.glob)
       const { release, seen } = await holdDepartures(context, page, home.glob)
       await page.goto(home.path)
       const state = page.locator('header [data-connection]')

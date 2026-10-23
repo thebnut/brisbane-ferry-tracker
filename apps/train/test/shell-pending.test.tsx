@@ -9,10 +9,10 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Shell, useReportLive } from '../app/components/Chrome.tsx'
 
-type Board = { live: boolean; pending?: boolean; failed?: boolean }
+type Board = { live: boolean; pending?: boolean; failed?: boolean; liveRows?: boolean }
 
-function Report({ id, live, pending, failed }: Board & { id: string }) {
-  useReportLive(id, live, pending, failed)
+function Report({ id, live, pending, failed, liveRows }: Board & { id: string }) {
+  useReportLive(id, live, pending, failed, liveRows)
   return null
 }
 
@@ -61,6 +61,19 @@ describe('train Shell: pending across boards (R32-RT1)', () => {
     cleanup()
     // A failure is never pending itself, even while retried with nothing to show.
     expect(page([waiting, { live: false, pending: true, failed: true }])).toMatchObject({ connecting: false })
+  })
+  it('a home card with live data but no live train shown claims nothing; LIVE over one that has (R36-L1)', () => {
+    const timetabled = { live: true, liveRows: false }
+    expect(page([timetabled])).toMatchObject({ connecting: false, live: false, offline: false })
+    cleanup()
+    expect(page([timetabled, live])).toMatchObject({ connecting: false, live: true, offline: false })
+    cleanup()
+    expect(page([timetabled, waiting])).toMatchObject({ connecting: true, live: false })
+    cleanup()
+    expect(page([timetabled, { live: false }])).toMatchObject({ live: false, offline: true })
+    cleanup()
+    // A failed request over timetabled trains: OFFLINE.
+    expect(page([{ ...timetabled, failed: true }])).toMatchObject({ live: false, offline: true })
   })
   it('live data from before a failed request stays LIVE on its own, as before', () => {
     expect(page([{ live: true, failed: true }])).toMatchObject({

@@ -9,8 +9,8 @@
  * Each app's home composes these with its own data; only the homes load this module (its own chunk in BrisbaneTransit).
  *
  * The live rows (a saved card, a Near you row) report to the page's header the way a board does (useReportLive): LIVE
- * only while every reported row is live, "Connecting…" while one waits for its own answer (R32-RT1), nothing claimed
- * by a page without live rows (#159).
+ * only while no reported row is stale or failed and at least one shows a live departure (R36-L1), "Connecting…" while
+ * one waits for its own answer (R32-RT1), nothing claimed by a page without live rows shown (#159).
  */
 
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
@@ -43,16 +43,38 @@ const link = (href: string, className: string, children: ReactNode, renderLink?:
 
 /**
  * A live row's report, as a board's (train Chrome.tsx): live, not live, 'pending' (no answer of its own yet, or a
- * non-live seed's own refetch still out) or 'failed-live' (live data still shown after a failed request: live for the
- * pill, but a failure no waiting row may hide).
+ * non-live seed's own refetch still out), 'failed-live' (live data still shown after a failed request: live for the
+ * pill, but a failure no waiting row may hide) or 'timetable' (live and fresh data, but no departure it shows is live:
+ * no claim either way, R36-L1).
  */
-type Report = boolean | 'pending' | 'failed-live'
+type Report = boolean | 'pending' | 'failed-live' | 'timetable'
 const LiveReport = createContext<((key: string, value: Report | null) => void) | null>(null)
 
-/** Tell the page header whether this row's data is live (shared liveState), still waiting, or failed. */
-export function useReportLive(key: string, live: boolean, pending = false, failed = false) {
+/** A row's report: see Report. `liveRows`: a departure the row shows is live. */
+export const reportValue = (live: boolean, pending: boolean, failed: boolean, liveRows: boolean): Report =>
+  failed
+    ? live && liveRows
+      ? 'failed-live'
+      : false
+    : pending
+      ? 'pending'
+      : live
+        ? liveRows || 'timetable'
+        : false
+
+/**
+ * Tell the page header whether this row's data is live (shared liveState), still waiting, or failed, and whether a
+ * departure it shows is live (`liveRows`): the header says LIVE only over a live row (R36-L1).
+ */
+export function useReportLive(
+  key: string,
+  live: boolean,
+  pending: boolean,
+  failed: boolean,
+  liveRows: boolean,
+) {
   const report = useContext(LiveReport)
-  const value: Report = failed ? (live ? 'failed-live' : false) : pending ? 'pending' : live
+  const value = reportValue(live, pending, failed, liveRows)
   useEffect(() => {
     report?.(key, value)
     return () => report?.(key, null)
@@ -78,12 +100,26 @@ export function useLiveReports(initial: { live?: boolean; pending?: boolean }) {
     [],
   )
   const reported = Object.values(reports)
-  const live = reported.length ? reported.every((r) => r === true || r === 'failed-live') : initial.live
-  // A row whose own answer isn't live, or whose request failed, wins over one still waiting (R32-RT1).
-  const pending = reported.length
-    ? reported.includes('pending') && reported.every((r) => r === 'pending' || r === true)
-    : initial.pending === true
-  return { live, pending, report }
+  const page = reported.length
+    ? pageLive(reported)
+    : { live: initial.live, pending: initial.pending === true }
+  return { ...page, report }
+}
+
+/**
+ * The page's answer from its rows' reports: not live when one is stale, failed or still waiting (shown only once a
+ * failure ends the wait); LIVE when one shows a live departure; otherwise (only timetabled rows) no claim (R36-L1).
+ * A row whose own answer isn't live, or whose request failed, wins over one still waiting (R32-RT1).
+ */
+export function pageLive(reported: Report[]): { live: boolean | undefined; pending: boolean } {
+  const pending =
+    reported.includes('pending') && reported.every((r) => r === 'pending' || r === true || r === 'timetable')
+  const live = reported.some((r) => r === false || r === 'pending')
+    ? false
+    : reported.some((r) => r === true || r === 'failed-live')
+      ? true
+      : undefined
+  return { live, pending }
 }
 
 /** Where the rows report: the provider of useLiveReports' `report`. */
@@ -96,6 +132,8 @@ export interface HomeCard {
   title: string
   /** The next departure is live (and the data is: the caller passes only live data, else a timetable copy). */
   live: boolean
+  /** A departure the card shows (the next and the two after it) is live: what it reports to the header (R36-L1). */
+  liveRows: boolean
   time: string | null
   detail: string | null
   minutes: number | null
@@ -126,6 +164,22 @@ export interface CardResponse {
   }>
 }
 
+/** Boardable services, soonest first by the time shown (a cancelled or skipped one is never "next"). */
+const boardable = (res: CardResponse | undefined) =>
+  (res?.departures ?? [])
+    .filter((d) => d.status !== 'cancelled' && d.status !== 'skipped')
+    .sort((a, b) => (a.estDep ?? a.schedDep) - (b.estDep ?? b.schedDep))
+
+/**
+ * A departure a card shows (the next and the two after it) is live, from a live feed: the rows' rule for the page
+ * header (R36-L1). `res` is what the card shows (a board's visible rows).
+ */
+export const showsLive = (res: CardResponse | undefined): boolean =>
+  res?.rtState === 'live' &&
+  boardable(res)
+    .slice(0, 3)
+    .some((d) => d.status === 'live')
+
 const clockDay = (epochS: number, nowMs: number) => {
   const day = dayMarker(epochS, nowMs)
   return day ? `${formatClock(epochS)} ${day}` : formatClock(epochS)
@@ -146,9 +200,7 @@ export function homeCard(
 ): HomeCard {
   // Only boardable services: a cancelled or skipped (not stopping here) one is never "next".
   // Soonest first by the time shown: a board that dropped its live estimates keeps their order (Codex r1).
-  const rows = (res?.departures ?? [])
-    .filter((d) => d.status !== 'cancelled' && d.status !== 'skipped')
-    .sort((a, b) => (a.estDep ?? a.schedDep) - (b.estDep ?? b.schedDep))
+  const rows = boardable(res)
   const first = rows[0]
   const dep = first ? (first.estDep ?? first.schedDep) : null
   const rawArr = first ? (first.estArrTo ?? first.schedArrTo) : null
@@ -185,6 +237,7 @@ export function homeCard(
     label,
     title,
     live: res?.rtState === 'live' && first?.status === 'live',
+    liveRows: showsLive(res),
     time: dep ? `${clockDay(dep, nowMs)}${arr ? ` → ${clockDay(arr, nowMs)}` : ''}` : null,
     detail,
     minutes: dep ? minutesUntil(dep, nowMs) : null,

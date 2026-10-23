@@ -90,6 +90,27 @@ describe('old ?from=&to= links (R3-F2) open the terminal board', () => {
   })
 })
 
+describe('old ?stop=&to= links (R36-F1) open the terminal board too', () => {
+  const p = (q: string) => new URLSearchParams(q)
+  it('takes a stop id or a slug, with "To" when the origin reaches it', () => {
+    expect(boardForOldLink(p('stop=317584'))).toBe('/terminal/bulimba')
+    expect(boardForOldLink(p('stop=317584&to=317590'))).toBe('/terminal/bulimba?to=riverside')
+    expect(boardForOldLink(p('stop=bulimba&to=riverside'))).toBe('/terminal/bulimba?to=riverside')
+    // Across the river.
+    expect(boardForOldLink(p('stop=317589&to=317581'))).toBe('/terminal/sydney-street?to=dockside')
+    expect(boardForOldLink(p('stop=nope&to=317590'))).toBeNull()
+  })
+  it("keeps the link's other parameters", () => {
+    expect(boardForOldLink(p('stop=317584&to=317590&fixtures=1&utm_source=x'))).toBe(
+      '/terminal/bulimba?to=riverside&fixtures=1&utm_source=x',
+    )
+  })
+  it('a known from wins over stop; an unknown from falls back to stop', () => {
+    expect(boardForOldLink(p('from=317583&stop=317584&to=317590'))).toBe('/terminal/hawthorne?to=riverside')
+    expect(boardForOldLink(p('from=nope&stop=317584'))).toBe('/terminal/bulimba')
+  })
+})
+
 describe('tripStopName (R3: curated names win over the API trip-stop name)', () => {
   it('shows the curated terminal name when the API name differs', () => {
     expect(tripStopName('317590', 'Riverside ferry terminal, Eagle St')).toBe('Riverside')

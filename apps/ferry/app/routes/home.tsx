@@ -19,6 +19,7 @@ import {
   PlaceChips,
   SavedEmpty,
   SearchPlaceholder,
+  showsLive,
   UseLocationRow,
   useLiveReports,
 } from '@bft/ui/mode-home'
@@ -29,7 +30,7 @@ import type HomeSaved from '../components/HomeSaved.tsx'
 import { SiteHeader } from '../components/header.tsx'
 import { fetchDepartures } from '../lib/api.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
-import { boardState } from '../lib/departures.ts'
+import { boardState, visibleRows } from '../lib/departures.ts'
 import { CARD_ROWS, type Trip, useTripCard } from '../lib/home-card.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useFetcher } from '../lib/queries.ts'
@@ -171,10 +172,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   const head = list[0] ?? null
   const seed = sameTrip(head, loaderData.headline) ? loaderData.initial : null
   // Before the rows report (the server render, hydration): the headline's seed, as a board's (R32-RT1). No saved trip
-  // and no position: no live rows, so the header claims nothing (#159).
+  // and no position: no live rows, so the header claims nothing (#159); nor do live data with no live row (R36-L1).
   const seedState = seed ? boardState(seed, false, now, page) : null
   const reports = useLiveReports({
-    live: head ? !!seed && seedState == null : undefined,
+    live: !head
+      ? undefined
+      : !seed || seedState != null
+        ? false
+        : showsLive({ ...seed, departures: visibleRows(seed.departures, seedState, now) }) || undefined,
     pending: !!head && (!seed || awaitingSeedAnswer(asSeed(seed), seedState)),
   })
   const { geo, locate } = useGeolocation()

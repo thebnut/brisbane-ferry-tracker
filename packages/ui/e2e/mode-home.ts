@@ -45,6 +45,66 @@ export interface HomeSpec {
 
 const section = (page: Page, id: string) => page.locator(`[data-home-section=${id}]`)
 
+interface Row {
+  status: string
+  schedDep: number
+  estDep: number | null
+  schedArrTo: number | null
+  estArrTo: number | null
+}
+
+/** The fixture API's departures requests for a mode (the apps' tests/upcoming.ts). */
+const departuresGlob = (mode: HomeSpec['mode']) => `**/__fixtures/v1/${mode}/stops/*/departures*`
+
+/**
+ * R36-L1: a fresh live answer (rtState 'live', as the fixture API's) whose rows are all timetabled, the next one 10
+ * minutes from now: the 6:17am Bulimba → Riverside ferry before any service runs. Registered after `pin`, so it wins
+ * for the requests `only` matches (every one by default); the rest fall back to `pin`.
+ */
+async function timetabled(
+  context: BrowserContext,
+  mode: HomeSpec['mode'],
+  only: (url: string) => boolean = () => true,
+) {
+  await context.route(departuresGlob(mode), async (route) => {
+    if (!only(route.request().url())) return route.fallback()
+    try {
+      const u = new URL(route.request().url())
+      u.searchParams.delete('rt')
+      const res = await route.fetch({ url: u.toString() })
+      const body: { rtState: string; departures?: Row[] } = await res.json()
+      const shift =
+        Math.floor(Date.now() / 1000) + 600 - Math.min(...(body.departures ?? []).map((d) => d.schedDep))
+      body.rtState = 'live'
+      for (const d of body.departures ?? []) {
+        d.status = 'scheduled'
+        d.schedDep += shift
+        d.estDep = null
+        if (d.schedArrTo != null) d.schedArrTo += shift
+        d.estArrTo = null
+      }
+      await route.fulfill({ response: res, json: body })
+    } catch (error) {
+      if (!/disposed|closed|Target page|Test ended/i.test(String(error))) throw error
+    }
+  })
+}
+
+/** The header claims nothing: no LIVE, no OFFLINE, no "Connecting…" (#159, R36-L1). */
+async function expectNoClaim(page: Page) {
+  const header = page.locator('header')
+  await expect(header.locator('[data-connection=connecting]')).toHaveCount(0)
+  await expect(header.locator('[data-live-claim]')).toHaveCount(0)
+  await expect(header.getByText('OFFLINE', { exact: true })).toHaveCount(0)
+  expect(await visibleLiveClaims(page)).toEqual([])
+}
+
+/** A saved item's departures request (its stop in the URL). */
+const savedId = (item: unknown) => {
+  const x = item as { from?: string; id?: string }
+  return encodeURIComponent(x.from ?? x.id ?? '')
+}
+
 async function seed(page: Page, spec: HomeSpec, n: number, cookie: boolean) {
   const list = spec.saved.list.slice(0, n)
   await page.addInitScript(
@@ -172,6 +232,33 @@ function suite(spec: HomeSpec) {
     await expect(page.locator('header [data-live-claim]').first()).toBeVisible({ timeout: 15_000 })
   })
 
+  test('R36-L1: one saved, every row timetabled: the header claims nothing, never LIVE', async ({
+    page,
+    context,
+  }) => {
+    await spec.pin(context)
+    await timetabled(context, spec.mode)
+    await seed(page, spec, 1, false)
+    await page.goto(spec.path)
+    const saved = section(page, 'saved')
+    await expect(saved.locator('[data-saved-time]')).toBeVisible({ timeout: 15_000 })
+    // Its next departure is on the card, timetabled; nothing on the page is LIVE, and nothing has failed.
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1_000)
+    await expectNoClaim(page)
+  })
+
+  test('R36-L1: two saved, one with a live row: LIVE', async ({ page, context }) => {
+    await spec.pin(context)
+    const second = `/stops/${savedId(spec.saved.list[1])}/departures`
+    await timetabled(context, spec.mode, (url) => !url.includes(second))
+    await seed(page, spec, 2, false)
+    await page.goto(spec.path)
+    await expect(section(page, 'saved').locator('a')).toHaveCount(2)
+    await expect(page.locator('header [data-live-claim]').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('header').getByText('OFFLINE', { exact: true })).toHaveCount(0)
+  })
+
   if (spec.mode !== 'train')
     test('the last saved item taken out (another tab): the header claims nothing again (Codex r1)', async ({
       page,
@@ -180,7 +267,9 @@ function suite(spec: HomeSpec) {
       await spec.pin(context)
       await seed(page, spec, 1, true)
       await page.goto(spec.path)
-      await expect(page.locator('header [data-live-claim]').first()).toBeVisible({ timeout: 15_000 })
+      // LIVE over a live row only (R36-L1): the server render isn't pinned, so at some hours LIVE waits for the card's
+      // own (pinned) answer at its first poll (15 s).
+      await expect(page.locator('header [data-live-claim]').first()).toBeVisible({ timeout: 30_000 })
       // Another tab unsaves it: this page hears the storage event.
       await page.evaluate((key) => {
         localStorage.setItem(key, '[]')
@@ -255,7 +344,10 @@ export function modeHomeSuite(homes: HomeSpec[]) {
     })
 }
 
-/** R32-RT1 for ferry home's headline: its stale seed says "Connecting…" until its own answer (seed-connecting.ts). */
+/**
+ * R32-RT1 for ferry home's headline: its stale seed says "Connecting…" until its own answer (seed-connecting.ts). Then
+ * R36-L1: an answer of its own that is live but all timetabled claims nothing (no LIVE, no OFFLINE).
+ */
 export function headlineConnecting(spec: HomeSpec, departures: string) {
   for (const [size, project, use] of SIZES)
     test.describe(size, () => {
@@ -274,6 +366,39 @@ export function headlineConnecting(spec: HomeSpec, departures: string) {
           },
           prepare: (page) => seed(page, spec, 1, false),
         }))
+      test.describe('ferry home headline, R36-L1', () => {
+        test.use({ serviceWorkers: 'block' })
+        test('a stale seed: Connecting… until a timetabled answer of its own, then no claim', async ({
+          page,
+          context,
+        }) => {
+          await context.addCookies([
+            {
+              name: spec.saved.cookie.name,
+              value: spec.saved.cookie.value(spec.saved.list.slice(0, 1)),
+              url: test.info().project.use.baseURL as string,
+            },
+          ])
+          await seed(page, spec, 1, false)
+          let release = () => {}
+          const released = new Promise<void>((r) => (release = r))
+          let asked = 0
+          await timetabled(context, spec.mode)
+          // Registered last, so it holds the request before `timetabled` answers it.
+          await context.route(departures, async (route) => {
+            asked++
+            await released
+            return route.fallback().catch(() => {})
+          })
+          await page.goto(`${spec.path}${spec.path.includes('?') ? '&' : '?'}rt=stale`)
+          await expect.poll(() => asked).toBeGreaterThan(0)
+          await expect(page.locator('header [data-connection=connecting]').first()).toBeVisible()
+          await expect(page.locator('header [data-live-claim]')).toHaveCount(0)
+          release()
+          await expect(page.locator('[data-headline] [data-countdown]')).toBeVisible({ timeout: 10_000 })
+          await expectNoClaim(page)
+        })
+      })
     })
 }
 

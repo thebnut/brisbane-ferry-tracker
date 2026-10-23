@@ -15,14 +15,19 @@ interface Row {
   estArrTo: number | null
 }
 
-export const pinUpcoming = (context: BrowserContext, glob = '**/__fixtures/v1/*/stops/*/departures*') =>
+export const pinUpcoming = (
+  context: BrowserContext,
+  glob = '**/__fixtures/v1/*/stops/*/departures*',
+  /** How far ahead the pinned departure is, in seconds. */
+  aheadS = 600,
+) =>
   context.route(glob, async (route) => {
     try {
       const res = await route.fetch()
       const body: { rtState: string; departures?: Row[] } = await res.json()
       const d = body.departures?.find((x) => x.status !== 'cancelled' && x.status !== 'skipped')
       if (d) {
-        const shift = Math.floor(Date.now() / 1000) + 600 - (d.estDep ?? d.schedDep)
+        const shift = Math.floor(Date.now() / 1000) + aheadS - (d.estDep ?? d.schedDep)
         d.schedDep += shift
         if (d.estDep != null) d.estDep += shift
         if (d.schedArrTo != null) d.schedArrTo += shift
