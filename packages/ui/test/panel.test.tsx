@@ -2,7 +2,16 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fullHref, isTripHref, onlyFullChanged, panelControls, samePlace, showBoard } from '../src/panel.tsx'
+import {
+  fullHref,
+  isTripHref,
+  onlyFullChanged,
+  type PanelState,
+  panelControls,
+  samePlace,
+  showBoard,
+  withPanel,
+} from '../src/panel.tsx'
 import { BOARD_STATE } from '../src/row.tsx'
 import { TripPanelFrame } from '../src/trip.tsx'
 
@@ -73,6 +82,46 @@ describe('samePlace', () => {
     expect(same('/trip/t1@20261023?from=10802', '/stop/10802', 'stop')).toBe(false)
     expect(same('/stop/10802?route=61', '/stop/10802', 'stop')).toBe(false)
     expect(same('/stop/10802', '/trip/t1@20261023?from=10803', 'stop')).toBe(false)
+  })
+})
+
+describe("the trip's answer beside the board (R32-RT1)", () => {
+  const q = (o: Partial<PanelState['q']> = {}): PanelState['q'] => ({
+    data: true,
+    dataUpdatedAt: 1,
+    errorUpdateCount: 0,
+    failureCount: 0,
+    isError: false,
+    ...o,
+  })
+  // A non-live seed whose own request is still out, an own live answer, a failure.
+  const waiting = { q: q({ dataUpdatedAt: 0 }), state: 'unavailable' as const, live: false }
+  const live = { q: q(), state: null, live: true }
+  const failed = { q: q({ isError: true, failureCount: 1 }), state: 'offline' as const, live: false }
+
+  it('a trip still waiting beside a live board: Connecting…, not LIVE', () => {
+    expect(withPanel(true, false, q(), null, waiting)).toEqual({ live: false, pending: true })
+  })
+  it("a board's own non-live answer wins over a trip still waiting", () => {
+    expect(withPanel(false, false, q(), 'unavailable', waiting)).toEqual({ live: false, pending: false })
+  })
+  it("the trip's failure wins over a board still waiting", () => {
+    expect(withPanel(false, true, q({ dataUpdatedAt: 0 }), 'unavailable', failed).pending).toBe(false)
+  })
+  it('both live: LIVE', () => {
+    expect(withPanel(true, false, q(), null, live)).toEqual({ live: true, pending: false })
+  })
+  it('no trip open: the board alone', () => {
+    expect(withPanel(true, false, q(), null, null)).toEqual({ live: true, pending: false })
+  })
+})
+
+describe('a board shown from a trip link', () => {
+  it("has only a placeholder: leaving the trip for it runs the board's loader", () => {
+    showBoard('station', null)
+    expect(same('/trip/t1@20261023?from=central', '/station/central', 'station')).toBe(false)
+    showBoard('station', { from: 'central', to: null, filter: null })
+    expect(same('/trip/t1@20261023?from=central', '/station/central', 'station')).toBe(true)
   })
 })
 

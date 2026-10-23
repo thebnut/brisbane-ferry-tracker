@@ -272,11 +272,14 @@ export default function TerminalPage({ loaderData }: Route.ComponentProps) {
   // The trip alone: a phone or tablet, its full page, or a trip with no terminal to show the board of.
   if (trip && alone) return <Outlet />
   if (!terminal) return null
-  showBoard('terminal', {
-    from: terminal.slug,
-    to: loaderData.to ? (terminalById(loaderData.to.id)?.slug ?? null) : null,
-    filter: null,
-  })
+  showBoard(
+    'terminal',
+    loaderData.upcoming && {
+      from: terminal.slug,
+      to: loaderData.to ? (terminalById(loaderData.to.id)?.slug ?? null) : null,
+      filter: null,
+    },
+  )
   return (
     <>
       <FerryBoards
@@ -298,6 +301,7 @@ export default function TerminalPage({ loaderData }: Route.ComponentProps) {
           </Suspense>
         )}
         panelState={trip ? panelState : null}
+        track={search.has('map') ? (search.get('trip') ?? '') : null}
         panel={
           trip ? (
             <PanelProvider value={controls}>

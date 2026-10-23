@@ -55,7 +55,7 @@ function RowLink({ href, className, children, label }: Parameters<LinkRenderer>[
       state={open ? history.state?.usr : boardState(pathname, search)}
       replace={!!open}
       preventScrollReset
-      aria-current={open && href.split('?')[0]?.endsWith(`/${encodeURIComponent(open)}`) ? 'true' : undefined}
+      aria-current={(open && href.includes(`/${encodeURIComponent(open)}?`)) || undefined}
     >
       {children}
     </Link>

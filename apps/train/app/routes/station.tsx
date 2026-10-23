@@ -231,7 +231,10 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   // The trip alone: a phone or tablet, its full page, or a trip with no station to show the board of.
   if (trip && (!wide || !station || search.has(FULL))) return <Outlet />
   if (!station) return null
-  showBoard('station', { from: station.key, to: loaderData.to?.key ?? null, filter: null })
+  showBoard(
+    'station',
+    loaderData.board ? { from: station.key, to: loaderData.to?.key ?? null, filter: null } : null,
+  )
   return (
     <StationBoardPage loaderData={{ ...loaderData, station }} trip={trip} panel={trip ? <Outlet /> : null} />
   )

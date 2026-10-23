@@ -142,7 +142,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
     : { href: at('/'), label: 'Ferry', onClick: backClick }
   const panel = usePanel()
   // Beside the board, this trip's answer counts in the board's header (a trip that has gone claims nothing).
-  usePanelReport(panel, gone || (state == null && raw != null), pending)
+  usePanelReport(panel, q, state, gone)
   const content = (
     <>
       {!online ? (

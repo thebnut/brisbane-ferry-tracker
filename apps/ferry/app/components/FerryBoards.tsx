@@ -19,9 +19,15 @@ import {
   useKept,
 } from '@bft/ui'
 import { BoardHeader, Chip, FilterRow, leavingFrom, NowChip } from '@bft/ui/board-header'
-import { pagePending, sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
+import {
+  type LiveState,
+  pagePending,
+  type SeededQuery,
+  sourceTimeS,
+  usePageCheck,
+} from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { useNavigate } from 'react-router'
 import {
   applyFilter,
   bannerState,
@@ -99,7 +105,9 @@ export interface FerryBoardsProps {
   /** With no trip open and no "To": the terminal's map (the layout's, so the home board's first load has none). */
   idle?: (live: boolean, departures: Departure[]) => ReactNode
   /** The open trip's own answer, which the header counts like a board's (R32-RT1). */
-  panelState?: { live: boolean; pending: boolean } | null
+  panelState?: { q: SeededQuery & { isError: boolean }; state: LiveState; live: boolean } | null
+  /** A trip's "Track on map" (the terminal page's `?map=1&trip=`): the trip to follow on the open map, '' for none. */
+  track?: string | null
   children?: ReactNode
 }
 
@@ -128,6 +136,7 @@ export function FerryBoards({
   panel,
   idle,
   panelState,
+  track,
   children,
 }: FerryBoardsProps) {
   const [trip, setTrip] = useState({ from: serverFrom, to: serverTo })
@@ -142,7 +151,6 @@ export function FerryBoards({
   const [Star, setStar] = useState<typeof FerryStar | null>(null)
   const [Alerts, setAlerts] = useState<typeof BoardAlerts | null>(null)
   const navigate = useNavigate()
-  const { search } = useLocation()
   const openTo = () => {
     // The last try couldn't load the sheet: try again.
     if (toFailed) ToSheet = loadToSheet()
@@ -191,11 +199,10 @@ export function FerryBoards({
   useFixtureCookie(FIXTURE_COOKIE, mode.fixtures, mode.forced === true, mode.allowed === true)
   // A trip's "Track on map" (THE-118 PR 6): the board with its map open, also from the panel beside it (PR 7).
   useEffect(() => {
-    const q = new URLSearchParams(search)
-    if (!q.has('map')) return
+    if (track == null) return
     setShowMap(true)
-    setFollow(q.get('trip'))
-  }, [search])
+    setFollow(track || null)
+  }, [track])
 
   const fromId = trip.from.id
   const toId = trip.to?.id ?? ''
@@ -239,7 +246,9 @@ export function FerryBoards({
   // A board still showing its non-live seed while its own refetch is out (R32-RT1).
   // A board with no answer yet, or still showing its non-live seed while its own refetch is out (R32-RT1), while no
   // board has failed or answered not live: the header says "Connecting…", not OFFLINE, with no "delayed" banner.
-  const pending = pagePending(boards.map((q) => ({ q, state: stateOf(q) })))
+  // The trip beside the board (THE-118 PR 7) counts like a board.
+  const each: Parameters<typeof pagePending>[0] = boards.map((q) => ({ q, state: stateOf(q) }))
+  const pending = pagePending(each.concat(panelState ?? []))
 
   const refresh = () => {
     for (const q of boards) void q.refetch()
@@ -267,7 +276,7 @@ export function FerryBoards({
       <SiteHeader
         onSettings={() => setShowSelector(true)}
         live={live && panelState?.live !== false}
-        pending={pending || !!panelState?.pending}
+        pending={pending}
       />
 
       <main className="board-grid mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-6">

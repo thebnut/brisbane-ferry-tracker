@@ -11,6 +11,7 @@
  * BrisbaneFerry's home board has no panel. The panel's chrome is in `@bft/ui/trip` (TripPanelFrame).
  */
 import { createContext, useContext, useEffect, useRef, useSyncExternalStore } from 'react'
+import { type LiveState, pagePending, type SeededQuery } from './connectivity.ts'
 import { BOARD_STATE } from './row.tsx'
 
 /** Where the board gets its panel. */
@@ -45,30 +46,51 @@ export interface Panel {
   report?: (state: PanelState | null) => void
 }
 
-/** The trip's answer beside the board: live, or still waiting for its first (or a non-live seed's own) answer. */
+/**
+ * The trip's answer beside the board, as one more board for `pagePending` (R32-RT1): a trip still waiting keeps the
+ * header at "Connecting…" only while nothing else has failed or answered not live, and its own failure or non-live
+ * answer wins over a board still waiting. `live`: its own answer is live.
+ */
 export interface PanelState {
+  q: SeededQuery & { isError: boolean }
+  state: LiveState
   live: boolean
-  pending: boolean
 }
 
 /**
- * Beside a board, the trip's own answer counts in the page header like any board's: a trip not live, or still waiting,
- * keeps the header from LIVE. Nothing as its own full page (its header is its own).
+ * Beside a board, the trip's own answer counts in the page header like any board's. Nothing as its own full page (its
+ * header is its own), nor for a trip that has gone (it claims nothing). Reported from its query's primitives, so the
+ * layout's state changes only when the answer does.
  */
-export function usePanelReport(panel: Panel | null, live: boolean, pending: boolean) {
+export function usePanelReport(
+  panel: Panel | null,
+  q: SeededQuery & { isError: boolean },
+  state: LiveState,
+  gone: boolean,
+) {
   const report = panel?.report
+  const has = q.data != null
+  const { isError, failureCount, dataUpdatedAt, errorUpdateCount } = q
   useEffect(() => {
-    if (!report) return
-    report({ live, pending })
+    if (!report || gone) return
+    report({
+      q: { data: has ? true : null, isError, failureCount, dataUpdatedAt, errorUpdateCount },
+      state,
+      live: has && state == null,
+    })
     return () => report(null)
-  }, [report, live, pending])
+  }, [report, gone, has, isError, failureCount, dataUpdatedAt, errorUpdateCount, state])
 }
 
-/** The page header's answer with the panel's: LIVE only if both are, "Connecting…" while either waits. */
-export const withPanel = (live: boolean, pending: boolean, panel: PanelState | null) => ({
-  live: live && panel?.live !== false,
-  pending: pending || !!panel?.pending,
-})
+/** The trip beside the board, for the board's own `pagePending` and LIVE (a page with one board of its own). */
+export const withPanel = (
+  live: boolean,
+  pending: boolean,
+  board: PanelState['q'],
+  state: LiveState,
+  panel: PanelState | null,
+) =>
+  panel ? { live: live && panel.live, pending: pagePending([{ q: board, state }, panel]) } : { live, pending }
 
 const PanelContext = createContext<Panel | null>(null)
 export const PanelProvider = PanelContext.Provider
@@ -177,9 +199,15 @@ const either = (p: Place) => [pair(p), p.to ? `${p.to}>${p.from}` : null]
 /** The board each layout shows (by its URL segment): a trip URL keeps it, so the trip says nothing about it. */
 const shown = new Map<string, Place>()
 
-/** The layout tells which board it shows (its loader's place, as `placeOf` would write it). Client only. */
-export function showBoard(segment: string, place: Omit<Place, 'trip'>) {
-  if (typeof document !== 'undefined') shown.set(segment, { ...place, trip: false })
+/**
+ * The layout tells which board it shows (its loader's place, as `placeOf` would write it), or null while its data is
+ * only a trip URL's placeholder (a trip opened from a link): then leaving the trip for the board runs the board's loader
+ * once, for what only it has (the place's own section and meta). Client only.
+ */
+export function showBoard(segment: string, place: Omit<Place, 'trip'> | null) {
+  if (typeof document === 'undefined') return
+  if (place) shown.set(segment, { ...place, trip: false })
+  else shown.delete(segment)
 }
 
 /**

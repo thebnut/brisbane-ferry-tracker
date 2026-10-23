@@ -180,7 +180,7 @@ export default function StopPage({ loaderData }: Route.ComponentProps) {
   // The trip alone: a phone or tablet, its full page, or a trip with no stop to show the board of.
   if (trip && (!wide || !stopId || search.has(FULL))) return <Outlet />
   if (!stopId) return null
-  showBoard('stop', { from: stopId, to: null, filter: loaderData.route ?? null })
+  showBoard('stop', loaderData.board ? { from: stopId, to: null, filter: loaderData.route ?? null } : null)
   return <StopBoardPage loaderData={{ ...loaderData, stopId }} trip={trip} panel={trip ? <Outlet /> : null} />
 }
 
@@ -253,7 +253,13 @@ function StopBoardPage({
   )
   usePanelFocus(open, controls.close)
   // The header counts the open trip's own answer like a board's (R32-RT1).
-  const head = withPanel(state == null && res?.rtState === 'live', pending, open ? panelState : null)
+  const head = withPanel(
+    state == null && res?.rtState === 'live',
+    pending,
+    q,
+    state,
+    open ? panelState : null,
+  )
   // At 1024 px and wider with no trip open, the panel has the stop's map: never a second one in the column.
   const panelMap = wide && !open
 
