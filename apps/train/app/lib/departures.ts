@@ -11,6 +11,7 @@ import {
   liveState,
   minutesBetween,
   minutesUntil,
+  nextAlike,
   type PageCheck,
   type PatternStop,
   type RowStatus,
@@ -20,7 +21,7 @@ import {
 } from '@bft/ui'
 import { lineLabel } from './lineNames.ts'
 import { cleanStopName } from './names.ts'
-import { type DisplayLine, lineFor, stationKeyOfStop, stripFor } from './network.ts'
+import { callsAfter, type DisplayLine, lineFor, stationKeyOfStop, stripFor } from './network.ts'
 
 /** Effective departure (live estimate if any), epoch s. */
 export const effectiveDep = (d: Departure) => d.estDep ?? d.schedDep
@@ -37,6 +38,41 @@ export function asScheduled(d: Departure): Departure {
     estArrTo: null,
     gps: false,
   }
+}
+
+/** The station keys of a departure's `stopsAfter`, or null when the API didn't send them. */
+const stationsAfter = (d: Departure) =>
+  d.stopsAfter ? d.stopsAfter.map((id) => stationKeyOfStop(id)).filter((k): k is string => !!k) : null
+
+/**
+ * A cancelled row's "next": the first later row you can board on the same line that heads the same way. It must call,
+ * after `from`, at the cancelled train's next stop or its destination (or at `to`, where every train on the board
+ * goes), so a train the other way on the same line is never suggested. None when no train on the board qualifies.
+ */
+export function nextInstead(
+  rows: readonly Departure[],
+  i: number,
+  from: string,
+  to: string | null,
+): Departure | undefined {
+  const d = rows[i]
+  if (!d) return undefined
+  const calls = (r: Departure) =>
+    callsAfter({
+      from,
+      stopsAfter: stationsAfter(r),
+      route: r.route.short,
+      headsign: cleanStopName(r.headsign),
+    })
+  const own = calls(d)
+  const targets = [own[0], own[own.length - 1], to].filter((k): k is string => !!k)
+  if (targets.length === 0) return undefined
+  const line = lineFor(d.route, d.headsign).name
+  return nextAlike(
+    rows,
+    i,
+    (r) => lineFor(r.route, r.headsign).name === line && calls(r).some((k) => targets.includes(k)),
+  )
 }
 
 export interface TrainCard {
@@ -81,10 +117,7 @@ export function trainCard(
   const arr = rawArr != null ? arrivalAfter(dep, rawArr) : null
   const line = lineFor(d.route, d.headsign)
   const headsign = cleanStopName(d.headsign)
-  const stopsAfter = d.stopsAfter
-    ? d.stopsAfter.map((id) => stationKeyOfStop(id)).filter((k): k is string => !!k)
-    : null
-  const strip = stripFor({ from, stopsAfter, route: d.route.short, headsign, to })
+  const strip = stripFor({ from, stopsAfter: stationsAfter(d), route: d.route.short, headsign, to })
   const skips = strip.filter((s) => !s.stops).length
   const badges: BadgeKind[] = []
   if (live) badges.push('live')

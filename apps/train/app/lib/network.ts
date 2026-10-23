@@ -168,6 +168,23 @@ function isSubsequence(sub: string[], seq: string[]): boolean {
 export const MAX_STRIP_DOTS = 14
 
 /**
+ * The stations (keys) a departure from `from` calls at after it: its own `stopsAfter` (station keys), else the busiest
+ * known pattern for its route and headsign. Empty when neither is known.
+ */
+export function callsAfter(opts: {
+  from: string
+  stopsAfter: string[] | null
+  route: string
+  headsign: string
+}): string[] {
+  if (opts.stopsAfter) return opts.stopsAfter
+  const p = LINES.flatMap((l) => l.patterns).find(
+    (x) => x.route === opts.route && x.headsign === opts.headsign && x.stations.includes(opts.from),
+  )
+  return p ? p.stations.slice(p.stations.indexOf(opts.from) + 1) : []
+}
+
+/**
  * Stopping-pattern strip for a departure from `from` (T-Departures): the stations it calls at (`stopsAfter`, station
  * keys) laid on the fullest known pattern of the corridor, so stations an express runs through show as hollow dots.
  * Ends at `to` when given, otherwise at the terminus. Long runs keep the first stations and the end, with a gap.
@@ -182,13 +199,7 @@ export function stripFor(opts: {
   maxDots?: number
 }): PatternStop[] {
   const { from } = opts
-  let after = opts.stopsAfter
-  if (!after) {
-    const p = LINES.flatMap((l) => l.patterns).find(
-      (x) => x.route === opts.route && x.headsign === opts.headsign && x.stations.includes(from),
-    )
-    after = p ? p.stations.slice(p.stations.indexOf(from) + 1) : []
-  }
+  const after = callsAfter(opts)
   const endAt = opts.to && after.includes(opts.to) ? after.indexOf(opts.to) : after.length - 1
   const calls = after.slice(0, endAt + 1)
   if (calls.length === 0) return []
