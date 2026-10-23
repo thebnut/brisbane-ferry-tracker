@@ -63,6 +63,9 @@ export const stationByKey = (key: string | null | undefined): Station | null =>
 export const stationPath = (key: string) => `/station/${key}`
 /** In-app link to a station board (prefixed with BASE inside BrisbaneTransit). */
 export const stationHref = (key: string) => at(stationPath(key))
+/** A station's board, going somewhere when `to` is set. Here, not in StationBoard: pages that only link to a board
+ * (train home, the stations list) don't load the board's chunk for it (THE-118 PR 4 budget offset). */
+export const boardHref = (from: string, to: string | null) => `${stationHref(from)}${to ? `?to=${to}` : ''}`
 
 /** Station and platform code for a platform stop id. */
 export const platformOf = (stopId: string) => byPlatform.get(stopId) ?? null

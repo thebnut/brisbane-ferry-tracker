@@ -109,7 +109,7 @@ test('a cached page: each board claims LIVE only after its own fresh departures 
   })
   await expect(outbound.locator('[data-banner=offline]')).toHaveCount(0)
   await expect(back.locator('[data-banner=offline]')).toHaveCount(1)
-  await expect(back.locator('[data-badge=live]')).toHaveCount(0)
+  await expect(back.locator('[data-dot=live]')).toHaveCount(0)
   // The header pill waits for every board.
   await expect(page.locator('header').getByText('LIVE', { exact: true })).toHaveCount(0)
   release()

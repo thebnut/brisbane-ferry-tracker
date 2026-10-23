@@ -93,7 +93,7 @@ export default defineConfig({
                   // loads after hydration. What's new (WhatsNew, changelog) stays in its route's chunk. The one header and
                   // status line (THE-118 PR 2) are on every page too: in their own chunk they cost ~1 KB gz more. The boards'
                   // alert count (THE-118 PR 3) is only on the boards.
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|[Oo]nboarding|WhatsNew|changelog)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|timeline\.tsx|[Oo]nboarding|WhatsNew|changelog)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
                 },
                 // The bus boards' elements (@bft/ui/bus) that only the Bus pages load. After 'ui', so the modules they
                 // share stay there.
@@ -108,6 +108,12 @@ export default defineConfig({
                 // added ~100–300 B of chunk overhead to every page's first load.
                 { name: 'bus-store', test: /apps[\\/]bus[\\/]app[\\/]lib[\\/](storage|stops|base)\.ts$/ },
                 { name: 'train-store', test: /apps[\\/]train[\\/]app[\\/]lib[\\/](storage|base)\.ts$/ },
+                // The train elements (@bft/ui train.tsx, THE-118 PR 4) ride with the train network, which every train page
+                // loads and no other page's first load does: in a chunk of their own they cost the train pages ~400 B more.
+                {
+                  name: 'network',
+                  test: /apps[\\/]train[\\/]app[\\/]lib[\\/]network\.ts$|packages[\\/]ui[\\/]src[\\/]train\.tsx$/,
+                },
                 { name: 'ferry-store', test: /apps[\\/]ferry[\\/]app[\\/]lib[\\/](storage|names)\.ts$/ },
               ],
             },

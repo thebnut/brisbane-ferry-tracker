@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { DepartureCard } from '../src/board.tsx'
 import { LineStatus } from '../src/states.tsx'
-import { LineChip, ServiceTimeline, StoppingPattern } from '../src/transit.tsx'
+import { ServiceTimeline } from '../src/timeline.tsx'
+import { LineChip, StoppingPattern } from '../src/train.tsx'
 
 describe('StoppingPattern (compact strip)', () => {
   const stops = [
@@ -56,12 +56,5 @@ describe('LineStatus and LineChip', () => {
   it('LineChip renders the name', () => {
     render(<LineChip name="Ferny Grove" color="D53E45" />)
     expect(screen.getByText('Ferny Grove')).toBeInTheDocument()
-  })
-})
-
-describe('DepartureCard as a link', () => {
-  it('renders an anchor with the accessible label', () => {
-    render(<DepartureCard time="2:45 pm" href="/trip/x" label="2:45 pm to Ipswich" />)
-    expect(screen.getByRole('link', { name: '2:45 pm to Ipswich' })).toHaveAttribute('href', '/trip/x')
   })
 })

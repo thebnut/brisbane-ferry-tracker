@@ -14,13 +14,16 @@ Shared React 19 design system in the BrisbaneFerry look (round 2: `docs/design/t
   It `@source`s the component files, so apps get their classes generated.
 - Components (`@bft/ui`): `AppHeader` (ferry: real lockup image with WebP `srcSet`; train/bus/transit: emblem +
   two-line Poppins wordmark), `SettingsPill`, `LivePill`, `StatusStrip`, `PillButton`, `FilterPills`, `BoardHeader`,
-  `StopSelect`, `DepartureCard` (+ `highlighted`), `CountdownChip`, `StatusBadge`, `PrimaryButton`, `SecondaryButton`,
-  `MoreButton`, `BottomNav`, `ModeTabs`, `PlatformTile` (orange "NOW n" change tile), `RouteTile` (orange for
-  Metro/CityGlider), `StoppingPattern` (`compact` dots-only strip with hollow run-through dots and `gapBefore`),
-  `LineChip`, `ServiceTimeline` (vertical line, separate arr/dep, the train as a moving capsule), `BottomSheet` (native `<dialog>` in a portal), `AlertCard`, `LineStatus` (status chips incl. `works` and a text override), `DepartureCard` `href`/`linkAs`,
+  `StopSelect`, `CountdownChip`, `StatusBadge`, `PrimaryButton`, `SecondaryButton`,
+  `MoreButton`, `BottomNav`, `ModeTabs`, `RouteTile` (orange for Metro/CityGlider), `StoppingPattern` (`compact` dots-only strip with hollow run-through dots and `gapBefore`),
+  `LineChip`, `ServiceTimeline` (vertical line, separate arr/dep, the train as a moving capsule), `BottomSheet` (native `<dialog>` in a portal), `AlertCard`, `LineStatus` (status chips incl. `works` and a text override),
   `EmptyState`, `ErrorState`, `OfflineBanner` ("Offline · scheduled", "Live times unavailable", stale, reloading).
-- Bus (`src/bus.tsx`, B-* boards): `BigCountdown` (huge right-aligned "Now" / "4 min", clock past an hour),
-  `RouteDepartureCard`, `SearchField` (orange "Stop name or number"), `ThumbSheet`, `StopResultCard` (PLAT tile, route
+- The departure row (`src/row.tsx`, THE-118 PR 4), one for every board: `DepartureRow` (52 px tile slot, destination,
+  status line with a dot, one word and one fact, `BigCountdown`, and an extra column on wide rows via a container
+  query), `DayDivider`, and the shared rules `statusLine`, `soonestIndex`, `nextAlike`, `dayDividers`. Train elements
+  (`src/train.tsx`: `PlatformLineTile` on the line colour with `textOn`, `StoppingPattern`, `LineChip`) and the train
+  trip's (`src/timeline.tsx`: `PlatformTile`, `ServiceTimeline`) are separate modules, out of the shared chunk.
+- Bus (`src/bus.tsx`, B-* boards): `SearchField` (orange "Stop name or number"), `ThumbSheet`, `StopResultCard` (PLAT tile, route
   chips, distance), `MyStopCard` (next 3 buses), `SegmentedControl`, `NoticeStrip`, `OccupancyMeter`,
   `TripTimeline`, `SkeletonRows`; `RouteTile` gained sizes (sm/md/lg/xl) and `routeTileVariant` now knows CityGlider
   (60, 61) and BUZ routes; `formatBusCountdown`. `MapView` gained a GeoJSON stops layer (`stops`, pin shape, click),

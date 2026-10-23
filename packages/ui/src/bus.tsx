@@ -1,225 +1,13 @@
 /**
- * Bus elements in the ferry look (round 2, B-* boards): huge right-aligned countdown, route departure card,
- * thumb-height search field and sheet, stop result card, "My stops" card, segmented control, trip timeline,
+ * Bus elements in the ferry look (round 2, B-* boards): thumb-height search field and sheet, stop result card, "My stops" card, segmented control, trip timeline,
  * occupancy meter, notice strip and skeleton rows.
  */
 import { type InputHTMLAttributes, type ReactNode, type Ref, useId } from 'react'
-import { StatusBadge } from './board.tsx'
 import { cx } from './cx.ts'
 import { formatBusCountdown } from './format.ts'
 import { Icon } from './icons.tsx'
+import type { LinkRenderer } from './row.tsx'
 import { RouteTile, routeTileVariant } from './transit.tsx'
-
-// ---------------------------------------------------------------------------
-// Countdown
-// ---------------------------------------------------------------------------
-
-export interface BigCountdownProps {
-  /** Whole minutes until departure. */
-  minutes: number
-  /** Clock time under the countdown, e.g. "2:45 pm". */
-  time: string
-  /** "(19/10)" for tomorrow's departures. */
-  dayMarker?: string | null
-  cancelled?: boolean
-  size?: 'md' | 'lg'
-}
-
-/**
- * Huge right-aligned tabular countdown ("Now", "4 min"), orange within 5 minutes; past an hour the clock time is
- * the hero. Cancelled rows show an em dash and strike the clock time.
- */
-export function BigCountdown({
-  minutes,
-  time,
-  dayMarker,
-  cancelled = false,
-  size = 'md',
-}: BigCountdownProps) {
-  const text = cancelled ? '—' : formatBusCountdown(minutes)
-  const soon = !cancelled && minutes <= 5
-  // Narrow phones: a smaller countdown leaves the destination room for two full lines (B2).
-  const big = size === 'lg' ? 'text-[34px]' : 'text-[26px] min-[421px]:text-[30px]'
-  return (
-    <span className="flex shrink-0 flex-col items-end" data-countdown={cancelled ? 'cancelled' : minutes}>
-      {text == null ? (
-        // A clock time ("10:45 pm") is twice as wide as a countdown: smaller on phones so the destination keeps room.
-        <span
-          className={cx(
-            size === 'lg'
-              ? 'text-[26px] sm:text-[34px]'
-              : 'text-[20px] min-[421px]:text-[24px] sm:text-[30px]',
-            'flex flex-col items-end leading-none font-extrabold whitespace-nowrap tabular',
-          )}
-        >
-          {time}
-          {/* Its own line under the time, so a late-night "(19/10)" doesn't widen the column (B2). */}
-          {dayMarker ? (
-            <span className="mt-1 text-sm font-bold text-ferry-orange-deep">{dayMarker}</span>
-          ) : null}
-        </span>
-      ) : (
-        <>
-          <span
-            className={cx(
-              big,
-              'leading-none font-extrabold tabular',
-              cancelled
-                ? 'text-gray-400'
-                : soon
-                  ? 'text-ferry-orange-aa dark:text-ferry-sunset'
-                  : 'text-charcoal dark:text-night-text',
-            )}
-          >
-            {cancelled ? (
-              <>
-                <span aria-hidden="true">{text}</span>
-                <span className="sr-only">Cancelled</span>
-              </>
-            ) : (
-              text
-            )}
-          </span>
-          <span
-            className={cx(
-              'text-xs text-sched-text tabular dark:text-night-text/70',
-              cancelled && 'line-through',
-            )}
-          >
-            {time}
-            {dayMarker ? <span className="ml-1 font-bold text-ferry-orange-deep">{dayMarker}</span> : null}
-          </span>
-        </>
-      )}
-    </span>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Departure card
-// ---------------------------------------------------------------------------
-
-export type NoteTone = 'neutral' | 'good' | 'late' | 'info' | 'warning'
-
-const NOTE_TONE: Record<NoteTone, string> = {
-  neutral: 'text-sched-text dark:text-night-text/70',
-  good: 'text-chip-later-text dark:text-green-300',
-  late: 'text-ferry-orange-aa dark:text-ferry-sunset',
-  info: 'text-aqua-text dark:text-ferry-aqua-light',
-  warning: 'text-orange-800 dark:text-ferry-sunset',
-}
-
-export interface RouteDepartureCardProps {
-  route: string
-  routeLong?: string
-  /** Headsign, e.g. "UQ Lakes". */
-  destination: string
-  status: 'live' | 'scheduled' | 'cancelled' | 'skipped' | 'unknown'
-  /** Small note next to the badge: "On time", "+2 min late", "GPS · Few seats". */
-  note?: string | null
-  noteTone?: NoteTone
-  minutes: number
-  time: string
-  dayMarker?: string | null
-  /** Busway platform code, shown as a small chip. */
-  platform?: string | null
-  highlighted?: boolean
-  href?: string
-  onSelect?: () => void
-  /** Accessible summary for the link/button. */
-  label?: string
-  /** Rendered by the app's router (React Router Link) when given. */
-  renderLink?: (props: { href: string; className: string; children: ReactNode; label?: string }) => ReactNode
-}
-
-/** One departure on a stop board (B-Departures): route tile, destination, badge + note, big countdown. */
-export function RouteDepartureCard({
-  route,
-  routeLong,
-  destination,
-  status,
-  note,
-  noteTone = 'neutral',
-  minutes,
-  time,
-  dayMarker,
-  platform,
-  highlighted = false,
-  href,
-  onSelect,
-  label,
-  renderLink,
-}: RouteDepartureCardProps) {
-  const cancelled = status === 'cancelled'
-  const className = cx(
-    'flex min-h-[76px] w-full items-center gap-2.5 rounded-card px-3 py-2.5 text-left no-underline transition min-[421px]:gap-3 min-[421px]:px-3.5 md:min-h-24 md:px-5',
-    highlighted
-      ? 'bg-hot border-2 border-ferry-orange shadow-hot'
-      : 'border-2 border-transparent bg-white/90 shadow-card hover:border-ferry-orange/40 dark:bg-night-card',
-    cancelled && 'opacity-90',
-  )
-  const children = (
-    <>
-      <RouteTile
-        route={route}
-        variant={routeTileVariant(route, routeLong)}
-        size="lg"
-        className="max-[420px]:h-11 max-[420px]:min-w-13 max-[420px]:text-xl"
-      />
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        {/* Two lines (three on a narrow phone beside a wide countdown) before an ellipsis: a long headsign must never
-            be cut on a phone (B2). */}
-        <span
-          data-testid="destination"
-          className={cx(
-            'line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text',
-            cancelled && 'line-through decoration-2',
-          )}
-        >
-          {destination}
-        </span>
-        <span className="flex flex-wrap items-center gap-1.5">
-          <StatusBadge kind={status} />
-          {platform ? (
-            <span className="rounded-full bg-ferry-light-blue px-2 py-0.5 text-[11px] font-bold text-aqua-text dark:bg-night-2 dark:text-ferry-aqua-light">
-              Platform {platform}
-            </span>
-          ) : null}
-          {note ? <span className={cx('text-xs font-semibold', NOTE_TONE[noteTone])}>{note}</span> : null}
-        </span>
-      </span>
-      <BigCountdown minutes={minutes} time={time} dayMarker={dayMarker} cancelled={cancelled} />
-    </>
-  )
-  const attrs = { 'data-highlighted': highlighted || undefined, 'data-status': status }
-  if (href) {
-    return (
-      <div {...attrs} data-testid="departure">
-        {renderLink ? (
-          renderLink({ href, className, children, label })
-        ) : (
-          <a href={href} className={className} aria-label={label}>
-            {children}
-          </a>
-        )}
-      </div>
-    )
-  }
-  if (onSelect) {
-    return (
-      <div {...attrs} data-testid="departure">
-        <button type="button" onClick={onSelect} className={className} aria-label={label}>
-          {children}
-        </button>
-      </div>
-    )
-  }
-  return (
-    <div {...attrs} data-testid="departure" className={className}>
-      {children}
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Search
@@ -329,7 +117,7 @@ export interface StopResultCardProps {
   distance?: string | null
   best?: boolean
   href: string
-  renderLink?: RouteDepartureCardProps['renderLink']
+  renderLink?: LinkRenderer
 }
 
 /** One search or nearby result (B-Search): platform tile, name, stop number, route chips, distance. */
@@ -427,7 +215,7 @@ export interface MyStopCardProps {
   highlighted?: boolean
   /** Shown when there are no departures (loading, none tonight, offline). */
   empty?: ReactNode
-  renderLink?: RouteDepartureCardProps['renderLink']
+  renderLink?: LinkRenderer
 }
 
 /** A saved stop with its next 3 routes (B-Home). */
@@ -562,7 +350,7 @@ export function SegmentedControl<T extends string>({
 export interface NoticeStripProps {
   children: ReactNode
   href?: string
-  renderLink?: RouteDepartureCardProps['renderLink']
+  renderLink?: LinkRenderer
 }
 
 /** Amber detour/alert strip linking to /alerts (B-Departures). */

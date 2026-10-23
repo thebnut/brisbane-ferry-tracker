@@ -116,7 +116,7 @@ test("a cached page: the header and an inbound departure wait for the inbound bo
   await page.waitForTimeout(500)
   // Outbound is confirmed, inbound is still the cached copy: no LIVE in the header.
   await expect(page.locator('header').getByText('LIVE', { exact: true })).toHaveCount(0)
-  await expect(page.locator('[data-board=inbound] [data-badge=live]')).toHaveCount(0)
+  await expect(page.locator('[data-board=inbound] [data-dot=live]')).toHaveCount(0)
   // An inbound departure's details follow the inbound board: no LIVE or GPS from the cached row.
   await page.locator('[data-board=inbound]').getByTestId('departure').first().click()
   const sheet = page.getByRole('dialog')
