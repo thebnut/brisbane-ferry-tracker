@@ -10,6 +10,7 @@ import {
   type OfflineCopy,
   pollEvery,
   replacesBoard,
+  seedUpdatedAt,
 } from '@bft/ui/connectivity'
 import { QueryClient, type QueryFunctionContext, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
@@ -111,7 +112,7 @@ export function departuresOptions(
       }
     },
     initialData: initial ?? undefined,
-    initialDataUpdatedAt: initial?.generatedAt,
+    initialDataUpdatedAt: seedUpdatedAt(initial),
     refetchInterval: poll,
   }
 }
@@ -138,7 +139,7 @@ export function useTrip(
     queryKey: ['train', 'trip', mode.fixtures, mode.rt, tripInstance],
     queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance, { signal }),
     initialData: initial ?? undefined,
-    initialDataUpdatedAt: initial?.generatedAt,
+    initialDataUpdatedAt: seedUpdatedAt(initial),
     // When the WebSocket prototype pushes updates, polling is off (see useTripSocket).
     refetchInterval: enabled ? poll : false,
   })
@@ -162,7 +163,7 @@ export function useAlerts(
     queryKey: ['train', 'alerts', mode.fixtures, mode.rt],
     queryFn: ({ signal }) => fetchAlerts(fetcher, { signal }),
     initialData: initial ?? undefined,
-    initialDataUpdatedAt: initial?.generatedAt,
+    initialDataUpdatedAt: seedUpdatedAt(initial),
     refetchInterval: pollAlerts,
   })
 }
