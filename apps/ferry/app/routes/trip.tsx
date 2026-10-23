@@ -16,6 +16,7 @@ import {
   formatClock,
   formatDuration,
   Icon,
+  isExtraService,
   liveState,
   minutesBetween,
   minutesUntil,
@@ -207,10 +208,12 @@ function TripBody({
   const arr = alight ? arrivalOf(alight) : null
   const end = b < stops.length - 1 ? arrivalOf(last) : null
   const cancelled = trip.status === 'cancelled'
+  const extra = isExtraService(trip.tripInstance)
   const status = statusLine({
     status: cancelled ? 'cancelled' : board.status,
     schedDep: sched ?? undefined,
     estDep: board.estDep,
+    extra,
   })
   const minutes = dep != null && !cancelled ? minutesUntil(dep, now) : null
   // Null once the trip is live-matched to a vessel and fresh (tripAsTimetable drops it otherwise).
@@ -219,6 +222,7 @@ function TripBody({
   const late = board.status === 'live' && sched != null ? delayText(sched, board.estDep) : null
   const nameOf = (s: TripStop) => cleanStopName(tripStopName(s.stopId, s.name))
 
+  const clock = (t: number | null) => (t != null ? formatClock(t) : null)
   const nowS = now / 1000
   const rows: TimelineStop[] = stops.map((s, i) => {
     const t = timeOf(s)
@@ -229,9 +233,11 @@ function TripBody({
       name: nameOf(s),
       kind: passes ? 'skip' : past ? 'passed' : i === stops.length - 1 ? 'terminus' : 'stop',
       note: i === b ? 'You board' : i === a ? 'You get off' : passes ? 'Not stopping' : undefined,
-      arr: !passes && i > 0 && s.schedArr != null ? formatClock(s.estArr ?? s.schedArr) : null,
-      dep: !passes && s.schedDep != null ? formatClock(s.estDep ?? s.schedDep) : null,
-      delay: s.status === 'live' ? delayText(s.schedDep ?? s.schedArr ?? 0, s.estDep ?? s.estArr) : null,
+      // An extra service has no timetable: its live times, and no delay.
+      arr: !passes && i > 0 && (extra || s.schedArr != null) ? clock(s.estArr ?? s.schedArr) : null,
+      dep:
+        !passes && (extra ? i < stops.length - 1 : s.schedDep != null) ? clock(s.estDep ?? s.schedDep) : null,
+      delay: s.status === 'live' ? delayText(s.schedDep ?? s.schedArr, s.estDep ?? s.estArr) : null,
       cancelled: s.status === 'cancelled',
     }
   })

@@ -44,6 +44,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Trip pages leave out details that aren’t known, instead of showing “—” or “Not reported”.',
       'On a computer, tapping a departure opens its trip beside the board, so you can check one service after another. Back or Esc closes it, and “Open full page” gives it the whole screen.',
       'With a destination set on a computer, the trips back the other way sit beside the board. Without one, there’s a small map of the stop and what’s heading there.',
+      'Extra services run outside the timetable now show where they’re going and their platform, and say “Extra service” instead of a delay.',
     ],
   },
   {

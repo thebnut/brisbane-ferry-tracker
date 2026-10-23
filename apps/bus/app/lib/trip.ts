@@ -6,7 +6,8 @@ import type { RouteFile } from './data-contract.ts'
 import { stopCode } from './stops.ts'
 
 export const at = (s: TripStop) => s.estDep ?? s.schedDep ?? s.estArr ?? s.schedArr ?? 0
-export const schedAt = (s: TripStop) => s.schedDep ?? s.schedArr ?? 0
+/** The timetabled time, or null for an extra service (no timetable, so no delay is measured from it). */
+export const schedAt = (s: TripStop) => s.schedDep ?? s.schedArr ?? null
 
 /** True when the API left a stop unnamed (an older API, or a stop missing from its stop index). */
 export const needsStopNames = (trip: TripResponse | null): trip is TripResponse =>
