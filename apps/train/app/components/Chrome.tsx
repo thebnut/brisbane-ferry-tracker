@@ -53,18 +53,27 @@ function FixtureNotice() {
 
 /**
  * Boards report whether their data is live and fresh; the header pill is LIVE only while every one is. A board still
- * waiting for its first answer reports 'pending': not live either.
+ * waiting for its first answer reports 'pending': not live either. 'failed-live': live data still on screen from before
+ * a request that failed (or is being retried): live for the pill, as before, but a failure no waiting board may hide
+ * (R32-RT1, Codex r3).
  */
-type Report = boolean | 'pending'
+type Report = boolean | 'pending' | 'failed-live'
 const LiveReport = createContext<((key: string, live: Report | null) => void) | null>(null)
 
 /**
  * Tell the page header whether this board's data is live (shared liveState), or that it has no answer yet (no data, no
  * error: BrisbaneTransit's header says "Connecting…" then, THE-118). Reported after hydration.
  */
-export function useReportLive(key: string, live: boolean, pending = false) {
+export function useReportLive(
+  key: string,
+  live: boolean,
+  pending = false,
+  /** The board's latest request failed or is being retried (isError, failureCount). */
+  failed = false,
+) {
   const report = useContext(LiveReport)
-  const value: Report = pending ? 'pending' : live
+  // A failure (even while retried) is never pending, as @bft/ui pagePending.
+  const value: Report = failed ? (live ? 'failed-live' : false) : pending ? 'pending' : live
   useEffect(() => {
     report?.(key, value)
     return () => report?.(key, null)
@@ -110,12 +119,16 @@ export function Shell({
   // Never LIVE while offline, nor over data too old to call live on any board of the page (smoke test T5).
   const online = useOnline()
   const reported = Object.values(reports)
-  const live = online && (reported.length ? reported.every((r) => r === true) : dataLive !== false)
+  const live =
+    online &&
+    (reported.length ? reported.every((r) => r === true || r === 'failed-live') : dataLive !== false)
   const state: LiveProps = {
     live,
-    // Like `live`: from the page until its boards report, then theirs. A board whose own answer isn't live wins: a
-    // board still waiting never hides another's failure (R32-RT1).
-    pending: reported.length ? reported.includes('pending') && !reported.includes(false) : pending,
+    // Like `live`: from the page until its boards report, then theirs. A board whose own answer isn't live, or whose
+    // request failed, wins: a board still waiting never hides another's failure (R32-RT1).
+    pending: reported.length
+      ? reported.includes('pending') && reported.every((r) => r === 'pending' || r === true)
+      : pending,
     idle: dataLive === undefined && reported.length === 0,
   }
   return (

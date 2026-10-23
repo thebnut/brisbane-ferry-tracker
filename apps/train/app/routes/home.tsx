@@ -136,7 +136,12 @@ function useLiveRows(key: string, q: ReturnType<typeof useDepartures>, nowMs: nu
   // The header pill is LIVE only while every board on the page is.
   // No data is never live (a first request that failed with an HTTP error leaves the state null).
   // A non-live seed whose own refetch is still out waits too (R32-RT1).
-  useReportLive(key, state == null && q.data != null, (!q.data && !q.isError) || awaitingSeedAnswer(q, state))
+  useReportLive(
+    key,
+    state == null && q.data != null,
+    (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
+    q.isError || q.failureCount > 0,
+  )
   return visibleRows(q.data?.departures ?? [], state, nowMs)
 }
 

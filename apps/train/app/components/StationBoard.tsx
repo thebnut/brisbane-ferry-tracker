@@ -174,6 +174,7 @@ export function StationBoard({
     `board:${from.key}>${to?.key ?? ''}`,
     state == null && res != null,
     (!res && !q.isError) || waiting,
+    q.isError || q.failureCount > 0,
   )
 
   const cards = useMemo(() => {
