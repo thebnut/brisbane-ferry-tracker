@@ -8,6 +8,7 @@ import lockup489 from '@bft/ui/assets/ferry-lockup.webp?url'
 import lockup236 from '@bft/ui/assets/ferry-lockup-236.webp?url'
 import lockup360 from '@bft/ui/assets/ferry-lockup-360.webp?url'
 import type { ReactNode } from 'react'
+import { useOnline } from '../lib/useNow.ts'
 
 export interface LiveProps {
   /** Is the page's data live? Undefined: a page without live data. */
@@ -16,7 +17,8 @@ export interface LiveProps {
   pending?: boolean
 }
 
-export function SiteHeader({ onSettings, live = true }: LiveProps & { onSettings?: () => void }) {
+export function SiteHeader({ onSettings, live }: LiveProps & { onSettings?: () => void }) {
+  const online = useOnline()
   return (
     <AppHeader
       mode="ferry"
@@ -24,7 +26,9 @@ export function SiteHeader({ onSettings, live = true }: LiveProps & { onSettings
       logoSrcSet={`${lockup236} 236w, ${lockup360} 360w, ${lockup489} 489w`}
     >
       {onSettings ? <SettingsPill onClick={onSettings} /> : null}
-      <LivePill live={live} />
+      {/* Offline wins; a page with no live data of its own claims nothing while online (BrisbaneTransit's
+          connectionState). */}
+      {!online ? <LivePill live={false} /> : live === undefined ? null : <LivePill live={live} />}
     </AppHeader>
   )
 }
