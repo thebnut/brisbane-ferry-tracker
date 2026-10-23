@@ -10,11 +10,16 @@
  * Synthetic RT, per trip instance (stable hash): 1 in 15 cancelled; 2 in 10 late by 2–4 min, 1 in 10 a minute
  * early; 1 in 5 moved to another platform at the first multi-platform station it calls at; 1 in 20 skips its third
  * stop. Query `rt=unavailable|stale|reloading` forces an rtState for the banners.
+ *
+ * One unplanned train (smoke round 35) runs whatever the time of day: a Shorncliffe line service added outside the
+ * timetable (GTFS-RT ADDED), with no headsign, leaving Central from platform 5 for Roma Street 2–12 minutes from now.
  */
 import {
   type Alert,
   AlertsResponse,
   addDays,
+  addedTripHeadsign,
+  addedTripStops,
   currentServiceDate,
   type DepartureStatus,
   DeparturesResponse,
@@ -266,6 +271,8 @@ function buildRt(fx: FixtureDay, dates: string[], nowS: number): RtSnapshot {
       })
     }
   }
+  const extra = unplannedTrain(idx, nowS)
+  if (extra) trips[extra.key] = extra
   return {
     header: {
       schemaVersion: SCHEMA_VERSION,
@@ -279,6 +286,44 @@ function buildRt(fx: FixtureDay, dates: string[], nowS: number): RtSnapshot {
     vehicles,
     alerts: [],
   }
+}
+
+/** The fixture's unplanned train's trip key. */
+export const UNPLANNED_TRIP = 'rt:FX-UNPLANNED'
+
+/**
+ * The unplanned train: Bowen Hills, Fortitude Valley, Central (platform 5), Roma Street, as TransLink sends an ADDED
+ * trip: live times only and no trip_headsign. It leaves Central at the next 10-minute mark at least 2 minutes away.
+ */
+function unplannedTrain(idx: TripIndexDay, nowS: number): RtTrip | null {
+  const route = idx.routes.find((r) => r.short === 'SHBR')
+  if (!route) return null
+  const central = Math.ceil((nowS + 120) / 600) * 600
+  const key = `${UNPLANNED_TRIP}@${currentServiceDate(central * 1000)}`
+  const call = (stopId: string, seq: number, arr: number, dep = arr) => ({ stopId, seq, arr, dep })
+  return {
+    key,
+    rel: 'ADDED',
+    ts: nowS - 12,
+    updates: [],
+    added: {
+      route,
+      headsign: '',
+      directionId: -1,
+      stops: [
+        call('600000', 1, central - 360),
+        call('600013', 2, central - 180),
+        call('600019', 3, central - 30, central),
+        call('600029', 4, central + 240),
+      ],
+    },
+  }
+}
+
+/** A train stop id's station name, as the API names an unplanned train after its last stop. */
+const stationNameOf = (stopId: string) => {
+  const station = platformOf(stopId)?.station
+  return station ? `${station.name} station` : undefined
 }
 
 /** Three standing alerts in the T-Alerts shape: a platform change, minor delays and weekend works. */
@@ -390,6 +435,7 @@ export async function handleFixtureApi(url: URL, nowMs: number): Promise<Respons
       withStopsAfter: true,
       boardingStopIds: new Set(station.platforms.map((p) => p.id)),
       stationPlatforms: stationPlatforms(key),
+      stopName: stationNameOf,
     })
     return json(
       DeparturesResponse.parse({
@@ -405,6 +451,26 @@ export async function handleFixtureApi(url: URL, nowMs: number): Promise<Respons
   m = /^\/v1\/train\/trips\/([^/]+)$/.exec(path)
   if (m) {
     const key = decodeURIComponent(m[1] as string)
+    if (key.startsWith('rt:')) {
+      // An added trip, as the API answers it: live times, no timetable, named after its last stop.
+      const added = rtState === 'live' ? rt.trips[key]?.added : undefined
+      if (!added) return json({ error: 'unknown trip', detail: key }, 404)
+      return json(
+        TripResponse.parse({
+          ...env,
+          mode: 'train',
+          tripInstance: key,
+          route: added.route,
+          headsign: addedTripHeadsign(added, stationNameOf),
+          status: 'live',
+          vehicle: null,
+          stops: addedTripStops(added).map((s) => {
+            const p = platformOf(s.stopId)
+            return { ...s, platform: p?.code ?? null, ...(p ? { stationKey: p.station.key } : {}) }
+          }),
+        }),
+      )
+    }
     const { tripId, serviceDate } = parseTripInstanceKey(key)
     const t = fx.tripIndex.trips.find((x) => x.id === tripId)
     if (!t || !dates.includes(serviceDate)) return json({ error: 'unknown trip', detail: key }, 404)

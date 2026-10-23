@@ -18,6 +18,7 @@ import {
   formatClock,
   formatDuration,
   Icon,
+  isExtraService,
   liveState,
   minutesBetween,
   minutesUntil,
@@ -217,7 +218,7 @@ function TripBody({
   const fromStop = trip.stops[view.board]
   const last = trip.stops[trip.stops.length - 1]
   const dep = fromStop ? at(fromStop) : 0
-  const sched = fromStop ? schedAt(fromStop) : 0
+  const sched = fromStop ? schedAt(fromStop) : null
   const cancelled = trip.status === 'cancelled'
   const late = fromStop?.status === 'live' ? delayText(sched, fromStop.estDep ?? fromStop.estArr) : null
   const end = last && last !== fromStop ? (last.estArr ?? last.schedArr) : null
@@ -243,6 +244,7 @@ function TripBody({
           status: cancelled ? 'cancelled' : (fromStop?.status ?? trip.status),
           schedDep: sched || undefined,
           estDep: fromStop?.estDep ?? fromStop?.estArr,
+          extra: isExtraService(trip.tripInstance),
         })}
         gps={!!v}
         vehicle={v?.label ? `Bus ${v.label}` : null}

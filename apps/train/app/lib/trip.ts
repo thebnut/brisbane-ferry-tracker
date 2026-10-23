@@ -4,7 +4,7 @@
  * train's position as a fractional row index for the moving capsule.
  */
 import type { TripResponse, TripStop } from '@bft/core/contract'
-import { delayText, formatClock } from '@bft/ui'
+import { delayText, formatClock, isExtraService } from '@bft/ui'
 import type { TimelineKind, TimelineStop } from '@bft/ui/trip'
 import { cleanStopName } from './names.ts'
 import { corridorFor, platformOf, stationByKey, stationKeyOfStop } from './network.ts'
@@ -31,6 +31,8 @@ export function buildTimeline(
 ): { rows: TripRow[]; position: number | null; positionLabel: string | null } {
   const calls = trip.stops.map((s) => s.stationKey ?? stationKeyOfStop(s.stopId) ?? s.stopId)
   const corridor = corridorFor(calls)
+  // An extra service has no timetable: its live times, and no delay.
+  const extra = isExtraService(trip.tripInstance)
   const rows: TripRow[] = []
   let ci = 0
   for (const key of corridor) {
@@ -74,9 +76,9 @@ export function buildTimeline(
       name,
       kind: skipped ? 'skip' : kind,
       note: note ? note.charAt(0).toUpperCase() + note.slice(1) : undefined,
-      arr: stop.schedArr != null && ci > 1 ? formatClock(arr as number) : null,
-      dep: !last && stop.schedDep != null ? formatClock(dep as number) : null,
-      delay: stop.status === 'live' ? delayText(stop.schedDep ?? stop.schedArr ?? 0, dep ?? arr) : null,
+      arr: (extra || stop.schedArr != null) && ci > 1 && arr != null ? formatClock(arr) : null,
+      dep: !last && (extra || stop.schedDep != null) && dep != null ? formatClock(dep) : null,
+      delay: stop.status === 'live' ? delayText(stop.schedDep ?? stop.schedArr, dep ?? arr) : null,
       cancelled,
     })
   }

@@ -5,7 +5,7 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { formatClock, Icon, minutesUntil } from '@bft/ui'
+import { formatClock, Icon, isExtraService, minutesUntil } from '@bft/ui'
 import { type MiniDeparture, MyStopCard } from '@bft/ui/bus'
 import { pagePending, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { Link } from 'react-router'
@@ -71,9 +71,11 @@ function miniRows(res: DeparturesResponse | undefined, nowMs: number): MiniDepar
     const status =
       d.status === 'cancelled'
         ? 'CANCELLED'
-        : d.status === 'live'
-          ? `LIVE · ${delay >= 1 ? `+${delay} min late` : delay <= -1 ? `${-delay} min early` : 'on time'}`
-          : 'SCHEDULED'
+        : d.status !== 'live'
+          ? 'SCHEDULED'
+          : isExtraService(d.tripInstance)
+            ? 'LIVE · Extra service'
+            : `LIVE · ${delay >= 1 ? `+${delay} min late` : delay <= -1 ? `${-delay} min early` : 'on time'}`
     return {
       key: `${d.tripInstance}:${d.stopSequence}`,
       route: d.route.short,

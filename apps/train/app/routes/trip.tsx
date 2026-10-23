@@ -14,6 +14,7 @@ import {
   formatClock,
   formatDuration,
   Icon,
+  isExtraService,
   liveState,
   minutesBetween,
   minutesUntil,
@@ -47,7 +48,7 @@ import { at, BASE } from '../lib/base.ts'
 import { validateTrip } from '../lib/contract.server.ts'
 import { lineLabel } from '../lib/lineNames.ts'
 import { cleanStopName } from '../lib/names.ts'
-import { boardHref, lineFor, stationByKey } from '../lib/network.ts'
+import { boardHref, lineFor, stationByKey, stationKeyOfStop } from '../lib/network.ts'
 import { useFetcher, useTrip } from '../lib/queries.ts'
 import { loaderEnv, settle, siteInfo } from '../lib/server.server.ts'
 import { buildTimeline, stopPlatform, vehicleStatusText } from '../lib/trip.ts'
@@ -105,7 +106,7 @@ function Frame({ panel, ...props }: ComponentProps<typeof Shell> & { panel: Pane
 export const meta: Route.MetaFunction = ({ loaderData }) => {
   const t = loaderData?.trip
   const title = t
-    ? `${formatClock(t.stops[0]?.schedDep ?? 0)} to ${cleanStopName(t.headsign)} | BrisbaneTrain`
+    ? `${formatClock(t.stops[0]?.schedDep ?? t.stops[0]?.estDep ?? 0)} to ${cleanStopName(t.headsign)} | BrisbaneTrain`
     : 'Service | BrisbaneTrain'
   // Service pages are per-day and change every few seconds: never indexed.
   return [{ title }, { name: 'robots', content: 'noindex' }]
@@ -219,6 +220,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
     schedDep: sched ?? undefined,
     estDep: board?.estDep,
     platformFrom: changed,
+    extra: isExtraService(trip.tripInstance),
   })
   const minutes = dep != null && !cancelled ? minutesUntil(dep, nowMs) : null
   const v = trip.vehicle
@@ -256,7 +258,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
                 ? {
                     label: 'Journey',
                     value: formatDuration(Math.max(0, minutesBetween(dep, end))),
-                    sub: `to ${cleanStopName(stationByKey(last.stationKey ?? '')?.name ?? last.name ?? trip.headsign)}`,
+                    sub: `to ${cleanStopName(stationByKey(last.stationKey ?? stationKeyOfStop(last.stopId) ?? '')?.name ?? last.name ?? trip.headsign)}`,
                   }
                 : null,
             occupancyFact(v?.occupancy),

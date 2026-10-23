@@ -5,6 +5,8 @@
 import {
   type AlertsResponse,
   addDays,
+  addedTripHeadsign,
+  addedTripStops,
   BUILD_HEADER,
   buildId,
   cityStopKeys,
@@ -409,6 +411,8 @@ export function createApp(deps: AppDeps): Hono<Env> {
         rtState: r.rtState,
         boardingStopIds: stop.ids,
         ...(routes ? { routes } : {}),
+        // An ADDED trip without a headsign is named after its last stop (smoke round 35).
+        ...(stations ? { stopName: (id: string) => stopNameFor(stations, id) } : {}),
       }
       if (mode === 'train') {
         mergeOptions.withStopsAfter = true
@@ -498,28 +502,20 @@ export function createApp(deps: AppDeps): Hono<Env> {
     if (tripInstance.startsWith('rt:')) {
       const added = rtTrip?.added
       if (!added || r.rtState !== 'live') return c.json({ error: 'unknown trip', detail: tripInstance }, 404)
+      // Every mode needs the stop index here: an unplanned train has no headsign, so it is named after its last stop.
+      const stations = await stationsFor(deps.store, mode, generation, budget.signal).catch(() => null)
+      const stops = addedTripStops(added).map((s) =>
+        mode === 'train' ? { ...tripStopPlatform(stations, s.stopId, undefined), ...s } : s,
+      )
       body = {
         ...envelope(generation, [serviceDate], r),
         mode,
         tripInstance,
         route: added.route,
-        headsign: added.headsign,
+        headsign: addedTripHeadsign(added, (id) => stopNameFor(stations, id)),
         status: 'live',
         vehicle,
-        stops: await named(
-          added.stops.map((s) => ({
-            stopId: s.stopId,
-            stopSequence: s.seq,
-            schedArr: null,
-            schedDep: null,
-            estArr: s.arr,
-            // Same rule as predictStop: a vehicle can't leave a stop before it arrives there.
-            estDep: Math.max(s.dep, s.arr),
-            status: 'live',
-            pickup: 0,
-            dropOff: 0,
-          })),
-        ),
+        stops: await named(stops),
       }
     } else {
       const index = await deps.store.getIndex(generation, mode, budget)

@@ -1,7 +1,7 @@
 import type { TripResponse, TripStop } from '@bft/core/contract'
 import { describe, expect, it } from 'vitest'
 import type { RouteFile } from '../app/lib/data-contract.ts'
-import { needsStopNames, stopNamesFor, timeline, unnamedStop } from '../app/lib/trip.ts'
+import { at, needsStopNames, schedAt, stopNamesFor, timeline, unnamedStop } from '../app/lib/trip.ts'
 
 const T0 = 1_792_300_000
 const stop = (id: string, i: number): TripStop => ({
@@ -113,5 +113,21 @@ describe('trip timeline', () => {
     expect(rows[0]?.note).toBeUndefined()
     expect(rows[1]?.note).toBe('Stop 000064')
     expect(rows[2]?.note).toBeUndefined()
+  })
+})
+
+describe('an extra service (R35-U1)', () => {
+  it('has no timetabled time to measure a delay from, only its live time', () => {
+    const live: TripStop = {
+      ...stop('a', 0),
+      schedArr: null,
+      schedDep: null,
+      estArr: T0,
+      estDep: T0 + 30,
+      status: 'live',
+    }
+    expect(schedAt(live)).toBeNull()
+    expect(at(live)).toBe(T0 + 30)
+    expect(schedAt(stop('a', 0))).toBe(T0)
   })
 })

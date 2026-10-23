@@ -133,9 +133,15 @@ export function statusNote(live: boolean, schedDepS: number, estDepS: number | n
   return `Sched Dept: ${formatClock(schedDepS)}`
 }
 
-/** "3 min late" / "2 min early" / null when both show the same clock minute (the difference of the shown times). */
-export function delayText(schedDepS: number, estDepS: number | null): string | null {
-  if (estDepS == null) return null
+/**
+ * "3 min late" / "2 min early" / null when both show the same clock minute (the difference of the shown times). Null
+ * without a timetabled time (an extra service): never a delay measured from 0 ("29879349 min late", smoke round 35).
+ */
+export function delayText(
+  schedDepS: number | null | undefined,
+  estDepS: number | null | undefined,
+): string | null {
+  if (schedDepS == null || estDepS == null) return null
   const d = minutesBetween(schedDepS, estDepS)
   if (d >= 1) return `${d} min late`
   if (d <= -1) return `${-d} min early`
@@ -171,3 +177,9 @@ export function formatDistance(m: number): string {
   if (m < 1000) return `${Math.max(10, Math.round(m / 10) * 10)} m`
   return `${(m / 1000).toFixed(1)} km`
 }
+
+/**
+ * An extra service: a trip added outside the timetable (GTFS-RT ADDED or DUPLICATED), keyed `rt:{tripId}@{date}`.
+ * Its times are live estimates with no timetable, so it is never "late", "early" or "on time".
+ */
+export const isExtraService = (tripInstance: string) => tripInstance.startsWith('rt:')

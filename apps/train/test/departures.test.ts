@@ -54,6 +54,17 @@ describe('trainCard', () => {
     const going = trainCard(dep({ schedArrTo: nowS + 16 * 60 }), NOW, 'central', 'ferny-grove')
     expect(going).toMatchObject({ fact: 'arr 8:16 am', lineFact: 'Ferny Grove line' })
   })
+  it('an unplanned train (rt: key) says "Extra service", never on time, late or early (R35-U1)', () => {
+    const c = trainCard(
+      dep({ tripInstance: 'rt:UNPLANNED@20261020', headsign: 'Roma Street station', platform: '5' }),
+      NOW,
+      'central',
+      null,
+    )
+    expect(c.status).toMatchObject({ text: 'Live · Extra service', claim: true })
+    expect(c.headsign).toBe('Roma Street')
+    expect(c.platform).toBe('5')
+  })
   it('marks an express and counts the stations it runs through', () => {
     const all = corridorFor(['central', 'ferny-grove']).slice(1)
     const express = all.filter((_, i) => i % 3 === 0 || i === all.length - 1)

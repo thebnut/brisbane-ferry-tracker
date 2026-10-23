@@ -48,6 +48,15 @@ describe('row status (THE-118 PR 4: dot, word, one fact)', () => {
     })
     expect(st(dep({})).status).toMatchObject({ text: 'Scheduled', dot: 'scheduled', claim: false })
   })
+  it('an extra service (rt: key) is live, never on time, late or early (R35-U1)', () => {
+    const extra = dep({
+      tripInstance: 'rt:EXTRA@20261023',
+      status: 'live',
+      schedDep: nowS + 420,
+      estDep: nowS + 420,
+    })
+    expect(st(extra).status).toMatchObject({ text: 'Live · Extra service', dot: 'live', claim: true })
+  })
   it('cancelled points at the next bus on the same route', () => {
     const c = dep({ status: 'cancelled', route: { id: '111-1', short: '111' } })
     const other = dep({ route: { id: '66-1', short: '66' }, schedDep: nowS + 6 * 60 })

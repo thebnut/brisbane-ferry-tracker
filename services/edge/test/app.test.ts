@@ -350,6 +350,49 @@ describe('other /v1 routes', () => {
     for (const stop of body.stops) expect(stop.estDep ?? 0).toBeGreaterThanOrEqual(stop.estArr ?? 0)
   })
 
+  it('an added trip without a headsign is named after its last stop, and its stops have no timetable (R35-U1)', async () => {
+    const s = await setup()
+    const named = tripUpdate(
+      'y',
+      { tripId: 'Y1', startDate: D, routeId: 'F1-4055', scheduleRelationship: 1 },
+      [
+        { seq: 1, stopId: '317584', depTime: epoch(D, '08:01:00') },
+        { seq: 2, stopId: '317586', arrTime: epoch(D, '08:06:00') },
+      ],
+    )
+    s.up.set(
+      'TripUpdates/Ferry',
+      feed(s.nowS(), [
+        // TransLink's unplanned services carry no trip_headsign.
+        tripUpdate('x', { tripId: 'X1', startDate: D, routeId: 'F1-4055', scheduleRelationship: 1 }, [
+          { seq: 1, stopId: '317584', depTime: epoch(D, '08:00:00') },
+          { seq: 2, stopId: '317586', arrTime: epoch(D, '08:05:00'), depTime: epoch(D, '08:05:30') },
+          { seq: 3, stopId: '317590', arrTime: epoch(D, '08:12:00') },
+        ]),
+        { ...named, tripUpdate: { ...named.tripUpdate, tripProperties: { tripHeadsign: 'Hawthorne' } } },
+      ]),
+    )
+    for (let i = 0; i < 3; i++) {
+      await s.hub.cycle()
+      s.clock.advance(1000)
+    }
+    const board = DeparturesResponse.parse(await (await s.get('/v1/ferry/stops/317584/departures')).json())
+    const rows = Object.fromEntries(board.departures.map((d) => [d.tripInstance, d]))
+    expect(rows[`rt:X1@${D}`]).toMatchObject({ headsign: '317590 ferry terminal', status: 'live' })
+    // A real headsign is kept.
+    expect(rows[`rt:Y1@${D}`]).toMatchObject({ headsign: 'Hawthorne', status: 'live' })
+
+    const res = await s.get(`/v1/ferry/trips/${encodeURIComponent(`rt:X1@${D}`)}`)
+    expect(res.status).toBe(200)
+    const trip = TripResponse.parse(await res.json())
+    expect(trip.headsign).toBe('317590 ferry terminal')
+    expect(trip.stops.map((x) => [x.name, x.schedArr, x.schedDep, x.estDep])).toEqual([
+      ['317584 ferry terminal', null, null, epoch(D, '08:00:00')],
+      ['317586 ferry terminal', null, null, epoch(D, '08:05:30')],
+      ['317590 ferry terminal', null, null, epoch(D, '08:12:00')],
+    ])
+  })
+
   it('vehicles filtered by mode, route and a snapped bbox', async () => {
     const s = await setup()
     const all = VehiclesResponse.parse(await (await s.get('/v1/ferry/vehicles')).json())
