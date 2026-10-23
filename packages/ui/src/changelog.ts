@@ -50,6 +50,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Ferry has a full-screen live map like Train and Bus: every terminal and every ferry with GPS. Open it from Ferry’s home or a terminal’s Map button.',
       'A board’s Map button opens the map on that terminal, station or stop, and “Track on map” on a trip follows your ferry, train or bus.',
       'The bus map draws stops once you zoom in to streets, so it stays quick when you look at the whole city.',
+      'The Ferry, Train and Bus homes show Live only when a trip they show has live times, not over timetabled ones.',
+      'Old Brisbane Ferry links to a terminal (with ?stop= in them) open that terminal’s board again.',
     ],
   },
   {

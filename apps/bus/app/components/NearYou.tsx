@@ -22,12 +22,6 @@ function Row({ id, name, metres, nowMs }: { id: string; name: string; metres: nu
   const q = useDepartures(fetcher, mode, id, null)
   const online = useOnline()
   const { data, state } = liveView(id, q.data, nowMs, online, usePageCheck())
-  useReportLive(
-    `near:${id}`,
-    state == null && q.data != null,
-    (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
-    q.isError || q.failureCount > 0,
-  )
   // Soonest first by the time shown: dropping stale estimates keeps their order (Codex r1).
   const d = [...(data?.departures ?? [])]
     .sort((a, b) => (a.estDep ?? a.schedDep) - (b.estDep ?? b.schedDep))
@@ -37,6 +31,14 @@ function Row({ id, name, metres, nowMs }: { id: string; name: string; metres: nu
         r.status !== 'skipped' &&
         minutesUntil(r.estDep ?? r.schedDep, nowMs) >= 0,
     )
+  // LIVE only over the live departure it shows (R36-L1).
+  useReportLive(
+    `near:${id}`,
+    state == null && q.data != null,
+    (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
+    q.isError || q.failureCount > 0,
+    data?.rtState === 'live' && d?.status === 'live',
+  )
   return (
     <NearPlaceRow
       mode="bus"

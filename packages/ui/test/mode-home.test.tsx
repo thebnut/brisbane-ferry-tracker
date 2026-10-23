@@ -13,7 +13,8 @@ import {
   useReportLive,
 } from '../src/mode-home.tsx'
 
-type Value = [live: boolean, pending?: boolean, failed?: boolean]
+/** `liveRows` (a departure the row shows is live) defaults to `live`. */
+type Value = [live: boolean, pending?: boolean, failed?: boolean, liveRows?: boolean]
 
 /** A page whose rows report `rows`, showing its live answer. */
 function Page({ initial, rows }: { initial: { live?: boolean; pending?: boolean }; rows: Value[] }) {
@@ -29,7 +30,8 @@ function Page({ initial, rows }: { initial: { live?: boolean; pending?: boolean 
   )
 }
 function Row({ id, v }: { id: string; v: Value }) {
-  useReportLive(id, ...v)
+  const [live, pending = false, failed = false, liveRows = live] = v
+  useReportLive(id, live, pending, failed, liveRows)
   return null
 }
 const state = () => screen.getByTestId('state').textContent
@@ -73,6 +75,55 @@ describe('useLiveReports', () => {
     expect(state()).toBe('false/false')
     rerender(<Page initial={{}} rows={[[true, false, true]]} />)
     expect(state()).toBe('true/false')
+  })
+
+  it('LIVE only over a live row shown: live data that is all timetabled claims nothing (R36-L1)', () => {
+    // The Bulimba → Riverside card at 6:17am: the feed is live, the next ferries are timetabled.
+    const { rerender } = render(<Page initial={{ live: true }} rows={[[true, false, false, false]]} />)
+    expect(state()).toBe('undefined/false')
+    // One card with a live row: LIVE, whatever the others' timetabled rows.
+    rerender(
+      <Page
+        initial={{ live: true }}
+        rows={[
+          [true, false, false, false],
+          [true, false, false, true],
+        ]}
+      />,
+    )
+    expect(state()).toBe('true/false')
+    // A stale one still says OFFLINE; one still waiting still says "Connecting…".
+    rerender(
+      <Page
+        initial={{}}
+        rows={[
+          [true, false, false, false],
+          [false, false, false, false],
+        ]}
+      />,
+    )
+    expect(state()).toBe('false/false')
+    rerender(
+      <Page
+        initial={{}}
+        rows={[
+          [true, false, false, false],
+          [false, true],
+        ]}
+      />,
+    )
+    expect(state()).toBe('false/true')
+    // A failed request over timetabled rows is a failure: OFFLINE, never hidden by a waiting row.
+    rerender(
+      <Page
+        initial={{}}
+        rows={[
+          [true, false, true, false],
+          [false, true],
+        ]}
+      />,
+    )
+    expect(state()).toBe('false/false')
   })
 
   it('a row that goes away stops counting', () => {
@@ -168,5 +219,23 @@ describe('homeCard', () => {
     )
     expect(card.detail).toBe('Extra service · Stop 1')
     expect(card.time).toBe('7:35 pm → 7:35 pm')
+  })
+
+  it('liveRows: a live departure among the three shown, from a live feed only (R36-L1)', () => {
+    const res = (rtState: string, ...departures: ReturnType<typeof d>[]) => ({
+      rtState,
+      stop: { name: 'Stop' },
+      to: null,
+      departures,
+    })
+    const card = (r: ReturnType<typeof res>) => homeCard('bus', r, NOW, 'Stop', '1')
+    expect(card(res('live', d(s + 120), d(s + 600))).liveRows).toBe(false)
+    expect(card(res('live', d(s + 120), d(s + 600, s + 660, 'live'))).liveRows).toBe(true)
+    // Not shown: the fourth departure, a cancelled one.
+    expect(card(res('live', d(s + 60), d(s + 120), d(s + 180), d(s + 240, s + 240, 'live'))).liveRows).toBe(
+      false,
+    )
+    expect(card(res('live', d(s + 60, s + 60, 'cancelled'), d(s + 120))).liveRows).toBe(false)
+    expect(card(res('stale', d(s + 120, s + 180, 'live'))).liveRows).toBe(false)
   })
 })

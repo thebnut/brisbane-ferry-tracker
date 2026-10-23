@@ -33,14 +33,16 @@ function Row({
   const q = useDepartures(useFetcher(mode), mode, id, '', null, null, true, CARD_ROWS)
   const online = useOnline()
   const state = boardState(q.data, !online, nowMs, usePageCheck())
+  const d = visibleRows(q.data?.departures ?? [], state, nowMs).find(
+    (r) => r.status !== 'cancelled' && r.status !== 'skipped',
+  )
+  // LIVE only over the live departure it shows (R36-L1).
   useReportLive(
     `near:${id}`,
     state == null && q.data != null,
     (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
     q.isError || q.failureCount > 0,
-  )
-  const d = visibleRows(q.data?.departures ?? [], state, nowMs).find(
-    (r) => r.status !== 'cancelled' && r.status !== 'skipped',
+    q.data?.rtState === 'live' && d?.status === 'live',
   )
   return (
     <NearPlaceRow

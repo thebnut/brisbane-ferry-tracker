@@ -102,15 +102,16 @@ export const mapHref = (terminalId?: string | null, trip?: string | null): strin
 }
 
 /**
- * Where an old `/?from=<stopId>&to=<stopId>` link (R3-F2) now goes: that terminal's board, with "To" when the origin
- * reaches it, keeping the link's other parameters. Null when it names no known origin (it stays a home link).
+ * Where an old `/?from=<stopId>&to=<stopId>` link (R3-F2) or `/?stop=<stopId>&to=<stopId>` link (the legacy site's,
+ * R36-F1) now goes: that terminal's board, with "To" when the origin reaches it, keeping the link's other parameters.
+ * Both take a stop id or a slug; a known `from` wins over `stop`. Null when it names no known origin (a home link).
  */
 export function boardForOldLink(params: URLSearchParams): string | null {
-  const origin = terminalByParam(params.get('from'))
+  const origin = terminalByParam(params.get('from')) ?? terminalByParam(params.get('stop'))
   if (!origin) return null
   const to = destinationParam(origin, params.get('to'))
   const q = new URLSearchParams(to ? { to: to.slug } : {})
-  for (const [k, v] of params) if (k !== 'from' && k !== 'to') q.append(k, v)
+  for (const [k, v] of params) if (k !== 'from' && k !== 'stop' && k !== 'to') q.append(k, v)
   return `${terminalHref(origin.slug)}${q.size ? `?${q}` : ''}`
 }
 
