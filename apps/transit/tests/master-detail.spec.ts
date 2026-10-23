@@ -158,7 +158,8 @@ function desktop() {
 
       test('a trip URL opened directly shows the board with the panel open', async ({ page }) => {
         await openBoard(page, b)
-        const href = (await rows(page).first().getAttribute('href')) as string
+        // Not the first row: it may leave between this board's answer and the next one's.
+        const href = (await rows(page).nth(2).getAttribute('href')) as string
         await page.goto(href)
         await expect(page.locator('html[data-hydrated]')).toHaveCount(1)
         await expect(panel(page)).toBeVisible()
@@ -236,6 +237,30 @@ function desktop() {
     await expect(panel(page)).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(page).toHaveURL('/ferry')
+  })
+
+  test("the trip's own answer counts in the header: not live beside a live board, no LIVE", async ({
+    page,
+    context,
+  }) => {
+    for (const b of BOARDS.filter((x) => x.idle === 'map')) {
+      await openBoard(page, b)
+      await rows(page).first().click()
+      await expect(panel(page).locator('[data-trip-summary]')).toBeVisible()
+      // The trip's polls answer without realtime; the board's stay live.
+      await context.route(`**/v1/${b.mode}/trips/**`, async (route) => {
+        try {
+          const res = await route.fetch()
+          await route.fulfill({ response: res, json: { ...(await res.json()), rtState: 'unavailable' } })
+        } catch (error) {
+          if (!/disposed|closed|Target page|Test ended/i.test(String(error))) throw error
+        }
+      })
+      await page.clock.fastForward('00:16')
+      await expect(page.locator('header [data-connection=live]')).toHaveCount(0)
+      await expect(panel(page).locator('[data-trip-status] [data-dot=live]')).toHaveCount(0)
+      await context.unrouteAll({ behavior: 'ignoreErrors' })
+    }
   })
 
   test('an expired trip beside the board says so, and ✕ goes back to the board', async ({ page }) => {

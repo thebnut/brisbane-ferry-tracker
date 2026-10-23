@@ -52,7 +52,9 @@ export function TripBackLink({
   renderLink: TripLinkRenderer
   barHasIt?: boolean
 }) {
-  useEffect(() => scrollTo(0, 0), [])
+  useEffect(() => {
+    scrollTo(0, 0)
+  }, [])
   return (
     <div className={cx(barHasIt ? 'hidden md:flex' : 'flex')}>
       {renderLink({
