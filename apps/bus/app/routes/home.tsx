@@ -187,8 +187,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       >
         <DesktopNav active="home" />
       </UpdatedStrip>
-      <h1 className="mx-auto max-w-6xl px-4 pt-4 text-[28px] leading-tight font-extrabold">Bus</h1>
       <SearchPanel
+        title={<h1 className="mx-auto max-w-6xl px-4 pt-4 text-[28px] leading-tight font-extrabold">Bus</h1>}
+        footer={<Footer aboveSheet />}
         quick={
           <Link to={at('/nearby')} className={chip}>
             <Icon name="nearby" size={16} />
@@ -196,7 +197,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </Link>
         }
       >
-        <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pt-3.5 pb-6">
+        <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pt-3.5 pb-6">
           {first ? (
             <DataBanner
               offline={views.some((v) => v.state === 'offline')}
@@ -238,9 +239,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               with its next buses.
             </p>
           </AboutTimes>
-        </main>
-        {/* The footer, not the content, clears the fixed sheet: it comes last. */}
-        <Footer aboveSheet />
+        </div>
       </SearchPanel>
       <BusNav active="home" alertCount={activeAlerts || undefined} />
     </LiveReports>

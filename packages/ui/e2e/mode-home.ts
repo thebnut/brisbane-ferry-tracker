@@ -152,6 +152,18 @@ function suite(spec: HomeSpec) {
       .or(page.getByRole('textbox', { name: spec.search }))
       .or(page.getByRole('searchbox', { name: spec.search }))
     await expect(search.filter({ visible: true }).first()).toBeVisible()
+    // The title and the search are in the main landmark, as on every mode home.
+    const main = page.getByRole('main')
+    await expect(main).toHaveCount(1)
+    await expect(main.getByRole('heading', { level: 1, name: spec.title, exact: true })).toBeVisible()
+    await expect(
+      main
+        .getByRole('combobox', { name: spec.search })
+        .or(main.getByRole('textbox', { name: spec.search }))
+        .or(main.getByRole('searchbox', { name: spec.search }))
+        .filter({ visible: true })
+        .first(),
+    ).toBeVisible()
     await expect(page.locator('[data-home-section]')).toHaveCount(3)
     expect(
       await page
