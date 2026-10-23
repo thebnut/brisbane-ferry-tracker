@@ -13,7 +13,6 @@ import {
   formatClock,
   Icon,
   MoreButton,
-  nextAlike,
   OfflineBanner,
   soonestIndex,
 } from '@bft/ui'
@@ -22,8 +21,15 @@ import { usePageCheck } from '@bft/ui/connectivity'
 import { SaveToast, type SaveToastMessage } from '@bft/ui/save-toast'
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { DEPARTURE_LIMIT } from '../lib/api.ts'
-import { boardState, platformChanges, type ServiceFilter, trainCard, visibleRows } from '../lib/departures.ts'
-import { lineFor, type Station } from '../lib/network.ts'
+import {
+  boardState,
+  nextInstead,
+  platformChanges,
+  type ServiceFilter,
+  trainCard,
+  visibleRows,
+} from '../lib/departures.ts'
+import type { Station } from '../lib/network.ts'
 import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import {
   FAVOURITES_KEY,
@@ -168,14 +174,13 @@ export function StationBoard({
     // Not live: timetable only, no live estimates or platform changes, and nothing that has already left.
     // A later time's board: rows from then on, again once the live estimates are dropped (Codex r3).
     const rows = leavingFrom(visibleRows(res?.departures ?? [], state, nowMs), at)
-    const line = (d: (typeof rows)[number]) => lineFor(d.route, d.headsign).name
     const list = rows.map((d, i) =>
       trainCard(
         d,
         nowMs,
         from.key,
         to?.key ?? null,
-        d.status === 'cancelled' ? nextAlike(rows, i, (r) => line(r) === line(d)) : undefined,
+        d.status === 'cancelled' ? nextInstead(rows, i, from.key, to?.key ?? null) : undefined,
       ),
     )
     return filter === 'express' ? list.filter((c) => c.express) : list
