@@ -24,8 +24,8 @@ import {
   tripAsTimetable,
   vesselName,
 } from '@bft/ui'
-import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
-import { onlyFullChanged, usePanel } from '@bft/ui/panel'
+import { awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { onlyFullChanged, usePanel, usePanelReport } from '@bft/ui/panel'
 import {
   backClick,
   occupancyFact,
@@ -132,6 +132,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   // Offline, or data too old to call live: the timetable only (no live words, GPS, vessel or position).
   const raw = gone ? null : q.data
   const state = liveState(raw ?? undefined, { offline: !online, nowMs: now, ...page })
+  // No answer yet, or a non-live seed whose own refetch is still out (R32-RT1): "Connecting…", no banner.
+  const pending = !gone && ((!raw && !q.isError) || awaitingSeedAnswer(q, state))
   const trip = raw && state != null ? tripAsTimetable(raw) : raw
   const fromId = loaderData.from ?? trip?.stops[0]?.stopId ?? null
   const fromT = fromId ? terminalById(fromId) : null
@@ -139,6 +141,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
     ? { href: boardHref(fromT.id, loaderData.to), label: cleanStopName(fromT.name), onClick: backClick }
     : { href: at('/'), label: 'Ferry', onClick: backClick }
   const panel = usePanel()
+  // Beside the board, this trip's answer counts in the board's header (a trip that has gone claims nothing).
+  usePanelReport(panel, gone || (state == null && raw != null), pending)
   const content = (
     <>
       {!online ? (
@@ -147,7 +151,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
           detail="Showing the last update. Live times resume when you're back online."
         />
       ) : null}
-      {online && state != null && state !== 'offline' ? <OfflineBanner kind={state} /> : null}
+      {online && state != null && state !== 'offline' && !pending ? <OfflineBanner kind={state} /> : null}
       {gone ? (
         <TripNotFound place={fromT ? back.label : null} href={back.href} renderLink={linkRenderer} />
       ) : !trip ? (
@@ -166,7 +170,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
       <SiteHeader
         // No answer yet is never live; a trip that has gone claims nothing.
         live={gone ? undefined : state == null && raw != null}
-        pending={!gone && !raw && !q.isError}
+        pending={pending}
         back={back}
       />
       <main className="mx-auto flex max-w-2xl flex-col gap-3 px-3 pt-2 pb-28 md:px-4 md:pt-4 md:pb-8">

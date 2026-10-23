@@ -8,7 +8,7 @@
  * return board, else the terminal's map. Narrower, ⇄ flips the direction instead.
  */
 
-import type { DeparturesResponse } from '@bft/core/contract'
+import type { Departure, DeparturesResponse } from '@bft/core/contract'
 import {
   BottomSheet,
   DemoExitLink,
@@ -19,7 +19,7 @@ import {
   useKept,
 } from '@bft/ui'
 import { BoardHeader, Chip, FilterRow, leavingFrom, NowChip } from '@bft/ui/board-header'
-import { sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
+import { pagePending, sourceTimeS, usePageCheck } from '@bft/ui/connectivity'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import {
@@ -51,8 +51,6 @@ import { SiteHeader, UpdatedStrip } from './header.tsx'
 const NoMap = (() => null) as never // renders nothing, whatever the props
 const LiveMapSheet = lazy(() => import('./LiveMapSheet.tsx').catch(() => ({ default: NoMap })))
 const StopSelector = lazy(() => import('./StopSelector.tsx'))
-// The idle panel's map at 1024 px and wider (THE-118 PR 7): its chunk draws nothing narrower.
-const TerminalMap = lazy(() => import('./TerminalMap.tsx').catch(() => ({ default: NoMap })))
 // The "To…" chip's sheet (Train's "Going to" sheet), off the first load. If its chunk can't load (offline before the
 // service worker cached it), a short sheet says so and the board stays; the next tap tries again.
 // It stays mounted once opened, so closing it gives focus back to the chip (Codex r4).
@@ -96,9 +94,12 @@ export interface FerryBoardsProps {
    * follows the saved pair or the first favourite, and the stop selector changes it here; a terminal page navigates.
    */
   home?: boolean
-  /** The trip open in the panel (the trip URL, desktop), and the trip page as the panel (the layout's, THE-118 PR 7). */
-  trip?: string
+  /** The trip page beside the board (the trip URL at 1024 px and wider, the layout's: THE-118 PR 7). */
   panel?: ReactNode
+  /** With no trip open and no "To": the terminal's map (the layout's, so the home board's first load has none). */
+  idle?: (live: boolean, departures: Departure[]) => ReactNode
+  /** The open trip's own answer, which the header counts like a board's (R32-RT1). */
+  panelState?: { live: boolean; pending: boolean } | null
   children?: ReactNode
 }
 
@@ -124,8 +125,9 @@ export function FerryBoards({
   renderedAt,
   mode,
   home = false,
-  trip: openTrip,
   panel,
+  idle,
+  panelState,
   children,
 }: FerryBoardsProps) {
   const [trip, setTrip] = useState({ from: serverFrom, to: serverTo })
@@ -234,8 +236,10 @@ export function FerryBoards({
   // The time of the data shown (a service-worker copy keeps its own time), not when it was fetched.
   const updatedAt = Math.max(outData?.generatedAt ?? 0, backData?.generatedAt ?? 0)
   const fetching = boards.some((q) => q.isFetching)
-  // No answer yet for any board (no data, no error): the transit header says "Connecting…", not OFFLINE.
-  const pending = !outData && !backData && boards.every((q) => !q.isError)
+  // A board still showing its non-live seed while its own refetch is out (R32-RT1).
+  // A board with no answer yet, or still showing its non-live seed while its own refetch is out (R32-RT1), while no
+  // board has failed or answered not live: the header says "Connecting…", not OFFLINE, with no "delayed" banner.
+  const pending = pagePending(boards.map((q) => ({ q, state: stateOf(q) })))
 
   const refresh = () => {
     for (const q of boards) void q.refetch()
@@ -260,7 +264,11 @@ export function FerryBoards({
   const toName = trip.to ? cleanStopName(trip.to.name) : ''
   return (
     <>
-      <SiteHeader onSettings={() => setShowSelector(true)} live={live} pending={pending} />
+      <SiteHeader
+        onSettings={() => setShowSelector(true)}
+        live={live && panelState?.live !== false}
+        pending={pending || !!panelState?.pending}
+      />
 
       <main className="board-grid mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-6">
         <div className="board-column" data-board-column="">
@@ -318,7 +326,7 @@ export function FerryBoards({
             pending={pending}
           />
 
-          {state ? <OfflineBanner kind={state} /> : null}
+          {state && !pending ? <OfflineBanner kind={state} /> : null}
 
           {mode.fixtures ? (
             <p
@@ -345,32 +353,23 @@ export function FerryBoards({
         </div>
         {/* The panel (1024 px and wider): the open trip, else the return board, else the terminal's map. */}
         <div className="board-panel" data-panel="">
-          {openTrip ? (
-            panel
-          ) : trip.to ? (
-            <DepartureList
-              id="inbound"
-              label={`${toName} to ${fromName}`}
-              title={`${toName} → ${fromName}`}
-              departures={backList}
-              nowMs={now}
-              loading={back.isPending}
-              error={back.isError}
-              onRetry={() => void back.refetch()}
-              offline={backState === 'offline'}
-              tripHref={(d) => tripHref(d.tripInstance, toId, fromId)}
-            />
-          ) : (
-            <Suspense fallback={null}>
-              <TerminalMap
-                terminal={trip.from}
-                live={boardsLive}
-                departures={out.data?.departures ?? []}
-                fetcher={fetcher}
-                mode={mode}
+          {panel ??
+            (trip.to ? (
+              <DepartureList
+                id="inbound"
+                label={`${toName} to ${fromName}`}
+                title={`${toName} → ${fromName}`}
+                departures={backList}
+                nowMs={now}
+                loading={back.isPending}
+                error={back.isError}
+                onRetry={() => void back.refetch()}
+                offline={backState === 'offline'}
+                tripHref={(d) => tripHref(d.tripInstance, toId, fromId)}
               />
-            </Suspense>
-          )}
+            ) : (
+              idle?.(boardsLive, out.data?.departures ?? [])
+            ))}
         </div>
       </main>
 

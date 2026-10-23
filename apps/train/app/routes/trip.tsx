@@ -22,7 +22,7 @@ import {
   statusLine,
   tripAsTimetable,
 } from '@bft/ui'
-import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { onlyFullChanged, type Panel, usePanel } from '@bft/ui/panel'
 import { StarButton } from '@bft/ui/star'
 import {
@@ -40,7 +40,7 @@ import {
 } from '@bft/ui/trip'
 import { type ComponentProps, useMemo } from 'react'
 import { data, Link, type ShouldRevalidateFunctionArgs, useRouteLoaderData } from 'react-router'
-import { Shell } from '../components/Chrome.tsx'
+import { Shell, useReportLive } from '../components/Chrome.tsx'
 import { useStar } from '../components/TrainStar.tsx'
 import { ApiError, fetchTrip } from '../lib/api.ts'
 import { at, BASE } from '../lib/base.ts'
@@ -131,6 +131,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const page = usePageCheck()
   const state = liveState(raw ?? undefined, { offline: !online, nowMs, ...page })
   const trip = raw && state != null ? tripAsTimetable(raw) : raw
+  // A non-live seed whose own refetch is still out: "Connecting…", no banner (R32-RT1).
+  const waiting = !gone && raw === q.data && awaitingSeedAnswer(q, state)
   const nowS = Math.floor(nowMs / 1000)
   const view = useMemo(() => (trip ? buildTimeline(trip, nowS, from, to) : null), [trip, nowS, from, to])
 
@@ -147,6 +149,14 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const starName = `${fromName ? cleanStopName(fromName) : ''}${toName ? ` → ${cleanStopName(toName)}` : ''}`
   const star = useStar({ from: boardKey ?? '', to }, starName)
   const panel = usePanel()
+  // Beside the board, this trip's answer counts in the board's header like a board's (R32-RT1); a trip that has gone
+  // claims nothing. Its own full page has no Shell above it to report to.
+  useReportLive(
+    `trip:${key}`,
+    gone || (state == null && raw != null),
+    !gone && (waiting || (!raw && !q.isError)),
+    !gone && q.isError,
+  )
 
   const head = (
     <>
@@ -159,7 +169,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
           detail="Showing the last update. Live positions resume when you're back online."
         />
       ) : null}
-      {online && state != null && state !== 'offline' ? <OfflineBanner kind={state} /> : null}
+      {online && state != null && state !== 'offline' && !waiting ? <OfflineBanner kind={state} /> : null}
     </>
   )
 
@@ -216,7 +226,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const train = v ? `Train ${v.label ?? v.id}${vStatus ? `, ${vStatus.toLowerCase()}` : ''}` : null
 
   return (
-    <Frame panel={panel} active="stations" live={state == null} back={back}>
+    <Frame panel={panel} active="stations" live={state == null} pending={waiting} back={back}>
       <div className="mx-auto flex max-w-2xl flex-col gap-3">
         {head}
         <TripSummary

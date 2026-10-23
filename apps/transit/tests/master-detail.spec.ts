@@ -92,6 +92,8 @@ function desktop() {
         expect(new URL(page.url()).pathname).toBe(new URL(href, page.url()).pathname)
         await expect(panel(page)).toBeVisible()
         await expect(panel(page).locator('[data-trip-summary]')).toBeVisible()
+        // The page's heading stays the board page's: the trip's is the next level.
+        await expect(panel(page).getByRole('heading', { level: 2, name: /^To / })).toBeVisible()
         // The board is still there beside it, its row marked; no trip page header or back link of its own.
         await expect(header(page)).toContainText(b.name)
         await expect(row).toHaveAttribute('aria-current', 'true')

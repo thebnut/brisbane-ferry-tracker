@@ -10,9 +10,8 @@ import type { MapMarker } from '@bft/ui/map'
 import { useWide } from '@bft/ui/panel'
 import SafeMap from '@bft/ui/safe-map'
 import { useMemo } from 'react'
-import type { ApiFetcher } from '../lib/api.ts'
 import { cleanStopName } from '../lib/names.ts'
-import type { DataMode } from '../lib/queries.ts'
+import { type DataMode, useFetcher } from '../lib/queries.ts'
 import { type StopChoice, terminalById } from '../lib/terminals.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import { useVehicles } from '../lib/vehicles.ts'
@@ -22,7 +21,6 @@ interface Props {
   /** False while the board is offline or stale: no positions. */
   live: boolean
   departures: Departure[]
-  fetcher: ApiFetcher
   mode: DataMode
 }
 
@@ -31,8 +29,8 @@ export default function WideTerminalMap(props: Props) {
   return useWide() ? <TerminalMap {...props} /> : null
 }
 
-function TerminalMap({ terminal, live, departures, fetcher, mode }: Props) {
-  const vehicles = useVehicles(fetcher, mode, true)
+function TerminalMap({ terminal, live, departures, mode }: Props) {
+  const vehicles = useVehicles(useFetcher(mode), mode, true)
   // The positions' own answer must be live and fresh too, not only the board's (an old copy never pulses as live).
   const nowMs = useNow(Date.now(), 5_000)
   const fresh = liveState(vehicles.data, { offline: !useOnline(), nowMs, ...usePageCheck() }) == null

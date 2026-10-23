@@ -8,7 +8,7 @@ import { lazy, type MouseEvent, type ReactNode, Suspense, useEffect, useState } 
 import { cx } from './cx.ts'
 import { Icon } from './icons.tsx'
 import type { MapMarker } from './map/MapView.tsx'
-import type { Panel } from './panel.tsx'
+import { type Panel, usePanel } from './panel.tsx'
 import { BigCountdown, BOARD_STATE, type StatusLine } from './row.tsx'
 
 // ---------------------------------------------------------------------------
@@ -38,7 +38,8 @@ export type TripLinkRenderer = (props: {
 
 /**
  * "‹ Bulimba" above the summary. Inside BrisbaneTransit a phone has it in the app bar already, so `barHasIt` keeps it
- * to desktop there.
+ * to desktop there. Only the trip's own page has it, so it also takes that page to the top: a board row's link keeps
+ * the board's scroll (THE-118 PR 7, for the trip beside the board), and back from the trip still restores it.
  */
 export function TripBackLink({
   href,
@@ -51,6 +52,7 @@ export function TripBackLink({
   renderLink: TripLinkRenderer
   barHasIt?: boolean
 }) {
+  useEffect(() => scrollTo(0, 0), [])
   return (
     <div className={cx(barHasIt ? 'hidden md:flex' : 'flex')}>
       {renderLink({
@@ -131,6 +133,8 @@ export function TripSummary({
   facts = [],
   hot = false,
 }: TripSummaryProps) {
+  // Beside a board (THE-118 PR 7) the page's heading is the board's: the trip's is the next level.
+  const H = usePanel() ? 'h2' : 'h1'
   const cancelled = status.dot === 'cancelled'
   return (
     <section
@@ -152,7 +156,7 @@ export function TripSummary({
           >
             {kicker}
           </p>
-          <h1
+          <H
             id="trip-title"
             className={cx(
               'text-[22px] leading-tight font-extrabold text-charcoal [overflow-wrap:anywhere] dark:text-night-text',
@@ -160,7 +164,7 @@ export function TripSummary({
             )}
           >
             To {headsign}
-          </h1>
+          </H>
         </div>
         {cancelled || minutes == null ? (
           // Nothing to count down to: the clock time alone (struck when cancelled), never a "—".

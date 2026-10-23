@@ -12,6 +12,7 @@
 
 import type { TripResponse } from '@bft/core/contract'
 import {
+  awaitingSeedAnswer,
   dayMarker,
   delayText,
   formatClock,
@@ -27,7 +28,7 @@ import {
 } from '@bft/ui'
 import { SkeletonRows } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
-import { onlyFullChanged, usePanel } from '@bft/ui/panel'
+import { onlyFullChanged, usePanel, usePanelReport } from '@bft/ui/panel'
 import {
   backClick,
   occupancyFact,
@@ -138,7 +139,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const page = usePageCheck()
   const state = liveState(shown, { offline: !online, nowMs: now, ...page })
   const trip = shown && state != null ? tripAsTimetable(shown) : shown
-  const pending = !gone && !shown && !q.isError
+  // No answer yet, or a non-live seed whose own refetch is still out (R32-RT1): "Connecting…", no banner.
+  const pending = !gone && ((!shown && !q.isError) || awaitingSeedAnswer(q, state))
   // No data is never live (a first request that failed with an HTTP error leaves the state null).
   const live = state == null && shown != null
   const fromName = from
@@ -150,10 +152,12 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
     ? { href: stopHref(from), label: fromName ?? unnamedStop(from), onClick: backClick }
     : { href: appAt('/'), label: 'Bus', onClick: backClick }
   const panel = usePanel()
+  // Beside the board, this trip's answer counts in the board's header (a trip that has gone claims nothing).
+  usePanelReport(panel, gone || live, pending)
   const content = (
     <>
       <DataBanner
-        rtState={state != null && state !== 'offline' ? state : trip?.rtState}
+        rtState={pending ? undefined : state != null && state !== 'offline' ? state : trip?.rtState}
         hasData={!!trip}
         generation={trip?.staticGeneration}
       />

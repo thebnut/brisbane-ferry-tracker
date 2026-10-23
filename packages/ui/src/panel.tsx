@@ -41,7 +41,34 @@ export interface Panel {
   /** The trip's full page (`?full=1`), replacing the panel in history so its back link returns to the board. */
   openFull: () => void
   fullHref: string
+  /** The trip's own answer for the page header, which the board's layout combines with the board's (R32-RT1). */
+  report?: (state: PanelState | null) => void
 }
+
+/** The trip's answer beside the board: live, or still waiting for its first (or a non-live seed's own) answer. */
+export interface PanelState {
+  live: boolean
+  pending: boolean
+}
+
+/**
+ * Beside a board, the trip's own answer counts in the page header like any board's: a trip not live, or still waiting,
+ * keeps the header from LIVE. Nothing as its own full page (its header is its own).
+ */
+export function usePanelReport(panel: Panel | null, live: boolean, pending: boolean) {
+  const report = panel?.report
+  useEffect(() => {
+    if (!report) return
+    report({ live, pending })
+    return () => report(null)
+  }, [report, live, pending])
+}
+
+/** The page header's answer with the panel's: LIVE only if both are, "Connecting…" while either waits. */
+export const withPanel = (live: boolean, pending: boolean, panel: PanelState | null) => ({
+  live: live && panel?.live !== false,
+  pending: pending || !!panel?.pending,
+})
 
 const PanelContext = createContext<Panel | null>(null)
 export const PanelProvider = PanelContext.Provider
@@ -102,10 +129,17 @@ type Go = (to: string, opts?: { replace?: boolean; state?: unknown; preventScrol
 
 /**
  * The panel's ✕ and "Open full page" for the board's router: `go` navigates, `back` goes back in history, `board` is
- * the board's URL and `here` the trip's (path and search).
+ * the board's URL and `here` the trip's (path and search). `report` takes the trip's answer (a state setter: stable).
  */
-export function panelControls(go: Go, back: () => void, board: string, here: string): Panel {
+export function panelControls(
+  go: Go,
+  back: () => void,
+  board: string,
+  here: string,
+  report?: Panel['report'],
+): Panel {
   return {
+    report,
     close: () => (fromBoardRow() ? back() : go(board, { preventScrollReset: true })),
     openFull: () =>
       go(fullHref(here), {

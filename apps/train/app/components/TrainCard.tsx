@@ -20,7 +20,8 @@ export function tripHref(card: Model, from: string, to: string | null) {
 function RowLink({ href, className, children, label }: Parameters<LinkRenderer>[0]) {
   const { pathname, search } = useLocation()
   // Desktop (THE-118 PR 7): the open trip's row is marked; a row picked beside it replaces it in history, keeping
-  // what that entry knew of the board (a trip is never recorded as the board); and the board keeps its scroll.
+  // what that entry knew of the board (a trip is never recorded as the board); and the board keeps its scroll (a trip's
+  // own page starts at the top itself: TripBackLink).
   const open = useParams().tripInstance
   return (
     <Link
@@ -29,7 +30,7 @@ function RowLink({ href, className, children, label }: Parameters<LinkRenderer>[
       aria-label={label}
       state={open ? history.state?.usr : boardState(pathname, search)}
       replace={!!open}
-      preventScrollReset={typeof matchMedia === 'function' && matchMedia('(min-width: 1024px)').matches}
+      preventScrollReset
       aria-current={open && href.split('?')[0]?.endsWith(`/${encodeURIComponent(open)}`) ? 'true' : undefined}
     >
       {children}

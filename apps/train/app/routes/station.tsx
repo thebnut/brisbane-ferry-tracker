@@ -13,7 +13,7 @@ import type { DeparturesResponse } from '@bft/core/contract'
 import { formatAge, formatClock, Icon, useKept } from '@bft/ui'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { BoardHeader, Chip, chipClass, FilterRow, NowChip } from '@bft/ui/board-header'
-import { sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { asSeed, awaitingSeedAnswer, sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { DestinationSheet } from '@bft/ui/destination-sheet'
 import {
   FULL,
@@ -288,10 +288,14 @@ function StationBoardPage({
   usePanelFocus(open, controls.close)
 
   // The header pill follows the boards: from the loader data until each StationBoard reports (useReportLive).
-  const seeded = [outbound, to ? inbound : null].every((r) => !r || boardState(r, false, nowMs, page) == null)
+  const seeds = [outbound, to ? inbound : null]
+  const seeded = seeds.every((r) => !r || boardState(r, false, nowMs, page) == null)
+  // A non-live seed: its board refetches on mount, and the page waits for that answer (R32-RT1), as the board does.
+  const waits = seeds.some((r) => r && awaitingSeedAnswer(asSeed(r), boardState(r, false, nowMs, page)))
   return (
-    // No outbound answer from the loader (it timed out): BrisbaneTransit says "Connecting…", not LIVE (THE-118).
-    <Shell active="stations" live={seeded} pending={!outbound}>
+    // No outbound answer from the loader (it timed out), or a non-live one: BrisbaneTransit says "Connecting…", not
+    // LIVE or OFFLINE (THE-118, R32-RT1).
+    <Shell active="stations" live={seeded} pending={!outbound || waits}>
       <div className="board-grid">
         <div className="board-column" data-board-column="">
           <BoardHeader

@@ -13,15 +13,17 @@ import type { Alert } from '@bft/core/contract'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { BoardHeader, Chip, FilterRow, NowChip } from '@bft/ui/board-header'
 import { NoticeStrip } from '@bft/ui/bus'
-import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import {
   FULL,
   PanelProvider,
+  type PanelState,
   panelControls,
   samePlace,
   showBoard,
   usePanelFocus,
   useWide,
+  withPanel,
 } from '@bft/ui/panel'
 import { lazy, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react'
 import {
@@ -226,8 +228,9 @@ function StopBoardPage({
   const currentAlerts = useCurrentAlerts(alertsQ, loaderData.alerts)
   const here = stopAlerts(alerts, stopId, routes, Math.floor(now / 1000))
   const isSaved = saved.some((s) => s.id === stopId)
-  // No answer yet (no data, no error): BrisbaneTransit's header says "Connecting…", not OFFLINE (THE-118).
-  const pending = !q.data && !q.isError
+  // No answer yet (no data, no error), or a non-live seed whose own refetch is still out (R32-RT1): the header says
+  // "Connecting…", not OFFLINE (THE-118), with no "delayed" banner.
+  const pending = (!q.data && !q.isError) || awaitingSeedAnswer(q, state)
 
   // Keep this stop's longer timetable on the device at once, not only from the first poll (R6-B1).
   useEffect(() => {
@@ -240,19 +243,23 @@ function StopBoardPage({
 
   const wide = useWide()
   const { pathname, search } = useLocation()
+  const [panelState, setPanelState] = useState<PanelState | null>(null)
   const controls = panelControls(
     (href, opts) => navigate(href, opts),
     () => navigate(-1),
     `${stopHref(stopId)}${only ? `?route=${encodeURIComponent(only)}` : ''}`,
     `${pathname}${search}`,
+    setPanelState,
   )
   usePanelFocus(open, controls.close)
+  // The header counts the open trip's own answer like a board's (R32-RT1).
+  const head = withPanel(state == null && res?.rtState === 'live', pending, open ? panelState : null)
   // At 1024 px and wider with no trip open, the panel has the stop's map: never a second one in the column.
   const panelMap = wide && !open
 
   return (
     <>
-      <SiteHeader live={state == null && res?.rtState === 'live'} pending={pending}>
+      <SiteHeader live={head.live} pending={head.pending}>
         <DesktopNav active="" />
       </SiteHeader>
       <main className="board-grid mx-auto max-w-6xl px-4 pt-3 pb-4">
@@ -317,7 +324,7 @@ function StopBoardPage({
           />
           <DataBanner
             offline={state === 'offline'}
-            rtState={res?.rtState}
+            rtState={pending ? undefined : res?.rtState}
             hasData={!!res?.departures.length}
             generation={res?.staticGeneration}
           />

@@ -15,12 +15,14 @@ import { VIA_NETWORK } from '@bft/ui/connectivity'
 import {
   FULL,
   PanelProvider,
+  type PanelState,
   panelControls,
   samePlace,
   showBoard,
   usePanelFocus,
   useWide,
 } from '@bft/ui/panel'
+import { lazy, Suspense, useState } from 'react'
 import {
   data,
   Outlet,
@@ -51,6 +53,10 @@ import {
   terminalHref,
 } from '../lib/terminals.ts'
 import type { Route } from './+types/terminal'
+
+// The idle panel's map at 1024 px and wider (THE-118 PR 7): its chunk draws nothing narrower. If it can't load, no map.
+const NoMap = (() => null) as never // renders nothing, whatever the props
+const TerminalMap = lazy(() => import('../components/TerminalMap.tsx').catch(() => ({ default: NoMap })))
 
 /** A trip URL's board: the terminal it was opened from and its "To" (`?from=`, `?to=`), or null. */
 function tripPlace(url: URL) {
@@ -252,12 +258,14 @@ export default function TerminalPage({ loaderData }: Route.ComponentProps) {
   const [search] = useSearchParams()
   const { pathname, search: query } = useLocation()
   const navigate = useNavigate()
+  const [panelState, setPanelState] = useState<PanelState | null>(null)
   // ✕ and "Open full page" for the trip beside the board; focus into the panel and back to the row.
   const controls = panelControls(
     (to, opts) => navigate(to, opts),
     () => navigate(-1),
     terminal ? boardHref(terminal.id, loaderData.to?.id) : '',
     `${pathname}${query}`,
+    setPanelState,
   )
   const alone = !wide || !terminal || search.has(FULL)
   usePanelFocus(alone ? undefined : trip, controls.close)
@@ -279,7 +287,17 @@ export default function TerminalPage({ loaderData }: Route.ComponentProps) {
         inbound={loaderData.inbound}
         renderedAt={loaderData.renderedAt}
         mode={loaderData.mode}
-        trip={trip}
+        idle={(live, departures) => (
+          <Suspense fallback={null}>
+            <TerminalMap
+              terminal={choice(terminal)}
+              live={live}
+              departures={departures}
+              mode={loaderData.mode}
+            />
+          </Suspense>
+        )}
+        panelState={trip ? panelState : null}
         panel={
           trip ? (
             <PanelProvider value={controls}>
