@@ -53,17 +53,18 @@ test('more departures expands to 13', async ({ page }) => {
   await expect(outbound.getByTestId('departure')).toHaveCount(13)
 })
 
-test('opens the details sheet with the stopping pattern', async ({ page }) => {
+test('a departure opens its trip page, from Bulimba to Riverside, and goes back (THE-118 PR 6)', async ({
+  page,
+}) => {
   await rememberBulimbaRiverside(page)
   await page.goto('/')
-  await page.locator('[data-board=outbound] [data-testid=departure] button').first().click()
-  const sheet = page.getByRole('dialog')
-  await expect(sheet).toBeVisible()
-  await expect(sheet.getByText(/Departure from Bulimba/)).toBeVisible()
-  await expect(sheet.getByRole('list', { name: 'Stopping pattern' })).toBeVisible()
-  await expect(sheet.getByRole('list', { name: 'Stopping pattern' })).toContainText('Riverside')
-  await page.keyboard.press('Escape')
-  await expect(sheet).toBeHidden()
+  await page.locator('[data-board=outbound] [data-testid=departure] a').first().click()
+  await expect(page).toHaveURL(/\/trip\/[^?]+\?from=bulimba&to=riverside$/)
+  const stops = page.getByRole('list', { name: 'Stops on your trip' })
+  await expect(stops.locator('[data-mine=board]')).toContainText('Bulimba')
+  await expect(stops.locator('[data-mine=alight]')).toContainText('Riverside')
+  await page.getByRole('link', { name: 'Bulimba', exact: true }).click()
+  await expect(page).toHaveURL('/')
 })
 
 test('the stop selector (Settings): changing stops updates the boards', async ({ page }) => {

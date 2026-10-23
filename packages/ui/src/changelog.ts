@@ -38,6 +38,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       'One row of filters under it: All, where you’re going, Express, Map and a “Now” button to see departures from a later time, now on train and bus boards too.',
       'Ferry terminals work like train stations: a terminal’s page lists every ferry leaving it, and “To…” narrows it to one destination. Links to your saved ferry trips open with the destination set.',
       'With a destination set, the ⇄ button flips your trip the other way.',
+      'Tap a departure on any board to open its trip, laid out the same for ferries, trains and buses: when it leaves and arrives, and its stops starting from yours, with the earlier ones tucked away.',
+      'Ferry trips now open as their own page you can share, instead of a pop-up, and ‹ takes you back to the board where you left it.',
+      'Save from a trip too: it saves the stop you board at, and where you’re getting off when you chose a destination.',
+      'Trip pages leave out details that aren’t known, instead of showing “—” or “Not reported”.',
     ],
   },
   {

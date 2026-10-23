@@ -2,7 +2,7 @@
 /** THE-118 PR 1: the train board's star, and its Undo with a full favourites list. */
 import { act, cleanup, render, renderHook, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { useStar } from '../app/components/StationBoard.tsx'
+import { useStar } from '../app/components/TrainStar.tsx'
 import { FAVOURITES_KEY, MAX_FAVOURITES, readFavourites } from '../app/lib/storage.ts'
 
 const KEYS = [

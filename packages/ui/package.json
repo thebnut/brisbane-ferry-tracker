@@ -11,6 +11,7 @@
     "./demo": "./src/demo.tsx",
     "./bus": "./src/bus.tsx",
     "./star": "./src/star.tsx",
+    "./trip": "./src/trip.tsx",
     "./alert-count": "./src/AlertCountLink.tsx",
     "./destination-sheet": "./src/DestinationSheet.tsx",
     "./board-header": "./src/board-header.tsx",

@@ -62,7 +62,7 @@ test('first visit: search by name with a typo, open the stop, open a bus', async
   await expect(page.getByText(/updated \d+ s ago/)).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('stop.png') })
   await page.getByTestId('departure').first().locator('a').click()
-  await expect(page.getByRole('list', { name: 'Stops on this trip' })).toBeVisible()
+  await expect(page.getByRole('list', { name: 'Stops on your trip' })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('trip.png') })
   expect(errors).toEqual([])
 })

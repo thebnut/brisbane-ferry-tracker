@@ -22,6 +22,8 @@ export interface LiveMapSheetProps {
   departures: Departure[]
   fetcher: ApiFetcher
   mode: DataMode
+  /** A trip page's "Track on map": that trip's ferry, highlighted and in view (THE-118 PR 6). */
+  follow?: string | null
   onClose: () => void
   onSelect: (d: Departure) => void
 }
@@ -33,6 +35,7 @@ export default function LiveMapSheet({
   departures,
   fetcher,
   mode,
+  follow = null,
   onClose,
   onSelect,
 }: LiveMapSheetProps) {
@@ -41,12 +44,13 @@ export default function LiveMapSheet({
   const positions = live && vehicles.data?.rtState === 'live' ? vehicles.data.vehicles : []
   const relevant = positions.filter((v) => v.tripKey && byTrip.has(v.tripKey))
   const shown = relevant.length > 0 ? relevant : positions
+  const followed = follow ? (positions.find((v) => v.tripKey === follow) ?? null) : null
 
   const markers: MapMarker[] = useMemo(() => {
     const terminals = [terminalById(from.id), to ? terminalById(to.id) : null]
       .filter((t) => t != null)
       .map((t) => ({ id: t.id, lat: t.lat, lon: t.lng, tone: 'stop' as const, label: `${t.name} terminal` }))
-    const ferries = shown.map((v) => {
+    const ferries = [...shown, ...(followed && !shown.includes(followed) ? [followed] : [])].map((v) => {
       const d = v.tripKey ? byTrip.get(v.tripKey) : undefined
       const express = (d?.route.short ?? v.routeId?.split('-')[0]) === 'F11'
       return {
@@ -54,13 +58,13 @@ export default function LiveMapSheet({
         lat: v.lat,
         lon: v.lon,
         pulse: true,
-        tone: express ? ('express' as const) : ('allstops' as const),
-        label: `${vesselName(v.id) ?? 'Ferry'}${express ? ' (express)' : ''}`,
+        tone: v === followed ? ('selected' as const) : express ? ('express' as const) : ('allstops' as const),
+        label: `${vesselName(v.id) ?? 'Ferry'}${express ? ' (express)' : ''}${v === followed ? ', your trip' : ''}`,
         onClick: d ? () => onSelect(d) : undefined,
       }
     })
     return [...terminals, ...ferries]
-  }, [shown, byTrip, from, to, onSelect])
+  }, [shown, followed, byTrip, from, to, onSelect])
 
   return (
     <BottomSheet
@@ -71,17 +75,21 @@ export default function LiveMapSheet({
         <p className="text-sm text-gray-700">
           {!live || (vehicles.data && vehicles.data.rtState !== 'live')
             ? 'Live positions are unavailable right now.'
-            : relevant.length > 0
-              ? `${relevant.length} ferr${relevant.length === 1 ? 'y' : 'ies'} ${to ? `between ${cleanStopName(from.name)} and ${cleanStopName(to.name)}` : `from ${cleanStopName(from.name)}`}`
-              : vehicles.isPending
-                ? 'Loading ferry positions…'
-                : 'No ferries on this route right now. Showing all ferries with GPS.'}
+            : followed
+              ? `Following ${vesselName(followed.id) ?? 'your ferry'}`
+              : relevant.length > 0
+                ? `${relevant.length} ferr${relevant.length === 1 ? 'y' : 'ies'} ${to ? `between ${cleanStopName(from.name)} and ${cleanStopName(to.name)}` : `from ${cleanStopName(from.name)}`}`
+                : vehicles.isPending
+                  ? 'Loading ferry positions…'
+                  : 'No ferries on this route right now. Showing all ferries with GPS.'}
         </p>
       }
     >
       <SafeMap
         markers={markers}
-        fitTo={to ? [from.id, to.id] : [from.id]}
+        fitTo={[from.id, ...(to ? [to.id] : []), ...(followed ? [followed.id] : [])]}
+        // The followed ferry's position can arrive after the first fit: fit again once it does.
+        fitKey={followed?.id ?? ''}
         label="Map of live ferry positions"
         className="h-[60dvh] w-full overflow-hidden rounded-card bg-map-ground"
       />

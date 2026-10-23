@@ -5,18 +5,19 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { formatAge, formatClock, Icon } from '@bft/ui'
+import { formatAge, formatClock, Icon, useKept } from '@bft/ui'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { BoardHeader, Chip, chipClass, FilterRow, NowChip } from '@bft/ui/board-header'
 import { asSeed, awaitingSeedAnswer, sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { DestinationSheet } from '@bft/ui/destination-sheet'
 import { StarButton } from '@bft/ui/star'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { data, Link, useNavigate } from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
 import { UpdatedStrip } from '../components/header.tsx'
 import { ReachableList } from '../components/ReachableList.tsx'
-import { StationBoard, useStar } from '../components/StationBoard.tsx'
+import { StationBoard } from '../components/StationBoard.tsx'
+import { useStar } from '../components/TrainStar.tsx'
 import { stationAlerts } from '../lib/alerts.ts'
 import { fetchDepartures } from '../lib/api.ts'
 import { at, BASE } from '../lib/base.ts'
@@ -167,7 +168,7 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   const { station, to, outbound, inbound, mode, renderedAt } = loaderData
   const nowMs = useNow(renderedAt, 1000)
   const navigate = useNavigate()
-  const [filter, setFilter] = useState<ServiceFilter>('all')
+  const [filter, setFilter] = useKept<ServiceFilter>('filter', 'all')
   // "Depart from" (the Now ▾ chip, THE-118 PR 5): null is now, which the loader's rows are for.
   const [departAt, setDepartAt] = useState<number | null>(null)
   const [picker, setPicker] = useState(false)
@@ -175,9 +176,15 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
   const onData = useCallback((r: DeparturesResponse | undefined) => r && setLatest(r), [])
   const page = usePageCheck()
   const src = sourceTimeS(latest, { nowMs, ...page })
-  // Reset the filter when moving between stations.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the trip.
-  useEffect(() => setFilter('all'), [station.key, to?.key])
+  // Reset the filter when moving between stations (not on mount: back from a trip keeps it, THE-118 PR 6).
+  const board = `${station.key}>${to?.key ?? ''}`
+  const shownBoard = useRef(board)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: setFilter is the kept state's setter, the same each time.
+  useEffect(() => {
+    if (shownBoard.current === board) return
+    shownBoard.current = board
+    setFilter('all')
+  }, [board])
   const title = `${station.name}${to ? ` → ${to.name}` : ''}`
   // The star saves the board as it is: the station, with "Going to" when set (THE-118 PR 1).
   const star = useStar({ from: station.key, to: to?.key ?? null }, title, () => setPicker(true))

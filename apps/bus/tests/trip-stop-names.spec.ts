@@ -7,9 +7,12 @@ import { expect, test } from '@playwright/test'
 const openTrip = async (page: import('@playwright/test').Page) => {
   await page.goto('/stop/10802')
   await page.getByTestId('departure').first().locator('a').click()
-  const stops = page.getByRole('list', { name: 'Stops on this trip' })
+  const stops = page.getByRole('list', { name: 'Stops on your trip' })
   await expect(stops).toBeVisible()
-  return stops
+  // Every stop: "Your trip" starts at your stop, with the ones before it collapsed (THE-118 PR 6).
+  const earlier = page.locator('[data-collapsed=earlier]')
+  if (await earlier.count()) await earlier.click()
+  return stops.locator(':scope > li[data-kind]')
 }
 
 test('every stop on a trip shows its real name from the trip API', async ({ page }) => {
@@ -20,7 +23,7 @@ test('every stop on a trip shows its real name from the trip API', async ({ page
   const body: { stops: Array<{ stopId: string; name?: string }> } = await res.json()
   expect(body.stops.length).toBeGreaterThan(1)
   for (const s of body.stops) expect(s.name, `trip API name for ${s.stopId}`).toBeTruthy()
-  const shown = (await stops.locator('li').allInnerTexts()).map((t) => t.split('\n')[0]?.trim())
+  const shown = (await stops.allInnerTexts()).map((t) => t.split('\n')[0]?.trim())
   expect(shown).toEqual(body.stops.map((s) => s.name))
   for (const n of shown) expect(n).not.toMatch(/^Stop \d+$/)
 })
@@ -38,9 +41,9 @@ test('a stop the API leaves unnamed shows its stop number once, not "Stop 142 ·
     await route.fulfill({ response: res, json: body })
   })
   await page.getByRole('button', { name: 'Refresh' }).click()
-  const first = stops.locator('li').first()
+  const first = stops.first()
   await expect(first).toContainText(/^Stop \d{6}/)
-  for (const text of await stops.locator('li').allInnerTexts()) {
+  for (const text of await stops.allInnerTexts()) {
     const [name = '', meta = ''] = text.split('\n').map((t) => t.trim())
     expect(name).toMatch(/^Stop \d{6}$/)
     // The stop number is the name, so the meta line doesn't repeat it.

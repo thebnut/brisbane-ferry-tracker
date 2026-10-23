@@ -117,11 +117,11 @@ test("a cached page: the header and an inbound departure wait for the inbound bo
   // Outbound is confirmed, inbound is still the cached copy: no LIVE in the header.
   await expect(page.locator('header').getByText('LIVE', { exact: true })).toHaveCount(0)
   await expect(page.locator('[data-board=inbound] [data-dot=live]')).toHaveCount(0)
-  // An inbound departure's details follow the inbound board: no LIVE or GPS from the cached row.
-  await page.locator('[data-board=inbound]').getByTestId('departure').first().click()
-  const sheet = page.getByRole('dialog')
-  await expect(sheet).toBeVisible()
-  await expect(sheet.locator('[data-badge=live], [data-badge=gps]')).toHaveCount(0)
+  // An inbound departure opens its own trip page (THE-118 PR 6), from Riverside, which claims only from its own data.
+  await expect(page.locator('[data-board=inbound] [data-testid=departure] a').first()).toHaveAttribute(
+    'href',
+    /\/trip\/[^?]+\?from=riverside&to=bulimba$/,
+  )
   release()
 })
 

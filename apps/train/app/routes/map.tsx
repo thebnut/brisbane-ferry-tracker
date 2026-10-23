@@ -28,6 +28,8 @@ export function loader({ request, context }: Route.LoaderArgs) {
   const fixtures = isFixtureMode(request, env)
   return {
     station: stationByKey(url.searchParams.get('station'))?.key ?? null,
+    // A trip page's "Track on map" (THE-118 PR 6): that train is selected once its position is in.
+    trip: /^.+@\d{8}$/.test(url.searchParams.get('trip') ?? '') ? url.searchParams.get('trip') : null,
     mode: { fixtures, rt: fixtures ? url.searchParams.get('rt') : null },
     site: siteInfo(env),
   }
@@ -90,7 +92,7 @@ function SelectedTrain({ v, mode }: { v: Vehicle; mode: Route.ComponentProps['lo
 }
 
 export default function MapPage({ loaderData }: Route.ComponentProps) {
-  const { mode, station } = loaderData
+  const { mode, station, trip } = loaderData
   const fetcher = useFetcher(mode)
   const q = useVehicles(fetcher, mode, true)
   // The header claims LIVE only from the trains' own fresh answer (shared liveState); none yet: "Connecting…".
@@ -98,13 +100,18 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
   const [selected, setSelected] = useState<string | null>(null)
   const vehicles = q.data?.vehicles ?? []
   const centre = stationByKey(station) ?? (stationByKey('central') as Station)
+  // A trip page's "Track on map": that train, highlighted and in view once its position is in.
+  const tracked = trip ? (vehicles.find((v) => v.tripKey === trip) ?? null) : null
+  const trackedId = tracked?.id ?? ''
   const fitTo = useMemo(
-    () =>
-      [...STATIONS]
+    () => [
+      ...[...STATIONS]
         .sort((a, b) => dist2(a, centre) - dist2(b, centre))
         .slice(0, station ? 6 : 14)
         .map((s) => `s:${s.key}`),
-    [centre, station],
+      ...(trackedId ? [`v:${trackedId}`] : []),
+    ],
+    [centre, station, trackedId],
   )
   const markers: MapMarker[] = useMemo(
     () => [
@@ -121,15 +128,15 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
         lat: v.lat,
         lon: v.lon,
         shape: 'square' as const,
-        tone: 'allstops' as const,
+        tone: v.id === trackedId ? ('selected' as const) : ('allstops' as const),
         pulse: true,
-        label: `Train ${v.label ?? v.id}`,
+        label: `Train ${v.label ?? v.id}${v.id === trackedId ? ', your trip' : ''}`,
         onClick: () => setSelected(v.id),
       })),
     ],
-    [vehicles, station],
+    [vehicles, station, trackedId],
   )
-  const sel = vehicles.find((v) => v.id === selected) ?? null
+  const sel = vehicles.find((v) => v.id === selected) ?? (selected == null ? tracked : null)
   const mounted = useMounted()
   const placeholder = (
     <div
@@ -146,6 +153,8 @@ export default function MapPage({ loaderData }: Route.ComponentProps) {
           <SafeMap
             markers={markers}
             fitTo={fitTo}
+            // The tracked train's position can arrive after the first fit: fit again once it does.
+            fitKey={trackedId}
             label={`Map of ${vehicles.length} live trains${station ? ` near ${centre.name}` : ''}`}
             className="h-[70dvh] w-full overflow-hidden rounded-card bg-map-ground"
             loading={placeholder}

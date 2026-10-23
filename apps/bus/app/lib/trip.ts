@@ -1,7 +1,7 @@
-/** Trip detail helpers (B-Detail timeline). */
+/** Trip detail helpers (B-Detail, THE-118 PR 6 "Your trip"). */
 import type { TripResponse, TripStop } from '@bft/core/contract'
 import { formatClock } from '@bft/ui'
-import type { BusTimelineStop } from '@bft/ui/bus'
+import { positionFromVehicle, type TimelineStop } from '@bft/ui/trip'
 import type { RouteFile } from './data-contract.ts'
 import { stopCode } from './stops.ts'
 
@@ -27,50 +27,57 @@ export function stopNamesFor(trip: TripResponse | null, route: RouteFile | null)
   return names
 }
 
-/** Timeline kinds: stops before the bus are past; the bus's stop (or your stop if no GPS) is "here". */
+/**
+ * "Your trip" (THE-118 PR 6): one row per stop, from @bft/ui/trip's timeline. Stops before the bus (by its GPS stop, or
+ * by the clock without one) are passed; the bus rides the line from its GPS stop. `board` is your stop's row.
+ */
 export function timeline(
   trip: TripResponse,
   from: string | null,
   nowMs: number,
   names: Record<string, string> = {},
-): BusTimelineStop[] {
+): { rows: TimelineStop[]; board: number; position: number | null; positionLabel: string | null } {
   const nowS = nowMs / 1000
   const stops = trip.stops
-  let hereIdx = -1
-  if (trip.vehicle?.stopId) {
-    const i = stops.findIndex((s) => s.stopId === trip.vehicle?.stopId)
-    if (i >= 0) hereIdx = trip.vehicle.status === 'STOPPED_AT' ? i : Math.max(0, i - 1)
-  }
-  if (hereIdx < 0) {
-    // No position: the last stop whose time has passed.
-    for (let i = 0; i < stops.length; i++) if (at(stops[i] as TripStop) <= nowS) hereIdx = i
-  }
-  return stops.map((s, i) => {
-    const isFrom = s.stopId === from
-    const name = s.name ?? names[s.stopId]
+  const position = positionFromVehicle(
+    stops.map((s) => s.stopId),
+    trip.vehicle,
+  )
+  const board = Math.max(
+    0,
+    stops.findIndex((s) => s.stopId === from),
+  )
+  const nameOf = (s: TripStop) => s.name ?? names[s.stopId]
+  const rows = stops.map((s, i): TimelineStop => {
+    const isFrom = i === board && s.stopId === from
+    const name = nameOf(s)
     const last = i === stops.length - 1
-    const kind: BusTimelineStop['kind'] =
-      i === hereIdx && trip.vehicle
-        ? 'here'
-        : i < hereIdx || (hereIdx === i && !trip.vehicle)
-          ? 'past'
-          : last
-            ? 'end'
-            : 'next'
-    const metaParts = [
-      kind === 'here' ? (isFrom ? 'Bus is here · your stop' : 'Bus is here') : isFrom ? 'Your stop' : null,
-      s.status === 'skipped' ? 'Not stopping' : null,
+    const skipped = s.status === 'skipped'
+    const past = position != null ? i < position : at(s) <= nowS && !last
+    const parts = [
+      isFrom ? 'You board' : null,
+      skipped ? 'Not stopping' : null,
       last ? 'Terminus' : null,
-      kind === 'past' && !isFrom ? 'Departed' : null,
-      name && !last && kind === 'next' && !isFrom && stopCode(s.stopId) ? `Stop ${stopCode(s.stopId)}` : null,
+      past && !isFrom && !last ? 'Departed' : null,
+      name && !last && !past && !isFrom && stopCode(s.stopId) ? `Stop ${stopCode(s.stopId)}` : null,
     ].filter(Boolean)
     return {
-      key: `${s.stopId}:${s.stopSequence}`,
+      id: `${s.stopId}:${s.stopSequence}`,
       name: name ?? unnamedStop(s.stopId),
-      meta: metaParts.join(' · ') || undefined,
-      time: at(s) ? formatClock(at(s)) : '',
-      kind: isFrom && kind === 'next' ? 'here' : kind,
-      struck: s.status === 'skipped',
+      note: parts.join(' · ') || undefined,
+      dep: at(s) ? formatClock(at(s)) : null,
+      kind: skipped ? 'skip' : past ? 'passed' : last ? 'terminus' : 'stop',
+      cancelled: s.status === 'cancelled',
     }
   })
+  const here = position == null ? null : stops[Math.ceil(position)]
+  const hereName = here ? (nameOf(here) ?? unnamedStop(here.stopId)) : null
+  return {
+    rows,
+    board,
+    position,
+    positionLabel: hereName
+      ? `The bus is ${trip.vehicle?.status === 'STOPPED_AT' ? 'at' : 'heading to'} ${hereName}`
+      : null,
+  }
 }

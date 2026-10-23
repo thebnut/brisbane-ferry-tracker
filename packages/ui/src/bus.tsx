@@ -1,6 +1,6 @@
 /**
- * Bus elements in the ferry look (round 2, B-* boards): thumb-height search field and sheet, stop result card, "My stops" card, segmented control, trip timeline,
- * occupancy meter, notice strip and skeleton rows.
+ * Bus elements in the ferry look (round 2, B-* boards): thumb-height search field and sheet, stop result card, "My stops" card, segmented control,
+ * notice strip and skeleton rows. Trip detail's elements are @bft/ui/trip's (THE-118 PR 6).
  */
 import { type InputHTMLAttributes, type ReactNode, type Ref, useId } from 'react'
 import { cx } from './cx.ts'
@@ -374,115 +374,19 @@ export function NoticeStrip({ children, href, renderLink }: NoticeStripProps) {
   )
 }
 
-const OCC: Record<string, { bars: number; text: string }> = {
-  EMPTY: { bars: 0, text: 'Empty' },
-  MANY_SEATS_AVAILABLE: { bars: 1, text: 'Many seats' },
-  FEW_SEATS_AVAILABLE: { bars: 3, text: 'Few seats' },
-  STANDING_ROOM_ONLY: { bars: 4, text: 'Standing room' },
-  CRUSHED_STANDING_ROOM_ONLY: { bars: 4, text: 'Very full' },
-  FULL: { bars: 4, text: 'Full' },
-  NOT_ACCEPTING_PASSENGERS: { bars: 4, text: 'Not taking passengers' },
+const OCC: Record<string, string> = {
+  EMPTY: 'Empty',
+  MANY_SEATS_AVAILABLE: 'Many seats',
+  FEW_SEATS_AVAILABLE: 'Few seats',
+  STANDING_ROOM_ONLY: 'Standing room',
+  CRUSHED_STANDING_ROOM_ONLY: 'Very full',
+  FULL: 'Full',
+  NOT_ACCEPTING_PASSENGERS: 'Not taking passengers',
 }
 
-/** GTFS-RT occupancy as a short label ("Few seats"), or null. */
+/** GTFS-RT occupancy as a short label ("Few seats"), or null. Trip detail's tile with bars is @bft/ui/trip's. */
 export function occupancyText(occupancy: string | null | undefined): string | null {
-  return occupancy ? (OCC[occupancy]?.text ?? null) : null
-}
-
-export function OccupancyMeter({ occupancy }: { occupancy: string | null | undefined }) {
-  const o = occupancy ? OCC[occupancy] : undefined
-  if (!o) return <span className="text-[13px] font-bold">Not reported</span>
-  return (
-    <>
-      <span className="flex gap-[3px]" aria-hidden="true">
-        {[0, 1, 2, 3].map((i) => (
-          <span
-            key={i}
-            className={cx('h-2 w-3.5 rounded-[2px]', i < o.bars ? 'bg-ferry-orange-dark' : 'bg-gray-200')}
-          />
-        ))}
-      </span>
-      <span className="text-[13px] font-bold">{o.text}</span>
-    </>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Trip timeline
-// ---------------------------------------------------------------------------
-
-export type BusTimelineKind = 'past' | 'here' | 'next' | 'end'
-
-export interface BusTimelineStop {
-  key: string
-  name: string
-  meta?: string
-  time: string
-  kind: BusTimelineKind
-  /** "not stopping" etc. */
-  struck?: boolean
-}
-
-/** Vertical stopping pattern with the bus as a ringed orange dot (B-Detail "Stops on this trip"). */
-export function TripTimeline({
-  stops,
-  label = 'Stops on this trip',
-}: {
-  stops: BusTimelineStop[]
-  label?: string
-}) {
-  return (
-    <ol aria-label={label}>
-      {stops.map((s) => {
-        const past = s.kind === 'past'
-        return (
-          <li key={s.key} data-kind={s.kind} className="flex min-h-11 items-stretch gap-3">
-            <span aria-hidden="true" className="relative flex w-7 shrink-0 justify-center">
-              <span
-                className={cx(
-                  'absolute inset-y-0 left-3 w-1 rounded-sm',
-                  past ? 'bg-gray-300' : 'bg-teal-text',
-                )}
-              />
-              <span
-                className={cx(
-                  'relative box-border',
-                  s.kind === 'past' && 'mt-[15px] size-3 rounded-full border-2 border-white bg-gray-300',
-                  s.kind === 'here' &&
-                    'mt-2 size-6 rounded-full border-[3px] border-white bg-ferry-orange shadow-[0_0_0_4px_rgb(255_107_53/0.3)]',
-                  s.kind === 'next' && 'mt-3.5 size-3.5 rounded-full border-[3px] border-teal-text bg-white',
-                  s.kind === 'end' && 'mt-[13px] size-4 rounded-[4px] border-2 border-white bg-teal-text',
-                )}
-              />
-            </span>
-            <span className="flex flex-1 items-center justify-between gap-2 border-b border-charcoal/5">
-              <span className="flex flex-col">
-                <span
-                  className={cx(
-                    'text-[15px]',
-                    s.kind === 'here' || s.kind === 'end' ? 'font-extrabold' : 'font-semibold',
-                    past ? 'text-gray-500' : 'text-charcoal dark:text-night-text',
-                    s.struck && 'line-through',
-                  )}
-                >
-                  {s.name}
-                </span>
-                {s.meta ? <span className="text-xs text-sched-text">{s.meta}</span> : null}
-              </span>
-              <span
-                className={cx(
-                  'text-[15px] font-bold whitespace-nowrap tabular',
-                  past ? 'text-gray-500' : 'text-charcoal dark:text-night-text',
-                )}
-              >
-                {s.time}
-              </span>
-            </span>
-          </li>
-        )
-      })}
-    </ol>
-  )
+  return occupancy ? (OCC[occupancy] ?? null) : null
 }
 
 // ---------------------------------------------------------------------------
