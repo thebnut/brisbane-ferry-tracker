@@ -113,6 +113,8 @@ const pulsing = () => screen.queryAllByTestId('map').flatMap((m) => [...m.queryS
 
 beforeEach(() => reportOnline())
 afterEach(() => {
+  // A test that timed out with fake timers on never leaves them to the next.
+  vi.useRealTimers()
   cleanup()
   vi.unstubAllGlobals()
 })
@@ -251,7 +253,8 @@ describe('/map?stop= with a failed departures request', () => {
     } finally {
       vi.useRealTimers()
     }
-  })
+    // About 250 fake-time steps, each a render: slower than the 5 s default on CI runners.
+  }, 30_000)
 
   it('positions kept after their refresh failed: no buses, no LIVE', async () => {
     serve({ '/v1/bus/vehicles': () => 503, '/departures': departures })

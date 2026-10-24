@@ -95,6 +95,8 @@ const mapPage = () => (
 
 beforeEach(() => reportOnline())
 afterEach(() => {
+  // A test that timed out with fake timers on never leaves them to the next.
+  vi.useRealTimers()
   cleanup()
   vi.unstubAllGlobals()
 })
@@ -186,7 +188,8 @@ describe('/map?station= with a failed departures request', () => {
     } finally {
       vi.useRealTimers()
     }
-  })
+    // About 250 fake-time steps, each a render: slower than the 5 s default on CI runners.
+  }, 30_000)
 
   it('a successful empty answer stays "No trains at Central have live positions right now."', async () => {
     serve({ '/v1/train/vehicles': vehicles, '/departures': () => ({ ...departures(), departures: [] }) })

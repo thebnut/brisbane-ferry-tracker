@@ -109,6 +109,8 @@ beforeEach(() => {
   vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
 })
 afterEach(() => {
+  // A test that timed out with fake timers on never leaves them to the next.
+  vi.useRealTimers()
   cleanup()
   vi.unstubAllGlobals()
 })
@@ -203,7 +205,8 @@ describe('/map?terminal= with a failed departures request', () => {
     } finally {
       vi.useRealTimers()
     }
-  })
+    // About 250 fake-time steps, each a render: slower than the 5 s default on CI runners.
+  }, 30_000)
 
   it('a successful empty answer stays "No ferries from Bulimba have GPS right now."', async () => {
     serve({ '/v1/ferry/vehicles': vehicles, '/departures': () => ({ ...departures(), departures: [] }) })
