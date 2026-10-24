@@ -1,0 +1,4837 @@
+{
+ "generated": "2026-10-10T20:31:32.438Z",
+ "departures": [
+  {
+   "tripId": "37619770-BCC 26_27-42968",
+   "routeId": "F11-4055",
+   "stopId": "307147",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T21:01:00.000Z",
+   "headsign": "Riverside"
+  },
+  {
+   "tripId": "37619770-BCC 26_27-42968",
+   "routeId": "F11-4055",
+   "stopId": "319743",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T21:04:00.000Z",
+   "headsign": "Riverside"
+  },
+  {
+   "tripId": "37619770-BCC 26_27-42968",
+   "routeId": "F11-4055",
+   "stopId": "317584",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T21:11:00.000Z",
+   "headsign": "Riverside"
+  },
+  {
+   "tripId": "37619770-BCC 26_27-42968",
+   "routeId": "F11-4055",
+   "stopId": "317583",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T21:16:00.000Z",
+   "headsign": "Riverside"
+  },
+  {
+   "tripId": "37619770-BCC 26_27-42968",
+   "routeId": "F11-4055",
+   "stopId": "317590",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T21:31:00.000Z",
+   "headsign": "Riverside"
+  },
+  {
+   "tripId": "37619637-BCC 26_27-42968",
+   "routeId": "F11-4055",
+   "stopId": "317590",
+   "stopSequence": 1,
+   "departureTime": "2026-10-12T06:04:00.000Z",
+   "headsign": "Apollo Road"
+  },
+  {
+   "tripId": "37619637-BCC 26_27-42968",
+   "routeId": "F11-4055",
+   "stopId": "317583",
+   "stopSequence": 2,
+   "departureTime": "2026-10-12T06:19:00.000Z",
+   "headsign": "Apollo Road"
+  },
+  {
+   "tripId": "37619637-BCC 26_27-42968",
+   "routeId": "F11-4055",
+   "stopId": "317584",
+   "stopSequence": 3,
+   "departureTime": "2026-10-12T06:24:00.000Z",
+   "headsign": "Apollo Road"
+  },
+  {
+   "tripId": "37619637-BCC 26_27-42968",
+   "routeId": "F11-4055",
+   "stopId": "319743",
+   "stopSequence": 4,
+   "departureTime": "2026-10-12T06:30:00.000Z",
+   "headsign": "Apollo Road"
+  },
+  {
+   "tripId": "37619637-BCC 26_27-42968",
+   "routeId": "F11-4055",
+   "stopId": "307147",
+   "stopSequence": 5,
+   "departureTime": "2026-10-12T06:33:00.000Z",
+   "headsign": "Apollo Road"
+  },
+  {
+   "tripId": "37619664-BCC 26_27-42968",
+   "routeId": "F12-4055",
+   "stopId": "317574",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T20:50:00.000Z",
+   "headsign": "QUT Gardens Point"
+  },
+  {
+   "tripId": "37619664-BCC 26_27-42968",
+   "routeId": "F12-4055",
+   "stopId": "317572",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T20:53:00.000Z",
+   "headsign": "QUT Gardens Point"
+  },
+  {
+   "tripId": "37619664-BCC 26_27-42968",
+   "routeId": "F12-4055",
+   "stopId": "317571",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T20:57:00.000Z",
+   "headsign": "QUT Gardens Point"
+  },
+  {
+   "tripId": "37619664-BCC 26_27-42968",
+   "routeId": "F12-4055",
+   "stopId": "319586",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T21:01:00.000Z",
+   "headsign": "QUT Gardens Point"
+  },
+  {
+   "tripId": "37619664-BCC 26_27-42968",
+   "routeId": "F12-4055",
+   "stopId": "317593",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T21:08:00.000Z",
+   "headsign": "QUT Gardens Point"
+  },
+  {
+   "tripId": "37619664-BCC 26_27-42968",
+   "routeId": "F12-4055",
+   "stopId": "319637",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T21:13:00.000Z",
+   "headsign": "QUT Gardens Point"
+  },
+  {
+   "tripId": "37619726-BCC 26_27-42968",
+   "routeId": "F12-4055",
+   "stopId": "319637",
+   "stopSequence": 1,
+   "departureTime": "2026-10-12T06:20:00.000Z",
+   "headsign": "West End"
+  },
+  {
+   "tripId": "37619726-BCC 26_27-42968",
+   "routeId": "F12-4055",
+   "stopId": "317593",
+   "stopSequence": 2,
+   "departureTime": "2026-10-12T06:25:00.000Z",
+   "headsign": "West End"
+  },
+  {
+   "tripId": "37619726-BCC 26_27-42968",
+   "routeId": "F12-4055",
+   "stopId": "319586",
+   "stopSequence": 3,
+   "departureTime": "2026-10-12T06:31:00.000Z",
+   "headsign": "West End"
+  },
+  {
+   "tripId": "37619726-BCC 26_27-42968",
+   "routeId": "F12-4055",
+   "stopId": "317571",
+   "stopSequence": 4,
+   "departureTime": "2026-10-12T06:35:00.000Z",
+   "headsign": "West End"
+  },
+  {
+   "tripId": "37619726-BCC 26_27-42968",
+   "routeId": "F12-4055",
+   "stopId": "317572",
+   "stopSequence": 5,
+   "departureTime": "2026-10-12T06:39:00.000Z",
+   "headsign": "West End"
+  },
+  {
+   "tripId": "37619726-BCC 26_27-42968",
+   "routeId": "F12-4055",
+   "stopId": "317574",
+   "stopSequence": 6,
+   "departureTime": "2026-10-12T06:42:00.000Z",
+   "headsign": "West End"
+  },
+  {
+   "tripId": "37619783-BCC 26_27-42968",
+   "routeId": "F1-4055",
+   "stopId": "317583",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T19:32:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37619783-BCC 26_27-42968",
+   "routeId": "F1-4055",
+   "stopId": "317584",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T19:36:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37619783-BCC 26_27-42968",
+   "routeId": "F1-4055",
+   "stopId": "317587",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T19:40:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37619783-BCC 26_27-42968",
+   "routeId": "F1-4055",
+   "stopId": "319743",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T19:46:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37619783-BCC 26_27-42968",
+   "routeId": "F1-4055",
+   "stopId": "307147",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T19:49:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37619783-BCC 26_27-42968",
+   "routeId": "F1-4055",
+   "stopId": "318002",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T19:53:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37619784-BCC 26_27-42968",
+   "routeId": "F1-4055",
+   "stopId": "317583",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T20:02:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37619784-BCC 26_27-42968",
+   "routeId": "F1-4055",
+   "stopId": "317584",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T20:08:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37619784-BCC 26_27-42968",
+   "routeId": "F1-4055",
+   "stopId": "317587",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T20:12:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37619784-BCC 26_27-42968",
+   "routeId": "F1-4055",
+   "stopId": "319743",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T20:18:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37619784-BCC 26_27-42968",
+   "routeId": "F1-4055",
+   "stopId": "318002",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T20:23:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "318002",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:30:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "307147",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:35:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319743",
+   "stopSequence": 3,
+   "departureTime": "2026-10-10T20:38:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317587",
+   "stopSequence": 4,
+   "departureTime": "2026-10-10T20:45:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317584",
+   "stopSequence": 5,
+   "departureTime": "2026-10-10T20:49:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317583",
+   "stopSequence": 6,
+   "departureTime": "2026-10-10T20:53:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317588",
+   "stopSequence": 7,
+   "departureTime": "2026-10-10T20:59:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317582",
+   "stopSequence": 8,
+   "departureTime": "2026-10-10T21:03:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317589",
+   "stopSequence": 9,
+   "departureTime": "2026-10-10T21:06:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "321208",
+   "stopSequence": 10,
+   "departureTime": "2026-10-10T21:12:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317590",
+   "stopSequence": 11,
+   "departureTime": "2026-10-10T21:17:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319637",
+   "stopSequence": 12,
+   "departureTime": "2026-10-10T21:26:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "321666",
+   "stopSequence": 13,
+   "departureTime": "2026-10-10T21:30:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317593",
+   "stopSequence": 14,
+   "departureTime": "2026-10-10T21:34:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317571",
+   "stopSequence": 15,
+   "departureTime": "2026-10-10T21:42:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317572",
+   "stopSequence": 16,
+   "departureTime": "2026-10-10T21:46:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317574",
+   "stopSequence": 17,
+   "departureTime": "2026-10-10T21:49:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622150-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319665",
+   "stopSequence": 18,
+   "departureTime": "2026-10-10T21:53:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "318002",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:00:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319743",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:06:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317587",
+   "stopSequence": 3,
+   "departureTime": "2026-10-10T20:13:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317584",
+   "stopSequence": 4,
+   "departureTime": "2026-10-10T20:17:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317583",
+   "stopSequence": 5,
+   "departureTime": "2026-10-10T20:23:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317588",
+   "stopSequence": 6,
+   "departureTime": "2026-10-10T20:27:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317582",
+   "stopSequence": 7,
+   "departureTime": "2026-10-10T20:31:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317589",
+   "stopSequence": 8,
+   "departureTime": "2026-10-10T20:34:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "321208",
+   "stopSequence": 9,
+   "departureTime": "2026-10-10T20:40:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317590",
+   "stopSequence": 10,
+   "departureTime": "2026-10-10T20:45:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319637",
+   "stopSequence": 11,
+   "departureTime": "2026-10-10T20:54:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "321666",
+   "stopSequence": 12,
+   "departureTime": "2026-10-10T20:58:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317593",
+   "stopSequence": 13,
+   "departureTime": "2026-10-10T21:02:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319586",
+   "stopSequence": 14,
+   "departureTime": "2026-10-10T21:08:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317571",
+   "stopSequence": 15,
+   "departureTime": "2026-10-10T21:12:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317572",
+   "stopSequence": 16,
+   "departureTime": "2026-10-10T21:16:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317574",
+   "stopSequence": 17,
+   "departureTime": "2026-10-10T21:19:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622156-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319665",
+   "stopSequence": 18,
+   "departureTime": "2026-10-10T21:23:00.000Z",
+   "headsign": "UQ St Lucia"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319665",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:00:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317574",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:05:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317572",
+   "stopSequence": 3,
+   "departureTime": "2026-10-10T20:08:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317571",
+   "stopSequence": 4,
+   "departureTime": "2026-10-10T20:12:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317593",
+   "stopSequence": 5,
+   "departureTime": "2026-10-10T20:21:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "321666",
+   "stopSequence": 6,
+   "departureTime": "2026-10-10T20:25:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319637",
+   "stopSequence": 7,
+   "departureTime": "2026-10-10T20:29:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317590",
+   "stopSequence": 8,
+   "departureTime": "2026-10-10T20:38:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "321208",
+   "stopSequence": 9,
+   "departureTime": "2026-10-10T20:43:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317589",
+   "stopSequence": 10,
+   "departureTime": "2026-10-10T20:50:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317582",
+   "stopSequence": 11,
+   "departureTime": "2026-10-10T20:53:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317588",
+   "stopSequence": 12,
+   "departureTime": "2026-10-10T20:57:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317583",
+   "stopSequence": 13,
+   "departureTime": "2026-10-10T21:02:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317584",
+   "stopSequence": 14,
+   "departureTime": "2026-10-10T21:06:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317587",
+   "stopSequence": 15,
+   "departureTime": "2026-10-10T21:10:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319743",
+   "stopSequence": 16,
+   "departureTime": "2026-10-10T21:16:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "307147",
+   "stopSequence": 17,
+   "departureTime": "2026-10-10T21:19:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622103-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "318002",
+   "stopSequence": 18,
+   "departureTime": "2026-10-10T21:23:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319665",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:30:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317574",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:35:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317572",
+   "stopSequence": 3,
+   "departureTime": "2026-10-10T20:38:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317571",
+   "stopSequence": 4,
+   "departureTime": "2026-10-10T20:42:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319586",
+   "stopSequence": 5,
+   "departureTime": "2026-10-10T20:46:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317593",
+   "stopSequence": 6,
+   "departureTime": "2026-10-10T20:52:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "321666",
+   "stopSequence": 7,
+   "departureTime": "2026-10-10T20:56:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319637",
+   "stopSequence": 8,
+   "departureTime": "2026-10-10T21:00:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317590",
+   "stopSequence": 9,
+   "departureTime": "2026-10-10T21:09:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "321208",
+   "stopSequence": 10,
+   "departureTime": "2026-10-10T21:14:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317589",
+   "stopSequence": 11,
+   "departureTime": "2026-10-10T21:20:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317582",
+   "stopSequence": 12,
+   "departureTime": "2026-10-10T21:23:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317588",
+   "stopSequence": 13,
+   "departureTime": "2026-10-10T21:27:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317583",
+   "stopSequence": 14,
+   "departureTime": "2026-10-10T21:32:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317584",
+   "stopSequence": 15,
+   "departureTime": "2026-10-10T21:38:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "317587",
+   "stopSequence": 16,
+   "departureTime": "2026-10-10T21:42:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "319743",
+   "stopSequence": 17,
+   "departureTime": "2026-10-10T21:48:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37622149-BCC 26_27-42971",
+   "routeId": "F1-4055",
+   "stopId": "318002",
+   "stopSequence": 18,
+   "departureTime": "2026-10-10T21:53:00.000Z",
+   "headsign": "Northshore Hamilton"
+  },
+  {
+   "tripId": "37621602-BCC 26_27-42971",
+   "routeId": "F21-4055",
+   "stopId": "317584",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:17:00.000Z",
+   "headsign": "Teneriffe"
+  },
+  {
+   "tripId": "37621602-BCC 26_27-42971",
+   "routeId": "F21-4055",
+   "stopId": "317587",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:22:00.000Z",
+   "headsign": "Teneriffe"
+  },
+  {
+   "tripId": "37621534-BCC 26_27-42971",
+   "routeId": "F21-4055",
+   "stopId": "317587",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:22:00.000Z",
+   "headsign": "Bulimba"
+  },
+  {
+   "tripId": "37621534-BCC 26_27-42971",
+   "routeId": "F21-4055",
+   "stopId": "317584",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:27:00.000Z",
+   "headsign": "Bulimba"
+  },
+  {
+   "tripId": "37621664-BCC 26_27-42971",
+   "routeId": "F22-4055",
+   "stopId": "317581",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:23:00.000Z",
+   "headsign": "Sydney Street"
+  },
+  {
+   "tripId": "37621664-BCC 26_27-42971",
+   "routeId": "F22-4055",
+   "stopId": "317589",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:28:00.000Z",
+   "headsign": "Sydney Street"
+  },
+  {
+   "tripId": "37621735-BCC 26_27-42971",
+   "routeId": "F22-4055",
+   "stopId": "317589",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:28:00.000Z",
+   "headsign": "Dockside"
+  },
+  {
+   "tripId": "37621735-BCC 26_27-42971",
+   "routeId": "F22-4055",
+   "stopId": "317581",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:33:00.000Z",
+   "headsign": "Dockside"
+  },
+  {
+   "tripId": "37621871-BCC 26_27-42971",
+   "routeId": "F23-4055",
+   "stopId": "317580",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:00:00.000Z",
+   "headsign": "Riverside"
+  },
+  {
+   "tripId": "37621871-BCC 26_27-42971",
+   "routeId": "F23-4055",
+   "stopId": "317590",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:05:00.000Z",
+   "headsign": "Riverside"
+  },
+  {
+   "tripId": "37621800-BCC 26_27-42971",
+   "routeId": "F23-4055",
+   "stopId": "317590",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:05:00.000Z",
+   "headsign": "Holman Street"
+  },
+  {
+   "tripId": "37621800-BCC 26_27-42971",
+   "routeId": "F23-4055",
+   "stopId": "317580",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:10:00.000Z",
+   "headsign": "Holman Street"
+  },
+  {
+   "tripId": "37622016-BCC 26_27-42971",
+   "routeId": "F24-4055",
+   "stopId": "317578",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:14:00.000Z",
+   "headsign": "QUT Gardens Point"
+  },
+  {
+   "tripId": "37622016-BCC 26_27-42971",
+   "routeId": "F24-4055",
+   "stopId": "319637",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:20:00.000Z",
+   "headsign": "QUT Gardens Point"
+  },
+  {
+   "tripId": "37621944-BCC 26_27-42971",
+   "routeId": "F24-4055",
+   "stopId": "319637",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:20:00.000Z",
+   "headsign": "Maritime Museum"
+  },
+  {
+   "tripId": "37621944-BCC 26_27-42971",
+   "routeId": "F24-4055",
+   "stopId": "317578",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:26:00.000Z",
+   "headsign": "Maritime Museum"
+  },
+  {
+   "tripId": "37676246-COO 26_27-43135",
+   "routeId": "F50-4430",
+   "stopId": "318695",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:15:00.000Z",
+   "headsign": "Victoria Point"
+  },
+  {
+   "tripId": "37676246-COO 26_27-43135",
+   "routeId": "F50-4430",
+   "stopId": "318966",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:25:00.000Z",
+   "headsign": "Victoria Point"
+  },
+  {
+   "tripId": "37676232-COO 26_27-43135",
+   "routeId": "F50-4430",
+   "stopId": "318966",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:30:00.000Z",
+   "headsign": "Coochiemudlo Island"
+  },
+  {
+   "tripId": "37676232-COO 26_27-43135",
+   "routeId": "F50-4430",
+   "stopId": "318695",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:40:00.000Z",
+   "headsign": "Coochiemudlo Island"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600389",
+   "stopSequence": 1,
+   "departureTime": "2026-10-12T13:02:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-12T13:06:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-12T13:08:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-12T13:10:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-12T13:12:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-12T13:14:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-12T13:16:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-12T13:18:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-12T13:20:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-12T13:22:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-12T13:24:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-12T13:28:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-12T13:30:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-12T13:34:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600036",
+   "stopSequence": 15,
+   "departureTime": "2026-10-12T13:37:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-12T13:42:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600006",
+   "stopSequence": 17,
+   "departureTime": "2026-10-12T13:44:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600085",
+   "stopSequence": 18,
+   "departureTime": "2026-10-12T13:47:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600051",
+   "stopSequence": 19,
+   "departureTime": "2026-10-12T13:49:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600052",
+   "stopSequence": 20,
+   "departureTime": "2026-10-12T13:51:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600053",
+   "stopSequence": 21,
+   "departureTime": "2026-10-12T13:53:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600054",
+   "stopSequence": 22,
+   "departureTime": "2026-10-12T13:55:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241713-QR 26_27-44306-T794",
+   "routeId": "FGBN-5186",
+   "stopId": "600199",
+   "stopSequence": 23,
+   "departureTime": "2026-10-12T13:59:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600389",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T19:02:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T19:06:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T19:08:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T19:10:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T19:12:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T19:14:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-11T19:16:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-11T19:18:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-11T19:20:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-11T19:22:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-11T19:24:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-11T19:28:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-11T19:30:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-11T19:34:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600036",
+   "stopSequence": 15,
+   "departureTime": "2026-10-11T19:37:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-11T19:42:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600006",
+   "stopSequence": 17,
+   "departureTime": "2026-10-11T19:44:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600085",
+   "stopSequence": 18,
+   "departureTime": "2026-10-11T19:47:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600051",
+   "stopSequence": 19,
+   "departureTime": "2026-10-11T19:49:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600052",
+   "stopSequence": 20,
+   "departureTime": "2026-10-11T19:51:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600053",
+   "stopSequence": 21,
+   "departureTime": "2026-10-11T19:53:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600054",
+   "stopSequence": 22,
+   "departureTime": "2026-10-11T19:55:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600199",
+   "stopSequence": 23,
+   "departureTime": "2026-10-11T19:59:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600201",
+   "stopSequence": 24,
+   "departureTime": "2026-10-11T20:01:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600203",
+   "stopSequence": 25,
+   "departureTime": "2026-10-11T20:04:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600206",
+   "stopSequence": 26,
+   "departureTime": "2026-10-11T20:06:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600209",
+   "stopSequence": 27,
+   "departureTime": "2026-10-11T20:08:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600212",
+   "stopSequence": 28,
+   "departureTime": "2026-10-11T20:10:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600215",
+   "stopSequence": 29,
+   "departureTime": "2026-10-11T20:12:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600218",
+   "stopSequence": 30,
+   "departureTime": "2026-10-11T20:14:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600221",
+   "stopSequence": 31,
+   "departureTime": "2026-10-11T20:16:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600224",
+   "stopSequence": 32,
+   "departureTime": "2026-10-11T20:21:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600226",
+   "stopSequence": 33,
+   "departureTime": "2026-10-11T20:23:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600228",
+   "stopSequence": 34,
+   "departureTime": "2026-10-11T20:27:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600230",
+   "stopSequence": 35,
+   "departureTime": "2026-10-11T20:29:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600232",
+   "stopSequence": 36,
+   "departureTime": "2026-10-11T20:33:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600235",
+   "stopSequence": 37,
+   "departureTime": "2026-10-11T20:35:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600237",
+   "stopSequence": 38,
+   "departureTime": "2026-10-11T20:38:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241018-QR 26_27-44306-1708",
+   "routeId": "FGBN-5186",
+   "stopId": "600239",
+   "stopSequence": 39,
+   "departureTime": "2026-10-11T20:41:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600389",
+   "stopSequence": 1,
+   "departureTime": "2026-10-12T05:02:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-12T05:06:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-12T05:08:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-12T05:10:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-12T05:12:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-12T05:14:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-12T05:16:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-12T05:18:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-12T05:20:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-12T05:22:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-12T05:24:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-12T05:28:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-12T05:30:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-12T05:34:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600036",
+   "stopSequence": 15,
+   "departureTime": "2026-10-12T05:37:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-12T05:42:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600006",
+   "stopSequence": 17,
+   "departureTime": "2026-10-12T05:44:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600085",
+   "stopSequence": 18,
+   "departureTime": "2026-10-12T05:47:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600051",
+   "stopSequence": 19,
+   "departureTime": "2026-10-12T05:49:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600052",
+   "stopSequence": 20,
+   "departureTime": "2026-10-12T05:51:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600053",
+   "stopSequence": 21,
+   "departureTime": "2026-10-12T05:53:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600054",
+   "stopSequence": 22,
+   "departureTime": "2026-10-12T05:55:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600199",
+   "stopSequence": 23,
+   "departureTime": "2026-10-12T05:59:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600201",
+   "stopSequence": 24,
+   "departureTime": "2026-10-12T06:01:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600204",
+   "stopSequence": 25,
+   "departureTime": "2026-10-12T06:04:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600207",
+   "stopSequence": 26,
+   "departureTime": "2026-10-12T06:06:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600210",
+   "stopSequence": 27,
+   "departureTime": "2026-10-12T06:08:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600213",
+   "stopSequence": 28,
+   "departureTime": "2026-10-12T06:10:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600216",
+   "stopSequence": 29,
+   "departureTime": "2026-10-12T06:12:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600219",
+   "stopSequence": 30,
+   "departureTime": "2026-10-12T06:14:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600222",
+   "stopSequence": 31,
+   "departureTime": "2026-10-12T06:16:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600224",
+   "stopSequence": 32,
+   "departureTime": "2026-10-12T06:21:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600226",
+   "stopSequence": 33,
+   "departureTime": "2026-10-12T06:23:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600228",
+   "stopSequence": 34,
+   "departureTime": "2026-10-12T06:27:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600230",
+   "stopSequence": 35,
+   "departureTime": "2026-10-12T06:29:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600232",
+   "stopSequence": 36,
+   "departureTime": "2026-10-12T06:33:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600235",
+   "stopSequence": 37,
+   "departureTime": "2026-10-12T06:35:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600237",
+   "stopSequence": 38,
+   "departureTime": "2026-10-12T06:38:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241040-QR 26_27-44306-1748",
+   "routeId": "FGBN-5186",
+   "stopId": "600239",
+   "stopSequence": 39,
+   "departureTime": "2026-10-12T06:41:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600389",
+   "stopSequence": 1,
+   "departureTime": "2026-10-12T05:47:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-12T05:51:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-12T05:53:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-12T05:55:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-12T05:57:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-12T05:59:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-12T06:01:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-12T06:03:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-12T06:05:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-12T06:07:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-12T06:09:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-12T06:13:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-12T06:15:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-12T06:19:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600036",
+   "stopSequence": 15,
+   "departureTime": "2026-10-12T06:22:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-12T06:27:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600006",
+   "stopSequence": 17,
+   "departureTime": "2026-10-12T06:29:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600085",
+   "stopSequence": 18,
+   "departureTime": "2026-10-12T06:32:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600051",
+   "stopSequence": 19,
+   "departureTime": "2026-10-12T06:34:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600052",
+   "stopSequence": 20,
+   "departureTime": "2026-10-12T06:36:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600053",
+   "stopSequence": 21,
+   "departureTime": "2026-10-12T06:38:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600054",
+   "stopSequence": 22,
+   "departureTime": "2026-10-12T06:40:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600199",
+   "stopSequence": 23,
+   "departureTime": "2026-10-12T06:44:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600201",
+   "stopSequence": 24,
+   "departureTime": "2026-10-12T06:46:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600204",
+   "stopSequence": 25,
+   "departureTime": "2026-10-12T06:49:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600207",
+   "stopSequence": 26,
+   "departureTime": "2026-10-12T06:51:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600210",
+   "stopSequence": 27,
+   "departureTime": "2026-10-12T06:53:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600213",
+   "stopSequence": 28,
+   "departureTime": "2026-10-12T06:55:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600216",
+   "stopSequence": 29,
+   "departureTime": "2026-10-12T06:57:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600219",
+   "stopSequence": 30,
+   "departureTime": "2026-10-12T06:59:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600222",
+   "stopSequence": 31,
+   "departureTime": "2026-10-12T07:01:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600224",
+   "stopSequence": 32,
+   "departureTime": "2026-10-12T07:06:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600226",
+   "stopSequence": 33,
+   "departureTime": "2026-10-12T07:08:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600228",
+   "stopSequence": 34,
+   "departureTime": "2026-10-12T07:12:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600230",
+   "stopSequence": 35,
+   "departureTime": "2026-10-12T07:14:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600232",
+   "stopSequence": 36,
+   "departureTime": "2026-10-12T07:18:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600235",
+   "stopSequence": 37,
+   "departureTime": "2026-10-12T07:20:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600237",
+   "stopSequence": 38,
+   "departureTime": "2026-10-12T07:23:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241057-QR 26_27-44306-1754",
+   "routeId": "FGBN-5186",
+   "stopId": "600240",
+   "stopSequence": 39,
+   "departureTime": "2026-10-12T07:26:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600390",
+   "stopSequence": 1,
+   "departureTime": "2026-10-12T13:32:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-12T13:36:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-12T13:38:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-12T13:40:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-12T13:42:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-12T13:44:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-12T13:46:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-12T13:48:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-12T13:50:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-12T13:52:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-12T13:54:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-12T13:58:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241095-QR 26_27-44306-1796",
+   "routeId": "FGBN-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-12T14:00:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600390",
+   "stopSequence": 1,
+   "departureTime": "2026-10-12T12:32:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-12T12:36:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-12T12:38:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-12T12:40:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-12T12:42:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-12T12:44:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-12T12:46:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-12T12:48:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-12T12:50:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-12T12:52:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-12T12:54:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-12T12:58:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-12T13:00:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-12T13:04:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600036",
+   "stopSequence": 15,
+   "departureTime": "2026-10-12T13:07:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-12T13:12:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600006",
+   "stopSequence": 17,
+   "departureTime": "2026-10-12T13:14:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600085",
+   "stopSequence": 18,
+   "departureTime": "2026-10-12T13:17:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600051",
+   "stopSequence": 19,
+   "departureTime": "2026-10-12T13:19:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600052",
+   "stopSequence": 20,
+   "departureTime": "2026-10-12T13:21:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600053",
+   "stopSequence": 21,
+   "departureTime": "2026-10-12T13:23:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600054",
+   "stopSequence": 22,
+   "departureTime": "2026-10-12T13:25:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600199",
+   "stopSequence": 23,
+   "departureTime": "2026-10-12T13:29:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600201",
+   "stopSequence": 24,
+   "departureTime": "2026-10-12T13:31:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600203",
+   "stopSequence": 25,
+   "departureTime": "2026-10-12T13:34:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600206",
+   "stopSequence": 26,
+   "departureTime": "2026-10-12T13:36:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600209",
+   "stopSequence": 27,
+   "departureTime": "2026-10-12T13:38:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600212",
+   "stopSequence": 28,
+   "departureTime": "2026-10-12T13:40:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600215",
+   "stopSequence": 29,
+   "departureTime": "2026-10-12T13:42:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600218",
+   "stopSequence": 30,
+   "departureTime": "2026-10-12T13:44:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600221",
+   "stopSequence": 31,
+   "departureTime": "2026-10-12T13:46:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600224",
+   "stopSequence": 32,
+   "departureTime": "2026-10-12T13:51:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600226",
+   "stopSequence": 33,
+   "departureTime": "2026-10-12T13:53:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600228",
+   "stopSequence": 34,
+   "departureTime": "2026-10-12T13:57:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241091-QR 26_27-44306-1790",
+   "routeId": "FGBN-5186",
+   "stopId": "600230",
+   "stopSequence": 35,
+   "departureTime": "2026-10-12T13:59:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600390",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T23:32:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T23:36:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T23:38:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T23:40:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T23:42:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T23:44:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-11T23:46:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-11T23:48:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-11T23:50:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-11T23:52:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-11T23:54:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-11T23:58:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-12T00:00:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-12T00:04:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600036",
+   "stopSequence": 15,
+   "departureTime": "2026-10-12T00:07:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-12T00:12:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600006",
+   "stopSequence": 17,
+   "departureTime": "2026-10-12T00:14:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600085",
+   "stopSequence": 18,
+   "departureTime": "2026-10-12T00:17:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600051",
+   "stopSequence": 19,
+   "departureTime": "2026-10-12T00:19:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600052",
+   "stopSequence": 20,
+   "departureTime": "2026-10-12T00:21:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600053",
+   "stopSequence": 21,
+   "departureTime": "2026-10-12T00:23:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600054",
+   "stopSequence": 22,
+   "departureTime": "2026-10-12T00:25:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600199",
+   "stopSequence": 23,
+   "departureTime": "2026-10-12T00:29:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600201",
+   "stopSequence": 24,
+   "departureTime": "2026-10-12T00:31:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600203",
+   "stopSequence": 25,
+   "departureTime": "2026-10-12T00:34:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600206",
+   "stopSequence": 26,
+   "departureTime": "2026-10-12T00:36:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600209",
+   "stopSequence": 27,
+   "departureTime": "2026-10-12T00:38:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600212",
+   "stopSequence": 28,
+   "departureTime": "2026-10-12T00:40:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600215",
+   "stopSequence": 29,
+   "departureTime": "2026-10-12T00:42:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600218",
+   "stopSequence": 30,
+   "departureTime": "2026-10-12T00:44:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600221",
+   "stopSequence": 31,
+   "departureTime": "2026-10-12T00:46:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600224",
+   "stopSequence": 32,
+   "departureTime": "2026-10-12T00:51:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600226",
+   "stopSequence": 33,
+   "departureTime": "2026-10-12T00:53:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600228",
+   "stopSequence": 34,
+   "departureTime": "2026-10-12T00:57:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600230",
+   "stopSequence": 35,
+   "departureTime": "2026-10-12T00:59:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600232",
+   "stopSequence": 36,
+   "departureTime": "2026-10-12T01:03:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600235",
+   "stopSequence": 37,
+   "departureTime": "2026-10-12T01:05:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600237",
+   "stopSequence": 38,
+   "departureTime": "2026-10-12T01:08:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241020-QR 26_27-44306-1726",
+   "routeId": "FGBN-5186",
+   "stopId": "600239",
+   "stopSequence": 39,
+   "departureTime": "2026-10-12T01:11:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600390",
+   "stopSequence": 1,
+   "departureTime": "2026-10-12T05:32:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-12T05:36:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-12T05:38:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-12T05:40:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-12T05:42:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-12T05:44:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-12T05:46:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-12T05:48:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-12T05:50:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-12T05:52:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-12T05:54:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-12T05:58:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-12T06:00:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-12T06:04:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600036",
+   "stopSequence": 15,
+   "departureTime": "2026-10-12T06:07:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-12T06:12:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600006",
+   "stopSequence": 17,
+   "departureTime": "2026-10-12T06:14:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600085",
+   "stopSequence": 18,
+   "departureTime": "2026-10-12T06:17:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600051",
+   "stopSequence": 19,
+   "departureTime": "2026-10-12T06:19:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600052",
+   "stopSequence": 20,
+   "departureTime": "2026-10-12T06:21:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600053",
+   "stopSequence": 21,
+   "departureTime": "2026-10-12T06:23:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600054",
+   "stopSequence": 22,
+   "departureTime": "2026-10-12T06:25:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600199",
+   "stopSequence": 23,
+   "departureTime": "2026-10-12T06:29:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600201",
+   "stopSequence": 24,
+   "departureTime": "2026-10-12T06:31:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600204",
+   "stopSequence": 25,
+   "departureTime": "2026-10-12T06:34:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600207",
+   "stopSequence": 26,
+   "departureTime": "2026-10-12T06:36:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600210",
+   "stopSequence": 27,
+   "departureTime": "2026-10-12T06:38:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600213",
+   "stopSequence": 28,
+   "departureTime": "2026-10-12T06:40:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600216",
+   "stopSequence": 29,
+   "departureTime": "2026-10-12T06:42:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600219",
+   "stopSequence": 30,
+   "departureTime": "2026-10-12T06:44:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600222",
+   "stopSequence": 31,
+   "departureTime": "2026-10-12T06:46:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600224",
+   "stopSequence": 32,
+   "departureTime": "2026-10-12T06:51:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600226",
+   "stopSequence": 33,
+   "departureTime": "2026-10-12T06:53:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600228",
+   "stopSequence": 34,
+   "departureTime": "2026-10-12T06:57:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600230",
+   "stopSequence": 35,
+   "departureTime": "2026-10-12T06:59:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600232",
+   "stopSequence": 36,
+   "departureTime": "2026-10-12T07:03:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600235",
+   "stopSequence": 37,
+   "departureTime": "2026-10-12T07:05:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600237",
+   "stopSequence": 38,
+   "departureTime": "2026-10-12T07:08:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39241048-QR 26_27-44306-1752",
+   "routeId": "FGBN-5186",
+   "stopId": "600239",
+   "stopSequence": 39,
+   "departureTime": "2026-10-12T07:11:00.000Z",
+   "headsign": "Beenleigh station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600389",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:02:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:06:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-10T20:08:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-10T20:10:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-10T20:12:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-10T20:14:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-10T20:16:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-10T20:18:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-10T20:20:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-10T20:22:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-10T20:24:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600002",
+   "stopSequence": 12,
+   "departureTime": "2026-10-10T20:31:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600010",
+   "stopSequence": 13,
+   "departureTime": "2026-10-10T20:33:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600019",
+   "stopSequence": 14,
+   "departureTime": "2026-10-10T20:37:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600030",
+   "stopSequence": 15,
+   "departureTime": "2026-10-10T20:40:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-10T20:51:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600189",
+   "stopSequence": 17,
+   "departureTime": "2026-10-10T20:53:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074377-QR 26_27-44209-1SB0",
+   "routeId": "FGBR-5167",
+   "stopId": "600191",
+   "stopSequence": 18,
+   "departureTime": "2026-10-10T20:56:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600389",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T13:02:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T13:06:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T13:08:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T13:10:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T13:12:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T13:14:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-11T13:16:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-11T13:18:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-11T13:20:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-11T13:22:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-11T13:24:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-11T13:28:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-11T13:30:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-11T13:38:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074452-QR 26_27-44209-1R34",
+   "routeId": "FGBR-5167",
+   "stopId": "600028",
+   "stopSequence": 15,
+   "departureTime": "2026-10-11T13:41:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600389",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T11:02:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T11:06:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T11:08:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T11:10:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T11:12:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T11:14:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-11T11:16:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-11T11:18:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-11T11:20:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-11T11:22:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-11T11:24:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-11T11:28:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-11T11:30:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-11T11:34:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600034",
+   "stopSequence": 15,
+   "departureTime": "2026-10-11T11:37:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-11T11:42:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600189",
+   "stopSequence": 17,
+   "departureTime": "2026-10-11T11:44:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074389-QR 26_27-44209-1SH0",
+   "routeId": "FGBR-5167",
+   "stopId": "600191",
+   "stopSequence": 18,
+   "departureTime": "2026-10-11T11:46:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600389",
+   "stopSequence": 1,
+   "departureTime": "2026-10-12T08:17:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-12T08:21:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-12T08:23:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-12T08:25:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-12T08:27:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-12T08:29:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-12T08:31:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-12T08:33:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-12T08:35:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-12T08:37:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-12T08:39:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-12T08:43:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-12T08:45:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-12T08:49:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241024-QR 26_27-44306-1R90",
+   "routeId": "FGBR-5186",
+   "stopId": "600036",
+   "stopSequence": 15,
+   "departureTime": "2026-10-12T08:52:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600389",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T01:02:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T01:06:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T01:08:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T01:10:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T01:12:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T01:14:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-11T01:16:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-11T01:18:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-11T01:20:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-11T01:22:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-11T01:24:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-11T01:28:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-11T01:30:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-11T01:34:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600036",
+   "stopSequence": 15,
+   "departureTime": "2026-10-11T01:37:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-11T01:42:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600189",
+   "stopSequence": 17,
+   "departureTime": "2026-10-11T01:44:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074381-QR 26_27-44209-1SD0",
+   "routeId": "FGBR-5167",
+   "stopId": "600191",
+   "stopSequence": 18,
+   "departureTime": "2026-10-11T01:46:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600390",
+   "stopSequence": 1,
+   "departureTime": "2026-10-10T20:32:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-10T20:36:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-10T20:38:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-10T20:40:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-10T20:42:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-10T20:44:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-10T20:46:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-10T20:48:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-10T20:50:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-10T20:52:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-10T20:54:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600002",
+   "stopSequence": 12,
+   "departureTime": "2026-10-10T21:01:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600010",
+   "stopSequence": 13,
+   "departureTime": "2026-10-10T21:03:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600019",
+   "stopSequence": 14,
+   "departureTime": "2026-10-10T21:07:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600030",
+   "stopSequence": 15,
+   "departureTime": "2026-10-10T21:10:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-10T21:21:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600189",
+   "stopSequence": 17,
+   "departureTime": "2026-10-10T21:23:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074392-QR 26_27-44209-1SB2",
+   "routeId": "FGBR-5167",
+   "stopId": "600191",
+   "stopSequence": 18,
+   "departureTime": "2026-10-10T21:26:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600390",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T21:25:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T21:29:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T21:31:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T21:33:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T21:35:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T21:37:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-11T21:39:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-11T21:41:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-11T21:43:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-11T21:45:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-11T21:47:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-11T21:51:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-11T21:53:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600017",
+   "stopSequence": 14,
+   "departureTime": "2026-10-11T21:57:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241113-QR 26_27-44306-1RU4",
+   "routeId": "FGBR-5186",
+   "stopId": "600028",
+   "stopSequence": 15,
+   "departureTime": "2026-10-11T22:00:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600390",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T20:17:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T20:21:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T20:23:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T20:25:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T20:27:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T20:29:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-11T20:31:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-11T20:33:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-11T20:35:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-11T20:37:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-11T20:39:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-11T20:43:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-11T20:45:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-11T20:49:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241692-QR 26_27-44306-TR10",
+   "routeId": "FGBR-5186",
+   "stopId": "600028",
+   "stopSequence": 15,
+   "departureTime": "2026-10-11T20:52:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600390",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T20:55:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T20:59:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T21:01:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T21:03:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T21:05:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T21:07:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-11T21:09:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-11T21:11:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-11T21:13:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-11T21:15:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-11T21:17:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-11T21:21:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-11T21:23:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-11T21:27:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241112-QR 26_27-44306-1RP2",
+   "routeId": "FGBR-5186",
+   "stopId": "600030",
+   "stopSequence": 15,
+   "departureTime": "2026-10-11T21:30:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600390",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T12:32:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T12:36:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T12:38:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T12:40:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T12:42:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T12:44:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-11T12:46:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-11T12:48:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-11T12:50:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-11T12:52:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-11T12:54:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-11T12:58:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-11T13:00:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-11T13:08:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074437-QR 26_27-44209-1R32",
+   "routeId": "FGBR-5167",
+   "stopId": "600034",
+   "stopSequence": 15,
+   "departureTime": "2026-10-11T13:11:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600390",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T10:32:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T10:36:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T10:38:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T10:40:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T10:42:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T10:44:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-11T10:46:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-11T10:48:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-11T10:50:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-11T10:52:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-11T10:54:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-11T10:58:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-11T11:00:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-11T11:04:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600034",
+   "stopSequence": 15,
+   "departureTime": "2026-10-11T11:07:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-11T11:12:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600189",
+   "stopSequence": 17,
+   "departureTime": "2026-10-11T11:14:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074450-QR 26_27-44209-1SG8",
+   "routeId": "FGBR-5167",
+   "stopId": "600191",
+   "stopSequence": 18,
+   "departureTime": "2026-10-11T11:16:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600390",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T19:17:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T19:21:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T19:23:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T19:25:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T19:27:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T19:29:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-11T19:31:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-11T19:33:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-11T19:35:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-11T19:37:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-11T19:39:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-11T19:43:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-11T19:45:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-11T19:49:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39241720-QR 26_27-44306-TR04",
+   "routeId": "FGBR-5186",
+   "stopId": "600036",
+   "stopSequence": 15,
+   "departureTime": "2026-10-11T19:52:00.000Z",
+   "headsign": "Roma Street station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600390",
+   "stopSequence": 1,
+   "departureTime": "2026-10-11T00:32:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600387",
+   "stopSequence": 2,
+   "departureTime": "2026-10-11T00:36:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600385",
+   "stopSequence": 3,
+   "departureTime": "2026-10-11T00:38:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600383",
+   "stopSequence": 4,
+   "departureTime": "2026-10-11T00:40:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600381",
+   "stopSequence": 5,
+   "departureTime": "2026-10-11T00:42:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600379",
+   "stopSequence": 6,
+   "departureTime": "2026-10-11T00:44:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600377",
+   "stopSequence": 7,
+   "departureTime": "2026-10-11T00:46:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600376",
+   "stopSequence": 8,
+   "departureTime": "2026-10-11T00:48:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600373",
+   "stopSequence": 9,
+   "departureTime": "2026-10-11T00:50:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600371",
+   "stopSequence": 10,
+   "departureTime": "2026-10-11T00:52:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600369",
+   "stopSequence": 11,
+   "departureTime": "2026-10-11T00:54:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600005",
+   "stopSequence": 12,
+   "departureTime": "2026-10-11T00:58:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600014",
+   "stopSequence": 13,
+   "departureTime": "2026-10-11T01:00:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600018",
+   "stopSequence": 14,
+   "departureTime": "2026-10-11T01:04:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600036",
+   "stopSequence": 15,
+   "departureTime": "2026-10-11T01:07:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600012",
+   "stopSequence": 16,
+   "departureTime": "2026-10-11T01:12:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600189",
+   "stopSequence": 17,
+   "departureTime": "2026-10-11T01:14:00.000Z",
+   "headsign": "Boggo Road station"
+  },
+  {
+   "tripId": "39074442-QR 26_27-44209-1SC8",
+   "routeId": "FGBR-5167",
+   "stopId": "600191",
+   "stopSequence": 18,
+   "departureTime": "2026-10-11T01:16:00.000Z",
+   "headsign": "Boggo Road station"
+  }
+ ]
+}

@@ -121,11 +121,11 @@ function TrainMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
   const q = useVehicles(fetcher, mode, true)
   // The header claims LIVE only from the trains' own fresh answer (shared liveState); none yet: "Connecting…".
   const state = liveState(q.data, { offline: !useOnline(), nowMs: useNow(Date.now()), ...usePageCheck() })
-  const live = q.data != null && state == null
+  const fresh = q.data != null && state == null
   const [selected, setSelected] = useState<string | null>(null)
   // Positions are live claims: none from an answer that isn't live and fresh.
   const data = q.data
-  const vehicles = useMemo(() => (live ? (data?.vehicles ?? []) : []), [live, data])
+  const vehicles = useMemo(() => (fresh ? (data?.vehicles ?? []) : []), [fresh, data])
   const centre = stationByKey(station) ?? (stationByKey('central') as Station)
   // A trip page's "Track on map": that train, highlighted and in view once its position is in.
   const tracked = trip ? (vehicles.find((v) => v.tripKey === trip) ?? null) : null
@@ -140,7 +140,12 @@ function TrainMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
     const trips = new Set((deps.data?.departures ?? []).map((d) => d.tripInstance))
     return vehicles.filter((v) => v.tripKey && trips.has(v.tripKey))
   }, [vehicles, deps.data])
-  const base = all ? vehicles : atStation
+  // "At <station>" picks its trains by the station's departures: while that request has failed the page can't tell
+  // which trains those are, which is never "none" and never LIVE.
+  const filtering = !!station && !all
+  const filterFailed = filtering && deps.isError
+  const live = fresh && !filterFailed
+  const base = all ? vehicles : filterFailed ? [] : atStation
   const shown = tracked && !base.includes(tracked) ? [...base, tracked] : base
   const fitTo = useMemo(
     () => [
@@ -177,19 +182,30 @@ function TrainMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
   )
   const sel = vehicles.find((v) => v.id === selected) ?? (selected == null ? tracked : null)
   const status =
-    q.isError || (q.data && !live)
-      ? 'Live positions are unavailable right now.'
-      : trip && q.data && !tracked
-        ? "Your train isn't sending its position right now."
-        : !all && deps.data && atStation.length === 0
-          ? `No trains at ${centre.name} have live positions right now.`
-          : null
+    q.isError || (q.data && !fresh) ? (
+      'Live positions are unavailable right now.'
+    ) : filterFailed ? (
+      <>
+        Can't tell which trains stop at {centre.name} right now.
+        <button
+          type="button"
+          onClick={() => setAll(true)}
+          className="min-h-11 text-ferry-orange-deep underline dark:text-ferry-sunset"
+        >
+          All trains
+        </button>
+      </>
+    ) : trip && q.data && !tracked ? (
+      "Your train isn't sending its position right now."
+    ) : !all && deps.data && atStation.length === 0 ? (
+      `No trains at ${centre.name} have live positions right now.`
+    ) : null
 
   return (
     <Shell
       active="map"
       live={live}
-      pending={pagePending([{ q, state }])}
+      pending={pagePending([{ q, state }, ...(filtering ? [{ q: deps, state: null }] : [])])}
       back={station ? { href: stationHref(centre.key), label: centre.name } : undefined}
       bleed
     >
@@ -220,9 +236,11 @@ function TrainMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
               { label: 'Station', tone: 'stop' },
             ]}
           >
-            <span data-map-count="" className="font-normal text-sched-text dark:text-night-text/70">
-              {shown.length} with live positions
-            </span>
+            {filterFailed ? null : (
+              <span data-map-count="" className="font-normal text-sched-text dark:text-night-text/70">
+                {shown.length} with live positions
+              </span>
+            )}
           </MapLegend>
         }
       >

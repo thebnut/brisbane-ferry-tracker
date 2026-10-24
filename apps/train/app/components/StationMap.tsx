@@ -24,7 +24,8 @@ export default function StationMap({
   nowMs: number
 }) {
   const q = useVehicles(useFetcher(mode), mode, true)
-  const live = liveState(q.data, { offline: !useOnline(), nowMs, ...usePageCheck() }) == null
+  const state = liveState(q.data, { offline: !useOnline(), nowMs, ...usePageCheck() })
+  const live = q.data != null && state == null
   const trains = useMemo(() => {
     const trips = new Set(departures.map((d) => d.tripInstance))
     return (live ? (q.data?.vehicles ?? []) : []).filter((v) => v.tripKey && trips.has(v.tripKey))
@@ -56,14 +57,26 @@ export default function StationMap({
       <SafeMap
         markers={markers}
         fitTo={[`station:${station.key}`]}
-        label={`Map of ${station.name} station with ${trains.length} live trains on its departures`}
+        label={
+          live
+            ? `Map of ${station.name} station with ${trains.length} live trains on its departures`
+            : `Map of ${station.name} station`
+        }
         className="h-80 w-full overflow-hidden rounded-card bg-map-ground xl:h-96"
         zoom={14}
         center={[station.lon, station.lat]}
       />
-      <p className="text-xs text-sched-text dark:text-night-text/70">
-        {trains.length === 1 ? '1 live train' : `${trains.length} live trains`} on {station.name}'s departures
-        · positions refresh every 15 s
+      <p className="text-xs text-sched-text dark:text-night-text/70" role="status">
+        {live ? (
+          <>
+            {trains.length === 1 ? '1 live train' : `${trains.length} live trains`} on {station.name}'s
+            departures · positions refresh every 15 s
+          </>
+        ) : !q.data && !q.isError ? (
+          'Finding live trains…'
+        ) : (
+          'Live train positions are unavailable right now.'
+        )}
       </p>
     </section>
   )

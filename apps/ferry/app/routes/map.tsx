@@ -68,19 +68,27 @@ function FerryMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
   const nowMs = useNow(Date.now(), 5_000)
   const page = usePageCheck()
   const state = liveState(vehicles.data, { offline: !useOnline(), nowMs, ...page })
-  const live = vehicles.data != null && state == null
-  const pending = pagePending([{ q: vehicles, state }])
   const [all, setAll] = useState(!terminal)
   const [selected, setSelected] = useState<string | null>(null)
+  // "From <terminal>" picks its ferries by the terminal's departures: while that request has failed the page can't
+  // tell which ferries those are, which is never "none" and never LIVE.
+  const filtering = !!terminal && !all
+  const filterFailed = filtering && departures.isError
+  const fresh = vehicles.data != null && state == null
+  const live = fresh && !filterFailed
+  const pending = pagePending([
+    { q: vehicles, state },
+    ...(filtering ? [{ q: departures, state: null }] : []),
+  ])
 
   const data = vehicles.data
-  const positions = useMemo(() => (live ? (data?.vehicles ?? []) : []), [live, data])
+  const positions = useMemo(() => (fresh ? (data?.vehicles ?? []) : []), [fresh, data])
   const onTerminal = useMemo(() => {
     const trips = new Set((departures.data?.departures ?? []).map((d) => d.tripInstance))
     return positions.filter((v) => v.tripKey && trips.has(v.tripKey))
   }, [positions, departures.data])
   const followed = trip ? (positions.find((v) => v.tripKey === trip) ?? null) : null
-  const shown = all ? positions : onTerminal
+  const shown = all ? positions : filterFailed ? [] : onTerminal
   const ferries = followed && !shown.includes(followed) ? [...shown, followed] : shown
   const name = terminal ? cleanStopName(terminal.name) : ''
 
@@ -127,17 +135,28 @@ function FerryMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
   const sel = positions.find((v) => v.id === selected) ?? (selected == null ? followed : null)
   const next = sel?.stopId ? terminalById(sel.stopId) : null
 
-  const status = !vehicles.data
-    ? vehicles.isError
-      ? 'Live positions are unavailable right now.'
-      : null
-    : !live
-      ? 'Live positions are unavailable right now.'
-      : trip && !followed
-        ? "Your ferry isn't sending its position right now."
-        : !all && onTerminal.length === 0 && departures.data
-          ? `No ferries from ${name} have GPS right now.`
-          : null
+  const status = !vehicles.data ? (
+    vehicles.isError ? (
+      'Live positions are unavailable right now.'
+    ) : null
+  ) : state != null ? (
+    'Live positions are unavailable right now.'
+  ) : filterFailed ? (
+    <>
+      Can't tell which ferries serve {name} right now.
+      <button
+        type="button"
+        onClick={() => setAll(true)}
+        className="min-h-11 text-ferry-orange-deep underline dark:text-ferry-sunset"
+      >
+        All ferries
+      </button>
+    </>
+  ) : trip && !followed ? (
+    "Your ferry isn't sending its position right now."
+  ) : !all && onTerminal.length === 0 && departures.data ? (
+    `No ferries from ${name} have GPS right now.`
+  ) : null
 
   return (
     <>
@@ -203,9 +222,11 @@ function FerryMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
               { label: 'Terminal', tone: 'stop' },
             ]}
           >
-            <span data-map-count="" className="font-normal text-sched-text dark:text-night-text/70">
-              {ferries.length === 1 ? '1 ferry' : `${ferries.length} ferries`} with GPS
-            </span>
+            {filterFailed ? null : (
+              <span data-map-count="" className="font-normal text-sched-text dark:text-night-text/70">
+                {ferries.length === 1 ? '1 ferry' : `${ferries.length} ferries`} with GPS
+              </span>
+            )}
           </MapLegend>
         }
       >
