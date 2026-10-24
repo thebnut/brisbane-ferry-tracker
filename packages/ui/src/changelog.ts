@@ -56,7 +56,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'BrisbaneTrain’s bottom bar is Home, Map and Alerts. Every station is still listed under “All stations” on its home.',
       'Maps show live ferries, trains and buses only while their positions are up to date, and say so when they aren’t, instead of showing old positions as live.',
       'If a map can’t tell which services stop at a place right now, it keeps saying so until it can, instead of showing none. Ferry and Train offer every service; Bus offers Try again.',
-      'If Bus can’t load the stops near you, it says so with a Try again button, instead of saying there are no stops nearby.',
+      'If Bus can’t load the stops near you, it says so with a Try again button, instead of saying there are no stops nearby. If a nearby place’s departures don’t load, Ferry, Train and Bus say so with Try again, instead of “No more departures today”.',
     ],
   },
   {

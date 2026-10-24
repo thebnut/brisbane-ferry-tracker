@@ -474,7 +474,8 @@ export function walkCue(
 
 /**
  * One Near you place with its next departure, as a Nearby row (pin, route tile, destination, place · walk,
- * countdown and walking cue). Without one: the place and why (still loading, nothing more today).
+ * countdown and walking cue). Without one: the place and why (still loading, nothing more today, or `failed`: its
+ * departures didn't load, with Try again beside the link, never "No more departures today").
  */
 export function NearPlaceRow({
   mode,
@@ -483,6 +484,8 @@ export function NearPlaceRow({
   href,
   next,
   loading = false,
+  failed = false,
+  onRetry,
   renderLink,
 }: {
   mode: TransitMode
@@ -491,12 +494,16 @@ export function NearPlaceRow({
   href: string
   next: { route: string; to: string; minutes: number } | null
   loading?: boolean
+  failed?: boolean
+  onRetry?: () => void
   renderLink?: RenderLink
 }) {
   const walk = walkMinutes(metres)
   const where = `${formatDistance(metres)} · ${walk} min walk`
+  const down = failed && !next
+  const why = down ? 'Departures unavailable' : loading ? 'Getting departures…' : 'No more departures today'
   return (
-    <li data-near={name}>
+    <li data-near={name} className={down ? 'flex gap-2' : undefined}>
       {next ? (
         <NearbyDepartureRow
           mode={mode}
@@ -512,22 +519,32 @@ export function NearPlaceRow({
       ) : (
         link(
           href,
-          'flex min-h-14 items-center gap-2.5 rounded-card bg-white/90 px-3 py-2 text-inherit no-underline shadow-card dark:bg-night-card',
+          'flex min-h-14 min-w-0 flex-1 items-center gap-2.5 rounded-card bg-white/90 px-3 py-2 text-inherit no-underline shadow-card dark:bg-night-card',
           <>
             <ModePin mode={mode} />
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-[15px] font-bold">{name}</span>
               <span
-                data-loading={loading ? '' : undefined}
+                data-loading={loading && !down ? '' : undefined}
                 className="truncate text-xs text-sched-text dark:text-night-text/70"
               >
-                {loading ? 'Getting departures…' : 'No more departures today'} · {where}
+                {why} · {where}
               </span>
             </span>
           </>,
           renderLink,
         )
       )}
+      {down && onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          aria-label={`Try again: ${name}`}
+          className="flex min-h-11 shrink-0 items-center rounded-card bg-white/90 px-3 text-sm font-bold text-ferry-orange-deep shadow-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ferry-orange dark:bg-night-card dark:text-ferry-sunset"
+        >
+          Try again
+        </button>
+      ) : null}
     </li>
   )
 }
