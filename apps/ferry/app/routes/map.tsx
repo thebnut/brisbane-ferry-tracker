@@ -136,28 +136,26 @@ function FerryMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
   const sel = positions.find((v) => v.id === selected) ?? (selected == null ? followed : null)
   const next = sel?.stopId ? terminalById(sel.stopId) : null
 
-  const status = !vehicles.data ? (
-    vehicles.isError ? (
+  // A failed filter says so even while the first positions are still on their way (Codex r2).
+  const status =
+    vehicles.isError || (vehicles.data && !fresh) ? (
       'Live positions are unavailable right now.'
+    ) : filterFailed ? (
+      <>
+        Can't tell which ferries serve {name} right now.
+        <button
+          type="button"
+          onClick={() => setAll(true)}
+          className="min-h-11 text-ferry-orange-deep underline dark:text-ferry-sunset"
+        >
+          All ferries
+        </button>
+      </>
+    ) : !vehicles.data ? null : trip && !followed ? (
+      "Your ferry isn't sending its position right now."
+    ) : !all && onTerminal.length === 0 && departures.data ? (
+      `No ferries from ${name} have GPS right now.`
     ) : null
-  ) : !fresh ? (
-    'Live positions are unavailable right now.'
-  ) : filterFailed ? (
-    <>
-      Can't tell which ferries serve {name} right now.
-      <button
-        type="button"
-        onClick={() => setAll(true)}
-        className="min-h-11 text-ferry-orange-deep underline dark:text-ferry-sunset"
-      >
-        All ferries
-      </button>
-    </>
-  ) : trip && !followed ? (
-    "Your ferry isn't sending its position right now."
-  ) : !all && onTerminal.length === 0 && departures.data ? (
-    `No ferries from ${name} have GPS right now.`
-  ) : null
 
   return (
     <>

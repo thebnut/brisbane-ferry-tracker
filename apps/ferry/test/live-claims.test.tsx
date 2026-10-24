@@ -65,6 +65,8 @@ const departures = () => ({
   departures: [departure],
 })
 
+/** An answer that never arrives. */
+const PENDING = Symbol('pending')
 /** fetch answers by path: a body, or an HTTP status for a failure; anything else is a 404. */
 function serve(answers: Record<string, () => unknown>) {
   vi.stubGlobal(
@@ -72,6 +74,7 @@ function serve(answers: Record<string, () => unknown>) {
     vi.fn(async (input: string) => {
       const hit = Object.keys(answers).find((p) => String(input).includes(p))
       const body = hit ? answers[hit]() : 404
+      if (body === PENDING) return new Promise<Response>(() => {})
       return typeof body === 'number' ? new Response('no', { status: body }) : Response.json(body)
     }),
   )
@@ -122,6 +125,13 @@ describe('/map?terminal= with a failed departures request', () => {
     expect(await screen.findByText('1 ferry with GPS')).toBeTruthy()
     expect(screen.getByText('LIVE')).toBeTruthy()
     expect(pulsing()).toHaveLength(1)
+  })
+
+  it('failed departures while the first positions are still on their way: says it cannot tell', async () => {
+    serve({ '/v1/ferry/vehicles': () => PENDING, '/departures': () => 503 })
+    mount(mapPage())
+    expect(await screen.findByText(/Can't tell which ferries serve Bulimba right now\./)).toBeTruthy()
+    expect(screen.queryByText('LIVE')).toBeNull()
   })
 
   it('positions kept after their refresh failed: none shown, no LIVE', async () => {
