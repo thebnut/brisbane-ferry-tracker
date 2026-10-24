@@ -23,14 +23,15 @@ function Row({ id, name, metres, nowMs }: { id: string; name: string; metres: nu
   const online = useOnline()
   const { data, state } = liveView(id, q.data, nowMs, online, usePageCheck())
   // Soonest first by the time shown: dropping stale estimates keeps their order (Codex r1).
-  const d = [...(data?.departures ?? [])]
+  const rows = [...(data?.departures ?? [])]
     .sort((a, b) => (a.estDep ?? a.schedDep) - (b.estDep ?? b.schedDep))
-    .find(
-      (r) =>
-        r.status !== 'cancelled' &&
-        r.status !== 'skipped' &&
-        minutesUntil(r.estDep ?? r.schedDep, nowMs) >= 0,
-    )
+    .filter((r) => minutesUntil(r.estDep ?? r.schedDep, nowMs) >= 0)
+  const d = rows.find((r) => r.status !== 'cancelled' && r.status !== 'skipped')
+  // "No more departures today" only from an answer that says so (Codex release review r2). A failure holds while it
+  // asks again (a query with no data goes back to pending, failureCount 0, R39-P2-2), as does an offline copy with
+  // nothing to come; rows all gone since the answer mean it's old, so it waits for the next poll.
+  const failed = q.isError || q.failureCount > 0 || q.errorUpdatedAt > q.dataUpdatedAt || state === 'offline'
+  const old = !rows.length && !!data?.departures.length
   // LIVE only over the live departure it shows (R36-L1).
   useReportLive(
     `near:${id}`,
@@ -45,7 +46,9 @@ function Row({ id, name, metres, nowMs }: { id: string; name: string; metres: nu
       name={name}
       metres={metres}
       href={stopHref(id)}
-      loading={q.isPending}
+      loading={q.isPending || old}
+      failed={failed}
+      onRetry={() => void q.refetch()}
       next={
         d
           ? { route: d.route.short, to: d.headsign, minutes: minutesUntil(d.estDep ?? d.schedDep, nowMs) }

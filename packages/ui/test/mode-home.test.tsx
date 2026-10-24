@@ -7,6 +7,7 @@ import {
   AboutTimes,
   homeCard,
   LiveReports,
+  NearPlaceRow,
   SavedEmpty,
   UseLocationRow,
   useLiveReports,
@@ -176,6 +177,48 @@ describe('sections', () => {
     expect(screen.getByText(/Location is off/)).toBeTruthy()
     rerender(<UseLocationRow state="locating" onLocate={locate} what="stops" />)
     expect((screen.getByRole('button', { name: 'Locating…' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('NearPlaceRow (Codex release review r2)', () => {
+  const row = (props: Partial<Parameters<typeof NearPlaceRow>[0]>) => (
+    <ul>
+      <NearPlaceRow mode="ferry" name="Bulimba" metres={200} href="/b" next={null} {...props} />
+    </ul>
+  )
+
+  it('failed: "Departures unavailable" with the walk, a link to the board and Try again beside it', () => {
+    const retry = vi.fn()
+    render(row({ failed: true, onRetry: retry }))
+    const link = screen.getByRole('link')
+    expect(link.getAttribute('href')).toBe('/b')
+    expect(link.textContent).toContain('Departures unavailable · 200 m · 3 min walk')
+    expect(screen.queryByText(/No more departures today/)).toBeNull()
+    const button = screen.getByRole('button', { name: 'Try again: Bulimba' })
+    expect(link.contains(button)).toBe(false)
+    fireEvent.click(button)
+    expect(retry).toHaveBeenCalledOnce()
+  })
+
+  it('failed while it asks again: still unavailable, never "Getting departures…"', () => {
+    render(row({ failed: true, loading: true, onRetry: () => {} }))
+    expect(screen.getByText(/Departures unavailable/)).toBeTruthy()
+    expect(screen.queryByText(/Getting departures/)).toBeNull()
+  })
+
+  it('a departure to show wins over a failure: the departure, no Try again', () => {
+    render(row({ failed: true, onRetry: () => {}, next: { route: 'F1', to: 'Riverside', minutes: 12 } }))
+    expect(screen.getByText('Riverside')).toBeTruthy()
+    expect(screen.queryByText(/Departures unavailable/)).toBeNull()
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  it('loading, then a successful empty answer: "Getting departures…", then "No more departures today"', () => {
+    const { rerender } = render(row({ loading: true }))
+    expect(screen.getByText(/Getting departures…/)).toBeTruthy()
+    rerender(row({}))
+    expect(screen.getByText(/No more departures today/)).toBeTruthy()
+    expect(screen.queryByRole('button')).toBeNull()
   })
 })
 
