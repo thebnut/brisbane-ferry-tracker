@@ -1,8 +1,9 @@
 /**
  * P4: first-visit onboarding on the ferry home, from a real first visit (no storage state; the other specs start with
- * the prompt answered). It replaced the stop selector opening by itself: the first visit shows the default board,
- * then the prompt. "Not now" leaves that board, as closing the selector did; Yes opens the map picker, where a tapped
- * terminal is From and the tray asks for a reachable To, and Save stores the pair as the selector's Save does.
+ * the prompt answered). It replaced the stop selector opening by itself: the first visit shows ferry home (THE-118
+ * PR 8: nothing saved yet), then the prompt. "Not now" leaves it so; Yes opens the map picker, where a tapped terminal
+ * is From and the tray asks for a reachable To, and Save stores the pair as the selector's Save does, which makes it
+ * ferry home's headline.
  */
 import { disableWebGL } from '@bft/ui/e2e/no-webgl.ts'
 import {
@@ -19,30 +20,31 @@ test.use({ storageState: FIRST_VISIT })
 
 const picker = (page: Page) => page.getByRole('dialog', { name: 'Set up your favourite stops' })
 const tray = (page: Page) => picker(page).getByRole('complementary', { name: 'Your favourite stops' })
-const board = (page: Page) => page.locator('[data-board=outbound]')
+const headline = (page: Page) => page.locator('[data-headline]')
+const nothingSaved = (page: Page) => page.getByText('Tap ☆ on any board to save it.')
 
-test('first visit (the old path): default board, no selector, then the prompt; "Not now" keeps the board, for good', async ({
+test('first visit: ferry home with nothing saved, no selector, then the prompt; "Not now" keeps it so, for good', async ({
   page,
 }) => {
   await page.goto('/')
-  await expect(board(page)).toHaveAttribute('aria-label', 'Bulimba to Riverside')
+  await expect(nothingSaved(page)).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'Select ferry stops' })).toHaveCount(0)
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Not now' }).click()
   await expect(prompt(page)).toHaveCount(0)
-  await expect(board(page)).toHaveAttribute('aria-label', 'Bulimba to Riverside')
+  await expect(nothingSaved(page)).toBeVisible()
   expect(await page.evaluate(() => localStorage.getItem('brisbane-ferry-selector-seen'))).toBe('1')
   // The selector is one tap away, as after closing it on a first visit before.
   await page.getByRole('button', { name: 'Settings' }).click()
   await expect(page.getByRole('dialog', { name: 'Select ferry stops' })).toBeVisible()
   await page.keyboard.press('Escape')
   await page.reload()
-  await expect(board(page)).toHaveAttribute('aria-label', 'Bulimba to Riverside')
+  await expect(nothingSaved(page)).toBeVisible()
   await expectNoPrompt(page)
   await expect(page.getByRole('dialog', { name: 'Select ferry stops' })).toHaveCount(0)
 })
 
-test('Yes → tap a terminal (From) → a reachable To → Save: the boards show the pair, saved as before', async ({
+test('Yes → tap a terminal (From) → a reachable To → Save: saved as before, and ferry home heads with it', async ({
   page,
 }) => {
   const errors: string[] = []
@@ -69,12 +71,12 @@ test('Yes → tap a terminal (From) → a reachable To → Save: the boards show
   await to.selectOption({ label: 'Bulimba' })
   await save.click()
   await expect(page).toHaveURL(/\/$/)
-  await expect(board(page)).toHaveAttribute('aria-label', 'Riverside to Bulimba')
+  await expect(headline(page)).toContainText('Riverside → Bulimba')
   expect(
     await page.evaluate(() => JSON.parse(localStorage.getItem('brisbane-ferry-selected-stops') ?? 'null')),
   ).toEqual({ outbound: { id: '317590', name: 'Riverside' }, inbound: { id: '317584', name: 'Bulimba' } })
-  // The server renders the pair from its cookie too.
-  expect(await (await page.request.get('/')).text()).toContain('Riverside to Bulimba')
+  // The server renders the headline from its cookie too.
+  expect(await (await page.request.get('/')).text()).toContain('Riverside → Bulimba')
   await expectNoPrompt(page)
   expect(errors).toEqual([])
 })
@@ -121,7 +123,7 @@ test('without WebGL: Map unavailable, and the search still picks From and saves 
   await to.selectOption({ index: 1 })
   await tray(page).getByRole('button', { name: 'Save' }).click()
   await expect(page).toHaveURL(/\/$/)
-  await expect(board(page)).toHaveAttribute('aria-label', /^New Farm/)
+  await expect(headline(page)).toContainText(/New Farm/)
 })
 
 for (const size of PHONE_WIDTHS) {

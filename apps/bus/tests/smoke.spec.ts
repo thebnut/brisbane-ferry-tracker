@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test'
+import { pinUpcoming } from './upcoming.ts'
 
 const watchErrors = (page: Page) => {
   const errors: string[] = []
@@ -46,9 +47,8 @@ test('first visit: search by name with a typo, open the stop, open a bus', async
 }, testInfo) => {
   const errors = watchErrors(page)
   await page.goto('/')
-  await expect(
-    page.getByRole('heading', { name: 'Live departures for every Brisbane bus stop' }),
-  ).toBeVisible()
+  // Bus home (THE-118 PR 8): the title over the search.
+  await expect(page.getByRole('heading', { level: 1, name: 'Bus' })).toBeVisible()
   const field = page.locator(isMobile ? '#stop-search' : '#stop-search-desktop')
   await field.fill('cultral centre')
   const results = page.getByRole('list', { name: 'Matching stops' }).locator('visible=true')
@@ -75,19 +75,17 @@ test('exact stop number search', async ({ page, isMobile }) => {
   )
 })
 
-test('My stops: saved stops render with their next buses', async ({ page, isMobile }, testInfo) => {
+test('Saved: saved stops render with their next buses', async ({ page, context, isMobile }, testInfo) => {
+  await pinUpcoming(context)
   await page.goto('/about')
   await saveStops(page)
   const errors = watchErrors(page)
   await page.goto('/')
-  if (isMobile) {
-    await expect(page.getByTestId('my-stop')).toHaveCount(2)
-    await expect(page.getByTestId('my-stop').first().locator('li')).toHaveCount(3)
-  } else {
-    await expect(
-      page.getByRole('region', { name: 'Cultural Centre station, platform 1' }).getByTestId('departure'),
-    ).toHaveCount(5)
-  }
+  // My Transit cards under Saved (THE-118 PR 8), at every width: each with its next bus.
+  const saved = page.locator('[data-home-section=saved]')
+  await expect(saved.locator('a')).toHaveCount(2)
+  await expect(saved.locator('a[href="/stop/10802"]')).toContainText('Cultural Centre station, platform 1')
+  await expect(saved.locator('[data-saved-time]').first()).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('home.png'), fullPage: !isMobile })
   expect(errors).toEqual([])
 })
@@ -104,7 +102,7 @@ test('save and unsave a stop', async ({ page }) => {
   await expect(page.getByText('Mater Hill station, platform 1').locator('visible=true').first()).toBeVisible()
 })
 
-test('route filter and per-stop map', async ({ page }) => {
+test('route filter, and the Map chip opens the bus map on the stop', async ({ page }) => {
   await page.goto('/stop/10802')
   // The first route pill, not a fixed route: pills follow departure order, which depends on the time of day.
   const pill = page.getByRole('group', { name: 'Filter by route' }).getByRole('button').nth(1)
@@ -113,8 +111,10 @@ test('route filter and per-stop map', async ({ page }) => {
   const rows = page.getByTestId('departure')
   await expect(rows.first()).toBeVisible()
   for (const t of await rows.allTextContents()) expect(t).toMatch(new RegExp(`^Route ${route}(?![0-9])`))
-  await page.getByRole('button', { name: 'Map' }).click()
-  await expect(page.getByRole('region', { name: /Map of Cultural Centre/ })).toBeVisible()
+  // The Map chip opens the bus map on this stop (THE-118 PR 9).
+  await page.getByRole('group', { name: 'Filter by route' }).getByRole('link', { name: 'Map' }).click()
+  await expect(page).toHaveURL(/\/map\?stop=10802$/)
+  await expect(page.getByRole('region', { name: /Map of \d+ live buses/ })).toBeVisible()
 })
 
 test('nearby from a position, including stops across the tile edge', async ({ page }, testInfo) => {

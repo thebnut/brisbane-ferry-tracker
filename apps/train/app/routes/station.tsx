@@ -1,18 +1,42 @@
 /**
  * /station/:slug (?to=destination): server-rendered station departures (T-Departures, T-Desktop). The departure rows
- * are in the HTML from the loader; the board then polls every 15 s. With a destination, desktop shows both
- * directions side by side. Unknown stations are 404s; an unreachable `to` is dropped.
+ * are in the HTML from the loader; the board then polls every 15 s. Unknown stations are 404s; an unreachable `to` is
+ * dropped.
+ *
+ * A layout over the board URL and the trip URL (THE-118 PR 7): at 1024 px and wider the board is a column beside a
+ * panel, which shows the trip a row opened, else with a destination the return board, else the station's map. The
+ * board stays as it is (not fetched again) while the trip opens and closes. On a trip URL the board is the station it
+ * was opened from (`?from=`, `?to=`); below 1024, or with `?full=1`, the trip is its own page.
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
 import { formatAge, formatClock, Icon, useKept } from '@bft/ui'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { BoardHeader, Chip, chipClass, FilterRow, NowChip } from '@bft/ui/board-header'
+import { FULL, isWide, notWide, onWide, samePlace, showBoard } from '@bft/ui/board-route'
 import { asSeed, awaitingSeedAnswer, sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { DestinationSheet } from '@bft/ui/destination-sheet'
 import { StarButton } from '@bft/ui/star'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { data, Link, useNavigate } from 'react-router'
+import {
+  lazy,
+  type ReactNode,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
+import {
+  data,
+  Link,
+  Outlet,
+  type ShouldRevalidateFunctionArgs,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
 import { UpdatedStrip } from '../components/header.tsx'
 import { ReachableList } from '../components/ReachableList.tsx'
@@ -41,12 +65,42 @@ import { loaderEnv, settle, siteInfo } from '../lib/server.server.ts'
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/station'
 
+// The idle panel's map at 1024 px and wider (THE-118 PR 7), loaded only there. If its chunk can't load, no map.
+const NoMap = (() => null) as never // renders nothing, whatever the props
+// The trip as the board's panel (THE-118 PR 7): loaded with the trip, never on the board's first load.
+const TripPanelHost = lazy(() => import('@bft/ui/panel'))
+const StationMap = lazy(() => import('../components/StationMap.tsx').catch(() => ({ default: NoMap })))
+
+/** A trip URL's board: the station it was opened from and its destination (`?from=`, `?to=`), or null. */
+function tripPlace(url: URL) {
+  const station = stationByKey(url.searchParams.get('from'))
+  if (!station) return null
+  const toKey = url.searchParams.get('to')
+  const to = toKey && toKey !== station.key && isReachable(station.key, toKey) ? stationByKey(toKey) : null
+  return { station, to }
+}
+
 export async function loader({ request, context, params }: Route.LoaderArgs) {
+  const { fixtures, rt, fetcher, env } = loaderEnv(request, context)
+  if (!params.slug) {
+    // The trip URL: the board beside it is fetched by the browser, and only on desktop (a phone shows the trip alone).
+    const place = tripPlace(new URL(request.url))
+    return {
+      station: place?.station ?? null,
+      to: place?.to ?? null,
+      outbound: null,
+      inbound: null,
+      board: false,
+      renderedAt: Date.now(),
+      via: VIA_NETWORK,
+      mode: { fixtures, rt },
+      site: siteInfo(env),
+    }
+  }
   const station = stationByKey(params.slug)
   if (!station) throw data(null, { status: 404 })
   const toKey = new URL(request.url).searchParams.get('to')
   const to = toKey && toKey !== station.key && isReachable(station.key, toKey) ? stationByKey(toKey) : null
-  const { fixtures, rt, fetcher, env } = loaderEnv(request, context)
   const reverse = to && isReachable(to.key, station.key) ? to : null
   const [outbound, inbound] = await Promise.all([
     settle((signal) =>
@@ -63,6 +117,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     to,
     outbound,
     inbound,
+    board: true,
     renderedAt: Date.now(),
     via: VIA_NETWORK,
     mode: { fixtures, rt },
@@ -74,8 +129,13 @@ export function headers() {
   return { 'cache-control': 'private, no-store' }
 }
 
+/** Not again for a trip opening or closing beside the board, only for another station or destination (THE-118 PR 7). */
+export function shouldRevalidate(args: ShouldRevalidateFunctionArgs) {
+  return samePlace(args, 'station') ? false : args.defaultShouldRevalidate
+}
+
 export const meta: Route.MetaFunction = ({ loaderData }) => {
-  if (!loaderData)
+  if (!loaderData?.station)
     return [{ title: 'Station not found | BrisbaneTrain' }, { name: 'robots', content: 'noindex' }]
   const m = stationMeta(loaderData.station, loaderData.site.siteUrl, loaderData.to)
   return [
@@ -164,7 +224,36 @@ function StationAlerts({ station, mode, nowMs }: { station: Station; mode: DataM
   )
 }
 
+type Data = Route.ComponentProps['loaderData']
+
 export default function StationPage({ loaderData }: Route.ComponentProps) {
+  const { station } = loaderData
+  const trip = useParams().tripInstance
+  const wide = useSyncExternalStore(onWide, isWide, notWide)
+  const [search] = useSearchParams()
+  // Which board this layout shows, before a trip's full page returns (Codex r3): its own data, not a placeholder.
+  showBoard(
+    'station',
+    station && loaderData.board ? { from: station.key, to: loaderData.to?.key ?? null, filter: null } : null,
+  )
+  // The trip alone: a phone or tablet, its full page, or a trip with no station to show the board of.
+  if (trip && (!wide || !station || search.has(FULL))) return <Outlet />
+  if (!station) return null
+  return (
+    <StationBoardPage loaderData={{ ...loaderData, station }} trip={trip} panel={trip ? <Outlet /> : null} />
+  )
+}
+
+function StationBoardPage({
+  loaderData,
+  trip: open,
+  panel,
+}: {
+  loaderData: Data & { station: Station }
+  /** The trip open in the panel (the trip URL, desktop), and the trip page as the panel. */
+  trip?: string
+  panel: ReactNode
+}) {
   const { station, to, outbound, inbound, mode, renderedAt } = loaderData
   const nowMs = useNow(renderedAt, 1000)
   const navigate = useNavigate()
@@ -195,6 +284,8 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
     setPicker(false)
     navigate(boardHref(station.key, k))
   }
+  const wide = useSyncExternalStore(onWide, isWide, notWide)
+  const { pathname, search } = useLocation()
 
   // The header pill follows the boards: from the loader data until each StationBoard reports (useReportLive).
   const seeds = [outbound, to ? inbound : null]
@@ -205,55 +296,55 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
     // No outbound answer from the loader (it timed out), or a non-live one: BrisbaneTransit says "Connecting…", not
     // LIVE or OFFLINE (THE-118, R32-RT1).
     <Shell active="stations" live={seeded} pending={!outbound || waits}>
-      <div className={to && inbound ? 'flex flex-col gap-2.5' : 'mx-auto flex max-w-2xl flex-col gap-2.5'}>
-        <BoardHeader
-          kicker="Train station"
-          as="h2"
-          name={station.name}
-          facts={[
-            platformsText(station.platforms.map((p) => p.code)),
-            lines ? `${lines} line${lines === 1 ? '' : 's'}` : null,
-            BASE ? <StationAlerts key="alerts" station={station} mode={mode} nowMs={nowMs} /> : null,
-          ]}
-          star={<StarButton saved={star.saved} onToggle={star.toggle} name={title} />}
-        >
-          <FilterRow label="Filter trains">
-            <Chip pressed={filter === 'all'} onClick={() => setFilter('all')}>
-              All
-            </Chip>
-            <Chip opens on={!!to} onClick={() => setPicker(true)}>
-              {to ? `To ${to.name}` : 'Going to…'}
-            </Chip>
-            {reverse ? (
-              <Chip
-                icon="swap"
-                label="Swap direction"
-                onClick={() => navigate(boardHref(reverse.key, station.key))}
-              />
-            ) : null}
-            <Chip pressed={filter === 'express'} onClick={() => setFilter('express')}>
-              Express
-            </Chip>
-            <Link to={`${at('/map')}?station=${station.key}`} className={chipClass()}>
-              <Icon name="map" size={18} />
-              Map
-            </Link>
-            <NowChip value={departAt} onChange={setDepartAt} nowMs={nowMs} />
-          </FilterRow>
-        </BoardHeader>
-        <UpdatedStrip
-          board
-          updated={
-            <>
-              Updated{' '}
-              <strong className="text-aqua-text dark:text-ferry-aqua-light">
-                {formatClock(Math.floor((latest?.generatedAt ?? renderedAt) / 1000))}
-              </strong>
-            </>
-          }
-          detail={src ? formatAge(src, nowMs) : undefined}
-        />
-        <div className={to && inbound ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : undefined}>
+      <div className="board-grid">
+        <div className="board-column" data-board-column="">
+          <BoardHeader
+            kicker="Train station"
+            as="h2"
+            name={station.name}
+            facts={[
+              platformsText(station.platforms.map((p) => p.code)),
+              lines ? `${lines} line${lines === 1 ? '' : 's'}` : null,
+              BASE ? <StationAlerts key="alerts" station={station} mode={mode} nowMs={nowMs} /> : null,
+            ]}
+            star={<StarButton saved={star.saved} onToggle={star.toggle} name={title} />}
+          >
+            <FilterRow label="Filter trains">
+              <Chip pressed={filter === 'all'} onClick={() => setFilter('all')}>
+                All
+              </Chip>
+              <Chip opens on={!!to} onClick={() => setPicker(true)}>
+                {to ? `To ${to.name}` : 'Going to…'}
+              </Chip>
+              {reverse ? (
+                <Chip
+                  icon="swap"
+                  label="Swap direction"
+                  onClick={() => navigate(boardHref(reverse.key, station.key))}
+                />
+              ) : null}
+              <Chip pressed={filter === 'express'} onClick={() => setFilter('express')}>
+                Express
+              </Chip>
+              <Link to={`${at('/map')}?station=${station.key}`} className={chipClass()}>
+                <Icon name="map" size={18} />
+                Map
+              </Link>
+              <NowChip value={departAt} onChange={setDepartAt} nowMs={nowMs} />
+            </FilterRow>
+          </BoardHeader>
+          <UpdatedStrip
+            board
+            updated={
+              <>
+                Updated{' '}
+                <strong className="text-aqua-text dark:text-ferry-aqua-light">
+                  {formatClock(Math.floor((latest?.generatedAt ?? renderedAt) / 1000))}
+                </strong>
+              </>
+            }
+            detail={src ? formatAge(src, nowMs) : undefined}
+          />
           <StationBoard
             key={`${station.key}:${to?.key ?? ''}`}
             from={station}
@@ -265,11 +356,28 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
             onData={onData}
             at={departAt}
           />
-          {to && inbound ? (
-            <div className="hidden md:block">
+        </div>
+        {/* The panel (1024 px and wider): the open trip, else the return board, else the station's map. */}
+        <div className="board-panel" data-panel="">
+          {open ? (
+            <Suspense fallback={null}>
+              <TripPanelHost
+                trip={open}
+                board={boardHref(station.key, to?.key ?? null)}
+                here={`${pathname}${search}`}
+                go={navigate}
+                back={() => navigate(-1)}
+              >
+                {panel}
+              </TripPanelHost>
+            </Suspense>
+          ) : null}
+          {/* Kept mounted (hidden) beside an open trip, so closing it doesn't fetch the return board again. */}
+          {reverse ? (
+            <div hidden={!!open}>
               <StationBoard
-                key={`${to.key}:${station.key}`}
-                from={to}
+                key={`${reverse.key}:${station.key}`}
+                from={reverse}
                 to={station}
                 initial={inbound}
                 nowMs={nowMs}
@@ -277,9 +385,13 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
                 filter={filter}
                 at={departAt}
                 returnBoard
-                alerts={BASE ? <StationAlerts station={to} mode={mode} nowMs={nowMs} /> : undefined}
+                alerts={BASE ? <StationAlerts station={reverse} mode={mode} nowMs={nowMs} /> : undefined}
               />
             </div>
+          ) : wide && !open ? (
+            <Suspense fallback={<div className="h-80 rounded-card bg-map-ground" />}>
+              <StationMap station={station} departures={latest?.departures ?? []} mode={mode} nowMs={nowMs} />
+            </Suspense>
           ) : null}
         </div>
       </div>
@@ -293,7 +405,7 @@ export default function StationPage({ loaderData }: Route.ComponentProps) {
       >
         <ReachableList from={station} selected={to?.key ?? null} onPick={go} />
       </DestinationSheet>
-      <StationAbout station={station} />
+      {loaderData.board ? <StationAbout station={station} /> : null}
     </Shell>
   )
 }

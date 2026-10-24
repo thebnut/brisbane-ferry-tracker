@@ -6,6 +6,7 @@
  * the point), whatever the hour. `context.route` also covers the service worker's own requests.
  */
 import { type BrowserContext, expect, type Page, test } from '@playwright/test'
+import { pinUpcoming } from './upcoming.ts'
 
 const STOP = '10802'
 const DEPARTURES = `**/__fixtures/v1/bus/stops/${STOP}/departures*`
@@ -266,6 +267,8 @@ test("a cached home page: LIVE in the header waits for every saved stop's own da
       await route.fulfill({ response: res, body })
     },
   )
+  // A home is LIVE only over a live row it shows (R36-L1): one is due and live at any hour.
+  await pinUpcoming(context)
   // Hold the second stop's departures; the first stop's answer goes through.
   let release = () => {}
   const held = new Promise<void>((r) => {
@@ -273,7 +276,7 @@ test("a cached home page: LIVE in the header waits for every saved stop's own da
   })
   await context.route('**/__fixtures/v1/bus/stops/10780/departures*', async (route) => {
     await held
-    await route.continue()
+    await route.fallback()
   })
   await page.goto('/')
   await page.waitForResponse((r) => r.url().includes('/stops/10802/departures') && r.ok(), {

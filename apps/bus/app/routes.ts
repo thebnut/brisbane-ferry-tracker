@@ -1,10 +1,13 @@
-import { index, type RouteConfig, route } from '@react-router/dev/routes'
+import { index, layout, type RouteConfig, route } from '@react-router/dev/routes'
 
 export default [
   index('routes/home.tsx'),
   route('nearby', 'routes/nearby.tsx'),
-  route('stop/:stopId', 'routes/stop.tsx'),
-  route('trip/:tripInstance', 'routes/trip.tsx'),
+  // The board is a layout over its URL and the trip URL: on desktop the trip opens beside it (THE-118 PR 7).
+  layout('routes/stop.tsx', [
+    route('stop/:stopId', 'routes/board.tsx'),
+    route('trip/:tripInstance', 'routes/trip.tsx'),
+  ]),
   route('route/:route', 'routes/route.tsx'),
   route('map', 'routes/map.tsx'),
   route('alerts', 'routes/alerts.tsx'),

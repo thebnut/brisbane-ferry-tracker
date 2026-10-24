@@ -70,6 +70,8 @@ export interface DepartureListProps {
   saved?: boolean
   /** This device has a timetable copy for the stop, now run out (a stop viewed before, saved or not). */
   copyRanOut?: boolean
+  /** The rows' links: a stop page's know about the trip beside the board (THE-118 PR 7). */
+  renderLink?: LinkRenderer
 }
 
 /** True when every row is on a later Brisbane day (nothing more tonight). */
@@ -109,6 +111,7 @@ export function DepartureList({
   offline,
   saved,
   copyRanOut,
+  renderLink = rowLink,
 }: DepartureListProps) {
   const [expanded, setExpanded] = useKept<boolean>(`more:${stopId}`, false)
   if (!data) {
@@ -257,7 +260,7 @@ export function DepartureList({
               time={v.time}
               highlighted={v.highlighted}
               href={tripHref(v.departure.tripInstance, stopId)}
-              renderLink={rowLink}
+              renderLink={renderLink}
             />
           </li>
         ))}

@@ -4,7 +4,7 @@ import { isDemoSession } from '@bft/ui/demo'
  * their saved pair when brisbaneferry.com moves to this app, plus a small cookie so the server can render the
  * saved pair's rows into the HTML.
  */
-import { normalisePair, type StopPair } from './terminals.ts'
+import { normalisePair, type StopPair, terminalById } from './terminals.ts'
 
 export const STORAGE_KEYS = {
   SELECTED_STOPS: 'brisbane-ferry-selected-stops',
@@ -82,15 +82,19 @@ export function getCookie(header: string | null, name: string): string | null {
   return null
 }
 
-/** Pair from the request cookie, for SSR. */
-export function pairFromCookie(cookieHeader: string | null): StopPair | null {
-  const v = getCookie(cookieHeader, PAIR_COOKIE)
-  const m = v ? /^(\d+)\.(\d+)$/.exec(v) : null
-  if (!m) return null
-  return normalisePair({
-    outbound: { id: m[1] as string, name: '' },
-    inbound: { id: m[2] as string, name: '' },
-  })
+/**
+ * `bft_pair`'s value (THE-118 PR 8): the first ferry favourite, for ferry home's headline in the server HTML, as
+ * `fav.<from>.<to>` (`to` empty for a whole terminal). The older `<from>.<to>` value was the home board's pair, maybe
+ * one kept for this session only ("Remember selection" off), so it is never read as a favourite.
+ */
+export const favouriteCookie = (f: { from: string; to: string | null }) => `fav.${f.from}.${f.to ?? ''}`
+
+/** The first ferry favourite from the request cookie, for SSR: a known terminal, its "To" only when reachable. */
+export function favouriteFromCookie(cookieHeader: string | null): { from: string; to: string | null } | null {
+  const m = /^fav\.(\d+)\.(\d*)$/.exec(getCookie(cookieHeader, PAIR_COOKIE) ?? '')
+  const origin = m ? terminalById(m[1] as string) : null
+  if (!m || !origin) return null
+  return { from: origin.id, to: m[2] && origin.destinations.includes(m[2]) ? m[2] : null }
 }
 
 /** Offline copy of the last good response per pair (shown as scheduled times when offline). */

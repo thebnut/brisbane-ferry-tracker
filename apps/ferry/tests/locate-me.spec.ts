@@ -14,9 +14,11 @@ import { type Page, test } from '@playwright/test'
 test.use({ launchOptions: WEBGL_LAUNCH })
 
 async function openLiveMap(page: Page) {
-  await page.goto('/')
-  await page.getByRole('button', { name: 'Map', exact: true }).click()
-  return page.getByRole('region', { name: 'Map of live ferry positions' })
+  // The board's Map chip opens the live ferry map page on that terminal (THE-118 PR 9).
+  await page.goto('/terminal/bulimba?to=riverside')
+  await page.getByRole('link', { name: 'Map', exact: true }).click()
+  await page.waitForURL(/\/map\?terminal=bulimba$/)
+  return page.getByRole('region', { name: /^Map of \d+ live ferr/ })
 }
 
 test('THE-112: the live map frames you on a tap', async ({ page, context }) => {

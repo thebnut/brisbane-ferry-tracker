@@ -4,6 +4,11 @@
 @import "@bft/ui/theme.css";
 @source "./";
 
+/* The board's sticky trip panel (THE-118 PR 7) starts below BrisbaneFerry's taller sticky header. */
+:root {
+  --bft-panel-top: 8.5rem;
+}
+
 /* Legal pages: copy from the legacy static HTML. */
 .legal h1 {
   @apply mb-1 text-2xl font-bold text-charcoal;

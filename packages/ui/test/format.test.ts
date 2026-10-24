@@ -10,6 +10,7 @@ import {
   formatDistance,
   formatDuration,
   formatWhen,
+  isExtraService,
   minutesBetween,
   minutesUntil,
   statusNote,
@@ -82,6 +83,17 @@ describe('status line', () => {
     expect(delayText(at(19, 46), at(19, 44))).toBe('2 min early')
     expect(delayText(at(19, 46), at(19, 46) + 20)).toBeNull()
     expect(delayText(at(19, 46), null)).toBeNull()
+  })
+  it('no delay without a timetabled time (an extra service), never one measured from 0 (R35-U1)', () => {
+    expect(delayText(null, at(23, 9))).toBeNull()
+    expect(delayText(undefined, at(23, 9))).toBeNull()
+    expect(delayText(null, null)).toBeNull()
+  })
+  it('an extra service is a trip added outside the timetable, keyed rt:', () => {
+    expect(isExtraService('rt:UNPLANNED@20261023')).toBe(true)
+    expect(isExtraService('rt:T1+08:00:00@20261023')).toBe(true)
+    expect(isExtraService('T1@20261023')).toBe(false)
+    expect(isExtraService('court:1@20261023')).toBe(false)
   })
   it('age', () => {
     expect(formatAge(NOW / 1000 - 12, NOW)).toBe('updated 12 s ago')

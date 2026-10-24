@@ -4,6 +4,9 @@
  * terminal, the status line with GPS and the vessel), the facts, "Your trip" from your terminal, a live map when GPS
  * is known, and the dock ("Track on map", the star). Server-rendered from /v1/ferry/trips, then polled. A trip that
  * has run (or never was) shows a friendly note that links back to the board.
+ *
+ * At 1024 px and wider the terminal board's layout shows this page as its right panel (THE-118 PR 7, `usePanel`):
+ * ✕ and "Open full page" instead of the header, back link and footer. `?full=1` is the full page at any width.
  */
 
 import type { TripResponse, TripStop } from '@bft/core/contract'
@@ -13,6 +16,7 @@ import {
   formatClock,
   formatDuration,
   Icon,
+  isExtraService,
   liveState,
   minutesBetween,
   minutesUntil,
@@ -22,6 +26,7 @@ import {
   vesselName,
 } from '@bft/ui'
 import { awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { onlyFullChanged, usePanel, usePanelReport } from '@bft/ui/panel'
 import {
   backClick,
   occupancyFact,
@@ -32,11 +37,12 @@ import {
   type TripLinkRenderer,
   TripMap,
   TripNotFound,
+  TripPanelFrame,
   TripSummary,
   trackClass,
   YourTrip,
 } from '@bft/ui/trip'
-import { data, Link } from 'react-router'
+import { data, Link, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { Footer } from '../components/Chrome.tsx'
 import { ServiceTile } from '../components/DepartureList.tsx'
 import FerryStar from '../components/FerryStar.tsx'
@@ -46,7 +52,14 @@ import { validateTrip } from '../lib/contract.server.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { useFetcher } from '../lib/queries.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
-import { boardHref, destinationParam, terminalById, terminalByParam, tripStopName } from '../lib/terminals.ts'
+import {
+  boardHref,
+  destinationParam,
+  mapHref,
+  terminalById,
+  terminalByParam,
+  tripStopName,
+} from '../lib/terminals.ts'
 import { fetchTrip, isGone, useTrip } from '../lib/trip-queries.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/trip'
@@ -90,6 +103,11 @@ export function headers() {
   return { 'cache-control': 'private, no-store' }
 }
 
+/** The panel and its full page are the same trip: no second fetch between them (THE-118 PR 7). */
+export function shouldRevalidate(args: ShouldRevalidateFunctionArgs) {
+  return onlyFullChanged(args.currentUrl, args.nextUrl) ? false : args.defaultShouldRevalidate
+}
+
 export const meta: Route.MetaFunction = ({ loaderData }) => {
   const t = loaderData?.trip
   const title = t
@@ -130,6 +148,31 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const back = fromT
     ? { href: boardHref(fromT.id, loaderData.to), label: cleanStopName(fromT.name), onClick: backClick }
     : { href: at('/'), label: 'Ferry', onClick: backClick }
+  const panel = usePanel()
+  // Beside the board, this trip's answer counts in the board's header (a trip that has gone claims nothing).
+  usePanelReport(panel, q, state, gone)
+  const content = (
+    <>
+      {!online ? (
+        <OfflineBanner
+          kind="offline"
+          detail="Showing the last update. Live times resume when you're back online."
+        />
+      ) : null}
+      {online && state != null && state !== 'offline' && !pending ? <OfflineBanner kind={state} /> : null}
+      {gone ? (
+        <TripNotFound place={fromT ? back.label : null} href={back.href} renderLink={linkRenderer} />
+      ) : !trip ? (
+        <p className="py-8 text-center text-sm text-sched-text" role="status">
+          {q.isError ? "Couldn't load this ferry. Retrying…" : 'Loading this ferry…'}
+        </p>
+      ) : (
+        <TripBody trip={trip} from={fromId} to={loaderData.to} now={now} />
+      )}
+    </>
+  )
+  // Beside the board (desktop): the board's header says what's live; the panel's own words follow this trip's answer.
+  if (panel) return <TripPanelFrame panel={panel}>{content}</TripPanelFrame>
   return (
     <>
       <SiteHeader
@@ -140,22 +183,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
       />
       <main className="mx-auto flex max-w-2xl flex-col gap-3 px-3 pt-2 pb-28 md:px-4 md:pt-4 md:pb-8">
         <TripBackLink href={back.href} label={back.label} renderLink={linkRenderer} barHasIt={!!BASE} />
-        {!online ? (
-          <OfflineBanner
-            kind="offline"
-            detail="Showing the last update. Live times resume when you're back online."
-          />
-        ) : null}
-        {online && state != null && state !== 'offline' && !pending ? <OfflineBanner kind={state} /> : null}
-        {gone ? (
-          <TripNotFound place={fromT ? back.label : null} href={back.href} renderLink={linkRenderer} />
-        ) : !trip ? (
-          <p className="py-8 text-center text-sm text-sched-text" role="status">
-            {q.isError ? "Couldn't load this ferry. Retrying…" : 'Loading this ferry…'}
-          </p>
-        ) : (
-          <TripBody trip={trip} from={fromId} to={loaderData.to} now={now} />
-        )}
+        {content}
       </main>
       <Footer />
     </>
@@ -187,10 +215,12 @@ function TripBody({
   const arr = alight ? arrivalOf(alight) : null
   const end = b < stops.length - 1 ? arrivalOf(last) : null
   const cancelled = trip.status === 'cancelled'
+  const extra = isExtraService(trip.tripInstance)
   const status = statusLine({
     status: cancelled ? 'cancelled' : board.status,
     schedDep: sched ?? undefined,
     estDep: board.estDep,
+    extra,
   })
   const minutes = dep != null && !cancelled ? minutesUntil(dep, now) : null
   // Null once the trip is live-matched to a vessel and fresh (tripAsTimetable drops it otherwise).
@@ -199,6 +229,7 @@ function TripBody({
   const late = board.status === 'live' && sched != null ? delayText(sched, board.estDep) : null
   const nameOf = (s: TripStop) => cleanStopName(tripStopName(s.stopId, s.name))
 
+  const clock = (t: number | null) => (t != null ? formatClock(t) : null)
   const nowS = now / 1000
   const rows: TimelineStop[] = stops.map((s, i) => {
     const t = timeOf(s)
@@ -209,9 +240,11 @@ function TripBody({
       name: nameOf(s),
       kind: passes ? 'skip' : past ? 'passed' : i === stops.length - 1 ? 'terminus' : 'stop',
       note: i === b ? 'You board' : i === a ? 'You get off' : passes ? 'Not stopping' : undefined,
-      arr: !passes && i > 0 && s.schedArr != null ? formatClock(s.estArr ?? s.schedArr) : null,
-      dep: !passes && s.schedDep != null ? formatClock(s.estDep ?? s.schedDep) : null,
-      delay: s.status === 'live' ? delayText(s.schedDep ?? s.schedArr ?? 0, s.estDep ?? s.estArr) : null,
+      // An extra service has no timetable: its live times, and no delay.
+      arr: !passes && i > 0 && (extra || s.schedArr != null) ? clock(s.estArr ?? s.schedArr) : null,
+      dep:
+        !passes && (extra ? i < stops.length - 1 : s.schedDep != null) ? clock(s.estDep ?? s.schedDep) : null,
+      delay: s.status === 'live' ? delayText(s.schedDep ?? s.schedArr, s.estDep ?? s.estArr) : null,
       cancelled: s.status === 'cancelled',
     }
   })
@@ -302,10 +335,7 @@ function TripBody({
         />
       ) : null}
       <TripDock>
-        <Link
-          to={`${boardHref(board.stopId, to)}${to ? '&' : '?'}map=1&trip=${encodeURIComponent(trip.tripInstance)}`}
-          className={trackClass}
-        >
+        <Link to={mapHref(board.stopId, trip.tripInstance)} className={trackClass}>
           <Icon name="map" size={20} />
           Track on map
         </Link>

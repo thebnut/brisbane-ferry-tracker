@@ -24,6 +24,8 @@ export interface StatusLineInput {
   next?: { name: string; minutes: number } | null
   /** A live platform change: the timetabled platform ("platform changed from 5"). It is then the row's fact. */
   platformFrom?: string | null
+  /** An extra service (isExtraService): "Live · Extra service", never on time, late or early. */
+  extra?: boolean
 }
 
 export interface StatusLine {
@@ -36,7 +38,14 @@ export interface StatusLine {
 }
 
 /** The status line's words: "Live · 2 min late", "Scheduled", "Cancelled · next 60 in 15 min", "Not stopping here". */
-export function statusLine({ status, schedDep, estDep, next, platformFrom }: StatusLineInput): StatusLine {
+export function statusLine({
+  status,
+  schedDep,
+  estDep,
+  next,
+  platformFrom,
+  extra,
+}: StatusLineInput): StatusLine {
   if (status === 'cancelled')
     return {
       dot: 'cancelled',
@@ -52,11 +61,13 @@ export function statusLine({ status, schedDep, estDep, next, platformFrom }: Sta
       tone: 'neutral',
       claim: false,
     }
-  // Without the timetabled time (an Ask answer row) a live row only says "Live".
-  const d = schedDep == null ? null : estDep == null ? 0 : minutesBetween(schedDep, estDep)
+  // Without the timetabled time (an Ask answer row) a live row only says "Live"; an extra service has none to keep.
+  const d = schedDep == null || extra ? null : estDep == null ? 0 : minutesBetween(schedDep, estDep)
   const when =
     d == null
-      ? null
+      ? extra
+        ? 'Extra service'
+        : null
       : d >= 1
         ? `${d} min late`
         : d <= -1

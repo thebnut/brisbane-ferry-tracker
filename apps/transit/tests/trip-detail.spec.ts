@@ -8,6 +8,8 @@
  *  - the dock's star saves the place you board at, plus the destination when `?to=` is known;
  *  - an expired or unknown trip shows a friendly note that links back to the board (a 404, not an error page);
  *  - the train's live marker still moves down the line.
+ * On desktop a row opens the trip beside the board (THE-118 PR 7, master-detail.spec.ts); the layout checks here use
+ * its full page ("Open full page").
  * Nothing here depends on the time of day: the trip is picked by its stops, and no countdown or row wording is
  * asserted. The marker test crafts its trip's times around the page clock.
  */
@@ -135,6 +137,11 @@ function suite(phone: boolean) {
         expect(y, 'the board is scrolled to the row').toBeGreaterThan(0)
         await row.click()
         await page.waitForURL(new RegExp(`/${m.mode}/trip/`))
+        // Desktop opens the trip beside the board (THE-118 PR 7): its full page is one link away.
+        if (!phone) {
+          await page.getByRole('link', { name: 'Open full page' }).click()
+          await page.waitForURL(/[?&]full=1/)
+        }
 
         // The summary: tile, kicker, "To {headsign}", the countdown or clock, the status line; 1 to 3 facts.
         const summary = page.locator('[data-trip-summary]')
@@ -203,7 +210,8 @@ function suite(phone: boolean) {
       })
 
       test('an expired trip shows a friendly note that links back to the board', async ({ page }) => {
-        const res = await page.goto(m.gone)
+        // Desktop shows a trip URL beside its board (THE-118 PR 7): this checks the trip's own page.
+        const res = await page.goto(phone ? m.gone : `${m.gone}&full=1`)
         expect(res?.status()).toBe(404)
         const gone = page.locator('[data-trip-gone]')
         await expect(gone.getByRole('heading', { name: 'This trip has finished' })).toBeVisible()
@@ -340,7 +348,7 @@ function suite(phone: boolean) {
       await expect(express).toHaveAttribute('aria-pressed', 'true')
     })
 
-  test('ferry: "Track on map" opens the board\'s map following this trip\'s ferry', async ({
+  test('ferry: "Track on map" opens the live ferry map following this trip\'s ferry', async ({
     page,
     context,
     request,
@@ -377,9 +385,10 @@ function suite(phone: boolean) {
     await page.goto(href)
     await expect(page.locator('html[data-hydrated]')).toHaveCount(1)
     await page.locator('[data-trip-dock]').getByRole('link', { name: 'Track on map' }).click()
-    await expect(page).toHaveURL(/map=1/)
+    // The map page (THE-118 PR 9), which replaced the board's map sheet.
+    await expect(page).toHaveURL(/\/ferry\/map\?terminal=bulimba&trip=/)
     expect(new URL(page.url()).searchParams.get('trip')).toBe(key)
-    await expect(page.getByRole('dialog', { name: 'Live ferry map' })).toContainText('Following Mudlark')
+    await expect(page.locator('[data-map-card]')).toContainText('Mudlark · your trip')
   })
 
   test('the train live marker still moves down the line', async ({ page, context, request }) => {

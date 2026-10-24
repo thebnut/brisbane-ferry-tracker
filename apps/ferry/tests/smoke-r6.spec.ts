@@ -6,7 +6,7 @@ import { offlineHoldSuite } from '@bft/ui/e2e/offline-hold.ts'
 import { pinUpcoming } from './upcoming.ts'
 
 offlineHoldSuite({
-  path: '/',
+  path: '/terminal/bulimba?to=riverside',
   rows: '[data-testid=departure]',
   pagesCache: 'ferry-pages',
   departures: /\/v1\/ferry\/stops\/[^/]+\/departures/,

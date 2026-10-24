@@ -89,6 +89,12 @@ test('desktop: section links in the header, no phone bottom nav (T6)', async ({ 
   const header = page.locator('header')
   await expect(header.getByRole('navigation', { name: 'Sections' })).toBeVisible()
   await expect(header.getByRole('link', { name: 'Alerts' })).toBeVisible()
+  // Stations is the list behind home's "All N stations", not a destination (THE-118), as on BrisbaneTransit.
+  await expect(header.getByRole('navigation', { name: 'Sections' }).getByRole('link')).toHaveText([
+    'Home',
+    'Map',
+    'Alerts',
+  ])
   await expect(page.getByRole('navigation', { name: 'Main' })).toBeHidden()
 })
 
@@ -96,6 +102,11 @@ test('phone: bottom nav, no header links (T6)', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/station/central')
   await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link')).toHaveText([
+    'Home',
+    'Map',
+    'Alerts',
+  ])
   await expect(page.locator('header').getByRole('navigation', { name: 'Sections' })).toBeHidden()
 })
 
@@ -137,7 +148,8 @@ test('service page: no LIVE or GPS while offline (Codex review)', async ({ page,
   await page.locator('[data-board=central] [data-testid=departure] a').first().click()
   await expect(page.getByRole('list', { name: 'Stops on your trip' })).toBeVisible()
   await context.setOffline(true)
-  await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 2_000 })
+  // The trip's banner (beside the board on desktop, THE-118 PR 7, the board has its own).
+  await expect(page.locator('[data-banner=offline]').last()).toBeVisible({ timeout: 2_000 })
   // The timetable only: no live words or GPS in the summary.
   await expect(page.locator('main [data-trip-summary] [data-live-claim]')).toHaveCount(0)
   await expect(page.locator('main [data-trip-status]')).not.toContainText(/Live|GPS/)

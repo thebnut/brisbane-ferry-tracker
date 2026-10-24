@@ -59,6 +59,8 @@ export interface DepartureListProps {
   tripHref: (d: Departure) => string
   /** Offline: an empty board means no usable timetable copy, never "finished for today" (R2-B6). */
   offline?: boolean
+  /** The rows' links: a terminal page's know about the trip beside the board (THE-118 PR 7). */
+  renderLink?: LinkRenderer
 }
 
 export function DepartureList({
@@ -72,6 +74,7 @@ export function DepartureList({
   onRetry,
   tripHref,
   offline,
+  renderLink = linkRenderer,
 }: DepartureListProps) {
   const [more, setMore] = useKept<boolean>(`more:${id}`, false)
   const list = departures ?? []
@@ -137,7 +140,7 @@ export function DepartureList({
                     time={r.time}
                     highlighted={i === soonest}
                     href={tripHref(d)}
-                    renderLink={linkRenderer}
+                    renderLink={renderLink}
                   />
                 </li>
               )

@@ -7,6 +7,10 @@ import { expect, test } from '@playwright/test'
 const openTrip = async (page: import('@playwright/test').Page) => {
   await page.goto('/stop/10802')
   await page.getByTestId('departure').first().locator('a').click()
+  // Desktop opens the trip beside the board (THE-118 PR 7): these check its own page, with its Refresh.
+  await expect(page.locator('[data-trip-summary]')).toBeVisible()
+  const full = page.getByRole('link', { name: 'Open full page' })
+  if (await full.isVisible()) await full.click()
   const stops = page.getByRole('list', { name: 'Stops on your trip' })
   await expect(stops).toBeVisible()
   // Every stop: "Your trip" starts at your stop, with the ones before it collapsed (THE-118 PR 6).

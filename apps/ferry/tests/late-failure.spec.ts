@@ -5,7 +5,7 @@ import { lateFailureSuite } from '@bft/ui/e2e/late-failure.ts'
 import { pinUpcoming } from './upcoming.ts'
 
 lateFailureSuite({
-  path: '/',
+  path: '/terminal/bulimba?to=riverside',
   pagesCache: 'ferry-pages',
   departures: /\/v1\/ferry\/stops\/[^/]+\/departures/,
   pin: (context) => pinUpcoming(context),

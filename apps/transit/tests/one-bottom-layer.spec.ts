@@ -17,6 +17,7 @@ const onlyIn = (project: string) =>
 const PAGES = [
   '/ferry',
   '/ferry/terminal/bulimba',
+  '/ferry/map',
   '/train',
   '/train/stations',
   '/train/station/central',
@@ -33,15 +34,15 @@ const PAGES = [
 
 /** The boards, each with the alerts page its count opens. */
 const BOARDS: Array<[board: string, alerts: RegExp]> = [
-  ['/ferry', /\/alerts\?mode=ferry$/],
+  ['/ferry/terminal/bulimba?to=riverside', /\/alerts\?mode=ferry$/],
   ['/ferry/terminal/bulimba', /\/alerts\?mode=ferry$/],
   ['/train/station/central', /\/train\/alerts$/],
   ['/bus/stop/10802', /\/bus\/alerts$/],
 ]
 
-/** A board's own Map chip, and each mode home's (Ferry's home is its board). */
+/** A board's own Map chip, and the Train and Bus homes' (THE-118 PR 9 gives Ferry's home a map page). */
 const MAPS = [
-  '/ferry',
+  '/ferry/terminal/bulimba?to=riverside',
   '/ferry/terminal/bulimba',
   '/train',
   '/train/station/central',

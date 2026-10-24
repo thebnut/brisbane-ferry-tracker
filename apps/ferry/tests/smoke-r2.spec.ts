@@ -6,7 +6,7 @@
  */
 import { expect, type Page, test } from '@playwright/test'
 
-const PAGES = ['/']
+const PAGES = ['/terminal/bulimba?to=riverside']
 
 /** Records every frame in which a LIVE or GPS claim is visible, from the first paint on. */
 const recordLiveClaims = (page: Page) =>
@@ -92,7 +92,7 @@ test("a cached page: the header and an inbound departure wait for the inbound bo
   })
   // Serve the page as the service worker's page cache does (markCachedPages marks the <html> tag).
   await context.route(
-    (url) => url.pathname === '/',
+    (url) => url.pathname === '/terminal/bulimba',
     async (route) => {
       if (route.request().resourceType() !== 'document') return route.continue()
       const res = await route.fetch()
@@ -109,7 +109,7 @@ test("a cached page: the header and an inbound departure wait for the inbound bo
     await held
     await route.continue()
   })
-  await page.goto('/')
+  await page.goto('/terminal/bulimba?to=riverside')
   await page.waitForResponse((r) => r.url().includes('/stops/317584/departures') && r.ok(), {
     timeout: 45_000,
   })
@@ -125,23 +125,15 @@ test("a cached page: the header and an inbound departure wait for the inbound bo
   release()
 })
 
-test('a cached page: the live map (both directions) waits for every board, not just one (Codex review round 5)', async ({
+test("a cached map page: no LIVE and no positions until its own answer, and none from one that isn't live (THE-118 PR 9)", async ({
   page,
   context,
 }) => {
   test.slow()
-  await page.addInitScript(() => {
-    localStorage.setItem('brisbane-ferry-remember-selection', 'true')
-    localStorage.setItem(
-      'brisbane-ferry-selected-stops',
-      JSON.stringify({
-        outbound: { id: '317584', name: 'Bulimba' },
-        inbound: { id: '317590', name: 'Riverside' },
-      }),
-    )
-  })
+  // The live ferry map replaced the board's map sheet: it judges its positions by their own answer (Codex review
+  // round 5 asked the sheet to wait for every board).
   await context.route(
-    (url) => url.pathname === '/',
+    (url) => url.pathname === '/map',
     async (route) => {
       if (route.request().resourceType() !== 'document') return route.continue()
       const res = await route.fetch()
@@ -149,20 +141,21 @@ test('a cached page: the live map (both directions) waits for every board, not j
       await route.fulfill({ response: res, body })
     },
   )
-  // Hold the outbound board's departures; the inbound board's answer goes through.
   let release = () => {}
   const held = new Promise<void>((r) => {
     release = r
   })
-  await context.route('**/__fixtures/v1/ferry/stops/317584/departures*', async (route) => {
+  await context.route('**/__fixtures/v1/ferry/vehicles*', async (route) => {
     await held
-    await route.continue()
+    const res = await route.fetch()
+    await route.fulfill({ response: res, json: { ...(await res.json()), rtState: 'stale' } })
   })
-  await page.goto('/')
-  await page.waitForResponse((r) => r.url().includes('/stops/317590/departures') && r.ok(), {
-    timeout: 45_000,
-  })
-  await page.getByRole('button', { name: 'Map' }).click()
-  await expect(page.getByText('Live positions are unavailable right now.')).toBeVisible()
+  await page.goto('/map?terminal=bulimba')
+  await expect(page.locator('[data-map-page=ferry]')).toBeVisible()
+  await page.waitForTimeout(500)
+  await expect(page.locator('header').getByText('LIVE', { exact: true })).toHaveCount(0)
+  await expect(page.locator('.bft-marker[data-tone=allstops], .bft-marker[data-tone=express]')).toHaveCount(0)
   release()
+  await expect(page.getByText('Live positions are unavailable right now.')).toBeVisible()
+  await expect(page.locator('header').getByText('LIVE', { exact: true })).toHaveCount(0)
 })

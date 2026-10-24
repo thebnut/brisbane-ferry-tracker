@@ -4,6 +4,10 @@
  * "Not reported" tile), "Your trip" from your stop with the bus riding the line, and the dock ("Track on map", the
  * star). Server-rendered from /v1/bus/trips, then polled. A trip that has run (or never was) shows a friendly note that
  * links back to the stop.
+ *
+ * At 1024 px and wider the stop board's layout shows this page as its right panel (THE-118 PR 7, `usePanel`): ✕ and
+ * "Open full page" instead of the header, status strip, back link, footer and tab bar. `?full=1` is the full page at
+ * any width.
  */
 
 import type { TripResponse } from '@bft/core/contract'
@@ -14,6 +18,7 @@ import {
   formatClock,
   formatDuration,
   Icon,
+  isExtraService,
   liveState,
   minutesBetween,
   minutesUntil,
@@ -24,6 +29,7 @@ import {
 } from '@bft/ui'
 import { SkeletonRows } from '@bft/ui/bus'
 import { usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { onlyFullChanged, usePanel, usePanelReport } from '@bft/ui/panel'
 import {
   backClick,
   occupancyFact,
@@ -32,11 +38,12 @@ import {
   type TripLinkRenderer,
   TripMap,
   TripNotFound,
+  TripPanelFrame,
   TripSummary,
   trackClass,
   YourTrip,
 } from '@bft/ui/trip'
-import { data, Link } from 'react-router'
+import { data, Link, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { BusStar } from '../components/BusStar.tsx'
 import { BusNav, DataBanner, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { ApiError, fetchRoute } from '../lib/api.ts'
@@ -45,7 +52,7 @@ import { validateRoute, validateTrip } from '../lib/contract.server.ts'
 import { useApi } from '../lib/mode.ts'
 import { pageMeta, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv, settle } from '../lib/server.server.ts'
-import { routeHref, stopHref } from '../lib/stops.ts'
+import { stopHref } from '../lib/stops.ts'
 import { at, needsStopNames, schedAt, stopNamesFor, timeline, unnamedStop } from '../lib/trip.ts'
 import { fetchTrip, isGone, useTrip } from '../lib/trip-queries.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
@@ -88,6 +95,11 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
 export function headers() {
   return { 'cache-control': 'private, no-store' }
+}
+
+/** The panel and its full page are the same trip: no second fetch between them (THE-118 PR 7). */
+export function shouldRevalidate(args: ShouldRevalidateFunctionArgs) {
+  return onlyFullChanged(args.currentUrl, args.nextUrl) ? false : args.defaultShouldRevalidate
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => {
@@ -140,6 +152,33 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const back = from
     ? { href: stopHref(from), label: fromName ?? unnamedStop(from), onClick: backClick }
     : { href: appAt('/'), label: 'Bus', onClick: backClick }
+  const panel = usePanel()
+  // Beside the board, this trip's answer counts in the board's header (a trip that has gone claims nothing).
+  usePanelReport(panel, q, state, gone)
+  const content = (
+    <>
+      <DataBanner
+        rtState={pending ? undefined : state != null && state !== 'offline' ? state : trip?.rtState}
+        hasData={!!trip}
+        generation={trip?.staticGeneration}
+      />
+      {gone ? (
+        <TripNotFound place={from ? back.label : null} href={back.href} renderLink={linkRenderer} />
+      ) : !trip ? (
+        q.isError ? (
+          <p className="py-8 text-center text-sm text-sched-text" role="status">
+            Couldn't load this bus. Retrying…
+          </p>
+        ) : (
+          <SkeletonRows count={3} label="Getting this bus…" />
+        )
+      ) : (
+        <TripBody trip={trip} tripKey={key} from={from} now={now} stopNames={loaderData.stopNames} />
+      )}
+    </>
+  )
+  // Beside the board (desktop): the board's header says what's live; the panel's own words follow this trip's answer.
+  if (panel) return <TripPanelFrame panel={panel}>{content}</TripPanelFrame>
   return (
     <>
       <SiteHeader live={gone ? undefined : live} pending={pending} back={back} />
@@ -154,24 +193,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
       />
       <main className="mx-auto flex max-w-2xl flex-col gap-3 px-4 pt-3.5 pb-28 md:pb-8">
         <TripBackLink href={back.href} label={back.label} renderLink={linkRenderer} barHasIt={!!BASE} />
-        <DataBanner
-          rtState={pending ? undefined : state != null && state !== 'offline' ? state : trip?.rtState}
-          hasData={!!trip}
-          generation={trip?.staticGeneration}
-        />
-        {gone ? (
-          <TripNotFound place={from ? back.label : null} href={back.href} renderLink={linkRenderer} />
-        ) : !trip ? (
-          q.isError ? (
-            <p className="py-8 text-center text-sm text-sched-text" role="status">
-              Couldn't load this bus. Retrying…
-            </p>
-          ) : (
-            <SkeletonRows count={3} label="Getting this bus…" />
-          )
-        ) : (
-          <TripBody trip={trip} tripKey={key} from={from} now={now} stopNames={loaderData.stopNames} />
-        )}
+        {content}
       </main>
       <Footer />
       <BusNav active="" />
@@ -196,7 +218,7 @@ function TripBody({
   const fromStop = trip.stops[view.board]
   const last = trip.stops[trip.stops.length - 1]
   const dep = fromStop ? at(fromStop) : 0
-  const sched = fromStop ? schedAt(fromStop) : 0
+  const sched = fromStop ? schedAt(fromStop) : null
   const cancelled = trip.status === 'cancelled'
   const late = fromStop?.status === 'live' ? delayText(sched, fromStop.estDep ?? fromStop.estArr) : null
   const end = last && last !== fromStop ? (last.estArr ?? last.schedArr) : null
@@ -222,6 +244,7 @@ function TripBody({
           status: cancelled ? 'cancelled' : (fromStop?.status ?? trip.status),
           schedDep: sched || undefined,
           estDep: fromStop?.estDep ?? fromStop?.estArr,
+          extra: isExtraService(trip.tripInstance),
         })}
         gps={!!v}
         vehicle={v?.label ? `Bus ${v.label}` : null}
@@ -267,7 +290,8 @@ function TripBody({
       ) : null}
       <TripDock>
         <Link
-          to={`${routeHref(trip.route.short)}?trip=${encodeURIComponent(tripKey)}`}
+          // The bus map following this bus among its route's (THE-118 PR 9).
+          to={`${appAt('/map')}?${new URLSearchParams({ route: trip.route.short, trip: tripKey, ...(from ? { stop: from } : {}) })}`}
           className={trackClass}
         >
           <Icon name="map" size={20} />

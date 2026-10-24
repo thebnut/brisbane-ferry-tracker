@@ -5,6 +5,7 @@
  * failure.
  */
 import { type BrowserContext, expect, type Page, test } from '@playwright/test'
+import { pinUpcoming } from './upcoming.ts'
 
 /** Runs a describe block's tests in one project only (each size runs once). */
 const onlyIn = (project: string) =>
@@ -101,12 +102,22 @@ function headerTests(phone: boolean) {
       await page.goto(board)
       await page.locator('a[href*="/trip/"]').first().click()
       await page.waitForURL(/\/trip\//)
+      // Desktop opens the trip beside the board (THE-118 PR 7): this checks its own page.
+      if (!phone) {
+        await page.getByRole('link', { name: 'Open full page' }).click()
+        await page.waitForURL(/[?&]full=1/)
+      }
       await expectOneHeader(page, phone, back)
       if (phone)
         await expect(page.locator('header').getByRole('link', { name: back })).toHaveAttribute('href', board)
     })
 
-  for (const path of ['/ferry', '/train/station/central', '/bus/stop/10802', '/bus/route/333'])
+  for (const path of [
+    '/ferry/terminal/bulimba?to=riverside',
+    '/train/station/central',
+    '/bus/stop/10802',
+    '/bus/route/333',
+  ])
     test(`${path}: tapping the status line refreshes`, async ({ page }) => {
       await page.goto(path)
       const line = page.locator('[data-status-line]')
@@ -127,7 +138,7 @@ async function holdDepartures(context: BrowserContext, page: Page, glob: string)
     open = r
   })
   await context.route(glob, async (route) =>
-    (await gate) === 'abort' ? route.abort('failed') : route.continue(),
+    (await gate) === 'abort' ? route.abort('failed') : route.fallback(),
   )
   await page.addInitScript(() => {
     const seen: Record<string, number> = {}
@@ -169,6 +180,8 @@ function connectionTests() {
       context,
     }) => {
       await page.addInitScript(home.seed)
+      // A home is LIVE only over a live row it shows (R36-L1): one is due and live at any hour.
+      await pinUpcoming(context, home.glob)
       const { release, seen } = await holdDepartures(context, page, home.glob)
       await page.goto(home.path)
       const state = page.locator('header [data-connection]')

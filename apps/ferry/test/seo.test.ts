@@ -40,9 +40,11 @@ describe('SEO parity with the legacy postbuild', () => {
 })
 
 describe('terminal meta for every terminal', () => {
-  it('matches the legacy build from schedule-data/latest.json (title, description, canonical)', () => {
+  // A weekday's schedule-data/latest.json, trimmed (scripts/seo-schedule-fixture.mjs), not the repo's live copy: main
+  // rewrites that daily, and on weekend data (no F11 or F12) the legacy build lists fewer routes than the app's week.
+  it('matches the legacy build from a weekday schedule snapshot (title, description, canonical)', () => {
     const schedule = JSON.parse(
-      readFileSync(new URL('../../../schedule-data/latest.json', import.meta.url), 'utf8'),
+      readFileSync(new URL('./fixtures/seo-schedule.json', import.meta.url), 'utf8'),
     )
     const data = buildTerminalData(schedule, new Date(schedule.generated ?? Date.now()))
     const diffs: string[] = []

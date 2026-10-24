@@ -94,14 +94,28 @@ export default defineConfig({
                   // status line (THE-118 PR 2) are on every page too: in their own chunk they cost ~1 KB gz more. The boards'
                   // alert count (THE-118 PR 3) is only on the boards. Their header and filter row (PR 5) stay here: in a
                   // chunk of their own they took ~1 KB off the transit pages but cost /ferry ~0.8 KB, past its budget. The
-                  // destination sheet (PR 5) is opened on demand. Trip detail (PR 6) is only on the trip pages.
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|trip\.tsx|[Oo]nboarding|WhatsNew|changelog|DestinationSheet)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
+                  // destination sheet (PR 5) is opened on demand. Trip detail (PR 6) is only on the trip pages. The
+                  // panel beside the boards (PR 7) loads with the trip; the boards' layouts' small part (board-route) is
+                  // only on the boards. The map pages' shell (PR 9) loads with the map pages.
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|trip\.tsx|[Oo]nboarding|WhatsNew|changelog|DestinationSheet|panel\.tsx|board-route|mode-home|map-page)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
+                },
+                // The boards' own part of the column-and-panel layout (THE-118 PR 7): each board URL's child route (nothing of
+                // its own) with the layouts' revalidation and width check, one chunk on every board's first load. The panel
+                // itself loads with the trip.
+                {
+                  name: 'board',
+                  test: /apps[\\/](ferry|train|bus)[\\/]app[\\/]routes[\\/]board\.tsx$|packages[\\/]ui[\\/]src[\\/]board-route\.ts$/,
                 },
                 // The bus boards' elements (@bft/ui/bus) that only the Bus pages load. After 'ui', so the modules they
                 // share stay there.
                 { name: 'ui-bus', test: /packages[\\/]ui[\\/]src[\\/]bus\.tsx$/ },
                 // The Save star and its toast (THE-118): on the train and bus boards, and in the ferry star's lazy chunk.
                 { name: 'ui-star', test: /packages[\\/]ui[\\/]src[\\/](star\.tsx|SaveToast\.tsx)$/ },
+                // The mode homes' skeleton (THE-118 PR 8): only /ferry, /train and /bus load it. Without this group it rode
+                // in the ferry departures' chunk, which put ferry code on the Train and Bus homes.
+                { name: 'mode-home', test: /packages[\\/]ui[\\/]src[\\/]mode-home\.tsx$/ },
+                // The map pages' shell (THE-118 PR 9): only /ferry/map, /train/map and /bus/map load it.
+                { name: 'map-page', test: /packages[\\/]ui[\\/]src[\\/]map-page\.tsx$/ },
                 // The Map button beside the stop searches (P3): its own small chunk, so the ferry stop selector and the
                 // train station search don't load the bus elements for it.
                 { name: 'ui-map-toggle', test: /packages[\\/]ui[\\/]src[\\/](MapToggle\.tsx|map-pref\.ts)$/ },
@@ -117,11 +131,12 @@ export default defineConfig({
                   test: /apps[\\/]train[\\/]app[\\/]lib[\\/]network\.ts$|packages[\\/]ui[\\/]src[\\/]train\.tsx$/,
                 },
                 { name: 'ferry-store', test: /apps[\\/]ferry[\\/]app[\\/]lib[\\/](storage|names)\.ts$/ },
-                // The ferry board with the modules its rows need (THE-118 PR 6): the trip page shares some of them, and
-                // without this group the bundler split them out into a chunk of their own on /ferry's first load (+~300 B).
+                // The ferry departures' code (THE-118 PR 6): the boards, the trip page and ferry home's cards (PR 8) share it,
+                // and without this group the bundler split it into small chunks on /ferry's first load. The board itself
+                // (FerryBoards, DepartureList) stays with the terminal page: ferry home has no board since PR 8.
                 {
-                  name: 'FerryBoards',
-                  test: /apps[\\/]ferry[\\/]app[\\/](components[\\/](FerryBoards|DepartureList)\.tsx|lib[\\/](departures|queries|api)\.ts)$/,
+                  name: 'ferry-departures',
+                  test: /apps[\\/]ferry[\\/]app[\\/]lib[\\/](departures|queries|api|home-card)\.ts$/,
                 },
               ],
             },

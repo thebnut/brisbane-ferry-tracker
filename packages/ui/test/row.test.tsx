@@ -87,6 +87,20 @@ describe('statusLine', () => {
       statusLine({ status: 'live', schedDep: at(19, 42), estDep: at(19, 45), platformFrom: '5' }).text,
     ).toBe('Live · 3 min late · platform changed from 5')
   })
+
+  it('an extra service is live with no on-time, late or early claim (R35-U1)', () => {
+    // Its row carries its own estimate as schedDep, and its trip stops no timetabled time at all.
+    for (const schedDep of [at(23, 13), at(23, 10), undefined])
+      expect(statusLine({ status: 'live', schedDep, estDep: at(23, 13), extra: true })).toEqual({
+        dot: 'live',
+        text: 'Live · Extra service',
+        tone: 'good',
+        claim: true,
+      })
+    // Not a live claim by itself: an extra service the page can't confirm says what any unconfirmed row says.
+    expect(statusLine({ status: 'scheduled', extra: true }).text).toBe('Scheduled')
+    expect(statusLine({ status: 'cancelled', extra: true }).text).toBe('Cancelled')
+  })
 })
 
 describe('soonest row and next alike', () => {

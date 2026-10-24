@@ -9,7 +9,7 @@ import { expect, type Page, test } from '@playwright/test'
 
 const BOARDS = {
   ferry: {
-    path: '/ferry',
+    path: '/ferry/terminal/bulimba?to=riverside',
     name: 'Bulimba → Riverside',
     card: '/ferry/terminal/bulimba?to=riverside',
     store: 'bft-ferry-favourites',
@@ -203,7 +203,7 @@ function modeTests() {
     await expect(page.locator('main a[href="/train/station/central"]')).toBeVisible()
   })
 
-  test('ferry: with no pair saved, the board opens the first favourite and puts it back in the cookie', async ({
+  test('ferry: ferry home heads with the first favourite and puts it in the cookie (THE-118 PR 8)', async ({
     page,
     context,
   }) => {
@@ -212,14 +212,17 @@ function modeTests() {
       localStorage.setItem('bft-ferry-favourites', JSON.stringify([{ from: '317590', to: '317584' }])),
     )
     await page.goto('/ferry')
-    await expect(star(page, 'Riverside → Bulimba')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('[data-headline] a')).toHaveAttribute(
+      'href',
+      '/ferry/terminal/riverside?to=bulimba',
+    )
     await expect
       .poll(async () => (await context.cookies()).find((c) => c.name === 'bft_pair')?.value)
-      .toBe('317590.317584')
+      .toBe('fav.317590.317584')
   })
 
   test('ferry: several trips can be saved, and each is its own My Transit card', async ({ page }) => {
-    await page.goto('/ferry')
+    await page.goto('/ferry/terminal/bulimba?to=riverside')
     const first = star(page, 'Bulimba → Riverside')
     await expect(async () => {
       await first.click()

@@ -5,6 +5,7 @@ import {
   dropDeparted,
   formatClock,
   formatDuration,
+  isExtraService,
   type LiveState,
   liveState,
   minutesBetween,
@@ -68,6 +69,7 @@ export function rowModel(d: Departure, nowMs: number, next?: Departure): RowMode
       status: d.status,
       schedDep: d.schedDep,
       estDep: d.estDep,
+      extra: isExtraService(d.tripInstance),
       next: next && { name: d.route.short, minutes: minutesUntil(effectiveDep(next), nowMs) },
     }),
   }

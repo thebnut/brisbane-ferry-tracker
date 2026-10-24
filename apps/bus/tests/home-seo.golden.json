@@ -1,0 +1,18 @@
+{
+  "/": [
+    "<meta charSet=\"utf-8\"/>",
+    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\"/>",
+    "<meta name=\"theme-color\" content=\"#FF6B35\"/>",
+    "<title>BrisbaneBus - live Brisbane bus departures by stop</title>",
+    "<meta name=\"description\" content=\"Live departure boards for every Brisbane bus stop and busway platform: search by stop name or number, find stops near you, and see Metro, CityGlider and BUZ services in real time.\"/>",
+    "<link rel=\"canonical\" href=\"https://bft-bus.brisbanetransit.workers.dev/\"/>",
+    "<meta property=\"og:type\" content=\"website\"/>",
+    "<meta property=\"og:site_name\" content=\"BrisbaneBus\"/>",
+    "<meta property=\"og:locale\" content=\"en_AU\"/>",
+    "<meta property=\"og:url\" content=\"https://bft-bus.brisbanetransit.workers.dev/\"/>",
+    "<meta property=\"og:title\" content=\"BrisbaneBus - live Brisbane bus departures by stop\"/>",
+    "<meta property=\"og:description\" content=\"Live departure boards for every Brisbane bus stop and busway platform: search by stop name or number, find stops near you, and see Metro, CityGlider and BUZ services in real time.\"/>",
+    "<meta property=\"og:image\" content=\"https://bft-bus.brisbanetransit.workers.dev/icon-512.png\"/>",
+    "<meta name=\"twitter:card\" content=\"summary\"/>"
+  ]
+}

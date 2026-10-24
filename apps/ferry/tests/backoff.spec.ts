@@ -6,7 +6,7 @@ import { backoffSuite } from '@bft/ui/e2e/backoff.ts'
 import { pinUpcoming } from './upcoming.ts'
 
 backoffSuite({
-  path: '/',
+  path: '/terminal/bulimba?to=riverside',
   pagesCache: 'ferry-pages',
   departures: /\/v1\/ferry\/stops\/[^/]+\/departures/,
   pin: (context) => pinUpcoming(context),

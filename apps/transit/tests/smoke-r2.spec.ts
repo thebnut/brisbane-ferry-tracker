@@ -6,7 +6,7 @@
  */
 import { expect, type Page, test } from '@playwright/test'
 
-const PAGES = ['/ferry', '/train/station/central', '/bus/stop/10802']
+const PAGES = ['/ferry/terminal/bulimba?to=riverside', '/train/station/central', '/bus/stop/10802']
 
 /** Records every frame in which a LIVE or GPS claim is visible, from the first paint on. */
 const recordLiveClaims = (page: Page) =>

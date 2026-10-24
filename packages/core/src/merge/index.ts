@@ -10,6 +10,7 @@ import {
   type RtTrip,
   type StaticStopDay,
   type StopRef,
+  type TripStop,
   tripInstanceKey,
   type Vehicle,
 } from '../contract/index.ts'
@@ -42,6 +43,43 @@ export interface MergeOptions {
    * timetabled event uses that day. Without it, only platforms that appear in the stop-day files are recognised.
    */
   stationPlatforms?: ReadonlyMap<string, string | undefined>
+  /** A stop id's display name, for an ADDED trip without a headsign (addedTripHeadsign). */
+  stopName?: (stopId: string) => string | undefined
+}
+
+type AddedTrip = NonNullable<RtTrip['added']>
+
+/**
+ * Where an ADDED / DUPLICATED trip is going: the feed's headsign, else the name of its last stop. TransLink's
+ * unplanned trains carry no trip_headsign, which left the board row and the trip page reading "To" with nothing after
+ * it (smoke round 35).
+ */
+export function addedTripHeadsign(
+  added: AddedTrip,
+  stopName?: (stopId: string) => string | undefined,
+): string {
+  if (added.headsign) return added.headsign
+  const last = added.stops[added.stops.length - 1]
+  return (last && stopName?.(last.stopId)) || ''
+}
+
+/**
+ * The trip stops of an ADDED / DUPLICATED trip (/v1/{mode}/trips/rt:…): live estimates and no timetable, so no
+ * client can measure a delay against it.
+ */
+export function addedTripStops(added: AddedTrip): TripStop[] {
+  return added.stops.map((s) => ({
+    stopId: s.stopId,
+    stopSequence: s.seq,
+    schedArr: null,
+    schedDep: null,
+    estArr: s.arr,
+    // Same rule as predictStop: a vehicle can't leave a stop before it arrives there.
+    estDep: Math.max(s.dep, s.arr),
+    status: 'live',
+    pickup: 0,
+    dropOff: 0,
+  }))
 }
 
 /**
@@ -216,12 +254,17 @@ function addedTripRows(
     }
     boarding = ids
   }
+  // A boarding stop id's platform, the way scheduled rows get theirs (the station's platforms, else the stop-day's).
+  const platforms = new Map<string, string | undefined>()
+  for (const day of days) for (const s of day.stops) if (s.platform) platforms.set(s.id, s.platform)
+  for (const [id, code] of opts.stationPlatforms ?? []) if (code) platforms.set(id, code)
   const out: Departure[] = []
   for (const trip of Object.values(rt.trips)) {
     const added = trip.added
     if (!added || (trip.rel !== 'ADDED' && trip.rel !== 'DUPLICATED')) continue
     if (opts.routes && !opts.routes.has(added.route.short)) continue
     const avoid = opts.avoidStopIds
+    const headsign = addedTripHeadsign(added, opts.stopName)
     let chosen: Departure | null = null
     for (let i = 0; i < added.stops.length; i++) {
       const s = added.stops[i] as (typeof added.stops)[number]
@@ -238,10 +281,10 @@ function addedTripRows(
         tripInstance: trip.key,
         stopSequence: s.seq,
         route: added.route,
-        headsign: added.headsign,
+        headsign,
         directionId: added.directionId,
         stopId: s.stopId,
-        platform: null,
+        platform: platforms.get(s.stopId) ?? null,
         schedDep: s.dep,
         estDep: s.dep,
         schedArrTo: arrTo,

@@ -56,9 +56,10 @@ function FixtureNotice() {
  * Boards report whether their data is live and fresh; the header pill is LIVE only while every one is. A board still
  * waiting for its first answer reports 'pending': not live either. 'failed-live': live data still on screen from before
  * a request that failed (or is being retried): live for the pill, as before, but a failure no waiting board may hide
- * (R32-RT1, Codex r3).
+ * (R32-RT1, Codex r3). 'timetable': a home card or Near you row with live, fresh data but no live departure shown, so
+ * no claim either way (R36-L1, as @bft/ui/mode-home); the header is LIVE then only over another row's live departure.
  */
-type Report = boolean | 'pending' | 'failed-live'
+type Report = boolean | 'pending' | 'failed-live' | 'timetable'
 const LiveReport = createContext<((key: string, live: Report | null) => void) | null>(null)
 
 /**
@@ -71,10 +72,20 @@ export function useReportLive(
   pending = false,
   /** The board's latest request failed or is being retried (isError, failureCount). */
   failed = false,
+  /** A departure it shows is live: false only from a home card or Near you row (R36-L1); a board's own rule stands. */
+  liveRows = true,
 ) {
   const report = useContext(LiveReport)
   // A failure (even while retried) is never pending, as @bft/ui pagePending.
-  const value: Report = failed ? (live ? 'failed-live' : false) : pending ? 'pending' : live
+  const value: Report = failed
+    ? live && liveRows
+      ? 'failed-live'
+      : false
+    : pending
+      ? 'pending'
+      : live
+        ? liveRows || 'timetable'
+        : false
   useEffect(() => {
     report?.(key, value)
     return () => report?.(key, null)
@@ -88,6 +99,7 @@ export function Shell({
   live: dataLive,
   pending = false,
   back,
+  bleed = false,
   children,
 }: {
   active: string
@@ -101,6 +113,8 @@ export function Shell({
   pending?: boolean
   /** The parent page, for the header's back link (BrisbaneTransit). */
   back?: { href: string; label: string; onClick?: (e: MouseEvent<HTMLAnchorElement>) => void }
+  /** A full-bleed page (the map, THE-118 PR 9): its own `<main>`, and no footer. */
+  bleed?: boolean
   children: ReactNode
 }) {
   const [settings, setSettings] = useState<boolean | null>(null)
@@ -120,17 +134,22 @@ export function Shell({
   // Never LIVE while offline, nor over data too old to call live on any board of the page (smoke test T5).
   const online = useOnline()
   const reported = Object.values(reports)
-  const live =
-    online &&
-    (reported.length ? reported.every((r) => r === true || r === 'failed-live') : dataLive !== false)
+  // Not live while one is stale, failed or waiting; LIVE over a live one; only timetabled rows: no claim (R36-L1).
+  const reportedLive = reported.some((r) => r === false || r === 'pending')
+    ? false
+    : reported.some((r) => r === true || r === 'failed-live')
+      ? true
+      : undefined
+  const live = online && (reported.length ? reportedLive === true : dataLive !== false)
   const state: LiveProps = {
     live,
     // Like `live`: from the page until its boards report, then theirs. A board whose own answer isn't live, or whose
     // request failed, wins: a board still waiting never hides another's failure (R32-RT1).
     pending: reported.length
-      ? reported.includes('pending') && reported.every((r) => r === 'pending' || r === true)
+      ? reported.includes('pending') &&
+        reported.every((r) => r === 'pending' || r === true || r === 'timetable')
       : pending,
-    idle: dataLive === undefined && reported.length === 0,
+    idle: reported.length ? reportedLive === undefined : dataLive === undefined,
   }
   return (
     <LiveReport.Provider value={report}>
@@ -139,9 +158,13 @@ export function Shell({
       {/* The status strip reads the page's live answer: above the page, or a board's below its header (THE-118 PR 5). */}
       <ShellLive.Provider value={state}>
         {strip}
-        <main className="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">{children}</main>
+        {bleed ? (
+          children
+        ) : (
+          <main className="mx-auto w-full max-w-6xl px-3.5 pt-3 pb-4 md:px-4">{children}</main>
+        )}
       </ShellLive.Provider>
-      <Footer />
+      {bleed ? null : <Footer />}
       <TrainNav active={active} />
       {/* Mounted from the first open on: closing the sheet (not unmounting it) gives focus back to Settings. */}
       {settings != null ? (

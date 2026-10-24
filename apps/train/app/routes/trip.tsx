@@ -4,6 +4,9 @@
  * and the train), the facts, "Your trip" from your station with the train as a moving capsule, and the dock ("Track on
  * map", the star). Polls every 15 s, or takes pushed updates from the hibernating-WebSocket prototype when TRIP_WS is
  * on (ADR-0003). A service that has run (or never was) shows a friendly note that links back to the board.
+ *
+ * At 1024 px and wider the station board's layout shows this page as its right panel (THE-118 PR 7, `usePanel`):
+ * ✕ and "Open full page" instead of the header, back link and footer. `?full=1` is the full page at any width.
  */
 
 import {
@@ -11,6 +14,7 @@ import {
   formatClock,
   formatDuration,
   Icon,
+  isExtraService,
   liveState,
   minutesBetween,
   minutesUntil,
@@ -20,6 +24,7 @@ import {
   tripAsTimetable,
 } from '@bft/ui'
 import { awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
+import { onlyFullChanged, type Panel, usePanel } from '@bft/ui/panel'
 import { StarButton } from '@bft/ui/star'
 import {
   backClick,
@@ -29,20 +34,21 @@ import {
   type TripLinkRenderer,
   TripMap,
   TripNotFound,
+  TripPanelFrame,
   TripSummary,
   trackClass,
   YourTrip,
 } from '@bft/ui/trip'
-import { useMemo } from 'react'
-import { data, Link, useRouteLoaderData } from 'react-router'
-import { Shell } from '../components/Chrome.tsx'
+import { type ComponentProps, useMemo } from 'react'
+import { data, Link, type ShouldRevalidateFunctionArgs, useRouteLoaderData } from 'react-router'
+import { Shell, useReportLive } from '../components/Chrome.tsx'
 import { useStar } from '../components/TrainStar.tsx'
 import { ApiError, fetchTrip } from '../lib/api.ts'
 import { at, BASE } from '../lib/base.ts'
 import { validateTrip } from '../lib/contract.server.ts'
 import { lineLabel } from '../lib/lineNames.ts'
 import { cleanStopName } from '../lib/names.ts'
-import { boardHref, lineFor, stationByKey } from '../lib/network.ts'
+import { boardHref, lineFor, stationByKey, stationKeyOfStop } from '../lib/network.ts'
 import { useFetcher, useTrip } from '../lib/queries.ts'
 import { loaderEnv, settle, siteInfo } from '../lib/server.server.ts'
 import { buildTimeline, stopPlatform, vehicleStatusText } from '../lib/trip.ts'
@@ -87,10 +93,20 @@ export function headers() {
   return { 'cache-control': 'private, no-store' }
 }
 
+/** The panel and its full page are the same trip: no second fetch between them (THE-118 PR 7). */
+export function shouldRevalidate(args: ShouldRevalidateFunctionArgs) {
+  return onlyFullChanged(args.currentUrl, args.nextUrl) ? false : args.defaultShouldRevalidate
+}
+
+/** Beside the board (desktop): the panel, whose live words follow this trip's own answer; the board's header has the rest. */
+function Frame({ panel, ...props }: ComponentProps<typeof Shell> & { panel: Panel | null }) {
+  return panel ? <TripPanelFrame panel={panel}>{props.children}</TripPanelFrame> : <Shell {...props} />
+}
+
 export const meta: Route.MetaFunction = ({ loaderData }) => {
   const t = loaderData?.trip
   const title = t
-    ? `${formatClock(t.stops[0]?.schedDep ?? 0)} to ${cleanStopName(t.headsign)} | BrisbaneTrain`
+    ? `${formatClock(t.stops[0]?.schedDep ?? t.stops[0]?.estDep ?? 0)} to ${cleanStopName(t.headsign)} | BrisbaneTrain`
     : 'Service | BrisbaneTrain'
   // Service pages are per-day and change every few seconds: never indexed.
   return [{ title }, { name: 'robots', content: 'noindex' }]
@@ -133,10 +149,21 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   // The star saves the station you board at, with your destination when the page knows it (§2).
   const starName = `${fromName ? cleanStopName(fromName) : ''}${toName ? ` → ${cleanStopName(toName)}` : ''}`
   const star = useStar({ from: boardKey ?? '', to }, starName)
+  const panel = usePanel()
+  // Beside the board, this trip's answer counts in the board's header like a board's (R32-RT1); a trip that has gone
+  // claims nothing. Its own full page has no Shell above it to report to.
+  useReportLive(
+    `trip:${key}`,
+    gone || (state == null && raw != null),
+    !gone && (waiting || (!raw && !q.isError)),
+    !gone && (q.isError || q.failureCount > 0),
+  )
 
   const head = (
     <>
-      <TripBackLink href={back.href} label={back.label} renderLink={linkRenderer} barHasIt={!!BASE} />
+      {panel ? null : (
+        <TripBackLink href={back.href} label={back.label} renderLink={linkRenderer} barHasIt={!!BASE} />
+      )}
       {!online ? (
         <OfflineBanner
           kind="offline"
@@ -150,7 +177,8 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   if (gone || !trip || !view) {
     return (
       // Loading: "Connecting…". Failed: not live (no answer is never LIVE), as a failed board says. Gone: no claim.
-      <Shell
+      <Frame
+        panel={panel}
         active="stations"
         live={gone ? undefined : q.isError ? false : undefined}
         pending={!gone && !q.isError}
@@ -166,7 +194,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
             </p>
           )}
         </div>
-      </Shell>
+      </Frame>
     )
   }
 
@@ -192,6 +220,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
     schedDep: sched ?? undefined,
     estDep: board?.estDep,
     platformFrom: changed,
+    extra: isExtraService(trip.tripInstance),
   })
   const minutes = dep != null && !cancelled ? minutesUntil(dep, nowMs) : null
   const v = trip.vehicle
@@ -199,7 +228,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
   const train = v ? `Train ${v.label ?? v.id}${vStatus ? `, ${vStatus.toLowerCase()}` : ''}` : null
 
   return (
-    <Shell active="stations" live={state == null} pending={waiting} back={back}>
+    <Frame panel={panel} active="stations" live={state == null} pending={waiting} back={back}>
       <div className="mx-auto flex max-w-2xl flex-col gap-3">
         {head}
         <TripSummary
@@ -229,7 +258,7 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
                 ? {
                     label: 'Journey',
                     value: formatDuration(Math.max(0, minutesBetween(dep, end))),
-                    sub: `to ${cleanStopName(stationByKey(last.stationKey ?? '')?.name ?? last.name ?? trip.headsign)}`,
+                    sub: `to ${cleanStopName(stationByKey(last.stationKey ?? stationKeyOfStop(last.stopId) ?? '')?.name ?? last.name ?? trip.headsign)}`,
                   }
                 : null,
             occupancyFact(v?.occupancy),
@@ -291,6 +320,6 @@ export default function TripPage({ loaderData }: Route.ComponentProps) {
         <div aria-hidden="true" className="h-20 md:hidden" />
       </div>
       {star.toast}
-    </Shell>
+    </Frame>
   )
 }

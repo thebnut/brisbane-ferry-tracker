@@ -1,6 +1,6 @@
 /**
- * Live vehicle positions for the ferry map. Only the map (LiveMapSheet, loaded when opened) uses them, so they stay off
- * the boards' first load.
+ * Live vehicle positions for the ferry maps. Only the map page and the board's idle panel map (both lazy) use them, so
+ * they stay off the boards' first load.
  */
 import type { VehiclesResponse } from '@bft/core/contract'
 import { useQuery } from '@tanstack/react-query'

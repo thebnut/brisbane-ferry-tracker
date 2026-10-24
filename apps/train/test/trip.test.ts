@@ -66,3 +66,39 @@ describe('service detail timeline', () => {
     expect(positionOf(rows, T0 - 3600).position).toBeNull()
   })
 })
+
+describe('an unplanned train (R35-U1)', () => {
+  /** An ADDED trip as /v1 sends it: live estimates and no timetable at any stop. */
+  function unplanned(): TripResponse {
+    const t = trip()
+    return {
+      ...t,
+      tripInstance: 'rt:UNPLANNED@20261020',
+      headsign: 'Ferny Grove station',
+      stops: t.stops.map((s, i) => ({
+        ...s,
+        schedArr: null,
+        schedDep: null,
+        estArr: T0 + i * 120,
+        estDep: T0 + i * 120 + 30,
+      })),
+    }
+  }
+
+  it('shows its live times and never a delay measured from 0', () => {
+    const { rows } = buildTimeline(unplanned(), T0 - 600, 'roma-street', null)
+    const calls = rows.filter((r) => r.stop)
+    expect(calls.every((r) => r.delay == null)).toBe(true)
+    expect(calls[0]?.dep).toBe('8:00 am')
+    expect(calls[1]).toMatchObject({ arr: '8:02 am', dep: '8:02 am' })
+    expect(calls.at(-1)?.dep).toBeNull()
+    expect(calls.at(-1)?.arr).not.toBeNull()
+  })
+
+  it('a timetabled train keeps its delays', () => {
+    const t = trip()
+    const late = { ...t, stops: t.stops.map((s) => ({ ...s, estDep: (s.schedDep as number) + 180 })) }
+    const { rows } = buildTimeline(late, T0 - 600, 'roma-street', null)
+    expect(rows.find((r) => r.stop)?.delay).toBe('3 min late')
+  })
+})

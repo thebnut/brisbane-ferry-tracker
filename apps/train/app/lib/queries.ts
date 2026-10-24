@@ -146,6 +146,8 @@ export function useTrip(
     queryFn: ({ signal }) => fetchTrip(fetcher, tripInstance, { signal }),
     initialData: initial ?? undefined,
     initialDataUpdatedAt: seedUpdatedAt(initial),
+    // Fresh until the next poll: the panel and its full page (THE-118 PR 7) mount it again without a fetch.
+    staleTime: POLL_MS,
     // When the WebSocket prototype pushes updates, polling is off (see useTripSocket). A service that has gone (404)
     // stays gone: the page says so.
     refetchInterval: (q) => (enabled && !gone(q.state.error) ? poll(q) : false),
