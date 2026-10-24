@@ -25,12 +25,12 @@ const departure = (inS: number) =>
     estDep: nowS() + inS,
     status: 'live',
   }) as unknown as Departure
-const answer = (rows: Departure[]) => ({
+const answer = (rows: Departure[], rtState = 'live') => ({
   schemaVersion: 1 as const,
   staticGeneration: 'g',
   serviceDates: ['20261024'],
   rtSourceTimestamp: nowS() - 10,
-  rtState: 'live' as const,
+  rtState,
   generatedAt: Date.now(),
   mode: 'bus',
   stop: { key: 's', name: 'S', stopIds: ['s'] },
@@ -145,6 +145,19 @@ describe("bus home's Near you, departures failing", () => {
     await waitFor(() => expect(screen.getAllByText(/No more departures today/)).toHaveLength(3))
     expect(screen.queryByText(/Departures unavailable/)).toBeNull()
     expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  it('an answer that is not live with none to show: unavailable, never "No more departures today"', async () => {
+    for (const rtState of ['stale', 'reloading', 'unavailable']) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: string) => Response.json(DEPS(input) ? answer([], rtState) : TILE(input))),
+      )
+      mount()
+      await waitFor(() => expect(screen.getAllByText(/Departures unavailable/)).toHaveLength(3))
+      expect(screen.queryByText(/No more departures today/)).toBeNull()
+      cleanup()
+    }
   })
 
   it('an answer whose rows have all left since: waits for the next poll, never "No more departures today"', async () => {
