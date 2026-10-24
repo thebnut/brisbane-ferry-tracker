@@ -65,12 +65,20 @@ export function resultMeta(e: StopIndexEntry): string {
 export function useStopSearch(query: string) {
   const { mode, fetcher } = useApi()
   const [enabled, setEnabled] = useState(false)
-  // Lazy: after first paint (idle), or immediately once the user types.
+  // Lazy: after first paint (idle), or immediately once the user types. Cancelled on unmount, so it never fires late.
   useEffect(() => {
-    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number }
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void) => number
+      cancelIdleCallback?: (id: number) => void
+    }
     const start = () => setEnabled(true)
-    if (w.requestIdleCallback) w.requestIdleCallback(start)
-    else setTimeout(start, 200)
+    // Idle only where it can be cancelled too; otherwise the timer, which can.
+    if (w.requestIdleCallback && w.cancelIdleCallback) {
+      const id = w.requestIdleCallback(start)
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = setTimeout(start, 200)
+    return () => clearTimeout(t)
   }, [])
   useEffect(() => {
     if (query) setEnabled(true)
