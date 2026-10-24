@@ -43,13 +43,13 @@ function Row({
   // it's old, so it waits for the next poll.
   const failed = q.isError || q.failureCount > 0 || q.errorUpdatedAt > q.dataUpdatedAt || state != null
   const old = !rows.length && !!q.data?.departures.length
-  // LIVE only over the live train it shows (R36-L1).
+  // The row marks no departure LIVE, so it never makes the header LIVE (R36-L1): live data claims nothing.
   useReportLive(
     `near:${station}`,
     state == null && q.data != null,
     (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
     q.isError || q.failureCount > 0,
-    q.data?.rtState === 'live' && d?.status === 'live',
+    false,
   )
   return (
     <NearPlaceRow

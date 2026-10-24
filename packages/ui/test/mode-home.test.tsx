@@ -264,7 +264,7 @@ describe('homeCard', () => {
     expect(card.time).toBe('7:35 pm → 7:35 pm')
   })
 
-  it('liveRows: a live departure among the three shown, from a live feed only (R36-L1)', () => {
+  it('liveRows: exactly the departure the card marks LIVE (its next one), from a live feed only (R36-L1)', () => {
     const res = (rtState: string, ...departures: ReturnType<typeof d>[]) => ({
       rtState,
       stop: { name: 'Stop' },
@@ -272,13 +272,23 @@ describe('homeCard', () => {
       departures,
     })
     const card = (r: ReturnType<typeof res>) => homeCard('bus', r, NOW, 'Stop', '1')
-    expect(card(res('live', d(s + 120), d(s + 600))).liveRows).toBe(false)
-    expect(card(res('live', d(s + 120), d(s + 600, s + 660, 'live'))).liveRows).toBe(true)
-    // Not shown: the fourth departure, a cancelled one.
-    expect(card(res('live', d(s + 60), d(s + 120), d(s + 180), d(s + 240, s + 240, 'live'))).liveRows).toBe(
-      false,
-    )
-    expect(card(res('live', d(s + 60, s + 60, 'cancelled'), d(s + 120))).liveRows).toBe(false)
-    expect(card(res('stale', d(s + 120, s + 180, 'live'))).liveRows).toBe(false)
+    const claims = (r: ReturnType<typeof res>) => {
+      const c = card(r)
+      // The header's claim is the card's pill, whatever the answer.
+      expect(c.liveRows).toBe(c.live)
+      return c.liveRows
+    }
+    expect(claims(res('live', d(s + 120), d(s + 600)))).toBe(false)
+    // P-13b327f-L1: the next bus timetabled ("Departing"), a live one in its "Then" times: no pill, so no claim.
+    expect(claims(res('live', d(s), d(s + 60, s + 60, 'live')))).toBe(false)
+    expect(claims(res('live', d(s + 120), d(s + 600, s + 660, 'live')))).toBe(false)
+    expect(claims(res('live', d(s + 60), d(s + 120), d(s + 180), d(s + 240, s + 240, 'live')))).toBe(false)
+    expect(claims(res('live', d(s + 60, s + 60, 'cancelled'), d(s + 120)))).toBe(false)
+    // The next one live: the card says LIVE and so does the header, whatever follows.
+    expect(card(res('live', d(s + 120, s + 180, 'live'), d(s + 600))).live).toBe(true)
+    expect(claims(res('live', d(s + 120, s + 180, 'live'), d(s + 600)))).toBe(true)
+    // A cancelled one first is never "next": the live one after it is.
+    expect(claims(res('live', d(s + 60, s + 60, 'cancelled'), d(s + 120, s + 120, 'live')))).toBe(true)
+    expect(claims(res('stale', d(s + 120, s + 180, 'live')))).toBe(false)
   })
 })
