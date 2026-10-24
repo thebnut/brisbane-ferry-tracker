@@ -128,12 +128,14 @@ describe("bus home's Near you, departures failing", () => {
     await until(() => Date.now() - clicked >= 1_500, saysSo)
     expect(asked.filter((t) => t >= clicked - start && t < clicked - start + 250)).toHaveLength(1)
     expect(asked.length).toBeLessThanOrEqual(before + 4)
-    // Departures answer: each row's departure, LIVE, with no reload.
+    // Departures answer: each row's departure, with no reload.
     failing = false
     await until(() => screen.queryAllByText('RBWH').length === 3)
     expect(unavailable()).toBe(0)
     expect(screen.queryByRole('button')).toBeNull()
-    expect(liveClaimed()).toBe(true)
+    // Live departures, but a Near you row marks none LIVE, so the header claims nothing (P-13b327f-L1, R36-L1).
+    expect(document.querySelector('[data-live-claim]')).toBeNull()
+    expect(liveClaimed()).toBe(false)
   }, 30_000)
 
   it('a successful answer with none to come: "No more departures today", no Try again', async () => {

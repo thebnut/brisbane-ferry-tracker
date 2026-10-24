@@ -90,6 +90,76 @@ async function timetabled(
   })
 }
 
+/**
+ * R36-L1 (P-13b327f-L1): a fresh live answer whose next departure (a minute away) is `first` and the one after it
+ * (four minutes) `second`, the rest timetabled. Registered after `pin`, so it wins.
+ */
+async function nextTwo(
+  context: BrowserContext,
+  mode: HomeSpec['mode'],
+  first: 'live' | 'scheduled',
+  second: 'live' | 'scheduled',
+) {
+  await context.route(departuresGlob(mode), async (route) => {
+    try {
+      const u = new URL(route.request().url())
+      u.searchParams.delete('rt')
+      const res = await route.fetch({ url: u.toString() })
+      const body: { rtState: string; departures?: Row[] } = await res.json()
+      const rows = (body.departures ?? [])
+        .filter((d) => d.status !== 'cancelled' && d.status !== 'skipped')
+        .sort((a, b) => a.schedDep - b.schedDep)
+      const now = Math.floor(Date.now() / 1000)
+      body.rtState = 'live'
+      rows.forEach((d, i) => {
+        const shift = now + (i === 0 ? 60 : i === 1 ? 240 : 600 + i * 60) - d.schedDep
+        const live = (i === 0 && first === 'live') || (i === 1 && second === 'live')
+        d.status = live ? 'live' : 'scheduled'
+        d.schedDep += shift
+        d.estDep = live ? d.schedDep : null
+        if (d.schedArrTo != null) d.schedArrTo += shift
+        d.estArrTo = live ? d.schedArrTo : null
+      })
+      body.departures = rows
+      await route.fulfill({ response: res, json: body })
+    } catch (error) {
+      if (!/disposed|closed|Target page|Test ended/i.test(String(error))) throw error
+    }
+  })
+}
+
+/**
+ * What the header claims and what the page's home sections mark LIVE, read together (one evaluate, so a poll can't
+ * land between them): the header says LIVE only when a row on the page is visibly marked live (R36-L1).
+ */
+const liveAgreement = (page: Page) =>
+  page.evaluate(() => {
+    const marked = (el: Element) =>
+      [...el.querySelectorAll<HTMLElement>('[data-live-claim], [data-badge=live], [data-status=live], span')]
+        .filter(
+          (x) =>
+            x.matches('[data-live-claim], [data-badge=live], [data-status=live]') ||
+            (x.childElementCount === 0 && /^(LIVE|Live ·.*)$/.test(x.textContent?.trim() ?? '')),
+        )
+        .some((x) => x.checkVisibility())
+    const header = document.querySelector('header')
+    return {
+      header: header != null && marked(header),
+      page: [...document.querySelectorAll('[data-home-section]')].some(marked),
+    }
+  })
+
+/** Samples liveAgreement every 250 ms for `ms`: every sample agrees, and returns the last. */
+async function expectAgreement(page: Page, ms: number) {
+  let last = await liveAgreement(page)
+  for (const end = Date.now() + ms; Date.now() < end; ) {
+    last = await liveAgreement(page)
+    expect(last.header, `header LIVE ${last.header}, page marked LIVE ${last.page}`).toBe(last.page)
+    await page.waitForTimeout(250)
+  }
+  return last
+}
+
 /** The header claims nothing: no LIVE, no OFFLINE, no "Connecting…" (#159, R36-L1). */
 async function expectNoClaim(page: Page) {
   const header = page.locator('header')
@@ -269,6 +339,62 @@ function suite(spec: HomeSpec) {
     await expect(section(page, 'saved').locator('a')).toHaveCount(2)
     await expect(page.locator('header [data-live-claim]').first()).toBeVisible({ timeout: 15_000 })
     await expect(page.locator('header').getByText('OFFLINE', { exact: true })).toHaveCount(0)
+  })
+
+  test.describe('R36-L1: the header says LIVE only over a row marked LIVE (P-13b327f-L1)', () => {
+    test.use({ serviceWorkers: 'block' })
+
+    test('one saved, its next departure timetabled and a live one after it: no LIVE on the card or the header', async ({
+      page,
+      context,
+    }) => {
+      await spec.pin(context)
+      await nextTwo(context, spec.mode, 'scheduled', 'live')
+      await seed(page, spec, 1, false)
+      await page.goto(spec.path)
+      const saved = section(page, 'saved')
+      await expect(saved.getByText('Then')).toBeVisible({ timeout: 15_000 })
+      await page.waitForLoadState('networkidle')
+      const last = await expectAgreement(page, 3_000)
+      expect(last).toEqual({ header: false, page: false })
+      await expectNoClaim(page)
+    })
+
+    test('one saved, its next departure live: LIVE on the card and in the header', async ({
+      page,
+      context,
+    }) => {
+      await spec.pin(context)
+      await nextTwo(context, spec.mode, 'live', 'scheduled')
+      await seed(page, spec, 1, false)
+      await page.goto(spec.path)
+      await expect(section(page, 'saved').locator('[data-live-claim]')).toBeVisible({ timeout: 15_000 })
+      await expect(page.locator('header [data-live-claim]').first()).toBeVisible({ timeout: 15_000 })
+      expect(await expectAgreement(page, 1_000)).toEqual({ header: true, page: true })
+    })
+
+    test('location granted, Near you rows with live departures and nothing marked LIVE: the header claims nothing', async ({
+      page,
+      context,
+    }) => {
+      await spec.pin(context)
+      await allowLocation(context, HERE)
+      await page.goto(spec.path)
+      const near = section(page, 'near')
+      await expect(near.locator('[data-near]')).toHaveCount(3, { timeout: 15_000 })
+      await expect(near.getByText(/min walk/).first()).toBeVisible()
+      await expect(
+        near
+          .locator('[data-near]')
+          .getByText(/\d+ min(s)?\b|Now/)
+          .first(),
+      ).toBeVisible({ timeout: 15_000 })
+      // Prod showed LIVE from 2.5 s (390) to 5 s (1280) and kept it: sample past the first poll (15 s).
+      // Never LIVE: a row whose departures failed (a bus fixture stop has none) may still say OFFLINE, rightly.
+      expect((await expectAgreement(page, 17_000)).header).toBe(false)
+      await expect(page.locator('header [data-live-claim]')).toHaveCount(0)
+      expect(await visibleLiveClaims(page)).toEqual([])
+    })
   })
 
   if (spec.mode !== 'train')
