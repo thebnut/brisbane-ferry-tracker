@@ -7,7 +7,7 @@
  * SafeMap is a stand-in listing its markers (MapLibre needs WebGL); requests go through a stubbed fetch.
  */
 import type { Departure, VehiclesResponse } from '@bft/core/contract'
-import { reportOnline } from '@bft/ui/connectivity'
+import { deviceNow, reportOnline } from '@bft/ui/connectivity'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
@@ -70,12 +70,20 @@ function serve(answers: Record<string, () => unknown>) {
   )
 }
 
-function mount(children: ReactNode) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+const newClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function mount(children: ReactNode, client = newClient()) {
   const Stub = createRoutesStub([
     { path: '/', Component: () => <QueryClientProvider client={client}>{children}</QueryClientProvider> },
   ])
   return render(<Stub initialEntries={['/']} />)
+}
+/** A fresh answer kept in the cache, due a refresh (which the test fails). */
+function keptFresh(client: QueryClient) {
+  client.setQueryData(
+    ['train', 'vehicles', false, null],
+    { ...vehicles(), receivedAt: deviceNow() },
+    { updatedAt: Date.now() - 60_000 },
+  )
 }
 const pulsing = () => screen.queryAllByTestId('map').flatMap((m) => [...m.querySelectorAll('[data-pulse]')])
 const mode = { fixtures: false, rt: null }
@@ -102,6 +110,16 @@ describe('/map?station= with a failed departures request', () => {
     expect(await screen.findByText('1 with live positions')).toBeTruthy()
     expect(screen.getByText('LIVE')).toBeTruthy()
     expect(pulsing()).toHaveLength(1)
+  })
+
+  it('positions kept after their refresh failed: none shown, no LIVE', async () => {
+    serve({ '/v1/train/vehicles': () => 503, '/departures': departures })
+    const client = newClient()
+    keptFresh(client)
+    mount(mapPage(), client)
+    expect(await screen.findByText('Live positions are unavailable right now.')).toBeTruthy()
+    expect(screen.queryByText('LIVE')).toBeNull()
+    expect(pulsing()).toHaveLength(0)
   })
 
   it('healthy positions and departures: the trains at the station, LIVE', async () => {
@@ -140,6 +158,15 @@ describe("the station's idle-panel map", () => {
     mount(panel())
     expect(await screen.findByText('Live train positions are unavailable right now.')).toBeTruthy()
     expect(screen.queryByText(/0 live trains/)).toBeNull()
+  })
+
+  it('a fresh answer kept after its refresh failed: no positions, unavailable', async () => {
+    serve({ '/v1/train/vehicles': () => 503 })
+    const client = newClient()
+    keptFresh(client)
+    mount(panel(), client)
+    expect(await screen.findByText('Live train positions are unavailable right now.')).toBeTruthy()
+    expect(pulsing()).toHaveLength(0)
   })
 
   it('an answer whose TransLink source is an hour old: no positions, unavailable', async () => {

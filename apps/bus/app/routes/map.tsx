@@ -79,11 +79,12 @@ export default function MapPage() {
   })
   const nowMs = useNow(Date.now())
   const state = liveState(vehicles.data, { offline: !useOnline(), nowMs, ...usePageCheck() })
-  const fresh = vehicles.data != null && state == null
+  // And no failed request since (React Query keeps the last answer after a failure, retries included).
+  const fresh = vehicles.data != null && state == null && !vehicles.isError && vehicles.failureCount === 0
   // A stop's buses are picked by its departures: while that request has failed the page can't tell which buses those
   // are, which is never "none" and never LIVE.
   const filtering = !route && !!stopId
-  const filterFailed = filtering && departures.isError
+  const filterFailed = filtering && (departures.isError || departures.failureCount > 0)
   const live = fresh && !filterFailed
   const data = vehicles.data
   const trips = departures.data?.departures
@@ -167,20 +168,8 @@ export default function MapPage() {
   const sel = buses.find((v) => v.id === selected) ?? (selected == null ? tracked : null)
   const stopsFailed = (scope === 'near' && tiles.error) || (scope === 'saved' && index.isError)
   const status =
-    scope === 'near' && zoomedOut ? (
-      'Zoom in to see bus stops'
-    ) : stopsFailed ? (
-      <>
-        Couldn't load stops
-        <button
-          type="button"
-          onClick={scope === 'near' ? tiles.retry : index.retry}
-          className="min-h-11 text-ferry-orange-deep underline dark:text-ferry-sunset"
-        >
-          Try again
-        </button>
-      </>
-    ) : withBuses && (vehicles.isError || (vehicles.data && !fresh)) ? (
+    // Live claims first: a failed position or filter request is never hidden behind a map hint.
+    withBuses && (vehicles.isError || (vehicles.data && !fresh)) ? (
       'Live positions are unavailable right now.'
     ) : filterFailed ? (
       <>
@@ -188,6 +177,19 @@ export default function MapPage() {
         <button
           type="button"
           onClick={() => departures.refetch()}
+          className="min-h-11 text-ferry-orange-deep underline dark:text-ferry-sunset"
+        >
+          Try again
+        </button>
+      </>
+    ) : scope === 'near' && zoomedOut ? (
+      'Zoom in to see bus stops'
+    ) : stopsFailed ? (
+      <>
+        Couldn't load stops
+        <button
+          type="button"
+          onClick={scope === 'near' ? tiles.retry : index.retry}
           className="min-h-11 text-ferry-orange-deep underline dark:text-ferry-sunset"
         >
           Try again

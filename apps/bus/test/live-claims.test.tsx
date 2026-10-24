@@ -20,9 +20,29 @@ import StopMap from '../app/components/StopMap.tsx'
 import MapPage from '../app/routes/map.tsx'
 import RoutePage from '../app/routes/route.tsx'
 
+/**
+ * SafeMap stand-in: lists its markers, and reports a city-zoom view once mounted (the bus map then hints "Zoom in to
+ * see bus stops").
+ */
 vi.mock('@bft/ui/safe-map', () => ({
-  default: ({ markers, label }: { markers: Array<{ id: string; pulse?: boolean }>; label: string }) => (
-    <ul aria-label={label} data-testid="map">
+  default: ({
+    markers,
+    label,
+    onViewChange,
+  }: {
+    markers: Array<{ id: string; pulse?: boolean }>
+    label: string
+    onViewChange?: (b: unknown, zoom: number) => void
+  }) => (
+    <ul
+      aria-label={label}
+      data-testid="map"
+      ref={(el) => {
+        if (!el || el.dataset.viewed) return
+        el.dataset.viewed = '1'
+        onViewChange?.({ west: 153, south: -27.5, east: 153.1, north: -27.4 }, 10)
+      }}
+    >
       {markers.map((m) => (
         <li key={m.id} data-pulse={m.pulse ? '' : undefined}>
           {m.id}
@@ -83,6 +103,10 @@ function mount(children: ReactNode, url = '/', client = newClient()) {
   return render(<Stub initialEntries={[url]} />)
 }
 const newClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } })
+/** A fresh answer kept in the cache, due a refresh (which the test fails). */
+function keptFresh(client: QueryClient, key: unknown[], body: object) {
+  client.setQueryData(key, { ...body, receivedAt: deviceNow() }, { updatedAt: Date.now() - 60_000 })
+}
 const pulsing = () => screen.queryAllByTestId('map').flatMap((m) => [...m.querySelectorAll('[data-pulse]')])
 
 beforeEach(() => reportOnline())
@@ -117,6 +141,16 @@ describe('stop map (the stop page idle panel)', () => {
     expect(pulsing()).toHaveLength(0)
   })
 
+  it('a fresh answer kept after its refresh failed: no pulsing buses, no live wording', async () => {
+    serve({ '/v1/bus/vehicles': () => 503 })
+    const client = newClient()
+    keptFresh(client, ['bus', 'vehicles', false, null, null], vehicles())
+    mount(<StopMap stopId="s1" name="Cultural Centre" live departures={[departure]} />, '/', client)
+    expect(await screen.findByText('Live bus positions are unavailable right now.')).toBeTruthy()
+    expect(screen.queryByText(/live bus(es)? on the way/)).toBeNull()
+    expect(pulsing()).toHaveLength(0)
+  })
+
   it('a live answer whose TransLink source is an hour old is not live either', async () => {
     serve({ '/v1/bus/vehicles': () => ({ ...vehicles(), rtSourceTimestamp: nowS() - 3_600 }) })
     mount(<StopMap stopId="s1" name="Cultural Centre" live departures={[departure]} />)
@@ -140,7 +174,8 @@ describe('stop map (the stop page idle panel)', () => {
 })
 
 describe('/map?stop= with a failed departures request', () => {
-  it('healthy positions, failed departures: says it cannot tell, no LIVE, no bus count', async () => {
+  // Codex r1 (this PR): at city zoom the page hinted "Zoom in to see bus stops" over the failure.
+  it('healthy positions, failed departures: says it cannot tell (even at city zoom), no LIVE, no bus count', async () => {
     serve({ '/v1/bus/vehicles': vehicles, '/departures': () => 503, '/data/bus/stops.json': () => 503 })
     mount(<MapPage />, '/?stop=s1')
     expect(
@@ -149,6 +184,16 @@ describe('/map?stop= with a failed departures request', () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
     expect(screen.queryByText('LIVE')).toBeNull()
     expect(screen.queryByText(/with live positions/)).toBeNull()
+    expect(pulsing()).toHaveLength(0)
+  })
+
+  it('positions kept after their refresh failed: no buses, no LIVE', async () => {
+    serve({ '/v1/bus/vehicles': () => 503, '/departures': departures })
+    const client = newClient()
+    keptFresh(client, ['bus', 'vehicles', false, null, null], vehicles())
+    mount(<MapPage />, '/?stop=s1', client)
+    expect(await screen.findByText('Live positions are unavailable right now.')).toBeTruthy()
+    expect(screen.queryByText('LIVE')).toBeNull()
     expect(pulsing()).toHaveLength(0)
   })
 
@@ -218,6 +263,15 @@ describe('route page', () => {
     mountRoute()
     expect(await screen.findByText('1 bus on route 66')).toBeTruthy()
     expect(screen.getAllByText('LIVE').length).toBeGreaterThan(0)
+  })
+
+  it('a fresh answer kept after its refresh failed: no buses, no LIVE', async () => {
+    serve({ '/v1/bus/vehicles': () => 503 })
+    const client = newClient()
+    keptFresh(client, ['bus', 'vehicles', false, null, '66'], vehicles())
+    mountRoute(client)
+    expect(await screen.findByText('Live bus positions are unavailable right now.')).toBeTruthy()
+    expect(screen.queryByText('LIVE')).toBeNull()
   })
 
   it('an answer whose TransLink source is an hour old: no buses, no LIVE, positions unavailable', async () => {

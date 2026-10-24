@@ -25,7 +25,8 @@ export default function StationMap({
 }) {
   const q = useVehicles(useFetcher(mode), mode, true)
   const state = liveState(q.data, { offline: !useOnline(), nowMs, ...usePageCheck() })
-  const live = q.data != null && state == null
+  // And no failed request since (React Query keeps the last answer after a failure, retries included).
+  const live = q.data != null && state == null && !q.isError && q.failureCount === 0
   const trains = useMemo(() => {
     const trips = new Set(departures.map((d) => d.tripInstance))
     return (live ? (q.data?.vehicles ?? []) : []).filter((v) => v.tripKey && trips.has(v.tripKey))

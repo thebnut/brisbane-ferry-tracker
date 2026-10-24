@@ -34,7 +34,9 @@ function TerminalMap({ terminal, live, departures, mode }: Props) {
   // The positions' own answer must be live and fresh too, not only the board's (an old copy never pulses as live).
   const nowMs = useNow(Date.now(), 5_000)
   const fresh = liveState(vehicles.data, { offline: !useOnline(), nowMs, ...usePageCheck() }) == null
-  const shown = live && fresh && vehicles.data?.rtState === 'live'
+  // And no failed request since (React Query keeps the last answer after a failure, retries included).
+  const shown =
+    live && fresh && vehicles.data?.rtState === 'live' && !vehicles.isError && vehicles.failureCount === 0
   const t = terminalById(terminal.id)
   const name = cleanStopName(terminal.name)
   const ferries = useMemo(() => {

@@ -73,8 +73,9 @@ function FerryMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
   // "From <terminal>" picks its ferries by the terminal's departures: while that request has failed the page can't
   // tell which ferries those are, which is never "none" and never LIVE.
   const filtering = !!terminal && !all
-  const filterFailed = filtering && departures.isError
-  const fresh = vehicles.data != null && state == null
+  const filterFailed = filtering && (departures.isError || departures.failureCount > 0)
+  // And no failed request since (React Query keeps the last answer after a failure, retries included).
+  const fresh = vehicles.data != null && state == null && !vehicles.isError && vehicles.failureCount === 0
   const live = fresh && !filterFailed
   const pending = pagePending([
     { q: vehicles, state },
@@ -139,7 +140,7 @@ function FerryMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
     vehicles.isError ? (
       'Live positions are unavailable right now.'
     ) : null
-  ) : state != null ? (
+  ) : !fresh ? (
     'Live positions are unavailable right now.'
   ) : filterFailed ? (
     <>

@@ -109,10 +109,10 @@ function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: numb
   const vehiclesQ = useVehicles(fetcher, mode, route.short)
   const vehiclesPending = !vehiclesQ.data && !vehiclesQ.isError
   const now = useNow(renderedAt)
-  // Positions and LIVE only from an answer that is live and fresh (shared liveState), never one kept after a failed
-  // refresh.
+  // Positions and LIVE only from an answer that is live and fresh (shared liveState) with no failed request since,
+  // never one kept after a failed refresh.
   const state = liveState(vehiclesQ.data, { offline: !useOnline(), nowMs: now, ...usePageCheck() })
-  const live = vehiclesQ.data != null && state == null
+  const live = vehiclesQ.data != null && state == null && !vehiclesQ.isError && vehiclesQ.failureCount === 0
   const variant = routeTileVariant(route.short, route.long)
   const vehicles = useMemo(() => (live ? (vehiclesQ.data?.vehicles ?? []) : []), [live, vehiclesQ.data])
   const buses = useMemo(() => {

@@ -121,7 +121,8 @@ function TrainMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
   const q = useVehicles(fetcher, mode, true)
   // The header claims LIVE only from the trains' own fresh answer (shared liveState); none yet: "Connecting…".
   const state = liveState(q.data, { offline: !useOnline(), nowMs: useNow(Date.now()), ...usePageCheck() })
-  const fresh = q.data != null && state == null
+  // And no failed request since (React Query keeps the last answer after a failure, retries included).
+  const fresh = q.data != null && state == null && !q.isError && q.failureCount === 0
   const [selected, setSelected] = useState<string | null>(null)
   // Positions are live claims: none from an answer that isn't live and fresh.
   const data = q.data
@@ -143,7 +144,7 @@ function TrainMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
   // "At <station>" picks its trains by the station's departures: while that request has failed the page can't tell
   // which trains those are, which is never "none" and never LIVE.
   const filtering = !!station && !all
-  const filterFailed = filtering && deps.isError
+  const filterFailed = filtering && (deps.isError || deps.failureCount > 0)
   const live = fresh && !filterFailed
   const base = all ? vehicles : filterFailed ? [] : atStation
   const shown = tracked && !base.includes(tracked) ? [...base, tracked] : base

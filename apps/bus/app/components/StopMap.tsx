@@ -3,7 +3,7 @@
  * premium routes). MapLibre loads only when the map is opened.
  *
  * Positions are live claims: shown only while the board is live and the positions' own answer is live and fresh
- * (shared liveState), never from a copy kept after a failed refresh. Otherwise the stop alone, and a plain status.
+ * (shared liveState) with no failed request since, never from a copy kept after a failed refresh. Otherwise the stop alone, and a plain status.
  */
 import type { Departure } from '@bft/core/contract'
 import { routeTileVariant } from '@bft/ui'
@@ -33,7 +33,9 @@ export default function StopMap({
   const vehicles = useVehicles(fetcher, mode, null)
   const nowMs = useNow(Date.now(), 5_000)
   const state = liveState(vehicles.data, { offline: !useOnline(), nowMs, ...usePageCheck() })
-  const fresh = live && vehicles.data != null && state == null
+  // And no failed request since (React Query keeps the last answer after a failure, retries included).
+  const fresh =
+    live && vehicles.data != null && state == null && !vehicles.isError && vehicles.failureCount === 0
   const stop = byKey.get(stopId)
   const markers = useMemo(() => {
     const byTrip = new Map(departures.map((d) => [d.tripInstance, d]))
