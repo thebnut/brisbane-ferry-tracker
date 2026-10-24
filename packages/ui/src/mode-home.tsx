@@ -9,8 +9,9 @@
  * Each app's home composes these with its own data; only the homes load this module (its own chunk in BrisbaneTransit).
  *
  * The live rows (a saved card, a Near you row) report to the page's header the way a board does (useReportLive): LIVE
- * only while no reported row is stale or failed and at least one shows a live departure (R36-L1), "Connecting…" while
- * one waits for its own answer (R32-RT1), nothing claimed by a page without live rows shown (#159).
+ * only while no reported row is stale or failed and at least one marks a departure LIVE (R36-L1: a card's pill, its
+ * next departure; Near you rows mark none), "Connecting…" while one waits for its own answer (R32-RT1), nothing
+ * claimed by a page without live rows shown (#159).
  */
 
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react'
@@ -132,7 +133,10 @@ export interface HomeCard {
   title: string
   /** The next departure is live (and the data is: the caller passes only live data, else a timetable copy). */
   live: boolean
-  /** A departure the card shows (the next and the two after it) is live: what it reports to the header (R36-L1). */
+  /**
+   * What the card reports to the header (R36-L1): the departure its LIVE pill marks, so `live`. The "Then" times carry
+   * no marker, so a live one there never makes the header LIVE over a card that says nothing live.
+   */
   liveRows: boolean
   time: string | null
   detail: string | null
@@ -171,14 +175,12 @@ const boardable = (res: CardResponse | undefined) =>
     .sort((a, b) => (a.estDep ?? a.schedDep) - (b.estDep ?? b.schedDep))
 
 /**
- * A departure a card shows (the next and the two after it) is live, from a live feed: the rows' rule for the page
- * header (R36-L1). `res` is what the card shows (a board's visible rows).
+ * The departure a card marks LIVE (its next one) is live, from a live feed: the rows' rule for the page header
+ * (R36-L1), so the header never says LIVE over a card without its pill. `res` is what the card shows (a board's
+ * visible rows).
  */
 export const showsLive = (res: CardResponse | undefined): boolean =>
-  res?.rtState === 'live' &&
-  boardable(res)
-    .slice(0, 3)
-    .some((d) => d.status === 'live')
+  res?.rtState === 'live' && boardable(res)[0]?.status === 'live'
 
 const clockDay = (epochS: number, nowMs: number) => {
   const day = dayMarker(epochS, nowMs)
@@ -202,6 +204,7 @@ export function homeCard(
   // Soonest first by the time shown: a board that dropped its live estimates keeps their order (Codex r1).
   const rows = boardable(res)
   const first = rows[0]
+  const live = showsLive(res)
   const dep = first ? (first.estDep ?? first.schedDep) : null
   const rawArr = first ? (first.estArrTo ?? first.schedArrTo) : null
   // Never before the departure shown (estimates can disagree), as the boards' arrivalAfter.
@@ -236,8 +239,8 @@ export function homeCard(
   return {
     label,
     title,
-    live: res?.rtState === 'live' && first?.status === 'live',
-    liveRows: showsLive(res),
+    live,
+    liveRows: live,
     time: dep ? `${clockDay(dep, nowMs)}${arr ? ` → ${clockDay(arr, nowMs)}` : ''}` : null,
     detail,
     minutes: dep ? minutesUntil(dep, nowMs) : null,
