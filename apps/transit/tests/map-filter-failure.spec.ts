@@ -23,6 +23,7 @@ const PAGES = [
     url: '/ferry/map?terminal=bulimba',
     departures: '**/__fixtures/v1/ferry/stops/317584/departures*',
     message: "Can't tell which ferries serve Bulimba right now.",
+    one: '1 ferry with GPS',
     near: { lat: -27.452, lon: 153.056, routeId: 'F1-4055' },
   },
   {
@@ -30,6 +31,7 @@ const PAGES = [
     url: '/train/map?station=central',
     departures: '**/__fixtures/v1/train/stops/central/departures*',
     message: "Can't tell which trains stop at Central right now.",
+    one: '1 with live positions',
     near: { lat: -27.4655, lon: 153.0265, routeId: 'BRCL' },
   },
   {
@@ -37,6 +39,7 @@ const PAGES = [
     url: '/bus/map?stop=10802',
     departures: '**/__fixtures/v1/bus/stops/10802/departures*',
     message: /Can't tell which buses are heading to .+ right now\./,
+    one: '1 with live positions',
     near: { lat: -27.4735, lon: 153.0205, routeId: '66-1' },
   },
 ] as const
@@ -146,12 +149,10 @@ function suite() {
       expect(at.length).toBeLessThanOrEqual(polls.length * 2)
       for (let i = 1; i < polls.length; i++)
         expect((polls[i] ?? 0) - (polls[i - 1] ?? 0)).toBeGreaterThanOrEqual(12_000)
-      // Departures answer again: the place's vehicle, counted and LIVE, with no reload.
+      // Departures answer again: the place's one vehicle (on the next vehicle poll), counted and LIVE, with no reload.
       calls.recover()
       await expect(page.getByText(p.message)).toHaveCount(0, { timeout: 60_000 })
-      await expect(page.locator('[data-map-count]')).toHaveText(
-        /\d+ (ferr(y|ies) with GPS|with live positions)/,
-      )
+      await expect(page.locator('[data-map-count]')).toHaveText(p.one, { timeout: 30_000 })
       await expect(page.locator('header [data-connection="live"]').first()).toHaveText('LIVE', {
         timeout: 30_000,
       })

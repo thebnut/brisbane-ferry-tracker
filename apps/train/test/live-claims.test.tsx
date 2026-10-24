@@ -169,8 +169,11 @@ describe('/map?station= with a failed departures request', () => {
       }
       mount(mapPage())
       await until(() => !!screen.queryByText(/Can't tell which trains stop at Central right now\./))
-      // Three vehicle refreshes later, every sample still says it can't tell: no count, no LIVE, no "Connecting…".
-      await until(() => vehicleCalls() >= 4, saysSo)
+      // Three vehicle refreshes and two departures retries later (each settled), every sample still says it can't tell: no count, no LIVE, no "Connecting…".
+      await until(
+        () => vehicleCalls() >= 4 && asked.length >= 3 && Date.now() - start - (asked.at(-1) ?? 0) > 1_500,
+        saysSo,
+      )
       // Asked again on the poll (15 s, backing off while it fails), never in a tight loop.
       expect(asked.length).toBeGreaterThanOrEqual(3)
       for (let i = 1; i < asked.length; i++) expect(asked[i] - asked[i - 1]).toBeGreaterThanOrEqual(12_000)

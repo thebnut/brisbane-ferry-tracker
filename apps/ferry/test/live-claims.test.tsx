@@ -180,9 +180,9 @@ describe('/map?terminal= with a failed departures request', () => {
       }
       mount(mapPage())
       await until(() => !!screen.queryByText(/Can't tell which ferries serve Bulimba/))
-      // Three vehicle refreshes later, every sample still says it can't tell: no count, no LIVE, no "Connecting…".
+      // Three vehicle refreshes and two departures retries later (each settled), every sample still says it can't tell: no count, no LIVE, no "Connecting…".
       await until(
-        () => vehicleCalls() >= 4,
+        () => vehicleCalls() >= 4 && asked.length >= 3 && Date.now() - start - (asked.at(-1) ?? 0) > 1_500,
         () => {
           expect(screen.queryByText(/Can't tell which ferries serve Bulimba right now\./)).toBeTruthy()
           expect(screen.queryByText('LIVE')).toBeNull()
