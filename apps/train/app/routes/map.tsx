@@ -144,7 +144,10 @@ function TrainMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
   // "At <station>" picks its trains by the station's departures: while that request has failed the page can't tell
   // which trains those are, which is never "none" and never LIVE.
   const filtering = !!station && !all
-  const filterFailed = filtering && (deps.isError || deps.failureCount > 0)
+  // Its last answer was a failure too: a query with no data goes back to pending, failureCount 0, while it asks
+  // again, and the message must not drop for each poll's request (R39-P2-2).
+  const filterFailed =
+    filtering && (deps.isError || deps.failureCount > 0 || deps.errorUpdatedAt > deps.dataUpdatedAt)
   const live = fresh && !filterFailed
   const base = all ? vehicles : filterFailed ? [] : atStation
   const shown = tracked && !base.includes(tracked) ? [...base, tracked] : base
@@ -206,7 +209,8 @@ function TrainMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
     <Shell
       active="map"
       live={live}
-      pending={pagePending([{ q, state }, ...(filtering ? [{ q: deps, state: null }] : [])])}
+      // Still failed while it asks again: never "Connecting…" over the message.
+      pending={!filterFailed && pagePending([{ q, state }, ...(filtering ? [{ q: deps, state: null }] : [])])}
       back={station ? { href: stationHref(centre.key), label: centre.name } : undefined}
       bleed
     >

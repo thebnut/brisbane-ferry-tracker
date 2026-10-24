@@ -84,7 +84,13 @@ export default function MapPage() {
   // A stop's buses are picked by its departures: while that request has failed the page can't tell which buses those
   // are, which is never "none" and never LIVE.
   const filtering = !route && !!stopId
-  const filterFailed = filtering && (departures.isError || departures.failureCount > 0)
+  // Its last answer was a failure too: a query with no data goes back to pending, failureCount 0, while it asks
+  // again, and the message must not drop for each poll's request (R39-P2-2).
+  const filterFailed =
+    filtering &&
+    (departures.isError ||
+      departures.failureCount > 0 ||
+      departures.errorUpdatedAt > departures.dataUpdatedAt)
   const live = fresh && !filterFailed
   const data = vehicles.data
   const trips = departures.data?.departures
@@ -205,7 +211,9 @@ export default function MapPage() {
         live={withBuses ? live : undefined}
         pending={
           withBuses
-            ? pagePending([{ q: vehicles, state }, ...(filtering ? [{ q: departures, state: null }] : [])])
+            ? // Still failed while it asks again: never "Connecting…" over the message.
+              !filterFailed &&
+              pagePending([{ q: vehicles, state }, ...(filtering ? [{ q: departures, state: null }] : [])])
             : false
         }
         back={focus ? { href: stopHref(focus.key), label: focus.name } : undefined}
