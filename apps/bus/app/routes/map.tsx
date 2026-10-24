@@ -79,16 +79,22 @@ export default function MapPage() {
   })
   const nowMs = useNow(Date.now())
   const state = liveState(vehicles.data, { offline: !useOnline(), nowMs, ...usePageCheck() })
-  const live = vehicles.data != null && state == null
+  // And no failed request since (React Query keeps the last answer after a failure, retries included).
+  const fresh = vehicles.data != null && state == null && !vehicles.isError && vehicles.failureCount === 0
+  // A stop's buses are picked by its departures: while that request has failed the page can't tell which buses those
+  // are, which is never "none" and never LIVE.
+  const filtering = !route && !!stopId
+  const filterFailed = filtering && (departures.isError || departures.failureCount > 0)
+  const live = fresh && !filterFailed
   const data = vehicles.data
   const trips = departures.data?.departures
   const buses = useMemo(() => {
-    if (!live) return []
+    if (!fresh || filterFailed) return []
     const all = data?.vehicles ?? []
     if (route) return all
     const heading = new Set((trips ?? []).map((d) => d.tripInstance))
     return all.filter((v) => v.tripKey && heading.has(v.tripKey))
-  }, [live, data, route, trips])
+  }, [fresh, filterFailed, data, route, trips])
   /** Which buses the page shows: the route's, or those heading to the stop. */
   const which = route ? `on route ${route}` : focus ? `heading to ${focus.name}` : ''
   const withBuses = !!route || !!stopId
@@ -162,7 +168,21 @@ export default function MapPage() {
   const sel = buses.find((v) => v.id === selected) ?? (selected == null ? tracked : null)
   const stopsFailed = (scope === 'near' && tiles.error) || (scope === 'saved' && index.isError)
   const status =
-    scope === 'near' && zoomedOut ? (
+    // Live claims first: a failed position or filter request is never hidden behind a map hint.
+    withBuses && (vehicles.isError || (vehicles.data && !fresh)) ? (
+      'Live positions are unavailable right now.'
+    ) : filterFailed ? (
+      <>
+        Can't tell which buses are heading to {focus?.name ?? 'this stop'} right now.
+        <button
+          type="button"
+          onClick={() => departures.refetch()}
+          className="min-h-11 text-ferry-orange-deep underline dark:text-ferry-sunset"
+        >
+          Try again
+        </button>
+      </>
+    ) : scope === 'near' && zoomedOut ? (
       'Zoom in to see bus stops'
     ) : stopsFailed ? (
       <>
@@ -175,8 +195,6 @@ export default function MapPage() {
           Try again
         </button>
       </>
-    ) : withBuses && (vehicles.isError || (vehicles.data && !live)) ? (
-      'Live positions are unavailable right now.'
     ) : trip && vehicles.data && !tracked ? (
       "Your bus isn't sending its position right now."
     ) : null
@@ -185,7 +203,11 @@ export default function MapPage() {
     <>
       <SiteHeader
         live={withBuses ? live : undefined}
-        pending={withBuses ? pagePending([{ q: vehicles, state }]) : false}
+        pending={
+          withBuses
+            ? pagePending([{ q: vehicles, state }, ...(filtering ? [{ q: departures, state: null }] : [])])
+            : false
+        }
         back={focus ? { href: stopHref(focus.key), label: focus.name } : undefined}
       >
         <DesktopNav active="map" />
@@ -237,7 +259,11 @@ export default function MapPage() {
             ]}
           >
             <span data-map-count="" className="font-normal text-sched-text dark:text-night-text/70">
-              {withBuses ? `${buses.length} with live positions` : `${stops.length} stops shown`}
+              {filterFailed
+                ? null
+                : withBuses
+                  ? `${buses.length} with live positions`
+                  : `${stops.length} stops shown`}
             </span>
           </MapLegend>
         }

@@ -70,17 +70,51 @@ export default function NearYou({ lat, lon, nowMs }: { lat: number; lon: number;
     tiles.tiles.flatMap((t) => t.stops),
     { limit: 3, maxMetres: MAX_M },
   )
+  // A tile that failed to load is unknown, never "no stops": none found then is a failure, and some found may be
+  // missing a nearer one.
+  const retry = (
+    <button
+      type="button"
+      onClick={tiles.retry}
+      className="min-h-11 font-semibold text-ferry-orange-deep underline dark:text-ferry-sunset"
+    >
+      Try again
+    </button>
+  )
   if (!stops.length)
     return (
-      <p className="px-1 text-sm text-sched-text dark:text-night-text/70" role="status">
-        {tiles.loading ? 'Finding stops near you…' : 'No bus stops within 2 km.'}
+      <p
+        className="flex flex-wrap items-center gap-x-2 px-1 text-sm text-sched-text dark:text-night-text/70"
+        role="status"
+      >
+        {tiles.loading ? (
+          'Finding stops near you…'
+        ) : tiles.error ? (
+          <>
+            Couldn't load stops near you.
+            {retry}
+          </>
+        ) : (
+          'No bus stops within 2 km.'
+        )}
       </p>
     )
   return (
-    <ul className="flex flex-col gap-2" aria-label="Nearest stops">
-      {stops.map((s) => (
-        <Row key={s.key} id={s.key} name={s.name} metres={s.metres} nowMs={nowMs} />
-      ))}
-    </ul>
+    <>
+      {tiles.error ? (
+        <p
+          className="flex flex-wrap items-center gap-x-2 px-1 text-[13px] text-sched-text dark:text-night-text/70"
+          role="status"
+        >
+          Couldn't load some stops nearby, so this list may be incomplete.
+          {retry}
+        </p>
+      ) : null}
+      <ul className="flex flex-col gap-2" aria-label="Nearest stops">
+        {stops.map((s) => (
+          <Row key={s.key} id={s.key} name={s.name} metres={s.metres} nowMs={nowMs} />
+        ))}
+      </ul>
+    </>
   )
 }

@@ -402,7 +402,7 @@ function StopBoardPage({
             </Suspense>
           ) : wide ? (
             <Suspense fallback={<div className="h-80 rounded-card bg-map-ground" />}>
-              <StopMap stopId={stopId} name={name} departures={res?.departures ?? []} />
+              <StopMap stopId={stopId} name={name} live={live} departures={res?.departures ?? []} />
             </Suspense>
           ) : null}
         </div>

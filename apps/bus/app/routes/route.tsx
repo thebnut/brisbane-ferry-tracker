@@ -6,7 +6,7 @@
 
 import { ErrorState, RouteTile, routeTileVariant, useGeolocation } from '@bft/ui'
 import { occupancyText, SegmentedControl } from '@bft/ui/bus'
-import { VIA_NETWORK } from '@bft/ui/connectivity'
+import { liveState, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { StarButton } from '@bft/ui/star'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { data, Link, useRevalidator, useSearchParams } from 'react-router'
@@ -24,7 +24,7 @@ import { pageMeta, routeMetaTags, SITE_URL } from '../lib/seo.ts'
 import { fixtureFallbackOn, loaderEnv, settle } from '../lib/server.server.ts'
 import { stopCode, stopHref, tripHref } from '../lib/stops.ts'
 import { useSavedStops } from '../lib/storage.ts'
-import { useNow } from '../lib/useNow.ts'
+import { useNow, useOnline } from '../lib/useNow.ts'
 import { useVehicles } from '../lib/vehicles.ts'
 import type { Route } from './+types/route'
 
@@ -109,8 +109,12 @@ function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: numb
   const vehiclesQ = useVehicles(fetcher, mode, route.short)
   const vehiclesPending = !vehiclesQ.data && !vehiclesQ.isError
   const now = useNow(renderedAt)
+  // Positions and LIVE only from an answer that is live and fresh (shared liveState) with no failed request since,
+  // never one kept after a failed refresh.
+  const state = liveState(vehiclesQ.data, { offline: !useOnline(), nowMs: now, ...usePageCheck() })
+  const live = vehiclesQ.data != null && state == null && !vehiclesQ.isError && vehiclesQ.failureCount === 0
   const variant = routeTileVariant(route.short, route.long)
-  const vehicles = vehiclesQ.data?.vehicles ?? []
+  const vehicles = useMemo(() => (live ? (vehiclesQ.data?.vehicles ?? []) : []), [live, vehiclesQ.data])
   const buses = useMemo(() => {
     if (!pattern) return []
     return vehicles
@@ -144,12 +148,12 @@ function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: numb
   if (!pattern) return null
   return (
     <>
-      <SiteHeader live={vehiclesQ.data?.rtState === 'live'} pending={vehiclesPending} />
+      <SiteHeader live={live} pending={vehiclesPending} />
       <UpdatedStrip
         updatedAt={vehiclesQ.data?.generatedAt ?? null}
         source={vehiclesQ.data}
         nowMs={now}
-        live={vehiclesQ.data?.rtState === 'live'}
+        live={live}
         pending={vehiclesPending}
       >
         <DesktopNav active="" />
@@ -225,9 +229,11 @@ function RouteDetail({ route, renderedAt }: { route: RouteFile; renderedAt: numb
                 </Link>
               </li>
             ))}
-            {buses.length === 0 ? (
+            {buses.length === 0 && !vehiclesPending ? (
               <li className="border-t border-charcoal/5 py-3 text-sm text-sched-text">
-                No buses on this route are reporting a position right now.
+                {live
+                  ? 'No buses on this route are reporting a position right now.'
+                  : 'Live bus positions are unavailable right now.'}
               </li>
             ) : null}
           </ul>

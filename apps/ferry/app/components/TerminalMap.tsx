@@ -34,11 +34,14 @@ function TerminalMap({ terminal, live, departures, mode }: Props) {
   // The positions' own answer must be live and fresh too, not only the board's (an old copy never pulses as live).
   const nowMs = useNow(Date.now(), 5_000)
   const fresh = liveState(vehicles.data, { offline: !useOnline(), nowMs, ...usePageCheck() }) == null
+  // And no failed request since (React Query keeps the last answer after a failure, retries included).
+  const shown =
+    live && fresh && vehicles.data?.rtState === 'live' && !vehicles.isError && vehicles.failureCount === 0
   const t = terminalById(terminal.id)
   const name = cleanStopName(terminal.name)
   const ferries = useMemo(() => {
     const byTrip = new Map(departures.map((d) => [d.tripInstance, d]))
-    const positions = live && fresh && vehicles.data?.rtState === 'live' ? vehicles.data.vehicles : []
+    const positions = shown ? (vehicles.data?.vehicles ?? []) : []
     return positions.flatMap((v) => {
       const d = v.tripKey ? byTrip.get(v.tripKey) : undefined
       if (!d) return []
@@ -54,7 +57,7 @@ function TerminalMap({ terminal, live, departures, mode }: Props) {
         },
       ]
     })
-  }, [vehicles.data, departures, live, fresh])
+  }, [vehicles.data, departures, shown])
   const markers: MapMarker[] = useMemo(
     () => [
       ...(t
@@ -69,14 +72,26 @@ function TerminalMap({ terminal, live, departures, mode }: Props) {
       <SafeMap
         markers={markers}
         fitTo={t ? [t.id] : undefined}
-        label={`Map of ${name} terminal with ${ferries.length} live ferries on its departures`}
+        label={
+          shown
+            ? `Map of ${name} terminal with ${ferries.length} live ferries on its departures`
+            : `Map of ${name} terminal`
+        }
         className="h-80 w-full overflow-hidden rounded-card bg-map-ground xl:h-96"
         zoom={14}
         center={t ? [t.lng, t.lat] : undefined}
       />
-      <p className="text-xs text-sched-text dark:text-night-text/70">
-        {ferries.length === 1 ? '1 live ferry' : `${ferries.length} live ferries`} on {name}'s departures ·
-        positions refresh every 15 s
+      <p className="text-xs text-sched-text dark:text-night-text/70" role="status">
+        {shown ? (
+          <>
+            {ferries.length === 1 ? '1 live ferry' : `${ferries.length} live ferries`} on {name}'s departures
+            · positions refresh every 15 s
+          </>
+        ) : live && !vehicles.data && !vehicles.isError ? (
+          'Finding live ferries…'
+        ) : (
+          'Live ferry positions are unavailable right now.'
+        )}
       </p>
     </section>
   )
