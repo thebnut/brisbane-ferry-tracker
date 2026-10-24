@@ -4,7 +4,7 @@
  * so it never fires after the page (or a test's environment) is gone: header-idle.test.tsx flaked with "window is not
  * defined" when the timer outlived its file.
  */
-import { act, renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const enabledCalls: boolean[] = []
@@ -25,6 +25,7 @@ type IdleWindow = Window & {
   cancelIdleCallback?: (id: number) => void
 }
 const w = window as IdleWindow
+const original = { request: w.requestIdleCallback, cancel: w.cancelIdleCallback }
 
 describe('stop search idle start', () => {
   beforeEach(() => {
@@ -32,9 +33,11 @@ describe('stop search idle start', () => {
     vi.useFakeTimers()
   })
   afterEach(() => {
+    // Vitest globals are off, so Testing Library doesn't unmount on its own.
+    cleanup()
     vi.useRealTimers()
-    delete w.requestIdleCallback
-    delete w.cancelIdleCallback
+    w.requestIdleCallback = original.request
+    w.cancelIdleCallback = original.cancel
   })
 
   it('without requestIdleCallback: starts after 200 ms while mounted', async () => {
@@ -50,6 +53,16 @@ describe('stop search idle start', () => {
   it('without requestIdleCallback: unmounting clears the pending timer', () => {
     delete w.requestIdleCallback
     const { unmount } = renderHook(() => useStopSearch(''))
+    expect(vi.getTimerCount()).toBe(1)
+    unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('requestIdleCallback without cancelIdleCallback: uses the clearable timer', () => {
+    w.requestIdleCallback = vi.fn(() => 7)
+    delete w.cancelIdleCallback
+    const { unmount } = renderHook(() => useStopSearch(''))
+    expect(w.requestIdleCallback).not.toHaveBeenCalled()
     expect(vi.getTimerCount()).toBe(1)
     unmount()
     expect(vi.getTimerCount()).toBe(0)

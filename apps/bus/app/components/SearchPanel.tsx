@@ -72,7 +72,8 @@ export function useStopSearch(query: string) {
       cancelIdleCallback?: (id: number) => void
     }
     const start = () => setEnabled(true)
-    if (w.requestIdleCallback) {
+    // Idle only where it can be cancelled too; otherwise the timer, which can.
+    if (w.requestIdleCallback && w.cancelIdleCallback) {
       const id = w.requestIdleCallback(start)
       return () => w.cancelIdleCallback?.(id)
     }
