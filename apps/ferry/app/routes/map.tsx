@@ -73,14 +73,20 @@ function FerryMap({ loaderData }: Pick<Route.ComponentProps, 'loaderData'>) {
   // "From <terminal>" picks its ferries by the terminal's departures: while that request has failed the page can't
   // tell which ferries those are, which is never "none" and never LIVE.
   const filtering = !!terminal && !all
-  const filterFailed = filtering && (departures.isError || departures.failureCount > 0)
+  // Its last answer was a failure too: a query with no data goes back to pending, failureCount 0, while it asks
+  // again, and the message must not drop for each poll's request (R39-P2-2).
+  const filterFailed =
+    filtering &&
+    (departures.isError ||
+      departures.failureCount > 0 ||
+      departures.errorUpdatedAt > departures.dataUpdatedAt)
   // And no failed request since (React Query keeps the last answer after a failure, retries included).
   const fresh = vehicles.data != null && state == null && !vehicles.isError && vehicles.failureCount === 0
   const live = fresh && !filterFailed
-  const pending = pagePending([
-    { q: vehicles, state },
-    ...(filtering ? [{ q: departures, state: null }] : []),
-  ])
+  // Still failed while it asks again: never "Connecting…" over the message.
+  const pending =
+    !filterFailed &&
+    pagePending([{ q: vehicles, state }, ...(filtering ? [{ q: departures, state: null }] : [])])
 
   const data = vehicles.data
   const positions = useMemo(() => (fresh ? (data?.vehicles ?? []) : []), [fresh, data])

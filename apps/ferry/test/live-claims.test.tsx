@@ -4,12 +4,14 @@
  *  - /map?terminal= whose departures request fails (positions healthy) says it can't tell which ferries serve the
  *    terminal and offers All ferries; never LIVE with "No ferries from X have GPS";
  *  - the terminal's idle-panel map says positions are unavailable when they are, never "0 live ferries".
+ * R39-P2-2: the message stays through vehicle refreshes and each departures retry (in flight included), and the
+ * filtered view comes back once departures answer.
  * SafeMap is a stand-in listing its markers (MapLibre needs WebGL); requests go through a stubbed fetch.
  */
 import type { Departure, VehiclesResponse } from '@bft/core/contract'
 import { deviceNow, reportOnline } from '@bft/ui/connectivity'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { createRoutesStub } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -149,6 +151,58 @@ describe('/map?terminal= with a failed departures request', () => {
     mount(mapPage())
     expect(await screen.findByText('1 ferry with GPS')).toBeTruthy()
     expect(screen.getByText('LIVE')).toBeTruthy()
+  })
+
+  it('keeps saying so through vehicle refreshes and departures retries, until departures answer (R39-P2-2)', async () => {
+    vi.useFakeTimers()
+    try {
+      let failing = true
+      const asked: number[] = []
+      const start = Date.now()
+      // Each departures answer takes a second, so the page is also sampled while a retry is in flight.
+      const fetch = vi.fn(async (input: string) => {
+        if (!String(input).includes('/departures')) return Response.json(vehicles())
+        asked.push(Date.now() - start)
+        await new Promise((done) => setTimeout(done, 1_000))
+        return failing ? new Response('no', { status: 503 }) : Response.json(departures())
+      })
+      vi.stubGlobal('fetch', fetch)
+      const vehicleCalls = () => fetch.mock.calls.filter(([u]) => String(u).includes('/vehicles')).length
+      /** Steps fake time 250 ms at a time (`check` after each) until `done`, for at most two minutes. */
+      const until = async (done: () => boolean, check = () => {}) => {
+        for (let t = 0; !done(); t += 250) {
+          expect(t).toBeLessThan(120_000)
+          await act(async () => {
+            await vi.advanceTimersByTimeAsync(250)
+          })
+          check()
+        }
+      }
+      mount(mapPage())
+      await until(() => !!screen.queryByText(/Can't tell which ferries serve Bulimba/))
+      // Three vehicle refreshes later, every sample still says it can't tell: no count, no LIVE, no "Connecting…".
+      await until(
+        () => vehicleCalls() >= 4,
+        () => {
+          expect(screen.queryByText(/Can't tell which ferries serve Bulimba right now\./)).toBeTruthy()
+          expect(screen.queryByText('LIVE')).toBeNull()
+          expect(screen.queryByText('Connecting…')).toBeNull()
+          expect(document.querySelector('[data-map-count]')).toBeNull()
+          expect(pulsing()).toHaveLength(0)
+        },
+      )
+      // Asked again on the poll (15 s, backing off while it fails), never in a tight loop.
+      expect(asked.length).toBeGreaterThanOrEqual(3)
+      for (let i = 1; i < asked.length; i++) expect(asked[i] - asked[i - 1]).toBeGreaterThanOrEqual(12_000)
+      // Departures answer again: the terminal's ferries, LIVE, with no reload.
+      failing = false
+      await until(() => !!screen.queryByText('1 ferry with GPS'))
+      expect(screen.queryByText(/Can't tell/)).toBeNull()
+      expect(screen.getByText('LIVE')).toBeTruthy()
+      expect(pulsing()).toHaveLength(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('a successful empty answer stays "No ferries from Bulimba have GPS right now."', async () => {
