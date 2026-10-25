@@ -1178,6 +1178,44 @@ describe('/mcp (read-only)', () => {
     expect(keys).toEqual(['203.0.113.7', '198.51.100.2'])
   })
 
+  it('GET and DELETE pass the same Origin and version checks before their 405 (Codex r3)', async () => {
+    const s = setup()
+    for (const method of ['GET', 'DELETE']) {
+      expect(
+        (await s.app.request('/mcp', { method, headers: { origin: 'https://evil.example' } })).status,
+      ).toBe(403)
+      expect(
+        (await s.app.request('/mcp', { method, headers: { 'mcp-protocol-version': '1999-01-01' } })).status,
+      ).toBe(400)
+      expect(
+        (await s.app.request('/mcp', { method, headers: { origin: 'http://localhost:6274' } })).status,
+      ).toBe(405)
+    }
+  })
+
+  it('message shapes (Codex r3): params is an object; notifications carry no result; a response’s result and error are well formed', async () => {
+    const s = setup()
+    for (const body of [
+      { jsonrpc: '2.0', id: 1, method: 'ping', params: 'x' },
+      { jsonrpc: '2.0', id: 1, method: 'ping', params: [1] },
+      { jsonrpc: '2.0', id: 1, method: 'ping', params: null },
+      { jsonrpc: '2.0', method: 'notifications/initialized', result: {} },
+      { jsonrpc: '2.0', id: 2, result: null },
+      { jsonrpc: '2.0', id: 2, result: 'ok' },
+      { jsonrpc: '2.0', id: 3, error: null },
+      { jsonrpc: '2.0', id: 3, error: { code: 1 } },
+      { jsonrpc: '2.0', id: 3, error: { code: 1.5, message: 'x' } },
+    ]) {
+      const res = await s.rpc(body)
+      expect(res.status, JSON.stringify(body)).toBe(400)
+    }
+    // Still fine: params as an object, and a well-formed error response.
+    expect((await s.rpc({ jsonrpc: '2.0', id: 4, method: 'ping', params: {} })).status).toBe(200)
+    expect(
+      (await s.rpc({ jsonrpc: '2.0', id: 5, error: { code: -32601, message: 'nope', data: 1 } })).status,
+    ).toBe(202)
+  })
+
   it('a body over 64 KB is a 413: by Content-Length, and by bytes read when there is none (Codex r2)', async () => {
     const s = setup()
     const post = (body: BodyInit, headers: Record<string, string> = {}) =>
