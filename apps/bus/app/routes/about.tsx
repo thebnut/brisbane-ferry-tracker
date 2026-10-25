@@ -47,8 +47,9 @@ export default function About() {
         </p>
         <p>
           We count visits with Google Analytics, which sets its own cookies in your browser: page views, an
-          engaged visit, and the stop number when you save a stop. It never gets your location, your saved
-          stops' names, your searches or any personal details, and ad personalisation is off. See the{' '}
+          engaged visit, a return visit (from a flag in your browser saying it has been here before), and the
+          stop number when you save a stop. It never gets your location, your saved stops' names, your
+          searches or any personal details, and ad personalisation is off. See the{' '}
           <a href="https://www.brisbaneferry.com/privacy">privacy policy</a>, which covers BrisbaneBus too.
         </p>
         <h2>Licence</h2>

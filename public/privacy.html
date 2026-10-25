@@ -184,8 +184,9 @@
         <li>
           <strong>Google Analytics 4</strong> — counts visits and a few events: page views, an
           "engaged visit" (the page stayed open for a short while and you looked at a departure
-          board or used it), and saving a stop pair with <em>Remember selection</em>, which sends
-          the origin terminal's public stop ID. Google also records session length, device and
+          board or used it), a "return visit" (the first page of a visit from a browser that has
+          been here before, worked out from a flag on your device), and saving a stop pair with
+          <em>Remember selection</em>, which sends the origin terminal's public stop ID. Google also records session length, device and
           browser class, and an approximate city that Google works out from your IP address.
           Google Analytics sets cookies in your browser (<code>_ga</code> and
           <code>_ga_*</code>), plus Google Ads click cookies if you arrive from one of our ads.
@@ -228,6 +229,8 @@
         <li><code>brisbane-ferry-selected-stops-session</code> — temporary stop selections that only last for the current browser tab.</li>
         <li><code>brisbane-ferry-departure-time</code> — the "depart from" time filter for this session only.</li>
         <li><code>bft-ga-engaged</code> — notes for this browser tab session that the "engaged visit" analytics event has already been counted, so it is counted once.</li>
+        <li><code>bft-ga-returning</code> — notes that this browser has visited before, so the next visit counts as a "return visit" in analytics. It holds only the value <code>1</code>, not an ID.</li>
+        <li><code>bft-ga-session</code> — notes for this browser tab session that the "return visit" check has been done, so it is counted once.</li>
       </ul>
       <p>
         These keys stay on your device. Clearing browser data removes them. None of them are

@@ -7,12 +7,15 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import {
   ENGAGED_FLAG_KEY,
+  RETURNING_KEY,
+  SESSION_KEY,
   createEngagedVisitTracker,
   isRendered,
   markBoardShown,
   sendEvent,
   startEngagedVisit,
   stopEngagedVisit,
+  trackReturnVisit,
   trackSaveStop,
   trackStopsSaved,
 } from '../../src/utils/analytics.js';
@@ -463,5 +466,52 @@ describe('legacy CSP: Google Analytics origins', () => {
   it('index.html loads gtag/js only through ga-config.js', () => {
     assert.ok(html.includes('<script src="/ga-config.js"></script>'));
     assert.ok(!html.includes('googletagmanager.com/gtag/js'));
+  });
+});
+
+describe('return_visit', () => {
+  const page = (session, local) => {
+    const calls = [];
+    return { win: { sessionStorage: session, localStorage: local, gtag: (...a) => calls.push(a) }, calls };
+  };
+
+  it('the first session sends nothing and leaves the flag; a later session sends it once', () => {
+    const local = new MemoryStorage();
+    const first = page(new MemoryStorage(), local);
+    assert.equal(trackReturnVisit(first.win), false);
+    assert.equal(local.getItem(RETURNING_KEY), '1');
+    assert.equal(first.win.sessionStorage.getItem(SESSION_KEY), '1');
+    assert.equal(trackReturnVisit(first.win), false);
+    assert.deepEqual(first.calls, []);
+    // A new tab session on the same browser.
+    const later = page(new MemoryStorage(), local);
+    assert.equal(trackReturnVisit(later.win), true);
+    assert.deepEqual(later.calls, [['event', 'return_visit', { value: 2, currency: 'AUD', site_mode: 'ferry' }]]);
+    assert.equal(trackReturnVisit(later.win), false);
+    assert.equal(later.calls.length, 1);
+  });
+
+  it('never sends, and never throws, when storage is blocked or there is no window', () => {
+    const local = new MemoryStorage();
+    local.setItem(RETURNING_KEY, '1');
+    const a = page(throwingStorage, local);
+    assert.equal(trackReturnVisit(a.win), false);
+    const b = page(new MemoryStorage(), throwingStorage);
+    assert.equal(trackReturnVisit(b.win), false);
+    assert.deepEqual([...a.calls, ...b.calls], []);
+    assert.equal(trackReturnVisit(undefined), false);
+  });
+
+  it('is a no-op without gtag, and leaves storage alone (GA off, as the Worker apps)', () => {
+    const session = new MemoryStorage();
+    const local = new MemoryStorage();
+    assert.equal(trackReturnVisit({ sessionStorage: session, localStorage: local }), false);
+    assert.equal(session.getItem(SESSION_KEY), null);
+    assert.equal(local.getItem(RETURNING_KEY), null);
+    // Once GA is on, the same browser's first session is still a first visit.
+    const calls = [];
+    const on = { sessionStorage: session, localStorage: local, gtag: (...a) => calls.push(a) };
+    assert.equal(trackReturnVisit(on), false);
+    assert.deepEqual(calls, []);
   });
 });
