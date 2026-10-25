@@ -1104,6 +1104,104 @@ describe('/mcp (read-only)', () => {
     warn.mockRestore()
   })
 
+  it('JSON-RPC envelopes (Codex r1): parse error -32700; bad jsonrpc, ids and responses -32600; ids 0 and "" kept', async () => {
+    const s = setup()
+    const raw = (body: string) =>
+      s.app.request('/mcp', { method: 'POST', body, headers: { 'content-type': 'application/json' } })
+    const parse = await raw('{"jsonrpc":"2.0","id":1,')
+    expect(parse.status).toBe(400)
+    expect(((await parse.json()) as { error: { code: number } }).error.code).toBe(-32700)
+    for (const body of [
+      { id: 1, method: 'ping' },
+      { jsonrpc: '1.0', id: 1, method: 'ping' },
+      { jsonrpc: '2.0', id: null, method: 'ping' },
+      { jsonrpc: '2.0', id: { a: 1 }, method: 'ping' },
+      { jsonrpc: '2.0', id: 1.5, method: 'ping' },
+      { jsonrpc: '2.0', result: {} },
+      { jsonrpc: '2.0', id: 4, result: {}, error: { code: 1, message: 'x' } },
+      { jsonrpc: '2.0', id: 5, method: 'ping', result: {} },
+    ]) {
+      const res = await s.rpc(body)
+      expect(res.status, JSON.stringify(body)).toBe(400)
+      expect(((await res.json()) as { error: { code: number } }).error.code, JSON.stringify(body)).toBe(
+        -32600,
+      )
+    }
+    for (const id of [0, '']) {
+      const res = await s.rpc({ jsonrpc: '2.0', id, method: 'ping' })
+      expect(res.status).toBe(200)
+      expect(((await res.json()) as { id: unknown }).id).toBe(id)
+    }
+  })
+
+  it('Origin (Codex r1): none, the API’s allowed origins and local dev tools pass; any other is a 403', async () => {
+    const s = setup()
+    const from = (origin: string, app = s.app) =>
+      app.request('/mcp', {
+        method: 'POST',
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
+        headers: { 'content-type': 'application/json', origin },
+      })
+    for (const ok of ['https://www.brisbaneferry.com', 'http://localhost:6274', 'http://127.0.0.1:3000'])
+      expect((await from(ok)).status, ok).toBe(200)
+    for (const bad of ['https://evil.example', 'http://localhost.evil.example', 'null']) {
+      const res = await from(bad)
+      expect(res.status, bad).toBe(403)
+      expect(((await res.json()) as { error: { code: number } }).error.code).toBe(-32600)
+    }
+    // The break-glass that opens the API's CORS opens this too.
+    const open = setup({ CORS_ALLOW_ALL: 'true' })
+    expect((await from('https://evil.example', open.app)).status).toBe(200)
+  })
+
+  it('the MCP limiter is keyed by the caller’s IP', async () => {
+    const keys: string[] = []
+    const s = setup({
+      MCP_LIMITER: {
+        limit: async ({ key }: { key: string }) => {
+          keys.push(key)
+          return { success: true }
+        },
+      },
+    })
+    for (const ip of ['203.0.113.7', '198.51.100.2'])
+      await s.app.request('/mcp', {
+        method: 'POST',
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: { name: 'search_stops', arguments: { query: 'bulimba' } },
+        }),
+        headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip },
+      })
+    expect(keys).toEqual(['203.0.113.7', '198.51.100.2'])
+  })
+
+  it('a body over 64 KB is a 413 before it is parsed', async () => {
+    const s = setup()
+    const big = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping', params: { pad: 'x'.repeat(70_000) } })
+    const res = await s.app.request('/mcp', {
+      method: 'POST',
+      body: big,
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(res.status).toBe(413)
+  })
+
+  it('a browser preflight may send MCP-Protocol-Version (Codex r1)', async () => {
+    const s = setup()
+    const res = await s.app.request('/mcp', {
+      method: 'OPTIONS',
+      headers: {
+        origin: 'https://www.brisbaneferry.com',
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'content-type, mcp-protocol-version',
+      },
+    })
+    expect(res.headers.get('access-control-allow-headers')?.toLowerCase()).toContain('mcp-protocol-version')
+  })
+
   it('batches (dropped in 2025-06-18) and malformed messages are invalid requests', async () => {
     const s = setup()
     for (const body of [

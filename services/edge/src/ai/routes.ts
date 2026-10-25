@@ -16,6 +16,7 @@ import {
 } from '@bft/core'
 import type { Hono } from 'hono'
 import { z } from 'zod'
+import { isAllowedOrigin } from '../cors.ts'
 import type { StaticStore } from '../data/static-store.ts'
 import { answerIntent } from './answer.ts'
 import { askLlm } from './llm.ts'
@@ -24,6 +25,8 @@ import { type EvidenceLog, type InternalFetch, runTool, slimDeparture } from './
 import { VERIFY_BUDGET, VERIFY_BUDGET_NAME } from './verify-window.ts'
 
 export interface AiEnv {
+  /** Break-glass: every origin is allowed (the API's CORS, and /mcp's origin check). */
+  CORS_ALLOW_ALL?: string
   AI_ENABLED?: string
   AI_MONTHLY_BUDGET_USD?: string
   AI_PER_IP_DAILY?: string
@@ -317,6 +320,43 @@ export interface AiDeps {
 /** The MCP protocol revision /mcp speaks (Streamable HTTP; no JSON-RPC batches, which it dropped). */
 export const MCP_VERSION = '2025-06-18'
 
+/** Largest /mcp request body: tool arguments are a few short strings. */
+export const MCP_MAX_BODY = 64 * 1024
+
+const LOCAL_DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/
+
+/**
+ * The transport's Origin check (DNS rebinding): a request with no Origin (native and server-side MCP clients) is
+ * fine; a browser's must be one the API already allows (cors.ts), or a local developer tool such as the MCP
+ * Inspector. Anything else is refused before the message is read.
+ */
+export function mcpOriginAllowed(origin: string | undefined, allowAll: boolean): boolean {
+  return origin == null || allowAll || isAllowedOrigin(origin) || LOCAL_DEV_ORIGIN.test(origin)
+}
+
+/** A JSON-RPC id an MCP request may carry: a string or an integer (0 and "" included), never null. */
+const isRequestId = (id: unknown) =>
+  typeof id === 'string' || (typeof id === 'number' && Number.isInteger(id))
+
+type RpcMessage = { jsonrpc: '2.0'; id?: string | number; method?: string; params?: Record<string, unknown> }
+
+/**
+ * Classifies one parsed message (MCP 2025-06-18 messages): a request (method and a string or integer id), a
+ * notification (method, no id) or a client response (id and exactly one of result and error). Anything else is
+ * invalid, as is a batch.
+ */
+export function classifyMcp(msg: unknown): 'request' | 'notification' | 'response' | 'invalid' {
+  if (msg == null || typeof msg !== 'object' || Array.isArray(msg)) return 'invalid'
+  const m = msg as Record<string, unknown>
+  if (m.jsonrpc !== '2.0') return 'invalid'
+  if (typeof m.method === 'string') {
+    if (!('id' in m)) return 'notification'
+    return isRequestId(m.id) && !('result' in m) && !('error' in m) ? 'request' : 'invalid'
+  }
+  if ('method' in m) return 'invalid'
+  return isRequestId(m.id) && 'result' in m !== 'error' in m ? 'response' : 'invalid'
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: the host app's Env generic varies.
 export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unknown }) => AiEnv): void {
   const internal =
@@ -498,36 +538,32 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
   )
   app.post('/mcp', async (c) => {
     const env = getEnv(c)
+    const invalid = (code: number, message: string, status: 400 | 403 | 413, id: unknown = null) =>
+      c.json({ jsonrpc: '2.0', id, error: { code, message } }, status)
+    if (!mcpOriginAllowed(c.req.header('origin'), env.CORS_ALLOW_ALL === 'true'))
+      return invalid(-32600, 'origin not allowed', 403)
     // After initialize the client sends the version it negotiated; one this server doesn't speak is a 400.
     const version = c.req.header('mcp-protocol-version')
     if (version != null && version !== MCP_VERSION)
-      return c.json(
-        {
-          jsonrpc: '2.0',
-          id: null,
-          error: { code: -32600, message: `unsupported protocol version ${version}` },
-        },
-        400,
-      )
-    const msg = (await c.req.json().catch(() => null)) as {
-      id?: unknown
-      method?: string
-      params?: Record<string, unknown>
-      result?: unknown
-      error?: unknown
-    } | null
-    if (!msg || Array.isArray(msg) || typeof msg !== 'object')
-      return c.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'invalid request' } }, 400)
-    // A notification (no id) or a response from the client: accepted, nothing to answer (202, no body).
-    if (!('id' in msg) || (msg.method === undefined && ('result' in msg || 'error' in msg)))
-      return typeof msg.method === 'string' || 'result' in msg || 'error' in msg
-        ? c.body(null, 202)
-        : c.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'invalid request' } }, 400)
-    if (typeof msg.method !== 'string')
-      return c.json(
-        { jsonrpc: '2.0', id: msg.id ?? null, error: { code: -32600, message: 'invalid request' } },
-        400,
-      )
+      return invalid(-32600, `unsupported protocol version ${version}`, 400)
+    if (Number(c.req.header('content-length') ?? 0) > MCP_MAX_BODY)
+      return invalid(-32600, 'request too large', 413)
+    const raw = await c.req.text()
+    if (raw.length > MCP_MAX_BODY) return invalid(-32600, 'request too large', 413)
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      return invalid(-32700, 'parse error', 400)
+    }
+    const kind = classifyMcp(parsed)
+    if (kind === 'invalid') {
+      const maybeId = (parsed as { id?: unknown } | null)?.id
+      return invalid(-32600, 'invalid request', 400, isRequestId(maybeId) ? maybeId : null)
+    }
+    // A notification or a response from the client: accepted, nothing to answer (202, no body).
+    if (kind !== 'request') return c.body(null, 202)
+    const msg = parsed as RpcMessage & { method: string }
     const id = msg.id ?? null
     const ok = (result: unknown) => c.json({ jsonrpc: '2.0', id, result })
     switch (msg.method) {
@@ -574,7 +610,9 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
         } catch (error) {
           // A tool that can't run (data unavailable) is a tool error the caller's model can see and retry, not an
           // HTTP 500 without a JSON-RPC body, which clients can't read.
-          console.warn(`[mcp] ${name} failed (${error instanceof Error ? error.message : 'error'})`)
+          console.warn(
+            `[mcp] ${name} failed (${error instanceof Error ? `${error.name}: ${error.message.slice(0, 120)}` : 'error'})`,
+          )
           return ok({
             content: [
               { type: 'text', text: 'Transit data is unavailable right now. Try again in a minute.' },
