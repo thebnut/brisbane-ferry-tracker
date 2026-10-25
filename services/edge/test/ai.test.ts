@@ -45,6 +45,8 @@ function setup(
     stops?: Array<[string, string]>
     /** Ferry trips instead of the default fixtures (their stops still need stop-index entries). */
     trips?: Record<string, SynthTrip[]>
+    /** Replaces the data generation lookup (e.g. to make the data source fail). */
+    generationKey?: AiDeps['generationKey']
   } = {},
 ) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
@@ -997,6 +999,123 @@ describe('/mcp (read-only)', () => {
         ).json()) as { error: { code: number } }
       ).error.code,
     ).toBe(-32602)
+  })
+  it('Streamable HTTP: GET and DELETE are 405 (no SSE stream, no sessions)', async () => {
+    const s = setup()
+    for (const method of ['GET', 'DELETE']) {
+      const res = await s.app.request('/mcp', { method })
+      expect(res.status, method).toBe(405)
+      expect(res.headers.get('allow')).toBe('POST')
+    }
+  })
+
+  it('notifications and client responses are accepted with 202 and no body', async () => {
+    const s = setup()
+    for (const body of [
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 1 } },
+      { jsonrpc: '2.0', id: 7, result: {} },
+      { jsonrpc: '2.0', id: 8, error: { code: -1, message: 'no' } },
+    ]) {
+      const res = await s.rpc(body)
+      expect(res.status, JSON.stringify(body)).toBe(202)
+      expect(await res.text()).toBe('')
+    }
+  })
+
+  it('speaks 2025-06-18: initialize says so, and an unsupported MCP-Protocol-Version header is a 400', async () => {
+    const s = setup()
+    const init = (await (
+      await s.rpc({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26' } })
+    ).json()) as { result: { protocolVersion: string } }
+    expect(init.result.protocolVersion).toBe('2025-06-18')
+    const call = (version: string) =>
+      s.app.request('/mcp', {
+        method: 'POST',
+        body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'ping' }),
+        headers: { 'content-type': 'application/json', 'mcp-protocol-version': version },
+      })
+    expect((await call('2025-06-18')).status).toBe(200)
+    const bad = await call('2099-01-01')
+    expect(bad.status).toBe(400)
+    expect(((await bad.json()) as { error: { code: number } }).error.code).toBe(-32600)
+  })
+
+  it('only tools/call counts against the MCP limiter, never the Ask one: the handshake is free', async () => {
+    const counted: string[] = []
+    const s = setup({
+      ASK_LIMITER: {
+        limit: async () => {
+          counted.push('ask')
+          return { success: false }
+        },
+      },
+      MCP_LIMITER: {
+        limit: async ({ key }: { key: string }) => {
+          counted.push(`mcp:${key}`)
+          return { success: counted.length <= 1 }
+        },
+      },
+    })
+    expect((await s.rpc({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} })).status).toBe(200)
+    expect((await s.rpc({ jsonrpc: '2.0', method: 'notifications/initialized' })).status).toBe(202)
+    expect((await s.rpc({ jsonrpc: '2.0', id: 2, method: 'tools/list' })).status).toBe(200)
+    expect((await s.rpc({ jsonrpc: '2.0', id: 3, method: 'ping' })).status).toBe(200)
+    expect(counted).toEqual([])
+    const call = (id: number) =>
+      s.rpc({
+        jsonrpc: '2.0',
+        id,
+        method: 'tools/call',
+        params: { name: 'search_stops', arguments: { query: 'bulimba' } },
+      })
+    expect((await call(4)).status).toBe(200)
+    const limited = await call(5)
+    expect(limited.status).toBe(429)
+    expect(((await limited.json()) as { id: number; error: { code: number } }).id).toBe(5)
+    expect(counted).toEqual(['mcp:anon', 'mcp:anon'])
+  })
+
+  it('a tool that cannot run (data unavailable) is a tool error result, not an HTTP 500', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const s = setup(
+      {},
+      {
+        generationKey: async () => {
+          throw new Error('data source manifest.json: HTTP 503')
+        },
+      },
+    )
+    const res = await s.rpc({
+      jsonrpc: '2.0',
+      id: 9,
+      method: 'tools/call',
+      params: { name: 'search_stops', arguments: { query: 'bulimba' } },
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      id: number
+      result: { isError: boolean; content: Array<{ text: string }> }
+    }
+    expect(body.id).toBe(9)
+    expect(body.result.isError).toBe(true)
+    expect(body.result.content[0]?.text).toMatch(/unavailable/)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[mcp] search_stops failed'))
+    warn.mockRestore()
+  })
+
+  it('batches (dropped in 2025-06-18) and malformed messages are invalid requests', async () => {
+    const s = setup()
+    for (const body of [
+      [{ jsonrpc: '2.0', id: 1, method: 'ping' }],
+      { jsonrpc: '2.0', id: 3 },
+      { jsonrpc: '2.0' },
+      'ping',
+    ]) {
+      const res = await s.rpc(body)
+      expect(res.status, JSON.stringify(body)).toBe(400)
+      expect(((await res.json()) as { error: { code: number } }).error.code).toBe(-32600)
+    }
   })
 })
 

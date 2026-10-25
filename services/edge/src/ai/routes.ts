@@ -35,6 +35,8 @@ export interface AiEnv {
   IP_HASH_SALT?: string
   BUDGET?: DurableObjectNamespace<import('./budget-do.ts').Budget>
   ASK_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
+  /** /mcp tools/call only (the handshake isn't counted): 30 a minute per IP. */
+  MCP_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
   /** /v1/turnstile/verify local burst limit per caller IP (CF-Connecting-IP); the aggregate budget is in BUDGET. */
   VERIFY_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
 }
@@ -312,6 +314,9 @@ export interface AiDeps {
   generationKey: () => Promise<string>
 }
 
+/** The MCP protocol revision /mcp speaks (Streamable HTTP; no JSON-RPC batches, which it dropped). */
+export const MCP_VERSION = '2025-06-18'
+
 // biome-ignore lint/suspicious/noExplicitAny: the host app's Env generic varies.
 export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unknown }) => AiEnv): void {
   const internal =
@@ -485,36 +490,55 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
     )
   })
 
-  // Read-only MCP server (JSON-RPC 2.0 over HTTP, stateless). Caller-paid reasoning: no tokens spent by us.
+  // Read-only MCP server (Streamable HTTP, JSON-RPC 2.0, stateless, protocol MCP_VERSION). Caller-paid reasoning: no
+  // tokens spent by us. No SSE stream and no sessions, so GET (the server-to-client stream) and DELETE (session end)
+  // are 405, as the transport requires of a server that offers neither.
+  app.on(['GET', 'DELETE'], '/mcp', (c) =>
+    c.json({ error: 'method not allowed: POST JSON-RPC to /mcp' }, 405, { allow: 'POST' }),
+  )
   app.post('/mcp', async (c) => {
     const env = getEnv(c)
-    if (env.ASK_LIMITER) {
-      const { success } = await env.ASK_LIMITER.limit({
-        key: `mcp:${c.req.header('cf-connecting-ip') ?? 'anon'}`,
-      })
-      if (!success)
-        return c.json({ jsonrpc: '2.0', id: null, error: { code: -32000, message: 'rate limited' } }, 429)
-    }
+    // After initialize the client sends the version it negotiated; one this server doesn't speak is a 400.
+    const version = c.req.header('mcp-protocol-version')
+    if (version != null && version !== MCP_VERSION)
+      return c.json(
+        {
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32600, message: `unsupported protocol version ${version}` },
+        },
+        400,
+      )
     const msg = (await c.req.json().catch(() => null)) as {
       id?: unknown
       method?: string
       params?: Record<string, unknown>
+      result?: unknown
+      error?: unknown
     } | null
-    if (!msg || typeof msg.method !== 'string')
+    if (!msg || Array.isArray(msg) || typeof msg !== 'object')
       return c.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'invalid request' } }, 400)
+    // A notification (no id) or a response from the client: accepted, nothing to answer (202, no body).
+    if (!('id' in msg) || (msg.method === undefined && ('result' in msg || 'error' in msg)))
+      return typeof msg.method === 'string' || 'result' in msg || 'error' in msg
+        ? c.body(null, 202)
+        : c.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'invalid request' } }, 400)
+    if (typeof msg.method !== 'string')
+      return c.json(
+        { jsonrpc: '2.0', id: msg.id ?? null, error: { code: -32600, message: 'invalid request' } },
+        400,
+      )
     const id = msg.id ?? null
     const ok = (result: unknown) => c.json({ jsonrpc: '2.0', id, result })
     switch (msg.method) {
       case 'initialize':
         return ok({
-          protocolVersion: '2025-06-18',
+          protocolVersion: MCP_VERSION,
           capabilities: { tools: { listChanged: false } },
           serverInfo: { name: 'brisbane-transit', version: '1.0.0' },
           instructions:
             'Read-only Brisbane ferry, train and bus departures, trips and alerts (TransLink data, CC BY 4.0).',
         })
-      case 'notifications/initialized':
-        return c.body(null, 202)
       case 'ping':
         return ok({})
       case 'tools/list': {
@@ -529,17 +553,35 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
         })
       }
       case 'tools/call': {
+        // Only tool calls read data; the handshake and tools/list are free (a client's first four requests).
+        if (env.MCP_LIMITER) {
+          const { success } = await env.MCP_LIMITER.limit({ key: c.req.header('cf-connecting-ip') ?? 'anon' })
+          if (!success)
+            return c.json({ jsonrpc: '2.0', id, error: { code: -32000, message: 'rate limited' } }, 429)
+        }
         const name = String(msg.params?.name ?? '')
         if (!(name in TOOLS))
           return c.json({ jsonrpc: '2.0', id, error: { code: -32602, message: `unknown tool ${name}` } })
-        const indexes = await loadIndexes(deps.store, await deps.generationKey())
-        const out = await runTool(
-          { fetch: internal(c), indexes },
-          name,
-          msg.params?.arguments ?? {},
-          Math.floor(Date.now() / 1000),
-        )
-        return ok({ content: [{ type: 'text', text: JSON.stringify(out.result) }], isError: !out.ok })
+        try {
+          const indexes = await loadIndexes(deps.store, await deps.generationKey())
+          const out = await runTool(
+            { fetch: internal(c), indexes },
+            name,
+            msg.params?.arguments ?? {},
+            Math.floor(Date.now() / 1000),
+          )
+          return ok({ content: [{ type: 'text', text: JSON.stringify(out.result) }], isError: !out.ok })
+        } catch (error) {
+          // A tool that can't run (data unavailable) is a tool error the caller's model can see and retry, not an
+          // HTTP 500 without a JSON-RPC body, which clients can't read.
+          console.warn(`[mcp] ${name} failed (${error instanceof Error ? error.message : 'error'})`)
+          return ok({
+            content: [
+              { type: 'text', text: 'Transit data is unavailable right now. Try again in a minute.' },
+            ],
+            isError: true,
+          })
+        }
       }
       default:
         return c.json({
