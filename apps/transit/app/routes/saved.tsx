@@ -196,10 +196,13 @@ export function homeLiveState(
   let down = !online || unconfirmed
   let pending = false
   let pill = false
-  for (const c of cards)
-    if (c.data == null) c.pending ? (pending = true) : (down = true)
-    else if (liveState(c.data, { offline: false, nowMs, unconfirmedBefore, arrivedAt }) != null) down = true
+  for (const c of cards) {
+    if (c.data == null) {
+      if (c.pending) pending = true
+      else down = true
+    } else if (liveState(c.data, { offline: false, nowMs, unconfirmedBefore, arrivedAt }) != null) down = true
     else pill ||= marksLive(c.data)
+  }
   return { live: down || pending ? false : pill || undefined, pending: pending && !down, unconfirmed }
 }
 
