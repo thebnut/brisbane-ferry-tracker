@@ -202,6 +202,15 @@ const dates = (s: string) =>
 /** Ordinary vowel-less words and abbreviations (any other vowel-less letter run is taken as a code). */
 const PLAIN_NO_VOWEL = new Set(['AM', 'PM', 'ST', 'ND', 'RD', 'TH', 'MR', 'MRS', 'MS', 'DR'])
 
+/** Words after which "may" is the verb ("services may be delayed", "trains may not stop"). */
+const MODAL_NEXT = new Set(
+  (
+    'be not also still need have experience take run change vary apply affect occur depart arrive operate close stop ' +
+    'differ require see face encounter continue cause include leave get travel board want wish find use wait ' +
+    'notice expect impact'
+  ).split(' '),
+)
+
 /** Words before which "may" is the month rather than the verb ("in May", "until May"). */
 const MAY_CONTEXT = new Set(
   'in until from by since before after during of mid early late end on to through till'.split(' '),
@@ -230,9 +239,11 @@ function isFactToken(toks: string[], i: number): boolean {
   // Digits as a number, time, date or ordinal (9:30pm, 28/10, 28th); codes with digits (F11, L1) are checked as codes.
   if (/^\d[\d:/]*(?:am|pm|st|nd|rd|th)?$/.test(t) || NUMBER_WORDS.has(t) || DATE_WORDS.has(t)) return true
   if (t !== 'may') return false
+  // "may" is the month unless it is positively the verb: followed by a verb and not after a date preposition (Codex
+  // r3). Ambiguous uses count as the month, so they need May in the alert.
   const prev = toks[i - 1] ?? ''
   const next = toks[i + 1] ?? ''
-  return MAY_CONTEXT.has(prev) || /\d/.test(prev) || /\d/.test(next)
+  return !(MODAL_NEXT.has(next) && !MAY_CONTEXT.has(prev) && !/\d/.test(prev))
 }
 
 /** Maximal runs of fact tokens ("9:30pm wednesday 28 october", "twenty two minutes"), each joined by spaces. */

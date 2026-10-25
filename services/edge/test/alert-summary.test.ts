@@ -188,6 +188,21 @@ describe('checkSummary (grounding)', () => {
     expect(reject('Route F1 is closed in may.', src)).toBe('date')
     expect(reject('Route F1 is closed until May.', src)).toBe('date')
     expect(reject('Route F1 services may be cancelled.', src)).toBe('ok')
+    // Codex r3: any "may" not positively the verb is the month.
+    const plain: Alert = {
+      ...src,
+      header: 'Track closure on the Ipswich line',
+      description: 'Trains are replaced by buses.',
+      routes: [],
+    }
+    expect(reject('May track closures affect the Ipswich line, so catch replacement buses.', plain)).toBe(
+      'date',
+    )
+    expect(reject('Trains are replaced by buses throughout May.', plain)).toBe('date')
+    expect(reject('Trains are replaced by buses throughout may.', plain)).toBe('date')
+    expect(reject('may track closures affect the Ipswich line.', plain)).toBe('date')
+    expect(reject('Ipswich line trains may be replaced by buses.', plain)).toBe('ok')
+    expect(reject('Ipswich line trains may not run, so catch replacement buses.', plain)).toBe('ok')
     // A real May date in the alert allows it.
     expect(reject('Route F1 is closed in May.', { ...src, description: 'Closed in May.' })).toBe('ok')
   })
