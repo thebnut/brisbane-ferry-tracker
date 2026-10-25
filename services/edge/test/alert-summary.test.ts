@@ -11,6 +11,7 @@ import {
   checkSummary,
   contentKey,
   EVICT_AFTER_MS,
+  MAX_ENTRIES,
   MAX_PER_RUN,
   STORAGE_KEY,
   type SummaryProvider,
@@ -149,6 +150,27 @@ describe('checkSummary (grounding)', () => {
     expect(reject('Trams on route L12 are replaced by buses on some evenings.', TRAM)).toBe('code')
   })
 
+  it('Codex r1: rejects written numbers, the month May, lower-case codes and recombined times and dates', () => {
+    expect(reject('Route 200 is cancelled for sixteen hours.')).toBe('number')
+    expect(reject('Route 200 to Kelso is cancelled in May.')).toBe('date')
+    expect(reject('Route 200 to Kelso may be cancelled.')).toBe('ok') // the verb
+    expect(reject('Route p200 to Kelso is cancelled.')).toBe('code')
+    const mixed: Alert = {
+      ...IPSWICH,
+      header: 'Closures 7:30am and 9:30pm',
+      description: 'From 28 October to 29 November.',
+    }
+    expect(reject('Trains stop from 7:30pm on 28 November.', mixed)).toBe('date')
+    expect(reject('Trains stop from 9:30pm on 28 October.', mixed)).toBe('ok')
+    expect(reject('Trains stop from 9.30 pm on October 28.', mixed)).toBe('ok')
+  })
+
+  it('Codex r1: rejects any domain-shaped text or URI scheme', () => {
+    expect(reject('Route 200 is cancelled, see transit.xyz/help for more.')).toBe('contact')
+    expect(reject('Route 200 is cancelled, see ftp://x for more.')).toBe('contact')
+    expect(reject('Route 200 is cancelled, write to mailto:x for more.')).toBe('contact')
+  })
+
   it('rejects refusals and meta-commentary', () => {
     expect(reject("I'm sorry, I can't summarise this.")).toBe('meta')
     expect(reject('Here is a summary: route 200 to Kelso is cancelled.')).toBe('meta')
@@ -222,7 +244,15 @@ const mk = (n: number): Alert => ({
   modes: ['ferry'],
 })
 
-function harness(opts: { enabled?: () => boolean; reserveOk?: () => boolean } = {}) {
+function harness(
+  opts: {
+    enabled?: () => boolean
+    reserveOk?: () => boolean
+    reserveThrows?: boolean
+    reconcileThrows?: boolean
+    callTimeoutMs?: number
+  } = {},
+) {
   const clock = new Clock(Date.UTC(2026, 9, 26))
   const storage = new FakeStorage()
   const calls: string[] = []
@@ -253,13 +283,21 @@ function harness(opts: { enabled?: () => boolean; reserveOk?: () => boolean } = 
           budget: { enabled: true, monthlyBudgetUsd: 10, perIpDailyQuota: 10, alertAt: 0.8 },
           reserve: async (_id, usd) => {
             reserves.push(usd)
+            if (opts.reserveThrows) throw new Error('ledger down')
             return opts.reserveOk?.() === false ? { ok: false, reason: 'budget_exhausted' } : { ok: true }
           },
           reconcile: async (_id, usd) => {
             reconciles.push(usd)
+            if (opts.reconcileThrows) throw new Error('ledger down')
           },
         }
-  const s = new AlertSummariser({ storage, now: clock.now, provider, fetch: fetchStub })
+  const s = new AlertSummariser({
+    storage,
+    now: clock.now,
+    provider,
+    fetch: fetchStub,
+    callTimeoutMs: opts.callTimeoutMs,
+  })
   return {
     s,
     clock,
@@ -396,6 +434,55 @@ describe('AlertSummariser scheduling', () => {
     ok = true
     await h.s.kick([mk(1), mk(2)])
     expect(h.calls).toHaveLength(2)
+  })
+
+  it('Codex r1: a response body that stalls after the headers times out, keeps the reservation and backs off', async () => {
+    const h = harness({ callTimeoutMs: 50 })
+    h.setRespond(
+      async () =>
+        new Response(new ReadableStream({ start: () => {} }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    const t0 = Date.now()
+    await h.s.kick([mk(1)])
+    expect(Date.now() - t0).toBeLessThan(2000)
+    expect(h.reconciles).toEqual(h.reserves) // billed as the bound
+    expect(Object.values(h.stored())[0]?.retry).toBe(h.clock.t + BACKOFF_BASE_MS)
+    // Recovers: the next key goes ahead.
+    h.setRespond(async (header) => message(`${header} affects riders.`))
+    await h.s.kick([mk(1), mk(2)])
+    expect(h.s.attach([mk(2)])[0]?.summary).toBe(goodFor(mk(2)))
+  })
+
+  it('Codex r1: a failed reconcile still records the outcome (summary or backoff) and persists it', async () => {
+    const h = harness({ reconcileThrows: true })
+    await h.s.kick([mk(1)])
+    expect(h.s.attach([mk(1)])[0]?.summary).toBe(goodFor(mk(1)))
+    h.setRespond(async () => new Response('{"type":"error"}', { status: 500 }))
+    await h.s.kick([mk(1), mk(2)])
+    expect(h.calls).toHaveLength(2)
+    expect(h.stored()[contentKey(mk(2))]?.retry).toBe(h.clock.t + BACKOFF_BASE_MS)
+    await h.s.kick([mk(1), mk(2)])
+    expect(h.calls).toHaveLength(2) // backed off, not retried every cycle
+  })
+
+  it('a ledger that throws on reserve is a denial: no call', async () => {
+    const h = harness({ reserveThrows: true })
+    await h.s.kick([mk(1)])
+    expect(h.calls).toHaveLength(0)
+    expect(h.stored()[contentKey(mk(1))]?.retry).toBeUndefined()
+  })
+
+  it('Codex r1: storage stays within MAX_ENTRIES even when the current feed alone exceeds it', async () => {
+    const h = harness({ enabled: () => false })
+    const many = Array.from({ length: MAX_ENTRIES + 1 }, (_, i) => mk(i))
+    await h.s.kick(many)
+    expect(Object.keys(h.stored())).toHaveLength(MAX_ENTRIES)
+    // Old keys make room for new current ones.
+    await h.s.kick([mk(MAX_ENTRIES + 5)])
+    expect(Object.keys(h.stored())).toHaveLength(MAX_ENTRIES)
+    expect(h.stored()[contentKey(mk(MAX_ENTRIES + 5))]).toBeDefined()
   })
 
   it('evicts keys not seen for 7 days, keeping current ones', async () => {

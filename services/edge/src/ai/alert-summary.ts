@@ -94,8 +94,9 @@ export function sourceText(a: Alert): string {
   ].join('\n')
 }
 
+/** A URI scheme (https://, mailto:, tel:) or anything shaped like a domain name (translink.com.au, transit.xyz/help). */
 const URL_RE =
-  /\bhttps?:\/\/|\bwww\.|\b[a-z0-9-]+\.(?:com|net|org|gov|edu|info|io)(?:\.au)?\b|\b[a-z0-9-]+\.au\b/i
+  /\b[a-z][a-z0-9+.-]*:\/\/|\b(?:mailto|tel|sms):|\bwww\.|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}\b/i
 const EMAIL_RE = /\S@\S/
 /** A digit run with spaces, dots, dashes or brackets inside it. */
 const DIGIT_RUN_RE = /\+?\(?\d[\d\s().-]*\d/g
@@ -109,35 +110,18 @@ const hasPhone = (s: string) =>
     return digits >= 8 || (digits >= 6 && /[\s().-]/.test(run))
   })
 const NUMBER_RE = /\d+(?:[.:]\d+)*/g
-const NUMBER_WORDS = [
-  'two',
-  'three',
-  'four',
-  'five',
-  'six',
-  'seven',
-  'eight',
-  'nine',
-  'ten',
-  'eleven',
-  'twelve',
-  'fifteen',
-  'twenty',
-  'thirty',
-  'forty',
-  'fifty',
-  'hundred',
-  'first',
-  'second',
-  'third',
-  'fourth',
-  'fifth',
-  'half',
-  'quarter',
-  'noon',
-  'midnight',
-]
-const DATE_WORDS = [
+/** Written numbers, ordinals and clock words: any in a summary must also be in the alert. */
+const NUMBER_WORDS = new Set(
+  (
+    'zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen ' +
+    'seventeen eighteen nineteen twenty thirty forty fifty sixty seventy eighty ninety hundred thousand million ' +
+    'dozen dozens couple first second third fourth fifth sixth seventh eighth ninth tenth eleventh twelfth ' +
+    'thirteenth fourteenth fifteenth sixteenth seventeenth eighteenth nineteenth twentieth thirtieth hundredth ' +
+    'once twice thrice single double triple half quarter noon midday midnight hour hours minute minutes mins ' +
+    'fortnight fortnightly daily nightly weekly monthly'
+  ).split(' '),
+)
+const DATE_WORDS = new Set([
   'monday',
   'tuesday',
   'wednesday',
@@ -181,7 +165,7 @@ const DATE_WORDS = [
   'dec',
   'am',
   'pm',
-]
+])
 const META_RE =
   /\b(?:I|I'm|I'll|I've|me|my|sorry|apolog\w*|summar\w*|as an ai|language model|(?:given|provided|above) (?:text|alert|information)|this alert|the alert text|not enough information|no information)\b|^(?:here|sure|certainly|okay|ok)\b|[*#`<>]/i
 
@@ -194,6 +178,26 @@ const words = (s: string) =>
       .match(/[a-z]+/g) ?? [],
   )
 const tokens = (s: string) => new Set(s.toUpperCase().match(/[A-Z0-9]+/g) ?? [])
+const MONTHS =
+  'january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec'
+/** Clock times with am/pm (7:30pm, 8.25 am, 6pm), normalised to `7:30pm`. */
+const TIME_RE = /\b(\d{1,2})(?:[:.](\d{2}))?\s?([ap])\.?m\b\.?/gi
+/** Day-and-month dates (28 October, 1st Nov, October 28), normalised to `28 october`. */
+const DATE_RE = new RegExp(
+  `\\b(?:(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTHS})|(${MONTHS})\\s+(\\d{1,2})(?:st|nd|rd|th)?)\\b`,
+  'gi',
+)
+const times = (s: string) =>
+  new Set(
+    [...s.matchAll(TIME_RE)].map((m) => `${Number(m[1])}:${m[2] ?? '00'}${(m[3] as string).toLowerCase()}m`),
+  )
+const dates = (s: string) =>
+  new Set(
+    [...s.replace(/([a-z])([A-Z])/g, '$1 $2').matchAll(DATE_RE)].map((m) => {
+      const day = Number(m[1] ?? m[4])
+      return `${day} ${(m[2] ?? m[3] ?? '').toLowerCase().slice(0, 3)}`
+    }),
+  )
 
 /**
  * Validate a model summary against its alert. Returns the summary to store, or why it was rejected. Conservative by
@@ -212,18 +216,30 @@ export function checkSummary(
   if (META_RE.test(s)) return { ok: false, reason: 'meta' }
 
   const src = sourceText(a)
-  const srcNumbers = new Set(src.match(NUMBER_RE) ?? [])
-  for (const n of s.match(NUMBER_RE) ?? []) if (!srcNumbers.has(n)) return { ok: false, reason: 'number' }
+  // 9.30 and 9:30 are the same number here (whole times are checked below).
+  const nums = (t: string) => (t.match(NUMBER_RE) ?? []).map((n) => n.replace(/\./g, ':'))
+  const srcNumbers = new Set(nums(src))
+  for (const n of nums(s)) if (!srcNumbers.has(n)) return { ok: false, reason: 'number' }
   const srcWords = words(src)
   for (const w of words(s)) {
-    if (NUMBER_WORDS.includes(w) && !srcWords.has(w)) return { ok: false, reason: 'number' }
-    if (DATE_WORDS.includes(w) && !srcWords.has(w)) return { ok: false, reason: 'date' }
+    if (NUMBER_WORDS.has(w) && !srcWords.has(w)) return { ok: false, reason: 'number' }
+    if (DATE_WORDS.has(w) && !srcWords.has(w)) return { ok: false, reason: 'date' }
   }
-  // Route and stop codes: any token of two or more capitals or digits (F11, BRCL, 317584) must be in the alert. Source
-  // tokens split on hyphens, so a route id F1-4055 allows F1.
+  // "May" the month (capitalised), as opposed to the verb.
+  if (/\bMay\b/.test(s) && !/\bMay\b/.test(src)) return { ok: false, reason: 'date' }
+  // Whole expressions, not just their parts: 7:30pm needs 7:30pm in the alert (not 7:30am and 9:30pm), and 28 November
+  // needs 28 November (not 28 October and 29 November).
+  const srcTimes = times(src)
+  for (const t of times(s)) if (!srcTimes.has(t)) return { ok: false, reason: 'date' }
+  const srcDates = dates(src)
+  for (const d of dates(s)) if (!srcDates.has(d)) return { ok: false, reason: 'date' }
+  // Route and stop codes: any token mixing letters and digits, in any case (F11, p200), or of two or more capitals
+  // (BRCL), must be in the alert. Plain numbers, times (30pm) and ordinals (28th) were checked above. Source tokens
+  // split on hyphens, so a route id F1-4055 allows F1.
   const srcTokens = tokens(src)
-  for (const t of s.match(/\b[A-Z0-9]{2,}\b/g) ?? []) {
-    if (!srcTokens.has(t)) return { ok: false, reason: 'code' }
+  for (const t of s.match(/\b[A-Za-z0-9]*(?:[A-Za-z]\d|\d[A-Za-z])[A-Za-z0-9]*\b|\b[A-Z]{2,}\b/g) ?? []) {
+    if (/^\d+(?:am|pm|st|nd|rd|th)$/i.test(t)) continue
+    if (!srcTokens.has(t.toUpperCase())) return { ok: false, reason: 'code' }
   }
   return { ok: true, summary: s }
 }
@@ -266,12 +282,13 @@ export async function callSummary(
   a: Alert,
   p: SummaryProvider,
   fetchImpl?: typeof fetch,
+  timeoutMs = CALL_TIMEOUT_MS,
 ): Promise<CallResult> {
   const client = new Anthropic({
     apiKey: p.apiKey,
     baseURL: p.baseURL,
     maxRetries: 0,
-    timeout: CALL_TIMEOUT_MS,
+    timeout: timeoutMs,
     ...(fetchImpl ? { fetch: fetchImpl } : {}),
   })
   const system: Anthropic.TextBlockParam[] = [
@@ -288,23 +305,44 @@ export async function callSummary(
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: fields.join('\n') }]
   const bound = worstCaseUsd(Math.ceil(inputTokenBound({ system, messages }) * 1.25), MAX_TOKENS)
   const id = crypto.randomUUID()
-  const r = await p.reserve(id, bound)
+  // A ledger that fails or hangs counts as a denial: no call. (A reservation that did land is charged in full once
+  // stale, which only overstates spend.)
+  const r = await withDeadline(p.reserve(id, bound), LEDGER_TIMEOUT_MS).catch(() => ({
+    ok: false,
+    reason: 'ledger_error',
+  }))
   if (!r.ok) return { ok: false, reason: r.reason ?? 'budget', costUsd: 0, budget: true }
+  // A failed reconcile leaves the reservation outstanding, which the Budget DO charges in full once stale: never an
+  // unrecorded spend, and the caller still records this key's outcome (Codex r1).
+  const reconcile = (usd: number) =>
+    withDeadline(p.reconcile(id, usd), LEDGER_TIMEOUT_MS).then(
+      () => true,
+      () => false,
+    )
   let res: Anthropic.Message
+  const abort = new AbortController()
   try {
-    res = await client.messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      thinking: { type: 'disabled' },
-      output_config: { effort: 'low' },
-      system,
-      messages,
-    } as Anthropic.MessageCreateParamsNonStreaming)
+    // The SDK's own timeout stops once headers arrive; this deadline also covers the body (Codex r1).
+    res = await withDeadline(
+      client.messages.create(
+        {
+          model: MODEL,
+          max_tokens: MAX_TOKENS,
+          thinking: { type: 'disabled' },
+          output_config: { effort: 'low' },
+          system,
+          messages,
+        } as Anthropic.MessageCreateParamsNonStreaming,
+        { signal: abort.signal },
+      ),
+      timeoutMs,
+      () => abort.abort(),
+    )
   } catch (e) {
     // As askLlm: only a 4xx rejection is known to be unbilled.
     const unbilled =
       e instanceof Anthropic.APIError && typeof e.status === 'number' && e.status >= 400 && e.status < 500
-    await p.reconcile(id, unbilled ? 0 : bound)
+    await reconcile(unbilled ? 0 : bound)
     const reason =
       e instanceof Anthropic.APIError && typeof e.status === 'number'
         ? `provider_${e.status}`
@@ -312,13 +350,13 @@ export async function callSummary(
     return { ok: false, reason, costUsd: unbilled ? 0 : bound }
   }
   const u = res.usage
-  const spent = actualUsd(
+  let spent = actualUsd(
     (u.input_tokens ?? 0) +
       (u.cache_creation_input_tokens ?? 0) * 1.25 +
       (u.cache_read_input_tokens ?? 0) * 0.1,
     u.output_tokens ?? 0,
   )
-  await p.reconcile(id, spent)
+  if (!(await reconcile(spent))) spent = bound
   if (res.stop_reason === 'refusal') return { ok: false, reason: 'refusal', costUsd: spent }
   if (res.stop_reason === 'max_tokens') return { ok: false, reason: 'max_tokens', costUsd: spent }
   const text = res.content
@@ -326,6 +364,21 @@ export async function callSummary(
     .map((b) => b.text)
     .join('')
   return { ok: true, text, costUsd: spent }
+}
+
+/** Budget DO calls (reserve, reconcile) give up after this. */
+export const LEDGER_TIMEOUT_MS = 5_000
+
+/** Settle with `p`, or reject after `ms` (calling `onTimeout` first). */
+function withDeadline<T>(p: Promise<T>, ms: number, onTimeout?: () => void): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      onTimeout?.()
+      reject(new Error('deadline'))
+    }, ms)
+  })
+  return Promise.race([p, deadline]).finally(() => clearTimeout(timer))
 }
 
 // ---------------------------------------------------------------- the summariser
@@ -357,6 +410,8 @@ export interface SummariserDeps {
   provider: () => SummaryProvider | null
   /** Provider fetch (tests); the global fetch by default. */
   fetch?: typeof fetch
+  /** Per call, including the response body (CALL_TIMEOUT_MS by default; tests shorten it). */
+  callTimeoutMs?: number
   log?: Logger
 }
 
@@ -425,19 +480,11 @@ export class AlertSummariser {
       this.version++
     }
 
-    // Mark the current alerts seen, then evict keys gone for EVICT_AFTER_MS (and the oldest past MAX_ENTRIES).
+    // Evict keys gone for EVICT_AFTER_MS, then mark the current alerts seen. New keys are admitted only while the
+    // store is below MAX_ENTRIES (making room by dropping the longest-unseen keys no longer current), so the record
+    // stays bounded even if the feed alone exceeds it; a key not admitted is not summarised (Codex r1).
     const current = new Map<string, Alert>()
     for (const a of alerts) current.set(this.keyOf(a), a)
-    for (const k of current.keys()) {
-      const e = this.entries.get(k)
-      if (!e) {
-        this.entries.set(k, { seen: now })
-        dirty = true
-      } else if (now - e.seen >= SEEN_GRANULARITY_MS) {
-        e.seen = now
-        dirty = true
-      }
-    }
     let evicted = 0
     for (const [k, e] of this.entries) {
       if (!current.has(k) && now - e.seen > EVICT_AFTER_MS) {
@@ -445,13 +492,30 @@ export class AlertSummariser {
         evicted++
       }
     }
-    if (this.entries.size > MAX_ENTRIES) {
+    const fresh = [...current.keys()].filter((k) => !this.entries.has(k))
+    const over = this.entries.size + fresh.length - MAX_ENTRIES
+    if (over > 0) {
       const oldest = [...this.entries]
         .filter(([k]) => !current.has(k))
         .sort((x, y) => x[1].seen - y[1].seen)
-        .slice(0, this.entries.size - MAX_ENTRIES)
+        .slice(0, over)
       for (const [k] of oldest) this.entries.delete(k)
       evicted += oldest.length
+    }
+    for (const k of fresh) {
+      if (this.entries.size >= MAX_ENTRIES) {
+        current.delete(k)
+        continue
+      }
+      this.entries.set(k, { seen: now })
+      dirty = true
+    }
+    for (const k of current.keys()) {
+      const e = this.entries.get(k) as Entry
+      if (now - e.seen >= SEEN_GRANULARITY_MS) {
+        e.seen = now
+        dirty = true
+      }
     }
     if (evicted > 0) dirty = true
 
@@ -467,7 +531,14 @@ export class AlertSummariser {
     } else if (provider) {
       this.disabledLogged = false
       for (const [k, a] of due.slice(0, MAX_PER_RUN)) {
-        const r = await callSummary(a, provider, this.d.fetch)
+        // Anything unexpected is this key's failure (backoff), never a run-level escape that skips it.
+        const r: CallResult = await callSummary(a, provider, this.d.fetch, this.d.callTimeoutMs).catch(
+          (err) => ({
+            ok: false,
+            reason: `error: ${errorMessage(err)}`,
+            costUsd: 0,
+          }),
+        )
         const e = this.entries.get(k) as Entry
         if (!r.ok && r.budget) {
           // Over budget or denied: no backoff, try again next cycle.
