@@ -19,8 +19,9 @@ export const BLOCKED_BEACONS: readonly RegExp[] = [
   /^https:\/\/stats\.g\.doubleclick\.net\/g\/collect(?:\?|$)/,
   // Google signals' duplicate hit after a client route change (R44-G1).
   /^https:\/\/www\.google\.com\/g\/collect(?:\?|$)/,
-  // Google signals audiences, on the visitor's country Google domain (www.google.com.au from Australia).
-  /^https:\/\/www\.google\.(?:com|com\.[a-z]{2}|co\.[a-z]{2}|[a-z]{2})\/ads\/ga-audiences(?:\?|$)/,
+  // Google signals audiences, on the visitor's country Google domain: only the ones seen (www.google.com.au from
+  // Australia, www.google.com elsewhere). Another country's would need adding here once seen.
+  /^https:\/\/www\.google\.(?:com|com\.au)\/ads\/ga-audiences(?:\?|$)/,
 ]
 
 /** A beacon is a fetch/sendBeacon (connect-src) or an image ping (img-src); a script or frame never is. */
@@ -33,7 +34,7 @@ const BEACON_DIRECTIVES = new Set(['connect-src', 'img-src'])
  */
 export function blockedBy(message: string): { url: string; directive: string | null } | null {
   const line =
-    /^(Connecting to|Loading the image) '(https:\/\/[^']+)' violates the following Content Security Policy directive: "([a-z-]+)[ "]/.exec(
+    /^(Connecting to|Loading the image) '(https:\/\/[^']+)' violates the following Content Security Policy directive: "([a-z-]+)(?: [^"]*)?"\. The action has been blocked\.$/.exec(
       message,
     )
   if (line) {

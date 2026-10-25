@@ -179,6 +179,7 @@ export function gaSuite({
         page,
       }) => {
         const refused: string[] = []
+        page.on('pageerror', (e) => refused.push(`pageerror: ${e.message}`))
         page.on('console', (m) => {
           if (/Content Security Policy|Refused to/i.test(m.text())) refused.push(m.text())
         })

@@ -22,7 +22,6 @@ const BEACONS = [
   `https://www.google.com/g/collect${Q}`,
   `https://www.google.com.au/ads/ga-audiences${Q}`,
   'https://www.google.com/ads/ga-audiences?t=sr',
-  'https://www.google.co.uk/ads/ga-audiences?t=sr',
 ]
 
 describe('the deliberately blocked Ads and signals beacons count as expected', () => {
@@ -70,6 +69,10 @@ describe('any other CSP error still fails', () => {
       'http://www.google.com/ccm/collect?a=1',
       'https://ad.doubleclick.net/ddm/activity?a=1',
       'https://www.google.com/ads/ga-audiences.evil.example/x',
+      // Only the country domains seen (Codex r1).
+      'https://www.google.zz/ads/ga-audiences?t=sr',
+      'https://www.google.co.uk/ads/ga-audiences?t=sr',
+      'https://www.google.com.evil/ads/ga-audiences?t=sr',
     ])
       expect(isExpectedRefusal(connecting(url)), url).toBe(false)
   })
@@ -95,6 +98,11 @@ describe('any other CSP error still fails', () => {
       'pageerror: Minified React error #418',
       "Refused to frame 'https://example.com/' because an ancestor violates the following Content Security Policy directive: \"frame-ancestors 'none'\".",
       '',
+      // Truncated or reworded console lines (Codex r1): only the complete shapes are read.
+      `Connecting to '${BEACONS[0]}' violates the following Content Security Policy directive: "connect-src `,
+      `Connecting to '${BEACONS[0]}' violates the following Content Security Policy directive: "connect-src 'self'"`,
+      `Loading the image '${BEACONS[0]}' violates the following Content Security Policy directive: "img-src 'self'". The action has been blocked. And more.`,
+      `Fetch API cannot load ${BEACONS[0]}. Refused to connect`,
     ])
       expect(isExpectedRefusal(m), m).toBe(false)
   })
