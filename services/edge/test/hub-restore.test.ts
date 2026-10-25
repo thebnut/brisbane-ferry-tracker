@@ -825,3 +825,78 @@ describe('RtHub restore with compressed documents (RT_R2_COMPRESS=gzip)', () => 
     })
   }
 })
+
+describe('restore never adopts a stale DO-storage snapshot over newer R2 documents (staging, 26 Oct)', () => {
+  // After each staging restart /v1/alerts served 63 of 90 alerts for 20–35 s: with R2 bound the hub no longer writes
+  // its snapshot to DO storage, but `meta.snapChunks` kept pointing at a copy from before R2, which the restore read
+  // first (skipping R2) and published until the next alerts fetch.
+  it('a snap: copy left from before R2 loses to the R2 documents; the alerts published after a restart are current', async () => {
+    const h = setup()
+    // An earlier era without R2: the snapshot (one alert) was persisted in DO storage.
+    const noR2 = new HubCore({
+      storage: h.storage,
+      fetch: h.up.fetch,
+      now: h.clock.now,
+      store: storeFor(buildTree(), h.clock.now),
+      config: parseRtModes('ferry'),
+      upstream: 'https://up.test/api/realtime/SEQ',
+      fetchTimeoutMs: 50,
+    })
+    await noR2.alarm()
+    expect((h.storage.data.get('meta') as { snapChunks: number }).snapChunks).toBeGreaterThan(0)
+    // Later, with R2 and three alerts.
+    h.clock.advance(60_000)
+    h.up.set(
+      'alerts',
+      feed(h.nowS(), [
+        alert('a1', 'Bulimba works', 'F1-4055'),
+        alert('a2', 'Riverside works', 'F1-4055'),
+        alert('a3', 'Hawthorne works', 'F1-4055'),
+      ]),
+    )
+    const withR2 = h.mk()
+    for (let i = 1; i <= 3; i++) {
+      h.change(i)
+      await withR2.alarm()
+      h.clock.advance(CYCLE_MS)
+    }
+    const alertsDoc = () => {
+      const pointer = JSON.parse(h.r2.files.get(R2_LATEST_KEY) as string) as {
+        files: { alerts: { key: string } }
+      }
+      return JSON.parse(textOf(h.r2, pointer.files.alerts.key) as string) as { alerts: Array<{ id: string }> }
+    }
+    expect(alertsDoc().alerts.map((a) => a.id)).toEqual(['a1', 'a2', 'a3'])
+    // A restart (deploy or eviction) within a minute of the last alerts fetch.
+    const hub = h.mk()
+    h.change(10)
+    await hub.alarm()
+    expect(alertsDoc().alerts.map((a) => a.id)).toEqual(['a1', 'a2', 'a3'])
+  })
+
+  it('with R2 bound a cycle stops naming the stored copy (meta.snapChunks 0)', async () => {
+    const h = setup()
+    h.storage.data.set('meta', { seq: 0, lastCycleAt: 0, lastError: null, alertsAt: 0, snapChunks: 3 })
+    await h.mk().alarm()
+    expect((h.storage.data.get('meta') as { snapChunks: number }).snapChunks).toBe(0)
+  })
+
+  it('with R2 bound but empty (the first boot after enabling it), the stored copy is still restored', async () => {
+    const h = setup()
+    const noR2 = new HubCore({
+      storage: h.storage,
+      fetch: h.up.fetch,
+      now: h.clock.now,
+      store: storeFor(buildTree(), h.clock.now),
+      config: parseRtModes('ferry'),
+      upstream: 'https://up.test/api/realtime/SEQ',
+      fetchTimeoutMs: 50,
+    })
+    await noR2.alarm()
+    const stored = (await noR2.pull(null)).seq
+    expect(stored).not.toBeNull()
+    expect(h.r2.files.size).toBe(0)
+    // A fresh hub with an (empty) R2: its first answer is the stored snapshot, before any cycle.
+    expect((await h.mk().pull(null)).seq).toBe(stored)
+  })
+})
