@@ -404,6 +404,10 @@ describe('legacy CSP: Google Analytics origins', () => {
         assert.ok(directive(csp, 'connect-src').includes(origin), `connect-src ${origin}`);
         assert.ok(directive(csp, 'img-src').includes(origin), `img-src ${origin}`);
       }
+      // gtag sends GA4 hits for this property to the bare host
+      // (https://analytics.google.com/g/collect), which *.analytics.google.com
+      // doesn't match.
+      assert.ok(directive(csp, 'connect-src').includes('https://analytics.google.com'), 'connect-src bare analytics.google.com');
     });
   }
 
