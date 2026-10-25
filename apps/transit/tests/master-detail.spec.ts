@@ -10,11 +10,13 @@
  *    without WebGL, the board unharmed);
  *  - a trip URL opened directly shows the board with the panel open;
  *  - from 768 to 1023 px, and on phones, the board is one column and a row opens the trip's full page.
- * Nothing here depends on the time of day: rows are fixtures, picked by position, and no countdown or clock wording is
- * asserted. Polling is held still with the page clock, so the request counts are the navigation's own.
+ * Nothing here depends on the time of day: rows are fixtures, and no countdown or clock wording is asserted. The page
+ * clock is installed but runs on in real time (the panel's focus needs its timers), so a departure can leave the board
+ * mid-test and every row below it moves up one: a row a test comes back to is pinned by its trip's href (pinRow), never
+ * by position. The tests are shorter than the 15 s poll, so the request counts are the navigation's own.
  */
 import { disableWebGL, expectMapUnavailable } from '@bft/ui/e2e/no-webgl.ts'
-import { expect, type Page, type Request, test } from '@playwright/test'
+import { expect, type Locator, type Page, type Request, test } from '@playwright/test'
 
 test.use({ serviceWorkers: 'block' })
 
@@ -42,6 +44,19 @@ const BOARDS: Board[] = [
 ]
 
 const rows = (page: Page) => page.locator('[data-board-column] [data-testid=departure] a')
+/**
+ * A row of `board` (the board column, or the return board) by its trip's href, not its position: as the clock runs, a
+ * departure leaves and the rows below it move up, so `nth(1)` can become another trip mid-test. The third row (or the
+ * last, on a short board), not the first: those may leave during the test itself.
+ */
+async function pinRow(board: Locator, n = 2): Promise<Locator> {
+  const links = board.locator('[data-testid=departure] a')
+  await expect(links.first()).toBeVisible()
+  const pick = links.nth(Math.min(n, (await links.count()) - 1))
+  const href = (await pick.getAttribute('href')) as string
+  return board.locator(`[data-testid=departure] a[href="${href}"]`)
+}
+const boardColumn = (page: Page) => page.locator('[data-board-column]')
 const panel = (page: Page) => page.getByRole('region', { name: 'Trip details' })
 const header = (page: Page) => page.locator('[data-board-header]')
 /** The idle panel's content: the return board, or the place's map. */
@@ -85,7 +100,7 @@ function desktop() {
         await openBoard(page, b)
         await expect(idle(page, b.idle)).toBeVisible()
         const req = watch(page)
-        const row = rows(page).first()
+        const row = await pinRow(boardColumn(page))
         const href = (await row.getAttribute('href')) as string
         await row.click()
         await page.waitForURL(tripUrl(b.mode))
@@ -118,7 +133,7 @@ function desktop() {
         page,
       }) => {
         await openBoard(page, b)
-        const row = rows(page).nth(1)
+        const row = await pinRow(boardColumn(page))
         await row.focus()
         await page.keyboard.press('Enter')
         await page.waitForURL(tripUrl(b.mode))
@@ -293,7 +308,7 @@ function desktop() {
     for (const b of BOARDS.filter((x) => x.idle === 'return')) {
       await openBoard(page, b)
       const req = watch(page)
-      const row = idle(page, 'return').locator('[data-testid=departure] a').first()
+      const row = await pinRow(idle(page, 'return'))
       await row.focus()
       await page.keyboard.press('Enter')
       await page.waitForURL(tripUrl(b.mode))
