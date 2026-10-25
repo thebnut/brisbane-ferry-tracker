@@ -5,6 +5,7 @@ import { FAVOURITES_KEY as FERRY_FAVOURITES, readFerryFavourites } from '@bft/fe
 import { STORAGE_KEYS } from '@bft/ferry/app/lib/storage.ts'
 import { stationHref } from '@bft/train/app/lib/network.ts'
 import { FAVOURITES_KEY } from '@bft/train/app/lib/storage.ts'
+import { pageLive, reportValue } from '@bft/ui/mode-home'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { stationName, trainBoardHref } from '../app/lib/hrefs.ts'
 import { offlineRows, readFerry, readSavedItems, writeSavedCopy } from '../app/lib/saved.ts'
@@ -220,101 +221,136 @@ describe('Saved mixes every app’s own saved items', () => {
   })
 })
 
-describe('the home page’s live judgement (R7-T1)', () => {
+describe('the home page’s live judgement (R7-T1), reported like the mode homes (R36-L1, R32-RT1)', () => {
   const items = [{}, {}]
   const opts = { online: true, nowMs: NOW, unconfirmedBefore: null }
   const live = res([dep({ status: 'live', estDep: s + 120 })])
+  // Live data whose next departure is timetabled: the card shows no LIVE pill.
+  const quiet = res([
+    dep({ status: 'scheduled' }),
+    dep({ status: 'live', schedDep: s + 600, estDep: s + 660 }),
+  ])
+  const noRows = res([])
+  const state = (live: boolean | undefined, pending = false, unconfirmed = false) => ({
+    live,
+    pending,
+    unconfirmed,
+  })
 
-  it('LIVE only once every saved card has a live answer: a pending card is not live', () => {
+  it('LIVE once no card is waiting or not live and one shows its LIVE pill', () => {
+    const answered = (...data: DeparturesResponse[]) => data.map((d) => ({ data: d, failed: false }))
+    expect(homeLiveState(items, answered(live, live), opts)).toEqual(state(true))
+    expect(homeLiveState(items, answered(live, quiet), opts)).toEqual(state(true))
+    // A stale or not-live card wins (not live, OFFLINE pill), as on the mode homes.
+    expect(homeLiveState(items, answered(live, res([dep({})], 'stale')), opts)).toEqual(state(false))
+  })
+
+  it('P-3167c11-H1: never LIVE over cards without a pill: only live feeds with timetabled or no rows claim nothing', () => {
+    const answered = (...data: DeparturesResponse[]) => data.map((d) => ({ data: d, failed: false }))
+    expect(homeLiveState(items, answered(quiet, quiet), opts)).toEqual(state(undefined))
+    expect(homeLiveState(items, answered(noRows, noRows), opts)).toEqual(state(undefined))
+    expect(homeLiveState([{}], answered(noRows), opts)).toEqual(state(undefined))
+  })
+
+  it('a card still waiting: "Connecting…", not OFFLINE; a failed or not-live one wins over it (R32-RT1)', () => {
     expect(
       homeLiveState(
         items,
         [
-          { data: live, pending: false },
-          { data: undefined, pending: true },
+          { data: live, failed: false },
+          { data: undefined, failed: false },
         ],
         opts,
       ),
-    ).toEqual({
-      live: false,
-      unconfirmed: false,
-    })
+    ).toEqual(state(false, true))
+    // A card whose request failed (no data, no longer pending) isn't live (Codex review), and isn't waiting.
     expect(
       homeLiveState(
         items,
         [
-          { data: live, pending: false },
-          { data: live, pending: false },
+          { data: undefined, failed: true },
+          { data: undefined, failed: false },
         ],
         opts,
-      ).live,
-    ).toBe(true)
-    expect(homeLiveState(items, [{ data: undefined, pending: true }], opts).live).toBe(false)
-    // A card whose request failed (no data, no longer pending) isn't live either (Codex review).
-    expect(
-      homeLiveState(
-        items,
-        [
-          { data: live, pending: false },
-          { data: undefined, pending: false },
-        ],
-        opts,
-      ).live,
-    ).toBe(false)
+      ),
+    ).toEqual(state(false))
+  })
+
+  it('a failed refetch keeping its data reports as on the mode homes (reportValue, Codex r1)', () => {
+    const failed = (data: DeparturesResponse) => ({ data, failed: true })
+    const ok = (data: DeparturesResponse) => ({ data, failed: false })
+    const waiting = { data: undefined, failed: false }
+    // Timetabled data kept after a failure (a 503 leaves useOnline true): not live, never LIVE beside a live card.
+    expect(homeLiveState(items, [failed(quiet), ok(live)], opts)).toEqual(state(false))
+    expect(homeLiveState([{}], [failed(quiet)], opts)).toEqual(state(false))
+    // Its live pill still showing: LIVE for the header, and the failure ends another card's "Connecting…" (R32-RT1).
+    expect(homeLiveState([{}], [failed(live)], opts)).toEqual(state(true))
+    expect(homeLiveState(items, [failed(live), waiting], opts)).toEqual(state(false))
+    expect(homeLiveState(items, [ok(live), waiting], opts)).toEqual(state(false, true))
+  })
+
+  it('matches the mode homes’ pageLive for every pair of card states', () => {
+    const stale = res([dep({ status: 'live', estDep: s + 120 })], 'stale')
+    // [card, reportValue(live, pending, failed, liveRows)] for each state a saved card can be in.
+    const cards: Array<
+      [{ data: DeparturesResponse | undefined; failed: boolean }, Parameters<typeof reportValue>]
+    > = [
+      [{ data: undefined, failed: false }, [false, true, false, false]],
+      [{ data: undefined, failed: true }, [false, false, true, false]],
+      [{ data: live, failed: false }, [true, false, false, true]],
+      [{ data: quiet, failed: false }, [true, false, false, false]],
+      [{ data: stale, failed: false }, [false, false, false, false]],
+      [{ data: live, failed: true }, [true, false, true, true]],
+      [{ data: quiet, failed: true }, [true, false, true, false]],
+    ]
+    for (const a of cards)
+      for (const b of cards) {
+        const want = pageLive([reportValue(...a[1]), reportValue(...b[1])])
+        const got = homeLiveState(items, [a[0], b[0]], opts)
+        expect({ live: got.live, pending: got.pending }, JSON.stringify([a[1], b[1]])).toEqual(want)
+      }
   })
 
   it('a page from the device’s copy is offline until a card has its own network answer', () => {
     const cached = { ...opts, unconfirmedBefore: NOW + 10_000 }
-    // Saved items not read yet, or cards still waiting: offline banner, no LIVE.
-    expect(homeLiveState(null, [], cached)).toEqual({ live: false, unconfirmed: true })
-    expect(homeLiveState(items, [{ data: undefined, pending: true }], cached)).toEqual({
-      live: false,
-      unconfirmed: true,
-    })
+    // Saved items not read yet, or cards still waiting: offline banner and pill.
+    expect(homeLiveState(null, [], cached)).toEqual(state(false, false, true))
+    expect(homeLiveState(items, [{ data: undefined, failed: false }], cached)).toEqual(
+      state(false, false, true),
+    )
     // An answer that came with the page, or an offline copy, confirms nothing.
-    expect(homeLiveState(items, [{ data: live, pending: false }], cached).unconfirmed).toBe(true)
+    expect(homeLiveState(items, [{ data: live, failed: false }], cached).unconfirmed).toBe(true)
     const copy = { ...live, generatedAt: NOW + 60_000, offline: true as const }
-    expect(homeLiveState(items, [{ data: copy, pending: false }], cached).unconfirmed).toBe(true)
-    // A network answer after the page: confirmed, and live once every card is.
+    expect(homeLiveState(items, [{ data: copy, failed: false }], cached).unconfirmed).toBe(true)
+    // A network answer after the page: confirmed, and live once its card shows its pill.
     const fresh = { ...live, generatedAt: NOW + 60_000 }
-    expect(
-      homeLiveState([{}], [{ data: fresh, pending: false }], { ...cached, nowMs: NOW + 60_000 }),
-    ).toEqual({ live: true, unconfirmed: false })
+    expect(homeLiveState([{}], [{ data: fresh, failed: false }], { ...cached, nowMs: NOW + 60_000 })).toEqual(
+      state(true),
+    )
   })
 
   it('R8-T1: nothing saved, a page from the device’s copy is unconfirmed (banner too) until it reaches the network', () => {
     const cached = { ...opts, unconfirmedBefore: NOW + 10_000 }
-    expect(homeLiveState([], [], cached)).toEqual({ live: false, unconfirmed: true })
-    expect(homeLiveState([], [], { ...cached, reached: true })).toEqual({ live: true, unconfirmed: false })
-    expect(homeLiveState([], [], { ...cached, reached: true, online: false })).toEqual({
-      live: false,
-      unconfirmed: false,
-    })
+    expect(homeLiveState([], [], cached)).toEqual(state(false, false, true))
+    // Reached: confirmed, and with no saved cards the page has no live data to claim.
+    expect(homeLiveState([], [], { ...cached, reached: true })).toEqual(state(undefined))
+    expect(homeLiveState([], [], { ...cached, reached: true, online: false })).toEqual(state(false))
   })
 
-  it('nothing saved: LIVE only after the page’s own network answer, fresh page or not (Codex release review)', () => {
-    // A fresh server render through an API outage: no answer, no LIVE (and no banner while the browser is online).
-    expect(homeLiveState([], [], opts)).toEqual({ live: false, unconfirmed: false })
-    expect(homeLiveState([], [], { ...opts, reached: true })).toEqual({ live: true, unconfirmed: false })
-    expect(homeLiveState([], [], { ...opts, reached: true, online: false })).toEqual({
-      live: false,
-      unconfirmed: false,
-    })
-  })
-
-  it('never LIVE before the saved items are read (the server render and hydration)', () => {
-    expect(homeLiveState(null, [], opts)).toEqual({ live: false, unconfirmed: false })
+  it('P-3167c11-O1/H1: nothing saved, or the saved items not read yet (server render, hydration), claims nothing', () => {
+    // Not OFFLINE in the server's HTML or before the alerts answer, and not LIVE over an empty list once it does.
+    expect(homeLiveState(null, [], opts)).toEqual(state(undefined))
+    expect(homeLiveState([], [], opts)).toEqual(state(undefined))
+    expect(homeLiveState([], [], { ...opts, reached: true })).toEqual(state(undefined))
+    // Offline is still said: the browser is offline, or a request couldn't reach the network (useOnline).
+    expect(homeLiveState([], [], { ...opts, reached: true, online: false })).toEqual(state(false))
+    expect(homeLiveState(null, [], { ...opts, online: false })).toEqual(state(false))
   })
 
   it('never LIVE offline; with nothing saved, never LIVE from a cached copy', () => {
-    expect(homeLiveState(items, [{ data: live, pending: false }], { ...opts, online: false }).live).toBe(
-      false,
-    )
+    expect(homeLiveState(items, [{ data: live, failed: false }], { ...opts, online: false }).live).toBe(false)
     // A cached copy: not LIVE, and unconfirmed (the banner shows with the OFFLINE pill, R8-T1).
-    expect(homeLiveState([], [], { ...opts, unconfirmedBefore: NOW })).toEqual({
-      live: false,
-      unconfirmed: true,
-    })
+    expect(homeLiveState([], [], { ...opts, unconfirmedBefore: NOW })).toEqual(state(false, false, true))
   })
 })
 

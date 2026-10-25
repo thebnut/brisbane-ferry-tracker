@@ -88,14 +88,21 @@ const clockDay = (epochS: number, nowMs: number) => {
   return day ? `${formatClock(epochS)} ${day}` : formatClock(epochS)
 }
 
+/** Only boardable services: a cancelled or skipped (not stopping here) one is never "next". */
+const boardable = (res: DeparturesResponse | undefined) =>
+  (res?.departures ?? []).filter((d) => d.status !== 'cancelled' && d.status !== 'skipped')
+
+/** The card's LIVE pill: its next departure is live, from a live feed. */
+const marksLive = (res: DeparturesResponse | undefined): boolean =>
+  res?.rtState === 'live' && boardable(res)[0]?.status === 'live'
+
 /** One saved card from a departures response (pure, tested). */
 export function cardModel(item: SavedItem, res: DeparturesResponse | undefined, nowMs: number): CardModel {
-  // Only boardable services: a cancelled or skipped (not stopping here) one is never "next".
-  const rows = (res?.departures ?? []).filter((d) => d.status !== 'cancelled' && d.status !== 'skipped')
+  const rows = boardable(res)
   const first = rows[0]
   const dep = first ? (first.estDep ?? first.schedDep) : null
   const arr = first ? (first.estArrTo ?? first.schedArrTo) : null
-  const live = res?.rtState === 'live' && first?.status === 'live'
+  const live = marksLive(res)
   let label: string
   let title = item.title
   let detail: string | null = null
@@ -142,20 +149,26 @@ export function cardModel(item: SavedItem, res: DeparturesResponse | undefined, 
 type CardData = (DeparturesResponse & OfflineCopy) | undefined
 
 /**
- * The home page's own live judgement (R7-T1), as each mode board makes it for its one board (#60/#61/#68):
+ * The home page's own live judgement (R7-T1), reported the way the mode homes report theirs (@bft/ui mode-home
+ * pageLive, R36-L1 and R32-RT1):
  *  - `unconfirmed`: the page came from the device's copy (the service worker's, or old by the device clock) and no
- *    card has its own network answer yet, so it shows the offline banner like a board rendered from a cached page;
- *  - `live` (the header pill): online, confirmed, and every saved card has an answer that is live and fresh. A card
- *    still waiting for its answer, or whose request failed, is not live: before R7-T1 a pending card counted as live,
- *    so an offline reload kept LIVE up for as long as the requests took to fail (Codex review: a failed one too).
- * Before the saved items are read (server render, hydration) it is never LIVE. With nothing saved there are no cards:
- * LIVE needs the page's own network answer (`reached`, useReachedNetwork), however the page was loaded (Codex review:
- * a fresh server render claimed LIVE through an API outage). A page from the device's copy is unconfirmed until then,
- * with the banner as well as the OFFLINE pill (R8-T1: the pill showed with no banner).
+ *    card has its own network answer yet, so it shows the offline banner and the OFFLINE pill like a board rendered
+ *    from a cached page (R8-T1);
+ *  - `live` (the header pill): not live (OFFLINE) offline, unconfirmed, or while a saved card is not live: its answer
+ *    is stale, not live, or its request failed with nothing to show (Codex review: a failed one too). LIVE once none
+ *    is, and a card shows its LIVE pill: live data whose next departure is timetabled marks nothing live, so it never
+ *    puts LIVE over cards without a pill (P-3167c11-H1). Only such cards: no claim (undefined);
+ *  - `pending`: a card still waiting for its first answer, and none not live: "Connecting…", not OFFLINE (before
+ *    R7-T1 a pending card counted as live, so an offline reload kept LIVE up for as long as the requests took to fail).
+ * With no saved cards (the saved items not read yet: the server render and hydration; or nothing saved) the page has
+ * no live data of its own, so it claims nothing either way: no OFFLINE flash in the server's HTML (P-3167c11-O1) and
+ * no LIVE over an empty list (P-3167c11-H1). `reached` (useReachedNetwork) still confirms a page from the device's copy
+ * with nothing saved, and a request that can't reach the network makes useOnline false: the header says OFFLINE then.
  */
 export function homeLiveState(
   items: readonly unknown[] | null,
-  cards: ReadonlyArray<{ data: CardData; pending: boolean }>,
+  /** Per saved card: its data, and whether its request failed (`isError || failureCount > 0`, as the mode homes). */
+  cards: ReadonlyArray<{ data: CardData; failed: boolean }>,
   {
     online,
     nowMs,
@@ -170,7 +183,7 @@ export function homeLiveState(
     arrivedAt?: number | null
     reached?: boolean
   },
-): { live: boolean; unconfirmed: boolean } {
+): { live: boolean | undefined; pending: boolean; unconfirmed: boolean } {
   const answered =
     cards.some(
       ({ data }) =>
@@ -178,17 +191,32 @@ export function homeLiveState(
     ) ||
     (items?.length === 0 && reached)
   const unconfirmed = unconfirmedBefore != null && !answered
-  // Saved items not read yet (the server render and hydration): nothing confirmed, so no LIVE (Codex review).
-  if (!online || unconfirmed || items == null) return { live: false, unconfirmed }
-  if (items.length === 0) return { live: reached, unconfirmed }
-  // Every saved card, each with an answer (one still waiting, or one that failed, has nothing live to show).
-  const live =
-    cards.length === items.length &&
-    cards.every(
-      (c) =>
-        c.data != null && liveState(c.data, { offline: false, nowMs, unconfirmedBefore, arrivedAt }) == null,
-    )
-  return { live, unconfirmed }
+  // Each saved card (one query per item) as a mode home's row reports (reportValue, pageLive): one not live, or whose
+  // request failed without a live pill to keep showing, makes the page not live; one with no answer yet makes it
+  // "Connecting…" unless a failed one still shows a live pill (`held`); otherwise LIVE once a card shows its pill.
+  // No cards (items not read yet, or none saved): no claim.
+  let down = !online || unconfirmed
+  let pending = false
+  let held = false
+  let pill = false
+  for (const c of cards) {
+    const fresh =
+      c.data != null && liveState(c.data, { offline: false, nowMs, unconfirmedBefore, arrivedAt }) == null
+    const shows = fresh && marksLive(c.data)
+    if (c.failed) {
+      if (shows) {
+        pill = true
+        held = true
+      } else down = true
+    } else if (c.data == null) pending = true
+    else if (!fresh) down = true
+    else pill ||= shows
+  }
+  return {
+    live: down || pending ? false : pill || undefined,
+    pending: pending && !down && !held,
+    unconfirmed,
+  }
 }
 
 /**
@@ -382,9 +410,9 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   const page = usePageCheck()
   const unconfirmedBefore = page?.unconfirmedBefore ?? null
   const reached = useReachedNetwork(items?.length === 0)
-  const { live, unconfirmed } = homeLiveState(
+  const { live, pending, unconfirmed } = homeLiveState(
     items,
-    qs.map((q) => ({ data: q.data, pending: q.isPending })),
+    qs.map((q) => ({ data: q.data, failed: q.isError || q.failureCount > 0 })),
     { online, nowMs: now, unconfirmedBefore, arrivedAt: page?.arrivedAt, reached },
   )
   const updatedAt = useLastAnswerAt(
@@ -411,7 +439,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   )
   return (
     <>
-      <TransitHeader live={live} />
+      <TransitHeader live={live} pending={pending} />
       <TransitStrip updatedAt={updatedAt}>
         {items ? (
           <span className="text-sm font-semibold text-aqua-text dark:text-ferry-aqua-light">

@@ -165,6 +165,17 @@ const SAVED_HOMES = [
       ),
   },
   {
+    // My Transit reports its saved cards the same way (P-3167c11-O1/H1): never OFFLINE while a card waits.
+    name: 'My Transit',
+    path: '/',
+    glob: '**/__fixtures/v1/bus/stops/*/departures*',
+    seed: () =>
+      localStorage.setItem(
+        'bft-bus-saved',
+        JSON.stringify([{ id: '10802', name: 'Cultural Centre station, platform 1' }]),
+      ),
+  },
+  {
     name: 'train home',
     path: '/train',
     glob: '**/__fixtures/v1/train/**/departures*',
