@@ -327,22 +327,33 @@ describe('sendEvent and save_stop', () => {
   });
 });
 
-// Runs public/ga-config.js in a sandbox for a given URL.
-function bootstrap(href) {
+// Runs public/ga-config.js in a sandbox for a given URL (and referrer).
+function bootstrap(href, referrer = '') {
   const url = new URL(href);
   const appended = [];
   const window = {
-    location: { protocol: url.protocol, hostname: url.hostname },
+    location: {
+      href: url.href,
+      protocol: url.protocol,
+      host: url.host,
+      hostname: url.hostname,
+      pathname: url.pathname,
+      search: url.search,
+    },
   };
   const document = {
+    referrer,
     head: { appendChild: (el) => appended.push(el) },
     createElement: (tag) => ({ tag }),
   };
   window.document = document;
-  const context = vm.createContext({ window, document, Date });
+  const context = vm.createContext({ window, document, Date, URL, URLSearchParams });
   vm.runInContext(readFileSync(new URL('../../public/ga-config.js', import.meta.url), 'utf8'), context);
-  const config = window.dataLayer?.map((args) => Array.from(args)).find((a) => a[0] === 'config');
-  return { window, appended, config };
+  // Array.from here, not the sandbox's map: strict equality compares the realm's prototypes too.
+  const calls = window.dataLayer && Array.from(window.dataLayer, (args) => JSON.parse(JSON.stringify(Array.from(args))));
+  const config = calls?.find((a) => a[0] === 'config');
+  const set = calls?.find((a) => a[0] === 'set');
+  return { window, appended, config, set, calls };
 }
 
 describe('public/ga-config.js', () => {
@@ -357,12 +368,50 @@ describe('public/ga-config.js', () => {
     it(`on for ${href}: config with the contract, gtag/js loaded`, () => {
       const { window, appended, config } = bootstrap(href);
       assert.equal(typeof window.gtag, 'function');
-      assert.deepEqual(JSON.parse(JSON.stringify(config)), ['config', 'G-MEG3CX0SFC', contract]);
+      assert.deepEqual(config, [
+        'config',
+        'G-MEG3CX0SFC',
+        { ...contract, page_location: href, page_title: 'ferry home' },
+      ]);
       assert.equal(appended.length, 1);
       assert.equal(appended[0].src, 'https://www.googletagmanager.com/gtag/js?id=G-MEG3CX0SFC');
       assert.equal(appended[0].async, true);
     });
   }
+
+  it('GA sees no query beyond the allowlist, no referrer query and no page title: set before the config', () => {
+    const { calls, config, set } = bootstrap(
+      'https://www.brisbaneferry.com/terminal/bulimba?lat=-27.47&lon=153.02&q=my%20house&dataSource=v1&gclid=abc&utm_source=g&to=317590#map',
+      'https://www.example.com/search?q=home%20address&page=2',
+    );
+    const page = {
+      page_location: 'https://www.brisbaneferry.com/terminal/bulimba?gclid=abc&utm_source=g&to=317590',
+      page_title: 'ferry terminal bulimba',
+      page_referrer: 'https://www.example.com/search',
+    };
+    assert.deepEqual(set, ['set', page]);
+    assert.deepEqual(calls.map((c) => c[0]), ['js', 'set', 'config']);
+    for (const [k, v] of Object.entries(page)) assert.equal(config[2][k], v);
+    assert.doesNotMatch(JSON.stringify(calls), /lat=|lon=|my%20house|home%20address|dataSource|153\.02/);
+  });
+
+  it('path titles: the page type and the id in the path, never document.title', () => {
+    for (const [path, want] of [
+      ['/', 'ferry home'],
+      ['/terminal/bulimba', 'ferry terminal bulimba'],
+      ['/terminal/a%20b%3Cx%3E', 'ferry terminal'],
+      ['/terminal/%E0%A4%A', 'ferry'],
+      ['/404.html', 'ferry page'],
+      ['/privacy', 'ferry privacy'],
+    ]) {
+      assert.equal(bootstrap(`https://www.brisbaneferry.com${path}`).set[1].page_title, want, path);
+    }
+  });
+
+  it('the iOS app keeps capacitor://localhost (its URL has no origin)', () => {
+    const { set } = bootstrap('capacitor://localhost/terminal/bulimba?x=1');
+    assert.equal(set[1].page_location, 'capacitor://localhost/terminal/bulimba');
+  });
 
   it('on with debug_mode for Vercel pre-prod', () => {
     const { config } = bootstrap('https://brisbane-ferry-tracker.vercel.app/');
