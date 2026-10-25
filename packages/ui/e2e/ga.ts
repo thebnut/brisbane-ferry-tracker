@@ -6,6 +6,7 @@
  * test loads the real gtag.js to check the CSP lets its hits out, and answers each hit itself with a 204.
  */
 import { devices, expect, type Page, test } from '@playwright/test'
+import { gaPageTitle, type SiteMode } from '../src/analytics-config.ts'
 import { onboardingAnswered } from './onboarding.ts'
 
 /** Specs that run only against the GA server. */
@@ -127,7 +128,11 @@ export function gaSuite({
         await page.clock.runFor(2_000)
         await expect.poll(() => gaEvents(page, 'page_view')).toHaveLength(1)
         const [first] = await gaEvents(page, 'page_view')
-        expect(first?.params).toMatchObject({ site_mode: siteMode, page_path: boardPath })
+        expect(first?.params).toMatchObject({
+          site_mode: siteMode,
+          page_path: boardPath,
+          page_title: gaPageTitle(boardPath, siteMode as SiteMode),
+        })
         expect(String(first?.params.page_location)).toMatch(new RegExp(`${boardPath}$`))
         expect(await page.evaluate(() => (window as unknown as { __gtagStub?: boolean }).__gtagStub)).toBe(
           true,
@@ -141,6 +146,8 @@ export function gaSuite({
         expect((await gaEvents(page, 'engaged_visit'))[0]?.params).toEqual({
           site_mode: siteMode,
           page_location: `${origin}${boardPath}`,
+          // The path-based title (e.g. "bus stop 10802"), never the board's own, which names the stop.
+          page_title: gaPageTitle(boardPath, siteMode as SiteMode),
           value: 1,
           currency: 'AUD',
         })
@@ -207,6 +214,75 @@ export function gaSuite({
           .not.toBe(0)
         test.skip(!real, 'gtag.js could not be downloaded (no network)')
         await expect.poll(() => hits.some((h) => /(^|[?&\n])en=page_view(&|$|\n)/.test(h))).toBe(true)
+        // Every hit's title (dt, in the URL or a batched event's line) is the path-based one (gaPageTitle), never the
+        // page's own title, which names the stop: gtag's own events too.
+        const pageTitle = await page.title()
+        const titles = hits.flatMap((h) =>
+          h
+            .split('\n')
+            .flatMap((l) =>
+              [...l.matchAll(/(?:^|[?&])dt=([^&]*)/g)].map((m) => decodeURIComponent(m[1] ?? '')),
+            ),
+        )
+        expect(titles.length).toBeGreaterThan(0)
+        for (const t of titles) {
+          expect(t).toMatch(/^(ferry|train|bus|transit) [a-z][a-z-]*( [A-Za-z0-9._-]+)?$/)
+          expect(t).not.toBe(pageTitle)
+        }
+        // After a client navigation gtag's own events (scroll, user_engagement) carry the new page's URL and title:
+        // they come from gtag("set"), which /ga.js updates per route, and nothing in the config outranks it. Our own
+        // events (page_view, engaged_visit, save_stop) don't count here.
+        const OWN = ['page_view', 'engaged_visit', 'save_stop']
+        const auto = () =>
+          hits.flatMap((h) => {
+            const [url = '', body = ''] = h.split(/\n(.*)/s)
+            const shared = new URL(url).searchParams
+            return body
+              .split('\n')
+              .concat(shared.toString())
+              .map((l) => new URLSearchParams(l))
+              .filter((p) => p.get('en') && !OWN.includes(p.get('en') as string))
+              .map((p) => ({
+                en: p.get('en'),
+                dt: p.get('dt') ?? shared.get('dt'),
+                dl: p.get('dl') ?? shared.get('dl'),
+              }))
+          })
+        const before = auto().length
+        await page.locator(`a[href="${navLink}"]:visible`).first().click()
+        await page.waitForURL((u) => u.pathname === navPath)
+        await expect
+          .poll(() => hits.some((h) => h.includes('en=page_view') && h.includes(encodeURIComponent(navPath))))
+          .toBe(true)
+        // gtag's scroll fires at 90% depth on a page taller than the window; user_engagement when the page is left,
+        // which also flushes the batch. Its scroll check needs a moment before the page goes.
+        await page.mouse.wheel(0, 20_000)
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+        await page.waitForTimeout(2_000)
+        const scrolled = await page.evaluate(
+          () => scrollY > 0 && (scrollY + innerHeight) / document.documentElement.scrollHeight >= 0.9,
+        )
+        await page.evaluate(() => {
+          Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+          document.dispatchEvent(new Event('visibilitychange'))
+          window.dispatchEvent(new Event('pagehide'))
+        })
+        const expected = scrolled ? ['scroll', 'user_engagement'] : ['user_engagement']
+        await expect
+          .poll(
+            () =>
+              expected.every((en) =>
+                auto()
+                  .slice(before)
+                  .some((e) => e.en === en),
+              ),
+            { timeout: 15_000 },
+          )
+          .toBe(true)
+        for (const e of auto().slice(before)) {
+          expect(e.dt, `${e.en} after the route change`).toBe(gaPageTitle(navPath, siteMode as SiteMode))
+          expect(new URL(e.dl ?? '').pathname, `${e.en} after the route change`).toBe(navPath)
+        }
         // The blocked URL (the message quotes the policy too, which names these hosts): the Ads and Google signals
         // beacons (www.google.com, doubleclick) are refused on purpose; GA4's own collection never is.
         const blocked = refused.map((m) => /(?:to|image|load) '?(https:\/\/[^'\s]+)/.exec(m)?.[1] ?? m)
@@ -259,6 +335,7 @@ export function gaSuite({
             params: {
               site_mode: siteMode,
               page_location: `${origin}${boardPath}`,
+              page_title: gaPageTitle(boardPath, siteMode as SiteMode),
               mode: saveMode,
               stop_id: stopId,
               value: 3,
