@@ -53,6 +53,17 @@ export function budgetConfig(env: AiEnv): BudgetConfig {
   }
 }
 
+/** Monitoring hook (ADR-0009): a Workers Observability alert rule matches this event. */
+export function budgetAlertLog(cfg: BudgetConfig): void {
+  console.warn(
+    JSON.stringify({
+      event: 'ai_budget_alert',
+      threshold: cfg.alertAt,
+      monthlyBudgetUsd: cfg.monthlyBudgetUsd,
+    }),
+  )
+}
+
 /**
  * AI status for /v1/health: the kill switch as configured, plus month-to-date spend from the Budget DO. A ledger
  * failure keeps `enabled` truthful and reports spend as unknown (null) (Codex review).
@@ -467,15 +478,7 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
           ok: false as const,
           reason: 'disabled' as const,
         }
-        if (res.ok && res.alert)
-          // Monitoring hook (ADR-0009): Workers Observability alert rule matches this event.
-          console.warn(
-            JSON.stringify({
-              event: 'ai_budget_alert',
-              threshold: cfg.alertAt,
-              monthlyBudgetUsd: cfg.monthlyBudgetUsd,
-            }),
-          )
+        if (res.ok && res.alert) budgetAlertLog(cfg)
         return res.ok ? { ok: true } : { ok: false, reason: res.reason }
       },
       reconcile: async (id, usd) => {
