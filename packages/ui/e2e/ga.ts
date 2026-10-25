@@ -7,6 +7,7 @@
  */
 import { devices, expect, type Page, test } from '@playwright/test'
 import { gaPageTitle, type SiteMode } from '../src/analytics-config.ts'
+import { unexpectedCsp } from './csp-expected.ts'
 import { onboardingAnswered } from './onboarding.ts'
 
 /** Specs that run only against the GA server. */
@@ -283,14 +284,9 @@ export function gaSuite({
           expect(e.dt, `${e.en} after the route change`).toBe(gaPageTitle(navPath, siteMode as SiteMode))
           expect(new URL(e.dl ?? '').pathname, `${e.en} after the route change`).toBe(navPath)
         }
-        // The blocked URL (the message quotes the policy too, which names these hosts): the Ads and Google signals
-        // beacons (www.google.com, doubleclick) are refused on purpose; GA4's own collection never is.
-        const blocked = refused.map((m) => /(?:to|image|load) '?(https:\/\/[^'\s]+)/.exec(m)?.[1] ?? m)
-        expect(
-          blocked.filter((u) =>
-            /^https:\/\/([\w-]+\.)*(google-analytics\.com|analytics\.google\.com)\//.test(u),
-          ),
-        ).toEqual([])
+        // Only the Ads and Google signals beacons (csp-expected.ts, R44-G1's duplicate after the route change above) are
+        // refused, on purpose: GA4's own collection never is, and any other refusal fails.
+        expect(unexpectedCsp(refused)).toEqual([])
       })
 
       test('the CSP lists gtag.js and the collection origins, keeps the nonce, and the bootstrap carries it', async ({

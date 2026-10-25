@@ -1,13 +1,15 @@
+import { unexpectedCsp } from '@bft/ui/e2e/csp-expected.ts'
 import { expect, test } from '@playwright/test'
 import { hydrated, PAGES, watchCsp } from './csp.ts'
 
 /**
- * The live CSP on staging (no fixtures, so the Ask box uses the real invisible Turnstile widget): zero violations on
- * every page, then Turnstile's script and challenge iframe load and a deterministic question is answered (no LLM call,
- * no spend). It doesn't try to
- * solve a challenge. Run: `pnpm test:staging` (BASE_URL overrides the host).
+ * The live CSP on staging (no fixtures, so the Ask box uses the real invisible Turnstile widget): no unexpected
+ * violation on every page, after a client route change, then while Turnstile's script and challenge iframe load and a
+ * deterministic question is answered (no LLM call, no spend). It doesn't try to solve a challenge. Staging has GA on,
+ * so the Google Ads and signals beacons the CSP refuses on purpose (@bft/ui/e2e/csp-expected.ts, R44-G1 after a route
+ * change) are expected; any other violation or page error fails. Run: `pnpm test:staging` (BASE_URL overrides the host).
  */
-test('staging: zero CSP violations on every page and while Turnstile loads for the Ask box', async ({
+test('staging: no unexpected CSP violation on every page, a route change and while Turnstile loads', async ({
   page,
 }) => {
   test.setTimeout(120_000)
@@ -16,6 +18,12 @@ test('staging: zero CSP violations on every page and while Turnstile loads for t
     await page.goto(path)
     await hydrated(page)
   }
+  // A client route change: gtag's hits for the new page (Google signals' duplicate is refused, R44-G1).
+  await page.goto('/bus/stop/10802')
+  await hydrated(page)
+  await page.locator('a[href="/ferry"]:visible').first().click()
+  await page.waitForURL((u) => u.pathname === '/ferry')
+  await page.waitForTimeout(3_000)
   await page.goto('/')
   await hydrated(page)
   const ask = page.getByRole('textbox', { name: 'Ask' })
@@ -40,5 +48,5 @@ test('staging: zero CSP violations on every page and while Turnstile loads for t
   // 'cache' when the same parsed question was answered in the last few seconds.
   expect(['deterministic', 'cache']).toContain(body.source)
   await expect(page.locator('[data-ask-source]')).toBeVisible()
-  expect(violations).toEqual([])
+  expect(unexpectedCsp(violations)).toEqual([])
 })
