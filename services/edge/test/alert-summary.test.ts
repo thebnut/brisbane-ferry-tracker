@@ -406,7 +406,8 @@ describe('the request asks for words, not characters (staging, 26 Oct: 9 of 10 r
 
   it('a too_long rejection logs the reply’s length, never its text', async () => {
     const h = harness()
-    const long = `${'Route 200 services are changed '.repeat(8)}.`
+    // Padded: the logged length is the trimmed reply's, as the validator measures it.
+    const long = `  ${'Route 200 services are changed '.repeat(8)}.\n`
     h.setRespond(async () => message(long))
     await h.s.kick([mk(0)])
     const rej = h.logs.find((l) => l.msg === 'alert summary rejected')
