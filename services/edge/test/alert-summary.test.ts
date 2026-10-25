@@ -162,7 +162,34 @@ describe('checkSummary (grounding)', () => {
     }
     expect(reject('Trains stop from 7:30pm on 28 November.', mixed)).toBe('date')
     expect(reject('Trains stop from 9:30pm on 28 October.', mixed)).toBe('ok')
-    expect(reject('Trains stop from 9.30 pm on October 28.', mixed)).toBe('ok')
+    expect(reject('Trains stop from 9.30 pm on 28 October.', mixed)).toBe('ok')
+    // Reordered, so not extractive: rejected (conservative).
+    expect(reject('Trains stop from 9:30pm on October 28.', mixed)).toBe('date')
+  })
+
+  it('Codex r2: rejects recombined numeric dates and written numbers, lower-case codes and "may" the month', () => {
+    const src: Alert = {
+      ...ROUTE_200,
+      header: 'Route F1 works',
+      description: '28/10/2026 to 29/11/2026; twenty minutes at two stops.',
+      routes: ['F1-4055'],
+    }
+    expect(reject('Route F1 is closed on 28/10/2026.', src)).toBe('ok')
+    expect(reject('Route F1 is closed on 28/11/2026.', src)).toBe('number')
+    expect(reject('Route F1 is closed for twenty minutes.', src)).toBe('ok')
+    expect(reject('Route F1 is closed for twenty two minutes.', src)).toBe('number')
+    expect(reject('Take brcl instead of F1.', src)).toBe('code')
+    expect(reject('Take Brcl instead of F1.', src)).toBe('code')
+    // Known elsewhere (another alert's route), even when it has vowels.
+    expect(checkSummary('Take Brip instead of F1.', src, new Set(['BRIP']))).toEqual({
+      ok: false,
+      reason: 'code',
+    })
+    expect(reject('Route F1 is closed in may.', src)).toBe('date')
+    expect(reject('Route F1 is closed until May.', src)).toBe('date')
+    expect(reject('Route F1 services may be cancelled.', src)).toBe('ok')
+    // A real May date in the alert allows it.
+    expect(reject('Route F1 is closed in May.', { ...src, description: 'Closed in May.' })).toBe('ok')
   })
 
   it('Codex r1: rejects any domain-shaped text or URI scheme', () => {

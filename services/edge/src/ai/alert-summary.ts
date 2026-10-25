@@ -199,6 +199,57 @@ const dates = (s: string) =>
     }),
   )
 
+/** Ordinary vowel-less words and abbreviations (any other vowel-less letter run is taken as a code). */
+const PLAIN_NO_VOWEL = new Set(['AM', 'PM', 'ST', 'ND', 'RD', 'TH', 'MR', 'MRS', 'MS', 'DR'])
+
+/** Words before which "may" is the month rather than the verb ("in May", "until May"). */
+const MAY_CONTEXT = new Set(
+  'in until from by since before after during of mid early late end on to through till'.split(' '),
+)
+
+/**
+ * Text for extractive comparison: words split where feed fields run together, lower case, 9.30 written 9:30, am/pm
+ * joined to their time, and everything but letters, digits, `:` and `/` turned into single spaces.
+ */
+function normalise(t: string): string[] {
+  return t
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .replace(/(\d)\.(\d)/g, '$1:$2')
+    .replace(/\b([ap])\.m\.?/g, '$1m')
+    .replace(/(\d)\s+([ap]m)\b/g, '$1$2')
+    .replace(/[^a-z0-9:/]+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+}
+
+/** A token that states a quantity, time or date: anything with a digit, a number or date word, or "may" the month. */
+function isFactToken(toks: string[], i: number): boolean {
+  const t = toks[i] as string
+  // Digits as a number, time, date or ordinal (9:30pm, 28/10, 28th); codes with digits (F11, L1) are checked as codes.
+  if (/^\d[\d:/]*(?:am|pm|st|nd|rd|th)?$/.test(t) || NUMBER_WORDS.has(t) || DATE_WORDS.has(t)) return true
+  if (t !== 'may') return false
+  const prev = toks[i - 1] ?? ''
+  const next = toks[i + 1] ?? ''
+  return MAY_CONTEXT.has(prev) || /\d/.test(prev) || /\d/.test(next)
+}
+
+/** Maximal runs of fact tokens ("9:30pm wednesday 28 october", "twenty two minutes"), each joined by spaces. */
+function factPhrases(toks: string[]): string[] {
+  const out: string[] = []
+  let run: string[] = []
+  toks.forEach((_, i) => {
+    if (isFactToken(toks, i)) run.push(toks[i] as string)
+    else if (run.length) {
+      out.push(run.join(' '))
+      run = []
+    }
+  })
+  if (run.length) out.push(run.join(' '))
+  return out
+}
+
 /**
  * Validate a model summary against its alert. Returns the summary to store, or why it was rejected. Conservative by
  * design: a reasonable summary may be rejected, but one that adds a fact, a code or a contact never passes.
@@ -206,6 +257,8 @@ const dates = (s: string) =>
 export function checkSummary(
   raw: string,
   a: Alert,
+  /** Route codes and stop ids known elsewhere (other alerts): naming one this alert doesn't is rejected in any case. */
+  vocabulary: ReadonlySet<string> = new Set(),
 ): { ok: true; summary: string } | { ok: false; reason: RejectReason } {
   const s = raw.trim()
   if (!s) return { ok: false, reason: 'empty' }
@@ -225,14 +278,27 @@ export function checkSummary(
     if (NUMBER_WORDS.has(w) && !srcWords.has(w)) return { ok: false, reason: 'number' }
     if (DATE_WORDS.has(w) && !srcWords.has(w)) return { ok: false, reason: 'date' }
   }
-  // "May" the month (capitalised), as opposed to the verb.
-  if (/\bMay\b/.test(s) && !/\bMay\b/.test(src)) return { ok: false, reason: 'date' }
   // Whole expressions, not just their parts: 7:30pm needs 7:30pm in the alert (not 7:30am and 9:30pm), and 28 November
   // needs 28 November (not 28 October and 29 November).
   const srcTimes = times(src)
   for (const t of times(s)) if (!srcTimes.has(t)) return { ok: false, reason: 'date' }
   const srcDates = dates(src)
   for (const d of dates(s)) if (!srcDates.has(d)) return { ok: false, reason: 'date' }
+  // Extractive: every run of fact tokens must appear as one run in the alert text, so parts can't be recombined
+  // (28/11/2026 from 28/10/2026 and 29/11/2026, "twenty two minutes" from "twenty minutes at two stops"). "May" the
+  // month needs "May" the month in the alert, not the verb (Codex r2).
+  const srcToks = normalise(src)
+  const srcFlat = ` ${srcToks.join(' ')} `
+  const srcPhrases = factPhrases(srcToks)
+  for (const ph of factPhrases(normalise(s))) {
+    const toks = ph.split(' ')
+    const reason = toks.some((t) => t === 'may' || DATE_WORDS.has(t) || /\d[ap]m$/.test(t))
+      ? 'date'
+      : 'number'
+    if (!srcFlat.includes(` ${ph} `)) return { ok: false, reason }
+    if (toks.includes('may') && !srcPhrases.some((p) => p.split(' ').includes('may')))
+      return { ok: false, reason: 'date' }
+  }
   // Route and stop codes: any token mixing letters and digits, in any case (F11, p200), or of two or more capitals
   // (BRCL), must be in the alert. Plain numbers, times (30pm) and ordinals (28th) were checked above. Source tokens
   // split on hyphens, so a route id F1-4055 allows F1.
@@ -240,6 +306,13 @@ export function checkSummary(
   for (const t of s.match(/\b[A-Za-z0-9]*(?:[A-Za-z]\d|\d[A-Za-z])[A-Za-z0-9]*\b|\b[A-Z]{2,}\b/g) ?? []) {
     if (/^\d+(?:am|pm|st|nd|rd|th)$/i.test(t)) continue
     if (!srcTokens.has(t.toUpperCase())) return { ok: false, reason: 'code' }
+  }
+  // Alphabetic codes in lower or mixed case (brcl): a known code, or a vowel-less letter run, not in the alert.
+  for (const w of s.match(/\b[A-Za-z]{2,}\b/g) ?? []) {
+    const up = w.toUpperCase()
+    if (srcTokens.has(up)) continue
+    if (vocabulary.has(up) || (/^[^AEIOUY]{2,6}$/.test(up) && !PLAIN_NO_VOWEL.has(up)))
+      return { ok: false, reason: 'code' }
   }
   return { ok: true, summary: s }
 }
@@ -485,6 +558,12 @@ export class AlertSummariser {
     // stays bounded even if the feed alone exceeds it; a key not admitted is not summarised (Codex r1).
     const current = new Map<string, Alert>()
     for (const a of alerts) current.set(this.keyOf(a), a)
+    // Every route code and stop id in the current alerts: a summary may not name one its own alert doesn't.
+    const vocabulary = new Set<string>()
+    for (const a of alerts) {
+      for (const r of a.routes) vocabulary.add((r.split('-')[0] as string).toUpperCase())
+      for (const st of a.stops) vocabulary.add(st.toUpperCase())
+    }
     let evicted = 0
     for (const [k, e] of this.entries) {
       if (!current.has(k) && now - e.seen > EVICT_AFTER_MS) {
@@ -546,7 +625,7 @@ export class AlertSummariser {
           break
         }
         dirty = true
-        const checked = r.ok ? checkSummary(r.text, a) : null
+        const checked = r.ok ? checkSummary(r.text, a, vocabulary) : null
         if (checked?.ok) {
           e.s = checked.summary
           delete e.fails
