@@ -392,12 +392,12 @@ function harness(
 }
 
 describe('the request asks for words, not characters (staging, 26 Oct: 9 of 10 replies were too long)', () => {
-  it('asks for at most SUMMARY_MAX_WORDS words, with max_tokens 60; the 160-character check still applies', async () => {
+  it('asks for at most SUMMARY_MAX_WORDS words, with max_tokens 80; the 160-character check still applies', async () => {
     const h = harness()
     await h.s.kick([mk(0)])
     const body = h.bodies[0]
     expect(body?.max_tokens).toBe(MAX_TOKENS)
-    expect(MAX_TOKENS).toBe(60)
+    expect(MAX_TOKENS).toBe(80)
     const system = body?.system.map((b) => b.text).join('\n') ?? ''
     expect(system).toContain(`at most ${SUMMARY_MAX_WORDS} words`)
     expect(system).not.toMatch(/characters/)
@@ -410,7 +410,7 @@ describe('the request asks for words, not characters (staging, 26 Oct: 9 of 10 r
     h.setRespond(async () => message(long))
     await h.s.kick([mk(0)])
     const rej = h.logs.find((l) => l.msg === 'alert summary rejected')
-    expect(rej?.fields).toMatchObject({ reason: 'too_long', chars: long.length })
+    expect(rej?.fields).toMatchObject({ reason: 'too_long', chars: long.trim().length })
     expect(JSON.stringify(h.logs)).not.toContain('services are changed')
   })
 })

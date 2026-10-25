@@ -26,8 +26,11 @@ export const SUMMARY_MAX_CHARS = 160
  * first 10 replies to "at most 160 characters" were longer). 20 words is about 120 characters.
  */
 export const SUMMARY_MAX_WORDS = 20
-/** About 240 characters: room for a valid sentence, and a runaway reply stops early (and costs less). */
-export const MAX_TOKENS = 60
+/**
+ * Room for any valid sentence (160 characters is about 40 tokens of plain words, more with route codes and dates;
+ * a reply cut off at max_tokens is rejected), while a runaway reply stops early and costs less than at 120.
+ */
+export const MAX_TOKENS = 80
 /** New summaries per run (one run per alerts cycle, every 60 s). */
 export const MAX_PER_RUN = 5
 export const CALL_TIMEOUT_MS = 10_000
@@ -672,7 +675,7 @@ export class AlertSummariser {
           this.log.warn('alert summary rejected', {
             key: k,
             reason: checked.reason,
-            chars: r.ok ? r.text.length : 0,
+            chars: r.ok ? r.text.trim().length : 0,
             fails: e.fails,
           })
         } else {
