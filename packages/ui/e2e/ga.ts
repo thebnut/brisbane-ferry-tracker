@@ -230,7 +230,9 @@ export function gaSuite({
           expect(t).not.toBe(pageTitle)
         }
         // After a client navigation gtag's own events (scroll, user_engagement) carry the new page's URL and title:
-        // they come from gtag("set"), which /ga.js updates per route, and nothing in the config outranks it.
+        // they come from gtag("set"), which /ga.js updates per route, and nothing in the config outranks it. Our own
+        // events (page_view, engaged_visit, save_stop) don't count here.
+        const OWN = ['page_view', 'engaged_visit', 'save_stop']
         const auto = () =>
           hits.flatMap((h) => {
             const [url = '', body = ''] = h.split(/\n(.*)/s)
@@ -239,7 +241,7 @@ export function gaSuite({
               .split('\n')
               .concat(shared.toString())
               .map((l) => new URLSearchParams(l))
-              .filter((p) => p.get('en') && p.get('en') !== 'page_view')
+              .filter((p) => p.get('en') && !OWN.includes(p.get('en') as string))
               .map((p) => ({
                 en: p.get('en'),
                 dt: p.get('dt') ?? shared.get('dt'),
@@ -252,14 +254,31 @@ export function gaSuite({
         await expect
           .poll(() => hits.some((h) => h.includes('en=page_view') && h.includes(encodeURIComponent(navPath))))
           .toBe(true)
+        // gtag's scroll fires at 90% depth on a page taller than the window; user_engagement when the page is left,
+        // which also flushes the batch. Its scroll check needs a moment before the page goes.
         await page.mouse.wheel(0, 20_000)
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+        await page.waitForTimeout(2_000)
+        const scrolled = await page.evaluate(
+          () => scrollY > 0 && (scrollY + innerHeight) / document.documentElement.scrollHeight >= 0.9,
+        )
         await page.evaluate(() => {
-          window.scrollTo(0, document.body.scrollHeight)
-          // Leaving the page: gtag sends user_engagement.
           Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
           document.dispatchEvent(new Event('visibilitychange'))
+          window.dispatchEvent(new Event('pagehide'))
         })
-        await expect.poll(() => auto().length, { timeout: 15_000 }).toBeGreaterThan(before)
+        const expected = scrolled ? ['scroll', 'user_engagement'] : ['user_engagement']
+        await expect
+          .poll(
+            () =>
+              expected.every((en) =>
+                auto()
+                  .slice(before)
+                  .some((e) => e.en === en),
+              ),
+            { timeout: 15_000 },
+          )
+          .toBe(true)
         for (const e of auto().slice(before)) {
           expect(e.dt, `${e.en} after the route change`).toBe(gaPageTitle(navPath, siteMode as SiteMode))
           expect(new URL(e.dl ?? '').pathname, `${e.en} after the route change`).toBe(navPath)
