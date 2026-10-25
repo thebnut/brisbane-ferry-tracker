@@ -21,6 +21,7 @@ import staticGtfsService from './services/staticGtfsService';
 import { STORAGE_KEYS, DEFAULT_STOPS, ATTRIBUTION } from './utils/constants';
 import { isGitHubPages } from './utils/environment';
 import { getTerminalFromPath } from './utils/terminals';
+import { trackStopsSaved } from './utils/analytics';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 // BRI-22: Vercel Analytics — sibling of SpeedInsights. Both beacons go through
 // same-origin /_vercel/* proxies, so no CSP changes needed.
@@ -155,6 +156,7 @@ function App({ staticSectionHtml = null }) {
       // Make sure localStorage is cleared
       localStorage.removeItem(STORAGE_KEYS.SELECTED_STOPS);
     }
+    trackStopsSaved(newStops, rememberSelection);
     
     setShowStopSelector(false);
     // Update temporary stops to match the new selection

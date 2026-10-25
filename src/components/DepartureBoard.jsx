@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import DepartureItem from './DepartureItem';
 import BoardHeader from './BoardHeader';
 import DepartureTimeDropdown from './DepartureTimeDropdown';
+import { markBoardShown } from '../utils/analytics';
 
 const DepartureBoard = ({ 
   direction, 
@@ -19,6 +20,12 @@ const DepartureBoard = ({
   onDepartureTimeChange
 }) => {
   const [showMore, setShowMore] = useState(false);
+  const hasDepartures = departures.length > 0;
+
+  // GA4 engaged_visit: a board shown with departures counts as engagement.
+  useEffect(() => {
+    if (hasDepartures) markBoardShown();
+  }, [hasDepartures]);
 
   const getTitle = () => {
     if (!selectedStops) {

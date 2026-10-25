@@ -115,7 +115,7 @@
       </header>
 
       <h1>Privacy Policy</h1>
-      <p class="lede">Last updated 19 October 2026.</p>
+      <p class="lede">Last updated 25 October 2026.</p>
 
       <h2>Who we are</h2>
       <p>
@@ -182,10 +182,20 @@
       </p>
       <ul>
         <li>
-          <strong>Google Analytics 4</strong> — records anonymised pageviews, session length,
-          approximate location (city-level, inferred from IP), and device/browser class. Google
-          Analytics sets cookies in your browser. Data retention follows GA4's default of
-          14 months.
+          <strong>Google Analytics 4</strong> — counts visits and a few events: page views, an
+          "engaged visit" (the page stayed open for a short while and you looked at a departure
+          board or used it), and saving a stop pair with <em>Remember selection</em>, which sends
+          the origin terminal's public stop ID. Google also records session length, device and
+          browser class, and an approximate city that Google works out from your IP address.
+          Google Analytics sets cookies in your browser (<code>_ga</code> and
+          <code>_ga_*</code>), plus Google Ads click cookies if you arrive from one of our ads.
+          We don't send Google your location, the names of the stops you save, what you search
+          for, or any personal details. Google signals and ad personalisation are turned off.
+          Data retention follows GA4's default of 14 months. See
+          <a href="https://policies.google.com/technologies/partner-sites" rel="noopener noreferrer">how
+          Google uses information from sites that use its services</a>, or install the
+          <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener noreferrer">Google
+          Analytics opt-out browser add-on</a>.
         </li>
         <li>
           <strong>Vercel Analytics + Speed Insights</strong> — anonymous page-view counts and
@@ -209,17 +219,21 @@
         <li><code>brisbane-ferry-schedule-cache-v2</code> — a cached copy of the daily ferry schedule (up to ~50 KB) so the app loads quickly.</li>
         <li><code>brisbane-ferry-selected-stops-session</code> — temporary stop selections that only last for the current browser tab.</li>
         <li><code>brisbane-ferry-departure-time</code> — the "depart from" time filter for this session only.</li>
+        <li><code>bft-ga-engaged</code> — notes for this browser tab session that the "engaged visit" analytics event has already been counted, so it is counted once.</li>
       </ul>
       <p>
         These keys stay on your device. Clearing browser data removes them. None of them are
-        transmitted to our servers.
+        transmitted to our servers. (Google Analytics' own cookies are described under
+        <em>Analytics</em> below.)
       </p>
 
       <h2>What we <em>don't</em> collect</h2>
       <ul>
         <li>No account. No login. No password.</li>
         <li>No personally identifying information is required to use the app.</li>
-        <li>No advertising trackers or third-party ad networks.</li>
+        <li>No ads shown in the app and no third-party ad networks. We advertise the site on
+          Google Ads and use Google Analytics to measure visits from those ads, with ad
+          personalisation and Google signals turned off.</li>
         <li>No sale or sharing of your data with data brokers.</li>
         <li>No push notifications at present.</li>
         <li>No background location tracking.</li>
@@ -249,7 +263,8 @@
           Turnstile privacy addendum</a>.
         </li>
         <li>
-          <strong>Google Analytics</strong> (Google LLC) — receives anonymised analytics events.
+          <strong>Google Analytics</strong> (Google LLC) — receives the analytics events described
+          above. No location, saved stop names, searches or personal details.
           See <a href="https://policies.google.com/privacy" rel="noopener noreferrer">Google's
           privacy policy</a>.
         </li>
