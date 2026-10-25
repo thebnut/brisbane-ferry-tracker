@@ -37,6 +37,10 @@
       "name": "bft-ferry",
       "workers_dev": true,
       "vars": {
+        // GA4 (@bft/ui/analytics-config): one property for the four sites. Unset locally and in tests (GA off).
+        "GA_MEASUREMENT_ID": "G-MEG3CX0SFC",
+        // debug_mode on staging, so DebugView shows the visits (filter staging out by hostname).
+        "GA_DEBUG": "1",
         // P6: page navigations go to the same page on TRANSIT_SITE_URL, a browser's first visit via the favourites
         // handoff page (@bft/ui/redirect). 302 on staging; production stays unset until Brett's OK, per app.
         "REDIRECT_TO_TRANSIT": "1",
@@ -65,6 +69,8 @@
       "workers_dev": false,
       "routes": [{ "pattern": "next.brisbaneferry.com", "custom_domain": true }],
       "vars": {
+        // GA4 (@bft/ui/analytics-config): one property for the four sites. Unset locally and in tests (GA off).
+        "GA_MEASUREMENT_ID": "G-MEG3CX0SFC",
         "API_BASE": "https://api.brisbaneferry.com",
         "ALLOW_FIXTURES": "0",
         "FIXTURES": "0",

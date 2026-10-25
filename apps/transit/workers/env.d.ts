@@ -31,4 +31,8 @@ interface Env {
   CORS_ALLOW_ALL?: string
   /** Deployed short git sha for the x-bft-build header, passed by the deploy scripts; unset locally ("dev"). */
   BUILD_SHA?: string
+  /** GA4 measurement id (production and staging only): unset, GA is off (@bft/ui/analytics-config). */
+  GA_MEASUREMENT_ID?: string
+  /** "1" (staging): GA4 debug_mode, so DebugView shows the visit. */
+  GA_DEBUG?: string
 }

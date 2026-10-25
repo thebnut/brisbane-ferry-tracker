@@ -73,3 +73,18 @@ describe('deploy scripts stamp the deployed commit (x-bft-build)', () => {
       expect(read(env).vars, String(env)).not.toHaveProperty('BUILD_SHA')
   })
 })
+
+describe('GA4 (@bft/ui/analytics-config): on where deployed, off locally and in tests', () => {
+  it('the one property in production and staging; debug_mode only on staging', () => {
+    for (const env of ['production', 'staging']) {
+      const vars = read(env).vars as Record<string, unknown>
+      expect(vars.GA_MEASUREMENT_ID, env).toBe('G-MEG3CX0SFC')
+      expect(vars.GA_DEBUG, env).toBe(env === 'staging' ? '1' : undefined)
+    }
+  })
+
+  it('unset locally (dev, fixtures, e2e): no tag, no Google origin, no request to Google', () => {
+    expect(read().vars).not.toHaveProperty('GA_MEASUREMENT_ID')
+    expect(read().vars).not.toHaveProperty('GA_DEBUG')
+  })
+})

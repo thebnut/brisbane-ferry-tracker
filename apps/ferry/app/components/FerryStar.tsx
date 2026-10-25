@@ -56,15 +56,14 @@ export default function FerryStar({
     // What the button showed decides (a "Save" tap never unsaves one saved elsewhere since); the write is checked
     // against storage, so it never adds a trip twice.
     const adding = !saved
+    const had = isFerryFavourite(f)
     const after =
-      adding === isFerryFavourite(f)
-        ? readFerryFavourites()
-        : adding
-          ? addFerryFavourite(f)
-          : removeFerryFavourite(f)
+      adding === had ? readFerryFavourites() : adding ? addFerryFavourite(f) : removeFerryFavourite(f)
     setList(after)
     // The star shows what storage holds; when it refused the change, the toast says so (R27-S1).
     const kept = isFerryFavourite(f, after) === adding
+    // A save only when this tap stored it: not one saved elsewhere since (the button was stale).
+    if (adding && !had && kept) window.__bftGa?.saveStop('ferry', from)
     setToast(
       !kept
         ? { name, fav: f, kept, remove: !adding }

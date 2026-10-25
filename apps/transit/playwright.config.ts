@@ -1,8 +1,11 @@
 import { DEMO_ALLOWED_SPECS, demoAllowedProject, demoAllowedServer } from '@bft/ui/e2e/demo-allowed.ts'
+import { GA_SPECS, gaProject, gaServer } from '@bft/ui/e2e/ga.ts'
 import { onboardingAnswered } from '@bft/ui/e2e/onboarding.ts'
 import { defineConfig, devices } from '@playwright/test'
 
 const PORT = 8796
+/** The GA-on server (@bft/ui/e2e/ga.ts): GA_MEASUREMENT_ID set, gtag.js stubbed in the specs. */
+const GA_PORT = 8826
 /** The demo-allowed server (R9, @bft/ui/e2e/demo-allowed.ts). */
 const DEMO_PORT = 8806
 
@@ -14,7 +17,7 @@ const DEMO_PORT = 8806
  */
 export default defineConfig({
   testDir: 'tests',
-  testIgnore: ['**/llm.spec.ts', '**/*.staging.spec.ts', DEMO_ALLOWED_SPECS],
+  testIgnore: ['**/llm.spec.ts', '**/*.staging.spec.ts', DEMO_ALLOWED_SPECS, GA_SPECS],
   fullyParallel: true,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
@@ -27,6 +30,7 @@ export default defineConfig({
     { name: 'phone', use: { ...devices['Pixel 7'] } },
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     demoAllowedProject(DEMO_PORT),
+    gaProject(GA_PORT),
   ],
   webServer: [
     {
@@ -38,6 +42,13 @@ export default defineConfig({
     demoAllowedServer({
       port: PORT,
       demoPort: DEMO_PORT,
+      reuseExistingServer: !process.env.CI,
+      readyPath: '/robots.txt',
+      vars: ['TURNSTILE_SITEKEY:1x00000000000000000000AA'],
+    }),
+    gaServer({
+      port: PORT,
+      gaPort: GA_PORT,
       reuseExistingServer: !process.env.CI,
       readyPath: '/robots.txt',
       vars: ['TURNSTILE_SITEKEY:1x00000000000000000000AA'],

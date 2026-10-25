@@ -235,7 +235,7 @@ export function DepartureList({
           </div>
         </section>
       ) : null}
-      <ol className="flex flex-col gap-2.5" aria-label="Departures">
+      <ol className="flex flex-col gap-2.5" aria-label="Departures" data-ga-board="">
         {shown.map((v, i) => (
           <li key={v.key}>
             {dividers[i] ? <DayDivider>{dividers[i]}</DayDivider> : null}

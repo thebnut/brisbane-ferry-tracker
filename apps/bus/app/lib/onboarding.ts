@@ -29,6 +29,13 @@ function persisted(): { id?: unknown }[] | null {
   }
 }
 
+/** The stop ids storage holds, for save_stop on each stop newly kept. */
+const ids = (list: { id?: unknown }[]) => list.flatMap((s) => (typeof s?.id === 'string' ? [s.id] : []))
+/** save_stop (GA4, @bft/ui/analytics-config) for each stop storage now holds that it didn't before. */
+function trackNewSaves(before: string[], after: string[]): void {
+  for (const id of after) if (!before.includes(id)) window.__bftGa?.saveStop('bus', id)
+}
+
 /** Adds the tray's bus stops to My stops, in tray order, after any already there. False if storage refused. */
 export function saveBus(items: TrayItem[]): boolean {
   const stops = items.filter((i) => i.mode === 'bus')
@@ -41,6 +48,7 @@ export function saveBus(items: TrayItem[]): boolean {
     toggleSaved({ id: s.id, name: s.name })
   }
   const stored = persisted()
+  trackNewSaves(ids(before), ids(stored ?? []))
   return stored != null && stops.every((s) => stored.some((x) => x?.id === s.id))
 }
 
@@ -66,6 +74,7 @@ export function resaveBus(after: TrayItem[]): boolean {
   const now = storedStops()
   if (now && !modeChanged(toTray(now), after, 'bus')) return true
   const stops = after.filter((i) => i.mode === 'bus')
+  const before = ids(persisted() ?? [])
   writeSaved(
     applyTray(
       readSaved(),
@@ -75,6 +84,7 @@ export function resaveBus(after: TrayItem[]): boolean {
     ),
   )
   const stored = persisted()
+  trackNewSaves(before, ids(stored ?? []))
   return stored != null && stored.length === stops.length && stops.every((s, n) => stored[n]?.id === s.id)
 }
 

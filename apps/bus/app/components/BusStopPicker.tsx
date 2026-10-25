@@ -13,7 +13,7 @@ import { cellsCovering } from '../lib/geo.ts'
 import { useGeoTiles } from '../lib/geo-queries.ts'
 import { useApi } from '../lib/mode.ts'
 import { stopHref } from '../lib/stops.ts'
-import { toggleSaved, useSavedStops } from '../lib/storage.ts'
+import { isSaved as isStored, toggleSaved, useSavedStops } from '../lib/storage.ts'
 
 /** Tiles are loaded from this zoom; further out the picker asks to zoom in. */
 const TILE_ZOOM = 13
@@ -74,7 +74,12 @@ export default function BusStopPicker({
       save={{
         label: (s) => (isSaved(s) ? 'Saved' : 'Save'),
         pressed: isSaved,
-        onClick: (s) => toggleSaved({ id: s.id, name: s.name }),
+        onClick: (s) => {
+          const adding = !isStored(s.id)
+          toggleSaved({ id: s.id, name: s.name })
+          // Only a save storage kept (R27-S1).
+          if (adding && isStored(s.id)) window.__bftGa?.saveStop('bus', s.id)
+        },
       }}
       onClose={() => {
         writeMapPref(false)

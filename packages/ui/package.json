@@ -8,6 +8,8 @@
     ".": "./src/index.ts",
     "./format": "./src/format.ts",
     "./connectivity": "./src/connectivity.ts",
+    "./analytics-config": "./src/analytics-config.ts",
+    "./analytics-run": "./src/analytics-run.ts",
     "./demo": "./src/demo.tsx",
     "./bus": "./src/bus.tsx",
     "./star": "./src/star.tsx",

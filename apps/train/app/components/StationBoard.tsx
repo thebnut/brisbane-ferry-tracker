@@ -192,7 +192,11 @@ export function StationBoard({
         </div>
       ) : null}
 
-      <ol className="flex flex-col gap-2.5" aria-label={`Next trains from ${title}`}>
+      <ol
+        className="flex flex-col gap-2.5"
+        aria-label={`Next trains from ${title}`}
+        data-ga-board={cards.length > 0 ? '' : undefined}
+      >
         {cards.map((c, i) => (
           <li key={c.key}>
             {dividers[i] ? <DayDivider>{dividers[i]}</DayDivider> : null}
