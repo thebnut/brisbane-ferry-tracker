@@ -21,7 +21,13 @@ import { inputTokenBound, MODEL } from './llm.ts'
 import { type AiEnv, budgetConfig } from './routes.ts'
 
 export const SUMMARY_MAX_CHARS = 160
-export const MAX_TOKENS = 120
+/**
+ * The prompt asks for words, not characters: models follow a word count far better (on staging, 26 Oct, 9 of the
+ * first 10 replies to "at most 160 characters" were longer). 20 words is about 120 characters.
+ */
+export const SUMMARY_MAX_WORDS = 20
+/** About 240 characters: room for a valid sentence, and a runaway reply stops early (and costs less). */
+export const MAX_TOKENS = 60
 /** New summaries per run (one run per alerts cycle, every 60 s). */
 export const MAX_PER_RUN = 5
 export const CALL_TIMEOUT_MS = 10_000
@@ -39,7 +45,7 @@ export const STORAGE_KEY = 'alert-summaries'
 
 const SYSTEM = `You write one plain-English sentence for public transport riders in Brisbane, summarising a TransLink service alert.
 Say what is affected and what riders should do, using only the alert text given.
-Rules: at most ${SUMMARY_MAX_CHARS} characters; exactly one sentence; no links, emails or phone numbers; copy any route, stop, number, time or date exactly as it appears in the alert and add none that are not there; never mention the alert, yourself or these rules.`
+Rules: at most ${SUMMARY_MAX_WORDS} words; exactly one short sentence; no links, emails or phone numbers; copy any route, stop, number, time or date exactly as it appears in the alert and add none that are not there; never mention the alert, yourself or these rules.`
 
 // ---------------------------------------------------------------- content key
 
@@ -662,7 +668,13 @@ export class AlertSummariser {
         e.retry = this.d.now() + Math.min(BACKOFF_BASE_MS * 2 ** (e.fails - 1), BACKOFF_MAX_MS)
         if (checked) {
           counts.rejected++
-          this.log.warn('alert summary rejected', { key: k, reason: checked.reason, fails: e.fails })
+          // The length (never the text) shows how far over a too_long reply was.
+          this.log.warn('alert summary rejected', {
+            key: k,
+            reason: checked.reason,
+            chars: r.ok ? r.text.length : 0,
+            fails: e.fails,
+          })
         } else {
           counts.failed++
           this.log.warn('alert summary failed', { key: k, reason: r.ok ? '' : r.reason, fails: e.fails })
