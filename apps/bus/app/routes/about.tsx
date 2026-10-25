@@ -1,4 +1,4 @@
-/** /about: data sources, attribution, privacy in brief. Prerendered at build time. */
+/** /about: data sources, attribution, privacy in brief (GA4 counts visits). Prerendered at build time. */
 import { BusNav, Footer, SiteHeader } from '../components/Shell.tsx'
 import { ATTRIBUTION, pageMeta, SITE_URL } from '../lib/seo.ts'
 import { getEnv } from '../lib/server.server.ts'
@@ -12,7 +12,8 @@ export function loader({ context }: Route.LoaderArgs) {
 export const meta: Route.MetaFunction = ({ loaderData }) =>
   pageMeta({
     title: 'About BrisbaneBus and its data',
-    description: 'Where BrisbaneBus gets its timetables and live times, and what it keeps on your device.',
+    description:
+      'Where BrisbaneBus gets its timetables and live times, what it keeps on your device and what it counts.',
     url: `${loaderData?.siteUrl ?? SITE_URL}/about`,
     siteUrl: loaderData?.siteUrl,
   })
@@ -43,6 +44,12 @@ export default function About() {
         <p>
           Saved stops, recent searches, your theme and offline timetables for saved stops are stored in your
           browser only. Nearby uses your location in the browser to pick map tiles; it is never sent to us.
+        </p>
+        <p>
+          We count visits with Google Analytics, which sets its own cookies in your browser: page views, an
+          engaged visit, and the stop number when you save a stop. It never gets your location, your saved
+          stops' names, your searches or any personal details, and ad personalisation is off. See the{' '}
+          <a href="https://www.brisbaneferry.com/privacy">privacy policy</a>, which covers BrisbaneBus too.
         </p>
         <h2>Licence</h2>
         <p>

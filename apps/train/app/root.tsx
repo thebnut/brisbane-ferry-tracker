@@ -1,4 +1,5 @@
 import { useFixtureCookie } from '@bft/ui'
+import { gaRootData } from '@bft/ui/analytics-config'
 import {
   LIVE_GUARD_CSS,
   liveGuardScript,
@@ -54,6 +55,8 @@ export function loader({ request, context }: Route.LoaderArgs) {
     demoAllowed: env?.ALLOW_FIXTURES === '1',
     // null = poll; '' = this Worker's TripSocket DO (same origin); otherwise a wss:// base.
     tripWs: env?.TRIP_WS === '1' && sameMode ? (env.API_WS_BASE ?? '') : null,
+    /** `ga`: GA4's inline bootstrap, only when GA_MEASUREMENT_ID is set (@bft/ui/analytics-config). */
+    ...gaRootData(env?.GA_MEASUREMENT_ID, 'train', env?.GA_DEBUG === '1'),
     /** When this HTML was rendered: the live guard compares it with the device clock (R2-T7). */
     renderedAt: Date.now(),
   }
@@ -78,6 +81,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant script, hides stale LIVE claims before paint. */}
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: liveGuardScript(renderedAt) }} />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: GA4's bootstrap (server-built), only when on. */}
+        {data?.ga ? <script nonce={nonce} dangerouslySetInnerHTML={{ __html: data.ga }} /> : null}
         {/* The guard's rule without the stylesheet: an unstyled page still hides live claims (R3-F1). */}
         <style>{LIVE_GUARD_CSS}</style>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: constant style; no JavaScript, no LIVE claims. */}

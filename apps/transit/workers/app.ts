@@ -15,6 +15,7 @@ import { withBuild } from '@bft/core/build'
 import { cloudflareContext as ferryContext } from '@bft/ferry/app/lib/context.ts'
 import { handleLegacy } from '@bft/ferry/workers/legacy.ts'
 import { cloudflareContext as trainContext } from '@bft/train/app/lib/context.ts'
+import { gaId } from '@bft/ui/analytics-config'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
@@ -139,7 +140,13 @@ export default {
     const nonce = newNonce()
     const www = wwwRedirectLocation(request.url, env.SITE_URL)
     const res = www ? canonicalRedirect(www) : await guarded(() => route(request, env, ctx, nonce))
-    return withBuild(withRobotsTag(withSecurityHeaders(res, nonce), env.INDEXABLE === '1'), env.BUILD_SHA)
+    return withBuild(
+      withRobotsTag(
+        withSecurityHeaders(res, nonce, gaId(env.GA_MEASUREMENT_ID) != null),
+        env.INDEXABLE === '1',
+      ),
+      env.BUILD_SHA,
+    )
   },
 } satisfies ExportedHandler<Env>
 

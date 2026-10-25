@@ -88,7 +88,14 @@ export default function StationPicker({
       save={{
         label: (s) => (isSaved(s) ? 'Saved' : 'Save'),
         pressed: isSaved,
-        onClick: (s) => setFavourites(toggleFavourite(readFavourites(), fav(s))),
+        onClick: (s) => {
+          const f = fav(s)
+          const adding = !readFavourites().some((x) => sameFavourite(x, f))
+          setFavourites(toggleFavourite(readFavourites(), f))
+          // Only a save storage kept (R27-S1).
+          if (adding && readFavourites().some((x) => sameFavourite(x, f)))
+            window.__bftGa?.saveStop('train', f.from)
+        },
       }}
       onClose={() => {
         writeMapPref(false)

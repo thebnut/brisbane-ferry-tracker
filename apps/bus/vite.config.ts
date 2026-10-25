@@ -2,6 +2,7 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 import { reactRouter } from '@react-router/dev/vite'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
+import { gaModule } from '../../packages/ui/vite/ga-module.ts'
 import { noMapOnServer } from '../../packages/ui/vite/no-map-on-server.ts'
 import { pwa } from './pwa.config.ts'
 
@@ -12,6 +13,7 @@ const inspectorPort = process.argv.includes('dev') ? undefined : false
 export default defineConfig({
   plugins: [
     noMapOnServer(),
+    gaModule(),
     cloudflare({ viteEnvironment: { name: 'ssr' }, inspectorPort }),
     tailwindcss(),
     reactRouter(),

@@ -9,6 +9,7 @@
  */
 
 import { withBuild } from '@bft/core/build'
+import { gaId } from '@bft/ui/analytics-config'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { transitRedirect } from '@bft/ui/redirect'
 import { proxied } from '@bft/ui/upstream'
@@ -53,7 +54,11 @@ export default {
   async fetch(request, env, ctx) {
     const nonce = newNonce()
     return withBuild(
-      withSecurityHeaders(await guarded(() => route(request, env, ctx, nonce)), nonce),
+      withSecurityHeaders(
+        await guarded(() => route(request, env, ctx, nonce)),
+        nonce,
+        gaId(env.GA_MEASUREMENT_ID) != null,
+      ),
       env.BUILD_SHA,
     )
   },

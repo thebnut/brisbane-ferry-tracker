@@ -110,7 +110,7 @@ export function DepartureList({
         <EmptyState title="No upcoming departures found">Services may have finished for today</EmptyState>
       ) : (
         <>
-          <ol className="flex flex-col gap-3" aria-label="Departures">
+          <ol className="flex flex-col gap-3" aria-label="Departures" data-ga-board="">
             {shown.map((d, i) => {
               const r = rowModel(
                 d,

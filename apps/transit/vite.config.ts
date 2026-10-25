@@ -2,6 +2,7 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 import { reactRouter } from '@react-router/dev/vite'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, type Plugin, type ResolveModulePreloadDependenciesFn, type Rolldown } from 'vite'
+import { gaModule } from '../../packages/ui/vite/ga-module.ts'
 import { noMapOnServer } from '../../packages/ui/vite/no-map-on-server.ts'
 import { modeBases, navSlots } from './modes.config.ts'
 import { pwa } from './pwa.config.ts'
@@ -63,6 +64,7 @@ export default defineConfig({
     modeBases(),
     navSlots(),
     noMapOnServer(),
+    gaModule(),
     cloudflare({ viteEnvironment: { name: 'ssr' }, inspectorPort }),
     tailwindcss(),
     reactRouter(),
@@ -96,8 +98,9 @@ export default defineConfig({
                   // chunk of their own they took ~1 KB off the transit pages but cost /ferry ~0.8 KB, past its budget. The
                   // destination sheet (PR 5) is opened on demand. Trip detail (PR 6) is only on the trip pages. The
                   // panel beside the boards (PR 7) loads with the trip; the boards' layouts' small part (board-route) is
-                  // only on the boards. The map pages' shell (PR 9) loads with the map pages.
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|trip\.tsx|[Oo]nboarding|WhatsNew|changelog|DestinationSheet|panel\.tsx|board-route|mode-home|map-page)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
+                  // only on the boards. The map pages' shell (PR 9) loads with the map pages. GA4's /ga.js (analytics-run) is
+                  // its own file (vite/ga-module.ts), loaded only when GA is on.
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|trip\.tsx|[Oo]nboarding|WhatsNew|changelog|DestinationSheet|panel\.tsx|board-route|mode-home|map-page|analytics)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
                 },
                 // The boards' own part of the column-and-panel layout (THE-118 PR 7): each board URL's child route (nothing of
                 // its own) with the layouts' revalidation and width check, one chunk on every board's first load. The panel

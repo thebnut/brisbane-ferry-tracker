@@ -5,6 +5,7 @@
  */
 import {
   addFerryFavourite,
+  isFerryFavourite,
   readFerryFavourites,
   removeFerryFavourite,
   writePairCookie,
@@ -28,7 +29,12 @@ export function savePair(pair: StopPair, remember: boolean): void {
   } catch {
     // Storage blocked: the pair lasts for this page view only.
   }
-  if (remember) addFerryFavourite({ from: pair.outbound.id, to: pair.inbound.id })
+  if (remember) {
+    const f = { from: pair.outbound.id, to: pair.inbound.id }
+    const had = isFerryFavourite(f)
+    // A new favourite that storage kept is a save (the stop selector, onboarding, My Transit's Settings re-run).
+    if (!had && isFerryFavourite(f, addFerryFavourite(f))) window.__bftGa?.saveStop('ferry', f.from)
+  }
   writePairCookie()
 }
 

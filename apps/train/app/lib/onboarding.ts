@@ -49,12 +49,23 @@ export const trainSource: ModeSource = {
       .filter((s) => s != null),
 }
 
+/**
+ * save_stop (GA4, @bft/ui/analytics-config) for each favourite storage now holds that it didn't before: its station
+ * (a trip's "to" isn't sent).
+ */
+function trackNewFavourites(before: Favourite[], after: Favourite[]): void {
+  for (const f of after)
+    if (!before.some((x) => sameFavourite(x, f))) window.__bftGa?.saveStop('train', f.from)
+}
+
 /** Adds the tray's stations as favourites, in tray order, after any already there. False if they weren't all kept. */
 export function saveTrain(items: TrayItem[]): boolean {
   const add: Favourite[] = items.filter((i) => i.mode === 'train').map((i) => ({ from: i.id, to: null }))
   if (add.length === 0) return true
-  writeFavourites([...readFavourites(), ...add])
+  const before = readFavourites()
+  writeFavourites([...before, ...add])
   const kept = readFavourites()
+  trackNewFavourites(before, kept)
   return add.every((f) => kept.some((x) => sameFavourite(x, f)))
 }
 
@@ -88,7 +99,9 @@ export function resaveTrain(after: TrayItem[]): boolean {
     (i): Favourite => ({ from: i.id, to: null }),
   )
   if (want.length > MAX_FAVOURITES) return false
+  const before = readFavourites()
   writeFavourites(want)
   const kept = readFavourites()
+  trackNewFavourites(before, kept)
   return kept.length === want.length && want.every((f, n) => kept[n] && sameFavourite(kept[n], f))
 }

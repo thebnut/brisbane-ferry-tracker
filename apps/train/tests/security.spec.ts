@@ -119,3 +119,13 @@ test('the trip WebSocket upgrade (101) names its build too', async ({ page }) =>
   expect(res.status).toBe(101)
   expect(res.headers['x-bft-build']).toBe('dev')
 })
+
+test('GA4 is off here (GA_MEASUREMENT_ID unset): no gtag bootstrap or tag, no Google origin in the CSP', async ({
+  request,
+}) => {
+  const res = await request.get('/')
+  expect(res.headers()['content-security-policy']).not.toMatch(/google/i)
+  const html = await res.text()
+  expect(html).not.toContain('dataLayer')
+  expect(html).not.toContain('googletagmanager')
+})
