@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { GA_CSP, GA_DOMAINS, gaBootstrap, gaId, gaSources } from '../src/analytics-config.ts'
+import {
+  GA_CSP,
+  GA_DOMAINS,
+  gaBootstrap,
+  gaId,
+  gaPageTitle,
+  gaSources,
+  type SiteMode,
+} from '../src/analytics-config.ts'
 import {
   BOARD_SELECTOR,
   ENGAGED_KEY,
@@ -96,13 +104,17 @@ describe('gaBootstrap (the root inline script)', () => {
     window.__bftGa?.saveStop('bus', '10802')
     const calls = (win.dataLayer as IArguments[]).map((a) => [...a])
     expect(calls[0]?.[0]).toBe('js')
-    expect(calls[1]?.slice(0, 2)).toEqual(['config', ID])
-    expect(calls[2]).toEqual([
+    // The path-based title, set for every event (gtag's own too) before the config.
+    expect(calls[1]).toEqual(['set', { page_title: 'bus stop 10802' }])
+    expect(calls[2]?.slice(0, 2)).toEqual(['config', ID])
+    expect(calls[2]?.[2]).toMatchObject({ page_title: 'bus stop 10802' })
+    expect(calls[3]).toEqual([
       'event',
       'save_stop',
       {
         site_mode: 'bus',
         page_location: `${location.origin}/bus/stop/10802`,
+        page_title: 'bus stop 10802',
         mode: 'bus',
         stop_id: '10802',
         value: 3,
@@ -339,6 +351,33 @@ describe('startEngaged', () => {
   })
 })
 
+describe('gaPageTitle', () => {
+  const CASES: [string, SiteMode, string][] = [
+    ['/', 'transit', 'transit home'],
+    ['/', 'bus', 'bus home'],
+    ['/nearby', 'transit', 'transit nearby'],
+    ['/bus', 'transit', 'bus home'],
+    ['/bus/stop/10802', 'transit', 'bus stop 10802'],
+    ['/stop/10813', 'bus', 'bus stop 10813'],
+    ['/train/station/roma-street', 'transit', 'train station roma-street'],
+    ['/station/central', 'train', 'train station central'],
+    ['/ferry/terminal/bulimba', 'transit', 'ferry terminal bulimba'],
+    ['/terminal/bulimba', 'ferry', 'ferry terminal bulimba'],
+    ['/route/60', 'bus', 'bus route 60'],
+    ['/train/trip/39393737-QR%2026_27-44449-DK64%4020261025', 'transit', 'train trip'],
+    ['/bus/stop/10802?lat=-27.47&lon=153.02#x', 'transit', 'bus stop 10802'],
+    ['/bus/stop/a%20b%3Cscript%3E', 'transit', 'bus stop'],
+    ['/bus/stop/%E0%A4%A', 'transit', 'transit'],
+    ['/Weird Page', 'transit', 'transit page'],
+    ['/privacy', 'ferry', 'ferry privacy'],
+  ]
+  it.each(CASES)('%s on %s is "%s", and the bootstrap agrees', (path, mode, want) => {
+    expect(gaPageTitle(path, mode)).toBe(want)
+    new Function(gaBootstrap(ID, mode) as string)()
+    expect(window.__bftGa?.title(path)).toBe(want)
+  })
+})
+
 describe('startPageViews', () => {
   const routerStub = () => {
     let fn: ((s: { location: { pathname: string; search: string } }) => void) | null = null
@@ -358,13 +397,16 @@ describe('startPageViews', () => {
     new Function(gaBootstrap(ID, 'transit') as string)()
     return window.__bftGa?.clean as (u: string) => string
   }
+  /** The bootstrap's path-based title. */
+  const bootTitle = () => window.__bftGa?.title as (p: string) => string
 
   it('sends one page_view on load, one per route change, none on a re-render or hash-only change', () => {
     history.replaceState(null, '', '/ferry?to=317590')
     document.title = 'Ferry | BrisbaneTransit'
     const router = routerStub()
     const { sent, send } = recorder()
-    startPageViews(send, { router, clean: bootClean() })
+    const titles: string[] = []
+    startPageViews(send, { router, clean: bootClean(), title: bootTitle(), setTitle: (t) => titles.push(t) })
     vi.advanceTimersByTime(200)
     expect(sent).toEqual([
       [
@@ -372,7 +414,7 @@ describe('startPageViews', () => {
         {
           page_location: `${location.origin}/ferry?to=317590`,
           page_path: '/ferry?to=317590',
-          page_title: 'Ferry | BrisbaneTransit',
+          page_title: 'ferry home',
         },
       ],
     ])
@@ -381,33 +423,43 @@ describe('startPageViews', () => {
     router.emit('/ferry', '?to=317590')
     vi.advanceTimersByTime(200)
     expect(sent).toHaveLength(1)
+    // The board's own title names the stop: GA never gets it.
+    document.title = 'Cultural Centre, platform 1 (stop 010802) | BrisbaneTransit'
     router.emit('/bus/stop/10802')
-    document.title = 'Stop 10802 | BrisbaneTransit'
     vi.advanceTimersByTime(200)
     expect(sent).toHaveLength(2)
-    expect(sent[1]?.[1]).toMatchObject({
-      page_path: '/bus/stop/10802',
-      page_title: 'Stop 10802 | BrisbaneTransit',
-    })
+    expect(sent[1]?.[1]).toMatchObject({ page_path: '/bus/stop/10802', page_title: 'bus stop 10802' })
+    expect(titles).toEqual(['ferry home', 'bus stop 10802'])
+    expect(JSON.stringify(sent)).not.toContain('Cultural Centre')
     router.emit('/bus/stop/10802', '?route=60')
     vi.advanceTimersByTime(200)
     expect(sent).toHaveLength(3)
     // Nearby's map link carries the position: the route change counts, the position is never sent.
     router.emit('/bus/map', '?lat=-27.47171&lon=153.02061')
     vi.advanceTimersByTime(200)
-    expect(sent[3]?.[1]).toMatchObject({ page_location: `${location.origin}/bus/map`, page_path: '/bus/map' })
+    expect(sent[3]?.[1]).toMatchObject({
+      page_location: `${location.origin}/bus/map`,
+      page_path: '/bus/map',
+      page_title: 'bus map',
+    })
   })
 
   it('still counts every route the visit took before /ga.js loaded, back to the first page too', () => {
     history.replaceState(null, '', '/train')
     document.title = 'Train | BrisbaneTransit'
     const a = recorder()
-    startPageViews(a.send, { router: routerStub(), clean: bootClean(), early: ['/', '/bus', '/train'] })
+    startPageViews(a.send, {
+      router: routerStub(),
+      clean: bootClean(),
+      title: bootTitle(),
+      early: ['/', '/bus', '/train'],
+    })
     vi.advanceTimersByTime(200)
+    // Each page's own title from its path, the pages left before /ga.js loaded too.
     expect(a.sent.map(([, p]) => [p.page_path, p.page_title])).toEqual([
-      ['/', ''],
-      ['/bus', ''],
-      ['/train', 'Train | BrisbaneTransit'],
+      ['/', 'transit home'],
+      ['/bus', 'bus home'],
+      ['/train', 'train home'],
     ])
     history.replaceState(null, '', '/')
     const b = recorder()
@@ -425,7 +477,24 @@ describe('start (/ga.js)', () => {
     start(window)
     vi.advanceTimersByTime(200)
     expect(gtag.mock.calls.filter((c) => c[1] === 'page_view')).toHaveLength(1)
-    for (const c of gtag.mock.calls) expect(c[2]).toMatchObject({ site_mode: 'ferry' })
+    for (const c of gtag.mock.calls.filter((c) => c[0] === 'event'))
+      expect(c[2]).toMatchObject({ site_mode: 'ferry' })
+  })
+
+  it('every event carries the path-based title, set for gtag first; never document.title', () => {
+    const gtag = vi.fn()
+    history.replaceState(null, '', '/stop/10802?route=60')
+    document.title = 'Cultural Centre, platform 1 (stop 010802) | BrisbaneBus'
+    new Function(gaBootstrap(ID, 'bus') as string)()
+    const ga = window.__bftGa as NonNullable<typeof window.__bftGa>
+    Object.assign(win, { gtag, __bftGa: { ...ga, vis: 10_000, since: null, act: true } })
+    start(window)
+    vi.advanceTimersByTime(200)
+    expect(gtag.mock.calls.find((c) => c[0] === 'set')).toEqual(['set', { page_title: 'bus stop 10802' }])
+    const events = gtag.mock.calls.filter((c) => c[0] === 'event')
+    expect(events.map((c) => c[1])).toEqual(['page_view', 'engaged_visit'])
+    for (const c of events) expect(c[2]).toMatchObject({ page_title: 'bus stop 10802' })
+    expect(JSON.stringify(gtag.mock.calls)).not.toContain('Cultural Centre')
   })
 
   it('counts the visible time and the interaction the bootstrap saw before it loaded', () => {
