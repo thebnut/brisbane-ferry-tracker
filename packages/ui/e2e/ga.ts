@@ -175,6 +175,34 @@ export function gaSuite({
         expect(google).toEqual([])
       })
 
+      test('return_visit: none on a first visit or its reloads; once in a later tab session of the same browser', async ({
+        page,
+        context,
+      }) => {
+        const { violations, google } = await gaPage(page)
+        await page.goto(boardPath)
+        await expect.poll(() => gaEvents(page, 'page_view'), { timeout: 10_000 }).toHaveLength(1)
+        expect(await gaEvents(page, 'return_visit')).toHaveLength(0)
+        await page.reload()
+        await expect.poll(() => gaEvents(page, 'page_view'), { timeout: 10_000 }).toHaveLength(1)
+        expect(await gaEvents(page, 'return_visit')).toHaveLength(0)
+        // A new tab: its own sessionStorage, the same localStorage (this browser has been here before).
+        const later = await context.newPage()
+        const second = await gaPage(later)
+        await later.goto(boardPath)
+        await expect.poll(() => gaEvents(later, 'return_visit'), { timeout: 10_000 }).toHaveLength(1)
+        expect((await gaEvents(later, 'return_visit'))[0]?.params).toMatchObject({
+          site_mode: siteMode,
+          value: 2,
+          currency: 'AUD',
+        })
+        await later.reload()
+        await expect.poll(() => gaEvents(later, 'page_view'), { timeout: 10_000 }).toHaveLength(1)
+        expect(await gaEvents(later, 'return_visit')).toHaveLength(0)
+        expect([...violations, ...second.violations]).toEqual([])
+        expect([...google, ...second.google]).toEqual([])
+      })
+
       test('the real gtag.js: the CSP lets its GA4 hits out (answered here with 204, never sent to Google)', async ({
         page,
       }) => {

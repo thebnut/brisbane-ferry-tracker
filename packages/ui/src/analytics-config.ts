@@ -6,7 +6,8 @@
  *  - one property, cross-domain over the four sites (GA matches subdomains, so www. and next. are covered);
  *  - `site_mode` (ferry, bus, train or transit: the site, not the board) in config and on every event;
  *  - `page_view` sent by /ga.js (send_page_view off), once on load and on each client route change;
- *  - `engaged_visit` (analytics-run.ts) and `save_stop` (`window.__bftGa.saveStop`, defined by the bootstrap);
+ *  - `engaged_visit` and `return_visit` (analytics-run.ts) and `save_stop` (`window.__bftGa.saveStop`, defined by the
+ *    bootstrap);
  *  - no Google signals or ad personalisation, no user ids, no location, no search text;
  *  - `page_title` built from the path (gaPageTitle: mode, page type and the public id already in the URL), set for
  *    every event including gtag's own, so no event carries `document.title` (board titles name the stop).

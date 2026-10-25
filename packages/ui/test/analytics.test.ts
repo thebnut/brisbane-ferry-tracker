@@ -13,9 +13,12 @@ import {
   ENGAGED_KEY,
   ENGAGED_MS,
   gaSender,
+  RETURNING_KEY,
+  SESSION_KEY,
   start,
   startEngaged,
   startPageViews,
+  startReturnVisit,
 } from '../src/analytics-run.ts'
 
 const ID = 'G-MEG3CX0SFC'
@@ -33,6 +36,7 @@ beforeEach(() => {
   visibility = 'visible'
   Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility })
   sessionStorage.clear()
+  localStorage.clear()
   document.body.innerHTML = ''
 })
 
@@ -480,6 +484,45 @@ describe('startPageViews', () => {
   })
 })
 
+describe('startReturnVisit', () => {
+  const sent = () => {
+    const calls: Array<[string, Record<string, unknown>]> = []
+    return { send: (name: string, params: Record<string, unknown>) => calls.push([name, params]), calls }
+  }
+
+  it('the first session sends nothing and leaves the flag; a later session sends return_visit once', () => {
+    const a = sent()
+    expect(startReturnVisit(a.send)).toBe(false)
+    expect(a.calls).toEqual([])
+    expect(localStorage.getItem(RETURNING_KEY)).toBe('1')
+    expect(sessionStorage.getItem(SESSION_KEY)).toBe('1')
+    // Later pages of the same session: nothing.
+    expect(startReturnVisit(a.send)).toBe(false)
+    expect(a.calls).toEqual([])
+    // A new session (sessionStorage is per tab session) on a browser that has visited before.
+    sessionStorage.clear()
+    const b = sent()
+    expect(startReturnVisit(b.send)).toBe(true)
+    expect(b.calls).toEqual([['return_visit', { value: 2, currency: 'AUD' }]])
+    expect(startReturnVisit(b.send)).toBe(false)
+    expect(b.calls).toHaveLength(1)
+  })
+
+  it('never sends, and never throws, when storage is blocked', () => {
+    const blocked = () => {
+      throw new DOMException('denied', 'SecurityError')
+    }
+    const c = sent()
+    localStorage.setItem(RETURNING_KEY, '1')
+    expect(startReturnVisit(c.send, { session: blocked })).toBe(false)
+    expect(startReturnVisit(c.send, { local: blocked })).toBe(false)
+    sessionStorage.clear()
+    const throwing = { getItem: () => null, setItem: blocked } as unknown as Storage
+    expect(startReturnVisit(c.send, { local: () => throwing })).toBe(false)
+    expect(c.calls).toEqual([])
+  })
+})
+
 describe('start (/ga.js)', () => {
   it('starts once per page load with site_mode on every event', () => {
     const gtag = vi.fn()
@@ -509,6 +552,20 @@ describe('start (/ga.js)', () => {
     expect(events.map((c) => c[1])).toEqual(['page_view', 'engaged_visit'])
     for (const c of events) expect(c[2]).toMatchObject({ page_title: 'bus stop 10802' })
     expect(JSON.stringify(gtag.mock.calls)).not.toContain('Cultural Centre')
+  })
+
+  it('sends return_visit with site_mode on a returning browser’s first page of a session, once', () => {
+    const gtag = vi.fn()
+    localStorage.setItem(RETURNING_KEY, '1')
+    Object.assign(win, { gtag, __bftGa: { siteMode: 'train', vis: 0, since: null, act: false } })
+    start(window)
+    const returns = () => gtag.mock.calls.filter((c) => c[0] === 'event' && c[1] === 'return_visit')
+    expect(returns()).toHaveLength(1)
+    expect(returns()[0]?.[2]).toMatchObject({ value: 2, currency: 'AUD', site_mode: 'train' })
+    // A reload in the same session: not again.
+    Object.assign(win, { __bftGa: { siteMode: 'train', vis: 0, since: null, act: false } })
+    start(window)
+    expect(returns()).toHaveLength(1)
   })
 
   it('counts the visible time and the interaction the bootstrap saw before it loaded', () => {
