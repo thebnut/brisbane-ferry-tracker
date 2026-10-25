@@ -1280,6 +1280,9 @@ export class HubCore {
     this.snapshotJson = null // serialised on demand (fullJson)
     this.snapshot = snapshot
     this.alerts = snapshot.alerts
+    // Restored alerts are only as new as the document they came from (a failed publish before the restart leaves
+    // them older than meta.alertsAt says): refetch them in the first cycle, one feed request per restart.
+    this.meta.alertsAt = 0
     for (const [k, m] of r.tripModes) this.tripModes.set(k, m)
   }
 }

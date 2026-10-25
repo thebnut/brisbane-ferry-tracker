@@ -830,48 +830,59 @@ describe('restore never adopts a stale DO-storage snapshot over newer R2 documen
   // After each staging restart /v1/alerts served 63 of 90 alerts for 20–35 s: with R2 bound the hub no longer writes
   // its snapshot to DO storage, but `meta.snapChunks` kept pointing at a copy from before R2, which the restore read
   // first (skipping R2) and published until the next alerts fetch.
-  it('a snap: copy left from before R2 loses to the R2 documents; the alerts published after a restart are current', async () => {
-    const h = setup()
-    // An earlier era without R2: the snapshot (one alert) was persisted in DO storage.
-    const noR2 = new HubCore({
-      storage: h.storage,
-      fetch: h.up.fetch,
-      now: h.clock.now,
-      store: storeFor(buildTree(), h.clock.now),
-      config: parseRtModes('ferry'),
-      upstream: 'https://up.test/api/realtime/SEQ',
-      fetchTimeoutMs: 50,
-    })
-    await noR2.alarm()
-    expect((h.storage.data.get('meta') as { snapChunks: number }).snapChunks).toBeGreaterThan(0)
-    // Later, with R2 and three alerts.
-    h.clock.advance(60_000)
-    h.up.set(
-      'alerts',
-      feed(h.nowS(), [
-        alert('a1', 'Bulimba works', 'F1-4055'),
-        alert('a2', 'Riverside works', 'F1-4055'),
-        alert('a3', 'Hawthorne works', 'F1-4055'),
-      ]),
-    )
-    const withR2 = h.mk()
-    for (let i = 1; i <= 3; i++) {
-      h.change(i)
-      await withR2.alarm()
-      h.clock.advance(CYCLE_MS)
-    }
-    const alertsDoc = () => {
-      const pointer = JSON.parse(h.r2.files.get(R2_LATEST_KEY) as string) as {
-        files: { alerts: { key: string } }
+  for (const layout of ['documents', 'combined'] as const) {
+    it(`${layout}: a stored copy still named by meta loses to R2; the alerts published after a restart are current`, async () => {
+      const h = setup('ferry', layout)
+      // An earlier era without R2: the snapshot (one alert) was persisted in DO storage.
+      const noR2 = new HubCore({
+        storage: h.storage,
+        fetch: h.up.fetch,
+        now: h.clock.now,
+        store: storeFor(buildTree(), h.clock.now),
+        config: parseRtModes('ferry'),
+        upstream: 'https://up.test/api/realtime/SEQ',
+        fetchTimeoutMs: 50,
+      })
+      await noR2.alarm()
+      const stale = new Map([...h.storage.data].filter(([k]) => k.startsWith('snap:')))
+      const staleChunks = (h.storage.data.get('meta') as { snapChunks: number }).snapChunks
+      expect(staleChunks).toBeGreaterThan(0)
+      // Later, with R2 and three alerts.
+      h.clock.advance(60_000)
+      h.up.set(
+        'alerts',
+        feed(h.nowS(), [
+          alert('a1', 'Bulimba works', 'F1-4055'),
+          alert('a2', 'Riverside works', 'F1-4055'),
+          alert('a3', 'Hawthorne works', 'F1-4055'),
+        ]),
+      )
+      const withR2 = h.mk()
+      for (let i = 1; i <= 3; i++) {
+        h.change(i)
+        await withR2.alarm()
+        h.clock.advance(CYCLE_MS)
       }
-      return JSON.parse(textOf(h.r2, pointer.files.alerts.key) as string) as { alerts: Array<{ id: string }> }
-    }
-    expect(alertsDoc().alerts.map((a) => a.id)).toEqual(['a1', 'a2', 'a3'])
-    // A restart (deploy or eviction) within a minute of the last alerts fetch.
-    const hub = h.mk()
-    h.change(10)
+      // As on staging before the fix: the stale copy still named by meta (the cycles above no longer leave it so).
+      for (const [k, v] of stale) h.storage.data.set(k, v)
+      h.storage.data.set('meta', { ...(h.storage.data.get('meta') as object), snapChunks: staleChunks })
+      // A restart within a minute of the last alerts fetch: its first answer and its first publish are both R2's.
+      const hub = h.mk()
+      const restored = JSON.parse((await hub.pull(null)).json as string) as { alerts: Array<{ id: string }> }
+      expect(restored.alerts.map((a) => a.id)).toEqual(['a1', 'a2', 'a3'])
+      h.change(10)
+      await hub.alarm()
+      const after = JSON.parse((await hub.pull(null)).json as string) as { alerts: Array<{ id: string }> }
+      expect(after.alerts.map((a) => a.id)).toEqual(['a1', 'a2', 'a3'])
+    })
+  }
+
+  it('a restart refetches alerts in its first cycle, however recently they were fetched (Codex r1)', async () => {
+    const { up, hub, clock } = await restarted()
+    const before = up.calls.filter((c) => c.path.includes('alerts')).length
+    clock.advance(1_000)
     await hub.alarm()
-    expect(alertsDoc().alerts.map((a) => a.id)).toEqual(['a1', 'a2', 'a3'])
+    expect(up.calls.filter((c) => c.path.includes('alerts')).length).toBe(before + 1)
   })
 
   it('with R2 bound a cycle stops naming the stored copy (meta.snapChunks 0)', async () => {
