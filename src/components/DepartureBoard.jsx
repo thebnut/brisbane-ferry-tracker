@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import DepartureItem from './DepartureItem';
 import BoardHeader from './BoardHeader';
 import DepartureTimeDropdown from './DepartureTimeDropdown';
+import { isRendered, markBoardShown } from '../utils/analytics';
 
 const DepartureBoard = ({ 
   direction, 
@@ -19,6 +20,26 @@ const DepartureBoard = ({
   onDepartureTimeChange
 }) => {
   const [showMore, setShowMore] = useState(false);
+  const hasDepartures = departures.length > 0;
+  const boardRef = useRef(null);
+
+  // GA4 engaged_visit: a board shown with departures counts as engagement.
+  // App keeps both the desktop and mobile boards mounted and hides one set
+  // with CSS, so only a rendered board counts (re-checked on resize).
+  useEffect(() => {
+    if (!hasDepartures) return undefined;
+    const check = () => {
+      if (!isRendered(boardRef.current)) return false;
+      markBoardShown();
+      return true;
+    };
+    if (check()) return undefined;
+    const onResize = () => {
+      if (check()) window.removeEventListener('resize', onResize);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [hasDepartures]);
 
   const getTitle = () => {
     if (!selectedStops) {
@@ -75,7 +96,7 @@ const DepartureBoard = ({
   }
 
   return (
-    <div className="mb-8">
+    <div className="mb-8" ref={boardRef}>
       {!isMobile && availableStops.length > 0 && onOriginChange && onDestinationChange ? (
         <BoardHeader
           direction={direction}
