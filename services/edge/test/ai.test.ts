@@ -45,6 +45,8 @@ function setup(
     stops?: Array<[string, string]>
     /** Ferry trips instead of the default fixtures (their stops still need stop-index entries). */
     trips?: Record<string, SynthTrip[]>
+    /** Replaces the data generation lookup (e.g. to make the data source fail). */
+    generationKey?: AiDeps['generationKey']
   } = {},
 ) {
   const clock = new Clock(epoch(D, '07:55:00') * 1000)
@@ -997,6 +999,323 @@ describe('/mcp (read-only)', () => {
         ).json()) as { error: { code: number } }
       ).error.code,
     ).toBe(-32602)
+  })
+  it('Streamable HTTP: GET and DELETE are 405 (no SSE stream, no sessions)', async () => {
+    const s = setup()
+    for (const method of ['GET', 'DELETE']) {
+      const res = await s.app.request('/mcp', { method })
+      expect(res.status, method).toBe(405)
+      expect(res.headers.get('allow')).toBe('POST')
+    }
+  })
+
+  it('notifications and client responses are accepted with 202 and no body', async () => {
+    const s = setup()
+    for (const body of [
+      { jsonrpc: '2.0', method: 'notifications/initialized' },
+      { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 1 } },
+      { jsonrpc: '2.0', id: 7, result: {} },
+      { jsonrpc: '2.0', id: 8, error: { code: -1, message: 'no' } },
+    ]) {
+      const res = await s.rpc(body)
+      expect(res.status, JSON.stringify(body)).toBe(202)
+      expect(await res.text()).toBe('')
+    }
+  })
+
+  it('speaks 2025-06-18: initialize says so, and an unsupported MCP-Protocol-Version header is a 400', async () => {
+    const s = setup()
+    const init = (await (
+      await s.rpc({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26' } })
+    ).json()) as { result: { protocolVersion: string } }
+    expect(init.result.protocolVersion).toBe('2025-06-18')
+    const call = (version: string) =>
+      s.app.request('/mcp', {
+        method: 'POST',
+        body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'ping' }),
+        headers: { 'content-type': 'application/json', 'mcp-protocol-version': version },
+      })
+    expect((await call('2025-06-18')).status).toBe(200)
+    const bad = await call('2099-01-01')
+    expect(bad.status).toBe(400)
+    expect(((await bad.json()) as { error: { code: number } }).error.code).toBe(-32600)
+  })
+
+  it('only tools/call counts against the MCP limiter, never the Ask one: the handshake is free', async () => {
+    const counted: string[] = []
+    const s = setup({
+      ASK_LIMITER: {
+        limit: async () => {
+          counted.push('ask')
+          return { success: false }
+        },
+      },
+      MCP_LIMITER: {
+        limit: async ({ key }: { key: string }) => {
+          counted.push(`mcp:${key}`)
+          return { success: counted.length <= 1 }
+        },
+      },
+    })
+    expect((await s.rpc({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} })).status).toBe(200)
+    expect((await s.rpc({ jsonrpc: '2.0', method: 'notifications/initialized' })).status).toBe(202)
+    expect((await s.rpc({ jsonrpc: '2.0', id: 2, method: 'tools/list' })).status).toBe(200)
+    expect((await s.rpc({ jsonrpc: '2.0', id: 3, method: 'ping' })).status).toBe(200)
+    expect(counted).toEqual([])
+    const call = (id: number) =>
+      s.rpc({
+        jsonrpc: '2.0',
+        id,
+        method: 'tools/call',
+        params: { name: 'search_stops', arguments: { query: 'bulimba' } },
+      })
+    expect((await call(4)).status).toBe(200)
+    const limited = await call(5)
+    expect(limited.status).toBe(429)
+    expect(((await limited.json()) as { id: number; error: { code: number } }).id).toBe(5)
+    expect(counted).toEqual(['mcp:anon', 'mcp:anon'])
+  })
+
+  it('a tool that cannot run (data unavailable) is a tool error result, not an HTTP 500', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const s = setup(
+      {},
+      {
+        generationKey: async () => {
+          throw new Error('data source manifest.json: HTTP 503')
+        },
+      },
+    )
+    const res = await s.rpc({
+      jsonrpc: '2.0',
+      id: 9,
+      method: 'tools/call',
+      params: { name: 'search_stops', arguments: { query: 'bulimba' } },
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      id: number
+      result: { isError: boolean; content: Array<{ text: string }> }
+    }
+    expect(body.id).toBe(9)
+    expect(body.result.isError).toBe(true)
+    expect(body.result.content[0]?.text).toMatch(/unavailable/)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[mcp] search_stops failed'))
+    warn.mockRestore()
+  })
+
+  it('JSON-RPC envelopes (Codex r1): parse error -32700; bad jsonrpc, ids and responses -32600; ids 0 and "" kept', async () => {
+    const s = setup()
+    const raw = (body: string) =>
+      s.app.request('/mcp', { method: 'POST', body, headers: { 'content-type': 'application/json' } })
+    const parse = await raw('{"jsonrpc":"2.0","id":1,')
+    expect(parse.status).toBe(400)
+    expect(((await parse.json()) as { error: { code: number } }).error.code).toBe(-32700)
+    for (const body of [
+      { id: 1, method: 'ping' },
+      { jsonrpc: '1.0', id: 1, method: 'ping' },
+      { jsonrpc: '2.0', id: null, method: 'ping' },
+      { jsonrpc: '2.0', id: { a: 1 }, method: 'ping' },
+      { jsonrpc: '2.0', id: 1.5, method: 'ping' },
+      { jsonrpc: '2.0', result: {} },
+      { jsonrpc: '2.0', id: 4, result: {}, error: { code: 1, message: 'x' } },
+      { jsonrpc: '2.0', id: 5, method: 'ping', result: {} },
+    ]) {
+      const res = await s.rpc(body)
+      expect(res.status, JSON.stringify(body)).toBe(400)
+      expect(((await res.json()) as { error: { code: number } }).error.code, JSON.stringify(body)).toBe(
+        -32600,
+      )
+    }
+    for (const id of [0, '']) {
+      const res = await s.rpc({ jsonrpc: '2.0', id, method: 'ping' })
+      expect(res.status).toBe(200)
+      expect(((await res.json()) as { id: unknown }).id).toBe(id)
+    }
+  })
+
+  it('Origin (Codex r1): none, the API’s allowed origins and local dev tools pass; any other is a 403', async () => {
+    const s = setup()
+    const from = (origin: string, app = s.app) =>
+      app.request('/mcp', {
+        method: 'POST',
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
+        headers: { 'content-type': 'application/json', origin },
+      })
+    for (const ok of ['https://www.brisbaneferry.com', 'http://localhost:6274', 'http://127.0.0.1:3000'])
+      expect((await from(ok)).status, ok).toBe(200)
+    for (const bad of ['https://evil.example', 'http://localhost.evil.example', 'null']) {
+      const res = await from(bad)
+      expect(res.status, bad).toBe(403)
+      expect(((await res.json()) as { error: { code: number } }).error.code).toBe(-32600)
+    }
+    // The break-glass that opens the API's CORS opens this too.
+    const open = setup({ CORS_ALLOW_ALL: 'true' })
+    expect((await from('https://evil.example', open.app)).status).toBe(200)
+  })
+
+  it('the MCP limiter is keyed by the caller’s IP', async () => {
+    const keys: string[] = []
+    const s = setup({
+      MCP_LIMITER: {
+        limit: async ({ key }: { key: string }) => {
+          keys.push(key)
+          return { success: true }
+        },
+      },
+    })
+    for (const ip of ['203.0.113.7', '198.51.100.2'])
+      await s.app.request('/mcp', {
+        method: 'POST',
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: { name: 'search_stops', arguments: { query: 'bulimba' } },
+        }),
+        headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip },
+      })
+    expect(keys).toEqual(['203.0.113.7', '198.51.100.2'])
+  })
+
+  it('GET and DELETE pass the same Origin and version checks before their 405 (Codex r3)', async () => {
+    const s = setup()
+    for (const method of ['GET', 'DELETE']) {
+      expect(
+        (await s.app.request('/mcp', { method, headers: { origin: 'https://evil.example' } })).status,
+      ).toBe(403)
+      expect(
+        (await s.app.request('/mcp', { method, headers: { 'mcp-protocol-version': '1999-01-01' } })).status,
+      ).toBe(400)
+      expect(
+        (await s.app.request('/mcp', { method, headers: { origin: 'http://localhost:6274' } })).status,
+      ).toBe(405)
+    }
+  })
+
+  it('message shapes (Codex r3): params is an object; notifications carry no result; a response’s result and error are well formed', async () => {
+    const s = setup()
+    for (const body of [
+      { jsonrpc: '2.0', id: 1, method: 'ping', params: 'x' },
+      { jsonrpc: '2.0', id: 1, method: 'ping', params: [1] },
+      { jsonrpc: '2.0', id: 1, method: 'ping', params: null },
+      { jsonrpc: '2.0', method: 'notifications/initialized', result: {} },
+      { jsonrpc: '2.0', id: 2, result: null },
+      { jsonrpc: '2.0', id: 2, result: 'ok' },
+      { jsonrpc: '2.0', id: 3, error: null },
+      { jsonrpc: '2.0', id: 3, error: { code: 1 } },
+      { jsonrpc: '2.0', id: 3, error: { code: 1.5, message: 'x' } },
+    ]) {
+      const res = await s.rpc(body)
+      expect(res.status, JSON.stringify(body)).toBe(400)
+    }
+    // Still fine: params as an object, and a well-formed error response.
+    expect((await s.rpc({ jsonrpc: '2.0', id: 4, method: 'ping', params: {} })).status).toBe(200)
+    expect(
+      (await s.rpc({ jsonrpc: '2.0', id: 5, error: { code: -32601, message: 'nope', data: 1 } })).status,
+    ).toBe(202)
+  })
+
+  it('a body over 64 KB is a 413: by Content-Length, and by bytes read when there is none (Codex r2)', async () => {
+    const s = setup()
+    const post = (body: BodyInit, headers: Record<string, string> = {}) =>
+      s.app.request(
+        new Request('http://x/mcp', {
+          method: 'POST',
+          body,
+          headers: { 'content-type': 'application/json', ...headers },
+          duplex: 'half',
+        } as RequestInit),
+      )
+    const big = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping', params: { pad: 'x'.repeat(70_000) } })
+    expect((await post(big)).status).toBe(413)
+    // Chunked, no Content-Length: read until 64 KB, then cancelled (the rest is never pulled).
+    let pulled = 0
+    let cancelled = false
+    const chunk = new TextEncoder().encode('x'.repeat(16 * 1024))
+    const stream = new ReadableStream<Uint8Array>({
+      pull(ctl) {
+        pulled += 1
+        if (pulled > 50) ctl.close()
+        else ctl.enqueue(chunk)
+      },
+      cancel() {
+        cancelled = true
+      },
+    })
+    expect((await post(stream)).status).toBe(413)
+    expect(cancelled).toBe(true)
+    expect(pulled).toBeLessThan(10)
+    // Bytes, not UTF-16 units: 30,000 "€" are 30,000 characters but 90,000 bytes.
+    const euros = JSON.stringify({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'ping',
+      params: { pad: '€'.repeat(30_000) },
+    })
+    expect(euros.length).toBeLessThan(64 * 1024)
+    expect((await post(new TextEncoder().encode(euros))).status).toBe(413)
+    // And a small multibyte body is read whole and answered.
+    const small = await post(
+      JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'ping', params: { note: 'Café ☕' } }),
+    )
+    expect(small.status).toBe(200)
+  })
+
+  it('/mcp CORS follows its Origin rule for local dev tools; other paths keep the legacy allowlist (Codex r2)', async () => {
+    const s = setup()
+    for (const origin of ['http://localhost:6274', 'http://127.0.0.1:3000']) {
+      const pre = await s.app.request('/mcp', {
+        method: 'OPTIONS',
+        headers: {
+          origin,
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'content-type',
+        },
+      })
+      expect(pre.headers.get('access-control-allow-origin'), origin).toBe(origin)
+      const post = await s.app.request('/mcp', {
+        method: 'POST',
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
+        headers: { 'content-type': 'application/json', origin },
+      })
+      expect(post.status).toBe(200)
+      expect(post.headers.get('access-control-allow-origin'), origin).toBe(origin)
+      const other = await s.app.request('/v1/alerts', { headers: { origin } })
+      expect(other.headers.get('access-control-allow-origin'), `${origin} on /v1/alerts`).toBeNull()
+    }
+    const evil = await s.app.request('/mcp', {
+      method: 'OPTIONS',
+      headers: { origin: 'https://evil.example', 'access-control-request-method': 'POST' },
+    })
+    expect(evil.headers.get('access-control-allow-origin')).toBeNull()
+  })
+
+  it('a browser preflight may send MCP-Protocol-Version (Codex r1)', async () => {
+    const s = setup()
+    const res = await s.app.request('/mcp', {
+      method: 'OPTIONS',
+      headers: {
+        origin: 'https://www.brisbaneferry.com',
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'content-type, mcp-protocol-version',
+      },
+    })
+    expect(res.headers.get('access-control-allow-headers')?.toLowerCase()).toContain('mcp-protocol-version')
+  })
+
+  it('batches (dropped in 2025-06-18) and malformed messages are invalid requests', async () => {
+    const s = setup()
+    for (const body of [
+      [{ jsonrpc: '2.0', id: 1, method: 'ping' }],
+      { jsonrpc: '2.0', id: 3 },
+      { jsonrpc: '2.0' },
+      'ping',
+    ]) {
+      const res = await s.rpc(body)
+      expect(res.status, JSON.stringify(body)).toBe(400)
+      expect(((await res.json()) as { error: { code: number } }).error.code).toBe(-32600)
+    }
   })
 })
 
