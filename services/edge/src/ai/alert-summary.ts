@@ -122,6 +122,17 @@ const NUMBER_WORDS = new Set(
   ).split(' '),
 )
 const DATE_WORDS = new Set([
+  // Relative dates (Codex r4): "next week", "this month", "next Monday" need the same words in the alert.
+  'next',
+  'last',
+  'coming',
+  'upcoming',
+  'week',
+  'weeks',
+  'month',
+  'months',
+  'year',
+  'years',
   'monday',
   'tuesday',
   'wednesday',
@@ -204,11 +215,8 @@ const PLAIN_NO_VOWEL = new Set(['AM', 'PM', 'ST', 'ND', 'RD', 'TH', 'MR', 'MRS',
 
 /** Words after which "may" is the verb ("services may be delayed", "trains may not stop"). */
 const MODAL_NEXT = new Set(
-  (
-    'be not also still need have experience take run change vary apply affect occur depart arrive operate close stop ' +
-    'differ require see face encounter continue cause include leave get travel board want wish find use wait ' +
-    'notice expect impact'
-  ).split(' '),
+  // Only words that can't be a noun after "May" the month ("May stop closures" is the month; Codex r4).
+  'be not also still need experience vary occur differ require cause continue result'.split(' '),
 )
 
 /** Words before which "may" is the month rather than the verb ("in May", "until May"). */

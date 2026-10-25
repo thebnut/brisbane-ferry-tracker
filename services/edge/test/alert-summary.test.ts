@@ -203,6 +203,17 @@ describe('checkSummary (grounding)', () => {
     expect(reject('may track closures affect the Ipswich line.', plain)).toBe('date')
     expect(reject('Ipswich line trains may be replaced by buses.', plain)).toBe('ok')
     expect(reject('Ipswich line trains may not run, so catch replacement buses.', plain)).toBe('ok')
+    // Codex r4: a noun after "May" doesn't make it the verb; relative dates need grounding.
+    const stops: Alert = {
+      ...ROUTE_200,
+      header: 'Stop closures affect route 200',
+      description: 'Use nearby stops.',
+    }
+    expect(reject('May stop closures affect route 200, so use nearby stops.', stops)).toBe('date')
+    expect(reject('Route 200 stops are closed next week, so use nearby stops.', stops)).toBe('date')
+    expect(reject('Route 200 stops are closed this month, so use nearby stops.', stops)).toBe('date')
+    expect(reject('Route 200 stops are closed next Monday, so use nearby stops.', stops)).toBe('date')
+    expect(reject('Stop closures affect route 200, so use nearby stops.', stops)).toBe('ok')
     // A real May date in the alert allows it.
     expect(reject('Route F1 is closed in May.', { ...src, description: 'Closed in May.' })).toBe('ok')
   })
