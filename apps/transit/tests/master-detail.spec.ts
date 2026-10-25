@@ -13,7 +13,8 @@
  * Nothing here depends on the time of day: rows are fixtures, and no countdown or clock wording is asserted. The page
  * clock is installed but runs on in real time (the panel's focus needs its timers), so a departure can leave the board
  * mid-test and every row below it moves up one: a row a test comes back to is pinned by its trip's href (pinRow), never
- * by position. The tests are shorter than the 15 s poll, so the request counts are the navigation's own.
+ * by position. A request-count check runs well inside the 15 s poll (or moves the clock to just short of it), so the
+ * requests it counts are the navigation's own.
  */
 import { disableWebGL, expectMapUnavailable } from '@bft/ui/e2e/no-webgl.ts'
 import { expect, type Locator, type Page, type Request, test } from '@playwright/test'
@@ -63,7 +64,7 @@ const header = (page: Page) => page.locator('[data-board-header]')
 const idle = (page: Page, kind: Board['idle']) =>
   page.locator(kind === 'return' ? '[data-panel] [data-board]' : '[data-panel] [data-place-map]')
 
-/** The board, hydrated, with its polls held still (the page clock runs only when a test moves it). */
+/** The board, hydrated, on the page clock (installed at now; it runs on in real time and a test may move it on). */
 async function openBoard(page: Page, b: Board) {
   await page.clock.install({ time: Date.now() })
   await page.goto(b.url)
