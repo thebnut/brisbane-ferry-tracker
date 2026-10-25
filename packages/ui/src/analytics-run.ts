@@ -14,6 +14,9 @@
  *    seen a departures board (an element marked `data-ga-board`, which the board components render only with
  *    departures, and laid out: not the CSS-hidden other layout) or interacted (a pointer down, a key, a search input
  *    or a scroll past 50 px, as the legacy app).
+ *  - `return_visit`: once per session (a sessionStorage marker), when this site's localStorage already holds the
+ *    "visited before" flag from an earlier session; the first session sets it. Nothing when storage is blocked: a
+ *    visitor whose browser keeps nothing can't be told apart from a new one.
  */
 
 import type { BftGa } from './analytics-config.ts'
@@ -30,6 +33,10 @@ interface GaGlobal {
 }
 
 export const ENGAGED_KEY = 'bft-ga-engaged'
+/** sessionStorage: this session has been checked for `return_visit`. */
+export const SESSION_KEY = 'bft-ga-session'
+/** localStorage: this browser has visited this site in an earlier session. */
+export const RETURNING_KEY = 'bft-ga-returning'
 export const ENGAGED_MS = 10_000
 export const BOARD_SELECTOR = '[data-ga-board]'
 const SCROLL_PX = 50
@@ -257,7 +264,35 @@ function boardShown(doc: Document): boolean {
   return false
 }
 
-/** Starts both, once per page load, when the bootstrap has set GA up. */
+/**
+ * `return_visit`, at most once per session: sent when the first page of a session finds the flag an earlier session
+ * left; the first session leaves it. Returns whether it sent.
+ */
+export function startReturnVisit(
+  send: Send,
+  {
+    session = () => window.sessionStorage,
+    local = () => window.localStorage,
+  }: { session?: () => Storage; local?: () => Storage } = {},
+): boolean {
+  try {
+    if (session().getItem(SESSION_KEY)) return false
+    session().setItem(SESSION_KEY, '1')
+    const returning = local().getItem(RETURNING_KEY) === '1'
+    local().setItem(RETURNING_KEY, '1')
+    if (!returning) return false
+    send('return_visit', { value: 2, currency: 'AUD' })
+    return true
+  } catch {
+    // Storage blocked: can't tell a returning visitor from a new one.
+    return false
+  }
+}
+
+/**
+ * Starts the page views, the engaged-visit timer and the return-visit check, once per page load, when the bootstrap
+ * has set GA up.
+ */
 export function start(win: Window = window): void {
   const g = win as unknown as GaGlobal
   const send = gaSender(g)
@@ -279,6 +314,7 @@ export function start(win: Window = window): void {
     // What the bootstrap saw before this loaded counts too: visible time so far and any interaction.
     const credit = (ga.vis ?? 0) + (ga.since != null ? win.performance.now() - ga.since : 0)
     startEngaged(send, { win, credit, interacted: ga.act === true })
+    startReturnVisit(send, { session: () => win.sessionStorage, local: () => win.localStorage })
   } catch {
     // Analytics never breaks the page.
   }

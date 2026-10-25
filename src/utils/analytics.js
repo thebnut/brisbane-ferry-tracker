@@ -4,12 +4,17 @@
 // Event contract shared with the Worker apps:
 //  - engaged_visit: once per session, after 10 s visible in total plus a
 //    departure board with departures or a first interaction;
-//  - save_stop: a stop pair saved with "Remember selection" on.
+//  - save_stop: a stop pair saved with "Remember selection" on;
+//  - return_visit: once per session, when this site's localStorage already
+//    holds the "visited before" flag from an earlier session (the first session
+//    sets it); nothing when storage is blocked.
 
 export const SITE_MODE = 'ferry';
 export const ENGAGED_FLAG_KEY = 'bft-ga-engaged';
 export const ENGAGED_VISIBLE_MS = 10_000;
 export const SCROLL_THRESHOLD_PX = 50;
+export const SESSION_KEY = 'bft-ga-session';
+export const RETURNING_KEY = 'bft-ga-returning';
 
 function gtagOf(win) {
   try {
@@ -174,6 +179,24 @@ export function isRendered(el) {
   try {
     return Boolean(el) && el.getClientRects().length > 0;
   } catch {
+    return false;
+  }
+}
+
+// return_visit, at most once per session: sent when the first page of a
+// session finds the flag an earlier session left. Returns whether it sent.
+export function trackReturnVisit(win = globalThis.window) {
+  try {
+    const session = win.sessionStorage;
+    const local = win.localStorage;
+    if (session.getItem(SESSION_KEY)) return false;
+    session.setItem(SESSION_KEY, '1');
+    const returning = local.getItem(RETURNING_KEY) === '1';
+    local.setItem(RETURNING_KEY, '1');
+    if (!returning) return false;
+    return sendEvent('return_visit', { value: 2, currency: 'AUD' }, win);
+  } catch {
+    // Storage blocked (or no window): can't tell a returning visitor apart.
     return false;
   }
 }
