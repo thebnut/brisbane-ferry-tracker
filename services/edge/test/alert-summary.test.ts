@@ -13,10 +13,14 @@ import {
   EVICT_AFTER_MS,
   MAX_ENTRIES,
   MAX_PER_RUN,
+  MAX_TOKENS,
   STORAGE_KEY,
+  SUMMARY_MAX_CHARS,
+  SUMMARY_MAX_WORDS,
   type SummaryProvider,
   summaryProviderConfig,
 } from '../src/ai/alert-summary.ts'
+import type { Logger } from '../src/log.ts'
 import { parseRtModes } from '../src/rt/feeds.ts'
 import { ALERTS_EVERY_MS, CYCLE_MS, HubCore } from '../src/rt/hub-core.ts'
 import {
@@ -309,6 +313,14 @@ function harness(
   const clock = new Clock(Date.UTC(2026, 9, 26))
   const storage = new FakeStorage()
   const calls: string[] = []
+  const bodies: Array<{ system: Array<{ text: string }>; max_tokens: number }> = []
+  const logs: Array<{ level: string; msg: string; fields?: Record<string, unknown> }> = []
+  const log: Logger = {
+    info: (msg, fields) => logs.push({ level: 'info', msg, fields }),
+    warn: (msg, fields) => logs.push({ level: 'warn', msg, fields }),
+    error: (msg, fields) => logs.push({ level: 'error', msg, fields }),
+    child: () => log,
+  }
   const reserves: number[] = []
   const reconciles: number[] = []
   let inFlight = 0
@@ -316,9 +328,14 @@ function harness(
   /** What the stub provider does with each request: by default a summary built from the alert header. */
   let respond: (header: string) => Promise<Response> = async (header) => message(`${header} affects riders.`)
   const fetchStub = (async (_url: string, init?: RequestInit) => {
-    const body = JSON.parse(String(init?.body)) as { messages: Array<{ content: string }> }
+    const body = JSON.parse(String(init?.body)) as {
+      messages: Array<{ content: string }>
+      system: Array<{ text: string }>
+      max_tokens: number
+    }
     const header = /Header: (.*)/.exec(body.messages[0]?.content ?? '')?.[1] ?? ''
     calls.push(header)
+    bodies.push(body)
     inFlight++
     maxInFlight = Math.max(maxInFlight, inFlight)
     try {
@@ -350,12 +367,15 @@ function harness(
     provider,
     fetch: fetchStub,
     callTimeoutMs: opts.callTimeoutMs,
+    log,
   })
   return {
     s,
     clock,
     storage,
     calls,
+    bodies,
+    logs,
     reserves,
     reconciles,
     maxInFlight: () => maxInFlight,
@@ -370,6 +390,31 @@ function harness(
       )?.entries ?? {},
   }
 }
+
+describe('the request asks for words, not characters (staging, 26 Oct: 9 of 10 replies were too long)', () => {
+  it('asks for at most SUMMARY_MAX_WORDS words, with max_tokens 80; the 160-character check still applies', async () => {
+    const h = harness()
+    await h.s.kick([mk(0)])
+    const body = h.bodies[0]
+    expect(body?.max_tokens).toBe(MAX_TOKENS)
+    expect(MAX_TOKENS).toBe(80)
+    const system = body?.system.map((b) => b.text).join('\n') ?? ''
+    expect(system).toContain(`at most ${SUMMARY_MAX_WORDS} words`)
+    expect(system).not.toMatch(/characters/)
+    expect(SUMMARY_MAX_WORDS * 8).toBeLessThanOrEqual(SUMMARY_MAX_CHARS)
+  })
+
+  it('a too_long rejection logs the reply’s length, never its text', async () => {
+    const h = harness()
+    // Padded: the logged length is the trimmed reply's, as the validator measures it.
+    const long = `  ${'Route 200 services are changed '.repeat(8)}.\n`
+    h.setRespond(async () => message(long))
+    await h.s.kick([mk(0)])
+    const rej = h.logs.find((l) => l.msg === 'alert summary rejected')
+    expect(rej?.fields).toMatchObject({ reason: 'too_long', chars: long.trim().length })
+    expect(JSON.stringify(h.logs)).not.toContain('services are changed')
+  })
+})
 
 describe('AlertSummariser scheduling', () => {
   it('summarises at most MAX_PER_RUN alerts per run, one call at a time, then the rest next run', async () => {
