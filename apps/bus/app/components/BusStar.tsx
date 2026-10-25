@@ -17,6 +17,7 @@ export function useBusSave() {
     toggleSaved(stop)
     // isSaved reads storage again after a refused write (R27-S1): the star stays as it was, and the toast says so.
     const kept = isSaved(stop.id) === adding
+    if (adding && kept) window.__bftGa?.saveStop('bus', stop.id)
     setToast(
       !kept ? { name: stop.name, kept, remove: !adding, stop } : adding ? { name: stop.name, stop } : null,
     )

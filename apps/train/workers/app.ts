@@ -11,6 +11,7 @@
  */
 
 import { withBuild } from '@bft/core/build'
+import { gaId } from '@bft/ui/analytics-config'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { transitRedirect } from '@bft/ui/redirect'
 import { proxied } from '@bft/ui/upstream'
@@ -69,7 +70,10 @@ export default {
     // TripSocket sets x-bft-build on it itself.
     if (res.status === 101) return res
     return withBuild(
-      withRobotsTag(withSecurityHeaders(res, nonce, wsOriginOf(env.API_WS_BASE)), siteInfo(env).indexable),
+      withRobotsTag(
+        withSecurityHeaders(res, nonce, wsOriginOf(env.API_WS_BASE), gaId(env.GA_MEASUREMENT_ID) != null),
+        siteInfo(env).indexable,
+      ),
       env.BUILD_SHA,
     )
   },

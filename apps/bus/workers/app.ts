@@ -12,6 +12,7 @@
 
 import { withBuild } from '@bft/core/build'
 import { ROUTE_SHORT_RE, RouteIndexFile } from '@bft/core/contract'
+import { gaId } from '@bft/ui/analytics-config'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { transitRedirect } from '@bft/ui/redirect'
 import { proxied } from '@bft/ui/upstream'
@@ -144,7 +145,13 @@ export default {
     const nonce = newNonce()
     const www = wwwRedirectLocation(request.url, env.SITE_URL)
     const res = www ? canonicalRedirect(www) : await guarded(() => route(request, env, ctx, nonce))
-    return withBuild(withRobotsTag(withSecurityHeaders(res, nonce), env.INDEXABLE === '1'), env.BUILD_SHA)
+    return withBuild(
+      withRobotsTag(
+        withSecurityHeaders(res, nonce, gaId(env.GA_MEASUREMENT_ID) != null),
+        env.INDEXABLE === '1',
+      ),
+      env.BUILD_SHA,
+    )
   },
 } satisfies ExportedHandler<Env>
 

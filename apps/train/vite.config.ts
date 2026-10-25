@@ -2,6 +2,7 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 import { reactRouter } from '@react-router/dev/vite'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
+import { gaModule } from '../../packages/ui/vite/ga-module.ts'
 import { noMapOnServer } from '../../packages/ui/vite/no-map-on-server.ts'
 import { pwa } from './pwa.config.ts'
 
@@ -13,6 +14,7 @@ export default defineConfig({
   plugins: [
     // MapLibre only renders in the browser (behind React.lazy): the Worker bundle gets a stub (as ferry, bus, transit).
     noMapOnServer(),
+    gaModule(),
     cloudflare({ viteEnvironment: { name: 'ssr' }, inspectorPort }),
     tailwindcss(),
     reactRouter(),

@@ -61,6 +61,8 @@ export function useStar(f: Favourite, name: string, pickDestination?: () => void
     const after = readFavourites()
     setList(after)
     const kept = after.some((x) => sameFavourite(x, f)) === adding
+    // A save only when this tap stored it: not one saved elsewhere since (the button was stale).
+    if (adding && !has && kept) window.__bftGa?.saveStop('train', f.from)
     const at = before.findIndex((x) => !after.some((y) => sameFavourite(x, y)))
     const evicted = adding && at >= 0 ? { fav: before[at] as Favourite, at } : null
     setToast(

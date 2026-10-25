@@ -75,3 +75,13 @@ test('every Worker response names its build (x-bft-build; "dev" locally, the dep
     expect(res.headers()['x-bft-build'], `${path} ${res.status()}`).toBe('dev')
   }
 })
+
+test('GA4 is off here (GA_MEASUREMENT_ID unset): no gtag bootstrap or tag, no Google origin in the CSP', async ({
+  request,
+}) => {
+  const res = await request.get('/')
+  expect(res.headers()['content-security-policy']).not.toMatch(/google/i)
+  const html = await res.text()
+  expect(html).not.toContain('dataLayer')
+  expect(html).not.toContain('googletagmanager')
+})

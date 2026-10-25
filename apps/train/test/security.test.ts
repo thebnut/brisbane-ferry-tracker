@@ -61,3 +61,31 @@ describe('HTML caching', () => {
     expect(withSecurityHeaders(Response.json({}), 'n').headers.get('cache-control')).toBeNull()
   })
 })
+
+describe('GA4 (GA_MEASUREMENT_ID set): Google origins in the CSP only then', () => {
+  const html = () => new Response('<html></html>', { headers: { 'content-type': 'text/html' } })
+  const csp = (on: boolean) =>
+    (withSecurityHeaders(html(), 'n', null, on).headers.get('content-security-policy') ?? '').split('; ')
+  const directive = (on: boolean, name: string) => csp(on).find((d) => d.startsWith(`${name} `)) ?? ''
+
+  it('off: no Google origin anywhere', () => {
+    expect(csp(false).join('; ')).not.toMatch(/google/i)
+  })
+
+  it('on: gtag.js in script-src, collection in connect-src and img-src; the nonce stays, nothing unsafe', () => {
+    expect(directive(true, 'script-src')).toContain("'nonce-n'")
+    expect(directive(true, 'script-src')).toMatch(/ https:\/\/www\.googletagmanager\.com$/)
+    expect(directive(true, 'connect-src')).toMatch(
+      / https:\/\/\*\.google-analytics\.com https:\/\/analytics\.google\.com https:\/\/\*\.analytics\.google\.com https:\/\/\*\.googletagmanager\.com$/,
+    )
+    expect(directive(true, 'img-src')).toMatch(
+      / https:\/\/\*\.google-analytics\.com https:\/\/\*\.googletagmanager\.com$/,
+    )
+    // The bare host is where this property's hits go: the wildcard doesn't cover it.
+    expect(directive(true, 'connect-src').split(' ')).toContain('https://analytics.google.com')
+    expect(csp(true).join('; ')).not.toMatch(/unsafe-eval|script-src[^;]*unsafe-inline/)
+    // Only those three directives change.
+    const changed = csp(true).filter((d, i) => d !== csp(false)[i])
+    expect(changed.map((d) => d.split(' ')[0])).toEqual(['script-src', 'img-src', 'connect-src'])
+  })
+})
