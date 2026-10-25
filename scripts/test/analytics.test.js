@@ -502,9 +502,16 @@ describe('return_visit', () => {
     assert.equal(trackReturnVisit(undefined), false);
   });
 
-  it('is a no-op without gtag', () => {
+  it('is a no-op without gtag, and leaves storage alone (GA off, as the Worker apps)', () => {
+    const session = new MemoryStorage();
     const local = new MemoryStorage();
-    local.setItem(RETURNING_KEY, '1');
-    assert.equal(trackReturnVisit({ sessionStorage: new MemoryStorage(), localStorage: local }), false);
+    assert.equal(trackReturnVisit({ sessionStorage: session, localStorage: local }), false);
+    assert.equal(session.getItem(SESSION_KEY), null);
+    assert.equal(local.getItem(RETURNING_KEY), null);
+    // Once GA is on, the same browser's first session is still a first visit.
+    const calls = [];
+    const on = { sessionStorage: session, localStorage: local, gtag: (...a) => calls.push(a) };
+    assert.equal(trackReturnVisit(on), false);
+    assert.deepEqual(calls, []);
   });
 });

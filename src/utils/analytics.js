@@ -186,6 +186,9 @@ export function isRendered(el) {
 // return_visit, at most once per session: sent when the first page of a
 // session finds the flag an earlier session left. Returns whether it sent.
 export function trackReturnVisit(win = globalThis.window) {
+  // GA off (no gtag): a no-op that leaves storage alone, as the Worker apps' /ga.js,
+  // which never loads then.
+  if (!gtagOf(win)) return false;
   try {
     const session = win.sessionStorage;
     const local = win.localStorage;
