@@ -1178,15 +1178,79 @@ describe('/mcp (read-only)', () => {
     expect(keys).toEqual(['203.0.113.7', '198.51.100.2'])
   })
 
-  it('a body over 64 KB is a 413 before it is parsed', async () => {
+  it('a body over 64 KB is a 413: by Content-Length, and by bytes read when there is none (Codex r2)', async () => {
     const s = setup()
+    const post = (body: BodyInit, headers: Record<string, string> = {}) =>
+      s.app.request(
+        new Request('http://x/mcp', {
+          method: 'POST',
+          body,
+          headers: { 'content-type': 'application/json', ...headers },
+          duplex: 'half',
+        } as RequestInit),
+      )
     const big = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping', params: { pad: 'x'.repeat(70_000) } })
-    const res = await s.app.request('/mcp', {
-      method: 'POST',
-      body: big,
-      headers: { 'content-type': 'application/json' },
+    expect((await post(big)).status).toBe(413)
+    // Chunked, no Content-Length: read until 64 KB, then cancelled (the rest is never pulled).
+    let pulled = 0
+    let cancelled = false
+    const chunk = new TextEncoder().encode('x'.repeat(16 * 1024))
+    const stream = new ReadableStream<Uint8Array>({
+      pull(ctl) {
+        pulled += 1
+        if (pulled > 50) ctl.close()
+        else ctl.enqueue(chunk)
+      },
+      cancel() {
+        cancelled = true
+      },
     })
-    expect(res.status).toBe(413)
+    expect((await post(stream)).status).toBe(413)
+    expect(cancelled).toBe(true)
+    expect(pulled).toBeLessThan(10)
+    // Bytes, not UTF-16 units: 30,000 "€" are 30,000 characters but 90,000 bytes.
+    const euros = JSON.stringify({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'ping',
+      params: { pad: '€'.repeat(30_000) },
+    })
+    expect(euros.length).toBeLessThan(64 * 1024)
+    expect((await post(new TextEncoder().encode(euros))).status).toBe(413)
+    // And a small multibyte body is read whole and answered.
+    const small = await post(
+      JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'ping', params: { note: 'Café ☕' } }),
+    )
+    expect(small.status).toBe(200)
+  })
+
+  it('/mcp CORS follows its Origin rule for local dev tools; other paths keep the legacy allowlist (Codex r2)', async () => {
+    const s = setup()
+    for (const origin of ['http://localhost:6274', 'http://127.0.0.1:3000']) {
+      const pre = await s.app.request('/mcp', {
+        method: 'OPTIONS',
+        headers: {
+          origin,
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'content-type',
+        },
+      })
+      expect(pre.headers.get('access-control-allow-origin'), origin).toBe(origin)
+      const post = await s.app.request('/mcp', {
+        method: 'POST',
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
+        headers: { 'content-type': 'application/json', origin },
+      })
+      expect(post.status).toBe(200)
+      expect(post.headers.get('access-control-allow-origin'), origin).toBe(origin)
+      const other = await s.app.request('/v1/alerts', { headers: { origin } })
+      expect(other.headers.get('access-control-allow-origin'), `${origin} on /v1/alerts`).toBeNull()
+    }
+    const evil = await s.app.request('/mcp', {
+      method: 'OPTIONS',
+      headers: { origin: 'https://evil.example', 'access-control-request-method': 'POST' },
+    })
+    expect(evil.headers.get('access-control-allow-origin')).toBeNull()
   })
 
   it('a browser preflight may send MCP-Protocol-Version (Codex r1)', async () => {

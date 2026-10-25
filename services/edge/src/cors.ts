@@ -21,6 +21,18 @@ const STATIC_ALLOWED = new Set([
 // Vercel preview deploys: brisbane-ferry-tracker-<hash>-starblaze.vercel.app, -git-<branch>-starblaze.vercel.app
 const VERCEL_PREVIEW_RE = /^https:\/\/brisbane-ferry-tracker(-[a-z0-9-]+)?-starblaze\.vercel\.app$/
 
+// /mcp only: a local developer tool such as the MCP Inspector (any port).
+const LOCAL_DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/
+
+/**
+ * /mcp's Origin rule (the MCP transport's DNS-rebinding check), which its CORS follows too: no Origin (native and
+ * server-side MCP clients), an origin the API allows, or a local developer tool. Every other path keeps the legacy
+ * allowlist exactly.
+ */
+export function mcpOriginAllowed(origin: string | null | undefined, allowAll: boolean): boolean {
+  return origin == null || allowAll || isAllowedOrigin(origin) || LOCAL_DEV_ORIGIN.test(origin)
+}
+
 export function isAllowedOrigin(origin: string | null | undefined): boolean {
   if (!origin || typeof origin !== 'string') return false
   if (STATIC_ALLOWED.has(origin)) return true
@@ -36,7 +48,10 @@ export function corsHeaders(
   const h: Record<string, string> = {}
   if (allowAll) {
     h['Access-Control-Allow-Origin'] = '*'
-  } else if (isAllowedOrigin(origin)) {
+  } else if (
+    isAllowedOrigin(origin) ||
+    (path === '/mcp' && origin != null && mcpOriginAllowed(origin, false))
+  ) {
     h['Access-Control-Allow-Origin'] = origin as string
     h.Vary = 'Origin'
   } else if (origin) {

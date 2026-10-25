@@ -16,7 +16,7 @@ import {
 } from '@bft/core'
 import type { Hono } from 'hono'
 import { z } from 'zod'
-import { isAllowedOrigin } from '../cors.ts'
+import { mcpOriginAllowed } from '../cors.ts'
 import type { StaticStore } from '../data/static-store.ts'
 import { answerIntent } from './answer.ts'
 import { askLlm } from './llm.ts'
@@ -323,15 +323,35 @@ export const MCP_VERSION = '2025-06-18'
 /** Largest /mcp request body: tool arguments are a few short strings. */
 export const MCP_MAX_BODY = 64 * 1024
 
-const LOCAL_DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/
-
 /**
- * The transport's Origin check (DNS rebinding): a request with no Origin (native and server-side MCP clients) is
- * fine; a browser's must be one the API already allows (cors.ts), or a local developer tool such as the MCP
- * Inspector. Anything else is refused before the message is read.
+ * The body as text, reading at most `max` bytes: null (and the stream cancelled) once it is longer, so a body without
+ * Content-Length can't make us buffer it all first.
  */
-export function mcpOriginAllowed(origin: string | undefined, allowAll: boolean): boolean {
-  return origin == null || allowAll || isAllowedOrigin(origin) || LOCAL_DEV_ORIGIN.test(origin)
+export async function readBodyLimited(
+  body: ReadableStream<Uint8Array> | null,
+  max: number,
+): Promise<string | null> {
+  if (!body) return ''
+  const reader = body.getReader()
+  const chunks: Uint8Array[] = []
+  let bytes = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    bytes += value.byteLength
+    if (bytes > max) {
+      await reader.cancel().catch(() => {})
+      return null
+    }
+    chunks.push(value)
+  }
+  const all = new Uint8Array(bytes)
+  let at = 0
+  for (const c of chunks) {
+    all.set(c, at)
+    at += c.byteLength
+  }
+  return new TextDecoder().decode(all)
 }
 
 /** A JSON-RPC id an MCP request may carry: a string or an integer (0 and "" included), never null. */
@@ -548,8 +568,8 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
       return invalid(-32600, `unsupported protocol version ${version}`, 400)
     if (Number(c.req.header('content-length') ?? 0) > MCP_MAX_BODY)
       return invalid(-32600, 'request too large', 413)
-    const raw = await c.req.text()
-    if (raw.length > MCP_MAX_BODY) return invalid(-32600, 'request too large', 413)
+    const raw = await readBodyLimited(c.req.raw.body, MCP_MAX_BODY)
+    if (raw == null) return invalid(-32600, 'request too large', 413)
     let parsed: unknown
     try {
       parsed = JSON.parse(raw)
