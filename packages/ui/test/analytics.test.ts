@@ -104,10 +104,15 @@ describe('gaBootstrap (the root inline script)', () => {
     window.__bftGa?.saveStop('bus', '10802')
     const calls = (win.dataLayer as IArguments[]).map((a) => [...a])
     expect(calls[0]?.[0]).toBe('js')
-    // The path-based title, set for every event (gtag's own too) before the config.
-    expect(calls[1]).toEqual(['set', { page_title: 'bus stop 10802' }])
+    // The cleaned URL and path title, set for every event (gtag's own too) before the config; none of it in the
+    // config, which would outrank "set" after a route change.
+    expect(calls[1]).toEqual([
+      'set',
+      { page_location: `${location.origin}/bus/stop/10802`, page_title: 'bus stop 10802' },
+    ])
     expect(calls[2]?.slice(0, 2)).toEqual(['config', ID])
-    expect(calls[2]?.[2]).toMatchObject({ page_title: 'bus stop 10802' })
+    for (const k of ['page_location', 'page_title', 'page_referrer'])
+      expect(calls[2]?.[2]).not.toHaveProperty(k)
     expect(calls[3]).toEqual([
       'event',
       'save_stop',
@@ -134,8 +139,8 @@ describe('gaBootstrap (the root inline script)', () => {
     expect(clean(location.href)).toBe(`${location.origin}/bus/map?gclid=abc&utm_source=g&to=600`)
     expect(clean('https://www.google.com/search?q=ferry')).toBe('https://www.google.com/search')
     expect(clean('not a url at all')).toMatch(/^http/)
-    const config = (win.dataLayer as IArguments[]).map((a) => [...a]).find((c) => c[0] === 'config')?.[2]
-    expect(config).toMatchObject({
+    const set = (win.dataLayer as IArguments[]).map((a) => [...a]).find((c) => c[0] === 'set')?.[1]
+    expect(set).toMatchObject({
       page_location: `${location.origin}/bus/map?gclid=abc&utm_source=g&to=600`,
     })
     expect(JSON.stringify(win.dataLayer)).not.toMatch(/lat=|lon=|my%20house|153\.02/)
@@ -406,7 +411,12 @@ describe('startPageViews', () => {
     const router = routerStub()
     const { sent, send } = recorder()
     const titles: string[] = []
-    startPageViews(send, { router, clean: bootClean(), title: bootTitle(), setTitle: (t) => titles.push(t) })
+    startPageViews(send, {
+      router,
+      clean: bootClean(),
+      title: bootTitle(),
+      setPage: (p) => titles.push(`${new URL(p.page_location).pathname} ${p.page_title}`),
+    })
     vi.advanceTimersByTime(200)
     expect(sent).toEqual([
       [
@@ -429,7 +439,8 @@ describe('startPageViews', () => {
     vi.advanceTimersByTime(200)
     expect(sent).toHaveLength(2)
     expect(sent[1]?.[1]).toMatchObject({ page_path: '/bus/stop/10802', page_title: 'bus stop 10802' })
-    expect(titles).toEqual(['ferry home', 'bus stop 10802'])
+    // Set for gtag's own events before each page_view: the new page's URL and title.
+    expect(titles).toEqual(['/ferry ferry home', '/bus/stop/10802 bus stop 10802'])
     expect(JSON.stringify(sent)).not.toContain('Cultural Centre')
     router.emit('/bus/stop/10802', '?route=60')
     vi.advanceTimersByTime(200)
@@ -490,7 +501,10 @@ describe('start (/ga.js)', () => {
     Object.assign(win, { gtag, __bftGa: { ...ga, vis: 10_000, since: null, act: true } })
     start(window)
     vi.advanceTimersByTime(200)
-    expect(gtag.mock.calls.find((c) => c[0] === 'set')).toEqual(['set', { page_title: 'bus stop 10802' }])
+    expect(gtag.mock.calls.find((c) => c[0] === 'set')).toEqual([
+      'set',
+      { page_location: `${location.origin}/stop/10802?route=60`, page_title: 'bus stop 10802' },
+    ])
     const events = gtag.mock.calls.filter((c) => c[0] === 'event')
     expect(events.map((c) => c[1])).toEqual(['page_view', 'engaged_visit'])
     for (const c of events) expect(c[2]).toMatchObject({ page_title: 'bus stop 10802' })

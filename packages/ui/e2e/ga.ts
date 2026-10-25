@@ -227,6 +227,37 @@ export function gaSuite({
           expect(t).toMatch(/^(ferry|train|bus|transit) [a-z][a-z-]*( [A-Za-z0-9._-]+)?$/)
           expect(t).not.toBe(pageTitle)
         }
+        // After a client navigation gtag's own events (scroll, user_engagement) carry the new page's URL and title:
+        // they come from gtag("set"), which /ga.js updates per route, and nothing in the config outranks it.
+        const auto = () =>
+          hits.flatMap((h) => {
+            const [url = '', body = ''] = h.split(/\n(.*)/s)
+            const shared = new URL(url).searchParams
+            return body
+              .split('\n')
+              .concat(shared.toString())
+              .map((l) => new URLSearchParams(l))
+              .filter((p) => p.get('en') && p.get('en') !== 'page_view')
+              .map((p) => ({ en: p.get('en'), dt: p.get('dt') ?? shared.get('dt'), dl: p.get('dl') ?? shared.get('dl') }))
+          })
+        const before = auto().length
+        await page.locator(`a[href="${navLink}"]:visible`).first().click()
+        await page.waitForURL((u) => u.pathname === navPath)
+        await expect
+          .poll(() => hits.some((h) => h.includes('en=page_view') && h.includes(encodeURIComponent(navPath))))
+          .toBe(true)
+        await page.mouse.wheel(0, 20_000)
+        await page.evaluate(() => {
+          window.scrollTo(0, document.body.scrollHeight)
+          // Leaving the page: gtag sends user_engagement.
+          Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+          document.dispatchEvent(new Event('visibilitychange'))
+        })
+        await expect.poll(() => auto().length, { timeout: 15_000 }).toBeGreaterThan(before)
+        for (const e of auto().slice(before)) {
+          expect(e.dt, `${e.en} after the route change`).toBe(gaPageTitle(navPath, siteMode as SiteMode))
+          expect(new URL(e.dl ?? '').pathname, `${e.en} after the route change`).toBe(navPath)
+        }
         // The blocked URL (the message quotes the policy too, which names these hosts): the Ads and Google signals
         // beacons (www.google.com, doubleclick) are refused on purpose; GA4's own collection never is.
         const blocked = refused.map((m) => /(?:to|image|load) '?(https:\/\/[^'\s]+)/.exec(m)?.[1] ?? m)

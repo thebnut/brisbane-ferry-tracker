@@ -179,9 +179,11 @@ export function gaBootstrap(
     'function rec(){var k=location.pathname+location.search,l=g.paths;if(l&&l[l.length-1]!==k)l.push(k)}',
     'var H=history;["pushState","replaceState"].forEach(function(m){var f=H[m];H[m]=function(){var r=f.apply(this,arguments);rec();return r}});addEventListener("popstate",rec);',
     'd.addEventListener("scroll",function(e){var t=e.target;if((t===d||t===d.documentElement?scrollY:t.scrollTop)>50)a()},o);',
-    `var c=${JSON.stringify(config)};c.page_location=clean(location.href);c.page_title=title(location.pathname);if(d.referrer)c.page_referrer=clean(d.referrer);`,
-    // "set" as well as config: gtag's own events (scroll, user_engagement) read the title from here, not the page.
-    `gtag("js",new Date());gtag("set",{page_title:c.page_title});gtag("config",${JSON.stringify(id)},c);`,
+    // The page's cleaned URL, referrer and path title go in "set", not the config: a config value outranks "set", so
+    // gtag's own events (scroll, user_engagement) would keep the first page's after a route change (/ga.js sets the
+    // new page's on each change).
+    `var c=${JSON.stringify(config)};var q={page_location:clean(location.href),page_title:title(location.pathname)};if(d.referrer)q.page_referrer=clean(d.referrer);`,
+    `gtag("js",new Date());gtag("set",q);gtag("config",${JSON.stringify(id)},c);`,
     `var s=d.createElement("script");s.async=true;s.src=${JSON.stringify(`${GA_SCRIPT_ORIGIN}/gtag/js?id=${id}`)};d.head.appendChild(s);`,
     'addEventListener("load",function(){(window.requestIdleCallback||setTimeout)(function(){import("/ga.js").catch(function(){})})})})()',
   ].join('')

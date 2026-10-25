@@ -5,8 +5,10 @@
  * chunk of its own, which the pages carrying a star would then load too.
  *
  *  - `page_view`: one for the page it loads on, then one per React Router location change (pathname and search; a
- *    hash-only change or a re-render sends none). Its title is the bootstrap's path-based one (BftGa.title), set with
- *    gtag("set") first so gtag's own events carry it too; never `document.title`, which names the stop.
+ *    hash-only change or a re-render sends none). Its title is the bootstrap's path-based one (BftGa.title), never
+ *    `document.title`, which names the stop. The page's cleaned URL and title are set with gtag("set") first, so
+ *    gtag's own events after a route change carry the new page's (nothing puts them in the config, which would
+ *    outrank "set").
  *  - `engaged_visit`: once per session (sessionStorage; once per page load when storage is blocked), when the page has
  *    been visible for 10 s in all (the count pauses while hidden and carries across route changes) and the visitor has
  *    seen a departures board (an element marked `data-ga-board`, which the board components render only with
@@ -78,7 +80,7 @@ export function startPageViews(
     router,
     clean = noQuery,
     title = () => '',
-    setTitle = () => {},
+    setPage = () => {},
     early = [],
   }: {
     win?: Window
@@ -86,8 +88,8 @@ export function startPageViews(
     clean?: (url: string) => string
     /** The path-based page title (BftGa.title); never `document.title`. */
     title?: (path: string) => string
-    /** gtag("set", { page_title }), so gtag's own events after this carry the same title. */
-    setTitle?: (title: string) => void
+    /** gtag("set", { page_location, page_title }), so gtag's own events after this carry the same page. */
+    setPage?: (page: { page_location: string; page_title: string }) => void
     early?: readonly string[]
   } = {},
 ): () => void {
@@ -100,7 +102,7 @@ export function startPageViews(
       const location = clean(`${win.location.origin}${path}`)
       const u = new URL(location)
       const pageTitle = title(u.pathname)
-      setTitle(pageTitle)
+      setPage({ page_location: location, page_title: pageTitle })
       send('page_view', {
         page_location: location,
         page_path: u.pathname + u.search,
@@ -266,14 +268,14 @@ export function start(win: Window = window): void {
     const early = ga.paths ?? []
     // From here the router's subscription counts routes; the bootstrap stops noting them.
     ga.paths = null
-    const setTitle = (page_title: string) => {
+    const setPage = (page: { page_location: string; page_title: string }) => {
       try {
-        g.gtag?.('set', { page_title })
+        g.gtag?.('set', page)
       } catch {
         // Analytics never breaks the page.
       }
     }
-    startPageViews(send, { win, clean: ga.clean, title: ga.title, setTitle, early })
+    startPageViews(send, { win, clean: ga.clean, title: ga.title, setPage, early })
     // What the bootstrap saw before this loaded counts too: visible time so far and any interaction.
     const credit = (ga.vis ?? 0) + (ga.since != null ? win.performance.now() - ga.since : 0)
     startEngaged(send, { win, credit, interacted: ga.act === true })
