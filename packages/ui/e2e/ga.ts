@@ -220,7 +220,9 @@ export function gaSuite({
         const titles = hits.flatMap((h) =>
           h
             .split('\n')
-            .flatMap((l) => [...l.matchAll(/(?:^|[?&])dt=([^&]*)/g)].map((m) => decodeURIComponent(m[1] ?? ''))),
+            .flatMap((l) =>
+              [...l.matchAll(/(?:^|[?&])dt=([^&]*)/g)].map((m) => decodeURIComponent(m[1] ?? '')),
+            ),
         )
         expect(titles.length).toBeGreaterThan(0)
         for (const t of titles) {
@@ -238,7 +240,11 @@ export function gaSuite({
               .concat(shared.toString())
               .map((l) => new URLSearchParams(l))
               .filter((p) => p.get('en') && p.get('en') !== 'page_view')
-              .map((p) => ({ en: p.get('en'), dt: p.get('dt') ?? shared.get('dt'), dl: p.get('dl') ?? shared.get('dl') }))
+              .map((p) => ({
+                en: p.get('en'),
+                dt: p.get('dt') ?? shared.get('dt'),
+                dl: p.get('dl') ?? shared.get('dl'),
+              }))
           })
         const before = auto().length
         await page.locator(`a[href="${navLink}"]:visible`).first().click()
