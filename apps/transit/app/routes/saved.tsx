@@ -167,7 +167,8 @@ type CardData = (DeparturesResponse & OfflineCopy) | undefined
  */
 export function homeLiveState(
   items: readonly unknown[] | null,
-  cards: ReadonlyArray<{ data: CardData; pending: boolean }>,
+  /** Per saved card: its data, and whether its request failed (`isError || failureCount > 0`, as the mode homes). */
+  cards: ReadonlyArray<{ data: CardData; failed: boolean }>,
   {
     online,
     nowMs,
@@ -190,20 +191,32 @@ export function homeLiveState(
     ) ||
     (items?.length === 0 && reached)
   const unconfirmed = unconfirmedBefore != null && !answered
-  // Each saved card (one query per item) as a mode home's row reports (reportValue): one not live, or failed with
-  // nothing to show, makes the page not live; one waiting makes it "Connecting…"; otherwise LIVE once a card shows its
-  // pill. No cards (items not read yet, or none saved): no claim.
+  // Each saved card (one query per item) as a mode home's row reports (reportValue, pageLive): one not live, or whose
+  // request failed without a live pill to keep showing, makes the page not live; one with no answer yet makes it
+  // "Connecting…" unless a failed one still shows a live pill (`held`); otherwise LIVE once a card shows its pill.
+  // No cards (items not read yet, or none saved): no claim.
   let down = !online || unconfirmed
   let pending = false
+  let held = false
   let pill = false
   for (const c of cards) {
-    if (c.data == null) {
-      if (c.pending) pending = true
-      else down = true
-    } else if (liveState(c.data, { offline: false, nowMs, unconfirmedBefore, arrivedAt }) != null) down = true
-    else pill ||= marksLive(c.data)
+    const fresh =
+      c.data != null && liveState(c.data, { offline: false, nowMs, unconfirmedBefore, arrivedAt }) == null
+    const shows = fresh && marksLive(c.data)
+    if (c.failed) {
+      if (shows) {
+        pill = true
+        held = true
+      } else down = true
+    } else if (c.data == null) pending = true
+    else if (!fresh) down = true
+    else pill ||= shows
   }
-  return { live: down || pending ? false : pill || undefined, pending: pending && !down, unconfirmed }
+  return {
+    live: down || pending ? false : pill || undefined,
+    pending: pending && !down && !held,
+    unconfirmed,
+  }
 }
 
 /**
@@ -399,7 +412,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   const reached = useReachedNetwork(items?.length === 0)
   const { live, pending, unconfirmed } = homeLiveState(
     items,
-    qs.map((q) => ({ data: q.data, pending: q.isPending })),
+    qs.map((q) => ({ data: q.data, failed: q.isError || q.failureCount > 0 })),
     { online, nowMs: now, unconfirmedBefore, arrivedAt: page?.arrivedAt, reached },
   )
   const updatedAt = useLastAnswerAt(
