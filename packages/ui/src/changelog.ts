@@ -12,6 +12,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-10-26',
+    summary: 'My Transit now says Live only when it’s showing you live times.',
+    items: [
+      'With nothing saved yet, My Transit no longer flashes Offline as it opens, or says Live over an empty list.',
+      'While your saved stops’ times are on their way, it says “Connecting…” instead of briefly showing Offline.',
+      'My Transit says Live only when one of your saved stops shows a live departure, the same as the Ferry, Train and Bus homes.',
+    ],
+  },
+  {
     date: '2026-10-23',
     summary: 'A bigger, clearer Save button on every ferry, train and bus board.',
     items: [
