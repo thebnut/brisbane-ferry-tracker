@@ -6,7 +6,7 @@
 import { DemoExitLink, formatClock, StatusStrip } from '@bft/ui'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { Link, useRouteLoaderData, useSearchParams } from 'react-router'
-import { ModeHeader } from './ModeHeader.tsx'
+import { type LiveProps, ModeHeader } from './ModeHeader.tsx'
 
 /** Demo-data note in fixture mode, with the way out (the root keeps the hour-long cookie, R7-B1). */
 export function FixtureNotice() {
@@ -23,11 +23,14 @@ export function FixtureNotice() {
   )
 }
 
-/** The header for a transit page. `live` undefined: a page without live data (What's new) claims nothing. */
-export function TransitHeader({ live }: { live?: boolean }) {
+/**
+ * The header for a transit page. `live` undefined: a page without live data (What's new) claims nothing; `pending`:
+ * still waiting for the page's first live answer ("Connecting…").
+ */
+export function TransitHeader(live: LiveProps) {
   return (
     <>
-      <ModeHeader live={live} />
+      <ModeHeader {...live} />
       <FixtureNotice />
     </>
   )

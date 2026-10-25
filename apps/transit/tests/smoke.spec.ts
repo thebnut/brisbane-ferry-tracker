@@ -219,7 +219,9 @@ test('My Transit mixes every mode and works offline as "Offline · scheduled"', 
  * standalone + 10 KB.
  */
 const BUDGET_KB: Record<string, number> = {
-  '/': 150,
+  // +0.05 (25 Oct 2026, P-3167c11-O1/H1): the home reports its header claim per card like the mode homes (+41 B gz in
+  // its route chunk; develop measured worst 153,554 B, this 153,603 B at its worst hour). External JS unchanged.
+  '/': 150 + 0.05,
   '/nearby': 150,
   '/alerts': 150,
   // +0.05 (19 Oct 2026): measured worst 153,416 B at 08:00 AEST (fixtures pinned, nonce and renderedAt normalised). Worst-case SSR loader data,

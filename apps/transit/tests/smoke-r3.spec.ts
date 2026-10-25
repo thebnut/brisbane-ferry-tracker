@@ -5,6 +5,7 @@
  */
 import { offlineLoadSuite, reconnectSuite } from '@bft/ui/e2e/offline-suite.ts'
 import { expect, test } from '@playwright/test'
+import { pinUpcoming } from './upcoming.ts'
 
 offlineLoadSuite({
   path: '/ferry/terminal/bulimba?to=riverside',
@@ -58,7 +59,15 @@ reconnectSuite({
   },
 })
 
-test('R3-X11: the home page never shows "Timetable" next to the LIVE badge', async ({ page }) => {
+test('R3-X11: the home page never shows "Timetable" next to the LIVE badge', async ({ page, context }) => {
+  // The header is LIVE only over a card showing its LIVE pill (P-3167c11-H1): a saved stop with a live one due.
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'bft-bus-saved',
+      JSON.stringify([{ id: '10802', name: 'Cultural Centre station, platform 1' }]),
+    ),
+  )
+  await pinUpcoming(context)
   await page.goto('/')
   await expect(page.locator('header').getByText('LIVE', { exact: true })).toBeVisible()
   await expect(page.getByText('Timetable', { exact: true })).toHaveCount(0)
