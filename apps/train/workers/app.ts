@@ -13,6 +13,7 @@
 import { withBuild } from '@bft/core/build'
 import { gaId } from '@bft/ui/analytics-config'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
+import { pageMethodNotAllowed } from '@bft/ui/page-method'
 import { transitRedirect } from '@bft/ui/redirect'
 import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
@@ -117,6 +118,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
       headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' },
     })
   }
+  // Pages are GET/HEAD only (no route has an action): any other method is a 405 here, not React Router's logged one.
+  const notAllowed = pageMethodNotAllowed(request.method)
+  if (notAllowed) return notAllowed
   const context = new RouterContextProvider()
   context.set(cloudflareContext, { env, ctx, nonce })
   const res = await requestHandler(request, context)

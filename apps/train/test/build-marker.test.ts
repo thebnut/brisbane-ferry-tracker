@@ -10,6 +10,9 @@ vi.mock('react-router', async (orig) => ({
   ...(await orig<typeof import('react-router')>()),
   createRequestHandler: () => async (request: Request) => {
     if (new URL(request.url).pathname === '/throw') throw new Error('boom')
+    // Pages have no action: a request with another method must never reach React Router.
+    if (request.method !== 'GET' && request.method !== 'HEAD')
+      throw new Error(`router reached by ${request.method}`)
     return new Response('<!doctype html><title>t</title>', {
       headers: { 'content-type': 'text/html; charset=utf-8' },
     })
@@ -80,5 +83,42 @@ describe('x-bft-build', () => {
     expect((await get('/', envWith({ BUILD_SHA: `${SHA}-dirty` }))).headers.get('x-bft-build')).toBe(
       `${SHA}-dirty`,
     )
+  })
+})
+
+describe('pages answer GET and HEAD only, before React Router (no logged 405)', () => {
+  it('another method to a page is a 405 with Allow, the build marker and the security headers', async () => {
+    for (const [method, path] of [
+      ['POST', '/'],
+      ['POST', '/xmlrpc.php'],
+      ['POST', '/graphql'],
+      ['PUT', '/'],
+      ['DELETE', '/'],
+      ['OPTIONS', '/'],
+      ['PATCH', '/wp-json/batch/v1'],
+    ] as const) {
+      const body = method === 'POST' || method === 'PUT' || method === 'PATCH' ? 'x' : undefined
+      const res = (await worker.fetch(
+        new Request(`${SITE}${path}`, { method, body }),
+        envWith(),
+        {} as ExecutionContext,
+      )) as Response
+      expect(res.status, `${method} ${path}`).toBe(405)
+      expect(res.headers.get('allow')).toBe('GET, HEAD')
+      expect(res.headers.get('x-bft-build')).toBe(SHA)
+      expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+      expect(res.headers.get('cache-control')).toBe('no-store')
+    }
+  })
+
+  it('GET and HEAD still reach the pages', async () => {
+    for (const method of ['GET', 'HEAD']) {
+      const res = (await worker.fetch(
+        new Request(`${SITE}/`, { method }),
+        envWith(),
+        {} as ExecutionContext,
+      )) as Response
+      expect(res.status, method).toBe(200)
+    }
   })
 })
