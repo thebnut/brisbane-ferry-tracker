@@ -168,6 +168,16 @@ export function createEngagedVisitTracker({
   };
 }
 
+// Whether an element is laid out (false under display:none, including a
+// CSS-hidden ancestor such as `hidden md:grid` on a phone).
+export function isRendered(el) {
+  try {
+    return Boolean(el) && el.getClientRects().length > 0;
+  } catch {
+    return false;
+  }
+}
+
 // --- Page singleton used by the app ---
 
 let tracker = null;

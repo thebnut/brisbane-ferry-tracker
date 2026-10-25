@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import {
   ENGAGED_FLAG_KEY,
   createEngagedVisitTracker,
+  isRendered,
   markBoardShown,
   sendEvent,
   startEngagedVisit,
@@ -265,6 +266,22 @@ describe('engaged_visit', () => {
       t.markBoardShown();
       p.advance(10_000);
     });
+  });
+});
+
+describe('isRendered (only a displayed board qualifies)', () => {
+  it('is true only for a laid-out element', () => {
+    assert.equal(isRendered({ getClientRects: () => [{}] }), true);
+    assert.equal(isRendered({ getClientRects: () => [] }), false, 'display:none, e.g. desktop boards on a phone');
+    assert.equal(isRendered(null), false);
+    assert.equal(
+      isRendered({
+        getClientRects() {
+          throw new Error('detached');
+        },
+      }),
+      false,
+    );
   });
 });
 
