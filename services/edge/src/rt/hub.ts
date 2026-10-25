@@ -1,6 +1,8 @@
 /** The RtHub Durable Object: a thin shell over HubCore (SQLite-backed storage, Free plan compatible). */
 
 import { DurableObject } from 'cloudflare:workers'
+import { AlertSummariser, summaryProviderConfig } from '../ai/alert-summary.ts'
+import { budgetAlertLog } from '../ai/routes.ts'
 import { withRtNamespace } from '../data/rt-prefix.ts'
 import { dataSourceFor } from '../data/source.ts'
 import { StaticStore } from '../data/static-store.ts'
@@ -17,6 +19,29 @@ export class RtHub extends DurableObject<WorkerEnv> {
     super(ctx, env)
     // Each environment's hub writes its realtime objects under its own R2 namespace (RT_R2_PREFIX).
     env = withRtNamespace(env)
+    const log = createLogger({ svc: 'bft-rthub' })
+    const summaries = new AlertSummariser({
+      storage: ctx.storage,
+      now: Date.now,
+      log,
+      // Read per run: AI_ENABLED off (production), no budget or no provider config means no calls at all.
+      provider: () => {
+        const p = summaryProviderConfig(env)
+        const ns = env.BUDGET
+        if (!p || !ns) return null
+        const budget = ns.get(ns.idFromName('global'))
+        return {
+          ...p,
+          // Global monthly budget only: no IP, not counted as a question.
+          reserve: async (id, usd) => {
+            const r = await budget.reserve(p.budget, id, usd, null, false)
+            if (r.ok && r.alert) budgetAlertLog(p.budget)
+            return r.ok ? { ok: true } : { ok: false, reason: r.reason }
+          },
+          reconcile: (id, usd) => budget.reconcile(id, usd),
+        }
+      },
+    })
     this.core = new HubCore({
       storage: ctx.storage,
       fetch: (input, init) => fetch(input, init),
@@ -29,7 +54,8 @@ export class RtHub extends DurableObject<WorkerEnv> {
       layout: env.RT_R2_LAYOUT === 'combined' ? 'combined' : 'documents',
       compress: env.RT_R2_COMPRESS === 'gzip',
       profile: env.RT_PROFILE === '1',
-      log: createLogger({ svc: 'bft-rthub' }),
+      log,
+      summaries,
     })
   }
 

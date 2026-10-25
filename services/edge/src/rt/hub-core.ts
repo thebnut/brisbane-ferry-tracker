@@ -11,6 +11,7 @@
  */
 import { type Alert, addDays, brisbaneDate, type Manifest, Mode, type RtSnapshot } from '@bft/core'
 import { fromBinary } from '@bufbuild/protobuf'
+import type { AlertSummariser } from '../ai/alert-summary.ts'
 import { decodeText, gzip, isGzip } from '../data/source.ts'
 import type { StaticStore } from '../data/static-store.ts'
 import { type FeedMessage, FeedMessageSchema } from '../gen/gtfs-realtime_pb.js'
@@ -149,6 +150,11 @@ export interface HubDeps {
    * combined sections. So, like `layout`: deploy with it off, then turn it on; turn it off before rolling back.
    */
   compress?: boolean
+  /**
+   * Plain-English alert summaries (ai/alert-summary.ts). Kicked after each alerts fetch and never awaited; the
+   * snapshot carries whatever summaries it holds, and is rebuilt when a new one arrives.
+   */
+  summaries?: AlertSummariser
 }
 
 /**
@@ -250,6 +256,8 @@ export class HubCore {
     loaded: number
   } | null = null
   private alerts: Alert[] = []
+  /** The summaries version (AlertSummariser.version) the current snapshot was built with. */
+  private summariesBuilt = -1
   private running: Promise<void> | null = null
   private rawPersistedAt = 0
   private seqLoggedAt = 0
@@ -528,12 +536,9 @@ export class HubCore {
         errors.push(`${f.key}: decode failed: ${errorMessage(e)}`)
       }
     })
-    if (
-      due.some((f) => f.kind === 'alerts') &&
-      !fetched.some((r, i) => due[i]?.kind === 'alerts' && r.error)
-    ) {
-      this.meta.alertsAt = now
-    }
+    const alertsFetched =
+      due.some((f) => f.kind === 'alerts') && !fetched.some((r, i) => due[i]?.kind === 'alerts' && r.error)
+    if (alertsFetched) this.meta.alertsAt = now
 
     // Alert modes come from the loaded routes and stops, so re-derive them when an index swaps in.
     const alertsFeed = this.decoded.get('alerts')
@@ -545,7 +550,10 @@ export class HubCore {
     tm.changed = changed.length
     const writes: Record<string, unknown> = {}
     let rebuilt = false
-    if (changed.length > 0 || indexesChanged || !this.snapshot) {
+    // A summary that arrived since the last build rewrites the alerts document (through a new snapshot and seq).
+    const summaries = this.d.summaries
+    const summariesMoved = summaries != null && summaries.version !== this.summariesBuilt
+    if (changed.length > 0 || indexesChanged || !this.snapshot || summariesMoved) {
       const indexes: Partial<Record<Mode, ModeIndex>> = {}
       for (const [m, l] of this.modes) indexes[m] = l.index
       const pick = (kind: FeedSpec['kind']) =>
@@ -554,18 +562,20 @@ export class HubCore {
           .map((f) => ({ mode: f.mode, feed: this.decoded.get(f.key) as FeedMessage }))
       const tripUpdates = pick('TripUpdates')
       if (tripUpdates.length > 0) {
+        const version = summaries?.version ?? -1
         const { snapshot, tripModes } = buildSnapshot({
           seq: this.meta.seq + 1,
           nowMs: now,
           indexes,
           tripUpdates,
           vehiclePositions: pick('VehiclePositions'),
-          alerts: this.alerts,
+          alerts: summaries ? summaries.attach(this.alerts) : this.alerts,
           previous: this.snapshot,
           unloadedModes: this.d.config.indexModes.filter((m) => !this.modes.has(m)),
         })
         this.snapshot = snapshot
         this.tripModes = tripModes
+        this.summariesBuilt = version
         this.snapshotJson = null
         this.meta.seq = snapshot.header.seq
         rebuilt = true
@@ -606,6 +616,9 @@ export class HubCore {
       }
     }
     tm.publish = lap()
+    // Summaries for the alerts just fetched: started after the publish and never awaited, so generation can neither
+    // delay nor fail a cycle (kick() catches everything and keeps one run in flight).
+    if (alertsFetched && summaries) void summaries.kick(this.alerts)
     if (errors.length > 0) this.log.warn('rt cycle partial', { errors, seq: this.meta.seq })
   }
 
