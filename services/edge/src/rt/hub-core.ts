@@ -11,6 +11,7 @@
  */
 import { type Alert, addDays, brisbaneDate, type Manifest, Mode, type RtSnapshot } from '@bft/core'
 import { fromBinary } from '@bufbuild/protobuf'
+import type { AlertSummariser } from '../ai/alert-summary.ts'
 import { decodeText, gzip, isGzip } from '../data/source.ts'
 import type { StaticStore } from '../data/static-store.ts'
 import { type FeedMessage, FeedMessageSchema } from '../gen/gtfs-realtime_pb.js'
@@ -149,6 +150,11 @@ export interface HubDeps {
    * combined sections. So, like `layout`: deploy with it off, then turn it on; turn it off before rolling back.
    */
   compress?: boolean
+  /**
+   * Plain-English alert summaries (ai/alert-summary.ts). Kicked after each alerts fetch and never awaited; the
+   * snapshot carries whatever summaries it holds, and is rebuilt when a new one arrives.
+   */
+  summaries?: AlertSummariser
 }
 
 /**
@@ -250,6 +256,8 @@ export class HubCore {
     loaded: number
   } | null = null
   private alerts: Alert[] = []
+  /** The summaries version (AlertSummariser.version) the current snapshot was built with. */
+  private summariesBuilt = -1
   private running: Promise<void> | null = null
   private rawPersistedAt = 0
   private seqLoggedAt = 0
@@ -528,12 +536,9 @@ export class HubCore {
         errors.push(`${f.key}: decode failed: ${errorMessage(e)}`)
       }
     })
-    if (
-      due.some((f) => f.kind === 'alerts') &&
-      !fetched.some((r, i) => due[i]?.kind === 'alerts' && r.error)
-    ) {
-      this.meta.alertsAt = now
-    }
+    const alertsFetched =
+      due.some((f) => f.kind === 'alerts') && !fetched.some((r, i) => due[i]?.kind === 'alerts' && r.error)
+    if (alertsFetched) this.meta.alertsAt = now
 
     // Alert modes come from the loaded routes and stops, so re-derive them when an index swaps in.
     const alertsFeed = this.decoded.get('alerts')
@@ -545,7 +550,13 @@ export class HubCore {
     tm.changed = changed.length
     const writes: Record<string, unknown> = {}
     let rebuilt = false
-    if (changed.length > 0 || indexesChanged || !this.snapshot) {
+    // A summary that arrived since the last build rewrites the alerts document (through a new snapshot and seq). The
+    // stored summaries load first (one read, then a no-op), so alerts just refetched after a restart keep theirs; a
+    // slow read holds the build for LOAD_WAIT_MS at most, and its summaries follow in the next cycle's rebuild.
+    const summaries = this.d.summaries
+    if (summaries) await summaries.ready()
+    const summariesMoved = summaries != null && summaries.version !== this.summariesBuilt
+    if (changed.length > 0 || indexesChanged || !this.snapshot || summariesMoved) {
       const indexes: Partial<Record<Mode, ModeIndex>> = {}
       for (const [m, l] of this.modes) indexes[m] = l.index
       const pick = (kind: FeedSpec['kind']) =>
@@ -554,18 +565,20 @@ export class HubCore {
           .map((f) => ({ mode: f.mode, feed: this.decoded.get(f.key) as FeedMessage }))
       const tripUpdates = pick('TripUpdates')
       if (tripUpdates.length > 0) {
+        const version = summaries?.version ?? -1
         const { snapshot, tripModes } = buildSnapshot({
           seq: this.meta.seq + 1,
           nowMs: now,
           indexes,
           tripUpdates,
           vehiclePositions: pick('VehiclePositions'),
-          alerts: this.alerts,
+          alerts: summaries ? summaries.attach(this.alerts) : this.alerts,
           previous: this.snapshot,
           unloadedModes: this.d.config.indexModes.filter((m) => !this.modes.has(m)),
         })
         this.snapshot = snapshot
         this.tripModes = tripModes
+        this.summariesBuilt = version
         this.snapshotJson = null
         this.meta.seq = snapshot.header.seq
         rebuilt = true
@@ -573,6 +586,8 @@ export class HubCore {
         // With R2 bound the snapshot lives there as per-scope documents (merged back after a restart); keeping a
         // second copy in DO storage every cycle costs CPU.
         if (!this.d.r2) Object.assign(writes, this.snapshotWrites(this.fullJson() as string))
+        // With R2 the stored copy isn't kept up to date, so meta stops naming it (a restore reads R2 instead).
+        else this.meta.snapChunks = 0
       }
     }
     tm.build = lap()
@@ -606,6 +621,9 @@ export class HubCore {
       }
     }
     tm.publish = lap()
+    // Summaries for the alerts just fetched: started after the publish and never awaited, so generation can neither
+    // delay nor fail a cycle (kick() catches everything and keeps one run in flight).
+    if (alertsFetched && summaries) void summaries.kick(this.alerts)
     if (errors.length > 0) this.log.warn('rt cycle partial', { errors, seq: this.meta.seq })
   }
 
@@ -1142,16 +1160,21 @@ export class HubCore {
       tripModes: new Map(),
       alertsStale: false,
     }
-    if (meta && meta.snapChunks > 0) {
+    // The DO-storage copy is the snapshot only without R2: with R2 bound a cycle never writes it, so one left from
+    // before R2 can be any age. Then R2's documents come first and the stored copy is only a fallback (staging,
+    // 26 Oct: a pre-R2 copy was restored over R2 and its 63 alerts published, instead of 90, until the next fetch).
+    const readStored = async (): Promise<RtSnapshot | null> => {
+      if (!meta || meta.snapChunks <= 0) return null
       const parts: string[] = []
       for (let i = 0; i < meta.snapChunks; i++) {
         const p = await this.d.storage.get<string>(`snap:${i}`)
         if (p == null) break
         parts.push(p)
       }
-      // A malformed stored copy counts as missing: R2 (when bound) is tried instead.
-      if (parts.length === meta.snapChunks) r.snapshot = parseSnapshot(parts.join(''))
+      // A malformed stored copy counts as missing.
+      return parts.length === meta.snapChunks ? parseSnapshot(parts.join('')) : null
     }
+    if (!this.d.r2?.get) r.snapshot = await readStored()
     if (this.d.r2?.get) {
       const ptr = await this.d.r2.get(R2_LATEST_KEY)
       const pointer = ptr ? (JSON.parse(await ptr.text()) as R2Pointer) : null
@@ -1169,6 +1192,8 @@ export class HubCore {
         // A ring slot may already hold a newer snapshot than the pointer names: only adopt the matching one.
         r.snapshot = text != null && snapshotSeq(text) === pointer.seq ? parseSnapshot(text) : null
       }
+      // Nothing usable in R2 (a first publish not yet made, or unreadable objects): the stored copy, if any.
+      if (!r.snapshot) r.snapshot = await readStored()
       // A layout switch (RT_R2_LAYOUT) whose object PUT landed but whose pointer PUT failed leaves a seq only the
       // other layout's objects record: take the seqs of whatever this restore did not read too (Codex r11 on #100).
       // Each cycle persists meta (with its new seq) before publishing, so while meta exists it already reserves every
@@ -1258,6 +1283,9 @@ export class HubCore {
     this.snapshotJson = null // serialised on demand (fullJson)
     this.snapshot = snapshot
     this.alerts = snapshot.alerts
+    // Restored alerts are only as new as the document they came from (a failed publish before the restart leaves
+    // them older than meta.alertsAt says): refetch them in the first cycle, one feed request per restart.
+    this.meta.alertsAt = 0
     for (const [k, m] of r.tripModes) this.tripModes.set(k, m)
   }
 }

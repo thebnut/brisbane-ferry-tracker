@@ -14,8 +14,9 @@ import {
   SCHEMA_VERSION,
   TOOLS,
 } from '@bft/core'
-import type { Hono } from 'hono'
+import type { Context, Hono } from 'hono'
 import { z } from 'zod'
+import { mcpOriginAllowed } from '../cors.ts'
 import type { StaticStore } from '../data/static-store.ts'
 import { answerIntent } from './answer.ts'
 import { askLlm } from './llm.ts'
@@ -24,6 +25,8 @@ import { type EvidenceLog, type InternalFetch, runTool, slimDeparture } from './
 import { VERIFY_BUDGET, VERIFY_BUDGET_NAME } from './verify-window.ts'
 
 export interface AiEnv {
+  /** Break-glass: every origin is allowed (the API's CORS, and /mcp's origin check). */
+  CORS_ALLOW_ALL?: string
   AI_ENABLED?: string
   AI_MONTHLY_BUDGET_USD?: string
   AI_PER_IP_DAILY?: string
@@ -35,6 +38,8 @@ export interface AiEnv {
   IP_HASH_SALT?: string
   BUDGET?: DurableObjectNamespace<import('./budget-do.ts').Budget>
   ASK_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
+  /** /mcp tools/call only (the handshake isn't counted): 30 a minute per IP. */
+  MCP_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
   /** /v1/turnstile/verify local burst limit per caller IP (CF-Connecting-IP); the aggregate budget is in BUDGET. */
   VERIFY_LIMITER?: { limit: (o: { key: string }) => Promise<{ success: boolean }> }
 }
@@ -46,6 +51,17 @@ export function budgetConfig(env: AiEnv): BudgetConfig {
     monthlyBudgetUsd: Number(env.AI_MONTHLY_BUDGET_USD ?? '0') || 0,
     perIpDailyQuota: Number(env.AI_PER_IP_DAILY ?? '10') || 10,
   }
+}
+
+/** Monitoring hook (ADR-0009): a Workers Observability alert rule matches this event. */
+export function budgetAlertLog(cfg: BudgetConfig): void {
+  console.warn(
+    JSON.stringify({
+      event: 'ai_budget_alert',
+      threshold: cfg.alertAt,
+      monthlyBudgetUsd: cfg.monthlyBudgetUsd,
+    }),
+  )
 }
 
 /**
@@ -312,6 +328,72 @@ export interface AiDeps {
   generationKey: () => Promise<string>
 }
 
+/** The MCP protocol revision /mcp speaks (Streamable HTTP; no JSON-RPC batches, which it dropped). */
+export const MCP_VERSION = '2025-06-18'
+
+/** Largest /mcp request body: tool arguments are a few short strings. */
+export const MCP_MAX_BODY = 64 * 1024
+
+/**
+ * The body as text, reading at most `max` bytes: null (and the stream cancelled) once it is longer, so a body without
+ * Content-Length can't make us buffer it all first.
+ */
+export async function readBodyLimited(
+  body: ReadableStream<Uint8Array> | null,
+  max: number,
+): Promise<string | null> {
+  if (!body) return ''
+  const reader = body.getReader()
+  const chunks: Uint8Array[] = []
+  let bytes = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    bytes += value.byteLength
+    if (bytes > max) {
+      await reader.cancel().catch(() => {})
+      return null
+    }
+    chunks.push(value)
+  }
+  const all = new Uint8Array(bytes)
+  let at = 0
+  for (const c of chunks) {
+    all.set(c, at)
+    at += c.byteLength
+  }
+  return new TextDecoder().decode(all)
+}
+
+const isObject = (v: unknown): v is object => v != null && typeof v === 'object' && !Array.isArray(v)
+
+/** A JSON-RPC id an MCP request may carry: a string or an integer (0 and "" included), never null. */
+const isRequestId = (id: unknown) =>
+  typeof id === 'string' || (typeof id === 'number' && Number.isInteger(id))
+
+type RpcMessage = { jsonrpc: '2.0'; id?: string | number; method?: string; params?: Record<string, unknown> }
+
+/**
+ * Classifies one parsed message (MCP 2025-06-18 messages): a request (method and a string or integer id), a
+ * notification (method, no id) or a client response (id and exactly one of result and error). Anything else is
+ * invalid, as is a batch.
+ */
+export function classifyMcp(msg: unknown): 'request' | 'notification' | 'response' | 'invalid' {
+  if (!isObject(msg)) return 'invalid'
+  const m = msg as Record<string, unknown>
+  if (m.jsonrpc !== '2.0') return 'invalid'
+  if (typeof m.method === 'string') {
+    // MCP params are an object when present; a request or notification never carries result or error.
+    if (('params' in m && !isObject(m.params)) || 'result' in m || 'error' in m) return 'invalid'
+    if (!('id' in m)) return 'notification'
+    return isRequestId(m.id) ? 'request' : 'invalid'
+  }
+  if ('method' in m || !isRequestId(m.id) || 'result' in m === 'error' in m) return 'invalid'
+  if ('result' in m) return isObject(m.result) ? 'response' : 'invalid'
+  const e = m.error as { code?: unknown; message?: unknown } | null
+  return isObject(e) && Number.isInteger(e?.code) && typeof e?.message === 'string' ? 'response' : 'invalid'
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: the host app's Env generic varies.
 export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unknown }) => AiEnv): void {
   const internal =
@@ -396,15 +478,7 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
           ok: false as const,
           reason: 'disabled' as const,
         }
-        if (res.ok && res.alert)
-          // Monitoring hook (ADR-0009): Workers Observability alert rule matches this event.
-          console.warn(
-            JSON.stringify({
-              event: 'ai_budget_alert',
-              threshold: cfg.alertAt,
-              monthlyBudgetUsd: cfg.monthlyBudgetUsd,
-            }),
-          )
+        if (res.ok && res.alert) budgetAlertLog(cfg)
         return res.ok ? { ok: true } : { ok: false, reason: res.reason }
       },
       reconcile: async (id, usd) => {
@@ -485,36 +559,61 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
     )
   })
 
-  // Read-only MCP server (JSON-RPC 2.0 over HTTP, stateless). Caller-paid reasoning: no tokens spent by us.
+  // Read-only MCP server (Streamable HTTP, JSON-RPC 2.0, stateless, protocol MCP_VERSION). Caller-paid reasoning: no
+  // tokens spent by us. No SSE stream and no sessions, so GET (the server-to-client stream) and DELETE (session end)
+  // are 405, as the transport requires of a server that offers neither.
+  const rpcError = (c: Context, code: number, message: string, status: 400 | 403 | 413, id: unknown = null) =>
+    c.json({ jsonrpc: '2.0', id, error: { code, message } }, status)
+  // Every /mcp request, whatever its method: the Origin check, then the negotiated version (after initialize the
+  // client sends it; one this server doesn't speak is a 400).
+  const mcpGuard = (c: Context): Response | null => {
+    if (!mcpOriginAllowed(c.req.header('origin'), getEnv(c).CORS_ALLOW_ALL === 'true'))
+      return rpcError(c, -32600, 'origin not allowed', 403)
+    const version = c.req.header('mcp-protocol-version')
+    if (version != null && version !== MCP_VERSION)
+      return rpcError(c, -32600, `unsupported protocol version ${version}`, 400)
+    return null
+  }
+  app.on(['GET', 'DELETE'], '/mcp', (c) => {
+    return (
+      mcpGuard(c) ?? c.json({ error: 'method not allowed: POST JSON-RPC to /mcp' }, 405, { allow: 'POST' })
+    )
+  })
   app.post('/mcp', async (c) => {
     const env = getEnv(c)
-    if (env.ASK_LIMITER) {
-      const { success } = await env.ASK_LIMITER.limit({
-        key: `mcp:${c.req.header('cf-connecting-ip') ?? 'anon'}`,
-      })
-      if (!success)
-        return c.json({ jsonrpc: '2.0', id: null, error: { code: -32000, message: 'rate limited' } }, 429)
+    const invalid = (code: number, message: string, status: 400 | 403 | 413, id: unknown = null) =>
+      rpcError(c, code, message, status, id)
+    const refused = mcpGuard(c)
+    if (refused) return refused
+    if (Number(c.req.header('content-length') ?? 0) > MCP_MAX_BODY)
+      return invalid(-32600, 'request too large', 413)
+    const raw = await readBodyLimited(c.req.raw.body, MCP_MAX_BODY)
+    if (raw == null) return invalid(-32600, 'request too large', 413)
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      return invalid(-32700, 'parse error', 400)
     }
-    const msg = (await c.req.json().catch(() => null)) as {
-      id?: unknown
-      method?: string
-      params?: Record<string, unknown>
-    } | null
-    if (!msg || typeof msg.method !== 'string')
-      return c.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'invalid request' } }, 400)
+    const kind = classifyMcp(parsed)
+    if (kind === 'invalid') {
+      const maybeId = (parsed as { id?: unknown } | null)?.id
+      return invalid(-32600, 'invalid request', 400, isRequestId(maybeId) ? maybeId : null)
+    }
+    // A notification or a response from the client: accepted, nothing to answer (202, no body).
+    if (kind !== 'request') return c.body(null, 202)
+    const msg = parsed as RpcMessage & { method: string }
     const id = msg.id ?? null
     const ok = (result: unknown) => c.json({ jsonrpc: '2.0', id, result })
     switch (msg.method) {
       case 'initialize':
         return ok({
-          protocolVersion: '2025-06-18',
+          protocolVersion: MCP_VERSION,
           capabilities: { tools: { listChanged: false } },
           serverInfo: { name: 'brisbane-transit', version: '1.0.0' },
           instructions:
             'Read-only Brisbane ferry, train and bus departures, trips and alerts (TransLink data, CC BY 4.0).',
         })
-      case 'notifications/initialized':
-        return c.body(null, 202)
       case 'ping':
         return ok({})
       case 'tools/list': {
@@ -529,17 +628,37 @@ export function registerAi(app: Hono<any>, deps: AiDeps, getEnv: (c: { env: unkn
         })
       }
       case 'tools/call': {
+        // Only tool calls read data; the handshake and tools/list are free (a client's first four requests).
+        if (env.MCP_LIMITER) {
+          const { success } = await env.MCP_LIMITER.limit({ key: c.req.header('cf-connecting-ip') ?? 'anon' })
+          if (!success)
+            return c.json({ jsonrpc: '2.0', id, error: { code: -32000, message: 'rate limited' } }, 429)
+        }
         const name = String(msg.params?.name ?? '')
         if (!(name in TOOLS))
           return c.json({ jsonrpc: '2.0', id, error: { code: -32602, message: `unknown tool ${name}` } })
-        const indexes = await loadIndexes(deps.store, await deps.generationKey())
-        const out = await runTool(
-          { fetch: internal(c), indexes },
-          name,
-          msg.params?.arguments ?? {},
-          Math.floor(Date.now() / 1000),
-        )
-        return ok({ content: [{ type: 'text', text: JSON.stringify(out.result) }], isError: !out.ok })
+        try {
+          const indexes = await loadIndexes(deps.store, await deps.generationKey())
+          const out = await runTool(
+            { fetch: internal(c), indexes },
+            name,
+            msg.params?.arguments ?? {},
+            Math.floor(Date.now() / 1000),
+          )
+          return ok({ content: [{ type: 'text', text: JSON.stringify(out.result) }], isError: !out.ok })
+        } catch (error) {
+          // A tool that can't run (data unavailable) is a tool error the caller's model can see and retry, not an
+          // HTTP 500 without a JSON-RPC body, which clients can't read.
+          console.warn(
+            `[mcp] ${name} failed (${error instanceof Error ? `${error.name}: ${error.message.slice(0, 120)}` : 'error'})`,
+          )
+          return ok({
+            content: [
+              { type: 'text', text: 'Transit data is unavailable right now. Try again in a minute.' },
+            ],
+            isError: true,
+          })
+        }
       }
       default:
         return c.json({
