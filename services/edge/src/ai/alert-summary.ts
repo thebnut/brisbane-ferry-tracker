@@ -598,6 +598,8 @@ export class AlertSummariser {
    */
   ready(): Promise<void> {
     if (this.loaded) return Promise.resolve()
+    // AI off (production): nothing will be generated, so no store read and no wait (Codex release review r1).
+    if (!this.d.provider()) return Promise.resolve()
     const ms = this.d.loadWaitMs ?? LOAD_WAIT_MS
     let timer: ReturnType<typeof setTimeout> | undefined
     const waited = new Promise<void>((resolve) => {
@@ -627,6 +629,14 @@ export class AlertSummariser {
   }
 
   private async run(alerts: Alert[]): Promise<void> {
+    // AI off (production): no store read, no bookkeeping and no calls (Codex release review r1). Read once per run.
+    const provider = this.d.provider()
+    if (!provider) {
+      if (!this.disabledLogged) this.log.info('alert summary skipped: disabled', { pending: alerts.length })
+      this.disabledLogged = true
+      return
+    }
+    this.disabledLogged = false
     const now = this.d.now()
     let dirty = false
     await this.load()
@@ -683,57 +693,50 @@ export class AlertSummariser {
     const backoff = missing.length - due.length
     const counts = { generated: 0, rejected: 0, failed: 0, backoff, pending: missing.length, evicted }
 
-    const provider = due.length > 0 ? this.d.provider() : null
-    if (due.length > 0 && !provider) {
-      if (!this.disabledLogged) this.log.info('alert summary skipped: disabled', { pending: missing.length })
-      this.disabledLogged = true
-    } else if (provider) {
-      this.disabledLogged = false
-      for (const [k, a] of due.slice(0, MAX_PER_RUN)) {
-        // Anything unexpected is this key's failure (backoff), never a run-level escape that skips it.
-        const r: CallResult = await callSummary(a, provider, this.d.fetch, this.d.callTimeoutMs).catch(
-          (err) => ({
-            ok: false,
-            reason: `error: ${errorMessage(err)}`,
-            costUsd: 0,
-          }),
-        )
-        const e = this.entries.get(k) as Entry
-        if (!r.ok && r.budget) {
-          // Over budget or denied: no backoff, try again next cycle.
-          this.log.info('alert summary skipped: budget', { reason: r.reason, pending: missing.length })
-          break
-        }
-        dirty = true
-        const checked = r.ok ? checkSummary(r.text, a, vocabulary) : null
-        if (checked?.ok) {
-          e.s = checked.summary
-          delete e.fails
-          delete e.retry
-          counts.generated++
-          this.version++
-          this.log.info('alert summary generated', {
-            key: k,
-            chars: checked.summary.length,
-            costUsd: r.costUsd,
-          })
-          continue
-        }
-        e.fails = (e.fails ?? 0) + 1
-        e.retry = this.d.now() + Math.min(BACKOFF_BASE_MS * 2 ** (e.fails - 1), BACKOFF_MAX_MS)
-        if (checked) {
-          counts.rejected++
-          // The length (never the text) shows how far over a too_long reply was.
-          this.log.warn('alert summary rejected', {
-            key: k,
-            reason: checked.reason,
-            chars: r.ok ? r.text.trim().length : 0,
-            fails: e.fails,
-          })
-        } else {
-          counts.failed++
-          this.log.warn('alert summary failed', { key: k, reason: r.ok ? '' : r.reason, fails: e.fails })
-        }
+    for (const [k, a] of due.slice(0, MAX_PER_RUN)) {
+      // Anything unexpected is this key's failure (backoff), never a run-level escape that skips it.
+      const r: CallResult = await callSummary(a, provider, this.d.fetch, this.d.callTimeoutMs).catch(
+        (err) => ({
+          ok: false,
+          reason: `error: ${errorMessage(err)}`,
+          costUsd: 0,
+        }),
+      )
+      const e = this.entries.get(k) as Entry
+      if (!r.ok && r.budget) {
+        // Over budget or denied: no backoff, try again next cycle.
+        this.log.info('alert summary skipped: budget', { reason: r.reason, pending: missing.length })
+        break
+      }
+      dirty = true
+      const checked = r.ok ? checkSummary(r.text, a, vocabulary) : null
+      if (checked?.ok) {
+        e.s = checked.summary
+        delete e.fails
+        delete e.retry
+        counts.generated++
+        this.version++
+        this.log.info('alert summary generated', {
+          key: k,
+          chars: checked.summary.length,
+          costUsd: r.costUsd,
+        })
+        continue
+      }
+      e.fails = (e.fails ?? 0) + 1
+      e.retry = this.d.now() + Math.min(BACKOFF_BASE_MS * 2 ** (e.fails - 1), BACKOFF_MAX_MS)
+      if (checked) {
+        counts.rejected++
+        // The length (never the text) shows how far over a too_long reply was.
+        this.log.warn('alert summary rejected', {
+          key: k,
+          reason: checked.reason,
+          chars: r.ok ? r.text.trim().length : 0,
+          fails: e.fails,
+        })
+      } else {
+        counts.failed++
+        this.log.warn('alert summary failed', { key: k, reason: r.ok ? '' : r.reason, fails: e.fails })
       }
     }
     // Logged when the number of keys waiting out a backoff changes, not every minute.

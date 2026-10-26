@@ -574,7 +574,8 @@ describe('AlertSummariser scheduling', () => {
   })
 
   it('Codex r1: storage stays within MAX_ENTRIES even when the current feed alone exceeds it', async () => {
-    const h = harness({ enabled: () => false })
+    // Budget denied: the bookkeeping runs, no call is made (AI off now skips the run altogether).
+    const h = harness({ reserveOk: () => false })
     const many = Array.from({ length: MAX_ENTRIES + 1 }, (_, i) => mk(i))
     await h.s.kick(many)
     expect(Object.keys(h.stored())).toHaveLength(MAX_ENTRIES)
@@ -598,7 +599,7 @@ describe('AlertSummariser scheduling', () => {
   it('restores stored summaries after a restart, and keeps restored ones before the store loads', async () => {
     const h = harness()
     await h.s.kick([mk(1)])
-    const s2 = new AlertSummariser({ storage: h.storage, now: h.clock.now, provider: () => null })
+    const s2 = new AlertSummariser({ storage: h.storage, now: h.clock.now, provider: () => DENIED })
     const carried = { ...mk(1), summary: 'carried' }
     expect(s2.attach([carried])[0]?.summary).toBe('carried')
     await s2.kick([mk(1)])
@@ -637,7 +638,7 @@ describe('AlertSummariser.load (Codex P3)', () => {
       error: (msg) => logs.push(msg),
       child: () => log,
     }
-    const s2 = new AlertSummariser({ storage, now: h.clock.now, provider: () => null, loadWaitMs: 30, log })
+    const s2 = new AlertSummariser({ storage, now: h.clock.now, provider: () => DENIED, loadWaitMs: 30, log })
     const t0 = Date.now()
     await s2.ready()
     await s2.ready() // a second waiter (another cycle) joins the same read
@@ -653,6 +654,37 @@ describe('AlertSummariser.load (Codex P3)', () => {
     expect(reads()).toBe(1)
   })
 
+  it('Codex release review r1: AI off, a stalled store read is never waited on, nor read, by ready() or a run', async () => {
+    const h = harness()
+    await h.s.kick([mk(1)])
+    const { storage, release, reads } = gatedStore(h.storage)
+    const logs: string[] = []
+    const log: Logger = {
+      info: (msg) => logs.push(msg),
+      warn: (msg) => logs.push(msg),
+      error: (msg) => logs.push(msg),
+      child: () => log,
+    }
+    const off = new AlertSummariser({
+      storage,
+      now: h.clock.now,
+      provider: () => null,
+      loadWaitMs: 1_000,
+      log,
+    })
+    const t0 = Date.now()
+    await off.ready()
+    await off.kick([mk(1), mk(2)])
+    await off.ready()
+    expect(Date.now() - t0).toBeLessThan(100)
+    expect(reads()).toBe(0)
+    expect(logs).toEqual(['alert summary skipped: disabled'])
+    // Before any load an alert keeps what it carries (a restored snapshot's summary); nothing is stripped or added.
+    expect(off.attach([{ ...mk(1), summary: 'carried' }])[0]?.summary).toBe('carried')
+    expect(off.attach([mk(2)])[0]?.summary).toBeUndefined()
+    release()
+  })
+
   it('ready() is immediate once loaded, and a fast read never logs', async () => {
     const h = harness()
     await h.s.ready()
@@ -662,6 +694,15 @@ describe('AlertSummariser.load (Codex P3)', () => {
     expect(Date.now() - t0).toBeLessThan(50)
   })
 })
+
+/** AI on, but every reservation denied: the summariser loads and keeps its record, and never calls the provider. */
+const DENIED: SummaryProvider = {
+  apiKey: 'k',
+  baseURL: 'https://gateway.ai.cloudflare.com/v1/acct/bft/anthropic',
+  budget: { enabled: true, monthlyBudgetUsd: 10, perIpDailyQuota: 10, alertAt: 0.8 },
+  reserve: async () => ({ ok: false, reason: 'budget_exhausted' }),
+  reconcile: async () => {},
+}
 
 /** `inner` with the summary store's read held until release(); every other key reads straight through. */
 function gatedStore(inner: SummaryStorage) {
@@ -708,19 +749,26 @@ function hubSetup(respond: (header: string) => Promise<Response>) {
     calls.push(header)
     return respond(header)
   }) as unknown as typeof fetch
-  const mkSummaries = (o: { storage?: SummaryStorage; loadWaitMs?: number } = {}) =>
+  type SummariesOpts = {
+    storage?: SummaryStorage
+    loadWaitMs?: number
+    provider?: () => SummaryProvider | null
+  }
+  const mkSummaries = (o: SummariesOpts = {}) =>
     new AlertSummariser({
       storage: o.storage ?? storage,
       loadWaitMs: o.loadWaitMs,
       now: clock.now,
       fetch: fetchStub,
-      provider: () => ({
-        apiKey: 'k',
-        baseURL: 'https://gateway.ai.cloudflare.com/v1/acct/bft/anthropic',
-        budget: { enabled: true, monthlyBudgetUsd: 10, perIpDailyQuota: 10, alertAt: 0.8 },
-        reserve: async () => ({ ok: true }),
-        reconcile: async () => {},
-      }),
+      provider:
+        o.provider ??
+        (() => ({
+          apiKey: 'k',
+          baseURL: 'https://gateway.ai.cloudflare.com/v1/acct/bft/anthropic',
+          budget: { enabled: true, monthlyBudgetUsd: 10, perIpDailyQuota: 10, alertAt: 0.8 },
+          reserve: async () => ({ ok: true }),
+          reconcile: async () => {},
+        })),
     })
   const mkHub = (summaries: AlertSummariser) =>
     new HubCore({
@@ -756,7 +804,7 @@ function hubSetup(respond: (header: string) => Promise<Response>) {
     }
   }
   /** A deploy or eviction: a fresh summariser and hub over the same storage and R2. */
-  const restart = (o: { storage?: SummaryStorage; loadWaitMs?: number } = {}) => {
+  const restart = (o: SummariesOpts = {}) => {
     const fresh = mkSummaries(o)
     return { hub: mkHub(fresh), summaries: fresh }
   }
@@ -831,6 +879,27 @@ describe('RtHub alert summaries', () => {
     expect(h.alertsDoc().doc.alerts[0]?.summary).toBe('Bulimba works affect F1 ferries.')
     await r.summaries.idle()
     expect(h.calls).toHaveLength(1) // stored, not regenerated
+  })
+
+  it('Codex release review r1: AI off (production), a stalled summary-store read adds no wait to any cycle', async () => {
+    const h = hubSetup(async () => message('unused'))
+    await h.hub.alarm()
+    await h.summaries.idle()
+    const g = gatedStore(h.storage)
+    // A restart with the kill switch off and the store read stalled for good; the wait would be 5 s a cycle if taken.
+    const r = h.restart({ storage: g.storage, loadWaitMs: 5_000, provider: () => null })
+    const t0 = Date.now()
+    for (let i = 0; i < 1 + ALERTS_EVERY_MS / CYCLE_MS; i++) {
+      h.clock.advance(CYCLE_MS)
+      await r.hub.alarm()
+      await r.summaries.idle()
+    }
+    expect(Date.now() - t0).toBeLessThan(1_000)
+    expect(r.hub.status().lastError).toBeNull()
+    expect(g.reads()).toBe(0)
+    expect(h.alertsDoc().doc.alerts[0]?.summary).toBeUndefined()
+    expect(h.calls).toEqual(['Bulimba works']) // only the AI-on hub before the restart
+    g.release()
   })
 
   it('a cycle never waits on a slow provider, and cycles keep running while it hangs', async () => {
