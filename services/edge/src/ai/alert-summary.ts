@@ -467,6 +467,9 @@ export async function callSummary(
   return { ok: true, text, costUsd: spent }
 }
 
+/** The hub waits at most this long on the stored summaries before a build (ready()); the load itself carries on. */
+export const LOAD_WAIT_MS = 1_000
+
 /** Budget DO calls (reserve, reconcile) give up after this. */
 export const LEDGER_TIMEOUT_MS = 5_000
 
@@ -513,6 +516,8 @@ export interface SummariserDeps {
   fetch?: typeof fetch
   /** Per call, including the response body (CALL_TIMEOUT_MS by default; tests shorten it). */
   callTimeoutMs?: number
+  /** How long ready() waits on the store's load (LOAD_WAIT_MS by default; tests shorten it). */
+  loadWaitMs?: number
   log?: Logger
 }
 
@@ -521,6 +526,8 @@ export class AlertSummariser {
   private loaded = false
   /** The store's load in flight, shared by every caller. */
   private loading: Promise<void> | null = null
+  /** ready() has logged the load in flight as slow. */
+  private slowLogged = false
   private running: Promise<void> | null = null
   /** Content key per alert object (alerts are rebuilt only when the feed changes). */
   private keys = new WeakMap<Alert, string>()
@@ -579,8 +586,30 @@ export class AlertSummariser {
       })
       .finally(() => {
         this.loading = null
+        this.slowLogged = false
       })
     return this.loading
+  }
+
+  /**
+   * load(), waited on for at most `loadWaitMs`: what the hub awaits before a build, so a slow store read delays a
+   * cycle by that much at most, however many cycles join it (Codex r3). The load carries on; when it lands, version
+   * moves and the next cycle rebuilds with the summaries. Never throws.
+   */
+  ready(): Promise<void> {
+    if (this.loaded) return Promise.resolve()
+    const ms = this.d.loadWaitMs ?? LOAD_WAIT_MS
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const waited = new Promise<void>((resolve) => {
+      timer = setTimeout(() => {
+        if (!this.slowLogged) {
+          this.slowLogged = true
+          this.log.warn('alert summary load slow', { waitedMs: ms })
+        }
+        resolve()
+      }, ms)
+    })
+    return Promise.race([this.load(), waited]).finally(() => clearTimeout(timer))
   }
 
   /** Start a run for the current alerts unless one is in flight. Never throws, never awaited by the cycle. */

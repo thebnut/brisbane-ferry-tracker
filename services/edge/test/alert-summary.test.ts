@@ -18,6 +18,7 @@ import {
   SUMMARY_MAX_CHARS,
   SUMMARY_MAX_WORDS,
   type SummaryProvider,
+  type SummaryStorage,
   summaryProviderConfig,
 } from '../src/ai/alert-summary.ts'
 import type { Logger } from '../src/log.ts'
@@ -624,7 +625,63 @@ describe('AlertSummariser.load (Codex P3)', () => {
     await h.s.kick([mk(0)])
     expect(h.calls).toHaveLength(1)
   })
+
+  it('Codex r3: ready() waits on a slow store read for loadWaitMs at most, logs it once, and the load lands later', async () => {
+    const h = harness()
+    await h.s.kick([mk(1)])
+    const { storage, release, reads } = gatedStore(h.storage)
+    const logs: string[] = []
+    const log: Logger = {
+      info: () => {},
+      warn: (msg) => logs.push(msg),
+      error: (msg) => logs.push(msg),
+      child: () => log,
+    }
+    const s2 = new AlertSummariser({ storage, now: h.clock.now, provider: () => null, loadWaitMs: 30, log })
+    const t0 = Date.now()
+    await s2.ready()
+    await s2.ready() // a second waiter (another cycle) joins the same read
+    expect(Date.now() - t0).toBeLessThan(500)
+    expect(reads()).toBe(1)
+    expect(logs).toEqual(['alert summary load slow'])
+    expect(s2.attach([mk(1)])[0]?.summary).toBeUndefined() // not loaded yet
+    const v = s2.version
+    release()
+    await s2.ready()
+    expect(s2.version).toBe(v + 1) // the hub rebuilds with them
+    expect(s2.attach([mk(1)])[0]?.summary).toBe(goodFor(mk(1)))
+    expect(reads()).toBe(1)
+  })
+
+  it('ready() is immediate once loaded, and a fast read never logs', async () => {
+    const h = harness()
+    await h.s.ready()
+    expect(h.logs.filter((l) => l.msg === 'alert summary load slow')).toEqual([])
+    const t0 = Date.now()
+    await h.s.ready()
+    expect(Date.now() - t0).toBeLessThan(50)
+  })
 })
+
+/** `inner` with the summary store's read held until release(); every other key reads straight through. */
+function gatedStore(inner: SummaryStorage) {
+  let open!: () => void
+  const gate = new Promise<void>((r) => {
+    open = r
+  })
+  let n = 0
+  const storage: SummaryStorage = {
+    get: async <T>(key: string) => {
+      if (key === STORAGE_KEY) {
+        n++
+        await gate
+      }
+      return inner.get<T>(key)
+    },
+    put: (entries) => inner.put(entries),
+  }
+  return { storage, release: () => open(), reads: () => n }
+}
 
 // ---------------------------------------------------------------- hub wiring
 
@@ -651,9 +708,10 @@ function hubSetup(respond: (header: string) => Promise<Response>) {
     calls.push(header)
     return respond(header)
   }) as unknown as typeof fetch
-  const mkSummaries = () =>
+  const mkSummaries = (o: { storage?: SummaryStorage; loadWaitMs?: number } = {}) =>
     new AlertSummariser({
-      storage,
+      storage: o.storage ?? storage,
+      loadWaitMs: o.loadWaitMs,
       now: clock.now,
       fetch: fetchStub,
       provider: () => ({
@@ -698,11 +756,11 @@ function hubSetup(respond: (header: string) => Promise<Response>) {
     }
   }
   /** A deploy or eviction: a fresh summariser and hub over the same storage and R2. */
-  const restart = () => {
-    const fresh = mkSummaries()
+  const restart = (o: { storage?: SummaryStorage; loadWaitMs?: number } = {}) => {
+    const fresh = mkSummaries(o)
     return { hub: mkHub(fresh), summaries: fresh }
   }
-  return { clock, hub, summaries, calls, alertsDoc, restart }
+  return { clock, hub, summaries, calls, alertsDoc, restart, storage }
 }
 
 describe('RtHub alert summaries', () => {
@@ -744,6 +802,34 @@ describe('RtHub alert summaries', () => {
     expect(h.alertsDoc().doc.alerts[0]?.summary).toBe('Bulimba works affect F1 ferries.')
     const pulled = RtSnapshot.parse(JSON.parse((await r.hub.pull(null, 'alerts')).json as string))
     expect(pulled.alerts[0]?.summary).toBe('Bulimba works affect F1 ferries.')
+    expect(h.calls).toHaveLength(1) // stored, not regenerated
+  })
+
+  it('Codex r3: a slow summary-store read holds a restarted hub’s cycles for loadWaitMs at most; the summaries follow in the next rebuild', async () => {
+    const h = hubSetup(async () => message('Bulimba works affect F1 ferries.'))
+    await h.hub.alarm()
+    await h.summaries.idle()
+    h.clock.advance(CYCLE_MS)
+    await h.hub.alarm()
+    expect(h.alertsDoc().doc.alerts[0]?.summary).toBe('Bulimba works affect F1 ferries.')
+    const g = gatedStore(h.storage)
+    const r = h.restart({ storage: g.storage, loadWaitMs: 30 })
+    const t0 = Date.now()
+    h.clock.advance(1_000)
+    await r.hub.alarm()
+    h.clock.advance(CYCLE_MS)
+    await r.hub.alarm()
+    expect(Date.now() - t0).toBeLessThan(1_000)
+    expect(r.hub.status().lastError).toBeNull()
+    expect(g.reads()).toBe(1) // the second cycle joined the same read
+    // Meanwhile the refetched (summary-free) alerts are published: the price of not waiting.
+    expect(h.alertsDoc().doc.alerts[0]?.summary).toBeUndefined()
+    g.release()
+    await r.summaries.ready()
+    h.clock.advance(CYCLE_MS)
+    await r.hub.alarm()
+    expect(h.alertsDoc().doc.alerts[0]?.summary).toBe('Bulimba works affect F1 ferries.')
+    await r.summaries.idle()
     expect(h.calls).toHaveLength(1) // stored, not regenerated
   })
 
