@@ -550,8 +550,10 @@ export class HubCore {
     tm.changed = changed.length
     const writes: Record<string, unknown> = {}
     let rebuilt = false
-    // A summary that arrived since the last build rewrites the alerts document (through a new snapshot and seq).
+    // A summary that arrived since the last build rewrites the alerts document (through a new snapshot and seq). The
+    // stored summaries load first (one read, then a no-op), so alerts just refetched after a restart keep theirs.
     const summaries = this.d.summaries
+    if (summaries) await summaries.load()
     const summariesMoved = summaries != null && summaries.version !== this.summariesBuilt
     if (changed.length > 0 || indexesChanged || !this.snapshot || summariesMoved) {
       const indexes: Partial<Record<Mode, ModeIndex>> = {}
