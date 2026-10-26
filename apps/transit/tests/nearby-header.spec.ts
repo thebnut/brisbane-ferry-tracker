@@ -1,7 +1,7 @@
 /**
  * P-42a1bd5-N1 (Dev's release-22 prod check): /nearby showed a red OFFLINE header pill before any live answer: for
- * good without a location, and for about a second before LIVE with one. Its header now reports like the mode homes'
- * (nearbyLiveState): no stops listed, no claim; a stop waiting, "Connecting…"; LIVE once the answers are live.
+ * good without a location, and for about a second before LIVE with one. Now (nearbyLiveState): no stops listed, no
+ * claim; before any answer, "Connecting…", and OFFLINE only once every stop has failed; then LIVE as before.
  */
 import { type BrowserContext, expect, type Page, test } from '@playwright/test'
 import { pinUpcoming } from './upcoming.ts'
@@ -80,13 +80,18 @@ test.describe('location granted', () => {
     expect(await seen()).toEqual(['connecting', 'live'])
   })
 
-  test('a stop whose request fails: OFFLINE only once the answers are in, never before (as the mode homes)', async ({
+  test('every stop failing: Connecting… until the failures are in, then OFFLINE; never OFFLINE before', async ({
     page,
     context,
   }) => {
-    // The fixtures hold some of the nearest bus stops, not all: the others answer 404.
-    await pinUpcoming(context)
-    const release = await holdDepartures(context, false)
+    let fail!: () => void
+    const gate = new Promise<void>((r) => {
+      fail = r
+    })
+    await context.route(DEPARTURES, async (route) => {
+      await gate
+      return route.abort('failed')
+    })
     const seen = await watchHeader(page)
     await page.goto('/nearby')
     await expect(page.locator('header [data-connection]').first()).toHaveText('Connecting…', {
@@ -94,7 +99,7 @@ test.describe('location granted', () => {
     })
     await page.waitForTimeout(1_000)
     expect(await seen()).toEqual(['connecting'])
-    release()
+    fail()
     await expect(page.locator('header [data-connection="offline"]').first()).toHaveText('OFFLINE', {
       timeout: 15_000,
     })

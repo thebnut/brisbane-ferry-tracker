@@ -135,32 +135,21 @@ function StopBlock({
 }
 
 /**
- * Nearby's header claim, reported the way the mode homes' pageLive does (and My Transit's, #193): with no stops
- * listed (no location yet, or none near) the page has no live data of its own and claims nothing; a stop still
- * waiting for its first answer is "Connecting…"; one whose answer isn't live, or whose request failed with nothing
- * live to show, is OFFLINE; otherwise LIVE. Before this, anything not LIVE was OFFLINE: the red pill showed until the
- * first answer, and for good without a location (P-42a1bd5-N1).
+ * Nearby's header claim (P-42a1bd5-N1). Before any stop has answered: with no stops listed (no location yet, or none
+ * near) the page has no live data of its own and claims nothing; while a listed stop is still waiting it says
+ * "Connecting…"; only once every listed stop has failed is it OFFLINE. Once a stop has answered, LIVE while every
+ * answered stop is live and fresh, as before (a stop still waiting, or one that failed, is left out: R15-S1). Before
+ * this, anything not LIVE was OFFLINE: the red pill showed until the first answer, and for good without a location.
  */
 export function nearbyLiveState(
   deps: ReadonlyArray<{ data: DeparturesResponse | undefined; failed: boolean }>,
   isLive: (data: DeparturesResponse | undefined) => boolean,
 ): { live: boolean | undefined; pending: boolean } {
-  let down = false
-  let pending = false
-  let held = false
-  let shown = false
-  for (const d of deps) {
-    const live = isLive(d.data)
-    if (d.failed) {
-      if (live) {
-        shown = true
-        held = true
-      } else down = true
-    } else if (d.data == null) pending = true
-    else if (!live) down = true
-    else shown = true
-  }
-  return { live: down || pending ? false : shown || undefined, pending: pending && !down && !held }
+  const answered = deps.filter((d) => d.data != null)
+  if (answered.length > 0) return { live: answered.every((d) => isLive(d.data)), pending: false }
+  if (deps.length === 0) return { live: undefined, pending: false }
+  const waiting = deps.some((d) => !d.failed)
+  return { live: false, pending: waiting }
 }
 
 export default function Nearby({ loaderData }: Route.ComponentProps) {

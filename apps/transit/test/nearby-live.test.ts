@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import type { DeparturesResponse } from '@bft/core/contract'
-import { pageLive, reportValue } from '@bft/ui/mode-home'
 import { describe, expect, it } from 'vitest'
 import { nearbyLiveState } from '../app/routes/nearby.tsx'
 
@@ -9,60 +8,35 @@ const LIVE = { rtState: 'live' } as unknown as DeparturesResponse
 const STALE = { rtState: 'stale' } as unknown as DeparturesResponse
 const isLive = (d: DeparturesResponse | undefined) => d === LIVE
 
-describe('Nearby’s header claim (P-42a1bd5-N1), reported like the mode homes', () => {
+describe('Nearby’s header claim (P-42a1bd5-N1)', () => {
   it('no stops listed (no location yet, or none near): no claim, never OFFLINE', () => {
     expect(nearbyLiveState([], isLive)).toEqual({ live: undefined, pending: false })
   })
 
-  it('stops waiting for their first answer: Connecting…, not OFFLINE', () => {
-    expect(nearbyLiveState([{ data: undefined, failed: false }], isLive)).toEqual({
-      live: false,
-      pending: true,
-    })
-    expect(
-      nearbyLiveState(
-        [
-          { data: LIVE, failed: false },
-          { data: undefined, failed: false },
-        ],
-        isLive,
-      ),
-    ).toEqual({ live: false, pending: true })
+  it('before any answer: Connecting… while a stop waits; OFFLINE only once every stop has failed', () => {
+    const waiting = { data: undefined, failed: false }
+    const failed = { data: undefined, failed: true }
+    expect(nearbyLiveState([waiting], isLive)).toEqual({ live: false, pending: true })
+    expect(nearbyLiveState([failed, waiting], isLive)).toEqual({ live: false, pending: true })
+    expect(nearbyLiveState([failed, failed], isLive)).toEqual({ live: false, pending: false })
   })
 
-  it('LIVE once every listed stop answered live; OFFLINE over a stale or failed one', () => {
-    expect(nearbyLiveState([{ data: LIVE, failed: false }], isLive)).toEqual({ live: true, pending: false })
-    expect(
-      nearbyLiveState(
-        [
-          { data: LIVE, failed: false },
-          { data: STALE, failed: false },
-        ],
-        isLive,
-      ),
-    ).toEqual({ live: false, pending: false })
-    expect(nearbyLiveState([{ data: undefined, failed: true }], isLive)).toEqual({
+  it('once a stop has answered, as before (R15-S1): LIVE while every answered stop is live; waiting or failed stops left out', () => {
+    const ok = { data: LIVE, failed: false }
+    expect(nearbyLiveState([ok], isLive)).toEqual({ live: true, pending: false })
+    expect(nearbyLiveState([ok, { data: undefined, failed: false }], isLive)).toEqual({
+      live: true,
+      pending: false,
+    })
+    expect(nearbyLiveState([ok, { data: undefined, failed: true }], isLive)).toEqual({
+      live: true,
+      pending: false,
+    })
+    expect(nearbyLiveState([ok, { data: STALE, failed: false }], isLive)).toEqual({
       live: false,
       pending: false,
     })
-  })
-
-  it('matches the mode homes’ pageLive for every pair of stop states (a Nearby row marks its live departures)', () => {
-    // [stop, reportValue(live, pending, failed, liveRows)]: a row shows LIVE when its answer is live.
-    const states: Array<
-      [{ data: DeparturesResponse | undefined; failed: boolean }, Parameters<typeof reportValue>]
-    > = [
-      [{ data: undefined, failed: false }, [false, true, false, false]],
-      [{ data: undefined, failed: true }, [false, false, true, false]],
-      [{ data: LIVE, failed: false }, [true, false, false, true]],
-      [{ data: STALE, failed: false }, [false, false, false, false]],
-      [{ data: LIVE, failed: true }, [true, false, true, true]],
-      [{ data: STALE, failed: true }, [false, false, true, false]],
-    ]
-    for (const a of states)
-      for (const b of states) {
-        const want = pageLive([reportValue(...a[1]), reportValue(...b[1])])
-        expect(nearbyLiveState([a[0], b[0]], isLive), JSON.stringify([a[1], b[1]])).toEqual(want)
-      }
+    // A failed refetch that kept its data is judged by that data (liveState ages it).
+    expect(nearbyLiveState([{ data: LIVE, failed: true }], isLive)).toEqual({ live: true, pending: false })
   })
 })
