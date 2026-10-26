@@ -551,9 +551,10 @@ export class HubCore {
     const writes: Record<string, unknown> = {}
     let rebuilt = false
     // A summary that arrived since the last build rewrites the alerts document (through a new snapshot and seq). The
-    // stored summaries load first (one read, then a no-op), so alerts just refetched after a restart keep theirs.
+    // stored summaries load first (one read, then a no-op), so alerts just refetched after a restart keep theirs; a
+    // slow read holds the build for LOAD_WAIT_MS at most, and its summaries follow in the next cycle's rebuild.
     const summaries = this.d.summaries
-    if (summaries) await summaries.load()
+    if (summaries) await summaries.ready()
     const summariesMoved = summaries != null && summaries.version !== this.summariesBuilt
     if (changed.length > 0 || indexesChanged || !this.snapshot || summariesMoved) {
       const indexes: Partial<Record<Mode, ModeIndex>> = {}
