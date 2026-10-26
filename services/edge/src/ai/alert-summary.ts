@@ -519,6 +519,8 @@ export interface SummariserDeps {
 export class AlertSummariser {
   private entries = new Map<string, Entry>()
   private loaded = false
+  /** The store's load in flight, shared by every caller. */
+  private loading: Promise<void> | null = null
   private running: Promise<void> | null = null
   /** Content key per alert object (alerts are rebuilt only when the feed changes). */
   private keys = new WeakMap<Alert, string>()
@@ -557,6 +559,30 @@ export class AlertSummariser {
     })
   }
 
+  /**
+   * Load the stored summaries once (one storage read); attach() uses them from then on. The hub awaits this before a
+   * build, so the first cycle after a restart (which refetches alerts, without summaries) still attaches them
+   * (Codex P3). Never throws: a failed read is logged and retried on the next call.
+   */
+  load(): Promise<void> {
+    if (this.loaded) return Promise.resolve()
+    this.loading ??= this.d.storage
+      .get<Stored>(STORAGE_KEY)
+      .then((stored) => {
+        if (this.loaded) return
+        this.entries = new Map(Object.entries(stored?.v === 1 ? stored.entries : {}))
+        this.loaded = true
+        this.version++
+      })
+      .catch((e) => {
+        this.log.warn('alert summary load failed', { error: errorMessage(e) })
+      })
+      .finally(() => {
+        this.loading = null
+      })
+    return this.loading
+  }
+
   /** Start a run for the current alerts unless one is in flight. Never throws, never awaited by the cycle. */
   kick(alerts: Alert[]): Promise<void> {
     if (this.running) return this.running
@@ -574,12 +600,9 @@ export class AlertSummariser {
   private async run(alerts: Alert[]): Promise<void> {
     const now = this.d.now()
     let dirty = false
-    if (!this.loaded) {
-      const stored = await this.d.storage.get<Stored>(STORAGE_KEY)
-      this.entries = new Map(Object.entries(stored?.v === 1 ? stored.entries : {}))
-      this.loaded = true
-      this.version++
-    }
+    await this.load()
+    // Without the stored summaries every key would look new: generate nothing until they load.
+    if (!this.loaded) return
 
     // Evict keys gone for EVICT_AFTER_MS, then mark the current alerts seen. New keys are admitted only while the
     // store is below MAX_ENTRIES (making room by dropping the longest-unseen keys no longer current), so the record

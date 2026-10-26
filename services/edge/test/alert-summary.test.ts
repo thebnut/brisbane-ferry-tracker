@@ -607,6 +607,25 @@ describe('AlertSummariser scheduling', () => {
   })
 })
 
+describe('AlertSummariser.load (Codex P3)', () => {
+  it('a failed store read never throws, generates nothing (every key would look new), and is retried', async () => {
+    const h = harness()
+    const storage = h.storage as unknown as { get: (k: string) => Promise<unknown> }
+    const realGet = storage.get.bind(storage)
+    let fail = true
+    storage.get = async (k: string) => {
+      if (fail) throw new Error('storage unavailable')
+      return realGet(k)
+    }
+    await expect(h.s.load()).resolves.toBeUndefined()
+    await h.s.kick([mk(0)])
+    expect(h.calls).toEqual([])
+    fail = false
+    await h.s.kick([mk(0)])
+    expect(h.calls).toHaveLength(1)
+  })
+})
+
 // ---------------------------------------------------------------- hub wiring
 
 class FakeR2 {
@@ -632,30 +651,34 @@ function hubSetup(respond: (header: string) => Promise<Response>) {
     calls.push(header)
     return respond(header)
   }) as unknown as typeof fetch
-  const summaries = new AlertSummariser({
-    storage,
-    now: clock.now,
-    fetch: fetchStub,
-    provider: () => ({
-      apiKey: 'k',
-      baseURL: 'https://gateway.ai.cloudflare.com/v1/acct/bft/anthropic',
-      budget: { enabled: true, monthlyBudgetUsd: 10, perIpDailyQuota: 10, alertAt: 0.8 },
-      reserve: async () => ({ ok: true }),
-      reconcile: async () => {},
-    }),
-  })
-  const hub = new HubCore({
-    storage,
-    fetch: up.fetch,
-    now: clock.now,
-    store: storeFor(buildTree(), clock.now),
-    config: parseRtModes('ferry'),
-    upstream: 'https://up.test/api/realtime/SEQ',
-    fetchTimeoutMs: 50,
-    r2,
-    layout: 'documents',
-    summaries,
-  })
+  const mkSummaries = () =>
+    new AlertSummariser({
+      storage,
+      now: clock.now,
+      fetch: fetchStub,
+      provider: () => ({
+        apiKey: 'k',
+        baseURL: 'https://gateway.ai.cloudflare.com/v1/acct/bft/anthropic',
+        budget: { enabled: true, monthlyBudgetUsd: 10, perIpDailyQuota: 10, alertAt: 0.8 },
+        reserve: async () => ({ ok: true }),
+        reconcile: async () => {},
+      }),
+    })
+  const mkHub = (summaries: AlertSummariser) =>
+    new HubCore({
+      storage,
+      fetch: up.fetch,
+      now: clock.now,
+      store: storeFor(buildTree(), clock.now),
+      config: parseRtModes('ferry'),
+      upstream: 'https://up.test/api/realtime/SEQ',
+      fetchTimeoutMs: 50,
+      r2,
+      layout: 'documents',
+      summaries,
+    })
+  const summaries = mkSummaries()
+  const hub = mkHub(summaries)
   const nowS = () => Math.floor(clock.t / 1000)
   up.set(
     'TripUpdates/Ferry',
@@ -674,7 +697,12 @@ function hubSetup(respond: (header: string) => Promise<Response>) {
       doc: RtSnapshot.parse(JSON.parse(r2.files.get(ptr.files.alerts.key) as string)),
     }
   }
-  return { clock, hub, summaries, calls, alertsDoc }
+  /** A deploy or eviction: a fresh summariser and hub over the same storage and R2. */
+  const restart = () => {
+    const fresh = mkSummaries()
+    return { hub: mkHub(fresh), summaries: fresh }
+  }
+  return { clock, hub, summaries, calls, alertsDoc, restart }
 }
 
 describe('RtHub alert summaries', () => {
@@ -700,6 +728,23 @@ describe('RtHub alert summaries', () => {
     }
     expect(h.alertsDoc().seq).toBe(after.seq)
     expect(h.calls).toHaveLength(1)
+  })
+
+  it('a restart keeps published summaries: its first cycle refetches alerts but loads the stored summaries first (Codex P3)', async () => {
+    const h = hubSetup(async () => message('Bulimba works affect F1 ferries.'))
+    await h.hub.alarm()
+    await h.summaries.idle()
+    h.clock.advance(CYCLE_MS)
+    await h.hub.alarm()
+    expect(h.alertsDoc().doc.alerts[0]?.summary).toBe('Bulimba works affect F1 ferries.')
+    // A restart within a minute of the last alerts fetch: the first cycle refetches alerts (summary-free from the feed).
+    const r = h.restart()
+    h.clock.advance(1_000)
+    await r.hub.alarm()
+    expect(h.alertsDoc().doc.alerts[0]?.summary).toBe('Bulimba works affect F1 ferries.')
+    const pulled = RtSnapshot.parse(JSON.parse((await r.hub.pull(null, 'alerts')).json as string))
+    expect(pulled.alerts[0]?.summary).toBe('Bulimba works affect F1 ferries.')
+    expect(h.calls).toHaveLength(1) // stored, not regenerated
   })
 
   it('a cycle never waits on a slow provider, and cycles keep running while it hangs', async () => {
