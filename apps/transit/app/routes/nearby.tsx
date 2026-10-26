@@ -134,6 +134,35 @@ function StopBlock({
   )
 }
 
+/**
+ * Nearby's header claim, reported the way the mode homes' pageLive does (and My Transit's, #193): with no stops
+ * listed (no location yet, or none near) the page has no live data of its own and claims nothing; a stop still
+ * waiting for its first answer is "Connecting…"; one whose answer isn't live, or whose request failed with nothing
+ * live to show, is OFFLINE; otherwise LIVE. Before this, anything not LIVE was OFFLINE: the red pill showed until the
+ * first answer, and for good without a location (P-42a1bd5-N1).
+ */
+export function nearbyLiveState(
+  deps: ReadonlyArray<{ data: DeparturesResponse | undefined; failed: boolean }>,
+  isLive: (data: DeparturesResponse | undefined) => boolean,
+): { live: boolean | undefined; pending: boolean } {
+  let down = false
+  let pending = false
+  let held = false
+  let shown = false
+  for (const d of deps) {
+    const live = isLive(d.data)
+    if (d.failed) {
+      if (live) {
+        shown = true
+        held = true
+      } else down = true
+    } else if (d.data == null) pending = true
+    else if (!live) down = true
+    else shown = true
+  }
+  return { live: down || pending ? false : shown || undefined, pending: pending && !down && !held }
+}
+
 export default function Nearby({ loaderData }: Route.ComponentProps) {
   const [params] = useSearchParams()
   const navigate = useNavigate()
@@ -193,18 +222,20 @@ export default function Nearby({ loaderData }: Route.ComponentProps) {
   const where = fromUrl ? 'the map position' : place ? place.label : 'you'
   const counts = result ? NEARBY_MODES.map((m) => ({ m, n: result.byMode[m].length })) : []
   const updatedAt = deps.find((d) => d.data)?.data?.generatedAt ?? null
-  // LIVE only once stops have answered and while every answer is live and fresh (@bft/ui liveState, as on every
-  // board; a stop still waiting is left out). The pill used to say LIVE whenever the browser was online, before any
-  // answer and however old the rows were (R15).
+  // The header's claim from the listed stops' answers (nearbyLiveState): LIVE only over live, fresh answers (@bft/ui
+  // liveState, as on every board; it used to say LIVE whenever the browser was online, R15).
   const online = useOnline()
   const page = usePageCheck()
   const isLive = (data: DeparturesResponse | undefined) =>
     data != null && liveState(data, { offline: !online, nowMs: now, ...page }) == null
-  const live = deps.some((d) => d.data != null) && deps.every((d) => d.data == null || isLive(d.data))
+  const { live, pending } = nearbyLiveState(
+    deps.map((d) => ({ data: d.data, failed: d.isError || d.failureCount > 0 })),
+    isLive,
+  )
 
   return (
     <>
-      <TransitHeader live={live} />
+      <TransitHeader live={live} pending={pending} />
       <TransitStrip updatedAt={updatedAt}>
         {result ? (
           <span className="text-sm font-semibold text-aqua-text dark:text-ferry-aqua-light">
