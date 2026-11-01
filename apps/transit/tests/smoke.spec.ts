@@ -266,8 +266,9 @@ const BUDGET_KB: Record<string, number> = {
   // included (+80 B gz in its route chunk; develop measured worst 153,554 B, this 153,634 B). External JS unchanged.
   // The landing page (release 24): no live data, so well under the transit pages' budget.
   '/': 150,
-  // My Transit, the home page before release 24: its budget moved with it (develop and release 24 measure the same).
-  '/saved': 150 + 0.05,
+  // My Transit, the home page before release 24: its budget moved with it. +0.05 (2 Nov 2026, release 24): the route
+  // manifest carries one more route (develop measured worst 153,636 B, this 153,676 B). External JS unchanged.
+  '/saved': 150 + 0.05 + 0.05,
   '/nearby': 150,
   '/alerts': 150,
   // +0.05 (19 Oct 2026): measured worst 153,416 B at 08:00 AEST (fixtures pinned, nonce and renderedAt normalised). Worst-case SSR loader data,
