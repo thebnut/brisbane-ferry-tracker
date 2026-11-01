@@ -61,7 +61,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('Saved cards mark next-day departures with tomorrow’s date at 11 pm (R2-S1)', async ({ page }) => {
-  await page.goto('/?fixtures=1')
+  await page.goto('/saved?fixtures=1')
   const ferry = page.getByRole('link', { name: /^Ferry Ferry ·.*Bulimba/ })
   await expect(ferry).toContainText('11:40 pm')
   await expect(ferry).not.toContainText(/11:40 pm \(/)
@@ -107,7 +107,7 @@ test('the Ask summary says "tomorrow" for a next-day answer at 11 pm (R2-X6b)', 
       },
     })
   })
-  await page.goto('/?fixtures=1')
+  await page.goto('/saved?fixtures=1')
   const ask = page.getByRole('textbox', { name: 'Ask' })
   await ask.fill('next bus from cultural centre platform 1')
   await ask.press('Enter')

@@ -69,7 +69,7 @@ test.describe('onboarding map picker', () => {
   const pickerMap = (page: Page) => picker(page).getByRole('region', { name: /^Map of \d+ \w+s in view/ })
 
   async function openPicker(page: Page) {
-    await page.goto('/')
+    await page.goto('/saved')
     await expectPrompt(page)
     await prompt(page).getByRole('button', { name: 'Yes' }).click()
     await expect(picker(page)).toBeVisible()

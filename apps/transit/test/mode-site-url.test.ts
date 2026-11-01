@@ -1,8 +1,8 @@
 // @vitest-environment node
 /**
  * P6: the SITE_URL each mounted mode page gets (its canonical, OG and JSON-LD URLs), through the Worker's fetch
- * handler. Production keeps the standalone apps' URLs, byte-identical to before P6; staging and local dev, which
- * have no <MODE>_SITE_URL, point at this site's own page under the mode prefix, whose OG images exist here.
+ * handler. No env sets a <MODE>_SITE_URL (production since release 24), so every mounted page points at this site's
+ * own page under the mode prefix, whose OG images exist here.
  */
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -62,41 +62,20 @@ function metaFor(urls: { ferry: string; train: string; bus: string }) {
 const canonical = (m: Meta) => m.find((t) => t.rel === 'canonical')?.href
 const ogImage = (m: Meta) => m.find((t) => t.property === 'og:image')?.content
 
-describe.each(['production', 'production-preview'])('%s: mode pages keep the standalone sites', (envName) => {
-  it('SITE_URLs and meta are what develop rendered before P6', async () => {
-    const vars = varsOf(envName)
-    const urls = await siteUrls(vars)
-    // Develop's expression, before modeSiteUrl.
-    const before = {
-      ferry: vars.FERRY_SITE_URL ?? vars.SITE_URL,
-      train: vars.TRAIN_SITE_URL ?? vars.SITE_URL,
-      bus: vars.BUS_SITE_URL ?? vars.SITE_URL,
-    }
-    expect(urls).toEqual({
-      ferry: 'https://www.brisbaneferry.com',
-      train: 'https://brisbanetrain.com',
-      bus: 'https://brisbanebus.com',
-    })
-    expect(urls).toEqual(before)
-    const m = metaFor(urls)
-    expect(JSON.stringify(m)).toBe(JSON.stringify(metaFor(before)))
-    expect(canonical(m.ferry)).toBe('https://www.brisbaneferry.com/')
-    expect(ogImage(m.ferry)).toBe('https://www.brisbaneferry.com/og-image.jpg')
-    expect(canonical(m.train)).toBe('https://brisbanetrain.com/')
-    expect(ogImage(m.train)).toBe('https://brisbanetrain.com/icon-512.png')
-    expect(canonical(m.bus)).toBe('https://brisbanebus.com/stop/10802')
-    expect(ogImage(m.bus)).toBe('https://brisbanebus.com/icon-512.png')
-  })
-})
-
-describe.each([['staging'], [undefined]])('%s: mode pages link inside transit', (envName) => {
+describe.each([
+  ['production', 'https://brisbanetransit.com'],
+  ['production-preview', 'https://brisbanetransit.com'],
+  ['staging', 'https://bft-transit.brisbanetransit.workers.dev'],
+  [undefined, 'https://bft-transit.brisbanetransit.workers.dev'],
+])('%s: mode pages link inside transit', (envName, T) => {
   it('SITE_URL + the mode prefix, and the OG images it names are in public/', async () => {
     const vars = varsOf(envName)
-    const T = 'https://bft-transit.brisbanetransit.workers.dev'
     expect(vars.SITE_URL).toBe(T)
     const urls = await siteUrls(vars)
     expect(urls).toEqual({ ferry: `${T}/ferry`, train: `${T}/train`, bus: `${T}/bus` })
     const m = metaFor(urls)
+    expect(canonical(m.ferry)).toBe(`${T}/ferry/`)
+    expect(canonical(m.train)).toBe(`${T}/train/`)
     expect(canonical(m.bus)).toBe(`${T}/bus/stop/10802`)
     for (const meta of [m.ferry, m.train, m.bus]) {
       const image = ogImage(meta) as string
@@ -170,4 +149,23 @@ describe('every mounted mode page', () => {
       }
     },
   )
+})
+
+describe('release 24: mounted pages that stay out of search', () => {
+  it.each([
+    ['bus', 'nearby.tsx'],
+    ['bus', 'alerts.tsx'],
+    ['train', 'alerts.tsx'],
+    ['bus', 'trip.tsx'],
+    ['train', 'trip.tsx'],
+    ['ferry', 'trip.tsx'],
+  ])('%s/%s says noindex with production indexing on', async (mode, file) => {
+    const load = MODULES[`../../${mode}/app/routes/${file}`]
+    if (!load) throw new Error(`no module ${mode}/${file}`)
+    const { meta } = await load()
+    const site = 'https://brisbanetransit.com'
+    const tags = (meta?.({ loaderData: { ...loaderData(site), site: { siteUrl: site, indexable: true } } }) ??
+      []) as Meta
+    expect(tags).toContainEqual({ name: 'robots', content: 'noindex' })
+  })
 })

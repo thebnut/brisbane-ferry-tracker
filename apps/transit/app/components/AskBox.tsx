@@ -30,7 +30,7 @@ export function AskBox() {
     [sitekey, fixtures],
   )
   useEffect(() => () => ts?.dispose(), [ts])
-  // /ask redirects to /#ask: focus the box (also when already on this page).
+  // /ask redirects to /saved#ask: focus the box (also when already on this page).
   const { hash } = useLocation()
   useEffect(() => {
     if (hash === '#ask') input.current?.focus()

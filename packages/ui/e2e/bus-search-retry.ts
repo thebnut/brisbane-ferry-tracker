@@ -134,7 +134,8 @@ export function busSearchRetryTests(base: string): void {
 }
 
 /** The bus onboarding picker (bus app and BrisbaneTransit): its map and name-search notices show together. */
-export function busOnboardingRetryTests(): void {
+/** `home`: the page that offers onboarding (BrisbaneTransit's My Transit is /saved). */
+export function busOnboardingRetryTests(home = '/'): void {
   for (const how of DATA_FAILURES) {
     test.describe(`/data ${how}: onboarding picker`, () => {
       test.use({ storageState: FIRST_VISIT })
@@ -149,7 +150,7 @@ export function busOnboardingRetryTests(): void {
           await context.grantPermissions(['geolocation'])
           await context.setGeolocation({ latitude: -27.4732, longitude: 153.0195 })
           const { restore } = await failData(context, how)
-          await page.goto('/')
+          await page.goto(home)
           await expectPrompt(page)
           await prompt(page).getByRole('button', { name: 'Yes' }).click()
           const picker = page.getByRole('dialog', { name: 'Set up your favourite stops' })

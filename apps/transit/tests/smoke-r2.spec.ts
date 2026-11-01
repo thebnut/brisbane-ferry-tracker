@@ -76,9 +76,9 @@ for (const path of PAGES) {
 test('/ask opens the Ask box on the My Transit tab with the input focused (R2-X7)', async ({ page }) => {
   const res = await page.request.get('/ask', { maxRedirects: 0 })
   expect(res.status()).toBe(302)
-  expect(res.headers().location).toBe('/#ask')
+  expect(res.headers().location).toBe('/saved#ask')
   await page.goto('/ask')
-  await expect(page).toHaveURL(/\/#ask$/)
+  await expect(page).toHaveURL(/\/saved#ask$/)
   await expect(page.locator('#ask')).toBeFocused()
   // The Mode Tabs stay as designed: no Ask tab.
   await expect(page.getByRole('link', { name: 'Ask', exact: true })).toHaveCount(0)

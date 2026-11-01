@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { activeTab, DESKTOP_TABS, parentOf, TABS } from '../app/components/ModeBar.tsx'
 
 describe('Mode Tabs', () => {
-  it('phone order: My Transit, Nearby, Ferry, Train, Bus; My Transit is the home page', () => {
+  it('phone order: My Transit, Nearby, Ferry, Train, Bus; My Transit is /saved', () => {
     expect(TABS.map((t) => `${t.label}:${t.href}`)).toEqual([
-      'My Transit:/',
+      'My Transit:/saved',
       'Nearby:/nearby',
       'Ferry:/ferry',
       'Train:/train',
@@ -18,7 +18,10 @@ describe('Mode Tabs', () => {
   })
 
   it('the URL is the only mode state', () => {
-    expect(activeTab('/')).toBe('saved')
+    // Release 24: My Transit is /saved; / is the landing page, no tab's.
+    expect(activeTab('/saved')).toBe('saved')
+    expect(activeTab('/')).toBe('')
+    expect(TABS.find((t) => t.key === 'saved')?.href).toBe('/saved')
     expect(activeTab('/bus')).toBe('bus')
     expect(activeTab('/bus/stop/10802')).toBe('bus')
     expect(activeTab('/train/trip/x')).toBe('train')
@@ -33,7 +36,7 @@ describe('header back link (THE-118 PR 2)', () => {
     expect(parentOf('/train/station/central')).toEqual({ href: '/train', label: 'Train' })
     expect(parentOf('/bus/stop/10802')).toEqual({ href: '/bus', label: 'Bus' })
     expect(parentOf('/ferry/terminal/bulimba')).toEqual({ href: '/ferry', label: 'Ferry' })
-    for (const p of ['/', '/ferry', '/train', '/bus', '/nearby', '/alerts', '/busway/x'])
+    for (const p of ['/', '/saved', '/ferry', '/train', '/bus', '/nearby', '/alerts', '/busway/x'])
       expect(parentOf(p)).toBeNull()
   })
 })

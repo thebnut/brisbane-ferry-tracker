@@ -417,9 +417,9 @@ export function showMovedNotice(r: MergeResult): void {
       else text.textContent = "Couldn't save that trip on this device. Your current ferry trip is unchanged."
     })
     box.appendChild(use)
-  } else if (location.pathname !== '/' && r.added > 0) {
+  } else if (location.pathname !== '/saved' && r.added > 0) {
     const open = document.createElement('a')
-    open.href = '/'
+    open.href = '/saved'
     open.className = 'font-semibold text-ferry-orange-deep'
     open.textContent = 'Open'
     box.appendChild(open)

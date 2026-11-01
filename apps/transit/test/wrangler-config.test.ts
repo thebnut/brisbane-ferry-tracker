@@ -45,10 +45,10 @@ describe('wrangler.jsonc production envs', () => {
     }
   })
 
-  it('production-preview is production on workers.dev only', () => {
+  it('production-preview is production on workers.dev only, and noindex there', () => {
     expect(preview.name).toBe(prod.name)
     expect(preview.workers_dev).toBe(true)
-    expect(preview.vars).toEqual(prod.vars)
+    expect(preview.vars).toEqual({ ...prod.vars, INDEXABLE: '0' })
     expect(preview.services).toEqual(prod.services)
     expect(preview.durable_objects).toEqual(prod.durable_objects)
     expect(preview.migrations).toEqual(prod.migrations)
@@ -58,13 +58,12 @@ describe('wrangler.jsonc production envs', () => {
     )
   })
 
-  it('mode pages point at the production sites and transit stays noindex', () => {
-    expect(prod.vars).toMatchObject({
-      FERRY_SITE_URL: 'https://www.brisbaneferry.com',
-      TRAIN_SITE_URL: 'https://brisbanetrain.com',
-      BUS_SITE_URL: 'https://brisbanebus.com',
-      INDEXABLE: '0',
-    })
+  it('release 24: production is indexable and the mode pages are canonical here (no standalone site URLs)', () => {
+    expect(prod.vars.INDEXABLE).toBe('1')
+    for (const env of [undefined, 'staging', 'production-preview', 'production'])
+      for (const k of ['FERRY_SITE_URL', 'TRAIN_SITE_URL', 'BUS_SITE_URL'])
+        expect(read(env).vars, `${env} ${k}`).not.toHaveProperty(k)
+    for (const env of [undefined, 'staging']) expect(read(env).vars.INDEXABLE ?? '0', String(env)).toBe('0')
   })
 
   // Two Turnstile widgets (runbook section 9). Each bft-api holds only its own widget's secret, so a sitekey that

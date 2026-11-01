@@ -34,7 +34,7 @@ async function seed(page: Page) {
       }),
     )
   })
-  await page.goto('/')
+  await page.goto('/saved')
   await expect(page.getByText('3 saved · all modes')).toBeVisible()
 }
 

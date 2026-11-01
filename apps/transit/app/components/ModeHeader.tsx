@@ -99,7 +99,7 @@ export function ModeHeader({
           ) : null}
           <Link
             to="/"
-            aria-label="BrisbaneTransit, My Transit"
+            aria-label="BrisbaneTransit, home"
             className={cx(
               'min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-lg no-underline md:flex',
               parent ? 'hidden' : 'flex',

@@ -9,8 +9,9 @@ startServiceWorker({
   themeColor: '#FF6B35',
   // entry.client.tsx also writes the first page view into this cache.
   pages: { cacheName: 'transit-pages', maxEntries: 40, maxAgeSeconds: 7 * 24 * 3600 },
-  // The home opens offline even before the first page view is saved, or when only a mode page was ever opened (R8-T1).
-  installPages: ['/'],
+  // My Transit (the installed app's start page) and the landing page open offline even before the first page view is
+  // saved, or when only a mode page was ever opened (R8-T1).
+  installPages: ['/saved', '/'],
   // React Router client navigations fetch loader data from `<path>.data`; cached like the pages so a saved stop
   // opened from the offline home page still loads (its board then shows the offline timetable).
   routeData: { cacheName: 'transit-route-data', maxEntries: 40, maxAgeSeconds: 7 * 24 * 3600 },

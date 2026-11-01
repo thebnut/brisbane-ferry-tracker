@@ -5,9 +5,10 @@ import { pageMeta, robotsTxt, sitemapXml, stationMeta } from '../app/lib/seo.ts'
 const SITE = 'https://bft-train.brisbanetransit.workers.dev'
 
 describe('SEO', () => {
-  it('sitemap lists home, stations, alerts and every station page', () => {
+  it('sitemap lists home, stations and every station page (not Alerts: noindex, release 24)', () => {
     const xml = sitemapXml(SITE, Date.UTC(2026, 9, 18))
-    expect(xml.match(/<url>/g)).toHaveLength(STATIONS.length + 3)
+    expect(xml.match(/<url>/g)).toHaveLength(STATIONS.length + 2)
+    expect(xml).not.toContain(`${SITE}/alerts</loc>`)
     expect(xml).toContain(`${SITE}/station/bowen-hills</loc>`)
   })
   it('staging is never indexed', () => {

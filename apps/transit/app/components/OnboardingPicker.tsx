@@ -57,7 +57,7 @@ export default function TransitOnboardingPicker({
         // My Transit reads every store (and the server their cookies) on a fresh load. A re-run's tray order also
         // becomes My Transit's own order, when the visitor has one (THE-114).
         if (ok && initialItems) keepTrayOrder(initialItems, tray.items)
-        if (ok) location.assign('/')
+        if (ok) location.assign('/saved')
         return ok
       }}
       onClose={onClose}

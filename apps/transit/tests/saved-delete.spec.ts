@@ -52,7 +52,7 @@ async function seed(page: Page, { more = false, overlay = false } = {}) {
     },
     { more, overlay, extra: MORE_BUS },
   )
-  await page.goto('/')
+  await page.goto('/saved')
   await expect(page.getByText(`${more ? 3 + MORE_BUS.length : 3} saved · all modes`)).toBeVisible()
   // The rows that can be swiped (loaded after hydration).
   await expect(page.locator('[data-saved-row]').first()).toBeAttached()
@@ -157,7 +157,7 @@ function touchTests() {
     await expect(row(page, BUS_ID)).toHaveAttribute('data-open', '')
     await page.locator(`main a[href="${BUS}"]`).tap()
     await expect(row(page, BUS_ID)).not.toHaveAttribute('data-open', '')
-    await expect(page).toHaveURL(/\/$/)
+    await expect(page).toHaveURL(/\/saved$/)
   })
 
   test('a vertical drag on a card still scrolls the page and never swipes', async ({ page }) => {

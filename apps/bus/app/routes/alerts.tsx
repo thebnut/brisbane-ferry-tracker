@@ -38,6 +38,8 @@ export const meta: Route.MetaFunction = ({ loaderData }) =>
     description:
       'Current bus detours, stop changes and planned service changes across Brisbane and South East Queensland.',
     url: `${loaderData?.siteUrl ?? SITE_URL}/alerts`,
+    // Changes by the minute: not a page for search (release 24, as BrisbaneTransit's own Alerts).
+    noindex: true,
     siteUrl: loaderData?.siteUrl,
   })
 

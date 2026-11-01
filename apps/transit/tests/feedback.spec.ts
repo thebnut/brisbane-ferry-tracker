@@ -33,7 +33,7 @@ test('mounted ferry feedback sheet renders the Turnstile widget and sends its to
 
 test('R7: the home footer has the feedback entry, and /feedback opens the sheet there', async ({ page }) => {
   await stubTurnstile(page)
-  await page.goto('/')
+  await page.goto('/saved')
   await page.locator('footer').getByRole('link', { name: 'Send Feedback & Ideas' }).click()
   await expect(page.getByRole('dialog', { name: 'Share your feedback' })).toBeVisible()
   await page.goto('/feedback')

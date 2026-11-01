@@ -9,6 +9,33 @@
       "maxDuration": 10
     }
   },
+  "redirects": [
+    {"source": "/privacy.html", "has": [{"type": "host", "value": "^(?:www\\.)?brisbaneferry\\.com$"}], "destination": "https://brisbanetransit.com/ferry/privacy", "statusCode": 301},
+    {"source": "/terms.html", "has": [{"type": "host", "value": "^(?:www\\.)?brisbaneferry\\.com$"}], "destination": "https://brisbanetransit.com/ferry/terms", "statusCode": 301},
+    {"source": "/sitemap.xml", "has": [{"type": "host", "value": "^(?:www\\.)?brisbaneferry\\.com$"}], "destination": "https://brisbanetransit.com/sitemap.xml", "statusCode": 301},
+    {"source": "/robots.txt", "has": [{"type": "host", "value": "^(?:www\\.)?brisbaneferry\\.com$"}], "destination": "https://brisbanetransit.com/robots.txt", "statusCode": 301},
+    {"source": "/terminal/:slug/index.html", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}, {"type": "cookie", "key": "bft-handoff", "value": "1"}], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301},
+    {"source": "/terminal/:slug/index.html", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}], "missing": [{"type": "header", "key": "sec-fetch-mode"}], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301},
+    {"source": "/terminal/:slug/index.html", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}, {"type": "header", "key": "user-agent", "value": ".*(?:[Bb]ot|[Cc]rawler|[Ss]pider|[Ss]lurp|facebookexternalhit|WhatsApp|Yandex).*"}], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301},
+    {"source": "/terminal/:slug/index.html", "has": [{"type": "host", "value": "^brisbaneferry\\.com$"}], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301},
+    {"source": "/terminal/:slug/", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}, {"type": "cookie", "key": "bft-handoff", "value": "1"}], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301},
+    {"source": "/terminal/:slug/", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}], "missing": [{"type": "header", "key": "sec-fetch-mode"}], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301},
+    {"source": "/terminal/:slug/", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}, {"type": "header", "key": "user-agent", "value": ".*(?:[Bb]ot|[Cc]rawler|[Ss]pider|[Ss]lurp|facebookexternalhit|WhatsApp|Yandex).*"}], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301},
+    {"source": "/terminal/:slug/", "has": [{"type": "host", "value": "^brisbaneferry\\.com$"}], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301},
+    {"source": "/terminal/:slug", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}, {"type": "cookie", "key": "bft-handoff", "value": "1"}], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301},
+    {"source": "/terminal/:slug", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}], "missing": [{"type": "header", "key": "sec-fetch-mode"}], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301},
+    {"source": "/terminal/:slug", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}, {"type": "header", "key": "user-agent", "value": ".*(?:[Bb]ot|[Cc]rawler|[Ss]pider|[Ss]lurp|facebookexternalhit|WhatsApp|Yandex).*"}], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301},
+    {"source": "/terminal/:slug", "has": [{"type": "host", "value": "^brisbaneferry\\.com$"}], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301},
+    {"source": "/index.html", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}, {"type": "cookie", "key": "bft-handoff", "value": "1"}], "destination": "https://brisbanetransit.com/ferry", "statusCode": 301},
+    {"source": "/index.html", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}], "missing": [{"type": "header", "key": "sec-fetch-mode"}], "destination": "https://brisbanetransit.com/ferry", "statusCode": 301},
+    {"source": "/index.html", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}, {"type": "header", "key": "user-agent", "value": ".*(?:[Bb]ot|[Cc]rawler|[Ss]pider|[Ss]lurp|facebookexternalhit|WhatsApp|Yandex).*"}], "destination": "https://brisbanetransit.com/ferry", "statusCode": 301},
+    {"source": "/index.html", "has": [{"type": "host", "value": "^brisbaneferry\\.com$"}], "destination": "https://brisbanetransit.com/ferry", "statusCode": 301},
+    {"source": "/", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}, {"type": "cookie", "key": "bft-handoff", "value": "1"}], "destination": "https://brisbanetransit.com/ferry", "statusCode": 301},
+    {"source": "/", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}], "missing": [{"type": "header", "key": "sec-fetch-mode"}], "destination": "https://brisbanetransit.com/ferry", "statusCode": 301},
+    {"source": "/", "has": [{"type": "host", "value": "^www\\.brisbaneferry\\.com$"}, {"type": "header", "key": "user-agent", "value": ".*(?:[Bb]ot|[Cc]rawler|[Ss]pider|[Ss]lurp|facebookexternalhit|WhatsApp|Yandex).*"}], "destination": "https://brisbanetransit.com/ferry", "statusCode": 301},
+    {"source": "/", "has": [{"type": "host", "value": "^brisbaneferry\\.com$"}], "destination": "https://brisbanetransit.com/ferry", "statusCode": 301},
+    {"source": "/:path((?!api(?:/|$)|handoff-ferry\\.js$|index\\.html$|terminal/[^/]+/?(?:index\\.html)?$|assets/|[^/]+\\.(?:js|css|png|ico|svg|jpe?g|webmanifest|csv)$).+)", "has": [{"type": "host", "value": "^(?:www\\.)?brisbaneferry\\.com$"}], "destination": "https://brisbanetransit.com/ferry/:path*", "statusCode": 301}
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",

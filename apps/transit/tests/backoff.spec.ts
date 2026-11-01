@@ -8,7 +8,7 @@ import { pinUpcoming } from './upcoming.ts'
 // The lead's staging case (20 Oct, 04:06): the transit home with saved stops, here from every mode.
 backoffSuite({
   label: 'transit home, saved across modes',
-  path: '/',
+  path: '/saved',
   pagesCache: 'transit-pages',
   departures: /\/v1\/(ferry|train|bus)\/stops\/[^/]+\/departures/,
   pin: (context) => pinUpcoming(context),

@@ -50,7 +50,7 @@ for (const width of [390, 360]) {
   test(`Mode Tabs fit at ${width} px`, async ({ page, isMobile }) => {
     test.skip(!isMobile, 'the bottom Mode Tabs are phone-only')
     await page.setViewportSize({ width, height: 844 })
-    await page.goto('/')
+    await page.goto('/saved')
     const links = page.getByRole('navigation', { name: 'Modes' }).filter({ visible: true }).getByRole('link')
     expect((await links.allInnerTexts()).map((t) => t.trim())).toEqual([
       'My Transit',
