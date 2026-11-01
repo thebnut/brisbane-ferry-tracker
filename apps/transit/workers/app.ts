@@ -4,7 +4,8 @@
  *  - GET /v1/*, /data/*   same-origin proxy to the API Worker (service binding in staging, HTTP in dev), contract-checked
  *  - POST /v1/ask         Ask box → bft-api /v1/ask with the visitor's IP (per-IP quota) and Turnstile token
  *  - /__fixtures/*        recorded responses for fixture mode (only when ALLOW_FIXTURES or FIXTURES is "1")
- *  - /robots.txt          disallow: the mode pages' canonical copies are the standalone apps
+ *  - /robots.txt          crawl all but /__fixtures/, with the sitemap, once INDEXABLE is "1"; else disallow all
+ *  - /sitemap.xml         index over the landing page and every mode's sitemap under its prefix (workers/sitemap.ts)
  *  - www.<SITE_URL host>  301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
  *  - everything else      React Router SSR, with a per-request CSP nonce (workers/security.ts). The mounted mode pages are the standalone apps' route modules, so their
  *                         loaders read their own app's context: each gets this Env with its own canonical SITE_URL
@@ -31,6 +32,7 @@ import {
   withSecurityHeaders,
   wwwRedirectLocation,
 } from './security.ts'
+import { robotsTxt, sitemap } from './sitemap.ts'
 import { ASK_TIMEOUT_MS, proxied, withTimeout } from './timeouts.ts'
 
 const requestHandler = createRequestHandler(
@@ -167,8 +169,8 @@ async function guarded(handle: () => Promise<Response>): Promise<Response> {
 const MODE_SITE_URL = { ferry: 'FERRY_SITE_URL', train: 'TRAIN_SITE_URL', bus: 'BUS_SITE_URL' } as const
 
 /**
- * The canonical site of a mounted mode page: the standalone app's own (<MODE>_SITE_URL) while it is the indexable
- * copy, else this site's page under the mode prefix (P6: the mode hosts redirect here, so links stay internal).
+ * The canonical site of a mounted mode page: this site's page under the mode prefix (the mode hosts redirect here), or
+ * a standalone app's own when <MODE>_SITE_URL is set (no environment sets one since release 24).
  */
 export function modeSiteUrl(env: Env, mode: MountedMode): string {
   return env[MODE_SITE_URL[mode]] ?? `${env.SITE_URL}${MODE_BASES[mode]}`
@@ -191,9 +193,13 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
     return handleFixtureApi(url, Date.now(), env)
   }
   if (url.pathname === '/robots.txt')
-    return new Response('User-agent: *\nDisallow: /\n', {
+    return new Response(robotsTxt(env.SITE_URL, env.INDEXABLE === '1'), {
       headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' },
     })
+  if (url.pathname === '/sitemap.xml' || url.pathname.startsWith('/sitemaps/')) {
+    const res = await sitemap(url, env)
+    if (res) return res
+  }
   // Pages are GET/HEAD only (no route has an action): any other method is a 405 here, not React Router's logged one.
   const notAllowed = pageMethodNotAllowed(request.method)
   if (notAllowed) return notAllowed

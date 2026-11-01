@@ -45,6 +45,8 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
     description:
       'Live status for every South East Queensland train line: delays, platform changes and track works.',
     url: `${site.siteUrl}/alerts`,
+    // Changes by the minute: not a page for search (release 24, as BrisbaneTransit's own Alerts).
+    noindex: true,
     site,
   })
 }

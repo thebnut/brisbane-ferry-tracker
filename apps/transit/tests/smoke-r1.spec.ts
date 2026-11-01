@@ -30,7 +30,7 @@ test('Saved: LIVE never comes back while offline (X4)', async ({ page, context }
   await page.addInitScript(() => {
     localStorage.setItem('bft-bus-saved', JSON.stringify([{ id: '10802', name: 'Cultural Centre' }]))
   })
-  await page.goto('/')
+  await page.goto('/saved')
   await expect(page.getByText('LIVE', { exact: true }).first()).toBeVisible()
   await context.setOffline(true)
   await expect(page.locator('[data-banner=offline]')).toBeVisible({ timeout: 2_000 })

@@ -61,9 +61,11 @@ describe('INDEXABLE soft launch', () => {
     }
   })
 
-  it('"1" only drops the header: robots.txt still disallows (mode pages are canonical on the standalone apps)', async () => {
+  it('"1" (production, release 24): no header, and robots.txt allows all but the fixtures and names the sitemap', async () => {
     const res = await get(`${SITE}/robots.txt`, envWith({ INDEXABLE: '1' }))
     expect(res.headers.get('x-robots-tag')).toBeNull()
-    expect(await res.text()).toBe('User-agent: *\nDisallow: /\n')
+    expect(await res.text()).toBe(
+      `User-agent: *\nAllow: /\nDisallow: /__fixtures/\n\nSitemap: ${SITE}/sitemap.xml\n`,
+    )
   })
 })

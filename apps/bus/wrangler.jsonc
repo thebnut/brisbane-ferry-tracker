@@ -62,7 +62,11 @@
         "SITE_URL": "https://brisbanebus.com",
         // /feedback goes to the transit site's feedback sheet (this app has none of its own).
         "TRANSIT_SITE_URL": "https://brisbanetransit.com",
-        // Soft launch: noindex + robots Disallow until the real domain is verified, then "1" (runbook 8.5).
+        // Release 24: every page moves to BrisbaneTransit (/bus), 301, in one hop from www too. Browsers that
+        // hold favourites get the handoff page first (P6b). robots.txt allows crawling so search engines follow the 301s.
+        "REDIRECT_TO_TRANSIT": "1",
+        "REDIRECT_STATUS": "301",
+        // Stays "0": the pages left here (handoff page, APIs, data) are not for search; the 301s carry no noindex.
         "INDEXABLE": "0"
       },
       "services": [{ "binding": "API", "service": "bft-api-prod" }]
@@ -86,7 +90,11 @@
         "SITE_URL": "https://brisbanebus.com",
         // /feedback goes to the transit site's feedback sheet (this app has none of its own).
         "TRANSIT_SITE_URL": "https://brisbanetransit.com",
-        // Soft launch: noindex + robots Disallow until the real domain is verified, then "1" (runbook 8.5).
+        // Release 24: every page moves to BrisbaneTransit (/bus), 301, in one hop from www too. Browsers that
+        // hold favourites get the handoff page first (P6b). robots.txt allows crawling so search engines follow the 301s.
+        "REDIRECT_TO_TRANSIT": "1",
+        "REDIRECT_STATUS": "301",
+        // Stays "0": the pages left here (handoff page, APIs, data) are not for search; the 301s carry no noindex.
         "INDEXABLE": "0"
       },
       "services": [{ "binding": "API", "service": "bft-api-prod" }]

@@ -16,13 +16,13 @@ const watchErrors = (page: Page) => {
 
 const CBD = '/nearby?lat=-27.4717&lon=153.0206'
 
-test('My Transit home: transit emblem, Ask box, Mode Tabs with My Transit first', async ({
+test('My Transit (/saved): transit emblem, Ask box, Mode Tabs with My Transit first', async ({
   page,
   isMobile,
 }) => {
   const errors = watchErrors(page)
-  await page.goto('/')
-  await expect(page.getByRole('link', { name: 'BrisbaneTransit, My Transit' })).toBeVisible()
+  await page.goto('/saved')
+  await expect(page.getByRole('link', { name: 'BrisbaneTransit, home' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Ask' })).toBeVisible()
   await expect(page.getByText('Nothing in My Transit yet')).toBeVisible()
   const tabs = page.getByRole('navigation', { name: 'Modes' }).filter({ visible: true })
@@ -42,9 +42,52 @@ test('My Transit home: transit emblem, Ask box, Mode Tabs with My Transit first'
   expect(errors).toEqual([])
 })
 
-test('each mode tab shows its app’s pages under the one BrisbaneTransit header', async ({ page }) => {
+test('the landing page (/): indexable head, a way into every tab, no tab marked current', async ({
+  page,
+}) => {
   const errors = watchErrors(page)
   await page.goto('/')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    'Live Brisbane ferry, train and bus departures',
+  )
+  await expect(page.locator('head meta[name="robots"]')).toHaveCount(0)
+  await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute('href', /\/$/)
+  const sections = page.getByRole('navigation', { name: 'BrisbaneTransit sections' })
+  for (const [name, href] of [
+    ['Ferry', '/ferry'],
+    ['Train', '/train'],
+    ['Bus', '/bus'],
+    ['Nearby', '/nearby'],
+    ['My Transit', '/saved'],
+  ] as const)
+    await expect(sections.getByRole('link', { name: new RegExp(`^${name}`) })).toHaveAttribute('href', href)
+  const tabs = page.getByRole('navigation', { name: 'Modes' }).filter({ visible: true })
+  await expect(tabs.locator('[aria-current="page"]')).toHaveCount(0)
+  // Nothing saved on this device: no My Transit entry at the top.
+  await expect(page.locator('[data-saved-entry]')).toHaveCount(0)
+  await tabs.getByRole('link', { name: 'My Transit' }).click()
+  await expect(page).toHaveURL(/\/saved$/)
+  await expect(page.getByText('Nothing in My Transit yet')).toBeVisible()
+  expect(errors).toEqual([])
+})
+
+test('the landing page: a device with saved stops gets a clear way to My Transit', async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'bft-bus-saved',
+      JSON.stringify([{ id: '10802', name: 'Cultural Centre, platform 1' }]),
+    ),
+  )
+  await page.goto('/')
+  const entry = page.locator('[data-saved-entry]')
+  await expect(entry).toHaveText(/My Transit: your saved stops/)
+  await entry.click()
+  await expect(page).toHaveURL(/\/saved$/)
+})
+
+test('each mode tab shows its app’s pages under the one BrisbaneTransit header', async ({ page }) => {
+  const errors = watchErrors(page)
+  await page.goto('/saved')
   const tabs = page.getByRole('navigation', { name: 'Modes' }).filter({ visible: true })
   for (const [tab, lockup, path] of [
     ['Bus', 'BrisbaneBus Departure Boards, home', '/bus'],
@@ -55,7 +98,7 @@ test('each mode tab shows its app’s pages under the one BrisbaneTransit header
     await expect(page).toHaveURL(new RegExp(`${path}$`))
     // THE-118 PR 2: the app's own lockup is gone; the transit emblem leads the one header on a mode home.
     await expect(page.locator('header')).toHaveCount(1)
-    await expect(page.getByRole('link', { name: 'BrisbaneTransit, My Transit' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'BrisbaneTransit, home' })).toBeVisible()
     await expect(page.getByRole('link', { name: lockup })).toHaveCount(0)
     await expect(tabs.getByRole('link', { name: tab })).toHaveAttribute('aria-current', 'page')
   }
@@ -159,7 +202,7 @@ test('merged alerts filter by mode chips', async ({ page }) => {
 })
 
 test('Ask box answers with shared departure cards and explains an AI limit', async ({ page }) => {
-  await page.goto('/?fixtures=1')
+  await page.goto('/saved?fixtures=1')
   const ask = page.getByRole('textbox', { name: 'Ask' })
   await ask.fill('next train from Bowen Hills to the airport')
   await ask.press('Enter')
@@ -192,7 +235,7 @@ test('My Transit mixes every mode and works offline as "Offline · scheduled"', 
       }),
     )
   })
-  await page.goto('/')
+  await page.goto('/saved')
   await expect(page.getByText('3 saved · all modes')).toBeVisible()
   const cards = page.locator('main a').filter({ hasText: /→|platform 1/ })
   for (const name of [
@@ -221,7 +264,11 @@ test('My Transit mixes every mode and works offline as "Offline · scheduled"', 
 const BUDGET_KB: Record<string, number> = {
   // +0.05 (25 Oct 2026, P-3167c11-O1/H1): the home reports its header claim per card like the mode homes, failures
   // included (+80 B gz in its route chunk; develop measured worst 153,554 B, this 153,634 B). External JS unchanged.
-  '/': 150 + 0.05,
+  // The landing page (release 24): no live data, so well under the transit pages' budget.
+  '/': 150,
+  // My Transit, the home page before release 24: its budget moved with it. +0.05 (2 Nov 2026, release 24): the route
+  // manifest carries one more route (develop measured worst 153,636 B, this 153,676 B). External JS unchanged.
+  '/saved': 150 + 0.05 + 0.05,
   '/nearby': 150,
   '/alerts': 150,
   // +0.05 (19 Oct 2026): measured worst 153,416 B at 08:00 AEST (fixtures pinned, nonce and renderedAt normalised). Worst-case SSR loader data,

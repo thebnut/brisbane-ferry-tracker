@@ -113,4 +113,4 @@ for (const how of DATA_FAILURES) {
 }
 
 busSearchRetryTests('/bus')
-busOnboardingRetryTests()
+busOnboardingRetryTests('/saved')

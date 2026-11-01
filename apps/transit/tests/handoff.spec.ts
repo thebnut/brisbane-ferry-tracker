@@ -141,7 +141,7 @@ for (const c of CASES) {
     expect(loaded.length).toBeGreaterThan(0)
     expect(answers).toEqual(['served', 'handoff'])
 
-    await page.goto('/')
+    await page.goto('/saved')
     await expect(page.getByRole('link', { name: c.card })).toBeVisible()
     await expect(page.locator('[data-handoff-notice]')).toHaveCount(0)
 
@@ -152,7 +152,7 @@ for (const c of CASES) {
     expect(answers).toEqual(['served', 'handoff', 'handoff'])
     await page.waitForTimeout(500)
     await expect(page.locator('[data-handoff-notice]')).toHaveCount(0)
-    await page.goto('/')
+    await page.goto('/saved')
     await expect(page.getByRole('link', { name: c.card })).toHaveCount(1)
     expect(errors).toEqual([])
   })
@@ -194,7 +194,7 @@ test('excluded paths are served by the mode host, not redirected', async ({ page
 
 test('transit without a fragment never loads the import code', async ({ page }) => {
   const loaded = importChunk(page)
-  for (const path of ['/', '/ferry', '/train', '/bus', '/bus/stop/10802', '/nearby', '/alerts']) {
+  for (const path of ['/', '/saved', '/ferry', '/train', '/bus', '/bus/stop/10802', '/nearby', '/alerts']) {
     await page.goto(path)
     await expect(page.locator('main').first()).toBeVisible()
   }
@@ -209,7 +209,7 @@ test('a hostile fragment on transit is dropped: nothing saved, no notice, the pa
   const evil = btoa(
     JSON.stringify({ v: 1, bus: [{ id: '1', name: '<img src=x onerror=alert(1)>' }], extra: 1 }),
   )
-  await page.goto(`/#import=${evil.replace(/=+$/, '')}`)
+  await page.goto(`/saved#import=${evil.replace(/=+$/, '')}`)
   await expect(page.getByText('Nothing in My Transit yet')).toBeVisible()
   await expect.poll(() => page.evaluate(() => location.hash)).toBe('')
   expect(await page.evaluate(() => localStorage.getItem('bft-bus-saved'))).toBeNull()

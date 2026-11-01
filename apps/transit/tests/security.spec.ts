@@ -36,7 +36,7 @@ test('no CSP violations while the pages load and hydrate, and the Ask box answer
     await hydrated(page)
   }
   // The deterministic Ask path end to end. Fixture mode has no Turnstile; tests/csp.staging.spec.ts covers that.
-  await page.goto('/')
+  await page.goto('/saved')
   await hydrated(page)
   const ask = page.getByRole('textbox', { name: 'Ask' })
   await ask.fill('next train from Bowen Hills to the airport')
@@ -46,7 +46,7 @@ test('no CSP violations while the pages load and hydrate, and the Ask box answer
 })
 
 test('the service worker registers under the CSP', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/saved')
   await page.waitForFunction(async () => !!(await navigator.serviceWorker?.ready)?.active, null, {
     timeout: 15_000,
   })

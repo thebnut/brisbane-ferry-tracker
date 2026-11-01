@@ -40,7 +40,7 @@ test('fresh device: onboarding, then the Bus tab’s Settings re-runs it for eve
 }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
-  await page.goto('/')
+  await page.goto('/saved')
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Yes' }).click()
   const first = page.getByRole('dialog', { name: 'Set up your favourite stops' })
@@ -48,7 +48,7 @@ test('fresh device: onboarding, then the Bus tab’s Settings re-runs it for eve
   await first.getByRole('button', { name: 'Train', exact: true }).click()
   await add(first.getByRole('complementary'), 'Find a station by name', 'central', /^Central/)
   await first.getByRole('button', { name: /^Save/ }).click()
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/saved$/)
   const [cultural] = (await stores(page)).bus
   expect(cultural).toBeTruthy()
 
@@ -66,7 +66,7 @@ test('fresh device: onboarding, then the Bus tab’s Settings re-runs it for eve
     .getByRole('button', { name: `Remove ${cultural?.name}` })
     .click()
   await rerunTray(page).getByRole('button', { name: 'Save 2 stops' }).click()
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/saved$/)
   const after = await stores(page)
   expect(after.bus).toEqual([])
   expect(after.train).toEqual([
@@ -99,7 +99,7 @@ test('My Transit’s Settings and the Ferry tab’s: Cancel changes nothing; the
     localStorage.setItem('brisbane-ferry-remember-selection', 'true')
     localStorage.setItem('brisbane-ferry-selected-stops', JSON.stringify(s.ferry))
   }, seeded)
-  await page.goto('/')
+  await page.goto('/saved')
   await openRerun(page)
   await expect(rerunTrayNames(page)).toHaveText(['From Bulimba', 'Central', 'Cultural Centre'])
   await rerunTray(page).getByRole('button', { name: 'Remove Central' }).click()
@@ -201,7 +201,7 @@ test('THE-114: with My Transit’s own order, a re-run’s tray order becomes it
   page,
 }) => {
   await seedSaves(page, OVERLAY)
-  await page.goto('/')
+  await page.goto('/saved')
   await expect.poll(() => cardOrder(page)).toEqual([BUS, TRIP, FERRY, CENTRAL])
   // R21-O1: the tray opens in My Transit's order too.
   await rerunAndSave(page, ['Cultural Centre', 'From Bulimba', 'Central'], 'Central')
@@ -226,7 +226,7 @@ test('R21-O1: a re-run opens in My Transit’s own order; Save without changes l
     },
     favourites,
   )
-  await page.goto('/')
+  await page.goto('/saved')
   await expect.poll(() => cardOrder(page)).toEqual([ROMA, CENTRAL, BUS, TRIP, FERRY])
   const seeded = { overlay: await overlay(page), stores: await stores(page) }
   await rerunAndSave(page, ['Roma Street', 'Central', 'Cultural Centre', 'From Bulimba'])
@@ -240,7 +240,7 @@ test('THE-114: with no order of its own, a re-run opens in the default order and
   page,
 }) => {
   await seedSaves(page, null)
-  await page.goto('/')
+  await page.goto('/saved')
   await expect.poll(() => cardOrder(page)).toEqual([FERRY, CENTRAL, TRIP, BUS])
   await rerunAndSave(page, ['From Bulimba', 'Central', 'Cultural Centre'], 'Cultural Centre')
   await expect.poll(() => cardOrder(page), { timeout: 15_000 }).toEqual([FERRY, CENTRAL, TRIP, BUS])
@@ -256,7 +256,7 @@ test('R23-O1: an overlay that is not JSON is replaced by the tray order on Save,
     sessionStorage.setItem('corrupted', '1')
     localStorage.setItem('bft-mytransit-prefs', '{bad json')
   })
-  await page.goto('/')
+  await page.goto('/saved')
   // Unreadable: My Transit shows the default order, and no error.
   await expect.poll(() => cardOrder(page)).toEqual([FERRY, CENTRAL, TRIP, BUS])
   await rerunAndSave(page, ['From Bulimba', 'Central', 'Cultural Centre'], 'Cultural Centre')

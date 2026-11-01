@@ -75,7 +75,11 @@
         "SITE_URL": "https://brisbanetrain.com",
         // /feedback goes to the transit site's feedback sheet (this app has none of its own).
         "TRANSIT_SITE_URL": "https://brisbanetransit.com",
-        // Soft launch: noindex + robots Disallow until the real domain is verified, then "1" (runbook 8.5).
+        // Release 24: every page moves to BrisbaneTransit (/train), 301, in one hop from www too. Browsers that
+        // hold favourites get the handoff page first (P6b). robots.txt allows crawling so search engines follow the 301s.
+        "REDIRECT_TO_TRANSIT": "1",
+        "REDIRECT_STATUS": "301",
+        // Stays "0": the pages left here (handoff page, APIs, data) are not for search; the 301s carry no noindex.
         "INDEXABLE": "0",
         // The WebSocket prototype starts off in production (trips poll every 15 s); the DO stays bound so turning it
         // on later is a var change, not a migration.
@@ -104,7 +108,11 @@
         "SITE_URL": "https://brisbanetrain.com",
         // /feedback goes to the transit site's feedback sheet (this app has none of its own).
         "TRANSIT_SITE_URL": "https://brisbanetransit.com",
-        // Soft launch: noindex + robots Disallow until the real domain is verified, then "1" (runbook 8.5).
+        // Release 24: every page moves to BrisbaneTransit (/train), 301, in one hop from www too. Browsers that
+        // hold favourites get the handoff page first (P6b). robots.txt allows crawling so search engines follow the 301s.
+        "REDIRECT_TO_TRANSIT": "1",
+        "REDIRECT_STATUS": "301",
+        // Stays "0": the pages left here (handoff page, APIs, data) are not for search; the 301s carry no noindex.
         "INDEXABLE": "0",
         // The WebSocket prototype starts off in production (trips poll every 15 s); the DO stays bound so turning it
         // on later is a var change, not a migration.

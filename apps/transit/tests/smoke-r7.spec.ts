@@ -30,7 +30,7 @@ const saveAcrossModes = (page: Page) =>
 
 offlineHoldSuite({
   label: 'transit home, saved across modes',
-  path: '/',
+  path: '/saved',
   rows: '[data-saved-time]',
   pagesCache: 'transit-pages',
   departures: /\/v1\/(ferry|train|bus)\/stops\/[^/]+\/departures/,
@@ -46,7 +46,7 @@ test.describe('R7-T2: a tab opened offline never hits the error boundary, and lo
     test(`the ${tab} tab`, async ({ page, context }) => {
       test.slow()
       await saveAcrossModes(page)
-      await page.goto('/')
+      await page.goto('/saved')
       await waitForServiceWorker(page, 'transit-pages')
       const goOnline = await goOffline(context)
       await page.getByRole('link', { name: tab, exact: true }).first().click()
@@ -69,7 +69,7 @@ test.describe('R7-T2: a tab opened offline never hits the error boundary, and lo
   }) => {
     test.slow()
     await saveAcrossModes(page)
-    await page.goto('/')
+    await page.goto('/saved')
     await waitForServiceWorker(page, 'transit-pages')
     await expect(page.locator('[data-saved-time]').first()).toBeVisible()
     const goOnline = await goOffline(context)
@@ -95,7 +95,7 @@ test.describe('R7: a page reached by a client navigation reloads offline from it
     test(label, async ({ page, context }) => {
       test.slow()
       await saveAcrossModes(page)
-      await page.goto('/')
+      await page.goto('/saved')
       await waitForServiceWorker(page, 'transit-pages')
       await expect(page.locator('[data-saved-time]').first()).toBeVisible()
       await open(page)

@@ -37,6 +37,8 @@ export const meta: Route.MetaFunction = ({ loaderData }) =>
     title: 'Bus stops near me - live departures | BrisbaneBus',
     description: 'Find the Brisbane bus stops nearest to you and their next buses.',
     url: `${loaderData?.siteUrl ?? SITE_URL}/nearby`,
+    // Depends on where you are: not a page for search (release 24, as BrisbaneTransit's own Nearby).
+    noindex: true,
     siteUrl: loaderData?.siteUrl,
   })
 

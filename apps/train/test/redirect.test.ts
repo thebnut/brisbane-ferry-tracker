@@ -120,11 +120,14 @@ describe('redirect to transit (P6)', () => {
 describe('wrangler.jsonc', () => {
   const CONFIG = fileURLToPath(new URL('../wrangler.jsonc', import.meta.url))
   const read = (env?: string) => unstable_readConfig({ config: CONFIG, env }, { hideWarnings: true })
-  it('REDIRECT_TO_TRANSIT and REDIRECT_STATUS are unset in production', () => {
+  it('release 24: production moves every page to brisbanetransit.com for good (301), still noindex itself', () => {
     for (const env of ['production', 'production-preview']) {
-      const vars = read(env).vars as Record<string, unknown>
-      expect(vars.REDIRECT_TO_TRANSIT, env).toBeUndefined()
-      expect(vars.REDIRECT_STATUS, env).toBeUndefined()
+      expect(read(env).vars, env).toMatchObject({
+        TRANSIT_SITE_URL: 'https://brisbanetransit.com',
+        REDIRECT_TO_TRANSIT: '1',
+        REDIRECT_STATUS: '301',
+        INDEXABLE: '0',
+      })
     }
   })
   it('staging redirects (302) to the staging transit host; local dev and the e2e suites do not', () => {
@@ -134,5 +137,53 @@ describe('wrangler.jsonc', () => {
       REDIRECT_STATUS: '302',
     })
     expect(read().vars.REDIRECT_TO_TRANSIT).toBeUndefined()
+  })
+})
+
+describe('the permanent move (release 24: 301s in production)', () => {
+  const WWW = SITE.replace('https://', 'https://www.')
+  const PROD = { ...ON, REDIRECT_STATUS: '301', INDEXABLE: '0' }
+  const at = (url: string, env: Env, init: RequestInit = {}) =>
+    worker.fetch(new Request(url, init), env, {} as ExecutionContext) as Promise<Response>
+
+  it('a page on www goes straight to transit in one hop, path and query kept, never the handoff page', async () => {
+    const browser = {
+      'sec-fetch-mode': 'navigate',
+      'user-agent': 'Mozilla/5.0 Chrome/141.0',
+      accept: 'text/html',
+    }
+    for (const init of [{}, { headers: browser }]) {
+      const res = await at(`${WWW}/station/central?x=1`, envWith({ ...PROD, SITE_URL: SITE }), init)
+      expect(res.status).toBe(301)
+      expect(res.headers.get('location')).toBe(`${TRANSIT}/train/station/central?x=1`)
+    }
+  })
+
+  it('anything not redirected on www (an API, a static file) still goes to the apex', async () => {
+    const res = await at(`${WWW}/sw.js`, envWith(PROD))
+    expect(res.status).toBe(301)
+    expect(res.headers.get('location')).toBe(`${SITE}/sw.js`)
+  })
+
+  it('flag off: www still goes to the apex as before', async () => {
+    const res = await at(`${WWW}/station/central`, envWith({ TRANSIT_SITE_URL: TRANSIT }))
+    expect(res.headers.get('location')).toBe(`${SITE}/station/central`)
+  })
+
+  it('the 301s carry no noindex; robots.txt lets crawlers reach them', async () => {
+    const res = await get('/station/central', envWith(PROD))
+    expect(res.status).toBe(301)
+    expect(res.headers.get('x-robots-tag')).toBeNull()
+    const robots = await get('/robots.txt', envWith(PROD))
+    expect(await robots.text()).toContain('Allow: /')
+    expect(robots.headers.get('x-robots-tag')).toBe('noindex')
+  })
+
+  it('the staging trial (302) stays out of search: robots disallows and the 302s say noindex', async () => {
+    const res = await get('/station/central', envWith({ ...ON, REDIRECT_STATUS: '302', INDEXABLE: '0' }))
+    expect(res.status).toBe(302)
+    expect(res.headers.get('x-robots-tag')).toBe('noindex')
+    const robots = await get('/robots.txt', envWith({ ...ON, REDIRECT_STATUS: '302', INDEXABLE: '0' }))
+    expect(await robots.text()).toBe('User-agent: *\nDisallow: /\n')
   })
 })

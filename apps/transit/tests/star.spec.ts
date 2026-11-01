@@ -76,7 +76,7 @@ function modeTests() {
       await page.reload()
       await expect(star(page, b.name)).toHaveAttribute('aria-pressed', 'true')
 
-      await page.goto('/')
+      await page.goto('/saved')
       const card = page.locator(`main a[href="${b.card}"]`)
       await expect(card).toBeVisible()
       await expect(page.locator('[data-saved-row]').first()).toBeAttached()
@@ -199,7 +199,7 @@ function modeTests() {
     await saveToast(page).getByRole('button', { name: 'Pick a destination' }).click()
     await expect(page.getByRole('dialog', { name: /Going to, from Central/ })).toBeVisible()
     await expect(saveToast(page)).toBeEmpty()
-    await page.goto('/')
+    await page.goto('/saved')
     await expect(page.locator('main a[href="/train/station/central"]')).toBeVisible()
   })
 
@@ -238,7 +238,7 @@ function modeTests() {
       { from: '317584', to: '317590' },
       { from: '317590', to: '317584' },
     ])
-    await page.goto('/')
+    await page.goto('/saved')
     await expect(page.locator('main a[href="/ferry/terminal/bulimba?to=riverside"]')).toBeVisible()
     await expect(page.locator('main a[href="/ferry/terminal/riverside?to=bulimba"]')).toBeVisible()
   })

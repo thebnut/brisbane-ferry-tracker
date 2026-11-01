@@ -34,7 +34,7 @@ test('first visit on My Transit: prompt → Yes → pick bus, train and ferry �
 }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
-  await page.goto('/')
+  await page.goto('/saved')
   await expect(page.getByText('Nothing in My Transit yet')).toBeVisible()
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Yes' }).click()
@@ -59,7 +59,7 @@ test('first visit on My Transit: prompt → Yes → pick bus, train and ferry �
   await expect(tray(page).locator('[data-tray-items] > li').first()).toContainText('From Bulimba')
   await save.click()
 
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/saved$/)
   const main = page.locator('main')
   // The ferry favourite's card opens its trip's boards (THE-118).
   await expect(main.locator('a[href^="/ferry/terminal/"]').first()).toBeVisible({ timeout: 15_000 })
@@ -83,14 +83,14 @@ test('first visit on My Transit: prompt → Yes → pick bus, train and ferry �
 })
 
 test('"Not now" is final: no prompt on a reload or another visit', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/saved')
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Not now' }).click()
   await expect(prompt(page)).toHaveCount(0)
   await page.reload()
   await expectNoPrompt(page)
   await page.goto('/nearby')
-  await page.goto('/')
+  await page.goto('/saved')
   await expectNoPrompt(page)
 })
 
@@ -103,7 +103,7 @@ test('Ferry tab first visit: no stop selector and no prompt over ferry home; "No
   await expect(empty).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'Select ferry stops' })).toHaveCount(0)
   await expectNoPrompt(page)
-  await page.goto('/')
+  await page.goto('/saved')
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Not now' }).click()
   // Written as the old first visit did, so nothing else changes.
@@ -123,14 +123,14 @@ test('no prompt when something is already saved, or for a device the Ferry selec
       sessionStorage.setItem('seeded', '1')
     }
   })
-  await page.goto('/')
+  await page.goto('/saved')
   await expectNoPrompt(page)
   expect(await page.evaluate(() => localStorage.getItem('bft-onboarding'))).toBe('1')
 })
 
 test('no prompt for an older Ferry-tab visitor (selector seen)', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('brisbane-ferry-selector-seen', '1'))
-  await page.goto('/')
+  await page.goto('/saved')
   await expectNoPrompt(page)
 })
 
@@ -142,7 +142,7 @@ test('no prompt after favourites are handed over (P6b import), during or after i
   await expect(page.locator('[data-handoff-notice]')).toBeVisible()
   await expectNoPrompt(page)
   await page.goto('/nearby')
-  await page.goto('/')
+  await page.goto('/saved')
   await expectNoPrompt(page)
 })
 
@@ -150,7 +150,7 @@ test('without WebGL: Map unavailable, and the list and search still fill the tra
   page,
 }) => {
   await disableWebGL(page)
-  await page.goto('/')
+  await page.goto('/saved')
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Yes' }).click()
   await expect(picker(page).getByText('Map unavailable on this device')).toBeVisible()
@@ -165,7 +165,7 @@ test('without WebGL: Map unavailable, and the list and search still fill the tra
   await addByName(page, 'Find a station by name', 'roma', /^Roma Street/)
   await expect(tray(page).locator('[data-tray-items] > li')).toHaveCount(2)
   await tray(page).getByRole('button', { name: 'Save 2 stops' }).click()
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/saved$/)
   expect(
     await page.evaluate(() => JSON.parse(localStorage.getItem('bft-train-favourites') ?? '[]')),
   ).toHaveLength(2)
@@ -174,7 +174,7 @@ test('without WebGL: Map unavailable, and the list and search still fill the tra
 test('keyboard: the prompt never takes focus, and the picker traps it and closes on Escape', async ({
   page,
 }) => {
-  await page.goto('/')
+  await page.goto('/saved')
   await expectPrompt(page)
   await prompt(page).getByRole('button', { name: 'Yes' }).focus()
   await page.keyboard.press('Enter')
@@ -200,7 +200,7 @@ for (const size of PHONE_WIDTHS) {
   }, info) => {
     test.skip(info.project.name !== 'phone', 'the Mode Tabs are the bottom bar on phones only')
     await page.setViewportSize(size)
-    await page.goto('/')
+    await page.goto('/saved')
     await expectPrompt(page)
     await expect(page.locator('main [data-onboarding-prompt]')).toHaveCount(1)
     await expectPromptClearOfDocks(page)
@@ -224,7 +224,7 @@ test('client navigation from My Transit to the Bus tab: the prompt stays behind 
 }, info) => {
   test.skip(info.project.name !== 'phone', 'the Mode Tabs are the bottom bar on phones only')
   await page.setViewportSize(PHONE_WIDTHS[0] as { width: number; height: number })
-  await page.goto('/')
+  await page.goto('/saved')
   await expectPrompt(page)
   await page
     .getByRole('navigation', { name: 'Modes' })

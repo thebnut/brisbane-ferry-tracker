@@ -40,7 +40,7 @@ test.describe('R3-X8: geo tiles never 404', () => {
 })
 
 reconnectSuite({
-  path: '/',
+  path: '/saved',
   prepare: async (page) => {
     await page.addInitScript(() => {
       localStorage.setItem('brisbane-ferry-remember-selection', 'true')
@@ -68,7 +68,7 @@ test('R3-X11: the home page never shows "Timetable" next to the LIVE badge', asy
     ),
   )
   await pinUpcoming(context)
-  await page.goto('/')
+  await page.goto('/saved')
   await expect(page.locator('header').getByText('LIVE', { exact: true })).toBeVisible()
   await expect(page.getByText('Timetable', { exact: true })).toHaveCount(0)
 })

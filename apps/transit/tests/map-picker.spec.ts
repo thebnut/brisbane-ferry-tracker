@@ -29,7 +29,7 @@ test('Bus tab: Map → Cultural Centre → Save shows in My Transit → Open sta
   await expect(card.getByRole('link', { name: 'Open' })).toHaveAttribute('href', `/bus/stop/${id}`)
   await card.getByRole('link', { name: 'Open' }).click()
   await expect(page).toHaveURL(new RegExp(`/bus/stop/${id}$`))
-  await page.goto('/')
+  await page.goto('/saved')
   await expect(page.getByText(name).locator('visible=true').first()).toBeVisible()
 })
 

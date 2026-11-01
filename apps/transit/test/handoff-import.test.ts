@@ -473,14 +473,14 @@ describe('run (entry.client.tsx)', () => {
     const notice = document.querySelector('[data-handoff-notice]')
     expect(notice?.getAttribute('role')).toBe('status')
     expect(notice?.textContent).toContain('Your 2 stops moved to My Transit')
-    expect(notice?.querySelector('a')?.getAttribute('href')).toBe('/')
+    expect(notice?.querySelector('a')?.getAttribute('href')).toBe('/saved')
     vi.advanceTimersByTime(12_000)
     expect(document.querySelector('[data-handoff-notice]')).toBeNull()
   })
 
   it('one stop: singular; on My Transit itself, no "Open" link', async () => {
     vi.useFakeTimers()
-    open(encodeHandoff({ v: 1, bus: [BUS_A] }) ?? '', '/')
+    open(encodeHandoff({ v: 1, bus: [BUS_A] }) ?? '', '/saved')
     const { imp } = await modules()
     imp.run(() => {})
     vi.advanceTimersByTime(300)

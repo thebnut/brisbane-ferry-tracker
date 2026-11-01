@@ -69,7 +69,7 @@ async function expectOneHeader(page: Page, phone: boolean, back: string | RegExp
   expect(bar?.height).toBeLessThanOrEqual(phone ? 54 : 62)
   const stops = await tabStops(page)
   expect(stops).toContain('Settings')
-  const emblem = header.getByRole('link', { name: 'BrisbaneTransit, My Transit' })
+  const emblem = header.getByRole('link', { name: 'BrisbaneTransit, home' })
   if (phone) {
     await expect(header.getByRole('navigation', { name: 'Modes' })).toBeHidden()
     if (back) {
@@ -79,13 +79,13 @@ async function expectOneHeader(page: Page, phone: boolean, back: string | RegExp
       expect(stops[0]).toMatch(back)
     } else {
       await expect(emblem).toBeVisible()
-      expect(stops[0]).toBe('BrisbaneTransit, My Transit')
+      expect(stops[0]).toBe('BrisbaneTransit, home')
     }
   } else {
     await expect(emblem).toBeVisible()
     await expect(header.getByRole('navigation', { name: 'Modes' }).getByRole('link')).toHaveCount(5)
     await expect(header.getByRole('link', { name: 'Alerts' })).toBeVisible()
-    expect(stops).toContain('BrisbaneTransit, My Transit')
+    expect(stops).toContain('BrisbaneTransit, home')
     expect(stops).toContain('Alerts')
   }
 }
@@ -167,7 +167,7 @@ const SAVED_HOMES = [
   {
     // My Transit reports its saved cards the same way (P-3167c11-O1/H1): never OFFLINE while a card waits.
     name: 'My Transit',
-    path: '/',
+    path: '/saved',
     glob: '**/__fixtures/v1/bus/stops/*/departures*',
     seed: () =>
       localStorage.setItem(

@@ -35,7 +35,7 @@ clockSkewSuite({
 clockSkewSuite({ path: '/train/station/central', pin: pinUpcoming })
 clockSkewSuite({ path: '/bus/stop/10802', pin: pinUpcoming })
 clockSkewSuite({
-  path: '/',
+  path: '/saved',
   label: 'transit home, saved across modes',
   prepare: savedAcrossModes,
   pin: pinUpcoming,

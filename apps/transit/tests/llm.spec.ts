@@ -11,7 +11,7 @@ const QUESTIONS = [
 
 test('Ask box: LLM path end to end with a real Turnstile token', async ({ page, request }) => {
   const before = await (await request.get('https://bft-api.brisbanetransit.workers.dev/v1/ask/status')).json()
-  await page.goto('/')
+  await page.goto('/saved')
   const ask = page.getByRole('textbox', { name: 'Ask' })
   const results = []
   for (const q of QUESTIONS) {

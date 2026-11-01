@@ -159,7 +159,6 @@ export function sitemapXml(siteUrl: string, nowMs: number): string {
   const urls = [
     { loc: '/', changefreq: 'daily', priority: '1.0' },
     { loc: '/stations', changefreq: 'weekly', priority: '0.6' },
-    { loc: '/alerts', changefreq: 'hourly', priority: '0.5' },
     ...[...STATIONS]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((s) => ({ loc: stationPath(s.key), changefreq: 'daily', priority: '0.8' })),

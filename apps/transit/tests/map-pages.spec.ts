@@ -464,6 +464,7 @@ test('no board or mode home loads a map chunk on its first load', async ({ reque
   test.skip(test.info().project.name !== 'desktop', 'once')
   for (const path of [
     '/',
+    '/saved',
     '/ferry',
     '/train',
     '/bus',
