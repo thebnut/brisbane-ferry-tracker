@@ -4,7 +4,7 @@
  *  - /sitemap.xml                  the index
  *  - /sitemaps/transit.xml         the landing page
  *  - /sitemaps/ferry.xml, train.xml  the standalone apps' sitemaps under /ferry and /train
- *  - /sitemaps/bus-pages.xml, bus-routes.xml, bus-stops-n.xml  BrisbaneBus's, under /bus (stops and routes from client data)
+ *  - /sitemaps/bus-pages.xml (no Nearby or Alerts: noindex), bus-routes.xml, bus-stops-n.xml  BrisbaneBus's, under /bus (stops and routes from client data)
  */
 import { STOPS_PER_SITEMAP, stopKeysFromIndexText, urlsetXml } from '@bft/bus/app/lib/seo.ts'
 import { routePath, stopPath } from '@bft/bus/app/lib/stops.ts'
@@ -74,7 +74,7 @@ export async function sitemap(url: URL, env: Env, nowMs = Date.now()): Promise<R
       return xml(trainSitemapXml(`${site}${MODE_BASES.train}`, nowMs))
     case '/sitemaps/bus-pages.xml':
       return xml(
-        urlsetXml(bus, ['/', '/nearby', '/alerts', '/map', '/about'], {
+        urlsetXml(bus, ['/', '/map', '/about'], {
           changefreq: 'daily',
           priority: '0.6',
         }),

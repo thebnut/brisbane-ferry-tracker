@@ -83,16 +83,16 @@ describe('sitemap', () => {
     expect(ferry).toContain(`${SITE}/ferry/privacy`)
     expect(ferry).toHaveLength(TERMINALS.length + 3)
     const train = locs(await (await get('/sitemaps/train.xml')).text())
-    expect(train.slice(0, 3)).toEqual([`${SITE}/train/`, `${SITE}/train/stations`, `${SITE}/train/alerts`])
-    expect(train).toHaveLength(STATIONS.length + 3)
+    // No Alerts (noindex): it changes by the minute.
+    expect(train.slice(0, 2)).toEqual([`${SITE}/train/`, `${SITE}/train/stations`])
+    expect(train).not.toContain(`${SITE}/train/alerts`)
+    expect(train).toHaveLength(STATIONS.length + 2)
     for (const u of [...ferry, ...train]) expect(u.startsWith(`${SITE}/`), u).toBe(true)
   })
 
   it('bus: pages, the routes that render and the stops, under /bus', async () => {
     expect(locs(await (await get('/sitemaps/bus-pages.xml')).text())).toEqual([
       `${SITE}/bus/`,
-      `${SITE}/bus/nearby`,
-      `${SITE}/bus/alerts`,
       `${SITE}/bus/map`,
       `${SITE}/bus/about`,
     ])

@@ -3,7 +3,7 @@
  * assets answer them first.
  *  - /v1/*            same-origin proxy to the API Worker (service binding in staging, HTTP in dev), contract-checked
  *  - /__fixtures/v1/* recorded /v1 responses for fixture mode (only when ALLOW_FIXTURES or FIXTURES is "1")
- *  - /sitemap.xml     home, stations, alerts and all 154 station pages
+ *  - /sitemap.xml     home, stations and all 154 station pages
  *  - /robots.txt      disallows everything unless INDEXABLE is "1" (staging stays out of search)
  *  - www.<SITE_URL host> 301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
  *  - REDIRECT_TO_TRANSIT "1": page navigations 302/301 to the same page on TRANSIT_SITE_URL (@bft/ui/redirect), from

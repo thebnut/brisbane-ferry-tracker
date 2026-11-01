@@ -150,3 +150,22 @@ describe('every mounted mode page', () => {
     },
   )
 })
+
+describe('release 24: mounted pages that stay out of search', () => {
+  it.each([
+    ['bus', 'nearby.tsx'],
+    ['bus', 'alerts.tsx'],
+    ['train', 'alerts.tsx'],
+    ['bus', 'trip.tsx'],
+    ['train', 'trip.tsx'],
+    ['ferry', 'trip.tsx'],
+  ])('%s/%s says noindex with production indexing on', async (mode, file) => {
+    const load = MODULES[`../../${mode}/app/routes/${file}`]
+    if (!load) throw new Error(`no module ${mode}/${file}`)
+    const { meta } = await load()
+    const site = 'https://brisbanetransit.com'
+    const tags = (meta?.({ loaderData: { ...loaderData(site), site: { siteUrl: site, indexable: true } } }) ??
+      []) as Meta
+    expect(tags).toContainEqual({ name: 'robots', content: 'noindex' })
+  })
+})

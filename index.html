@@ -1,6 +1,9 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <!-- Release 24: on www.brisbaneferry.com, hand a remembered ferry pair to BrisbaneTransit and go there (the edge
+         301s in vercel.json serve everyone else). Blocking and first, so the page never renders; a no-op elsewhere. -->
+    <script src="/handoff-ferry.js"></script>
     <!-- Google tag (gtag.js) — config moved to /ga-config.js so it passes
          the strict CSP (script-src 'self', no 'unsafe-inline'). It also loads
          gtag/js, only on the hosts where analytics is on. -->

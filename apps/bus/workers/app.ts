@@ -116,7 +116,7 @@ export async function sitemap(url: URL, env: Env): Promise<Response | null> {
   }
   if (url.pathname === '/sitemaps/pages.xml')
     return xml(
-      urlsetXml(site, ['/', '/nearby', '/alerts', '/map', '/about'], {
+      urlsetXml(site, ['/', '/map', '/about'], {
         changefreq: 'daily',
         priority: '0.6',
       }),
