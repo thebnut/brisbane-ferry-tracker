@@ -43,12 +43,12 @@ test.describe('C3, P-3167c11-O1/H1: an empty home claims nothing, never LIVE', (
     request,
   }) => {
     test.slow()
-    const html = await (await request.get('/')).text()
+    const html = await (await request.get('/saved')).text()
     expect(html).toContain('<header')
     expect(html).not.toContain('data-connection=')
     const lives = await watchLive(page)
     const outage = await alertsDown(page)
-    await page.goto('/')
+    await page.goto('/saved')
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     await expect.poll(() => outage.calls.length, { timeout: 10_000 }).toBeGreaterThan(0)
     await page.waitForTimeout(2_000)
@@ -67,7 +67,7 @@ test.describe('C3, P-3167c11-O1/H1: an empty home claims nothing, never LIVE', (
   test('offline, then online: OFFLINE only while offline, never LIVE', async ({ page, context }) => {
     test.slow()
     const lives = await watchLive(page)
-    await page.goto('/')
+    await page.goto('/saved')
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     await page.waitForTimeout(2_000)
     await expect(CLAIM(page)).toHaveCount(0)

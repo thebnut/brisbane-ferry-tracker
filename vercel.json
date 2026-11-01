@@ -9,6 +9,17 @@
       "maxDuration": 10
     }
   },
+  "redirects": [
+    { "source": "/terminal/:slug/index.html", "has": [{ "type": "host", "value": "(?:www\\.)?brisbaneferry\\.com" }], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301 },
+    { "source": "/terminal/:slug/", "has": [{ "type": "host", "value": "(?:www\\.)?brisbaneferry\\.com" }], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301 },
+    { "source": "/terminal/:slug", "has": [{ "type": "host", "value": "(?:www\\.)?brisbaneferry\\.com" }], "destination": "https://brisbanetransit.com/ferry/terminal/:slug", "statusCode": 301 },
+    { "source": "/privacy.html", "has": [{ "type": "host", "value": "(?:www\\.)?brisbaneferry\\.com" }], "destination": "https://brisbanetransit.com/ferry/privacy", "statusCode": 301 },
+    { "source": "/terms.html", "has": [{ "type": "host", "value": "(?:www\\.)?brisbaneferry\\.com" }], "destination": "https://brisbanetransit.com/ferry/terms", "statusCode": 301 },
+    { "source": "/sitemap.xml", "has": [{ "type": "host", "value": "(?:www\\.)?brisbaneferry\\.com" }], "destination": "https://brisbanetransit.com/sitemap.xml", "statusCode": 301 },
+    { "source": "/robots.txt", "has": [{ "type": "host", "value": "(?:www\\.)?brisbaneferry\\.com" }], "destination": "https://brisbanetransit.com/robots.txt", "statusCode": 301 },
+    { "source": "/", "has": [{ "type": "host", "value": "(?:www\\.)?brisbaneferry\\.com" }], "destination": "https://brisbanetransit.com/ferry", "statusCode": 301 },
+    { "source": "/:path((?!api(?:/|$)).+)", "has": [{ "type": "host", "value": "(?:www\\.)?brisbaneferry\\.com" }], "destination": "https://brisbanetransit.com/ferry/:path*", "statusCode": 301 }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",

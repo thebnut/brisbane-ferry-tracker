@@ -113,6 +113,27 @@ export function redirectStatus(env: RedirectEnv): 301 | 302 {
   return env.REDIRECT_STATUS === '301' ? 301 : 302
 }
 
+/** A 3xx: what the permanent move exempts from the soft launch's noindex. */
+export const isRedirect = (status: number) => status >= 300 && status < 400
+
+/**
+ * The permanent move (release 24, production): REDIRECT_TO_TRANSIT on with 301s. Crawlers must reach the 301s to move
+ * the pages' standing to transit, so the mode host's robots.txt lets them in and its redirects carry no noindex. The
+ * staging trial (302) stays out of search as before.
+ */
+export function movedPermanently(env: RedirectEnv): boolean {
+  return env.REDIRECT_TO_TRANSIT === '1' && redirectStatus(env) === 301
+}
+
+/**
+ * The response for a request to the www host while the pages are moving: the transit redirect itself (one hop, never
+ * via the apex), or null for anything not redirected (static files, APIs), which keeps the www → apex 301. No handoff
+ * page: www always 301'd to the apex, so its storage holds no favourites.
+ */
+export function wwwTransitRedirect(request: Request, mode: RedirectMode, env: RedirectEnv): Response | null {
+  return env.REDIRECT_TO_TRANSIT === '1' ? transitRedirect(request, mode, env) : null
+}
+
 /**
  * Set by the handoff page when this origin has no favourites to hand over, so later navigations get the plain
  * redirect. Per mode host. While there are favourites, every browser navigation hands them over again: this host

@@ -219,7 +219,7 @@ function suite(desktop: boolean) {
     })
 
     test('a saved favourite opens its board with "To" set', async ({ page }) => {
-      await page.goto('/')
+      await page.goto('/saved')
       await page.evaluate(() =>
         localStorage.setItem('bft-ferry-favourites', JSON.stringify([{ from: '317584', to: '317587' }])),
       )

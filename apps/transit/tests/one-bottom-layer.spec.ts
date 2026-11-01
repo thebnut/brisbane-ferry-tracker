@@ -231,7 +231,7 @@ for (const [size, project, use] of [
     test.use({ ...use, storageState: FIRST_VISIT })
 
     test('inline at the top of My Transit, in the page flow', async ({ page }) => {
-      await page.goto('/')
+      await page.goto('/saved')
       await expect(prompt(page)).toBeVisible({ timeout: 15_000 })
       await expect(page.locator('main [data-onboarding-prompt]')).toHaveCount(1)
       expect(await prompt(page).evaluate((el) => getComputedStyle(el).position)).toBe('static')

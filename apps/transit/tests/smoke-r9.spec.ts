@@ -59,7 +59,7 @@ test.describe('R9-T1: the home’s "Last updated" is the last network answer', (
     })
     const updated = page.getByText(/^Last updated \d/)
 
-    await page.goto('/')
+    await page.goto('/saved')
     await waitForServiceWorker(page, 'transit-pages')
     await expect(page.getByText('3 saved · all modes')).toBeVisible()
     await expect(page.getByText('LIVE', { exact: true }).first()).toBeVisible()

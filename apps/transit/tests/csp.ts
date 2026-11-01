@@ -5,6 +5,7 @@ import type { Page } from '@playwright/test'
 // (workers/security.ts).
 export const PAGES = [
   '/',
+  '/saved',
   '/nearby?lat=-27.4717&lon=153.0206',
   '/alerts',
   '/ferry',

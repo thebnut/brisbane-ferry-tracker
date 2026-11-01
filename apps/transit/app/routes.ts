@@ -9,7 +9,8 @@ const app = (mode: 'ferry' | 'train' | 'bus', file: string) => `../../${mode}/ap
 
 export default [
   layout('routes/mode-layout.tsx', [
-    index('routes/saved.tsx'),
+    index('routes/home.tsx'),
+    route('saved', 'routes/saved.tsx'),
     route('nearby', 'routes/nearby.tsx'),
     route('alerts', 'routes/alerts.tsx'),
     route('whats-new', 'routes/whats-new.tsx'),

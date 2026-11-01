@@ -26,7 +26,7 @@
     "FIXTURES": "0",
     "SITE_URL": "https://bft-transit.brisbanetransit.workers.dev",
     // No FERRY/TRAIN/BUS_SITE_URL: the mounted mode pages' canonical URLs are this site's own (SITE_URL + /ferry etc.),
-    // since the mode hosts redirect here once REDIRECT_TO_TRANSIT is on (P6). Production keeps the standalone apps.
+    // since the mode hosts redirect here once REDIRECT_TO_TRANSIT is on (P6). Production does the same since release 24.
     // Invisible Turnstile widget for the Ask box and the feedback sheet: the STAGING widget "bft-transit-ask" (public
     // sitekey; its secret lives on bft-api). Both production envs use the PROD widget (test/wrangler-config.test.ts).
     "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
@@ -66,10 +66,8 @@
         "ALLOW_FIXTURES": "0",
         "FIXTURES": "0",
         "SITE_URL": "https://brisbanetransit.com",
-        "FERRY_SITE_URL": "https://www.brisbaneferry.com",
-        "TRAIN_SITE_URL": "https://brisbanetrain.com",
-        "BUS_SITE_URL": "https://brisbanebus.com",
-        // Stays "0": the mounted mode pages are noindex (canonical copies are the standalone apps).
+        // No FERRY/TRAIN/BUS_SITE_URL: the mounted mode pages are canonical here (release 24). This host is workers.dev:
+        // it stays noindex, unlike "production" (test/wrangler-config.test.ts allows only that difference).
         "INDEXABLE": "0",
         // The PROD widget "bft-transit-prod" (bft-api-prod holds its secret). Its hostnames don't include the
         // production-preview host, so Turnstile-gated features fail closed there by design (runbook section 9).
@@ -99,11 +97,10 @@
         "ALLOW_FIXTURES": "0",
         "FIXTURES": "0",
         "SITE_URL": "https://brisbanetransit.com",
-        "FERRY_SITE_URL": "https://www.brisbaneferry.com",
-        "TRAIN_SITE_URL": "https://brisbanetrain.com",
-        "BUS_SITE_URL": "https://brisbanebus.com",
-        // Stays "0": the mounted mode pages are noindex (canonical copies are the standalone apps).
-        "INDEXABLE": "0",
+        // No FERRY/TRAIN/BUS_SITE_URL: the mounted mode pages are canonical here, under /ferry, /train and /bus, and
+        // the old mode hosts 301 to them (release 24). "1": no X-Robots-Tag, robots.txt allows crawling and names
+        // /sitemap.xml. Pages that shouldn't be in search (My Transit, Nearby, trips, Alerts, What's new) say noindex.
+        "INDEXABLE": "1",
         // The PROD widget "bft-transit-prod" (bft-api-prod holds its secret). Its hostnames don't include the
         // production-preview host, so Turnstile-gated features fail closed there by design (runbook section 9).
         "TURNSTILE_SITEKEY": "0x4AAAAAAFan8LE5_4cvR40S"

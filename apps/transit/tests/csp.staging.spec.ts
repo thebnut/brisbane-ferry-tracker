@@ -24,7 +24,7 @@ test('staging: no unexpected CSP violation on every page, a route change and whi
   await page.locator('a[href="/ferry"]:visible').first().click()
   await page.waitForURL((u) => u.pathname === '/ferry')
   await page.waitForTimeout(3_000)
-  await page.goto('/')
+  await page.goto('/saved')
   await hydrated(page)
   const ask = page.getByRole('textbox', { name: 'Ask' })
   await ask.focus()

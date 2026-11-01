@@ -23,7 +23,8 @@ export function pwa() {
       description:
         'Live Brisbane ferry, train and bus departures in one app, with what is leaving around you.',
       id: '/',
-      start_url: '/',
+      // My Transit, as before release 24 moved it off / (the id keeps installed apps the same app).
+      start_url: '/saved',
       scope: '/',
       display: 'standalone',
       background_color: '#FFFFFF',

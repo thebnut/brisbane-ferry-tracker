@@ -2,13 +2,16 @@
 import { MODE_TABS, ModeTabs, type NavItem } from '@bft/ui'
 import { Link, useLocation } from 'react-router'
 
-/** Tab order on phones: My Transit | Nearby | Ferry | Train | Bus (Brett, 20 Oct). My Transit is the home page. */
-export const TABS: NavItem[] = MODE_TABS.map((t) => (t.key === 'saved' ? { ...t, href: '/' } : t))
+/**
+ * Tab order on phones: My Transit | Nearby | Ferry | Train | Bus (Brett, 20 Oct). My Transit is /saved since release 24
+ * (/ is the landing page, which no tab marks as current).
+ */
+export const TABS: NavItem[] = MODE_TABS.map((t) => (t.key === 'saved' ? { ...t, href: '/saved' } : t))
 
 export function activeTab(pathname: string): string {
   for (const k of ['ferry', 'train', 'bus', 'nearby'])
     if (pathname === `/${k}` || pathname.startsWith(`/${k}/`)) return k
-  return pathname === '/' ? 'saved' : ''
+  return pathname === '/saved' ? 'saved' : ''
 }
 
 /** The Mode Tabs shell: bottom bar on phones, a pill row above the page on desktop, in the same order. */

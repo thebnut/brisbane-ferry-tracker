@@ -6,7 +6,7 @@ import { pinUpcoming } from './upcoming.ts'
 
 lateFailureSuite({
   label: 'transit home, saved across modes',
-  path: '/',
+  path: '/saved',
   pagesCache: 'transit-pages',
   departures: /\/v1\/(ferry|train|bus)\/stops\/[^/]+\/departures/,
   pin: (context) => pinUpcoming(context),

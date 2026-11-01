@@ -23,12 +23,12 @@ const offlineHome = async (page: Page) => {
 }
 
 test.describe('R8-T1: the home opens offline after the first visit', () => {
-  test('first visit to /, then an offline reload: the styled home, offline banner and pill; online again, both clear', async ({
+  test('first visit to My Transit (/saved), then an offline reload: the styled home, offline banner and pill; online again, both clear', async ({
     page,
     context,
   }) => {
     test.slow()
-    await page.goto('/')
+    await page.goto('/saved')
     await controlled(page)
     const goOnline = await goOffline(context)
     await page.reload()
@@ -41,7 +41,10 @@ test.describe('R8-T1: the home opens offline after the first visit', () => {
     await expect(page.getByText('OFFLINE', { exact: true })).toHaveCount(0)
   })
 
-  test('only a mode page opened online: / still opens offline', async ({ page, context }) => {
+  test('only a mode page opened online: My Transit (/saved) still opens offline', async ({
+    page,
+    context,
+  }) => {
     test.slow()
     await page.goto('/ferry')
     await controlled(page)
@@ -49,9 +52,9 @@ test.describe('R8-T1: the home opens offline after the first visit', () => {
       await page.evaluate(async () =>
         (await (await caches.open('transit-pages')).keys()).map((r) => new URL(r.url).pathname),
       ),
-    ).toContain('/')
+    ).toContain('/saved')
     await goOffline(context)
-    await page.goto('/')
+    await page.goto('/saved')
     await offlineHome(page)
   })
 })

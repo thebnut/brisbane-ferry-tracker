@@ -6,7 +6,8 @@
  *  - /sitemap.xml     home, stations, alerts and all 154 station pages
  *  - /robots.txt      disallows everything unless INDEXABLE is "1" (staging stays out of search)
  *  - www.<SITE_URL host> 301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
- *  - REDIRECT_TO_TRANSIT "1": page navigations 302/301 to the same page on TRANSIT_SITE_URL (@bft/ui/redirect)
+ *  - REDIRECT_TO_TRANSIT "1": page navigations 302/301 to the same page on TRANSIT_SITE_URL (@bft/ui/redirect), from
+ *                     www too in one hop; with 301s (production) robots.txt allows crawling and the 301s carry no noindex
  *  - everything else  React Router SSR
  */
 
@@ -14,7 +15,7 @@ import { withBuild } from '@bft/core/build'
 import { gaId } from '@bft/ui/analytics-config'
 import { DEMO_HEADER } from '@bft/ui/connectivity'
 import { pageMethodNotAllowed } from '@bft/ui/page-method'
-import { transitRedirect } from '@bft/ui/redirect'
+import { isRedirect, movedPermanently, transitRedirect, wwwTransitRedirect } from '@bft/ui/redirect'
 import { proxied } from '@bft/ui/upstream'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 import { cloudflareContext } from '../app/lib/context.ts'
@@ -64,8 +65,9 @@ export default {
   async fetch(request, env, ctx) {
     const nonce = newNonce()
     const www = wwwRedirectLocation(request.url, env.SITE_URL)
+    // A page on www goes straight to transit while the pages move (one hop); anything else on www to the apex.
     const res = www
-      ? canonicalRedirect(www)
+      ? (wwwTransitRedirect(request, 'train', env) ?? canonicalRedirect(www))
       : await guarded(() => routeTripSocket(request, env) ?? route(request, env, ctx, nonce))
     // A WebSocket upgrade (101) goes back untouched: a Response can't be rebuilt with status 101 or its webSocket.
     // TripSocket sets x-bft-build on it itself.
@@ -73,7 +75,7 @@ export default {
     return withBuild(
       withRobotsTag(
         withSecurityHeaders(res, nonce, wsOriginOf(env.API_WS_BASE), gaId(env.GA_MEASUREMENT_ID) != null),
-        siteInfo(env).indexable,
+        siteInfo(env).indexable || (movedPermanently(env) && isRedirect(res.status)),
       ),
       env.BUILD_SHA,
     )
@@ -114,7 +116,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
     })
   }
   if (url.pathname === '/robots.txt') {
-    return new Response(robotsTxt(site.siteUrl, site.indexable), {
+    // Once the pages have moved for good, crawlers may fetch everything, so they find the 301s (and the old sitemap).
+    return new Response(robotsTxt(site.siteUrl, site.indexable || movedPermanently(env)), {
       headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' },
     })
   }
