@@ -12,6 +12,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-02',
+    summary: 'Brisbane Ferry, BrisbaneTrain and BrisbaneBus now all live at BrisbaneTransit.com.',
+    items: [
+      'brisbaneferry.com, brisbanetrain.com and brisbanebus.com take you straight to the same page on BrisbaneTransit.com, under its Ferry, Train and Bus tabs.',
+      'Your saved ferry trip, train stations and bus stops come with you the first time you visit from the old site.',
+      'BrisbaneTransit.com opens on a new home page with a way into every mode. My Transit, your saved stops, is its own tab as before, and the installed app still opens on it.',
+    ],
+  },
+  {
     date: '2026-10-26',
     summary: 'My Transit now says Live only when it’s showing you live times.',
     items: [
