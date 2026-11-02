@@ -6,7 +6,9 @@
 //    pair lives in www's storage, which only a page on www can read. The apex never held any (it always 307'd to www).
 //  - /api/* is never redirected: the iOS app calls https://www.brisbaneferry.com/api/gtfs-proxy cross-origin
 //    (src/utils/environment.js), and a redirect without CORS headers would break it. Neither are the files the
-//    legacy page loads, nor other hosts on the project (previews, ferry.lifemap.au).
+//    legacy page loads, nor other hosts on the project (previews, next.brisbaneferry.com).
+//  - The project's other legacy hosts (brisbanecitycat.com and www, ferry.lifemap.au, brisbane-ferry-tracker.vercel.app)
+//    used to 307/308 to www at the domain level, so they never held storage either: they 301 like the apex.
 // The matcher covers what vercel.json uses: ":name", ":name(regex)", a trailing ":name*"; host, cookie and header
 // conditions in "has" and "missing" (values as anchored regexes).
 import assert from 'node:assert/strict';
@@ -85,6 +87,7 @@ const OTHERS = [
   ['/some/old/page', `${T}/ferry/some/old/page`],
   ['/apix', `${T}/ferry/apix`],
 ];
+const LEGACY = ['brisbanecitycat.com', 'www.brisbanecitycat.com', 'ferry.lifemap.au', 'brisbane-ferry-tracker.vercel.app'];
 const NEVER = ['/api/gtfs-proxy', '/api/feedback', '/api'];
 const FILES = ['/handoff-ferry.js', '/ga-config.js', '/assets/index-abc123.js', '/assets/index-abc123.css', '/favicon.ico', '/manifest.webmanifest'];
 
@@ -93,9 +96,9 @@ describe('brisbaneferry.com → brisbanetransit.com/ferry (release 24)', () => {
     ['curl (no Sec-Fetch-Mode)', curl],
     ['Googlebot', googlebot],
     ['a browser already handed off', (h) => browser(h, { 'bft-handoff': '1' })],
-    ['any browser on the apex', (h) => (h === 'brisbaneferry.com' ? browser(h) : browser(h, { 'bft-handoff': '1' }))],
+    ['any browser on the apex', (h) => (h === 'www.brisbaneferry.com' ? browser(h, { 'bft-handoff': '1' }) : browser(h))],
   ]) {
-    for (const host of ['brisbaneferry.com', 'www.brisbaneferry.com']) {
+    for (const host of ['brisbaneferry.com', 'www.brisbaneferry.com', ...LEGACY]) {
       it(`${who}, ${host}: every page and old URL is one 301`, () => {
         for (const [path, location] of [...PAGES, ...OTHERS])
           assert.deepEqual(redirectFor(path, req(host)), { status: 301, location }, path);
@@ -115,7 +118,7 @@ describe('brisbaneferry.com → brisbanetransit.com/ferry (release 24)', () => {
   });
 
   it('other hosts on the project are untouched', () => {
-    for (const host of ['ferry.lifemap.au', 'brisbane-ferry-tracker-git-develop-starblaze.vercel.app', 'next.brisbaneferry.com', 'www.brisbaneferry.com.example'])
+    for (const host of ['brisbane-ferry-tracker-git-develop-starblaze.vercel.app', 'next.brisbaneferry.com', 'api.brisbaneferry.com', 'www.brisbaneferry.com.example', 'xbrisbanecitycat.com', 'ferry.lifemap.au.example'])
       for (const [path] of [...PAGES, ...OTHERS]) {
         assert.equal(redirectFor(path, curl(host)), null, `${host}${path}`);
         assert.equal(redirectFor(path, browser(host)), null, `${host}${path}`);
