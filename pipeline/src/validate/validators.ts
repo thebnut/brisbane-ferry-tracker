@@ -5,8 +5,8 @@
  *    facts are checked here; the MobilityData validator runs in CI, see scripts/gtfs-validator-report.ts)
  *  - plausible service changes are quarantined: published under manifest.staging.json until accepted
  */
-import type { CalendarDateRow, CalendarRow, GenerationIndex, Mode } from '@bft/core'
-import { addDays } from '@bft/core'
+import type { CalendarDateRow, CalendarRow, GenerationIndex, Mode, ServiceCalendar } from '@bft/core'
+import { addDays, dayOfWeek } from '@bft/core'
 
 export class StructuralFailure extends Error {
   constructor(readonly problems: string[]) {
@@ -78,7 +78,7 @@ export interface GoldenFact {
   mode: Mode
   key: string
   label: string
-  /** Minimum number of service dates in the window with at least one event. */
+  /** Minimum number of dates, from the window's first date to the feed's end, the landmark is served on. */
   minDays: number
 }
 
@@ -95,17 +95,159 @@ export const SEQ_GOLDEN_FACTS: GoldenFact[] = [
   { mode: 'bus', key: '10802', label: 'Cultural Centre busway platform 1', minDays: 5 },
 ]
 
-/** `served(mode, date, key)`: whether the build has a stop-day for that stop on that date. */
-export function checkGoldenFacts(
-  served: (mode: Mode, date: string, key: string) => boolean,
-  dates: string[],
-  facts = SEQ_GOLDEN_FACTS,
-): string[] {
+/**
+ * A closure of a golden landmark that a person has checked against the operator's notice, reviewed like code. It
+ * only vouches for dates the feed's own calendar already closes (see checkGoldenLandmarks); it can't excuse a
+ * missing stop, a lost stop-day or a landmark that never reopens.
+ */
+export interface AttestedClosure {
+  mode: Mode
+  key: string
+  /** Inclusive YYYYMMDD range. */
+  from: string
+  to: string
+  source: string
+}
+
+/**
+ * Bulimba ferry terminal closed from 9 Nov 2026 "until mid-December" (TransLink notice 1175181). The end is the
+ * feed's: its weekday services start 14 Dec, and calendar_dates removes its weekend services until 13 Dec. Without
+ * this, only the live generation's dates could confirm the closure, and from 10 Nov too few would.
+ */
+export const ATTESTED_CLOSURES: AttestedClosure[] = [
+  {
+    mode: 'ferry',
+    key: '317584',
+    from: '20261109',
+    to: '20261213',
+    source: 'https://translink.com.au/updates/1175181',
+  },
+]
+
+/** What the whole feed says about one landmark, read independently of the build's window. */
+export interface LandmarkEvidence {
+  fact: GoldenFact
+  /** Services with a trip (anywhere in the feed, any date) that boards at the landmark (what makes a stop-day). */
+  services: Set<string>
+  /** Routes of those trips. */
+  routes: Set<string>
+  /** Whether the build has a stop-day for the landmark on this window date. */
+  served: (date: string) => boolean
+  /** Whether a trip of one of `routes` runs on this window date, whatever stops it calls at. */
+  routeRuns: (date: string) => boolean
+  /**
+   * The live generation's view of this date when it was built from a different feed: 'served' or 'unserved', or
+   * undefined when there is no such generation or it doesn't cover the date.
+   */
+  previous?: (date: string) => 'served' | 'unserved' | undefined
+}
+
+export interface LandmarkCalendar {
+  calendar: ServiceCalendar
+  calendarRows: CalendarRow[]
+  /** The build window's service dates (D−1 dropped when the feed doesn't cover it). */
+  windowDates: string[]
+  /** Last service date of the feed (feed_end_date). */
+  feedEnd: string
+  /** Reviewed closures (default ATTESTED_CLOSURES). */
+  attested?: AttestedClosure[]
+  /** Receives one summary line per landmark (for the build log). */
+  note?: (line: string) => void
+}
+
+/**
+ * Golden landmarks, closure-aware (structural). A landmark fails when:
+ *  - it is served on fewer than `minDays` dates from the window's start to the feed's end (removed, or the feed or
+ *    its service is truncated);
+ *  - a service boarding at it is active on a window date but the build has no stop-day there;
+ *  - it is unserved on a window date it was expected (one of its routes runs that day, or it is served on that
+ *    weekday elsewhere in the feed) and the calendar doesn't schedule a closure there: no service boarding at it has
+ *    that weekday in calendar.txt yet excludes the date (start_date after it, end_date before it, or a type-2
+ *    exception), or the landmark is never served again afterwards;
+ *  - fewer than `minDays` window dates are served or confirmed closures. This is the old window rule, so the check
+ *    is never weaker than it was: a closure date counts only when evidence from outside this feed confirms it, the
+ *    live generation from a different feed having no stop-day there, or an ATTESTED_CLOSURES entry.
+ * Nothing inside one feed confirms a closure: a later start_date, an earlier end_date or one service's type-2
+ * removal all look the same when the landmark's stop_times rows were deleted from another service. They show the
+ * closure is scheduled (required above), not that it is real.
+ */
+export function checkGoldenLandmarks(landmarks: LandmarkEvidence[], c: LandmarkCalendar): string[] {
   const out: string[] = []
-  for (const f of facts) {
-    const days = dates.filter((d) => served(f.mode, d, f.key)).length
-    if (days < f.minDays)
-      out.push(`golden: ${f.label} (${f.mode} ${f.key}) has service on ${days} days, expected ≥ ${f.minDays}`)
+  const first = c.windowDates[0]
+  if (!first) return out
+  const attested = c.attested ?? ATTESTED_CLOSURES
+  const rowOf = new Map(c.calendarRows.map((r) => [r.service_id, r]))
+  const fieldOf = (date: string) => WEEKDAYS[(dayOfWeek(date) + 6) % 7] as (typeof WEEKDAYS)[number]
+  for (const l of landmarks) {
+    const name = `${l.fact.label} (${l.fact.mode} ${l.fact.key})`
+    const servedOn = (date: string) => [...c.calendar.activeServices(date)].some((s) => l.services.has(s))
+    const operating: string[] = []
+    for (let d = first; d <= c.feedEnd; d = addDays(d, 1)) if (servedOn(d)) operating.push(d)
+    if (operating.length < l.fact.minDays) {
+      out.push(
+        `golden: ${name} has service on ${operating.length} dates from ${first} to the feed end ${c.feedEnd}, expected ≥ ${l.fact.minDays}`,
+      )
+      continue
+    }
+    const weekdays = new Set(operating.map(dayOfWeek))
+    /** A landmark service whose calendar.txt row runs on that weekday but excludes the date. */
+    const closedBy = (date: string) =>
+      [...l.services].find((s) => {
+        const r = rowOf.get(s)
+        if (r?.[fieldOf(date)] !== '1') return false
+        return date < r.start_date || date > r.end_date || c.calendar.isExplicitlyRemoved(s, date)
+      })
+    /** Evidence from outside this feed that the landmark is closed on this date. */
+    const confirmation = (date: string): string | undefined => {
+      const a = attested.find(
+        (x) => x.mode === l.fact.mode && x.key === l.fact.key && x.from <= date && date <= x.to,
+      )
+      if (a) return `attested ${a.source}`
+      return l.previous?.(date) === 'unserved' ? 'previous generation' : undefined
+    }
+    const served = c.windowDates.filter(l.served)
+    const confirmed: string[] = []
+    const scheduled: string[] = []
+    for (const date of c.windowDates) {
+      if (l.served(date)) continue
+      if (servedOn(date)) {
+        out.push(
+          `golden: ${name} has a service boarding at it on ${date}, but the build has no stop-day there`,
+        )
+        continue
+      }
+      if (!l.routeRuns(date) && !weekdays.has(dayOfWeek(date))) continue
+      const by = closedBy(date)
+      if (!by) {
+        out.push(`golden: ${name} has no service on ${date} and the calendar doesn't schedule a closure`)
+        continue
+      }
+      if (!operating.some((d) => d > date)) {
+        out.push(
+          `golden: ${name} has no service on ${date} and none after it: a closure must reopen within the feed`,
+        )
+        continue
+      }
+      const why = confirmation(date)
+      if (why) confirmed.push(`${date} (${by}; ${why})`)
+      else scheduled.push(`${date} (${by})`)
+    }
+    if (served.length + confirmed.length < l.fact.minDays)
+      out.push(
+        `golden: ${name} has ${served.length} served and ${confirmed.length} confirmed closed window dates, ` +
+          `expected ≥ ${l.fact.minDays}` +
+          (scheduled.length
+            ? `; closure scheduled but unconfirmed on ${scheduled.join(', ')} (the feed alone can't tell a closure ` +
+              'from deleted stop_times: the live generation from an earlier feed or an ATTESTED_CLOSURES entry ' +
+              'confirms a date)'
+            : ''),
+      )
+    c.note?.(
+      `golden: ${name}: ${operating.length} service dates to ${c.feedEnd}, ` +
+        `${served.length}/${c.windowDates.length} window dates served` +
+        (confirmed.length ? `, closure confirmed on ${confirmed.join(', ')}` : '') +
+        (scheduled.length ? `, closure scheduled but unconfirmed on ${scheduled.join(', ')}` : ''),
+    )
   }
   return out
 }
