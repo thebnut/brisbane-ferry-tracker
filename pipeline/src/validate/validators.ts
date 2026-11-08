@@ -106,6 +106,11 @@ export interface LandmarkEvidence {
   served: (date: string) => boolean
   /** Whether a trip of one of `routes` runs on this window date, whatever stops it calls at. */
   routeRuns: (date: string) => boolean
+  /**
+   * True when the previous published generation, built from a different feed, covers this date and has no stop-day
+   * for the landmark: independent agreement that it is closed. Absent when there is no such generation.
+   */
+  previouslyUnserved?: (date: string) => boolean
 }
 
 export interface LandmarkCalendar {
@@ -113,6 +118,8 @@ export interface LandmarkCalendar {
   calendarRows: CalendarRow[]
   /** The build window's service dates (D−1 dropped when the feed doesn't cover it). */
   windowDates: string[]
+  /** First service date of the feed (feed_start_date, or the calendar's earliest; '' when unknown). */
+  feedStart?: string
   /** Last service date of the feed (feed_end_date). */
   feedEnd: string
   /** Receives one summary line per landmark (for the build log). */
@@ -125,20 +132,25 @@ export interface LandmarkCalendar {
  *    its service is truncated);
  *  - a service boarding at it is active on a window date but the build has no stop-day there;
  *  - it is unserved on a window date it was expected (one of its routes runs that day, or it is served on that
- *    weekday elsewhere in the feed) and the calendar doesn't schedule a closure: no service boarding at it has that
- *    weekday in calendar.txt yet excludes the date (start_date after it, end_date before it, or a type-2
- *    exception), or it is never served again afterwards.
- * A planned closure (Bulimba, 9 Nov–13 Dec 2026: weekday services start 14 Dec, weekend services removed by
- * calendar_dates) passes. Stripping the landmark's stop_times rows doesn't: its route still runs, and no calendar
- * row explains the gap. Limitation: a feed whose closure-period trips skip the landmark *and* whose landmark
- * services all resume after the gap is a closure as far as the source can tell; quarantine against the previous
- * generation is the independent check there.
+ *    weekday elsewhere in the feed), unless that date is a scheduled, corroborated closure:
+ *      scheduled: a service boarding at it has that weekday in calendar.txt yet excludes the date (start_date after
+ *      it, end_date before it, or a type-2 exception), and the landmark is served again later in the feed;
+ *      corroborated: the closure period (the unbroken run of unserved dates around it) contains a type-2 removal of
+ *      a date a landmark service would otherwise run, or the previous generation, from a different feed, has no
+ *      stop-day there either.
+ * Service boundaries alone don't prove a closure: deleting the landmark's stop_times rows from the current services
+ * while a later timetable still serves it looks exactly like a delayed start. calendar_dates removals are authored
+ * per date and an earlier feed is independent of this one, so either corroborates; without them the build fails
+ * closed. The real Bulimba closure (9 Nov–13 Dec 2026: weekday services start 14 Dec, weekend services removed by
+ * calendar_dates) is corroborated by its weekend removals.
  */
 export function checkGoldenLandmarks(landmarks: LandmarkEvidence[], c: LandmarkCalendar): string[] {
   const out: string[] = []
   const first = c.windowDates[0]
   if (!first) return out
+  const lowest = c.feedStart && c.feedStart < first ? c.feedStart : first
   const rowOf = new Map(c.calendarRows.map((r) => [r.service_id, r]))
+  const fieldOf = (date: string) => WEEKDAYS[(dayOfWeek(date) + 6) % 7] as (typeof WEEKDAYS)[number]
   for (const l of landmarks) {
     const name = `${l.fact.label} (${l.fact.mode} ${l.fact.key})`
     const servedOn = (date: string) => [...c.calendar.activeServices(date)].some((s) => l.services.has(s))
@@ -151,13 +163,30 @@ export function checkGoldenLandmarks(landmarks: LandmarkEvidence[], c: LandmarkC
       continue
     }
     const weekdays = new Set(operating.map(dayOfWeek))
-    const closedBy = (date: string) => {
-      const field = WEEKDAYS[(dayOfWeek(date) + 6) % 7] as (typeof WEEKDAYS)[number]
-      return [...l.services].find((s) => {
+    /** A landmark service whose calendar.txt row runs on that weekday but excludes the date. */
+    const closedBy = (date: string) =>
+      [...l.services].find((s) => {
         const r = rowOf.get(s)
-        if (r?.[field] !== '1') return false
+        if (r?.[fieldOf(date)] !== '1') return false
         return date < r.start_date || date > r.end_date || c.calendar.isExplicitlyRemoved(s, date)
       })
+    /** A landmark service that would run on the date but calendar_dates removes it. */
+    const removedOn = (date: string) =>
+      [...l.services].find((s) => {
+        const r = rowOf.get(s)
+        return (
+          r?.[fieldOf(date)] === '1' &&
+          r.start_date <= date &&
+          date <= r.end_date &&
+          c.calendar.isExplicitlyRemoved(s, date)
+        )
+      })
+    /** A type-2 removal in the unbroken run of unserved dates around the date. */
+    const removalInPeriod = (date: string) => {
+      for (let d = date; d >= lowest && !servedOn(d); d = addDays(d, -1)) if (removedOn(d)) return d
+      for (let d = addDays(date, 1); d <= c.feedEnd && !servedOn(d); d = addDays(d, 1))
+        if (removedOn(d)) return d
+      return undefined
     }
     const closed: string[] = []
     for (const date of c.windowDates) {
@@ -170,13 +199,27 @@ export function checkGoldenLandmarks(landmarks: LandmarkEvidence[], c: LandmarkC
       }
       if (!l.routeRuns(date) && !weekdays.has(dayOfWeek(date))) continue
       const by = closedBy(date)
-      if (by) closed.push(`${date} (${by})`)
-      if (!by)
+      if (!by) {
         out.push(`golden: ${name} has no service on ${date} and the calendar doesn't schedule a closure`)
-      else if (!operating.some((d) => d > date))
+        continue
+      }
+      if (!operating.some((d) => d > date)) {
         out.push(
           `golden: ${name} has no service on ${date} and none after it: a closure must reopen within the feed`,
         )
+        continue
+      }
+      const removal = removalInPeriod(date)
+      const previous = l.previouslyUnserved?.(date) ?? false
+      if (!removal && !previous) {
+        out.push(
+          `golden: ${name} has no service on ${date}: ${by}'s calendar excludes it, but nothing corroborates a ` +
+            'closure (no calendar_dates removal in the closure period, and the previous generation served it or ' +
+            "doesn't cover it)",
+        )
+        continue
+      }
+      closed.push(`${date} (${by}; ${removal ? `removal ${removal}` : 'previous generation'})`)
     }
     c.note?.(
       `golden: ${name}: ${operating.length} service dates to ${c.feedEnd}, ` +

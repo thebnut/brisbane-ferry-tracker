@@ -557,6 +557,7 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
     feedEnd?: string
     served?: (date: string, byCalendar: boolean) => boolean
     routeRuns?: (date: string) => boolean
+    previouslyUnserved?: (date: string) => boolean
   }
   const evidence = (calendar: ServiceCalendar, c: Case): LandmarkEvidence => {
     const services = c.services ?? BULIMBA_SERVICES
@@ -567,6 +568,7 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
       routes: new Set(['F1']),
       served: (d) => (c.served ? c.served(d, byCalendar(d)) : byCalendar(d)),
       routeRuns: c.routeRuns ?? (() => true),
+      ...(c.previouslyUnserved ? { previouslyUnserved: c.previouslyUnserved } : {}),
     }
   }
   const check = (...cases: Case[]) => {
@@ -597,7 +599,7 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
       }),
     ).toEqual([])
     expect(notes.join()).toMatch(
-      /Bulimba ferry terminal \(ferry 317584\): 24 service dates to 20270106, 1\/8 window dates served, scheduled closure on 20261109 \(MT\).*20261113 \(FR\), 20261114 \(SA\), 20261115 \(SU\)/,
+      /Bulimba ferry terminal \(ferry 317584\): 24 service dates to 20270106, 1\/8 window dates served, scheduled closure on 20261109 \(MT; removal 20261114\).*20261113 \(FR; removal 20261114\), 20261114 \(SA; removal 20261114\), 20261115 \(SU; removal 20261115\)/,
     )
     // Every window inside the closure, and the window across the reopening.
     for (const start of ['20261109', '20261120', '20261206', '20261213'])
@@ -651,19 +653,52 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
           `golden: Bulimba ferry terminal (ferry 317584) has no service on ${d} and the calendar doesn't schedule a closure`,
       ),
     )
-    // With the trips deleted outright (no route runs), the landmark's own weekly pattern still expects a weekday it
-    // is served on elsewhere in the feed.
+    // A later weekday timetable that still serves it (X from 1 Dec) makes the gap look like a delayed start, but
+    // nothing corroborates a closure, also when the trips were deleted outright (no route runs): the landmark's
+    // weekly pattern still expects those weekdays.
     const later = [...rows, row('X', '1111100', '20261201', '20270106')]
-    expect(
-      check({ rows: later, exceptions: [], services: new Set(['W', 'X']), routeRuns: () => false }),
-    ).toEqual([])
+    for (const routeRuns of [() => true, () => false])
+      expect(
+        check({ rows: later, exceptions: [], services: new Set(['W', 'X']), routeRuns }).join('\n'),
+      ).toMatch(/has no service on 20261109: X's calendar excludes it, but nothing corroborates a closure/)
   })
 
-  it('limitation: closure-shaped data (gap trips skip the stop, services resume later) is accepted as a closure', () => {
-    // Indistinguishable from the real Bulimba closure in the source; quarantine against the previous generation is
-    // the independent check (see checkGoldenLandmarks).
+  it('service boundaries alone are not a closure: a removal in the closure period or the previous generation is', () => {
+    // D's trips no longer board at the landmark; X, a later timetable, does. In this feed that is indistinguishable
+    // from a closure that delays X's start, so it fails closed on every window date.
     const rows = [row('D', '1111111', '20261101', '20270106'), row('X', '1111111', '20261201', '20270106')]
-    expect(check({ rows, exceptions: [], services: new Set(['X']) })).toEqual([])
+    expect(check({ rows, exceptions: [], services: new Set(['X']) })).toHaveLength(8)
+    // A calendar_dates removal of a date a landmark service would run, inside the same unbroken closure period,
+    // corroborates it: here a weekend service removed every weekend until X starts, as Bulimba's are.
+    const weekend = [...rows, row('W', '0000011', '20261101', '20270106')]
+    const removed = [
+      '20261107',
+      '20261108',
+      '20261114',
+      '20261115',
+      '20261121',
+      '20261122',
+      '20261128',
+      '20261129',
+    ]
+    const services = new Set(['X', 'W'])
+    const exceptions = removed.map((date) => ({ service_id: 'W', date, exception_type: '2' }))
+    expect(check({ rows: weekend, exceptions, services })).toEqual([])
+    // A removal outside the closure period doesn't: with the weekends served, each weekday gap stands alone.
+    expect(
+      check({
+        rows: weekend,
+        exceptions: [{ service_id: 'W', date: '20261212', exception_type: '2' }],
+        services,
+      }),
+    ).toHaveLength(5)
+    // An earlier generation with no stop-day on those dates corroborates the dates it covers, and only those.
+    expect(check({ rows, exceptions: [], services: new Set(['X']), previouslyUnserved: () => true })).toEqual(
+      [],
+    )
+    expect(
+      check({ rows, exceptions: [], services: new Set(['X']), previouslyUnserved: (d) => d <= '20261110' }),
+    ).toHaveLength(5)
   })
 
   it('a type-2 removal of a daily service is a scheduled closure of that day', () => {
@@ -677,10 +712,15 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
   })
 
   it('a type-1 added date counts as service and must be built', () => {
-    // SU adds Wednesday 11 Nov: the build must serve it, and it counts towards the feed's service dates.
+    // SU adds Wednesday 11 Nov: the build must serve it. It also splits the closure period, so 9–10 Nov need their
+    // own corroboration (here the previous generation).
     const exceptions = [...EXCEPTIONS, { service_id: 'SU', date: '20261111', exception_type: '1' }]
-    expect(check({ exceptions })).toEqual([])
-    expect(check({ exceptions, served: (d, cal) => cal && d !== '20261111' })).toEqual([
+    const previouslyUnserved = (d: string) => d === '20261109' || d === '20261110'
+    expect(check({ exceptions, previouslyUnserved })).toEqual([])
+    expect(check({ exceptions }).join('\n')).toMatch(
+      /no service on 20261109: MT's calendar excludes it, but nothing corroborates/,
+    )
+    expect(check({ exceptions, previouslyUnserved, served: (d, cal) => cal && d !== '20261111' })).toEqual([
       'golden: Bulimba ferry terminal (ferry 317584) has a service boarding at it on 20261111, but the build has no stop-day there',
     ])
   })
@@ -771,4 +811,57 @@ describe('golden landmarks in the build (synthetic SEQ-shaped feed)', () => {
   })
 
   const dates = (from: string, n: number) => Array.from({ length: n }, (_, i) => addDays(from, i))
+
+  /**
+   * Central closed for the whole window: every train trip that touches it moves to WKX (weekdays from 28 Oct), and
+   * copies that call at a stand-in stop (1001) instead keep the line running, so no window trip gives Central its
+   * station key and the other stations keep their boardings.
+   */
+  const closedCentral = (removal: boolean) => {
+    const f = baseFeed()
+    f['calendar.txt']?.push(['WKX', '1', '1', '1', '1', '1', '0', '0', '20261028', '20261231'])
+    if (removal) f['calendar_dates.txt']?.push(['WKX', '20261028', '2'])
+    const central = new Set(['600016', '600017'])
+    const trips = f['trips.txt'] as string[][]
+    const st = f['stop_times.txt'] as string[][]
+    for (const t of trips.slice(1)) {
+      if (!st.some((r) => r[0] === t[2] && central.has(r[3] as string))) continue
+      const skip = [...t]
+      skip[2] = `${t[2]}-skip`
+      trips.push(skip)
+      for (const r of st.filter((r) => r[0] === t[2]))
+        st.push([skip[2], r[1], r[2], central.has(r[3] as string) ? '1001' : r[3], ...r.slice(4)] as string[])
+      t[1] = 'WKX'
+    }
+    return f
+  }
+  const trainBuild = (feed: SynthFeed, previous?: string) =>
+    writeFeed(feed).then(async (feedDir) =>
+      runBuild({ feedDir, outDir: previous ?? (await tmp()), nowMs: NOW, modes: ['train'], golden: true }),
+    )
+
+  it('a station closed for the whole window is still matched by name and checked against the whole feed', async () => {
+    const r = await trainBuild(closedCentral(true))
+    expect(r.modes.map((m) => m.mode)).toEqual(['train'])
+  })
+
+  it('without a removal, a closure made only of a later start date fails closed', async () => {
+    await expect(trainBuild(closedCentral(false))).rejects.toThrow(
+      /golden: Central station \(train central\) has no service on 20261019: WKX's calendar excludes it, but nothing corroborates a closure/,
+    )
+  })
+
+  it('the previous generation from an earlier feed corroborates the dates it covers, a rebuild of this feed never', async () => {
+    // Publish a generation from a feed where Central is already closed (different feed: its start date differs).
+    const out = await tmp()
+    const earlier = closedCentral(true)
+    setCell(earlier, 'feed_info.txt', 1, 3, '20261002')
+    await trainBuild(earlier, out)
+    // This feed has no removal; the earlier generation covers 19–26 Oct with no Central stop-day.
+    const r = await trainBuild(closedCentral(false), out)
+    expect(r.modes.map((m) => m.mode)).toEqual(['train'])
+    // Rebuilding the uncorroborated feed over its own output gives no evidence.
+    const same = await tmp()
+    await expect(trainBuild(closedCentral(false), same)).rejects.toThrow(/nothing corroborates a closure/)
+  })
 })
