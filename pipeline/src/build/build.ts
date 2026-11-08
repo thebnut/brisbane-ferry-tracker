@@ -27,18 +27,22 @@ import {
   StaticStopDay,
   StopIndexFile,
   shardOf,
+  slugify,
   TripIndexDay,
 } from '@bft/core'
 import { readCsvObjects } from '../feed/csv.ts'
-import { type Feed, loadFeed, type TripRow } from '../feed/load.ts'
+import { type Feed, loadFeed, scanStopCalls, type TripRow } from '../feed/load.ts'
 import { feedContentHash } from '../feed/source.ts'
 import { DirTarget, type Reader, readJson } from '../publish/targets.ts'
 import {
+  type AttestedClosure,
   checkCoversToday,
   checkFeedEndDate,
-  checkGoldenFacts,
+  checkGoldenLandmarks,
   type FeedCoverage,
   feedCoverage,
+  type GoldenFact,
+  type LandmarkEvidence,
   SEQ_GOLDEN_FACTS,
   quarantineReasons,
   StructuralFailure,
@@ -72,6 +76,8 @@ export interface BuildOptions {
   accept?: string[]
   /** Apply SEQ golden facts (default: when agency is Translink). */
   golden?: boolean
+  /** Reviewed closures of golden landmarks (default ATTESTED_CLOSURES). */
+  attestedClosures?: AttestedClosure[]
   legacy?: boolean
   /** Measurement hook, called for every stop-day blob. */
   onStopDay?: (info: { mode: Mode; date: string; key: string; json: string; gzBytes: number; isNew: boolean }) => void
@@ -237,14 +243,24 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     log(`${mode}: generation ${generation}, ${Object.values(stats).reduce((a, s) => a + s.events, 0)} events over ${dates.length} days`)
   }
 
-  // Structural: golden facts on the real feed.
+  // Structural: golden landmarks on the real feed, checked against the whole feed's calendar (closure-aware).
   const isSeq = opts.golden ?? /translink/i.test(await agencyName(feed))
   if (isSeq) {
     // Only the modes this build covers (a `--modes ferry` build mustn't fail on train landmarks).
-    const problems = checkGoldenFacts(
-      (mode, date, key) => Boolean(built.find((b) => b.mode === mode)?.servedKeys.has(`${date}|${key}`)),
-      dates,
-      SEQ_GOLDEN_FACTS.filter((f) => modes.includes(f.mode)),
+    const facts = SEQ_GOLDEN_FACTS.filter((f) => modes.includes(f.mode))
+    const previousIndexes = await previousFromOtherFeeds(opts.previous ?? new DirTarget(opts.outDir), modes, feedVersion)
+    const problems = checkGoldenLandmarks(
+      await landmarkEvidence(feed, keys, facts, active, previousIndexes, (mode, date, key) =>
+        Boolean(built.find((b) => b.mode === mode)?.servedKeys.has(`${date}|${key}`)),
+      ),
+      {
+        calendar: feed.calendar,
+        calendarRows: feed.calendarRows,
+        windowDates: dates,
+        feedEnd: coverage.end,
+        ...(opts.attestedClosures ? { attested: opts.attestedClosures } : {}),
+        note: log,
+      },
     )
     if (problems.length) throw new StructuralFailure(problems)
   }
@@ -389,6 +405,79 @@ function sortRecord<T>(r: Record<string, T>): Record<string, T> {
 async function agencyName(feed: Feed): Promise<string> {
   const rows = await readCsvObjects(join(feed.dir, 'agency.txt'))
   return rows[0]?.agency_name ?? ''
+}
+
+/**
+ * The live generation's index per mode, when it was built from a different feed (an earlier one is independent
+ * evidence; a rebuild of this feed is not). Sharded modes (bus) are left out: their stop-days live inside shards.
+ */
+async function previousFromOtherFeeds(
+  reader: Reader,
+  modes: Mode[],
+  feedVersion: string,
+): Promise<Map<Mode, GenerationIndex>> {
+  const out = new Map<Mode, GenerationIndex>()
+  const manifest = await readJson<Manifest>(reader, 'manifest.json')
+  for (const mode of modes) {
+    const gen = manifest?.modes[mode]?.current
+    if (!gen || SHARDED_MODES.includes(mode)) continue
+    const index = await readJson<GenerationIndex>(reader, `static/${gen}/${mode}/index.json`)
+    if (index && index.feedVersion !== feedVersion) out.set(mode, index)
+  }
+  return out
+}
+
+/**
+ * The stops a golden key covers. Train keys are station slugs that buildStopKeys only assigns to stations the
+ * window's trips use, so a station closed for the whole window is also matched by name: a parent station whose slug
+ * is the key and which the window doesn't give a different key.
+ */
+function landmarkStops(feed: Feed, keys: StopKeys, fact: GoldenFact): Set<string> {
+  const out = new Set(feed.stops.filter((_, i) => keys.keyOf(fact.mode, i) === fact.key).map((s) => s.id))
+  if (fact.mode !== 'train') return out
+  feed.stops.forEach((st, i) => {
+    if (st.locationType !== 1 || slugify(st.name) !== fact.key) return
+    const windowKey = keys.keyOf('train', i)
+    if (windowKey !== fact.key && windowKey !== st.id) return
+    out.add(st.id)
+    for (const child of feed.stops) if (child.parent === st.id) out.add(child.id)
+  })
+  return out
+}
+
+/** Each landmark's whole-feed services and routes (scanStopCalls), with the build's view of the window. */
+async function landmarkEvidence(
+  feed: Feed,
+  keys: StopKeys,
+  facts: GoldenFact[],
+  active: Map<string, Set<string>>,
+  previous: Map<Mode, GenerationIndex>,
+  served: (mode: Mode, date: string, key: string) => boolean,
+): Promise<LandmarkEvidence[]> {
+  const stopsOf = new Map(facts.map((f) => [f, landmarkStops(feed, keys, f)]))
+  const calls = await scanStopCalls(feed.dir, new Set([...stopsOf.values()].flatMap((s) => [...s])))
+  return facts.map((fact) => {
+    const stops = stopsOf.get(fact) as Set<string>
+    const mine = calls.filter((c) => stops.has(c.stopId) && feed.routes.get(c.routeId)?.mode === fact.mode)
+    const routes = new Set(mine.map((c) => c.routeId))
+    const prev = previous.get(fact.mode)
+    return {
+      fact,
+      services: new Set(mine.map((c) => c.serviceId)),
+      routes,
+      served: (date) => served(fact.mode, date, fact.key),
+      routeRuns: (date) => {
+        const on = active.get(date) ?? feed.calendar.activeServices(date)
+        return feed.trips.some((t) => routes.has(t.routeId) && on.has(t.serviceId))
+      },
+      ...(prev
+        ? {
+            previous: (date: string) =>
+              prev.serviceDates.includes(date) ? (fact.key in (prev.blobs[date] ?? {}) ? 'served' : 'unserved') : undefined,
+          }
+        : {}),
+    }
+  })
 }
 
 /** A closure is explained when calendar_dates removes, on that date, a service of some trip that serves the stop. */

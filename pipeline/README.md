@@ -101,7 +101,16 @@ Structural failures fail closed:
 - referential breaks
 - malformed times
 - `feed_end_date` earlier than today + 7
-- SEQ golden landmarks missing
+- SEQ golden landmarks missing (`checkGoldenLandmarks`, closure-aware):
+  - served on fewer than 5 dates from the window start to the feed end (the whole feed is scanned, not just the window)
+  - a service boarding at the landmark runs on a window date but the build has no stop-day there
+  - an expected window date (its routes run, or it's served on that weekday elsewhere) is unserved and the calendar
+    doesn't schedule a closure (a landmark service for that weekday starts later, ended or is removed by a type-2
+    exception), or the landmark never reopens within the feed
+  - fewer than 5 window dates are served or confirmed closed: the old window rule. Only evidence from outside the
+    feed confirms a closure date: the live generation built from a different feed has no stop-day there, or a
+    reviewed `ATTESTED_CLOSURES` entry (mode, stop key, dates, source) covers it. Calendar evidence inside one feed
+    can't, because deleted stop_times rows look the same.
 - MobilityData gtfs-validator ERROR notices (in CI)
 
 Plausible changes are quarantined:
