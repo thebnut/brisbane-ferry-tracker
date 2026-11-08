@@ -476,3 +476,61 @@ function fillTimes(st: StopTimes, trip: TripRow, problems: string[]): void {
     prev = i
   }
 }
+
+/** A trip that boards at a watched stop: which stop, under which service and route. */
+export interface StopCall {
+  stopId: string
+  serviceId: string
+  routeId: string
+}
+
+/**
+ * The distinct (stop, service, route) of every trip in the whole feed that boards at one of `stopIds` (as the build
+ * counts a stop-day: pickup_type isn't 1 and it isn't the trip's last stop). loadFeed keeps only the window's trips
+ * for most modes; the golden check needs the landmark's service beyond the window, so this streams trips.txt and
+ * stop_times.txt again, keeping just the watched stops. Runs after loadFeed, which has already failed on missing files
+ * and broken references.
+ */
+export async function scanStopCalls(dir: string, stopIds: Set<string>): Promise<StopCall[]> {
+  const tripRef = new Map<string, { serviceId: string; routeId: string }>()
+  let c = { trip: -1, route: -1, service: -1 }
+  await streamCsv(
+    feedFile(dir, 'trips.txt') as string,
+    (h) => {
+      c = { trip: h.col('trip_id'), route: h.col('route_id'), service: h.col('service_id') }
+    },
+    (f) => {
+      tripRef.set(f[c.trip] as string, { serviceId: f[c.service] as string, routeId: f[c.route] as string })
+    },
+  )
+  const lastSeq = new Map<string, number>()
+  const boardings: Array<{ tripId: string; stopId: string; seq: number }> = []
+  let s = { trip: -1, stop: -1, seq: -1, pickup: -1 }
+  await streamCsv(
+    feedFile(dir, 'stop_times.txt') as string,
+    (h) => {
+      s = {
+        trip: h.col('trip_id'),
+        stop: h.col('stop_id'),
+        seq: h.col('stop_sequence'),
+        pickup: h.col('pickup_type'),
+      }
+    },
+    (f) => {
+      const tripId = f[s.trip] as string
+      const seq = Number(f[s.seq])
+      if (seq > (lastSeq.get(tripId) ?? -1)) lastSeq.set(tripId, seq)
+      const stopId = f[s.stop] as string
+      if (!stopIds.has(stopId) || (s.pickup >= 0 && parseBoardingRule(f[s.pickup]) === 1)) return
+      boardings.push({ tripId, stopId, seq })
+    },
+  )
+  const out = new Map<string, StopCall>()
+  for (const b of boardings) {
+    const t = tripRef.get(b.tripId)
+    if (!t || b.seq >= (lastSeq.get(b.tripId) as number)) continue
+    const k = `${b.stopId}|${t.serviceId}|${t.routeId}`
+    if (!out.has(k)) out.set(k, { stopId: b.stopId, ...t })
+  }
+  return [...out.values()]
+}

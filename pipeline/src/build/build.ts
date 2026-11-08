@@ -30,15 +30,17 @@ import {
   TripIndexDay,
 } from '@bft/core'
 import { readCsvObjects } from '../feed/csv.ts'
-import { type Feed, loadFeed, type TripRow } from '../feed/load.ts'
+import { type Feed, loadFeed, scanStopCalls, type TripRow } from '../feed/load.ts'
 import { feedContentHash } from '../feed/source.ts'
 import { DirTarget, type Reader, readJson } from '../publish/targets.ts'
 import {
   checkCoversToday,
   checkFeedEndDate,
-  checkGoldenFacts,
+  checkGoldenLandmarks,
   type FeedCoverage,
   feedCoverage,
+  type GoldenFact,
+  type LandmarkEvidence,
   SEQ_GOLDEN_FACTS,
   quarantineReasons,
   StructuralFailure,
@@ -237,14 +239,16 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
     log(`${mode}: generation ${generation}, ${Object.values(stats).reduce((a, s) => a + s.events, 0)} events over ${dates.length} days`)
   }
 
-  // Structural: golden facts on the real feed.
+  // Structural: golden landmarks on the real feed, checked against the whole feed's calendar (closure-aware).
   const isSeq = opts.golden ?? /translink/i.test(await agencyName(feed))
   if (isSeq) {
     // Only the modes this build covers (a `--modes ferry` build mustn't fail on train landmarks).
-    const problems = checkGoldenFacts(
-      (mode, date, key) => Boolean(built.find((b) => b.mode === mode)?.servedKeys.has(`${date}|${key}`)),
-      dates,
-      SEQ_GOLDEN_FACTS.filter((f) => modes.includes(f.mode)),
+    const facts = SEQ_GOLDEN_FACTS.filter((f) => modes.includes(f.mode))
+    const problems = checkGoldenLandmarks(
+      await landmarkEvidence(feed, keys, facts, active, (mode, date, key) =>
+        Boolean(built.find((b) => b.mode === mode)?.servedKeys.has(`${date}|${key}`)),
+      ),
+      { calendar: feed.calendar, calendarRows: feed.calendarRows, windowDates: dates, feedEnd: coverage.end, note: log },
     )
     if (problems.length) throw new StructuralFailure(problems)
   }
@@ -389,6 +393,35 @@ function sortRecord<T>(r: Record<string, T>): Record<string, T> {
 async function agencyName(feed: Feed): Promise<string> {
   const rows = await readCsvObjects(join(feed.dir, 'agency.txt'))
   return rows[0]?.agency_name ?? ''
+}
+
+/** Each landmark's whole-feed services and routes (scanStopCalls), with the build's view of the window. */
+async function landmarkEvidence(
+  feed: Feed,
+  keys: StopKeys,
+  facts: GoldenFact[],
+  active: Map<string, Set<string>>,
+  served: (mode: Mode, date: string, key: string) => boolean,
+): Promise<LandmarkEvidence[]> {
+  const stopsOf = new Map<GoldenFact, Set<string>>()
+  for (const f of facts)
+    stopsOf.set(f, new Set(feed.stops.filter((_, i) => keys.keyOf(f.mode, i) === f.key).map((s) => s.id)))
+  const calls = await scanStopCalls(feed.dir, new Set([...stopsOf.values()].flatMap((s) => [...s])))
+  return facts.map((fact) => {
+    const stops = stopsOf.get(fact) as Set<string>
+    const mine = calls.filter((c) => stops.has(c.stopId) && feed.routes.get(c.routeId)?.mode === fact.mode)
+    const routes = new Set(mine.map((c) => c.routeId))
+    return {
+      fact,
+      services: new Set(mine.map((c) => c.serviceId)),
+      routes,
+      served: (date) => served(fact.mode, date, fact.key),
+      routeRuns: (date) => {
+        const on = active.get(date) ?? feed.calendar.activeServices(date)
+        return feed.trips.some((t) => routes.has(t.routeId) && on.has(t.serviceId))
+      },
+    }
+  })
 }
 
 /** A closure is explained when calendar_dates removes, on that date, a service of some trip that serves the stop. */
