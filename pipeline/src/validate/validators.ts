@@ -110,9 +110,9 @@ export interface AttestedClosure {
 }
 
 /**
- * Bulimba ferry terminal closed 9 Nov–13 Dec 2026 (TransLink notice 1175181). The feed closes its weekdays only by
- * starting the weekday services on 14 Dec, which a source can't tell apart from deleted stop_times; its weekend
- * closures are calendar_dates removals and need no attestation.
+ * Bulimba ferry terminal closed from 9 Nov 2026 "until mid-December" (TransLink notice 1175181). The end is the
+ * feed's: its weekday services start 14 Dec, and calendar_dates removes its weekend services until 13 Dec. Without
+ * this, only the live generation's dates could confirm the closure, and from 10 Nov too few would.
  */
 export const ATTESTED_CLOSURES: AttestedClosure[] = [
   {
@@ -164,13 +164,12 @@ export interface LandmarkCalendar {
  *    weekday elsewhere in the feed) and the calendar doesn't schedule a closure there: no service boarding at it has
  *    that weekday in calendar.txt yet excludes the date (start_date after it, end_date before it, or a type-2
  *    exception), or the landmark is never served again afterwards;
- *  - fewer than `minDays` window dates are served or corroborated closures, while some scheduled closure dates are
- *    not corroborated (the old window rule, with only proven closures counted as served);
- *  - a scheduled closure date the live generation (from a different feed) served is not corroborated.
- * A closure date is corroborated only by evidence about that date that deleting stop_times can't produce: a type-2
- * removal of a landmark service that would otherwise run, the live generation from a different feed having no
- * stop-day there, or an ATTESTED_CLOSURES entry. A closure shown only by service boundaries (a later start_date, an
- * earlier end_date) is indistinguishable in the source from deleted stop_times rows, so it isn't corroborated.
+ *  - fewer than `minDays` window dates are served or confirmed closures. This is the old window rule, so the check
+ *    is never weaker than it was: a closure date counts only when evidence from outside this feed confirms it, the
+ *    live generation from a different feed having no stop-day there, or an ATTESTED_CLOSURES entry.
+ * Nothing inside one feed confirms a closure: a later start_date, an earlier end_date or one service's type-2
+ * removal all look the same when the landmark's stop_times rows were deleted from another service. They show the
+ * closure is scheduled (required above), not that it is real.
  */
 export function checkGoldenLandmarks(landmarks: LandmarkEvidence[], c: LandmarkCalendar): string[] {
   const out: string[] = []
@@ -198,18 +197,8 @@ export function checkGoldenLandmarks(landmarks: LandmarkEvidence[], c: LandmarkC
         if (r?.[fieldOf(date)] !== '1') return false
         return date < r.start_date || date > r.end_date || c.calendar.isExplicitlyRemoved(s, date)
       })
-    /** Evidence about this date alone that it is closed. */
-    const evidence = (date: string): string | undefined => {
-      const removed = [...l.services].find((s) => {
-        const r = rowOf.get(s)
-        return (
-          r?.[fieldOf(date)] === '1' &&
-          r.start_date <= date &&
-          date <= r.end_date &&
-          c.calendar.isExplicitlyRemoved(s, date)
-        )
-      })
-      if (removed) return `${removed} removed`
+    /** Evidence from outside this feed that the landmark is closed on this date. */
+    const confirmation = (date: string): string | undefined => {
       const a = attested.find(
         (x) => x.mode === l.fact.mode && x.key === l.fact.key && x.from <= date && date <= x.to,
       )
@@ -217,8 +206,8 @@ export function checkGoldenLandmarks(landmarks: LandmarkEvidence[], c: LandmarkC
       return l.previous?.(date) === 'unserved' ? 'previous generation' : undefined
     }
     const served = c.windowDates.filter(l.served)
-    const corroborated: string[] = []
-    const unproven: string[] = []
+    const confirmed: string[] = []
+    const scheduled: string[] = []
     for (const date of c.windowDates) {
       if (l.served(date)) continue
       if (servedOn(date)) {
@@ -239,27 +228,25 @@ export function checkGoldenLandmarks(landmarks: LandmarkEvidence[], c: LandmarkC
         )
         continue
       }
-      const why = evidence(date)
-      if (why) corroborated.push(`${date} (${by}; ${why})`)
-      else if (l.previous?.(date) === 'served')
-        out.push(
-          `golden: ${name} has no service on ${date}, which the live generation served: ${by}'s calendar excludes ` +
-            'it, but no calendar_dates removal or attested closure confirms it',
-        )
-      else unproven.push(`${date} (${by})`)
+      const why = confirmation(date)
+      if (why) confirmed.push(`${date} (${by}; ${why})`)
+      else scheduled.push(`${date} (${by})`)
     }
-    if (unproven.length && served.length + corroborated.length < l.fact.minDays)
+    if (served.length + confirmed.length < l.fact.minDays)
       out.push(
-        `golden: ${name} has ${served.length} served and ${corroborated.length} confirmed closed window dates, ` +
-          `expected ≥ ${l.fact.minDays}; unconfirmed closure on ${unproven.join(', ')} (only service boundaries, ` +
-          'which deleted stop_times would also produce: a calendar_dates removal, the live generation from an ' +
-          'earlier feed, or an ATTESTED_CLOSURES entry confirms a date)',
+        `golden: ${name} has ${served.length} served and ${confirmed.length} confirmed closed window dates, ` +
+          `expected ≥ ${l.fact.minDays}` +
+          (scheduled.length
+            ? `; closure scheduled but unconfirmed on ${scheduled.join(', ')} (the feed alone can't tell a closure ` +
+              'from deleted stop_times: the live generation from an earlier feed or an ATTESTED_CLOSURES entry ' +
+              'confirms a date)'
+            : ''),
       )
     c.note?.(
       `golden: ${name}: ${operating.length} service dates to ${c.feedEnd}, ` +
         `${served.length}/${c.windowDates.length} window dates served` +
-        (corroborated.length ? `, closure confirmed on ${corroborated.join(', ')}` : '') +
-        (unproven.length ? `, closure unconfirmed on ${unproven.join(', ')}` : ''),
+        (confirmed.length ? `, closure confirmed on ${confirmed.join(', ')}` : '') +
+        (scheduled.length ? `, closure scheduled but unconfirmed on ${scheduled.join(', ')}` : ''),
     )
   }
   return out

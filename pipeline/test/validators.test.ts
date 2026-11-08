@@ -599,39 +599,43 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
   /** The live 4 Nov generation (feed 20261103): service dates 3–10 Nov, no Bulimba stop-day on 9–10 Nov. */
   const LIVE_4_NOV = (d: string) => (d > '20261110' ? undefined : d >= '20261109' ? 'unserved' : 'served')
 
-  it('the 9 Nov build passes: 1 served date, 4 closure dates confirmed by removals and the earlier generation', () => {
+  it('the 9 Nov build: the earlier generation confirms 9–10 Nov, the weekday closure needs the attestation', () => {
+    // 1 served + 2 confirmed by the live 4 Nov generation < 5. The 14–15 Nov removals show the closure is scheduled,
+    // but don't count: one service's removal can't show another wasn't deleted.
+    expect(check({ previous: LIVE_4_NOV })).toEqual([
+      'golden: Bulimba ferry terminal (ferry 317584) has 1 served and 2 confirmed closed window dates, expected ≥ 5; ' +
+        'closure scheduled but unconfirmed on 20261111 (MT), 20261112 (MT), 20261113 (FR), 20261114 (SA), 20261115 (SU) ' +
+        "(the feed alone can't tell a closure from deleted stop_times: the live generation from an earlier feed or " +
+        'an ATTESTED_CLOSURES entry confirms a date)',
+    ])
     const notes: string[] = []
     const calendar = new ServiceCalendar(ROWS, EXCEPTIONS)
-    const window = dates('20261108', 8)
     expect(
       checkGoldenLandmarks([evidence(calendar, { previous: LIVE_4_NOV })], {
         calendar,
         calendarRows: ROWS,
-        windowDates: window,
+        windowDates: dates('20261108', 8),
         feedEnd: '20270106',
-        attested: [],
+        attested: [ATTESTED],
         note: (l) => notes.push(l),
       }),
     ).toEqual([])
-    expect(notes).toEqual([
-      'golden: Bulimba ferry terminal (ferry 317584): 24 service dates to 20270106, 1/8 window dates served, ' +
-        'closure confirmed on 20261109 (MT; previous generation), 20261110 (MT; previous generation), ' +
-        '20261114 (SA; SA removed), 20261115 (SU; SU removed), ' +
-        'closure unconfirmed on 20261111 (MT), 20261112 (MT), 20261113 (FR)',
-    ])
+    expect(notes.join()).toMatch(
+      /24 service dates to 20270106, 1\/8 window dates served, closure confirmed on 20261109 \(MT; attested notice\), .*20261115 \(SU; attested notice\)$/,
+    )
   })
 
-  it('weekday closure dates shown only by a later start date are not proof on their own', () => {
-    // Without the earlier generation: 1 served + 2 removals < 5.
+  it('closure dates shown only by the calendar are not proof on their own', () => {
     expect(check({}).join('\n')).toMatch(
-      /Bulimba ferry terminal \(ferry 317584\) has 1 served and 2 confirmed closed window dates, expected ≥ 5; unconfirmed closure on 20261109 \(MT\), .*20261113 \(FR\)/,
+      /has 1 served and 0 confirmed closed window dates, expected ≥ 5; closure scheduled but unconfirmed on 20261109 \(MT\), .*20261115 \(SU\)/,
     )
     // A reviewed attestation confirms them, for every window of the closure and across the reopening.
     for (const start of ['20261108', '20261109', '20261120', '20261206', '20261213'])
       expect(check({ window: dates(start, 8), attested: [ATTESTED] })).toEqual([])
     // Only for its own landmark and dates.
     expect(check({ attested: [{ ...ATTESTED, key: '317590' }] })).toHaveLength(1)
-    expect(check({ attested: [{ ...ATTESTED, to: '20261109' }] })).toHaveLength(1)
+    expect(check({ attested: [{ ...ATTESTED, to: '20261111' }] })).toHaveLength(1)
+    expect(check({ attested: [{ ...ATTESTED, to: '20261112' }] })).toEqual([])
   })
 
   it("an attestation can't excuse what the calendar doesn't close, a lost stop-day or a missing reopening", () => {
@@ -652,7 +656,8 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
       row('D', '1111111', '20261101', '20270106'),
       row('W', '0000011', '20261101', '20270106'),
     ]
-    expect(check({ rows: stripped, exceptions: [], services: new Set(['W']), attested })).toHaveLength(5)
+    // Five unscheduled weekdays, and only 3 served dates.
+    expect(check({ rows: stripped, exceptions: [], services: new Set(['W']), attested })).toHaveLength(6)
     const ends = [row('D', '1111111', '20261101', '20261112')]
     expect(check({ rows: ends, exceptions: [], services: new Set(['D']), attested }).join()).toMatch(
       /none after it/,
@@ -701,14 +706,15 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
     // A daily landmark served by D (every day) and W (weekends): D's trips lose their landmark rows, so D no longer
     // counts as a landmark service. The route still runs on weekdays and no landmark service closes those days.
     const rows = [row('D', '1111111', '20261101', '20270106'), row('W', '0000011', '20261101', '20270106')]
-    expect(check({ rows, exceptions: [], services: new Set(['W']) })).toEqual(
-      ['20261109', '20261110', '20261111', '20261112', '20261113'].map(
+    expect(check({ rows, exceptions: [], services: new Set(['W']) })).toEqual([
+      ...['20261109', '20261110', '20261111', '20261112', '20261113'].map(
         (d) =>
           `golden: Bulimba ferry terminal (ferry 317584) has no service on ${d} and the calendar doesn't schedule a closure`,
       ),
-    )
+      'golden: Bulimba ferry terminal (ferry 317584) has 3 served and 0 confirmed closed window dates, expected ≥ 5',
+    ])
     // With a later weekday timetable still serving it (X from 1 Dec) the gap looks like a delayed start, but nothing
-    // confirms those dates: it fails, with or without the route running, and even next to genuine weekend removals.
+    // confirms those dates: it fails, with or without the route running, and next to genuine weekend removals.
     const later = [...rows, row('X', '1111100', '20261201', '20270106')]
     const services = new Set(['W', 'X'])
     const weekendRemovals = ['20261108', '20261114', '20261115'].map((date) => ({
@@ -718,19 +724,49 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
     }))
     for (const c of [{ routeRuns: () => true }, { routeRuns: () => false }, { exceptions: weekendRemovals }])
       expect(check({ rows: later, exceptions: [], services, ...c }).join('\n')).toMatch(
-        /unconfirmed closure on 20261109 \(X\), 20261110 \(X\), 20261111 \(X\), 20261112 \(X\), 20261113 \(X\)/,
+        /closure scheduled but unconfirmed on (20261108 \(W\), )?20261109 \(X\), 20261110 \(X\), 20261111 \(X\), 20261112 \(X\), 20261113 \(X\)/,
       )
   })
 
-  it('a closure date the live generation served needs a removal or an attestation', () => {
+  it("one service's cancellations can't confirm dates another service's deleted calls left empty", () => {
+    // A and B both serve the landmark daily; B is genuinely cancelled on four dates. A's landmark calls are deleted,
+    // so those four dates are empty and look like B's scheduled closure: 4 served, 0 confirmed.
+    const rows = [row('A', '1111111', '20261101', '20270106'), row('B', '1111111', '20261101', '20270106')]
+    const exceptions = ['20261109', '20261110', '20261111', '20261112'].map((date) => ({
+      service_id: 'B',
+      date,
+      exception_type: '2',
+    }))
+    for (const previous of [undefined, () => 'served' as const])
+      expect(
+        check({ rows, exceptions, services: new Set(['B']), ...(previous ? { previous } : {}) }),
+      ).toEqual([
+        'golden: Bulimba ferry terminal (ferry 317584) has 4 served and 0 confirmed closed window dates, expected ≥ 5; ' +
+          'closure scheduled but unconfirmed on 20261109 (B), 20261110 (B), 20261111 (B), 20261112 (B) ' +
+          "(the feed alone can't tell a closure from deleted stop_times: the live generation from an earlier feed or " +
+          'an ATTESTED_CLOSURES entry confirms a date)',
+      ])
+  })
+
+  it('weekday calls deleted from a weekday-only route still fail the five-date floor', () => {
+    // Only the weekend route's calls survive, so weekdays aren't even expected: 3 served dates are still too few.
+    const rows = [row('WD', '1111100', '20261101', '20270106'), row('WE', '0000011', '20261101', '20270106')]
+    const weekend = (d: string) => dow(d) === 0 || dow(d) === 6
+    expect(check({ rows, exceptions: [], services: new Set(['WE']), routeRuns: weekend })).toEqual([
+      'golden: Bulimba ferry terminal (ferry 317584) has 3 served and 0 confirmed closed window dates, expected ≥ 5',
+    ])
+  })
+
+  it('dates the live generation served are not confirmed closed; an attestation is', () => {
     const rows = [row('D', '1111111', '20261101', '20270106'), row('X', '1111111', '20261201', '20270106')]
     const served = () => 'served' as const
-    expect(check({ rows, exceptions: [], services: new Set(['X']), previous: served })).toHaveLength(8)
     expect(check({ rows, exceptions: [], services: new Set(['X']), previous: served }).join('\n')).toMatch(
-      /has no service on 20261108, which the live generation served: X's calendar excludes it/,
+      /has 0 served and 0 confirmed closed window dates, expected ≥ 5; closure scheduled but unconfirmed on 20261108 \(X\)/,
     )
     const attested = [{ ...ATTESTED, from: '20261101', to: '20261130' }]
     expect(check({ rows, exceptions: [], services: new Set(['X']), previous: served, attested })).toEqual([])
+    // And dates it didn't serve, from an earlier feed, are.
+    expect(check({ rows, exceptions: [], services: new Set(['X']), previous: () => 'unserved' })).toEqual([])
   })
 
   it('unconfirmed closure dates are tolerated while ≥ 5 window dates are served or confirmed (the old rule)', () => {
@@ -822,7 +858,7 @@ describe('golden landmarks in the build (synthetic SEQ-shaped feed)', () => {
     const r = await build(closedBulimba(), ['ferry'], { attestedClosures: [BULIMBA_OCT] })
     expect(r.modes.map((m) => [m.mode, m.quarantined])).toEqual([['ferry', []]])
     await expect(build(closedBulimba(), ['ferry'], { attestedClosures: [] })).rejects.toThrow(
-      /Bulimba ferry terminal \(ferry 317584\) has 0 served and 2 confirmed closed window dates, expected ≥ 5; unconfirmed closure on 20261019 \(WKB\)/,
+      /Bulimba ferry terminal \(ferry 317584\) has 0 served and 0 confirmed closed window dates, expected ≥ 5; closure scheduled but unconfirmed on 20261019 \(WKB\)/,
     )
   })
 
@@ -892,7 +928,7 @@ describe('golden landmarks in the build (synthetic SEQ-shaped feed)', () => {
     const r = await trainBuild(closedCentral(), await tmp(), [CENTRAL_OCT])
     expect(r.modes.map((m) => m.mode)).toEqual(['train'])
     await expect(trainBuild(closedCentral(), await tmp(), [])).rejects.toThrow(
-      /Central station \(train central\) has 0 served and 0 confirmed closed window dates, expected ≥ 5; unconfirmed closure on 20261019 \(WKX\)/,
+      /Central station \(train central\) has 0 served and 0 confirmed closed window dates, expected ≥ 5; closure scheduled but unconfirmed on 20261019 \(WKX\)/,
     )
   })
 
@@ -906,6 +942,8 @@ describe('golden landmarks in the build (synthetic SEQ-shaped feed)', () => {
     const r = await trainBuild(closedCentral(), out, [])
     expect(r.modes.map((m) => m.mode)).toEqual(['train'])
     // Now the live generation is this feed's own: a rebuild over it, unattested, has no evidence.
-    await expect(trainBuild(closedCentral(), out, [])).rejects.toThrow(/unconfirmed closure on 20261019/)
+    await expect(trainBuild(closedCentral(), out, [])).rejects.toThrow(
+      /closure scheduled but unconfirmed on 20261019/,
+    )
   })
 })
