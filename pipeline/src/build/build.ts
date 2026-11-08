@@ -35,6 +35,7 @@ import { type Feed, loadFeed, scanStopCalls, type TripRow } from '../feed/load.t
 import { feedContentHash } from '../feed/source.ts'
 import { DirTarget, type Reader, readJson } from '../publish/targets.ts'
 import {
+  type AttestedClosure,
   checkCoversToday,
   checkFeedEndDate,
   checkGoldenLandmarks,
@@ -75,6 +76,8 @@ export interface BuildOptions {
   accept?: string[]
   /** Apply SEQ golden facts (default: when agency is Translink). */
   golden?: boolean
+  /** Reviewed closures of golden landmarks (default ATTESTED_CLOSURES). */
+  attestedClosures?: AttestedClosure[]
   legacy?: boolean
   /** Measurement hook, called for every stop-day blob. */
   onStopDay?: (info: { mode: Mode; date: string; key: string; json: string; gzBytes: number; isNew: boolean }) => void
@@ -254,8 +257,8 @@ export async function runBuild(opts: BuildOptions): Promise<BuildResult> {
         calendar: feed.calendar,
         calendarRows: feed.calendarRows,
         windowDates: dates,
-        feedStart: coverage.start,
         feedEnd: coverage.end,
+        ...(opts.attestedClosures ? { attested: opts.attestedClosures } : {}),
         note: log,
       },
     )
@@ -469,8 +472,8 @@ async function landmarkEvidence(
       },
       ...(prev
         ? {
-            previouslyUnserved: (date: string) =>
-              prev.serviceDates.includes(date) && !(fact.key in (prev.blobs[date] ?? {})),
+            previous: (date: string) =>
+              prev.serviceDates.includes(date) ? (fact.key in (prev.blobs[date] ?? {}) ? 'served' : 'unserved') : undefined,
           }
         : {}),
     }

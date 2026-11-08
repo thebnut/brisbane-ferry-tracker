@@ -2,12 +2,13 @@ import { existsSync } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { CalendarDateRow, CalendarRow, GenerationIndex, Manifest } from '@bft/core'
+import type { CalendarDateRow, CalendarRow, GenerationIndex, Manifest, Mode } from '@bft/core'
 import { addDays, ServiceCalendar } from '@bft/core'
 import { describe, expect, it } from 'vitest'
-import { runBuild } from '../src/build/build.ts'
+import { type BuildOptions, runBuild } from '../src/build/build.ts'
 import { StructuralError } from '../src/feed/load.ts'
 import {
+  type AttestedClosure,
   checkFeedEndDate,
   checkGoldenLandmarks,
   feedCoverage,
@@ -518,6 +519,7 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
     } as CalendarRow
   }
   const dates = (from: string, n: number) => Array.from({ length: n }, (_, i) => addDays(from, i))
+  const dow = (d: string) => new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}T00:00:00Z`).getUTCDay()
   const BULIMBA: GoldenFact = { mode: 'ferry', key: '317584', label: 'Bulimba ferry terminal', minDays: 5 }
   const RIVERSIDE: GoldenFact = {
     mode: 'ferry',
@@ -525,10 +527,17 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
     label: 'Riverside ferry terminal',
     minDays: 5,
   }
+  const ATTESTED: AttestedClosure = {
+    mode: 'ferry',
+    key: '317584',
+    from: '20261109',
+    to: '20261213',
+    source: 'notice',
+  }
 
   // The real closure (feed 20261107-20270106, Bulimba closed 9 Nov–13 Dec): Mon–Thu service starts 14 Dec, Friday
   // service 18 Dec, weekend services removed by calendar_dates 14 Nov–13 Dec (Sunday added back on 25 Dec). CL is the
-  // closure timetable: its trips run every day but don't call at Bulimba.
+  // closure timetable: its trips run every day but don't board at Bulimba.
   const ROWS = [
     row('MT', '1111000', '20261214', '20270106'),
     row('FR', '0000100', '20261218', '20261218'),
@@ -537,11 +546,11 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
     row('CL', '1111111', '20261107', '20270106'),
   ]
   const EXCEPTIONS: CalendarDateRow[] = [
-    ...dates('20261114', 30).flatMap((d) =>
-      new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}T00:00:00Z`).getUTCDay() === 6
-        ? [{ service_id: 'SA', date: d, exception_type: '2' }]
-        : new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}T00:00:00Z`).getUTCDay() === 0
-          ? [{ service_id: 'SU', date: d, exception_type: '2' }]
+    ...dates('20261114', 30).flatMap((date) =>
+      dow(date) === 6
+        ? [{ service_id: 'SA', date, exception_type: '2' }]
+        : dow(date) === 0
+          ? [{ service_id: 'SU', date, exception_type: '2' }]
           : [],
     ),
     { service_id: 'SU', date: '20261225', exception_type: '1' },
@@ -555,9 +564,10 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
     fact?: GoldenFact
     window?: string[]
     feedEnd?: string
+    attested?: AttestedClosure[]
     served?: (date: string, byCalendar: boolean) => boolean
     routeRuns?: (date: string) => boolean
-    previouslyUnserved?: (date: string) => boolean
+    previous?: (date: string) => 'served' | 'unserved' | undefined
   }
   const evidence = (calendar: ServiceCalendar, c: Case): LandmarkEvidence => {
     const services = c.services ?? BULIMBA_SERVICES
@@ -568,7 +578,7 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
       routes: new Set(['F1']),
       served: (d) => (c.served ? c.served(d, byCalendar(d)) : byCalendar(d)),
       routeRuns: c.routeRuns ?? (() => true),
-      ...(c.previouslyUnserved ? { previouslyUnserved: c.previouslyUnserved } : {}),
+      ...(c.previous ? { previous: c.previous } : {}),
     }
   }
   const check = (...cases: Case[]) => {
@@ -582,41 +592,84 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
         calendarRows: rows,
         windowDates: first.window ?? dates('20261108', 8),
         feedEnd: first.feedEnd ?? '20270106',
+        attested: first.attested ?? [],
       },
     )
   }
+  /** The live 4 Nov generation (feed 20261103): service dates 3–10 Nov, no Bulimba stop-day on 9–10 Nov. */
+  const LIVE_4_NOV = (d: string) => (d > '20261110' ? undefined : d >= '20261109' ? 'unserved' : 'served')
 
-  it('a scheduled closure passes: delayed weekday start, type-2 weekend removals, reopening in the feed', () => {
+  it('the 9 Nov build passes: 1 served date, 4 closure dates confirmed by removals and the earlier generation', () => {
     const notes: string[] = []
     const calendar = new ServiceCalendar(ROWS, EXCEPTIONS)
+    const window = dates('20261108', 8)
     expect(
-      checkGoldenLandmarks([evidence(calendar, {})], {
+      checkGoldenLandmarks([evidence(calendar, { previous: LIVE_4_NOV })], {
         calendar,
         calendarRows: ROWS,
-        windowDates: dates('20261108', 8),
+        windowDates: window,
         feedEnd: '20270106',
+        attested: [],
         note: (l) => notes.push(l),
       }),
     ).toEqual([])
-    expect(notes.join()).toMatch(
-      /Bulimba ferry terminal \(ferry 317584\): 24 service dates to 20270106, 1\/8 window dates served, scheduled closure on 20261109 \(MT; removal 20261114\).*20261113 \(FR; removal 20261114\), 20261114 \(SA; removal 20261114\), 20261115 \(SU; removal 20261115\)/,
+    expect(notes).toEqual([
+      'golden: Bulimba ferry terminal (ferry 317584): 24 service dates to 20270106, 1/8 window dates served, ' +
+        'closure confirmed on 20261109 (MT; previous generation), 20261110 (MT; previous generation), ' +
+        '20261114 (SA; SA removed), 20261115 (SU; SU removed), ' +
+        'closure unconfirmed on 20261111 (MT), 20261112 (MT), 20261113 (FR)',
+    ])
+  })
+
+  it('weekday closure dates shown only by a later start date are not proof on their own', () => {
+    // Without the earlier generation: 1 served + 2 removals < 5.
+    expect(check({}).join('\n')).toMatch(
+      /Bulimba ferry terminal \(ferry 317584\) has 1 served and 2 confirmed closed window dates, expected ≥ 5; unconfirmed closure on 20261109 \(MT\), .*20261113 \(FR\)/,
     )
-    // Every window inside the closure, and the window across the reopening.
-    for (const start of ['20261109', '20261120', '20261206', '20261213'])
-      expect(check({ window: dates(start, 8) })).toEqual([])
+    // A reviewed attestation confirms them, for every window of the closure and across the reopening.
+    for (const start of ['20261108', '20261109', '20261120', '20261206', '20261213'])
+      expect(check({ window: dates(start, 8), attested: [ATTESTED] })).toEqual([])
+    // Only for its own landmark and dates.
+    expect(check({ attested: [{ ...ATTESTED, key: '317590' }] })).toHaveLength(1)
+    expect(check({ attested: [{ ...ATTESTED, to: '20261109' }] })).toHaveLength(1)
+  })
+
+  it("an attestation can't excuse what the calendar doesn't close, a lost stop-day or a missing reopening", () => {
+    const attested = [{ ...ATTESTED, from: '20261101', to: '20270106' }]
+    const daily = [row('D', '1111111', '20261101', '20270106')]
+    expect(
+      check({
+        rows: daily,
+        exceptions: [],
+        services: new Set(['D']),
+        attested,
+        served: (d, cal) => cal && d !== '20261110',
+      }),
+    ).toEqual([
+      'golden: Bulimba ferry terminal (ferry 317584) has a service boarding at it on 20261110, but the build has no stop-day there',
+    ])
+    const stripped = [
+      row('D', '1111111', '20261101', '20270106'),
+      row('W', '0000011', '20261101', '20270106'),
+    ]
+    expect(check({ rows: stripped, exceptions: [], services: new Set(['W']), attested })).toHaveLength(5)
+    const ends = [row('D', '1111111', '20261101', '20261112')]
+    expect(check({ rows: ends, exceptions: [], services: new Set(['D']), attested }).join()).toMatch(
+      /none after it/,
+    )
   })
 
   it('a healthy sibling landmark is still checked while the other is closed', () => {
     const sibling: Case = { fact: RIVERSIDE, services: new Set(['CL']) }
-    expect(check({}, sibling)).toEqual([])
+    expect(check({ attested: [ATTESTED] }, sibling)).toEqual([])
     const lostDay = { ...sibling, served: (d: string, cal: boolean) => cal && d !== '20261111' }
-    expect(check({}, lostDay)).toEqual([
+    expect(check({ attested: [ATTESTED] }, lostDay)).toEqual([
       'golden: Riverside ferry terminal (ferry 317590) has a service boarding at it on 20261111, but the build has no stop-day there',
     ])
   })
 
   it('the landmark removed from the whole feed fails', () => {
-    expect(check({ services: new Set() }).join()).toMatch(
+    expect(check({ services: new Set(), attested: [ATTESTED] }).join()).toMatch(
       /Bulimba ferry terminal \(ferry 317584\) has service on 0 dates from 20261108 to the feed end 20270106, expected ≥ 5/,
     )
   })
@@ -630,15 +683,16 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
 
   it('service that ends in the window without reopening fails, even with ≥ 5 dates', () => {
     const rows = [row('D', '1111111', '20261101', '20261112')]
-    expect(check({ rows, exceptions: [], services: new Set(['D']) })).toEqual([
-      'golden: Bulimba ferry terminal (ferry 317584) has no service on 20261113 and none after it: a closure must reopen within the feed',
-      'golden: Bulimba ferry terminal (ferry 317584) has no service on 20261114 and none after it: a closure must reopen within the feed',
-      'golden: Bulimba ferry terminal (ferry 317584) has no service on 20261115 and none after it: a closure must reopen within the feed',
-    ])
+    expect(check({ rows, exceptions: [], services: new Set(['D']) })).toEqual(
+      ['20261113', '20261114', '20261115'].map(
+        (d) =>
+          `golden: Bulimba ferry terminal (ferry 317584) has no service on ${d} and none after it: a closure must reopen within the feed`,
+      ),
+    )
   })
 
   it('an expected in-window stop-day missing from the build fails', () => {
-    expect(check({ served: (d, cal) => cal && d !== '20261108' })).toEqual([
+    expect(check({ attested: [ATTESTED], served: (d, cal) => cal && d !== '20261108' })).toEqual([
       'golden: Bulimba ferry terminal (ferry 317584) has a service boarding at it on 20261108, but the build has no stop-day there',
     ])
   })
@@ -653,74 +707,51 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
           `golden: Bulimba ferry terminal (ferry 317584) has no service on ${d} and the calendar doesn't schedule a closure`,
       ),
     )
-    // A later weekday timetable that still serves it (X from 1 Dec) makes the gap look like a delayed start, but
-    // nothing corroborates a closure, also when the trips were deleted outright (no route runs): the landmark's
-    // weekly pattern still expects those weekdays.
+    // With a later weekday timetable still serving it (X from 1 Dec) the gap looks like a delayed start, but nothing
+    // confirms those dates: it fails, with or without the route running, and even next to genuine weekend removals.
     const later = [...rows, row('X', '1111100', '20261201', '20270106')]
-    for (const routeRuns of [() => true, () => false])
-      expect(
-        check({ rows: later, exceptions: [], services: new Set(['W', 'X']), routeRuns }).join('\n'),
-      ).toMatch(/has no service on 20261109: X's calendar excludes it, but nothing corroborates a closure/)
+    const services = new Set(['W', 'X'])
+    const weekendRemovals = ['20261108', '20261114', '20261115'].map((date) => ({
+      service_id: 'W',
+      date,
+      exception_type: '2',
+    }))
+    for (const c of [{ routeRuns: () => true }, { routeRuns: () => false }, { exceptions: weekendRemovals }])
+      expect(check({ rows: later, exceptions: [], services, ...c }).join('\n')).toMatch(
+        /unconfirmed closure on 20261109 \(X\), 20261110 \(X\), 20261111 \(X\), 20261112 \(X\), 20261113 \(X\)/,
+      )
   })
 
-  it('service boundaries alone are not a closure: a removal in the closure period or the previous generation is', () => {
-    // D's trips no longer board at the landmark; X, a later timetable, does. In this feed that is indistinguishable
-    // from a closure that delays X's start, so it fails closed on every window date.
+  it('a closure date the live generation served needs a removal or an attestation', () => {
     const rows = [row('D', '1111111', '20261101', '20270106'), row('X', '1111111', '20261201', '20270106')]
-    expect(check({ rows, exceptions: [], services: new Set(['X']) })).toHaveLength(8)
-    // A calendar_dates removal of a date a landmark service would run, inside the same unbroken closure period,
-    // corroborates it: here a weekend service removed every weekend until X starts, as Bulimba's are.
-    const weekend = [...rows, row('W', '0000011', '20261101', '20270106')]
-    const removed = [
-      '20261107',
-      '20261108',
-      '20261114',
-      '20261115',
-      '20261121',
-      '20261122',
-      '20261128',
-      '20261129',
-    ]
-    const services = new Set(['X', 'W'])
-    const exceptions = removed.map((date) => ({ service_id: 'W', date, exception_type: '2' }))
-    expect(check({ rows: weekend, exceptions, services })).toEqual([])
-    // A removal outside the closure period doesn't: with the weekends served, each weekday gap stands alone.
-    expect(
-      check({
-        rows: weekend,
-        exceptions: [{ service_id: 'W', date: '20261212', exception_type: '2' }],
-        services,
-      }),
-    ).toHaveLength(5)
-    // An earlier generation with no stop-day on those dates corroborates the dates it covers, and only those.
-    expect(check({ rows, exceptions: [], services: new Set(['X']), previouslyUnserved: () => true })).toEqual(
-      [],
+    const served = () => 'served' as const
+    expect(check({ rows, exceptions: [], services: new Set(['X']), previous: served })).toHaveLength(8)
+    expect(check({ rows, exceptions: [], services: new Set(['X']), previous: served }).join('\n')).toMatch(
+      /has no service on 20261108, which the live generation served: X's calendar excludes it/,
     )
-    expect(
-      check({ rows, exceptions: [], services: new Set(['X']), previouslyUnserved: (d) => d <= '20261110' }),
-    ).toHaveLength(5)
+    const attested = [{ ...ATTESTED, from: '20261101', to: '20261130' }]
+    expect(check({ rows, exceptions: [], services: new Set(['X']), previous: served, attested })).toEqual([])
   })
 
-  it('a type-2 removal of a daily service is a scheduled closure of that day', () => {
+  it('unconfirmed closure dates are tolerated while ≥ 5 window dates are served or confirmed (the old rule)', () => {
+    // A daily landmark whose Saturday service starts a week late: one unconfirmed date, seven served.
+    const rows = [row('WD', '1111101', '20261101', '20270106'), row('SA', '0000010', '20261115', '20270106')]
+    expect(check({ rows, exceptions: [], services: new Set(['WD', 'SA']) })).toEqual([])
+  })
+
+  it('a type-2 removal of a daily service confirms that day', () => {
     const rows = [row('D', '1111111', '20261101', '20270106')]
     const exceptions = [{ service_id: 'D', date: '20261111', exception_type: '2' }]
     expect(check({ rows, exceptions, services: new Set(['D']) })).toEqual([])
-    // Not when the build drops a different day.
     expect(
       check({ rows, exceptions, services: new Set(['D']), served: (d, cal) => cal && d !== '20261112' }),
     ).toHaveLength(1)
   })
 
   it('a type-1 added date counts as service and must be built', () => {
-    // SU adds Wednesday 11 Nov: the build must serve it. It also splits the closure period, so 9–10 Nov need their
-    // own corroboration (here the previous generation).
     const exceptions = [...EXCEPTIONS, { service_id: 'SU', date: '20261111', exception_type: '1' }]
-    const previouslyUnserved = (d: string) => d === '20261109' || d === '20261110'
-    expect(check({ exceptions, previouslyUnserved })).toEqual([])
-    expect(check({ exceptions }).join('\n')).toMatch(
-      /no service on 20261109: MT's calendar excludes it, but nothing corroborates/,
-    )
-    expect(check({ exceptions, previouslyUnserved, served: (d, cal) => cal && d !== '20261111' })).toEqual([
+    expect(check({ exceptions, attested: [ATTESTED] })).toEqual([])
+    expect(check({ exceptions, attested: [ATTESTED], served: (d, cal) => cal && d !== '20261111' })).toEqual([
       'golden: Bulimba ferry terminal (ferry 317584) has a service boarding at it on 20261111, but the build has no stop-day there',
     ])
   })
@@ -741,6 +772,7 @@ describe('checkGoldenLandmarks (closure-aware)', () => {
 })
 
 describe('golden landmarks in the build (synthetic SEQ-shaped feed)', () => {
+  const dates = (from: string, n: number) => Array.from({ length: n }, (_, i) => addDays(from, i))
   /** The synthetic ferries only alight at Riverside; add a return trip each day so it has stop-days, as in SEQ. */
   const withRiversideBoarding = (f: SynthFeed) => {
     for (const sid of ['WK', 'WE']) {
@@ -752,9 +784,9 @@ describe('golden landmarks in the build (synthetic SEQ-shaped feed)', () => {
     }
     return f
   }
-  const ferryBuild = (feed: SynthFeed) =>
+  const build = (feed: SynthFeed, modes: Mode[], extra: Partial<BuildOptions> = {}) =>
     writeFeed(feed).then(async (feedDir) =>
-      runBuild({ feedDir, outDir: await tmp(), nowMs: NOW, modes: ['ferry'], golden: true }),
+      runBuild({ feedDir, outDir: await tmp(), nowMs: NOW, modes, golden: true, ...extra }),
     )
   /**
    * Bulimba closed for the window (19–26 Oct): its F1/F11 trips move to services starting 2 Nov (weekdays) and to
@@ -769,8 +801,7 @@ describe('golden landmarks in the build (synthetic SEQ-shaped feed)', () => {
     const st = f['stop_times.txt'] as string[][]
     for (const t of trips.slice(1)) {
       if (!(t[0] as string).startsWith('F')) continue
-      const callsBulimba = st.some((r) => r[0] === t[2] && r[3] === '317584')
-      if (!callsBulimba) continue
+      if (!st.some((r) => r[0] === t[2] && r[3] === '317584')) continue
       const skip = [...t]
       skip[2] = `${t[2]}-skip`
       trips.push(skip)
@@ -779,25 +810,38 @@ describe('golden landmarks in the build (synthetic SEQ-shaped feed)', () => {
     }
     return f
   }
+  const BULIMBA_OCT: AttestedClosure = {
+    mode: 'ferry',
+    key: '317584',
+    from: '20261019',
+    to: '20261101',
+    source: 'test',
+  }
 
-  it('a scheduled closure of Bulimba passes, and Riverside stays served', async () => {
-    const r = await ferryBuild(closedBulimba())
+  it('an attested closure of Bulimba passes, Riverside stays checked; unattested it fails closed', async () => {
+    const r = await build(closedBulimba(), ['ferry'], { attestedClosures: [BULIMBA_OCT] })
     expect(r.modes.map((m) => [m.mode, m.quarantined])).toEqual([['ferry', []]])
+    await expect(build(closedBulimba(), ['ferry'], { attestedClosures: [] })).rejects.toThrow(
+      /Bulimba ferry terminal \(ferry 317584\) has 0 served and 2 confirmed closed window dates, expected ≥ 5; unconfirmed closure on 20261019 \(WKB\)/,
+    )
   })
 
-  it("Bulimba's stop_times rows deleted can't pass as a closure", async () => {
+  it("Bulimba's stop_times rows deleted can't pass as a closure, attested or not", async () => {
     const f = withoutStopTimes(
       withRiversideBoarding(baseFeed()),
       (r, trip) => r[3] === '317584' && trip[1] === 'WK',
     )
-    await expect(ferryBuild(f)).rejects.toThrow(
+    await expect(build(f, ['ferry'], { attestedClosures: [BULIMBA_OCT] })).rejects.toThrow(
       /golden: Bulimba ferry terminal \(ferry 317584\) has no service on 20261019 and the calendar doesn't schedule a closure/,
     )
   })
 
   it('Bulimba removed from the whole feed fails', async () => {
     await expect(
-      ferryBuild(withoutStopTimes(withRiversideBoarding(baseFeed()), (r) => r[3] === '317584')),
+      build(
+        withoutStopTimes(withRiversideBoarding(baseFeed()), (r) => r[3] === '317584'),
+        ['ferry'],
+      ),
     ).rejects.toThrow(/Bulimba ferry terminal \(ferry 317584\) has service on 0 dates/)
   })
 
@@ -805,22 +849,19 @@ describe('golden landmarks in the build (synthetic SEQ-shaped feed)', () => {
     const f = closedBulimba()
     for (const r of f['calendar.txt'] as string[][]) if (r[0] === 'WKB') r[8] = '20270101'
     f['calendar_dates.txt']?.push(...dates('20261001', 92).flatMap((d) => [['WEB', d, '2']]))
-    await expect(ferryBuild(f)).rejects.toThrow(
+    await expect(build(f, ['ferry'], { attestedClosures: [BULIMBA_OCT] })).rejects.toThrow(
       /Bulimba ferry terminal \(ferry 317584\) has service on 0 dates/,
     )
   })
-
-  const dates = (from: string, n: number) => Array.from({ length: n }, (_, i) => addDays(from, i))
 
   /**
    * Central closed for the whole window: every train trip that touches it moves to WKX (weekdays from 28 Oct), and
    * copies that call at a stand-in stop (1001) instead keep the line running, so no window trip gives Central its
    * station key and the other stations keep their boardings.
    */
-  const closedCentral = (removal: boolean) => {
+  const closedCentral = () => {
     const f = baseFeed()
     f['calendar.txt']?.push(['WKX', '1', '1', '1', '1', '1', '0', '0', '20261028', '20261231'])
-    if (removal) f['calendar_dates.txt']?.push(['WKX', '20261028', '2'])
     const central = new Set(['600016', '600017'])
     const trips = f['trips.txt'] as string[][]
     const st = f['stop_times.txt'] as string[][]
@@ -835,33 +876,36 @@ describe('golden landmarks in the build (synthetic SEQ-shaped feed)', () => {
     }
     return f
   }
-  const trainBuild = (feed: SynthFeed, previous?: string) =>
-    writeFeed(feed).then(async (feedDir) =>
-      runBuild({ feedDir, outDir: previous ?? (await tmp()), nowMs: NOW, modes: ['train'], golden: true }),
+  const CENTRAL_OCT: AttestedClosure = {
+    mode: 'train',
+    key: 'central',
+    from: '20261001',
+    to: '20261027',
+    source: 'test',
+  }
+  const trainBuild = (feed: SynthFeed, outDir: string, attestedClosures: AttestedClosure[]) =>
+    writeFeed(feed).then((feedDir) =>
+      runBuild({ feedDir, outDir, nowMs: NOW, modes: ['train'], golden: true, attestedClosures }),
     )
 
   it('a station closed for the whole window is still matched by name and checked against the whole feed', async () => {
-    const r = await trainBuild(closedCentral(true))
+    const r = await trainBuild(closedCentral(), await tmp(), [CENTRAL_OCT])
     expect(r.modes.map((m) => m.mode)).toEqual(['train'])
-  })
-
-  it('without a removal, a closure made only of a later start date fails closed', async () => {
-    await expect(trainBuild(closedCentral(false))).rejects.toThrow(
-      /golden: Central station \(train central\) has no service on 20261019: WKX's calendar excludes it, but nothing corroborates a closure/,
+    await expect(trainBuild(closedCentral(), await tmp(), [])).rejects.toThrow(
+      /Central station \(train central\) has 0 served and 0 confirmed closed window dates, expected ≥ 5; unconfirmed closure on 20261019 \(WKX\)/,
     )
   })
 
-  it('the previous generation from an earlier feed corroborates the dates it covers, a rebuild of this feed never', async () => {
-    // Publish a generation from a feed where Central is already closed (different feed: its start date differs).
+  it('the live generation from an earlier feed confirms the dates it covers; a rebuild of this feed never does', async () => {
+    // An earlier feed (its start date differs), its closure attested, goes live first.
     const out = await tmp()
-    const earlier = closedCentral(true)
+    const earlier = closedCentral()
     setCell(earlier, 'feed_info.txt', 1, 3, '20261002')
-    await trainBuild(earlier, out)
-    // This feed has no removal; the earlier generation covers 19–26 Oct with no Central stop-day.
-    const r = await trainBuild(closedCentral(false), out)
+    await trainBuild(earlier, out, [CENTRAL_OCT])
+    // This feed, unattested: the live generation covers 19–26 Oct with no Central stop-day.
+    const r = await trainBuild(closedCentral(), out, [])
     expect(r.modes.map((m) => m.mode)).toEqual(['train'])
-    // Rebuilding the uncorroborated feed over its own output gives no evidence.
-    const same = await tmp()
-    await expect(trainBuild(closedCentral(false), same)).rejects.toThrow(/nothing corroborates a closure/)
+    // Now the live generation is this feed's own: a rebuild over it, unattested, has no evidence.
+    await expect(trainBuild(closedCentral(), out, [])).rejects.toThrow(/unconfirmed closure on 20261019/)
   })
 })
