@@ -71,7 +71,7 @@ describe('legacy ferry handoff (public/handoff-ferry.js)', () => {
       'brisbane-ferry-remember-selection': 'true',
     }
     const home = run('https://www.brisbaneferry.com/?utm_source=x', local)
-    expect(home.went?.startsWith(`${T}/ferry?utm_source=x${HANDOFF_PREFIX}`)).toBe(true)
+    expect(home.went?.startsWith(`${T}/ferry/?utm_source=x${HANDOFF_PREFIX}`)).toBe(true)
     const went = home.went as string
     const payload = decodeHandoff(went.slice(went.indexOf(HANDOFF_PREFIX)))
     expect(payload?.ferry).toEqual({ pair: PAIR, remember: true })

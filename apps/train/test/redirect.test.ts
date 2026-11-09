@@ -34,14 +34,14 @@ const get = (path: string, env: Env, init: RequestInit = {}) =>
   worker.fetch(new Request(`${SITE}${path}`, init), env, {} as ExecutionContext) as Promise<Response>
 
 const PAGES: [string, string][] = [
-  ['/', '/train'],
+  ['/', '/train/'],
   ['/stations', '/train/stations'],
   ['/station/central', '/train/station/central'],
   ['/trip/abc', '/train/trip/abc'],
   ['/map', '/train/map'],
   ['/alerts', '/train/alerts'],
   ['/feedback', '/feedback'],
-  ['/nope', '/train'],
+  ['/nope', '/train/'],
 ]
 const EXCLUDED = [
   '/v1/x/departures',

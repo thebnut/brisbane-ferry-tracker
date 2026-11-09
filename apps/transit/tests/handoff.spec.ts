@@ -96,7 +96,7 @@ const CASES: {
       'brisbane-ferry-remember-selection': true,
     },
     from: '/',
-    to: '/ferry',
+    to: '/ferry/',
     card: /Ferry.*Bulimba → Riverside/,
     notice: 'Your 1 stop moved to My Transit',
   },

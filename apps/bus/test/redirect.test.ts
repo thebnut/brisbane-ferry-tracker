@@ -33,7 +33,7 @@ const get = (path: string, env: Env, init: RequestInit = {}) =>
   worker.fetch(new Request(`${SITE}${path}`, init), env, {} as ExecutionContext) as Promise<Response>
 
 const PAGES: [string, string][] = [
-  ['/', '/bus'],
+  ['/', '/bus/'],
   ['/nearby', '/bus/nearby'],
   ['/stop/10802', '/bus/stop/10802'],
   ['/trip/t1', '/bus/trip/t1'],
@@ -42,7 +42,7 @@ const PAGES: [string, string][] = [
   ['/alerts', '/bus/alerts'],
   ['/about', '/bus/about'],
   ['/feedback', '/feedback'],
-  ['/nope', '/bus'],
+  ['/nope', '/bus/'],
 ]
 const EXCLUDED = [
   '/v1/x/departures',

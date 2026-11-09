@@ -1,5 +1,5 @@
 {
-  "/ferry": [
+  "/ferry/": [
     "<meta charSet=\"utf-8\"/>",
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\"/>",
     "<meta name=\"theme-color\" content=\"#FF6B35\"/>",
@@ -22,7 +22,7 @@
     "<meta name=\"twitter:image\" content=\"https://bft-transit.brisbanetransit.workers.dev/ferry/og-image.jpg\"/>",
     "<script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"WebSite\",\"@id\":\"https://bft-transit.brisbanetransit.workers.dev/ferry/#website\",\"url\":\"https://bft-transit.brisbanetransit.workers.dev/ferry/\",\"name\":\"Brisbane Ferry\",\"alternateName\":[\"BrisbaneFerry Departure Boards\",\"Brisbane Ferry Tracker\"],\"inLanguage\":\"en-AU\"},{\"@type\":\"WebApplication\",\"@id\":\"https://bft-transit.brisbanetransit.workers.dev/ferry/#app\",\"url\":\"https://bft-transit.brisbanetransit.workers.dev/ferry/\",\"name\":\"Brisbane Ferry Tracker\",\"description\":\"Real-time departure boards for Brisbane CityCat and ferry services between any two terminals, with live vessel positions and the daily timetable.\",\"applicationCategory\":\"TravelApplication\",\"operatingSystem\":\"Any\",\"browserRequirements\":\"Requires JavaScript\",\"isAccessibleForFree\":true,\"offers\":{\"@type\":\"Offer\",\"price\":\"0\",\"priceCurrency\":\"AUD\"},\"image\":\"https://bft-transit.brisbanetransit.workers.dev/ferry/og-image.jpg\",\"isPartOf\":{\"@id\":\"https://bft-transit.brisbanetransit.workers.dev/ferry/#website\"},\"areaServed\":{\"@type\":\"City\",\"name\":\"Brisbane\"}}]}</script>"
   ],
-  "/train": [
+  "/train/": [
     "<meta charSet=\"utf-8\"/>",
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\"/>",
     "<meta name=\"theme-color\" content=\"#FF6B35\"/>",
@@ -42,7 +42,7 @@
     "<meta name=\"twitter:description\" content=\"Live departure boards for every Queensland Rail station in South East Queensland: next trains, platforms and platform changes, stopping patterns and line status.\"/>",
     "<script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"WebSite\",\"@id\":\"https://bft-transit.brisbanetransit.workers.dev/train/#website\",\"url\":\"https://bft-transit.brisbanetransit.workers.dev/train/\",\"name\":\"BrisbaneTrain\",\"alternateName\":[\"BrisbaneTrain Departure Boards\"],\"inLanguage\":\"en-AU\"},{\"@type\":\"WebApplication\",\"@id\":\"https://bft-transit.brisbanetransit.workers.dev/train/#app\",\"url\":\"https://bft-transit.brisbanetransit.workers.dev/train/\",\"name\":\"BrisbaneTrain Departure Boards\",\"description\":\"Live departure boards for every Queensland Rail station in South East Queensland: next trains, platforms and platform changes, stopping patterns and line status.\",\"applicationCategory\":\"TravelApplication\",\"operatingSystem\":\"Any\",\"isAccessibleForFree\":true,\"offers\":{\"@type\":\"Offer\",\"price\":\"0\",\"priceCurrency\":\"AUD\"},\"isPartOf\":{\"@id\":\"https://bft-transit.brisbanetransit.workers.dev/train/#website\"},\"areaServed\":{\"@type\":\"City\",\"name\":\"Brisbane\"}}]}</script>"
   ],
-  "/bus": [
+  "/bus/": [
     "<meta charSet=\"utf-8\"/>",
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\"/>",
     "<meta name=\"theme-color\" content=\"#FF6B35\"/>",

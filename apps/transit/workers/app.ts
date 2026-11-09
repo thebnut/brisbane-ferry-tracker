@@ -6,6 +6,7 @@
  *  - /__fixtures/*        recorded responses for fixture mode (only when ALLOW_FIXTURES or FIXTURES is "1")
  *  - /robots.txt          crawl all but /__fixtures/, with the sitemap, once INDEXABLE is "1"; else disallow all
  *  - /sitemap.xml         index over the landing page and every mode's sitemap under its prefix (workers/sitemap.ts)
+ *  - /ferry, /train, /bus 301 to the hub's canonical /ferry/ etc. (query kept)
  *  - www.<SITE_URL host>  301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
  *  - everything else      React Router SSR, with a per-request CSP nonce (workers/security.ts). The mounted mode pages are the standalone apps' route modules, so their
  *                         loaders read their own app's context: each gets this Env with its own canonical SITE_URL
@@ -27,6 +28,7 @@ import { MODE_BASES, type MountedMode } from '../app/lib/modes.ts'
 import { apiFetch, isFixtureMode } from '../app/lib/server.server.ts'
 import {
   canonicalRedirect,
+  modeHubSlashLocation,
   newNonce,
   withRobotsTag,
   withSecurityHeaders,
@@ -199,6 +201,10 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
   if (url.pathname === '/sitemap.xml' || url.pathname.startsWith('/sitemaps/')) {
     const res = await sitemap(url, env)
     if (res) return res
+  }
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    const hub = modeHubSlashLocation(url)
+    if (hub) return canonicalRedirect(hub)
   }
   // Pages are GET/HEAD only (no route has an action): any other method is a 405 here, not React Router's logged one.
   const notAllowed = pageMethodNotAllowed(request.method)

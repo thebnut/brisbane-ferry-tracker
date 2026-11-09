@@ -70,8 +70,8 @@ const browser = (host, cookies = {}) => ({
 
 /** Pages the legacy app serves (where a remembered pair can be read), then every other path. */
 const PAGES = [
-  ['/', `${T}/ferry`],
-  ['/index.html', `${T}/ferry`],
+  ['/', `${T}/ferry/`],
+  ['/index.html', `${T}/ferry/`],
   ['/terminal/bulimba', `${T}/ferry/terminal/bulimba`],
   ['/terminal/bulimba/', `${T}/ferry/terminal/bulimba`],
   ['/terminal/riverside/index.html', `${T}/ferry/terminal/riverside`],
@@ -83,7 +83,22 @@ const OTHERS = [
   ['/terms', `${T}/ferry/terms`],
   ['/terms.html', `${T}/ferry/terms`],
   ['/sitemap.xml', `${T}/sitemap.xml`],
+  ['/sitemap-ferry.xml', `${T}/sitemap.xml`],
+  ['/sitemap_index.xml', `${T}/sitemap.xml`],
+  ['/sitemaps/pages.xml', `${T}/sitemap.xml`],
   ['/robots.txt', `${T}/robots.txt`],
+  // Old URLs that already carry the mode prefix keep a single one (they used to become /ferry/ferry/…, a 404).
+  ['/ferry', `${T}/ferry/`],
+  ['/ferry/', `${T}/ferry/`],
+  ['/ferry/terminal/south-bank', `${T}/ferry/terminal/south-bank`],
+  ['/ferry/terminal/south-bank/', `${T}/ferry/terminal/south-bank/`],
+  ['/ferry/map', `${T}/ferry/map`],
+  ['/ferryx', `${T}/ferry/ferryx`],
+  // SEO files under the old prefix go to transit's root ones too (Codex r1).
+  ['/ferry/robots.txt', `${T}/robots.txt`],
+  ['/ferry/sitemap.xml', `${T}/sitemap.xml`],
+  ['/ferry/sitemap-pages.xml', `${T}/sitemap.xml`],
+  ['/ferry/sitemaps/pages.xml', `${T}/sitemap.xml`],
   ['/some/old/page', `${T}/ferry/some/old/page`],
   ['/apix', `${T}/ferry/apix`],
 ];
@@ -115,6 +130,23 @@ describe('brisbaneferry.com → brisbanetransit.com/ferry (release 24)', () => {
     for (const [path, location] of OTHERS) assert.deepEqual(redirectFor(path, req), { status: 301, location }, path);
     // The files the legacy page loads (the handoff script first) stay reachable.
     for (const path of FILES) assert.equal(redirectFor(path, req), null, path);
+  });
+
+  it('no rule sends a page to a doubled /ferry/ferry prefix, or robots/sitemaps under /ferry', () => {
+    const paths = [...PAGES, ...OTHERS].map(([p]) => p).concat(['/ferry/ferry', '/ferry/x/y/z']);
+    for (const host of ['brisbaneferry.com', 'www.brisbaneferry.com', ...LEGACY])
+      for (const path of paths) {
+        const r = redirectFor(path, curl(host));
+        if (!r) continue;
+        const to = new URL(r.location);
+        assert.equal(to.origin, T, `${host}${path}`);
+        if (path !== '/ferry/ferry') assert.ok(!/^\/ferry\/ferry(?:\/|$)/.test(to.pathname), `${host}${path} → ${r.location}`);
+        assert.ok(!/^\/ferry\/(?:robots\.txt|sitemaps?\b)/.test(to.pathname), `${host}${path} → ${r.location}`);
+      }
+  });
+
+  it('query strings pass through (Vercel appends them to the destination), so the destinations carry none', () => {
+    for (const r of vercel.redirects) assert.ok(!r.destination.includes('?'), r.source);
   });
 
   it('other hosts on the project are untouched', () => {
