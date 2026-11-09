@@ -24,20 +24,20 @@ const locationOf = (mode: RedirectMode, path: string, env: RedirectEnv = ON) =>
 
 describe('transitPath (P6 mapping)', () => {
   it.each([
-    ['ferry', '/', '/ferry'],
+    ['ferry', '/', '/ferry/'],
     ['ferry', '/terminal/bulimba', '/ferry/terminal/bulimba'],
     ['ferry', '/privacy', '/ferry/privacy'],
     ['ferry', '/map', '/ferry/map'],
     ['ferry', '/terms', '/ferry/terms'],
     ['ferry', '/feedback', '/feedback'],
-    ['train', '/', '/train'],
+    ['train', '/', '/train/'],
     ['train', '/stations', '/train/stations'],
     ['train', '/station/central', '/train/station/central'],
     ['train', '/trip/abc-123', '/train/trip/abc-123'],
     ['train', '/map', '/train/map'],
     ['train', '/alerts', '/train/alerts'],
     ['train', '/feedback', '/feedback'],
-    ['bus', '/', '/bus'],
+    ['bus', '/', '/bus/'],
     ['bus', '/nearby', '/bus/nearby'],
     ['bus', '/stop/10802', '/bus/stop/10802'],
     ['bus', '/trip/t1', '/bus/trip/t1'],
@@ -55,11 +55,50 @@ describe('transitPath (P6 mapping)', () => {
     expect(transitPath('bus', '/stop/10802/')).toBe('/bus/stop/10802')
   })
 
-  it("another mode's page or an unknown path goes to the mode's transit home, path dropped", () => {
-    expect(transitPath('ferry', '/stations')).toBe('/ferry')
-    expect(transitPath('train', '/terminal/bulimba')).toBe('/train')
-    expect(transitPath('bus', '/stop/1/extra')).toBe('/bus')
-    expect(transitPath('bus', '/nope')).toBe('/bus')
+  it("another mode's page or an unknown path goes to the mode's transit home (its /<mode>/ canonical), path dropped", () => {
+    expect(transitPath('ferry', '/stations')).toBe('/ferry/')
+    expect(transitPath('train', '/terminal/bulimba')).toBe('/train/')
+    expect(transitPath('bus', '/stop/1/extra')).toBe('/bus/')
+    expect(transitPath('bus', '/nope')).toBe('/bus/')
+  })
+
+  it('a path that already carries the mode prefix keeps a single one (never /ferry/ferry/…)', () => {
+    expect(transitPath('ferry', '/ferry/terminal/south-bank')).toBe('/ferry/terminal/south-bank')
+    expect(transitPath('ferry', '/ferry/terminal/south-bank/')).toBe('/ferry/terminal/south-bank')
+    expect(transitPath('ferry', '/ferry/map')).toBe('/ferry/map')
+    expect(transitPath('train', '/train/station/central')).toBe('/train/station/central')
+    expect(transitPath('train', '/train/stations')).toBe('/train/stations')
+    expect(transitPath('bus', '/bus/stop/10802')).toBe('/bus/stop/10802')
+    expect(transitPath('bus', '/bus/route/66')).toBe('/bus/route/66')
+    for (const mode of MODES) {
+      expect(transitPath(mode, `/${mode}`)).toBe(`/${mode}/`)
+      expect(transitPath(mode, `/${mode}/`)).toBe(`/${mode}/`)
+      expect(transitPath(mode, `/${mode}/feedback`)).toBe('/feedback')
+      // Only one prefix is taken off, so a doubled old URL can't be laundered into a page: it goes home.
+      expect(transitPath(mode, `/${mode}/${mode}/nope`)).toBe(`/${mode}/`)
+    }
+    // Another mode's prefix is not this mode's: an unknown path, so the home.
+    expect(transitPath('train', '/ferry/terminal/bulimba')).toBe('/train/')
+    expect(transitPath('ferry', '/ferryx/terminal/bulimba')).toBe('/ferry/')
+  })
+
+  it('every result is a single-prefixed transit path, so redirecting it again changes nothing (no loop)', () => {
+    for (const mode of MODES)
+      for (const path of [
+        '/',
+        '/nope',
+        `/${mode}`,
+        `/${mode}/`,
+        '/terminal/bulimba',
+        '/station/central',
+        '/stop/1',
+        `/${mode}/map`,
+      ]) {
+        const once = transitPath(mode, path)
+        expect(once).not.toBeNull()
+        expect(once?.startsWith(`/${mode}/${mode}`), `${mode} ${path} → ${once}`).toBe(false)
+        if (once !== '/feedback') expect(transitPath(mode, once ?? '')).toBe(once)
+      }
   })
 
   it('keeps encoded segments as they are', () => {
@@ -125,7 +164,11 @@ describe('transitRedirect', () => {
   it('keeps the query string', () => {
     expect(locationOf('bus', '/stop/10900?route=333')).toBe(`${BASE}/bus/stop/10900?route=333`)
     expect(locationOf('bus', '/route/333?pick=1')).toBe(`${BASE}/bus/route/333?pick=1`)
-    expect(locationOf('ferry', '/?fixtures=1')).toBe(`${BASE}/ferry?fixtures=1`)
+    expect(locationOf('ferry', '/?fixtures=1')).toBe(`${BASE}/ferry/?fixtures=1`)
+    expect(locationOf('ferry', '/ferry/terminal/south-bank?x=1')).toBe(
+      `${BASE}/ferry/terminal/south-bank?x=1`,
+    )
+    expect(locationOf('train', '/train?y=2')).toBe(`${BASE}/train/?y=2`)
     expect(locationOf('train', '/feedback?x=1')).toBe(`${BASE}/feedback?x=1`)
   })
 

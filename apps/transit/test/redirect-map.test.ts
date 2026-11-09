@@ -28,7 +28,11 @@ function paths(entries: readonly RouteEntry[], parent = ''): string[] {
 const sample = (pattern: string) => pattern.replace(/:[^/]+/g, 'x1')
 const toRegExp = (pattern: string) => new RegExp(`^${pattern.replace(/:[^/]+/g, '[^/]+')}$`)
 const TRANSIT = paths(transitRoutes as RouteEntry[]).filter((p) => !p.includes('*'))
-const onTransit = (path: string) => TRANSIT.some((p) => toRegExp(p).test(path))
+/** A trailing slash is the same page (the mode hubs' canonical is `/ferry/`). */
+const onTransit = (path: string) => {
+  const p = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
+  return TRANSIT.some((t) => toRegExp(t).test(p))
+}
 
 const APPS: [RedirectMode, readonly RouteEntry[]][] = [
   ['ferry', ferryRoutes as RouteEntry[]],
@@ -48,13 +52,15 @@ describe.each(APPS)('%s routes.ts → transit', (mode, routes) => {
     expect(to).not.toBeNull()
     expect(onTransit(to ?? ''), `${pattern} → ${to}`).toBe(true)
     if (pattern === '/feedback' || pattern === '/whats-new') expect(to).toBe(pattern)
-    else if (pattern === '/') expect(to).toBe(`/${mode}`)
+    else if (pattern === '/') expect(to).toBe(`/${mode}/`)
     // A page of its own on transit, not the fallback home.
     else expect(to).toBe(`/${mode}${sample(pattern)}`)
+    // The same page with the mode prefix already on it (an old URL from a mounted app) maps to the same place, once.
+    expect(transitPath(mode, `/${mode}${sample(pattern)}`)).toBe(to)
   })
 
   it('an unknown path goes to the mode home on transit', () => {
-    expect(transitPath(mode, '/no/such/page')).toBe(`/${mode}`)
-    expect(onTransit(`/${mode}`)).toBe(true)
+    expect(transitPath(mode, '/no/such/page')).toBe(`/${mode}/`)
+    expect(onTransit(`/${mode}/`)).toBe(true)
   })
 })

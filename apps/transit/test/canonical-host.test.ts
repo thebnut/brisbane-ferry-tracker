@@ -1,7 +1,7 @@
 /** www → apex 301 and the INDEXABLE soft-launch flag, through the Worker's fetch handler. */
 import { describe, expect, it, vi } from 'vitest'
 import worker from '../workers/app.ts'
-import { wwwRedirectLocation } from '../workers/security.ts'
+import { modeHubSlashLocation, wwwRedirectLocation } from '../workers/security.ts'
 
 vi.mock('virtual:react-router/server-build', () => ({}))
 
@@ -49,6 +49,45 @@ describe('canonical host', () => {
     expect(new URL(res.headers.get('location') ?? '').host).toBe('brisbanetransit.com')
     const other = await get('https://www.brisbanetransit.com.evil.example/robots.txt', envWith())
     expect(other.status).toBe(200)
+  })
+})
+
+describe('mode hubs: /ferry, /train, /bus → their /<mode>/ canonical', () => {
+  it('maps only the three bare hubs, on the same origin, query kept', () => {
+    for (const m of ['ferry', 'train', 'bus']) {
+      expect(modeHubSlashLocation(new URL(`${SITE}/${m}`))).toBe(`${SITE}/${m}/`)
+      expect(modeHubSlashLocation(new URL(`${SITE}/${m}?from=a&to=b`))).toBe(`${SITE}/${m}/?from=a&to=b`)
+      // Already canonical, a page under the hub, or its loader data: served as before (no loop).
+      for (const p of [`/${m}/`, `/${m}/?x=1`, `/${m}/map`, `/${m}.data`, `/${m}x`, `/x/${m}`])
+        expect(modeHubSlashLocation(new URL(`${SITE}${p}`)), p).toBeNull()
+    }
+    for (const p of ['/', '/saved', '/nearby', '/alerts', '/FERRY'])
+      expect(modeHubSlashLocation(new URL(`${SITE}${p}`)), p).toBeNull()
+  })
+
+  it('301s GET and HEAD through the Worker, with the security headers; no noindex once indexable', async () => {
+    const env = envWith({ INDEXABLE: '1' })
+    const res = await get(`${SITE}/train?x=1`, env)
+    expect(res.status).toBe(301)
+    expect(res.headers.get('location')).toBe(`${SITE}/train/?x=1`)
+    expect(res.headers.get('strict-transport-security')).toContain('max-age=')
+    expect(res.headers.get('x-robots-tag')).toBeNull()
+    const head = (await worker.fetch(
+      new Request(`${SITE}/bus`, { method: 'HEAD' }),
+      env,
+      {} as ExecutionContext,
+    )) as Response
+    expect(head.status).toBe(301)
+    expect(head.headers.get('location')).toBe(`${SITE}/bus/`)
+  })
+
+  it('other methods are not redirected (the 405 as before)', async () => {
+    const res = (await worker.fetch(
+      new Request(`${SITE}/ferry`, { method: 'POST' }),
+      envWith(),
+      {} as ExecutionContext,
+    )) as Response
+    expect(res.status).toBe(405)
   })
 })
 

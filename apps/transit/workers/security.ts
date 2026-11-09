@@ -78,6 +78,14 @@ export function wwwRedirectLocation(requestUrl: string, siteUrl: string): string
 }
 
 /**
+ * The mode hubs' canonical is `/<mode>/` (their sitemap entries and canonicals): a bare `/ferry`, `/train` or `/bus`
+ * 301s there on this same origin with the query kept. `/ferry/` itself is served, so this never loops.
+ */
+export function modeHubSlashLocation(url: URL): string | null {
+  return /^\/(?:ferry|train|bus)$/.test(url.pathname) ? `${url.origin}${url.pathname}/${url.search}` : null
+}
+
+/**
  * 301 to the canonical apex. Only Worker-handled paths reach this: static files under build/client are answered by
  * Workers static assets on any host, and the pages' canonicals point at the apex.
  */
