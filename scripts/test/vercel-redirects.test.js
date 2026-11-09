@@ -94,6 +94,17 @@ const OTHERS = [
   ['/ferry/terminal/south-bank/', `${T}/ferry/terminal/south-bank/`],
   ['/ferry/map', `${T}/ferry/map`],
   ['/ferryx', `${T}/ferry/ferryx`],
+  // Shared BrisbaneTransit pages (not ferry pages) go to transit's root, never /ferry/<page> (a 404).
+  ...['whats-new', 'feedback', 'saved', 'nearby', 'alerts', 'ask'].flatMap((p) => [
+    [`/${p}`, `${T}/${p}`],
+    [`/${p}/`, `${T}/${p}`],
+    [`/ferry/${p}`, `${T}/${p}`],
+    [`/ferry/${p}/`, `${T}/${p}`],
+  ]),
+  // Not shared pages: ferry's own pages stay under /ferry, and look-alikes are ordinary old paths.
+  ['/whats-newer', `${T}/ferry/whats-newer`],
+  ['/feedback/x', `${T}/ferry/feedback/x`],
+  ['/about', `${T}/ferry/about`],
   // SEO files under the old prefix go to transit's root ones too (Codex r1).
   ['/ferry/robots.txt', `${T}/robots.txt`],
   ['/ferry/sitemap.xml', `${T}/sitemap.xml`],
@@ -143,6 +154,19 @@ describe('brisbaneferry.com → brisbanetransit.com/ferry (release 24)', () => {
         if (path !== '/ferry/ferry') assert.ok(!/^\/ferry\/ferry(?:\/|$)/.test(to.pathname), `${host}${path} → ${r.location}`);
         assert.ok(!/^\/ferry\/(?:robots\.txt|sitemaps?\b)/.test(to.pathname), `${host}${path} → ${r.location}`);
       }
+  });
+
+  it('shared pages land on the transit root in one hop, never under /ferry', () => {
+    const SHARED = ['whats-new', 'feedback', 'saved', 'nearby', 'alerts', 'ask'];
+    for (const host of ['brisbaneferry.com', 'www.brisbaneferry.com', ...LEGACY])
+      for (const who of [curl, googlebot, browser])
+        for (const p of SHARED)
+          for (const path of [`/${p}`, `/${p}/`, `/ferry/${p}`, `/ferry/${p}/`]) {
+            const r = redirectFor(path, who(host));
+            assert.deepEqual(r, { status: 301, location: `${T}/${p}` }, `${host}${path}`);
+            // The target is a shared root page: redirecting it again (as an old-host path) changes nothing.
+            assert.deepEqual(redirectFor(new URL(r.location).pathname, who(host)), r, `${host}${path} again`);
+          }
   });
 
   it('query strings pass through (Vercel appends them to the destination), so the destinations carry none', () => {
