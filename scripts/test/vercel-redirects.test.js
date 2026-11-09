@@ -94,6 +94,11 @@ const OTHERS = [
   ['/ferry/terminal/south-bank/', `${T}/ferry/terminal/south-bank/`],
   ['/ferry/map', `${T}/ferry/map`],
   ['/ferryx', `${T}/ferry/ferryx`],
+  // SEO files under the old prefix go to transit's root ones too (Codex r1).
+  ['/ferry/robots.txt', `${T}/robots.txt`],
+  ['/ferry/sitemap.xml', `${T}/sitemap.xml`],
+  ['/ferry/sitemap-pages.xml', `${T}/sitemap.xml`],
+  ['/ferry/sitemaps/pages.xml', `${T}/sitemap.xml`],
   ['/some/old/page', `${T}/ferry/some/old/page`],
   ['/apix', `${T}/ferry/apix`],
 ];
@@ -128,7 +133,7 @@ describe('brisbaneferry.com → brisbanetransit.com/ferry (release 24)', () => {
   });
 
   it('no rule sends a page to a doubled /ferry/ferry prefix, or robots/sitemaps under /ferry', () => {
-    const paths = [...PAGES, ...OTHERS].map(([p]) => p).concat(['/ferry/ferry', '/ferry/x/y/z', '/ferry/robots.txt']);
+    const paths = [...PAGES, ...OTHERS].map(([p]) => p).concat(['/ferry/ferry', '/ferry/x/y/z']);
     for (const host of ['brisbaneferry.com', 'www.brisbaneferry.com', ...LEGACY])
       for (const path of paths) {
         const r = redirectFor(path, curl(host));
@@ -136,7 +141,7 @@ describe('brisbaneferry.com → brisbanetransit.com/ferry (release 24)', () => {
         const to = new URL(r.location);
         assert.equal(to.origin, T, `${host}${path}`);
         if (path !== '/ferry/ferry') assert.ok(!/^\/ferry\/ferry(?:\/|$)/.test(to.pathname), `${host}${path} → ${r.location}`);
-        assert.ok(!/^\/ferry\/(?:robots\.txt|sitemap[^/]*\.xml)$/.test(to.pathname) || path.startsWith('/ferry/'), `${host}${path} → ${r.location}`);
+        assert.ok(!/^\/ferry\/(?:robots\.txt|sitemaps?\b)/.test(to.pathname), `${host}${path} → ${r.location}`);
       }
   });
 
