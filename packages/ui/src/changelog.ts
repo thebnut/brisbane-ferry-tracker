@@ -12,6 +12,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-09',
+    summary: 'Old Brisbane Ferry, BrisbaneTrain and BrisbaneBus links now open the right page.',
+    items: [
+      'Some old ferry links, like brisbaneferry.com/ferry/terminal/south-bank, used to end on a “page not found”. They now open that terminal on BrisbaneTransit.com.',
+      'Old train and bus links keep where they were going: a link to a station or a stop opens that station or stop, not just the Train or Bus tab.',
+      'Links to the Ferry, Train and Bus tabs, with or without a slash at the end, all open the same page.',
+    ],
+  },
+  {
     date: '2026-11-02',
     summary: 'Brisbane Ferry, BrisbaneTrain and BrisbaneBus now all live at BrisbaneTransit.com.',
     items: [
