@@ -71,7 +71,7 @@ test('a client navigation answered from the cache shows the offline timetable, t
   await expect(page).toHaveURL(new RegExp(`${STOP}$`))
   await expect.poll(() => visibleLiveClaims(page), { timeout: 15_000 }).not.toEqual([])
   await page.goBack()
-  await expect(page).toHaveURL(/\/bus$/)
+  await expect(page).toHaveURL(/\/bus\/$/)
 
   // The stop's `.data` request fails, so the service worker answers it from its cache; the boards' own /v1 answers
   // come 3 s late. Until they do, the board on screen is that stored copy: never LIVE, whatever its age.

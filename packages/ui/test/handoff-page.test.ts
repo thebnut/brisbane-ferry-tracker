@@ -308,7 +308,7 @@ describe('wantsHandoff / transitRedirect with a nonce', () => {
     expect(wantsHandoff(req)).toBe(false)
     const res = transitRedirect(req, 'bus', ON, 'n')
     expect(res?.status).toBe(302)
-    expect(res?.headers.get('location')).toBe(`${BASE}/bus`)
+    expect(res?.headers.get('location')).toBe(`${BASE}/bus/`)
   })
 
   it('a cookie with another value, or another cookie, is not the handed-off flag', () => {

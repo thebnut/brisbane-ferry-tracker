@@ -38,7 +38,7 @@ const varsOf = (env?: string) =>
 async function siteUrls(vars: Record<string, string>) {
   seen = undefined
   const env = { ...vars, API_BASE: 'http://x' } as unknown as Env
-  await worker.fetch(new Request(`${vars.SITE_URL}/ferry`), env, {} as ExecutionContext)
+  await worker.fetch(new Request(`${vars.SITE_URL}/ferry/`), env, {} as ExecutionContext)
   if (!seen) throw new Error('SSR not reached')
   const ctx = seen
   return {

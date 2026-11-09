@@ -16,15 +16,15 @@ homeSeoSuite({
   },
   homes: [
     {
-      path: '/ferry',
+      path: '/ferry/',
       about: 'About ferry times',
       copy: 'Live departure boards for every Brisbane River ferry terminal',
     },
     {
-      path: '/train',
+      path: '/train/',
       about: 'About train times',
       copy: 'Live departure boards for every Queensland Rail City network station',
     },
-    { path: '/bus', about: 'About bus times', copy: 'Live departures for every Brisbane bus stop' },
+    { path: '/bus/', about: 'About bus times', copy: 'Live departures for every Brisbane bus stop' },
   ],
 })
