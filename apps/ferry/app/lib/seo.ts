@@ -2,17 +2,36 @@
  * SEO content ported from the legacy app (src/utils/terminalPage.js, src/utils/seoContent.js, scripts/postbuild.mjs,
  * index.html). Titles, descriptions, canonicals, OG tags, JSON-LD and sitemap URLs are kept identical.
  */
+import { fitDescription, fitTitle, TRANSIT_SITE_NAME } from '@bft/core/seo'
 import ROUTE_STOPS from '../data/routes.json'
+import { BASE } from './base.ts'
 import { TERMINALS, type Terminal, terminalById, terminalPath } from './terminals.ts'
 
 export const SITE_URL = 'https://www.brisbaneferry.com'
 
+/**
+ * The site's name: BrisbaneTransit's on its pages (BASE set: og:site_name, JSON-LD, titles fitted to snippet length,
+ * @bft/core/seo), else the standalone app's, whose head is kept identical to the legacy app's.
+ */
+export const SITE_NAME = BASE ? TRANSIT_SITE_NAME : 'Brisbane Ferry'
+
 export const HOME_META = {
-  title: 'Brisbane Ferry Tracker - Live CityCat Departures',
+  title: BASE
+    ? `Brisbane ferry and CityCat times | ${SITE_NAME}`
+    : 'Brisbane Ferry Tracker - Live CityCat Departures',
   description:
     "Real-time ferry departure times for Brisbane's CityCat and CityHopper services. The quickest way to get live City Cat info!",
   ogDescription:
     "Live departure boards for every Brisbane ferry terminal: next CityCat and ferry times, real-time updates and today's timetable.",
+}
+
+/** BrisbaneTransit's own origin (the site the mounted pages are part of), from the ferry pages' site URL. */
+function transitOrigin(siteUrl: string): string {
+  try {
+    return new URL(siteUrl).origin
+  } catch {
+    return siteUrl
+  }
 }
 
 export const INTRO_HEADING = 'Brisbane ferry times: live CityCat departures'
@@ -59,30 +78,55 @@ const routeList = (codes: string[]) =>
 export function terminalMeta(terminal: Terminal, siteUrl = SITE_URL) {
   const codes = terminal.routes
   const routes = codes.length ? ` ${codes.length > 1 ? 'Routes' : 'Route'} ${routeList(codes)}.` : ''
+  const url = `${siteUrl}${terminalPath(terminal.slug)}`
+  const description = `Live ferry departures and today's timetable for ${terminal.name} ferry terminal, Brisbane.${routes} Real-time CityCat updates and nearby terminals.`
+  if (!BASE)
+    return {
+      title: `Next ferry from ${terminal.name} - live CityCat times | Brisbane Ferry`,
+      description,
+      url,
+    }
   return {
-    title: `Next ferry from ${terminal.name} - live CityCat times | Brisbane Ferry`,
-    description: `Live ferry departures and today's timetable for ${terminal.name} ferry terminal, Brisbane.${routes} Real-time CityCat updates and nearby terminals.`,
-    url: `${siteUrl}${terminalPath(terminal.slug)}`,
+    title: fitTitle(
+      `${terminal.name} ferry terminal: CityCat times | ${SITE_NAME}`,
+      `${terminal.name} ferry terminal | ${SITE_NAME}`,
+      `${terminal.name} ferry terminal`,
+    ),
+    description: fitDescription(
+      description,
+      `Live ferry departures and today's timetable for ${terminal.name} ferry terminal, Brisbane.${routes}`,
+      `Live ferry departures and today's timetable for ${terminal.name} ferry terminal, Brisbane.`,
+    ),
+    url,
   }
 }
 
+/** The WebSite node the pages belong to: BrisbaneTransit's (its home's @id) on its pages, else this app's own. */
+function websiteId(siteUrl: string): string {
+  return BASE ? `${transitOrigin(siteUrl)}/#website` : `${siteUrl}/#website`
+}
+
 export function homeJsonLd(siteUrl = SITE_URL) {
+  const site = BASE ? transitOrigin(siteUrl) : siteUrl
   return {
     '@context': 'https://schema.org',
     '@graph': [
       {
         '@type': 'WebSite',
-        '@id': `${siteUrl}/#website`,
-        url: `${siteUrl}/`,
-        name: 'Brisbane Ferry',
-        alternateName: ['BrisbaneFerry Departure Boards', 'Brisbane Ferry Tracker'],
+        '@id': websiteId(siteUrl),
+        url: `${site}/`,
+        name: SITE_NAME,
+        alternateName: BASE
+          ? ['BrisbaneTransit']
+          : ['BrisbaneFerry Departure Boards', 'Brisbane Ferry Tracker'],
         inLanguage: 'en-AU',
       },
       {
         '@type': 'WebApplication',
         '@id': `${siteUrl}/#app`,
         url: `${siteUrl}/`,
-        name: 'Brisbane Ferry Tracker',
+        name: BASE ? 'Brisbane ferry departure boards' : 'Brisbane Ferry Tracker',
+        ...(BASE ? { alternateName: ['Brisbane Ferry Tracker', 'BrisbaneFerry Departure Boards'] } : {}),
         description:
           'Real-time departure boards for Brisbane CityCat and ferry services between any two terminals, with live vessel positions and the daily timetable.',
         applicationCategory: 'TravelApplication',
@@ -91,7 +135,7 @@ export function homeJsonLd(siteUrl = SITE_URL) {
         isAccessibleForFree: true,
         offers: { '@type': 'Offer', price: '0', priceCurrency: 'AUD' },
         image: `${siteUrl}/og-image.jpg`,
-        isPartOf: { '@id': `${siteUrl}/#website` },
+        isPartOf: { '@id': websiteId(siteUrl) },
         areaServed: { '@type': 'City', name: 'Brisbane' },
       },
     ],
@@ -127,13 +171,13 @@ export function terminalJsonLd(
         name: meta.title,
         description: meta.description,
         about: { '@id': `${meta.url}#terminal` },
-        isPartOf: { '@id': `${siteUrl}/#website` },
+        isPartOf: { '@id': websiteId(siteUrl) },
         inLanguage: 'en-AU',
       },
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Brisbane Ferry', item: `${siteUrl}/` },
+          { '@type': 'ListItem', position: 1, name: BASE ? 'Ferry' : 'Brisbane Ferry', item: `${siteUrl}/` },
           { '@type': 'ListItem', position: 2, name: `${terminal.name} ferry terminal`, item: meta.url },
         ],
       },
@@ -159,7 +203,7 @@ export function pageMeta(opts: {
       ? { name: 'robots', content: 'noindex' }
       : { tagName: 'link', rel: 'canonical', href: opts.url },
     { property: 'og:type', content: 'website' },
-    { property: 'og:site_name', content: 'Brisbane Ferry' },
+    { property: 'og:site_name', content: SITE_NAME },
     { property: 'og:locale', content: 'en_AU' },
     { property: 'og:url', content: opts.url },
     { property: 'og:title', content: opts.title },
@@ -180,9 +224,12 @@ export function pageMeta(opts: {
 
 const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Brisbane' })
 
-/** Same URL set, order and priorities as the legacy scripts/postbuild.mjs sitemap. */
-export function sitemapXml(siteUrl: string, nowMs: number): string {
-  const today = dateKey.format(nowMs)
+/**
+ * Same URL set, order and priorities as the legacy scripts/postbuild.mjs sitemap. `lastmod` replaces the home and
+ * terminal pages' date: BrisbaneTransit passes the timetable feed's date (or null for none) instead of today's.
+ */
+export function sitemapXml(siteUrl: string, nowMs: number, lastmod?: string | null): string {
+  const today = lastmod === undefined ? dateKey.format(nowMs) : (lastmod ?? undefined)
   const urls: Array<{ loc: string; lastmod?: string; changefreq: string; priority: string }> = [
     { loc: '/', lastmod: today, changefreq: 'daily', priority: '1.0' },
     ...TERMINALS.map((t) => ({

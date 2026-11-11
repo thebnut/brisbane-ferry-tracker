@@ -10,6 +10,7 @@ import { Icon, SavedTripCard, useGeolocation } from '@bft/ui'
 import { asSeed, awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import {
   AboutTimes,
+  CHIP,
   HomeSection,
   homeCard,
   LiveReports,
@@ -28,7 +29,7 @@ import { SearchPanel } from '../components/SearchPanel.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { linkRenderer } from '../components/StopBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
-import { at } from '../lib/base.ts'
+import { at, BASE } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { useApi } from '../lib/mode.ts'
 import { liveView, useAlerts, useManyDepartures } from '../lib/queries.ts'
@@ -188,7 +189,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <DesktopNav active="home" />
       </UpdatedStrip>
       <SearchPanel
-        title={<h1 className="mx-auto max-w-6xl px-4 pt-4 text-[28px] leading-tight font-extrabold">Bus</h1>}
+        title={
+          <h1 className="mx-auto max-w-6xl px-4 pt-4 text-[28px] leading-tight font-extrabold">
+            {BASE ? 'Brisbane buses' : 'Bus'}
+          </h1>
+        }
         footer={<Footer aboveSheet />}
         quick={
           <Link to={at('/nearby')} className={chip}>
@@ -228,7 +233,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             <PlaceChips
               places={POPULAR.map((s) => ({ href: stopHref(s.id), name: s.name }))}
               renderLink={linkRenderer}
-            />
+            >
+              {/* Every stop page as a plain link (the A–Z directory), for people browsing and for crawlers. */}
+              <li>
+                <Link className={CHIP} to={at('/stops')}>
+                  All stops A–Z
+                </Link>
+              </li>
+            </PlaceChips>
           </HomeSection>
           <AboutTimes title="About bus times">
             <h2 className="text-base font-bold text-aqua-text dark:text-ferry-aqua-light">

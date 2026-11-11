@@ -9,11 +9,13 @@ import { Link } from 'react-router'
 import { TransitFooter, TransitHeader } from '../components/Chrome.tsx'
 import { hasSavedStops } from '../lib/has-saved.ts'
 import { MODE_BASES } from '../lib/modes.ts'
+import { POPULAR, type PopularPlace } from '../lib/popular.ts'
 import { getEnv } from '../lib/server.server.ts'
 import { useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/home'
 
-export const SITE_NAME = 'BrisbaneTransit'
+/** The site's name in og:site_name and JSON-LD (the mode pages use the same, @bft/core/seo TRANSIT_SITE_NAME). */
+export const SITE_NAME = 'Brisbane Transit'
 export const HOME_TITLE = 'BrisbaneTransit: live Brisbane ferry, train and bus departures'
 export const HOME_DESCRIPTION =
   'Live departure boards for every Brisbane ferry terminal, train station and bus stop, with real-time times, ' +
@@ -26,7 +28,8 @@ export function loader({ context }: Route.LoaderArgs) {
 export const meta: Route.MetaFunction = ({ loaderData }) => {
   const siteUrl = loaderData?.siteUrl ?? 'https://brisbanetransit.com'
   const url = `${siteUrl}/`
-  const image = `${siteUrl}/icon-512.png`
+  // The 1200×630 share card (public/og-image.jpg), as every mode page here uses.
+  const image = `${siteUrl}/og-image.jpg`
   return [
     { title: HOME_TITLE },
     { name: 'description', content: HOME_DESCRIPTION },
@@ -38,7 +41,10 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
     { property: 'og:title', content: HOME_TITLE },
     { property: 'og:description', content: HOME_DESCRIPTION },
     { property: 'og:image', content: image },
-    { name: 'twitter:card', content: 'summary' },
+    { property: 'og:image:width', content: '1200' },
+    { property: 'og:image:height', content: '630' },
+    { property: 'og:image:alt', content: 'Brisbane Transit: live ferry, train and bus departures' },
+    { name: 'twitter:card', content: 'summary_large_image' },
     { name: 'twitter:title', content: HOME_TITLE },
     { name: 'twitter:description', content: HOME_DESCRIPTION },
     { name: 'twitter:image', content: image },
@@ -46,7 +52,10 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
       'script:ld+json': {
         '@context': 'https://schema.org',
         '@type': 'WebSite',
+        // The mode pages' JSON-LD names this node as the site they are part of.
+        '@id': `${siteUrl}/#website`,
         name: SITE_NAME,
+        alternateName: ['BrisbaneTransit'],
         url,
         description: HOME_DESCRIPTION,
         inLanguage: 'en-AU',
@@ -98,6 +107,36 @@ function useHasSaved(): boolean {
 
 const card =
   'bg-board-header flex items-center gap-3 rounded-card border border-ferry-orange/15 px-3.5 py-3 text-charcoal no-underline dark:text-night-text'
+
+const chip =
+  'flex min-h-10 items-center rounded-full border border-ferry-orange/20 bg-white/90 px-3.5 text-[13px] font-semibold text-aqua-text no-underline dark:bg-night-card dark:text-ferry-aqua-light'
+
+/** The busiest places in each mode as plain links (lib/popular.ts): in the server HTML, for people and crawlers. */
+const POPULAR_GROUPS: {
+  id: string
+  title: string
+  places: PopularPlace[]
+  all: { href: string; text: string }
+}[] = [
+  {
+    id: 'popular-ferry',
+    title: 'Ferry terminals',
+    places: POPULAR.ferry,
+    all: { href: `${MODE_BASES.ferry}/`, text: 'All terminals' },
+  },
+  {
+    id: 'popular-train',
+    title: 'Train stations',
+    places: POPULAR.train,
+    all: { href: `${MODE_BASES.train}/stations`, text: 'All stations' },
+  },
+  {
+    id: 'popular-bus',
+    title: 'Bus stops',
+    places: POPULAR.bus,
+    all: { href: `${MODE_BASES.bus}/stops`, text: 'All stops A–Z' },
+  },
+]
 
 export default function Home() {
   const saved = useHasSaved()
@@ -152,6 +191,35 @@ export default function Home() {
             ))}
           </ul>
         </nav>
+        <section aria-labelledby="popular" className="flex flex-col gap-3">
+          <h2 id="popular" className="text-lg font-extrabold">
+            Popular departures
+          </h2>
+          {POPULAR_GROUPS.map((g) => (
+            <div key={g.id} className="flex flex-col gap-2">
+              <h3
+                id={g.id}
+                className="text-[13px] font-bold tracking-[0.06em] text-aqua-text uppercase dark:text-ferry-aqua-light"
+              >
+                {g.title}
+              </h3>
+              <ul aria-labelledby={g.id} className="flex flex-wrap gap-2">
+                {g.places.map((p) => (
+                  <li key={p.href}>
+                    <Link to={p.href} className={chip}>
+                      {p.name}
+                    </Link>
+                  </li>
+                ))}
+                <li>
+                  <Link to={g.all.href} className={`${chip} text-ferry-orange-deep dark:text-ferry-sunset`}>
+                    {g.all.text}
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          ))}
+        </section>
       </main>
       <TransitFooter />
     </>

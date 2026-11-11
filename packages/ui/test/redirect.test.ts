@@ -4,6 +4,7 @@ import {
   isExcludedPath,
   type RedirectEnv,
   type RedirectMode,
+  seoFilePath,
   transitOrigin,
   transitPath,
   transitRedirect,
@@ -11,7 +12,10 @@ import {
 
 const BASE = 'https://bft-transit.brisbanetransit.workers.dev'
 const ON: RedirectEnv = { REDIRECT_TO_TRANSIT: '1', TRANSIT_SITE_URL: BASE }
+const PERMANENT: RedirectEnv = { ...ON, REDIRECT_STATUS: '301' }
 const MODES: RedirectMode[] = ['ferry', 'train', 'bus']
+const CHROME =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
 const nav = (path: string, init: RequestInit = {}) =>
   new Request(`https://mode.test${path}`, {
@@ -101,6 +105,18 @@ describe('transitPath (P6 mapping)', () => {
       }
   })
 
+  it('a bus stop number with leading zeros goes straight to the unpadded stop page (one hop)', () => {
+    expect(transitPath('bus', '/stop/000001')).toBe('/bus/stop/1')
+    expect(transitPath('bus', '/stop/010813')).toBe('/bus/stop/10813')
+    expect(transitPath('bus', '/bus/stop/010813/')).toBe('/bus/stop/10813')
+    expect(transitPath('bus', '/stop/000000')).toBe('/bus/stop/0')
+    // Only what the bus app's canonicalStopId unpads (2–6 digits with a leading zero).
+    expect(transitPath('bus', '/stop/0')).toBe('/bus/stop/0')
+    expect(transitPath('bus', '/stop/0000001')).toBe('/bus/stop/0000001')
+    expect(transitPath('bus', '/stop/10813')).toBe('/bus/stop/10813')
+    expect(transitPath('bus', '/stop/0abc')).toBe('/bus/stop/0abc')
+  })
+
   it('keeps encoded segments as they are', () => {
     expect(transitPath('train', '/station/roma%20street')).toBe('/train/station/roma%20street')
   })
@@ -140,8 +156,66 @@ describe('excluded paths are never redirected', () => {
     expect(isExcludedPath(path)).toBe(true)
     for (const mode of MODES) {
       expect(transitPath(mode, path)).toBeNull()
-      expect(transitRedirect(nav(path), mode, ON)).toBeNull()
+      // robots.txt, llms.txt and the sitemaps go to transit's own (below), never to a page.
+      if (!seoFilePath(path)) expect(transitRedirect(nav(path), mode, ON)).toBeNull()
     }
+  })
+})
+
+describe("the SEO files go to transit's own (one hop, like the legacy ferry hosts)", () => {
+  it.each([
+    ['/robots.txt', '/robots.txt'],
+    ['/llms.txt', '/llms.txt'],
+    ['/sitemap.xml', '/sitemap.xml'],
+    ['/sitemaps/pages.xml', '/sitemap.xml'],
+    ['/sitemaps/routes.xml', '/sitemap.xml'],
+    ['/sitemaps/stops-3.xml', '/sitemap.xml'],
+  ] as const)('%s → %s', (path, want) => {
+    for (const mode of MODES) {
+      // Crawlers fetch robots.txt and sitemaps without Fetch Metadata, and a browser's fetch() is redirected too.
+      for (const req of [
+        new Request(`https://mode.test${path}`),
+        nav(path),
+        nav(path, { headers: { 'sec-fetch-mode': 'cors' } }),
+        new Request(`https://mode.test${path}`, { method: 'HEAD' }),
+      ]) {
+        const res = transitRedirect(req, mode, PERMANENT)
+        expect(res?.status).toBe(301)
+        expect(res?.headers.get('location')).toBe(`${BASE}${want}`)
+      }
+    }
+  })
+
+  it('never a handoff page, even for a browser with favourites', () => {
+    const req = nav('/robots.txt', { headers: { 'user-agent': CHROME, accept: 'text/html' } })
+    const res = transitRedirect(req, 'bus', PERMANENT, 'nonce')
+    expect(res?.status).toBe(301)
+    expect(res?.headers.get('location')).toBe(`${BASE}/robots.txt`)
+  })
+
+  it('only GET and HEAD, only while the pages move', () => {
+    expect(
+      transitRedirect(new Request('https://mode.test/robots.txt', { method: 'POST' }), 'bus', PERMANENT),
+    ).toBeNull()
+    expect(
+      transitRedirect(new Request('https://mode.test/robots.txt'), 'bus', {
+        ...PERMANENT,
+        REDIRECT_TO_TRANSIT: '0',
+      }),
+    ).toBeNull()
+  })
+
+  it('other files stay local: APIs, data, the PWA files and assets', () => {
+    for (const path of [
+      '/sw.js',
+      '/manifest.webmanifest',
+      '/data/bus/stops.json',
+      '/v1/x',
+      '/api/feedback',
+      '/sitemaps/x/y.xml',
+      '/robots.txt.bak',
+    ])
+      expect(seoFilePath(path)).toBeNull()
   })
 })
 

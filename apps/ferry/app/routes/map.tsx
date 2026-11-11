@@ -20,7 +20,7 @@ import { SiteHeader } from '../components/header.tsx'
 import { at, BASE } from '../lib/base.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { useDepartures, useFetcher } from '../lib/queries.ts'
-import { pageMeta, SITE_URL } from '../lib/seo.ts'
+import { pageMeta, SITE_NAME, SITE_URL } from '../lib/seo.ts'
 import { loaderEnv } from '../lib/server.server.ts'
 import { boardHref, TERMINALS, terminalById, terminalByParam, tripHref } from '../lib/terminals.ts'
 import { useNow, useOnline } from '../lib/useNow.ts'
@@ -42,7 +42,7 @@ export function loader({ request, context }: Route.LoaderArgs) {
 
 export const meta: Route.MetaFunction = ({ loaderData }) =>
   pageMeta({
-    title: 'Live ferry map | BrisbaneFerry',
+    title: `Live ferry map | ${SITE_NAME}`,
     description: 'Where every Brisbane ferry is right now, updated every 15 seconds.',
     url: `${loaderData?.siteUrl ?? SITE_URL}/map`,
     siteUrl: loaderData?.siteUrl,
