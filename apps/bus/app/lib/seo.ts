@@ -1,15 +1,24 @@
 /**
  * Titles, descriptions, canonicals, OG tags, JSON-LD and the sitemap index for BrisbaneBus. Inside BrisbaneTransit
  * (BASE set) the pages carry its name and its 1200×630 share image, and titles and descriptions are fitted to snippet
- * length (@bft/core/seo); the standalone app's are as they were.
+ * length; the standalone app's are as they were.
  */
-import { fitDescription, fitTitle, TRANSIT_SITE_NAME } from '@bft/core/seo'
 import { BASE } from './base.ts'
 import { stopCode, stopPath } from './stops.ts'
 
 export const SITE_URL = 'https://bft-bus.brisbanetransit.workers.dev'
 /** The site's name: BrisbaneTransit's on its pages, else the standalone app's. */
-export const SITE_NAME = BASE ? TRANSIT_SITE_NAME : 'BrisbaneBus'
+export const SITE_NAME = BASE ? 'Brisbane Transit' : 'BrisbaneBus'
+
+/**
+ * The first candidate within `max` characters, else the last (shortest). Search engines show about 60 characters of a
+ * title and 160 of a description, so a page offers its candidates longest-first and keeps the first that fits. Local to
+ * each app on purpose: a shared module became its own chunk on every mode page's first load (+370 B gz on /ferry).
+ */
+const firstFit = (max: number, ...candidates: string[]) =>
+  candidates.find((c) => c.length <= max) ?? candidates[candidates.length - 1] ?? ''
+const fitTitle = (...c: string[]) => firstFit(60, ...c)
+const fitDescription = (...c: string[]) => firstFit(160, ...c)
 
 export const HOME_META = BASE
   ? {
@@ -82,7 +91,7 @@ export function routeMetaTags(short: string, long: string | undefined, siteUrl =
     title: fitTitle(
       `Bus route ${short}${long ? ` ${long}` : ''} | ${SITE_NAME}`,
       `Bus route ${short}${long ? ` ${long}` : ''}`,
-      `Bus route ${short}: live buses and stops | ${SITE_NAME}`,
+      `Bus route ${short} | ${SITE_NAME}`,
     ),
     description: fitDescription(
       `Every stop on Brisbane bus route ${short}${long ? ` (${long})` : ''}, with live bus positions and departures from each stop.`,

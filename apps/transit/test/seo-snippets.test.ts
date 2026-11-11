@@ -5,13 +5,17 @@
  * JSON-LD, its 1200×630 share card, and the popular links on the landing page pointing at real places.
  */
 import { stopMetaTags } from '@bft/bus/app/lib/seo.ts'
-import { DESCRIPTION_MAX, TITLE_MAX, TRANSIT_SITE_NAME } from '@bft/core/seo'
 import { homeJsonLd as ferryHomeJsonLd, terminalMeta } from '@bft/ferry/app/lib/seo.ts'
 import { TERMINALS } from '@bft/ferry/app/lib/terminals.ts'
 import { STATIONS, stationByKey } from '@bft/train/app/lib/network.ts'
 import { stationMeta, pageMeta as trainPageMeta } from '@bft/train/app/lib/seo.ts'
 import { meta as trainMapMeta } from '@bft/train/app/routes/map.tsx'
 import { describe, expect, it } from 'vitest'
+
+const TITLE_MAX = 60
+const DESCRIPTION_MAX = 160
+const TRANSIT_SITE_NAME = 'Brisbane Transit'
+
 import { POPULAR_STATIONS, POPULAR_STOPS, POPULAR_TERMINALS } from '../app/lib/popular.ts'
 
 const SITE = 'https://brisbanetransit.com'

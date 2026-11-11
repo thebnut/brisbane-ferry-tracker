@@ -14,7 +14,7 @@ import { getEnv } from '../lib/server.server.ts'
 import { useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/home'
 
-/** The site's name in og:site_name and JSON-LD (the mode pages use the same, @bft/core/seo TRANSIT_SITE_NAME). */
+/** The site's name in og:site_name and JSON-LD (the mode pages' SITE_NAME / BRAND say the same inside it). */
 export const SITE_NAME = 'Brisbane Transit'
 export const HOME_TITLE = 'BrisbaneTransit: live Brisbane ferry, train and bus departures'
 export const HOME_DESCRIPTION =

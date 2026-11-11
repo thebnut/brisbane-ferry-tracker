@@ -2,7 +2,6 @@
  * SEO content ported from the legacy app (src/utils/terminalPage.js, src/utils/seoContent.js, scripts/postbuild.mjs,
  * index.html). Titles, descriptions, canonicals, OG tags, JSON-LD and sitemap URLs are kept identical.
  */
-import { fitDescription, fitTitle, TRANSIT_SITE_NAME } from '@bft/core/seo'
 import ROUTE_STOPS from '../data/routes.json'
 import { BASE } from './base.ts'
 import { TERMINALS, type Terminal, terminalById, terminalPath } from './terminals.ts'
@@ -10,10 +9,20 @@ import { TERMINALS, type Terminal, terminalById, terminalPath } from './terminal
 export const SITE_URL = 'https://www.brisbaneferry.com'
 
 /**
- * The site's name: BrisbaneTransit's on its pages (BASE set: og:site_name, JSON-LD, titles fitted to snippet length,
- * @bft/core/seo), else the standalone app's, whose head is kept identical to the legacy app's.
+ * The site's name: BrisbaneTransit's on its pages (BASE set: og:site_name, JSON-LD, titles fitted to snippet length),
+ * else the standalone app's, whose head is kept identical to the legacy app's.
  */
-export const SITE_NAME = BASE ? TRANSIT_SITE_NAME : 'Brisbane Ferry'
+export const SITE_NAME = BASE ? 'Brisbane Transit' : 'Brisbane Ferry'
+
+/**
+ * The first candidate within `max` characters, else the last (shortest). Search engines show about 60 characters of a
+ * title and 160 of a description, so a page offers its candidates longest-first and keeps the first that fits. Local to
+ * each app on purpose: a shared module became its own chunk on every mode page's first load (+370 B gz on /ferry).
+ */
+const firstFit = (max: number, ...candidates: string[]) =>
+  candidates.find((c) => c.length <= max) ?? candidates[candidates.length - 1] ?? ''
+const fitTitle = (...c: string[]) => firstFit(60, ...c)
+const fitDescription = (...c: string[]) => firstFit(160, ...c)
 
 export const HOME_META = {
   title: BASE

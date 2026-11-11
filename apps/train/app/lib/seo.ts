@@ -3,7 +3,6 @@
  * Worker's vars (staging: the workers.dev host). Pages are `noindex` and robots.txt disallows everything unless
  * INDEXABLE is "1", so staging never competes with the eventual brisbanetrain.com in search results.
  */
-import { fitDescription, fitTitle, listText, TRANSIT_SITE_NAME } from '@bft/core/seo'
 import { BASE } from './base.ts'
 import { lineLabel } from './lineNames.ts'
 import { linesBetween, reachableFrom, STATIONS, type Station, stationPath } from './network.ts'
@@ -11,9 +10,19 @@ import { linesBetween, reachableFrom, STATIONS, type Station, stationPath } from
 export const SITE_URL = 'https://bft-train.brisbanetransit.workers.dev'
 /**
  * The site's name: BrisbaneTransit's on its pages (BASE set: og:site_name, JSON-LD, its share image, titles and
- * descriptions fitted to snippet length with @bft/core/seo), else the standalone app's.
+ * descriptions fitted to snippet length), else the standalone app's.
  */
-export const BRAND = BASE ? TRANSIT_SITE_NAME : 'BrisbaneTrain'
+export const BRAND = BASE ? 'Brisbane Transit' : 'BrisbaneTrain'
+
+/**
+ * The first candidate within `max` characters, else the last (shortest). Search engines show about 60 characters of a
+ * title and 160 of a description, so a page offers its candidates longest-first and keeps the first that fits. Local to
+ * each app on purpose: a shared module became its own chunk on every mode page's first load (+370 B gz on /ferry).
+ */
+const firstFit = (max: number, ...candidates: string[]) =>
+  candidates.find((c) => c.length <= max) ?? candidates[candidates.length - 1] ?? ''
+const fitTitle = (...c: string[]) => firstFit(60, ...c)
+const fitDescription = (...c: string[]) => firstFit(160, ...c)
 
 export const ATTRIBUTION = {
   text: 'Based on TransLink data provided by the State of Queensland (Department of Transport and Main Roads)',
@@ -52,7 +61,8 @@ export function stationLines(station: Station): string[] {
   return [...new Set(reachableFrom(station.key).map((g) => g.line.name))].sort()
 }
 
-const list = listText
+const list = (items: string[]) =>
+  items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
 
 /** At most `n` names, then "and N more" ("A, B and 3 more"). */
 const some = (items: string[], n: number) =>
