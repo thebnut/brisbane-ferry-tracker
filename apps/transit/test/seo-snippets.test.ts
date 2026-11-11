@@ -4,7 +4,7 @@
  * characters; Central's description was 366 and a bus stop's title 91), the site's own name in og:site_name and
  * JSON-LD, its 1200×630 share card, and the popular links on the landing page pointing at real places.
  */
-import { stopMetaTags } from '@bft/bus/app/lib/seo.ts'
+import { routeMetaTags, stopMetaTags } from '@bft/bus/app/lib/seo.ts'
 import { homeJsonLd as ferryHomeJsonLd, terminalMeta } from '@bft/ferry/app/lib/seo.ts'
 import { TERMINALS } from '@bft/ferry/app/lib/terminals.ts'
 import { STATIONS, stationByKey } from '@bft/train/app/lib/network.ts'
@@ -71,6 +71,17 @@ describe('snippet lengths', () => {
     )
     expect(many.description.length).toBeLessThanOrEqual(DESCRIPTION_MAX)
     expect(many.description).toContain('and more')
+  })
+})
+
+describe('bus routes', () => {
+  it('a title that fits keeps the most; the last fallback is the shortest (Codex r3)', () => {
+    expect(routeMetaTags('66', 'RBWH to UQ Lakes', `${SITE}/bus`).title).toBe(
+      'Bus route 66 RBWH to UQ Lakes | Brisbane Transit',
+    )
+    expect(routeMetaTags('199', undefined, `${SITE}/bus`).title).toBe('Bus route 199 | Brisbane Transit')
+    const long = routeMetaTags('X'.repeat(51), undefined, `${SITE}/bus`).title
+    expect(long).toBe(`Bus route ${'X'.repeat(51)}`)
   })
 })
 

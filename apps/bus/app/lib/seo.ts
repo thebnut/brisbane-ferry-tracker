@@ -92,6 +92,7 @@ export function routeMetaTags(short: string, long: string | undefined, siteUrl =
       `Bus route ${short}${long ? ` ${long}` : ''} | ${SITE_NAME}`,
       `Bus route ${short}${long ? ` ${long}` : ''}`,
       `Bus route ${short} | ${SITE_NAME}`,
+      `Bus route ${short}`,
     ),
     description: fitDescription(
       `Every stop on Brisbane bus route ${short}${long ? ` (${long})` : ''}, with live bus positions and departures from each stop.`,
