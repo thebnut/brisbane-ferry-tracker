@@ -3,14 +3,13 @@
 import { SCHEMA_VERSION } from '@bft/core/contract'
 import { TERMINALS } from '@bft/ferry/app/lib/terminals.ts'
 import { STATIONS } from '@bft/train/app/lib/network.ts'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import worker from '../workers/app.ts'
 import { sitemapIndexXml } from '../workers/sitemap.ts'
 
 vi.mock('virtual:react-router/server-build', () => ({}))
 
 const SITE = 'https://brisbanetransit.com'
-const NOW = Date.UTC(2026, 10, 2, 1) // 11 am, 2 Nov 2026 in Brisbane
 const GEN = '20261030-20270109-a0e837e2-72f9f901b555'
 const stop = (key: string, name: string, extra: object = {}) => ({
   key,
@@ -44,8 +43,6 @@ const ROUTES = JSON.stringify({
   generation: GEN,
   routes: ['66', 'P137', 'bad route', '66'],
 })
-const MODE_STOPS = (mode: string, generation: string) =>
-  JSON.stringify({ schemaVersion: SCHEMA_VERSION, mode, generation, stops: [] })
 
 /** The API stub: the bus client data, or a 503 for every file when `down`. */
 function envWith(down = false): Env {
@@ -54,9 +51,6 @@ function envWith(down = false): Env {
     if (down) return new Response('down', { status: 503 })
     if (path === '/data/bus/stops.json') return new Response(STOPS)
     if (path === '/data/bus/routes.json') return new Response(ROUTES)
-    if (path === '/data/ferry/stops.json') return new Response(MODE_STOPS('ferry', GEN))
-    // A feed date after today (2 Nov) is never a lastmod.
-    if (path === '/data/train/stops.json') return new Response(MODE_STOPS('train', '20261201-x-y-z'))
     return new Response('not found', { status: 404 })
   }
   return {
@@ -71,15 +65,6 @@ const get = (path: string, env = envWith()) =>
 const locs = (body: string) => [...body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1] as string)
 
 describe('sitemap', () => {
-  // "Today" is 2 Nov 2026 (Brisbane): only Date is faked, so the Worker's fetches and timers run as normal.
-  beforeAll(() => {
-    vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(NOW)
-  })
-  afterAll(() => {
-    vi.useRealTimers()
-  })
-
   it('the index lists the landing page and every mode file, all on this site', async () => {
     const res = await get('/sitemap.xml')
     expect(res.status).toBe(200)
@@ -96,13 +81,6 @@ describe('sitemap', () => {
       `${SITE}/sitemaps/bus-stops-1.xml`,
       `${SITE}/sitemaps/bus-directory.xml`,
     ])
-    // lastmod only from the data's feed date: none for the landing page, the bus info pages, or a future feed date.
-    expect(body).toContain(`<loc>${SITE}/sitemaps/transit.xml</loc></sitemap>`)
-    expect(body).toContain(`<loc>${SITE}/sitemaps/ferry.xml</loc><lastmod>2026-10-30</lastmod>`)
-    expect(body).toContain(`<loc>${SITE}/sitemaps/train.xml</loc></sitemap>`)
-    expect(body).toContain(`<loc>${SITE}/sitemaps/bus-pages.xml</loc></sitemap>`)
-    expect(body).toContain(`<loc>${SITE}/sitemaps/bus-stops-1.xml</loc><lastmod>2026-10-30</lastmod>`)
-    expect(body).not.toContain('<lastmod>2026-11-02</lastmod>')
   })
 
   it('without the bus stop index, the index still answers (no stop files)', async () => {
@@ -160,7 +138,6 @@ describe('sitemap', () => {
       `${SITE}/bus/stops/c`,
       `${SITE}/bus/stops/r`,
     ])
-    expect(body).toContain('<lastmod>2026-10-30</lastmod>')
     expect((await get('/sitemaps/bus-directory.xml', envWith(true))).status).toBe(503)
   })
 
@@ -172,14 +149,10 @@ describe('sitemap', () => {
     expect(new Set(all).size).toBe(all.length)
   })
 
-  it('stop and route files carry the feed date; ferry and train their own (none when it is in the future)', async () => {
-    expect(await (await get('/sitemaps/bus-stops-1.xml')).text()).toContain('<lastmod>2026-10-30</lastmod>')
-    expect(await (await get('/sitemaps/bus-routes.xml')).text()).toContain('<lastmod>2026-10-30</lastmod>')
-    expect(await (await get('/sitemaps/bus-pages.xml')).text()).not.toContain('<lastmod>')
-    const ferry = await (await get('/sitemaps/ferry.xml')).text()
-    expect(ferry).toContain('<lastmod>2026-10-30</lastmod>')
-    expect(ferry).not.toMatch(/<lastmod>2026-11-0\d<\/lastmod>/)
-    expect(await (await get('/sitemaps/train.xml')).text()).not.toContain('<lastmod>')
+  it("no <lastmod> in any file: there is no reliable change time, and today's date (as before) was made up", async () => {
+    const files = locs(await (await get('/sitemap.xml')).text())
+    expect(await (await get('/sitemap.xml')).text()).not.toContain('<lastmod>')
+    for (const f of files) expect(await (await get(new URL(f).pathname)).text(), f).not.toContain('<lastmod>')
   })
 
   it('a stop file past the end is a 404; unreadable bus data is a 503 crawlers retry', async () => {

@@ -226,7 +226,7 @@ const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Brisbane
 
 /**
  * Same URL set, order and priorities as the legacy scripts/postbuild.mjs sitemap. `lastmod` replaces the home and
- * terminal pages' date: BrisbaneTransit passes the timetable feed's date (or null for none) instead of today's.
+ * terminal pages' date (today's by default): BrisbaneTransit passes null, for none, as it has no real change time.
  */
 export function sitemapXml(siteUrl: string, nowMs: number, lastmod?: string | null): string {
   const today = lastmod === undefined ? dateKey.format(nowMs) : (lastmod ?? undefined)

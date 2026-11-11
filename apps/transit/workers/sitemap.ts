@@ -6,14 +6,14 @@
  *  - /sitemaps/ferry.xml, train.xml  the standalone apps' sitemaps under /ferry and /train
  *  - /sitemaps/bus-pages.xml (no Nearby or Alerts: noindex), bus-routes.xml, bus-stops-n.xml  BrisbaneBus's, under /bus (stops and routes from client data)
  *  - /sitemaps/bus-directory.xml   the A–Z stop directory's pages (/bus/stops, /bus/stops/b, /bus/stops/b/2 …)
- * Each stop URL is listed once. `<lastmod>` is only a real change time: the timetable feed's date from each mode's
- * client data (@bft/core/seo feedDate), never today's date. The landing page and the bus info pages have none.
+ * Each stop URL is listed once. No `<lastmod>`: there is no reliable time a page last changed (its data's generation
+ * names the feed's coverage start, not when anything changed; Codex r1), and a made-up one (today's date, as before) is
+ * worse than none: search engines learn to ignore a site's lastmod when it isn't accurate.
  */
 import { STOPS_PER_SITEMAP, stopEntriesFromIndexText, urlsetXml } from '@bft/bus/app/lib/seo.ts'
 import { directoryCounts, directoryPaths } from '@bft/bus/app/lib/stop-directory.ts'
 import { routePath, stopPath } from '@bft/bus/app/lib/stops.ts'
 import { ROUTE_SHORT_RE, RouteIndexFile } from '@bft/core/contract'
-import { feedDate, generationOfText } from '@bft/core/seo'
 import { sitemapXml as ferrySitemapXml } from '@bft/ferry/app/lib/seo.ts'
 import { TERMINALS } from '@bft/ferry/app/lib/terminals.ts'
 import { sitemapXml as trainSitemapXml } from '@bft/train/app/lib/seo.ts'
@@ -32,19 +32,12 @@ const xml = (body: string, maxAge = 86400) =>
 const unavailable = () =>
   new Response('Unavailable', { status: 503, headers: { 'cache-control': 'no-store' } })
 
-const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Brisbane' })
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 /** Raw text of a client-data file through the API (null when it can't be read). */
 async function dataText(env: Env, path: string): Promise<string | null> {
   const res = await apiFetch(env, path, { headers: { accept: 'application/json' } }).catch(() => null)
   return res?.ok ? res.text() : null
-}
-
-/** The feed date of a mode's client data (its stops.json generation), or null. */
-async function modeFeedDate(env: Env, mode: 'ferry' | 'train', nowMs: number): Promise<string | null> {
-  const text = await dataText(env, `/data/${mode}/stops.json`)
-  return text ? feedDate(generationOfText(text), dateKey.format(nowMs)) : null
 }
 
 /** BrisbaneBus's sitemap files (its sitemapIndexXml), prefixed `bus-` in this site's /sitemaps/. */
@@ -55,31 +48,16 @@ function busFiles(stopCount: number): string[] {
   return files
 }
 
-export interface FeedDates {
-  ferry?: string | null
-  train?: string | null
-  bus?: string | null
-}
-
-/** The index. A child file's `<lastmod>` is its mode's feed date when known; the landing page and bus pages have none. */
-export function sitemapIndexXml(siteUrl: string, busStopCount: number, dates: FeedDates = {}): string {
-  const files: [string, string | null | undefined][] = [
-    ['/sitemaps/transit.xml', null],
-    ['/sitemaps/ferry.xml', dates.ferry],
-    ['/sitemaps/train.xml', dates.train],
-    ...busFiles(busStopCount).map((f): [string, string | null | undefined] => [
-      f,
-      f === '/sitemaps/bus-pages.xml' ? null : dates.bus,
-    ]),
+export function sitemapIndexXml(siteUrl: string, busStopCount: number): string {
+  const files = [
+    '/sitemaps/transit.xml',
+    '/sitemaps/ferry.xml',
+    '/sitemaps/train.xml',
+    ...busFiles(busStopCount),
   ]
   return `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${files
-  .map(
-    ([f, lastmod]) =>
-      `  <sitemap><loc>${esc(siteUrl + f)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}</sitemap>`,
-  )
-  .join('\n')}
+${files.map((f) => `  <sitemap><loc>${esc(siteUrl + f)}</loc></sitemap>`).join('\n')}
 </sitemapindex>
 `
 }
@@ -88,29 +66,19 @@ ${files
 export async function sitemap(url: URL, env: Env, nowMs = Date.now()): Promise<Response | null> {
   const site = env.SITE_URL
   const bus = `${site}${MODE_BASES.bus}`
-  const today = dateKey.format(nowMs)
   switch (url.pathname) {
     case '/sitemap.xml': {
-      const [text, ferry, train] = await Promise.all([
-        dataText(env, '/data/bus/stops.json'),
-        modeFeedDate(env, 'ferry', nowMs),
-        modeFeedDate(env, 'train', nowMs),
-      ])
+      const text = await dataText(env, '/data/bus/stops.json')
       // Without the stop index the bus stop files are left out of the index rather than the whole sitemap failing.
       const count = text ? stopEntriesFromIndexText(text).length : 0
-      const busDate = text ? feedDate(generationOfText(text), today) : null
-      return xml(sitemapIndexXml(site, count, { ferry, train, bus: busDate }), 3600)
+      return xml(sitemapIndexXml(site, count), 3600)
     }
     case '/sitemaps/transit.xml':
       return xml(urlsetXml(site, ['/'], { changefreq: 'daily', priority: '1.0' }))
     case '/sitemaps/ferry.xml':
-      return xml(
-        ferrySitemapXml(`${site}${MODE_BASES.ferry}`, nowMs, await modeFeedDate(env, 'ferry', nowMs)),
-      )
+      return xml(ferrySitemapXml(`${site}${MODE_BASES.ferry}`, nowMs, null))
     case '/sitemaps/train.xml':
-      return xml(
-        trainSitemapXml(`${site}${MODE_BASES.train}`, nowMs, await modeFeedDate(env, 'train', nowMs)),
-      )
+      return xml(trainSitemapXml(`${site}${MODE_BASES.train}`, nowMs, null))
     case '/sitemaps/bus-pages.xml':
       return xml(
         urlsetXml(bus, ['/', '/map', '/about'], {
@@ -123,11 +91,9 @@ export async function sitemap(url: URL, env: Env, nowMs = Date.now()): Promise<R
       const text = await dataText(env, '/data/bus/routes.json')
       if (!text) return unavailable()
       let shorts: string[]
-      let generation: string
       try {
         const index = RouteIndexFile.parse(JSON.parse(text))
         shorts = index.routes.filter((s) => ROUTE_SHORT_RE.test(s))
-        generation = index.generation
       } catch {
         return unavailable()
       }
@@ -135,7 +101,6 @@ export async function sitemap(url: URL, env: Env, nowMs = Date.now()): Promise<R
         urlsetXml(bus, [...new Set(shorts)].map(routePath), {
           changefreq: 'weekly',
           priority: '0.5',
-          lastmod: feedDate(generation, today),
         }),
       )
     }
@@ -148,7 +113,6 @@ export async function sitemap(url: URL, env: Env, nowMs = Date.now()): Promise<R
         urlsetXml(bus, directoryPaths(directoryCounts(entries)), {
           changefreq: 'weekly',
           priority: '0.5',
-          lastmod: feedDate(generationOfText(text), today),
         }),
       )
     }
@@ -166,7 +130,6 @@ export async function sitemap(url: URL, env: Env, nowMs = Date.now()): Promise<R
     urlsetXml(bus, keys.map(stopPath), {
       changefreq: 'daily',
       priority: '0.7',
-      lastmod: feedDate(generationOfText(text), today),
     }),
   )
 }

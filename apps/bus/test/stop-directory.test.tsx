@@ -18,7 +18,7 @@ import {
   directoryPaths,
   parseDirectoryParams,
 } from '../app/lib/stop-directory.ts'
-import Stops, { directoryMeta, loader, meta } from '../app/routes/stops.tsx'
+import Stops, { directoryMeta, headers, loader, meta } from '../app/routes/stops.tsx'
 
 const stop = (key: string, name: string, extra: object = {}) => ({
   key,
@@ -201,6 +201,15 @@ describe('loader', () => {
     const tags = meta({ loaderData: r.data } as never) as Record<string, string>[]
     expect(tags).toContainEqual({ name: 'robots', content: 'noindex' })
     expect(tags.find((t) => t.rel === 'canonical')).toBeUndefined()
+  })
+})
+
+describe('headers', () => {
+  it('a directory page is public for an hour; the 503 keeps its no-store (Codex r1)', async () => {
+    const h = (loaderHeaders: Headers) => headers({ loaderHeaders } as never)['cache-control']
+    expect(h(new Headers())).toBe('public, max-age=3600')
+    const r = (await load('/stops/b', null)) as { init: { headers: Record<string, string> } }
+    expect(h(new Headers(r.init.headers))).toBe('no-store')
   })
 })
 

@@ -48,9 +48,12 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   return { siteUrl, letter, page, pages, letters, stops, unavailable: false }
 }
 
-export function headers() {
-  // The same for everyone and changes with each data publish at most.
-  return { 'cache-control': 'public, max-age=3600' }
+/**
+ * A directory page is the same for everyone and changes with a data publish at most: public for an hour. The 503 (stop
+ * index unreadable) keeps its loader's no-store, so no cache holds the outage page after the data is back (Codex r1).
+ */
+export function headers({ loaderHeaders }: Route.HeadersArgs) {
+  return { 'cache-control': loaderHeaders.get('cache-control') ?? 'public, max-age=3600' }
 }
 
 /** Title and description for a directory page (each one unique: letter and page). */

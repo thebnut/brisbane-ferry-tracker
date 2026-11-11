@@ -23,27 +23,3 @@ export const fitDescription = (...candidates: string[]) => fitText(DESCRIPTION_M
 /** "a", "a and b", "a, b and c". */
 export const listText = (items: readonly string[]) =>
   items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
-
-/**
- * A data file's generation from the start of its raw text (`{"schemaVersion":1,"mode":"bus","generation":"…"`), without
- * parsing the whole file. Null when it isn't there.
- */
-export function generationOfText(text: string): string | null {
-  return /"generation":"([^"\\]{1,200})"/.exec(text.slice(0, 512))?.[1] ?? null
-}
-
-/**
- * The sitemap `<lastmod>` for pages built from a data generation: the GTFS feed's start date, the first part of the
- * generation (`20261110-20270109-a0e837e2-…`, pipeline feedVersionOf), as YYYY-MM-DD. The stop names, routes and
- * timetables on those pages change only with a new feed. Null unless it is a real calendar date no later than `today`
- * (YYYY-MM-DD): no invented or future dates.
- */
-export function feedDate(generation: string | null | undefined, today: string): string | null {
-  const m = /^(\d{4})(\d{2})(\d{2})-/.exec(generation ?? '')
-  if (!m) return null
-  const [, y, mo, d] = m
-  const date = `${y}-${mo}-${d}`
-  const t = Date.UTC(Number(y), Number(mo) - 1, Number(d))
-  if (Number.isNaN(t) || new Date(t).toISOString().slice(0, 10) !== date) return null
-  return date <= today ? date : null
-}

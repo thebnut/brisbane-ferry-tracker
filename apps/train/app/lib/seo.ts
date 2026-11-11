@@ -231,7 +231,7 @@ const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Brisbane
 
 /**
  * Home, the station index, line status and every station page (154). `lastmod` replaces today's date: BrisbaneTransit
- * passes the timetable feed's date, or null for no `<lastmod>`.
+ * passes null, for no `<lastmod>`, as it has no real change time.
  */
 export function sitemapXml(siteUrl: string, nowMs: number, lastmod?: string | null): string {
   const today = lastmod === undefined ? dateKey.format(nowMs) : lastmod

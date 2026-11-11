@@ -193,19 +193,17 @@ ${files.map((f) => `  <sitemap><loc>${esc(siteUrl + f)}</loc><lastmod>${today}</
 `
 }
 
-/** `lastmod` (YYYY-MM-DD) only when there is a real change time, e.g. the stop data's feed date (@bft/core/seo feedDate). */
 export function urlsetXml(
   siteUrl: string,
   paths: string[],
-  opts: { changefreq: string; priority: string; lastmod?: string | null },
+  opts: { changefreq: string; priority: string },
 ): string {
-  const lastmod = opts.lastmod ? `<lastmod>${opts.lastmod}</lastmod>` : ''
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${paths
   .map(
     (p) =>
-      `  <url><loc>${esc(siteUrl + p)}</loc>${lastmod}<changefreq>${opts.changefreq}</changefreq><priority>${opts.priority}</priority></url>`,
+      `  <url><loc>${esc(siteUrl + p)}</loc><changefreq>${opts.changefreq}</changefreq><priority>${opts.priority}</priority></url>`,
   )
   .join('\n')}
 </urlset>

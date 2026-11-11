@@ -148,7 +148,6 @@ describe('canonical page URLs (one 301: unprefixed old paths, trailing slashes, 
       '/ferry/',
       '/ferry/terminal/south-bank',
       '/bus/stop/1',
-      '/bus/stop/000001', // the stop page's own 301 handles it (padded only under /bus here: never unpadded twice)
       '/whats-new',
       '/v1/ferry/departures/',
       '/v1/',
@@ -161,6 +160,30 @@ describe('canonical page URLs (one 301: unprefixed old paths, trailing slashes, 
       '/robots.txt',
       '/llms.txt',
       '/sitemap.xml',
+    ])
+      expect(loc(`${SITE}${p}`), p).toBeNull()
+  })
+
+  it('the final mounted canonical in one hop, whatever needs fixing (Codex r1)', () => {
+    for (const [from, to] of [
+      // Padded stop numbers already under /bus: unpadded here, not left to the stop page's second 301.
+      [`${SITE}/bus/stop/000001`, `${SITE}/bus/stop/1`],
+      [`${SITE}/bus/stop/000001/?x=1`, `${SITE}/bus/stop/1?x=1`],
+      ['http://brisbanetransit.com/bus/stop/010813', `${SITE}/bus/stop/10813`],
+      // The stop directory's spelling, as its loader would 301 to.
+      [`${SITE}/bus/stops/B/1/`, `${SITE}/bus/stops/b`],
+      [`${SITE}/bus/stops/b/02`, `${SITE}/bus/stops/b/2`],
+      [`${SITE}/bus/stops/B`, `${SITE}/bus/stops/b`],
+    ])
+      expect(loc(from), from).toBe(to)
+    // Already canonical, or not a directory page (its loader 404s): left alone.
+    for (const p of [
+      '/bus/stop/0',
+      '/bus/stop/0000001',
+      '/bus/stops/b',
+      '/bus/stops/b/2',
+      '/bus/stops/bb',
+      '/bus/stops/b/0',
     ])
       expect(loc(`${SITE}${p}`), p).toBeNull()
   })
@@ -197,6 +220,7 @@ describe('canonical page URLs (one 301: unprefixed old paths, trailing slashes, 
       ['http://brisbanetransit.com/', `${SITE}/`],
       // www, http and an old path: still one hop.
       ['http://www.brisbanetransit.com/terminal/south-bank/?x=1', `${SITE}/ferry/terminal/south-bank?x=1`],
+      ['http://www.brisbanetransit.com/bus/stop/000001?x=1', `${SITE}/bus/stop/1?x=1`],
     ]) {
       const res = await get(from as string, env)
       expect(res.status, from).toBe(301)

@@ -1,3 +1,4 @@
+import { directoryPath, parseDirectoryParams } from '@bft/bus/app/lib/stop-directory.ts'
 import { gaSources } from '@bft/ui/analytics-config'
 
 /**
@@ -92,10 +93,23 @@ const UNPREFIXED: readonly [RegExp, string][] = [
 /** Never redirected for their path or scheme: the API proxy, client data, fixtures, React Router's own requests. */
 const NOT_A_PAGE = /^\/(?:v1|data|api|__fixtures)(?:\/|$)|^\/__|\.data$/
 
+/** The bus stop page's own canonical: a stop number shared with leading zeros is the unpadded stop_id's page. */
+const unpadStop = (path: string) =>
+  /^\/bus\/stop\/0\d{1,5}$/.test(path) ? path.replace(/^\/bus\/stop\/0+(?=\d)/, '/bus/stop/') : path
+
+/** The stop directory's own canonical spelling (`/bus/stops/B/1` → `/bus/stops/b`), as its loader would 301 to. */
+function directoryCanonical(path: string): string {
+  const m = /^\/bus\/stops\/([^/]+)(?:\/([^/]+))?$/.exec(path)
+  if (!m) return path
+  const p = parseDirectoryParams(m[1], m[2])
+  return p?.redirect ? `/bus${directoryPath(p.letter, p.page)}` : path
+}
+
 /**
  * The canonical path of a page path, the one in canonicals and the sitemap: no trailing slash on a page (the hubs and
- * `/` keep theirs), the hubs with one, a bare old page under its mode prefix, and a padded bus stop number unpadded
- * (as the stop page's own 301 does). Idempotent, so redirecting to it never loops.
+ * `/` keep theirs), the hubs with one, a bare old page under its mode prefix, a padded bus stop number unpadded and the
+ * stop directory's spelling (as those pages' own 301s do, so a request needing several fixes still takes one hop).
+ * Idempotent, so redirecting to it never loops.
  */
 export function canonicalPagePath(pathname: string): string {
   if (pathname === '/') return pathname
@@ -103,11 +117,7 @@ export function canonicalPagePath(pathname: string): string {
   if (path === '/') return path
   if (/^\/(?:ferry|train|bus)$/.test(path)) return `${path}/`
   const prefix = UNPREFIXED.find(([re]) => re.test(path))?.[1]
-  if (!prefix) return path
-  const full = `${prefix}${path}`
-  return prefix === '/bus' && /^\/bus\/stop\/0\d{1,5}$/.test(full)
-    ? full.replace(/^\/bus\/stop\/0+(?=\d)/, '/bus/stop/')
-    : full
+  return directoryCanonical(unpadStop(prefix ? `${prefix}${path}` : path))
 }
 
 /**
