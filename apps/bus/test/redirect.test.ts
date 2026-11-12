@@ -49,15 +49,12 @@ const EXCLUDED = [
   '/api/gtfs-proxy',
   '/__fixtures/v1/x',
   '/__manifest',
-  '/sitemap.xml',
-  '/robots.txt',
   '/sw.js',
   '/manifest.webmanifest',
   '/assets/x-abc.js',
   '/icon-192.png',
   '/home.data',
   '/data/bus/stops.json',
-  '/sitemaps/pages.xml',
 ]
 
 describe('redirect to transit (P6)', () => {
@@ -94,6 +91,21 @@ describe('redirect to transit (P6)', () => {
   it('301 only when REDIRECT_STATUS is "301"', async () => {
     expect((await get('/', envWith({ ...ON, REDIRECT_STATUS: '301' }))).status).toBe(301)
   })
+
+  // Like the legacy ferry hosts (vercel.json): the old host's robots.txt, llms.txt and sitemaps are transit's own, so
+  // crawlers aren't sent back to thousands of old URLs, and robots.txt (followed through the redirect) lets them reach
+  // the 301s.
+  it.each(['/robots.txt', '/llms.txt', '/sitemap.xml', '/sitemaps/pages.xml', '/sitemaps/x-1.xml'])(
+    "%s goes to transit's own",
+    async (path) => {
+      const want = path.startsWith('/sitemap') ? '/sitemap.xml' : path
+      for (const init of [{}, { headers: { 'sec-fetch-mode': 'cors' } }, { method: 'HEAD' }]) {
+        const res = await get(path, envWith(ON), init)
+        expect(res.status).toBe(302)
+        expect(res.headers.get('location')).toBe(`${TRANSIT}${want}`)
+      }
+    },
+  )
 
   it.each(EXCLUDED)('%s is served as before', async (path) => {
     const res = await get(path, envWith(ON))
@@ -169,20 +181,27 @@ describe('the permanent move (release 24: 301s in production)', () => {
     expect(res.headers.get('location')).toBe(`${SITE}/stop/10802`)
   })
 
-  it('the 301s carry no noindex; robots.txt lets crawlers reach them', async () => {
+  it("the 301s carry no noindex; robots.txt is transit's, which lets crawlers reach them", async () => {
     const res = await get('/stop/10802', envWith(PROD))
     expect(res.status).toBe(301)
     expect(res.headers.get('x-robots-tag')).toBeNull()
-    const robots = await get('/robots.txt', envWith(PROD))
-    expect(await robots.text()).toContain('Allow: /')
-    expect(robots.headers.get('x-robots-tag')).toBe('noindex')
+    for (const path of ['/robots.txt', '/sitemap.xml']) {
+      const seo = await get(path, envWith(PROD))
+      expect(seo.status).toBe(301)
+      expect(seo.headers.get('location')).toBe(`${TRANSIT}${path}`)
+      expect(seo.headers.get('x-robots-tag')).toBeNull()
+    }
   })
 
-  it('the staging trial (302) stays out of search: robots disallows and the 302s say noindex', async () => {
-    const res = await get('/stop/10802', envWith({ ...ON, REDIRECT_STATUS: '302', INDEXABLE: '0' }))
+  it("the staging trial (302) stays out of search: the 302s say noindex, robots.txt is staging transit's", async () => {
+    const trial = { ...ON, REDIRECT_STATUS: '302', INDEXABLE: '0' }
+    const res = await get('/stop/10802', envWith(trial))
     expect(res.status).toBe(302)
     expect(res.headers.get('x-robots-tag')).toBe('noindex')
-    const robots = await get('/robots.txt', envWith({ ...ON, REDIRECT_STATUS: '302', INDEXABLE: '0' }))
-    expect(await robots.text()).toBe('User-agent: *\nDisallow: /\n')
+    // Staging transit's robots.txt disallows everything (apps/transit, INDEXABLE unset there).
+    const robots = await get('/robots.txt', envWith(trial))
+    expect(robots.status).toBe(302)
+    expect(robots.headers.get('location')).toBe(`${TRANSIT}/robots.txt`)
+    expect(robots.headers.get('x-robots-tag')).toBe('noindex')
   })
 })

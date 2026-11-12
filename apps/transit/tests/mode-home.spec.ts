@@ -7,7 +7,7 @@ const HOMES: HomeSpec[] = [
     mode: 'ferry',
     path: '/ferry',
     base: '/ferry',
-    title: 'Ferry',
+    title: 'Brisbane ferries',
     search: 'Find a terminal',
     popular: { title: 'All terminals', first: { name: 'Apollo Road', href: '/terminal/apollo-road' } },
     near: 'terminals',
@@ -18,7 +18,7 @@ const HOMES: HomeSpec[] = [
     mode: 'train',
     path: '/train',
     base: '/train',
-    title: 'Train',
+    title: 'Brisbane trains',
     search: 'Find a station',
     popular: { title: 'Popular stations', first: { name: 'Central', href: '/station/central' } },
     near: 'stations',
@@ -30,7 +30,7 @@ const HOMES: HomeSpec[] = [
     mode: 'bus',
     path: '/bus',
     base: '/bus',
-    title: 'Bus',
+    title: 'Brisbane buses',
     // Phones on the standalone site: the thumb sheet's "Find a stop".
     search: /^(Find a stop|Stop name or number)$/,
     popular: {

@@ -7,7 +7,8 @@
  *  - /robots.txt      disallows everything unless INDEXABLE is "1" (staging stays out of search)
  *  - www.<SITE_URL host> 301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
  *  - REDIRECT_TO_TRANSIT "1": page navigations 302/301 to the same page on TRANSIT_SITE_URL (@bft/ui/redirect), from
- *                     www too in one hop; with 301s (production) robots.txt allows crawling and the 301s carry no noindex
+ *                     www too in one hop, and the 301s carry no noindex; robots.txt, llms.txt and the sitemap go to
+ *                     transit's own (whose robots.txt lets crawlers reach the 301s), so the routes below never see them
  *  - everything else  React Router SSR
  */
 
@@ -116,7 +117,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
     })
   }
   if (url.pathname === '/robots.txt') {
-    // Once the pages have moved for good, crawlers may fetch everything, so they find the 301s (and the old sitemap).
+    // Reached only while the pages haven't moved (REDIRECT_TO_TRANSIT off): transitRedirect sends it to transit's after.
     return new Response(robotsTxt(site.siteUrl, site.indexable || movedPermanently(env)), {
       headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' },
     })

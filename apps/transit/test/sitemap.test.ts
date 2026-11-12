@@ -10,18 +10,38 @@ import { sitemapIndexXml } from '../workers/sitemap.ts'
 vi.mock('virtual:react-router/server-build', () => ({}))
 
 const SITE = 'https://brisbanetransit.com'
-const NOW = Date.UTC(2026, 10, 2, 1)
+const GEN = '20261030-20270109-a0e837e2-72f9f901b555'
+const stop = (key: string, name: string, extra: object = {}) => ({
+  key,
+  name,
+  lat: -27.4,
+  lon: 153,
+  routes: ['66'],
+  code: key.padStart(6, '0'),
+  ...extra,
+})
+/** As data/bus/stops.json: a busway station's `boardAt` names its platforms, which are stops of their own too. */
 const STOPS = JSON.stringify({
+  schemaVersion: SCHEMA_VERSION,
+  mode: 'bus',
+  generation: GEN,
   stops: [
-    { key: '10802', name: 'A' },
-    { key: '1076', name: 'B' },
+    stop('10802', 'Cultural Centre station, platform 1'),
+    stop('1076', 'Boundary Rd at Bardon'),
+    stop('10794', 'Roma Street busway station', {
+      boardAt: [
+        { key: '10793', name: 'Roma Street busway, platform 1' },
+        { key: '10802', name: 'Cultural Centre station, platform 1' },
+      ],
+    }),
+    stop('10793', 'Roma Street busway, platform 1'),
   ],
 })
 const ROUTES = JSON.stringify({
   schemaVersion: SCHEMA_VERSION,
   mode: 'bus',
-  generation: 'g1',
-  routes: ['66', 'P137', 'bad route'],
+  generation: GEN,
+  routes: ['66', 'P137', 'bad route', '66'],
 })
 
 /** The API stub: the bus client data, or a 503 for every file when `down`. */
@@ -59,6 +79,7 @@ describe('sitemap', () => {
       `${SITE}/sitemaps/bus-pages.xml`,
       `${SITE}/sitemaps/bus-routes.xml`,
       `${SITE}/sitemaps/bus-stops-1.xml`,
+      `${SITE}/sitemaps/bus-directory.xml`,
     ])
   })
 
@@ -69,7 +90,7 @@ describe('sitemap', () => {
   })
 
   it('one bus stop file per 5000 stops', () => {
-    expect(locs(sitemapIndexXml(SITE, 10_001, NOW)).filter((l) => l.includes('bus-stops'))).toHaveLength(3)
+    expect(locs(sitemapIndexXml(SITE, 10_001)).filter((l) => l.includes('bus-stops'))).toHaveLength(3)
   })
 
   it('the landing page', async () => {
@@ -100,10 +121,38 @@ describe('sitemap', () => {
       `${SITE}/bus/route/66`,
       `${SITE}/bus/route/P137`,
     ])
+    // Each stop once: the stops a busway station's boardAt names are not listed again (97 were, live, before).
     expect(locs(await (await get('/sitemaps/bus-stops-1.xml')).text())).toEqual([
       `${SITE}/bus/stop/10802`,
       `${SITE}/bus/stop/1076`,
+      `${SITE}/bus/stop/10794`,
+      `${SITE}/bus/stop/10793`,
     ])
+  })
+
+  it('bus stop directory: the A–Z page and each letter with stops', async () => {
+    const body = await (await get('/sitemaps/bus-directory.xml')).text()
+    expect(locs(body)).toEqual([
+      `${SITE}/bus/stops`,
+      `${SITE}/bus/stops/b`,
+      `${SITE}/bus/stops/c`,
+      `${SITE}/bus/stops/r`,
+    ])
+    expect((await get('/sitemaps/bus-directory.xml', envWith(true))).status).toBe(503)
+  })
+
+  it('no URL is listed twice, in any file or across files', async () => {
+    const files = locs(await (await get('/sitemap.xml')).text())
+    const all: string[] = []
+    for (const f of files) all.push(...locs(await (await get(new URL(f).pathname)).text()))
+    expect(all.length).toBeGreaterThan(TERMINALS.length + STATIONS.length)
+    expect(new Set(all).size).toBe(all.length)
+  })
+
+  it("no <lastmod> in any file: there is no reliable change time, and today's date (as before) was made up", async () => {
+    const files = locs(await (await get('/sitemap.xml')).text())
+    expect(await (await get('/sitemap.xml')).text()).not.toContain('<lastmod>')
+    for (const f of files) expect(await (await get(new URL(f).pathname)).text(), f).not.toContain('<lastmod>')
   })
 
   it('a stop file past the end is a 404; unreadable bus data is a 503 crawlers retry', async () => {
@@ -111,5 +160,24 @@ describe('sitemap', () => {
     expect((await get('/sitemaps/bus-stops-0.xml')).status).toBe(404)
     expect((await get('/sitemaps/bus-stops-1.xml', envWith(true))).status).toBe(503)
     expect((await get('/sitemaps/bus-routes.xml', envWith(true))).status).toBe(503)
+  })
+})
+
+describe('/llms.txt', () => {
+  it('plain text: what the site is, its sections and the main terminals, stations and stops, all on this site', async () => {
+    const res = await get('/llms.txt')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('text/plain; charset=utf-8')
+    const body = await res.text()
+    expect(body.startsWith('# Brisbane Transit\n\n> ')).toBe(true)
+    for (const path of ['/ferry/', '/train/', '/bus/', '/train/stations', '/bus/stops', '/sitemap.xml'])
+      expect(body).toContain(`](${SITE}${path})`)
+    for (const t of TERMINALS) expect(body).toContain(`[${t.name}](${SITE}/ferry/terminal/${t.slug})`)
+    expect(body).toContain(`(${SITE}/train/station/central)`)
+    expect(body).toContain(`(${SITE}/bus/stop/10802)`)
+    const links = [...body.matchAll(/\]\((https?:[^)]+)\)/g)].map((m) => m[1] as string)
+    for (const u of links) expect(u.startsWith(`${SITE}/`), u).toBe(true)
+    // Short: a guide, not a dump of the sitemap.
+    expect(body.length).toBeLessThan(5000)
   })
 })

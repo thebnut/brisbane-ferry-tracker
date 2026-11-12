@@ -50,7 +50,8 @@ test('the landing page (/): indexable head, a way into every tab, no tab marked 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     'Live Brisbane ferry, train and bus departures',
   )
-  await expect(page.locator('head meta[name="robots"]')).toHaveCount(0)
+  // The page's own: a non-production deploy (this one) adds its deploy-wide noindex, marked apart.
+  await expect(page.locator('head meta[name="robots"]:not([data-deploy-noindex])')).toHaveCount(0)
   await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute('href', /\/$/)
   const sections = page.getByRole('navigation', { name: 'BrisbaneTransit sections' })
   for (const [name, href] of [

@@ -43,6 +43,7 @@ export default [
         route('trip/:tripInstance', app('bus', 'trip.tsx'), { id: 'bus/trip' }),
       ]),
       route('route/:route', app('bus', 'route.tsx'), { id: 'bus/route' }),
+      route('stops/:letter?/:page?', app('bus', 'stops.tsx'), { id: 'bus/stops' }),
       route('map', app('bus', 'map.tsx'), { id: 'bus/map' }),
       route('alerts', app('bus', 'alerts.tsx'), { id: 'bus/alerts' }),
       route('about', app('bus', 'about.tsx'), { id: 'bus/about' }),
