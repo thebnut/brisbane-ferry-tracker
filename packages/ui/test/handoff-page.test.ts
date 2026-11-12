@@ -311,6 +311,52 @@ describe('wantsHandoff / transitRedirect with a nonce', () => {
     expect(res?.headers.get('location')).toBe(`${BASE}/bus/`)
   })
 
+  // Real user agents, as sent (Google's crawler docs, OpenAI's, Anthropic's, Perplexity's): each gets the 301 with
+  // no noindex handoff page, so Search Console's URL Inspection and AI assistants' cited links see the move.
+  it.each([
+    'Mozilla/5.0 (compatible; Google-InspectionTool/1.0;)',
+    'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/W.X.Y.Z Mobile Safari/537.36 (compatible; Google-InspectionTool/1.0;)',
+    'GoogleOther',
+    'Mozilla/5.0 (compatible; GoogleOther)',
+    'AdsBot-Google (+http://www.google.com/adsbot.html)',
+    'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/W.X.Y.Z Mobile Safari/537.36 (compatible; AdsBot-Google-Mobile; +http://www.google.com/mobile/adsbot.html)',
+    'Mozilla/5.0 (X11; Linux x86_64; Storebot-Google/1.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/W.X.Y.Z Safari/537.36',
+    'Mediapartners-Google',
+    'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot',
+    'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; OAI-SearchBot/1.0; +https://openai.com/searchbot',
+    'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.1; +https://openai.com/gptbot',
+    'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-User/1.0; +Claude-User@anthropic.com)',
+    'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)',
+    'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Perplexity-User/1.0; +https://perplexity.ai/perplexity-user)',
+    'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+    'Mozilla/5.0 (compatible; Applebot/0.1; +http://www.apple.com/go/applebot)',
+  ])('crawler %s: the plain 301, not the handoff page', (ua) => {
+    const req = browser('/station/central', { 'user-agent': ua })
+    expect(wantsHandoff(req)).toBe(false)
+    const res = transitRedirect(req, 'train', { ...ON, REDIRECT_STATUS: '301' }, 'n')
+    expect(res?.status).toBe(301)
+    expect(res?.headers.get('location')).toBe(`${BASE}/train/station/central`)
+    expect(res?.headers.get('x-robots-tag')).toBeNull()
+  })
+
+  it.each([
+    CHROME,
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0',
+    // The Google app and Chrome on Android are browsers, not crawlers.
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) GSA/340.0.0 Mobile/15E148 Safari/604.1',
+  ])('a real browser still gets the handoff page: %s', async (ua) => {
+    const req = browser('/station/central', { 'user-agent': ua })
+    expect(wantsHandoff(req)).toBe(true)
+    const res = transitRedirect(req, 'train', { ...ON, REDIRECT_STATUS: '301' }, 'n')
+    expect(res?.status).toBe(200)
+    expect(res?.headers.get('x-robots-tag')).toBe('noindex')
+    expect(await res?.text()).toContain(`href="${BASE}/train/station/central"`)
+  })
+
   it('a cookie with another value, or another cookie, is not the handed-off flag', () => {
     expect(wantsHandoff(browser('/', { cookie: `${HANDOFF_COOKIE}=0` }))).toBe(true)
     expect(wantsHandoff(browser('/', { cookie: `x${HANDOFF_COOKIE}=1` }))).toBe(true)

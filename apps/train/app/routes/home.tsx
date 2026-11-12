@@ -26,7 +26,7 @@ import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { SECTION, Shell, useReportLive } from '../components/Chrome.tsx'
 import { fetchDepartures } from '../lib/api.ts'
-import { at } from '../lib/base.ts'
+import { at, BASE } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { boardState, visibleRows } from '../lib/departures.ts'
 import { boardHref, STATIONS, type Station, stationByKey, stationHref } from '../lib/network.ts'
@@ -240,7 +240,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       pending={seeds.some((r) => !r || awaitingSeedAnswer(asSeed(r), boardState(r, false, nowMs, page)))}
     >
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
-        <HomeTitle title="Train">
+        {/* Inside BrisbaneTransit the hub says which city's trains these are (its H1 for search). */}
+        <HomeTitle title={BASE ? 'Brisbane trains' : 'Train'}>
           <ModeHomeTop />
         </HomeTitle>
         <HomeSection id="saved" title="Saved">

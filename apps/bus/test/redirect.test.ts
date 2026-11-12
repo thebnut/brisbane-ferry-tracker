@@ -1,8 +1,10 @@
 // @vitest-environment node
 /** P6: page navigations redirect to BrisbaneTransit when REDIRECT_TO_TRANSIT is "1", through the Worker's fetch handler. */
 import { fileURLToPath } from 'node:url'
+import { directoryCanonical } from '@bft/ui/redirect'
 import { describe, expect, it, vi } from 'vitest'
 import { unstable_readConfig } from 'wrangler'
+import { directoryPath, parseDirectoryParams } from '../app/lib/stop-directory.ts'
 import worker from '../workers/app.ts'
 
 vi.mock('virtual:react-router/server-build', () => ({}))
@@ -49,15 +51,12 @@ const EXCLUDED = [
   '/api/gtfs-proxy',
   '/__fixtures/v1/x',
   '/__manifest',
-  '/sitemap.xml',
-  '/robots.txt',
   '/sw.js',
   '/manifest.webmanifest',
   '/assets/x-abc.js',
   '/icon-192.png',
   '/home.data',
   '/data/bus/stops.json',
-  '/sitemaps/pages.xml',
 ]
 
 describe('redirect to transit (P6)', () => {
@@ -94,6 +93,21 @@ describe('redirect to transit (P6)', () => {
   it('301 only when REDIRECT_STATUS is "301"', async () => {
     expect((await get('/', envWith({ ...ON, REDIRECT_STATUS: '301' }))).status).toBe(301)
   })
+
+  // Like the legacy ferry hosts (vercel.json): the old host's robots.txt, llms.txt and sitemaps are transit's own, so
+  // crawlers aren't sent back to thousands of old URLs, and robots.txt (followed through the redirect) lets them reach
+  // the 301s.
+  it.each(['/robots.txt', '/llms.txt', '/sitemap.xml', '/sitemaps/pages.xml', '/sitemaps/x-1.xml'])(
+    "%s goes to transit's own",
+    async (path) => {
+      const want = path.startsWith('/sitemap') ? '/sitemap.xml' : path
+      for (const init of [{}, { headers: { 'sec-fetch-mode': 'cors' } }, { method: 'HEAD' }]) {
+        const res = await get(path, envWith(ON), init)
+        expect(res.status).toBe(302)
+        expect(res.headers.get('location')).toBe(`${TRANSIT}${want}`)
+      }
+    },
+  )
 
   it.each(EXCLUDED)('%s is served as before', async (path) => {
     const res = await get(path, envWith(ON))
@@ -169,20 +183,40 @@ describe('the permanent move (release 24: 301s in production)', () => {
     expect(res.headers.get('location')).toBe(`${SITE}/stop/10802`)
   })
 
-  it('the 301s carry no noindex; robots.txt lets crawlers reach them', async () => {
+  it("the 301s carry no noindex; robots.txt is transit's, which lets crawlers reach them", async () => {
     const res = await get('/stop/10802', envWith(PROD))
     expect(res.status).toBe(301)
     expect(res.headers.get('x-robots-tag')).toBeNull()
-    const robots = await get('/robots.txt', envWith(PROD))
-    expect(await robots.text()).toContain('Allow: /')
-    expect(robots.headers.get('x-robots-tag')).toBe('noindex')
+    for (const path of ['/robots.txt', '/sitemap.xml']) {
+      const seo = await get(path, envWith(PROD))
+      expect(seo.status).toBe(301)
+      expect(seo.headers.get('location')).toBe(`${TRANSIT}${path}`)
+      expect(seo.headers.get('x-robots-tag')).toBeNull()
+    }
   })
 
-  it('the staging trial (302) stays out of search: robots disallows and the 302s say noindex', async () => {
-    const res = await get('/stop/10802', envWith({ ...ON, REDIRECT_STATUS: '302', INDEXABLE: '0' }))
+  it("the staging trial (302) stays out of search: the 302s say noindex, robots.txt is staging transit's", async () => {
+    const trial = { ...ON, REDIRECT_STATUS: '302', INDEXABLE: '0' }
+    const res = await get('/stop/10802', envWith(trial))
     expect(res.status).toBe(302)
     expect(res.headers.get('x-robots-tag')).toBe('noindex')
-    const robots = await get('/robots.txt', envWith({ ...ON, REDIRECT_STATUS: '302', INDEXABLE: '0' }))
-    expect(await robots.text()).toBe('User-agent: *\nDisallow: /\n')
+    // Staging transit's robots.txt disallows everything (apps/transit, INDEXABLE unset there).
+    const robots = await get('/robots.txt', envWith(trial))
+    expect(robots.status).toBe(302)
+    expect(robots.headers.get('location')).toBe(`${TRANSIT}/robots.txt`)
+    expect(robots.headers.get('x-robots-tag')).toBe('noindex')
+  })
+})
+
+describe("the old host's directory spelling matches the directory's own 301s", () => {
+  // @bft/ui/redirect keeps its own copy of the rules (a package never imports an app): it must send every spelling the
+  // directory would 301 straight to that page, and leave alone what it would serve or 404.
+  const letters = ['a', 'B', 'z', 'Z', '0-9', 'zz', '0', '%42']
+  const pages = [undefined, '1', '01', '2', '02', '0002', '0', '9999', '12345', 'x', '-1']
+  it.each(letters.flatMap((l) => pages.map((p) => [l, p] as const)))('/stops/%s/%s', (letter, page) => {
+    const path = page === undefined ? `/stops/${letter}` : `/stops/${letter}/${page}`
+    const parsed = parseDirectoryParams(letter, page)
+    const expected = parsed?.redirect ? directoryPath(parsed.letter, parsed.page) : path
+    expect(directoryCanonical(path)).toBe(expected)
   })
 })

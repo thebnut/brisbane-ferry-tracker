@@ -38,13 +38,17 @@ const PAGES: Record<RedirectMode, readonly RegExp[]> = {
     /^\/stop\/[^/]+$/,
     /^\/trip\/[^/]+$/,
     /^\/route\/[^/]+$/,
+    /^\/stops(?:\/[^/]+){0,2}$/,
     /^\/map$/,
     /^\/alerts$/,
     /^\/about$/,
   ],
 }
 
-/** Paths that keep being served by the mode host: APIs, data, SEO files, the PWA's files and anything static. */
+/**
+ * Paths that are never a page: APIs, data, SEO files, the PWA's files and anything static. They keep being served by
+ * the mode host, except robots.txt, llms.txt and the sitemaps, which go to transit's own (seoFilePath).
+ */
 const EXCLUDED_PREFIXES = ['/v1/', '/api/', '/data/', '/assets/', '/sitemaps/', '/__']
 const EXCLUDED_PATHS = new Set([
   '/v1',
@@ -68,6 +72,40 @@ export function isExcludedPath(pathname: string): boolean {
 }
 
 /**
+ * The site-wide SEO files of an old mode host and their one transit equivalent: robots.txt, llms.txt, and every
+ * sitemap (the index and its child files) to transit's sitemap index, as the legacy ferry hosts do (vercel.json).
+ */
+export function seoFilePath(pathname: string): string | null {
+  if (pathname === '/robots.txt' || pathname === '/llms.txt') return pathname
+  if (pathname === '/sitemap.xml' || /^\/sitemaps\/[^/]+\.xml$/.test(pathname)) return '/sitemap.xml'
+  return null
+}
+
+/** A bus stop number shared with its leading zeros (`/stop/010813`) is the unpadded stop_id's page (`/stop/10813`). */
+const unpadStop = (path: string) =>
+  // The bus app's canonicalStopId: a 2–6 digit number with a leading zero loses its leading zeros.
+  /^\/stop\/0\d{1,5}$/.test(path) ? path.replace(/^\/stop\/0+(?=\d)/, '/stop/') : path
+
+/**
+ * The stop directory's canonical spelling, as the bus app's parseDirectoryParams 301s to: a lower-case letter group,
+ * a page number without leading zeros and page 1 as the bare letter (`/stops/B/1` → `/stops/b`, `/stops/b/02` →
+ * `/stops/b/2`). Kept here, not imported, so this package never depends on an app. A path the directory would 404 is
+ * left as it is (transit 404s it), so this never invents a page. apps/bus/test/redirect.test.ts checks it agrees.
+ */
+export function directoryCanonical(path: string): string {
+  const m = /^\/stops\/([^/]+)(?:\/([^/]+))?$/.exec(path)
+  if (!m?.[1]) return path
+  const letter = m[1].toLowerCase()
+  const pageParam = m[2]
+  if (!/^(?:[a-z]|0-9)$/.test(letter)) return path
+  if (pageParam === undefined) return `/stops/${letter}`
+  if (!/^\d{1,4}$/.test(pageParam)) return path
+  const page = Number(pageParam)
+  if (page < 1) return path
+  return page === 1 ? `/stops/${letter}` : `/stops/${letter}/${page}`
+}
+
+/**
  * The path on the mode host without the mode's own prefix: old URLs that already carry it (`/train/station/central`,
  * the ferry app's `/ferry/terminal/x` base) are the same page as the bare one, so the prefix is never added twice.
  */
@@ -86,8 +124,10 @@ export function transitPath(mode: RedirectMode, pathname: string): string | null
   if (isExcludedPath(pathname)) return null
   // One trailing slash is the same page (`/stations/`); the home page is `/`.
   const trimmed = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
-  const path = withoutModePrefix(mode, trimmed)
-  if (path === '/feedback' || path === '/whats-new') return path
+  const bare = withoutModePrefix(mode, trimmed)
+  if (bare === '/feedback' || bare === '/whats-new') return bare
+  // One hop to the canonical stop or directory page: transit would 301 a padded stop number or an odd spelling again.
+  const path = mode === 'bus' ? directoryCanonical(unpadStop(bare)) : bare
   const prefix = `/${mode}`
   return PAGES[mode].some((re) => re.test(path)) ? `${prefix}${path}` : `${prefix}/`
 }
@@ -159,9 +199,14 @@ export const HANDOFF_COOKIE = 'bft-handoff'
  */
 export const HANDOFF_NEXT_COOKIE = 'bft-handoff-next'
 
-/** Known crawlers and link unfurlers: they get the plain redirect (they hold no favourites). */
-const BOT_RE =
-  /googlebot|bingbot|yandex|baiduspider|duckduckbot|slurp|applebot|petalbot|ahrefs|semrush|gptbot|claudebot|bytespider|facebookexternalhit|twitterbot|linkedinbot|discordbot|slackbot|telegrambot|whatsapp|crawler|spider/i
+/**
+ * Known crawlers, fetchers and link unfurlers: they get the plain redirect (they hold no favourites). Google's other
+ * agents matter as much as Googlebot: Search Console's URL Inspection (Google-InspectionTool), GoogleOther, AdsBot and
+ * Storebot were given the noindex handoff page, which read as "excluded by noindex" there. So were the AI assistants'
+ * on-demand fetchers (ChatGPT-User, OAI-SearchBot, Perplexity-User, Claude-User), which follow cited links.
+ */
+export const BOT_RE =
+  /googlebot|google-inspectiontool|googleother|google-extended|adsbot-google|storebot-google|mediapartners-google|feedfetcher-google|apis-google|google-read-aloud|bingbot|bingpreview|adidxbot|msnbot|yandex|baiduspider|duckduckbot|duckassistbot|slurp|applebot|petalbot|ahrefs|semrush|gptbot|chatgpt-user|oai-searchbot|claudebot|claude-user|claude-searchbot|perplexitybot|perplexity-user|amazonbot|ccbot|meta-externalagent|meta-externalfetcher|bytespider|facebookexternalhit|twitterbot|linkedinbot|discordbot|slackbot|telegrambot|whatsapp|crawler|spider/i
 
 export function hasHandoffCookie(header: string | null): boolean {
   return (header ?? '').split(';').some((c) => c.trim() === `${HANDOFF_COOKIE}=1`)
@@ -275,12 +320,23 @@ export function transitRedirect(
   env: RedirectEnv,
   nonce?: string,
 ): Response | null {
-  if (env.REDIRECT_TO_TRANSIT !== '1' || !isPageNavigation(request)) return null
+  if (env.REDIRECT_TO_TRANSIT !== '1') return null
   const origin = transitOrigin(env.TRANSIT_SITE_URL)
   if (!origin) return null
-  const location = transitLocation(mode, new URL(request.url), origin)
-  if (!location) return null
-  if (nonce && wantsHandoff(request)) return handoffPage(location, mode, nonce)
+  const url = new URL(request.url)
+  const seo = seoFilePath(url.pathname)
+  let location: string | null
+  if (seo) {
+    // robots.txt, llms.txt and the sitemaps: to transit's own, never a handoff page. Fetched by crawlers without
+    // Fetch Metadata, so no navigation check (only GET/HEAD).
+    if (request.method !== 'GET' && request.method !== 'HEAD') return null
+    location = `${origin}${seo}`
+  } else {
+    if (!isPageNavigation(request)) return null
+    location = transitLocation(mode, url, origin)
+    if (!location) return null
+    if (nonce && wantsHandoff(request)) return handoffPage(location, mode, nonce)
+  }
   const status = redirectStatus(env)
   return new Response(null, {
     status,
