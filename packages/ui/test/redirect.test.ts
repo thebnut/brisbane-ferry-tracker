@@ -117,6 +117,23 @@ describe('transitPath (P6 mapping)', () => {
     expect(transitPath('bus', '/stop/0abc')).toBe('/bus/stop/0abc')
   })
 
+  it('the stop directory goes straight to its canonical spelling (one hop)', () => {
+    expect(transitPath('bus', '/stops')).toBe('/bus/stops')
+    expect(transitPath('bus', '/stops/')).toBe('/bus/stops')
+    expect(transitPath('bus', '/stops/B')).toBe('/bus/stops/b')
+    expect(transitPath('bus', '/stops/B/1')).toBe('/bus/stops/b')
+    expect(transitPath('bus', '/stops/b/02')).toBe('/bus/stops/b/2')
+    expect(transitPath('bus', '/bus/stops/S/3/')).toBe('/bus/stops/s/3')
+    expect(transitPath('bus', '/stops/0-9/1')).toBe('/bus/stops/0-9')
+    expect(transitPath('bus', '/stops/b/2')).toBe('/bus/stops/b/2')
+    // What the directory would 404 is left for transit to 404, never turned into another page.
+    expect(transitPath('bus', '/stops/zz')).toBe('/bus/stops/zz')
+    expect(transitPath('bus', '/stops/b/0')).toBe('/bus/stops/b/0')
+    expect(transitPath('bus', '/stops/b/x')).toBe('/bus/stops/b/x')
+    expect(transitPath('bus', '/stops/b/12345')).toBe('/bus/stops/b/12345')
+    expect(locationOf('bus', '/stops/B/1?x=1')).toBe(`${BASE}/bus/stops/b?x=1`)
+  })
+
   it('keeps encoded segments as they are', () => {
     expect(transitPath('train', '/station/roma%20street')).toBe('/train/station/roma%20street')
   })
