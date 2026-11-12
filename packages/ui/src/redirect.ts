@@ -87,6 +87,25 @@ const unpadStop = (path: string) =>
   /^\/stop\/0\d{1,5}$/.test(path) ? path.replace(/^\/stop\/0+(?=\d)/, '/stop/') : path
 
 /**
+ * The stop directory's canonical spelling, as the bus app's parseDirectoryParams 301s to: a lower-case letter group,
+ * a page number without leading zeros and page 1 as the bare letter (`/stops/B/1` → `/stops/b`, `/stops/b/02` →
+ * `/stops/b/2`). Kept here, not imported, so this package never depends on an app. A path the directory would 404 is
+ * left as it is (transit 404s it), so this never invents a page. apps/bus/test/redirect.test.ts checks it agrees.
+ */
+export function directoryCanonical(path: string): string {
+  const m = /^\/stops\/([^/]+)(?:\/([^/]+))?$/.exec(path)
+  if (!m?.[1]) return path
+  const letter = m[1].toLowerCase()
+  const pageParam = m[2]
+  if (!/^(?:[a-z]|0-9)$/.test(letter)) return path
+  if (pageParam === undefined) return `/stops/${letter}`
+  if (!/^\d{1,4}$/.test(pageParam)) return path
+  const page = Number(pageParam)
+  if (page < 1) return path
+  return page === 1 ? `/stops/${letter}` : `/stops/${letter}/${page}`
+}
+
+/**
  * The path on the mode host without the mode's own prefix: old URLs that already carry it (`/train/station/central`,
  * the ferry app's `/ferry/terminal/x` base) are the same page as the bare one, so the prefix is never added twice.
  */
@@ -107,8 +126,8 @@ export function transitPath(mode: RedirectMode, pathname: string): string | null
   const trimmed = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
   const bare = withoutModePrefix(mode, trimmed)
   if (bare === '/feedback' || bare === '/whats-new') return bare
-  // One hop to the canonical stop page: transit would 301 a padded stop number again.
-  const path = mode === 'bus' ? unpadStop(bare) : bare
+  // One hop to the canonical stop or directory page: transit would 301 a padded stop number or an odd spelling again.
+  const path = mode === 'bus' ? directoryCanonical(unpadStop(bare)) : bare
   const prefix = `/${mode}`
   return PAGES[mode].some((re) => re.test(path)) ? `${prefix}${path}` : `${prefix}/`
 }
