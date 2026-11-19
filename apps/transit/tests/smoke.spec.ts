@@ -269,17 +269,20 @@ const BUDGET_KB: Record<string, number> = {
   '/': 150,
   // My Transit, the home page before release 24: its budget moved with it. +0.05 (2 Nov 2026, release 24): the route
   // manifest carries one more route (develop measured worst 153,636 B, this 153,676 B). External JS unchanged.
-  // +0.1 (19 Nov 2026, OFFLINE pill fix): saved cards say why they failed (a stop the timetable no longer has, or
-  // live times unavailable) and the header has a SCHEDULED state (develop c182cb7 measured worst 153,675 B, this
-  // 153,753 B). External JS unchanged.
-  '/saved': 150 + 0.05 + 0.05 + 0.1,
+  // +0.15 (19 Nov 2026, OFFLINE pill fix): saved cards say why they failed (a stop the timetable no longer has, read
+  // from the 404's body, or live times unavailable) and the header has a SCHEDULED state (develop c182cb7 measured
+  // worst 153,675 B, this 153,834 B). External JS unchanged.
+  '/saved': 150 + 0.05 + 0.05 + 0.15,
   '/nearby': 150,
-  '/alerts': 150,
+  // +0.05 (19 Nov 2026, OFFLINE pill fix): the same shared code as /ferry's note (develop c182cb7 measured worst
+  // 153,463 B, this 153,596 B: 4 B under, too close for the hour-to-hour spread).
+  '/alerts': 150 + 0.05,
   // +0.05 (19 Oct 2026): measured worst 153,416 B at 08:00 AEST (fixtures pinned, nonce and renderedAt normalised). Worst-case SSR loader data,
   // external JS unchanged; the old value only passed at quieter hours.
-  // +0.05 (19 Nov 2026, OFFLINE pill fix): the shared chunk carries the saved cards' failure lines and the SCHEDULED
-  // state (develop c182cb7 measured worst 153,402 B, this 153,472 B). External JS unchanged.
-  '/ferry': 139.8 + 10 + 0.05 + 0.05,
+  // +0.15 (19 Nov 2026, OFFLINE pill fix): the shared chunk carries the saved cards' failure lines (a 404's body read
+  // for "unknown stop") and the SCHEDULED state (develop c182cb7 measured worst 153,402 B, this 153,561 B). External JS
+  // unchanged.
+  '/ferry': 139.8 + 10 + 0.05 + 0.15,
   '/train': 149.2 + 10,
   // +3 (#70, R7): the bus boards' elements moved to their own chunk (@bft/ui/bus), which takes about 3 KB gz off
   // every other page but costs the Bus pages about 1 KB in separate compression, plus R7's shared offline code.

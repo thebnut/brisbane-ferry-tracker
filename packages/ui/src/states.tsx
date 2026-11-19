@@ -149,19 +149,21 @@ const OFFLINE_TEXT: Record<OfflineKind, { title: string; body: string }> = {
 }
 
 /**
- * Did a saved card's request fail because the API doesn't know its stop (HTTP 404, "unknown stop")? TransLink drops a
- * stop from the timetable while it is closed (Bulimba ferry terminal, 9 Nov to mid-Dec 2026), and that is no outage:
- * the card says so, and it makes no claim for the page's header (neither LIVE nor a failure). Each app's ApiError
- * carries the HTTP status.
+ * Did a saved card's request fail because the API doesn't know its stop (HTTP 404 with ErrorResponse error "unknown
+ * stop")? TransLink drops a stop from the timetable while it is closed (Bulimba ferry terminal, 9 Nov to mid-Dec 2026),
+ * and that is no outage: the card says so, and it makes no claim for the page's header (neither LIVE nor a failure).
+ * Any other 404 is an ordinary failure (Codex r1). Each app's ApiError carries the status and the 404's body.
  */
-export const isMissingStop = (error: unknown): boolean =>
-  (error as { status?: unknown } | null | undefined)?.status === 404
+export const isMissingStop = (error: unknown): boolean => {
+  const e = error as { status?: unknown; body?: unknown } | null | undefined
+  return e?.status === 404 && /"error":\s*"unknown stop"/.test(String(e.body))
+}
 
 /** A saved card's line when its request failed with nothing to show (isMissingStop, or any other failure). */
 export const cardFailedText = (error: unknown): string =>
   isMissingStop(error)
     ? 'No services in the current timetable.'
-    : 'Live times unavailable right now. We keep retrying.'
+    : 'Live times unavailable right now. We keep retrying; open the board for scheduled times.'
 
 export interface OfflineBannerProps {
   kind: OfflineKind

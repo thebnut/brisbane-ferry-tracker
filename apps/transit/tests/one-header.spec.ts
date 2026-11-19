@@ -307,6 +307,30 @@ function connectionTests() {
     await expect(page.getByText("Live times aren't loading", { exact: false })).toHaveCount(0)
   })
 
+  test('bus home: a saved stop the timetable no longer has (404 unknown stop) never hides LIVE', async ({
+    page,
+    context,
+  }) => {
+    await page.addInitScript(() =>
+      localStorage.setItem(
+        'bft-bus-saved',
+        JSON.stringify([
+          { id: '10802', name: 'Cultural Centre station, platform 1' },
+          { id: '999999', name: 'Closed stop' },
+        ]),
+      ),
+    )
+    await pinUpcoming(context, '**/__fixtures/v1/bus/stops/10802/departures*')
+    await context.route('**/__fixtures/v1/bus/stops/999999/departures*', (route) =>
+      route.fulfill({ status: 404, json: { error: 'unknown stop', detail: '999999' } }),
+    )
+    const seen = await watchStates(page)
+    await page.goto('/bus')
+    await expect(page.getByText('No services in the current timetable.')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('header [data-connection="live"]')).toHaveText('LIVE')
+    expect(Object.keys(await seen())).toEqual(['live'])
+  })
+
   test("bus stop: LIVE → OFFLINE when a refresh can't reach the network", async ({ page, context }) => {
     await page.goto('/bus/stop/10802')
     await expect(page.locator('header [data-connection="live"]')).toBeVisible()

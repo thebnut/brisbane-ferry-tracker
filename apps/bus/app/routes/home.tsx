@@ -6,7 +6,7 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { Icon, SavedTripCard, useGeolocation } from '@bft/ui'
+import { cardFailedText, Icon, isMissingStop, SavedTripCard, useGeolocation } from '@bft/ui'
 import { asSeed, awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import {
   AboutTimes,
@@ -100,11 +100,13 @@ function StopCard({
   const card = homeCard('bus', data, nowMs, stop.name || data?.stop.name || `Stop ${stop.id}`, stop.id)
   // No data is never live; a non-live seed whose own refetch is still out waits (R32-RT1). LIVE only over a live row
   // it shows (R36-L1).
+  // A stop the timetable no longer has (isMissingStop) claims nothing: no outage, nothing live.
+  const missing = !q.data && isMissingStop(q.error ?? q.failureReason)
   useReportLive(
     `stop:${stop.id}`,
-    state == null && q.data != null && q.data.rtState === 'live',
-    (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
-    q.isError || q.failureCount > 0,
+    missing || (state == null && q.data != null && q.data.rtState === 'live'),
+    !missing && ((!q.data && !q.isError) || awaitingSeedAnswer(q, state)),
+    !missing && (q.isError || q.failureCount > 0),
     card.liveRows,
   )
   return (
@@ -119,7 +121,7 @@ function StopCard({
       later={card.later}
       empty={
         q.isError && !q.data
-          ? "Couldn't load live times. Retrying…"
+          ? cardFailedText(q.error)
           : !data
             ? 'Getting live buses…'
             : card.time

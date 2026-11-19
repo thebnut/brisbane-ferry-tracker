@@ -34,15 +34,27 @@ describe('LivePill', () => {
 })
 
 describe('a saved card that failed', () => {
-  it('a 404 (unknown stop) says the stop has no services in the timetable', () => {
-    expect(isMissingStop({ status: 404 })).toBe(true)
-    expect(cardFailedText({ status: 404 })).toMatch(/current timetable/)
+  it('a 404 "unknown stop" says the stop has no services in the timetable', () => {
+    const missing = { status: 404, body: '{"error":"unknown stop","detail":"317584"}' }
+    expect(isMissingStop(missing)).toBe(true)
+    expect(cardFailedText(missing)).toMatch(/current timetable/)
+  })
+
+  it('any other 404 is an ordinary failure (Codex r1)', () => {
+    for (const error of [
+      { status: 404 },
+      { status: 404, body: '{"error":"not found"}' },
+      { status: 410, body: '{"error":"unknown stop"}' },
+    ])
+      expect(isMissingStop(error)).toBe(false)
   })
 
   it('any other failure says live times are unavailable and we keep retrying', () => {
     for (const error of [{ status: 502 }, new TypeError('Failed to fetch'), null, undefined]) {
       expect(isMissingStop(error)).toBe(false)
-      expect(cardFailedText(error)).toMatch(/unavailable right now\. We keep retrying/)
+      expect(cardFailedText(error)).toMatch(
+        /unavailable right now\. We keep retrying; open the board for scheduled times/,
+      )
     }
   })
 })
