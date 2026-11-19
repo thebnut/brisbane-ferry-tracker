@@ -176,7 +176,8 @@ export default function Planner({
       {Sheets ? (
         <Sheets
           sheet={sheet}
-          onClose={() => setSheet(null)}
+          // Only the sheet still open: a sheet's close event arrives after the next one opened (To, then From).
+          onClose={(which) => setSheet((s) => (s === which ? null : s))}
           from={from}
           to={to}
           nowMs={nowMs}

@@ -221,7 +221,7 @@ function suite(spec: HomeSpec) {
     await expect(main).toHaveCount(1)
     await expect(main.getByRole('heading', { level: 1, name: spec.title, exact: true })).toBeVisible()
     // The title and the search (or the journey planner) are in the main landmark, as on every mode home.
-    if (typeof spec.search === 'object') {
+    if (typeof spec.search === 'object' && 'planner' in spec.search) {
       const planner = main.locator('[data-planner]')
       await expect(planner.getByRole('heading', { name: 'Where are you going?' })).toBeVisible()
       await expect(planner.locator('[data-planner-place]')).toHaveText([/^From/, /^To/])

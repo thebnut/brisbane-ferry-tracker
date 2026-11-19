@@ -23,6 +23,8 @@ export interface BoardHeaderProps {
    * name brings its own heading (TripPlaces).
    */
   as?: 'h1' | 'h2' | 'div'
+  /** One line under the name, before the facts: "Every ferry leaving here". */
+  sub?: string
   /** The sub-line, joined with " · "; empty entries are left out. */
   facts?: ReactNode[]
   /** The labelled star (StarButton), top right. */
@@ -31,7 +33,15 @@ export interface BoardHeaderProps {
   children?: ReactNode
 }
 
-export function BoardHeader({ kicker, name, as: Tag = 'h1', facts = [], star, children }: BoardHeaderProps) {
+export function BoardHeader({
+  kicker,
+  name,
+  as: Tag = 'h1',
+  sub,
+  facts = [],
+  star,
+  children,
+}: BoardHeaderProps) {
   const shown = facts.filter((f) => f != null && f !== false && f !== '')
   return (
     <div
@@ -49,6 +59,8 @@ export function BoardHeader({ kicker, name, as: Tag = 'h1', facts = [], star, ch
           <Tag className="text-2xl leading-tight font-extrabold text-charcoal [overflow-wrap:anywhere] dark:text-night-text">
             {name}
           </Tag>
+          {/* Its own line, so the facts line doesn't wrap when the alert count arrives after hydration. */}
+          {sub ? <p className="text-sm text-sched-text dark:text-night-text/80">{sub}</p> : null}
           {shown.length ? (
             // The " · " between facts is the stylesheet's (theme.css), so a fact that renders nothing (the standalone
             // apps' empty alert slot) leaves no stray separator.

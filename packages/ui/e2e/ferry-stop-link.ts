@@ -83,7 +83,10 @@ export function ferryStopLinkSuite({
               'aria-label',
               dest ? `${origin} to ${dest}` : `Departures from ${origin}`,
             )
-            await expect(page.locator('[data-board-header]').getByRole('heading').first()).toHaveText(origin)
+            // With a destination the header names the trip ("Your trip": From … to …).
+            await expect(page.locator('[data-board-header]').getByRole('heading').first()).toHaveText(
+              dest ? `From ${origin} to ${dest}` : origin,
+            )
           })
 
         test('a server redirect (302), so it works before any script', async ({ request }) => {

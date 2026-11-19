@@ -147,7 +147,7 @@ function suite(desktop: boolean) {
       )
       await expect(page.locator('[data-board=inbound]')).toHaveCount(0)
       await expect(header(page).getByRole('button', { name: 'Swap direction' })).toHaveCount(0)
-      await expect(header(page).locator('[data-board-facts]')).toContainText('Every ferry leaving here')
+      await expect(header(page)).toContainText('Every ferry leaving here')
       await field(page).click()
       const sheet = page.getByRole('dialog', { name: 'Where are you going from Bulimba?' })
       await sheet.getByRole('button', { name: 'Teneriffe', exact: true }).click()

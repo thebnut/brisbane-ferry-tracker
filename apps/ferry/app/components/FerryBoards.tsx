@@ -284,8 +284,8 @@ export function FerryBoards({
                 fromName
               )
             }
+            sub={trip.to ? undefined : 'Every ferry leaving here'}
             facts={[
-              trip.to ? null : 'Every ferry leaving here',
               routesText(fromId),
               Alerts ? <Alerts key="alerts" fetcher={fetcher} mode={mode} /> : null,
             ]}

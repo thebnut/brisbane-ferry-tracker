@@ -32,9 +32,9 @@ test('From comes first, then To; Popular fills To and asks where you start; the 
   await expect(start).toContainText('Going to Howard Smith Wharves')
   await expect(start.getByRole('button', { name: 'Use my location' })).toBeVisible()
   // Each start says whether a ferry runs straight there.
-  await expect(start.locator('[data-place-option=317588]')).toContainText('direct')
-  await expect(start.locator('[data-place-option=317581]')).toContainText('change at Sydney Street')
-  await start.locator('[data-place-option=317588]').click()
+  await expect(start.locator('[data-place-option="317588"]')).toContainText('direct')
+  await expect(start.locator('[data-place-option="317581"]')).toContainText('change at Sydney Street')
+  await start.locator('[data-place-option="317588"]').click()
 
   await expect(page).toHaveURL('/ferry/terminal/new-farm-park?to=howard-smith-wharves')
   const header = page.locator('[data-board-header]')
@@ -49,7 +49,8 @@ test('From comes first, then To; Popular fills To and asks where you start; the 
 test('the last destination is remembered on this device', async ({ page }) => {
   await page.goto('/ferry')
   await planner(page).getByRole('button', { name: 'South Bank' }).click()
-  await sheet(page, 'Where are you starting?').getByRole('button', { name: 'Close' }).click()
+  await expect(sheet(page, 'Where are you starting?')).toBeVisible()
+  await page.keyboard.press('Escape')
   await page.reload()
   await expect(place(page, 'to')).toContainText('South Bank')
   expect(await page.evaluate(() => localStorage.getItem('bft-ferry-last-to'))).toBe('south-bank')
@@ -85,7 +86,7 @@ test('no direct ferry: "Change at" with both legs and a link to each board', asy
     .click()
   await expect(page).toHaveURL('/ferry/?plan=from&start=dockside')
   await expect(place(page, 'from')).toContainText('Dockside')
-  await sheet(page, 'Where are you going?').locator('[data-place-option=321208]').click()
+  await sheet(page, 'Where are you going?').locator('[data-place-option="321208"]').click()
   await expect(page).toHaveURL('/ferry/?plan=from&start=dockside')
   const plan = planner(page).locator('[data-plan=change]')
   await expect(plan).toContainText('No direct ferry. Change at Sydney Street.')
@@ -107,7 +108,7 @@ test('"Plan a trip there" on a terminal board opens the planner with To set', as
   await page.goto('/ferry/terminal/howard-smith-wharves')
   const header = page.locator('[data-board-header]')
   await expect(header.locator('[data-kicker]')).toHaveText('Departures from')
-  await expect(header.locator('[data-board-facts]')).toContainText('Every ferry leaving here')
+  await expect(header).toContainText('Every ferry leaving here')
   await expect(header.locator('[data-plan-there]')).toHaveText(
     'Not at Howard Smith Wharves? Plan a trip there ›',
   )

@@ -272,11 +272,16 @@ const BUDGET_KB: Record<string, number> = {
   // +0.15 (19 Nov 2026, OFFLINE pill fix): saved cards say why they failed (a stop the timetable no longer has, read
   // from the 404's body, or live times unavailable) and the header has a SCHEDULED state (develop c182cb7 measured
   // worst 153,675 B, this 153,834 B). External JS unchanged.
-  '/saved': 150 + 0.05 + 0.05 + 0.15,
+  // +0.1 (20 Nov 2026, journey planner): the route manifest every page carries lists ferry home's new modules, and the
+  // shared board header has its "Every ferry leaving here" line (develop a92682f measured worst 153,834 B, this
+  // 153,913 B). External JS unchanged.
+  '/saved': 150 + 0.05 + 0.05 + 0.15 + 0.1,
   '/nearby': 150,
   // +0.05 (19 Nov 2026, OFFLINE pill fix): the same shared code as /ferry's note (develop c182cb7 measured worst
   // 153,463 B, this 153,596 B: 4 B under, too close for the hour-to-hour spread).
-  '/alerts': 150 + 0.05,
+  // +0.05 (20 Nov 2026, journey planner): the same as /saved's (develop a92682f measured worst 153,596 B, this
+  // 153,670 B).
+  '/alerts': 150 + 0.05 + 0.05,
   // +0.05 (19 Oct 2026): measured worst 153,416 B at 08:00 AEST (fixtures pinned, nonce and renderedAt normalised). Worst-case SSR loader data,
   // external JS unchanged; the old value only passed at quieter hours.
   // +0.15 (19 Nov 2026, OFFLINE pill fix): the shared chunk carries the saved cards' failure lines (a 404's body read

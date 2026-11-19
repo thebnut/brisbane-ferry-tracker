@@ -78,7 +78,7 @@ export default function PlannerSheets({
   onPickFrom,
 }: {
   sheet: 'from' | 'to' | null
-  onClose: () => void
+  onClose: (which: 'from' | 'to') => void
   from: Terminal | null
   to: Terminal | null
   nowMs: number
@@ -107,7 +107,7 @@ export default function PlannerSheets({
     <>
       <DestinationPicker
         open={sheet === 'to'}
-        onClose={onClose}
+        onClose={() => onClose('to')}
         what="terminals"
         options={AZ.map((t) => ({
           id: t.id,
@@ -122,7 +122,7 @@ export default function PlannerSheets({
       />
       <StartPicker
         open={sheet === 'from'}
-        onClose={onClose}
+        onClose={() => onClose('from')}
         goingTo={to ? name(to) : null}
         what="terminal"
         locate={{ state: geo.state, onLocate: locate }}
