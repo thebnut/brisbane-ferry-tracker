@@ -25,7 +25,8 @@ export function TripPlaces({
   as?: 'h1' | 'h2'
   /** Opens the destination sheet. */
   onTo: () => void
-  onSwap: () => void
+  /** No swap button when nothing runs the other way. */
+  onSwap?: () => void
 }) {
   const label =
     'block text-xs font-semibold tracking-[0.06em] text-sched-text uppercase dark:text-night-text/70'
@@ -64,15 +65,17 @@ export function TripPlaces({
           </button>
         </span>
       </span>
-      <button
-        type="button"
-        onClick={onSwap}
-        aria-label="Swap direction"
-        data-chip=""
-        className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-ferry-orange/30 bg-white text-ferry-orange-deep focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-aqua-text dark:bg-night-card dark:text-ferry-sunset"
-      >
-        <Icon name="swap" size={18} className="rotate-90" />
-      </button>
+      {onSwap ? (
+        <button
+          type="button"
+          onClick={onSwap}
+          aria-label="Swap direction"
+          data-chip=""
+          className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-ferry-orange/30 bg-white text-ferry-orange-deep focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-aqua-text dark:bg-night-card dark:text-ferry-sunset"
+        >
+          <Icon name="swap" size={18} className="rotate-90" />
+        </button>
+      ) : null}
     </div>
   )
 }

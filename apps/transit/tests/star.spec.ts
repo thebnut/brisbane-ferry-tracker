@@ -197,7 +197,7 @@ function modeTests() {
     await expect(saveToast(page)).toContainText('Central saved to My Transit')
     expect(await stored(page, 'bft-train-favourites')).toEqual([{ from: 'central', to: null }])
     await saveToast(page).getByRole('button', { name: 'Pick a destination' }).click()
-    await expect(page.getByRole('dialog', { name: /Going to, from Central/ })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Where are you going from Central?' })).toBeVisible()
     await expect(saveToast(page)).toBeEmpty()
     await page.goto('/saved')
     await expect(page.locator('main a[href="/train/station/central"]')).toBeVisible()

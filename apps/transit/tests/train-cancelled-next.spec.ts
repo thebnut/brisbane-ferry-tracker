@@ -77,7 +77,7 @@ async function open(page: Page, sameWayToo: boolean) {
 function suite() {
   test('a cancelled train never points at one going the other way on its line', async ({ page }) => {
     const rows = await open(page, false)
-    await expect(rows.nth(1).getByTestId('destination')).toHaveText('Bowen Hills')
+    await expect(rows.nth(1).getByTestId('destination')).toHaveText('towards Bowen Hills')
     await expect(rows.nth(0).locator('[data-row-status]')).toHaveText('Cancelled')
   })
 

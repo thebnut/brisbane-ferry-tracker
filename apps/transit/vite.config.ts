@@ -131,9 +131,10 @@ export default defineConfig({
                 { name: 'train-store', test: /apps[\\/]train[\\/]app[\\/]lib[\\/](storage|base)\.ts$/ },
                 // The train elements (@bft/ui train.tsx, THE-118 PR 4) ride with the train network, which every train page
                 // loads and no other page's first load does: in a chunk of their own they cost the train pages ~400 B more.
+                // The journey planner's station logic (journey.ts) rides here too: the home and its lazy sheets share it.
                 {
                   name: 'network',
-                  test: /apps[\\/]train[\\/]app[\\/]lib[\\/]network\.ts$|packages[\\/]ui[\\/]src[\\/]train\.tsx$/,
+                  test: /apps[\\/]train[\\/]app[\\/]lib[\\/](network|journey)\.ts$|packages[\\/]ui[\\/]src[\\/]train\.tsx$/,
                 },
                 { name: 'ferry-store', test: /apps[\\/]ferry[\\/]app[\\/]lib[\\/](storage|names)\.ts$/ },
                 // The ferry departures' code (THE-118 PR 6): the boards, the trip page and ferry home's cards (PR 8) share it,

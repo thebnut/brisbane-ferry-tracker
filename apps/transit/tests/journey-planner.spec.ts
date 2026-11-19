@@ -43,6 +43,10 @@ test('From comes first, then To; Popular fills To and asks where you start; the 
   ).toBeAttached()
   const row = page.locator('[data-board=outbound] [data-testid=departure]').first()
   await expect(row.getByTestId('destination')).toHaveText(/^towards /)
+  // Where it arrives, by name, on phones (the status line) and wide rows (the arrival column) alike (Codex review).
+  await expect(row).toContainText(
+    /arrives Howard Smith Wharves \d+:\d\d [ap]m|Arrives Howard Smith Wharves \d+:\d\d [ap]m/i,
+  )
 })
 
 test('the last destination is remembered on this device', async ({ page }) => {
@@ -68,7 +72,9 @@ test('landmarks resolve to the terminal to get off at; a stadium off the river p
   await search.fill('suncorp')
   const stadium = dest.locator('[data-landmark=suncorp-stadium]')
   await expect(stadium).toContainText('Not near a ferry terminal. Take the train to Milton or Roma Street')
-  await expect(stadium.getByRole('link')).toHaveAttribute('href', '/train/station/milton')
+  // The Train tab's planner with Milton as To, never Milton's board (departures *from* it).
+  await expect(stadium.getByRole('link')).toHaveAttribute('href', '/train/?plan=to&to=milton')
+  await expect(stadium).toContainText('Plan a train trip to Milton')
   await search.fill('eat street')
   await card.click()
   await expect(place(page, 'to')).toContainText('Northshore Hamilton')
@@ -163,4 +169,88 @@ test.describe('360 px', () => {
       ))
         expect(h).toBeGreaterThanOrEqual(44)
     })
+})
+
+test.describe('Train', () => {
+  test('the same planner: From first, a Popular station, then the start; the board says "Your trip"', async ({
+    page,
+  }) => {
+    await page.goto('/train')
+    await expect(place(page, 'from')).toContainText('Choose start')
+    await expect(place(page, 'to')).toContainText('Pick a station')
+    await expect(page.locator('[data-home-section=popular] h2')).toHaveText('Station departure boards')
+    await planner(page).getByRole('button', { name: 'Central', exact: true }).click()
+    const start = sheet(page, 'Where are you starting?')
+    await expect(start).toContainText('Going to Central')
+    await start.locator('[data-place-option=indooroopilly]').click()
+    await expect(page).toHaveURL('/train/station/indooroopilly?to=central')
+    const header = page.locator('[data-board-header]')
+    await expect(header.locator('[data-kicker]')).toHaveText('Your trip · Direct train')
+    const row = page.locator('[data-testid=departure]').first()
+    await expect(row.getByTestId('destination')).toHaveText(/^towards /)
+    const extra = row.locator('[data-extra]')
+    if (await extra.isVisible()) await expect(extra).toContainText(/^Arrives Central \d+:\d\d [ap]m/)
+    else await expect(row.locator('[data-row-status]')).toContainText(/arrives Central \d+:\d\d [ap]m/)
+    expect(await page.evaluate(() => localStorage.getItem('bft-train-last-to'))).toBe('central')
+  })
+
+  test('Suncorp Stadium resolves to Milton; Eat Street points to the ferry', async ({ page }) => {
+    await page.goto('/train')
+    await place(page, 'to').click()
+    const dest = sheet(page, 'Where are you going?')
+    const search = dest.getByLabel('Search stations and places')
+    await search.fill('eat street')
+    const eat = dest.locator('[data-landmark=eat-street]')
+    await expect(eat).toContainText('Not near a train station. Take the ferry to Northshore Hamilton.')
+    // The Ferry tab's planner with the terminal as To (Codex review): never its departures-from board.
+    await expect(eat.getByRole('link')).toHaveAttribute('href', '/ferry/?plan=to&to=northshore-hamilton')
+    await eat.getByRole('link').click()
+    await expect(page).toHaveURL('/ferry/?plan=to&to=northshore-hamilton')
+    await expect(place(page, 'to')).toContainText('Northshore Hamilton')
+    await page.goto('/train')
+    await place(page, 'to').click()
+    await sheet(page, 'Where are you going?').getByLabel('Search stations and places').fill('suncorp')
+    await sheet(page, 'Where are you going?').locator('[data-landmark=suncorp-stadium]').click()
+    await expect(place(page, 'to')).toContainText('Milton')
+    await expect(place(page, 'to')).toContainText('for Suncorp Stadium')
+  })
+
+  test('a station board: "Departures from", "Where are you going from here?", "Plan a trip there"', async ({
+    page,
+  }) => {
+    await page.goto('/train/station/central')
+    const header = page.locator('[data-board-header]')
+    await expect(header.locator('[data-kicker]')).toHaveText('Departures from')
+    await expect(header).toContainText('Every train leaving here')
+    await header.locator('[data-destination-field]').click()
+    await expect(sheet(page, 'Where are you going from Central?')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await header.getByRole('link', { name: 'Plan a trip there ›' }).click()
+    await expect(page).toHaveURL('/train/?plan=to&to=central')
+    await expect(place(page, 'to')).toContainText('Central')
+  })
+
+  test('no direct train: "Change at" with a link to each leg\'s board', async ({ page }) => {
+    // Ferny Grove line to the Airport line: no train runs both.
+    await page.goto('/train/?plan=from&start=ferny-grove')
+    await sheet(page, 'Where are you going?').locator('[data-place-option=domestic-airport]').click()
+    const plan = planner(page).locator('[data-plan=change]')
+    await expect(plan).toContainText('No direct train. Change at Bowen Hills.')
+    await expect(plan.locator('[data-leg="1"]')).toHaveAttribute(
+      'href',
+      '/train/station/ferny-grove?to=bowen-hills',
+    )
+    await expect(plan.locator('[data-leg="2"]')).toHaveAttribute(
+      'href',
+      '/train/station/bowen-hills?to=domestic-airport',
+    )
+  })
+
+  test('360 px: one page width on the Train home and a station board', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 })
+    for (const url of ['/train', '/train/station/central', '/train/station/roma-street?to=indooroopilly']) {
+      await page.goto(url)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), url).toBe(true)
+    }
+  })
 })

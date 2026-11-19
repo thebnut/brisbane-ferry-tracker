@@ -2,8 +2,8 @@
  * THE-118 PR 5, one board header and filter row on every board, and Ferry as a terminal board:
  *  - the header: kicker ("Departures from" on ferry and bus, rider feedback 19 Nov 2026), the place's name, one
  *    sub-line with the alert count, the labelled star;
- *  - one row of 44 px chips (Bus: All routes, routes, Map, Now ▾; Train: All, Going to… ▾, Express, Map, Now ▾; Ferry:
- *    All, Express, Map, Now ▾, under "Where are you going from here?"); a ferry trip ("Your trip") swaps in its header;
+ *  - one row of 44 px chips (Bus: All routes, routes, Map, Now ▾; Train: All, Express, Map, Now ▾; Ferry: All, Express,
+ *    Map, Now ▾; train and ferry under "Where are you going from here?"); a trip ("Your trip") swaps in its header;
  *  - the status line below the header, above the rows;
  *  - `/ferry/terminal/:slug?to=` boards, old `/ferry?from=&to=` links redirecting there, saved favourites opening
  *    with "To" set, three terminal pairs including cross-river (F2x).
@@ -31,9 +31,9 @@ const BOARDS = [
   {
     mode: 'train',
     url: '/train/station/central',
-    kicker: 'Train station',
+    kicker: 'Departures from',
     name: /^Central$/,
-    chips: ['All', 'Going to…', 'Express', 'Map', 'Now'],
+    chips: ['All', 'Express', 'Map', 'Now'],
   },
   {
     mode: 'ferry',
@@ -236,10 +236,11 @@ function suite(desktop: boolean) {
 
   test('train: ⇄ flips "Going to"', async ({ page }) => {
     await page.goto('/train/station/roma-street?to=indooroopilly')
-    await expect(chips(page).getByRole('button', { name: 'To Indooroopilly' })).toBeVisible()
-    await chips(page).getByRole('button', { name: 'Swap direction' }).click()
+    await expect(header(page).locator('[data-kicker]')).toHaveText('Your trip · Direct train')
+    await expect(toButton(page, 'Indooroopilly')).toBeVisible()
+    await header(page).getByRole('button', { name: 'Swap direction' }).click()
     await expect(page).toHaveURL('/train/station/indooroopilly?to=roma-street')
-    await expect(header(page).getByRole('heading').first()).toHaveText('Indooroopilly')
+    await expect(header(page).getByRole('heading').first()).toHaveText('From Indooroopilly to Roma Street')
   })
 }
 

@@ -22,7 +22,7 @@ import {
 } from '@bft/ui'
 import { lineLabel } from './lineNames.ts'
 import { cleanStopName } from './names.ts'
-import { callsAfter, type DisplayLine, lineFor, stationKeyOfStop, stripFor } from './network.ts'
+import { callsAfter, type DisplayLine, lineFor, stationByKey, stationKeyOfStop, stripFor } from './network.ts'
 
 /** Effective departure (live estimate if any), epoch s. */
 export const effectiveDep = (d: Departure) => d.estDep ?? d.schedDep
@@ -145,7 +145,10 @@ export function trainCard(
     }),
   }
   const lineFact = skips > 0 ? `${line.name} express` : lineLabel(line.name)
-  const arrText = arr != null ? `arr ${formatClock(arr)}` : null
+  // "arrives Roma Street 7:31 pm": when it gets to where you're going (the board's "To").
+  const toName = to ? stationByKey(to)?.name : null
+  const arrText =
+    arr != null ? (toName ? `arrives ${toName} ${formatClock(arr)}` : `arr ${formatClock(arr)}`) : null
   return {
     key: `${d.tripInstance}:${d.stopSequence}`,
     tripInstance: d.tripInstance,

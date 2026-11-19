@@ -291,8 +291,14 @@ const BUDGET_KB: Record<string, number> = {
   // the server HTML so the page doesn't move as it hydrates, with the bundled-terminal planning (direct, one change,
   // nearest start). Its sheets, the landmarks and the change-at times load on demand. It replaced the "Find a terminal"
   // search (develop a92682f measured worst 153,561 B, this 156,240 B). External JS unchanged.
-  '/ferry': 139.8 + 10 + 0.05 + 0.15 + 2.7,
-  '/train': 149.2 + 10,
+  // +0.25 (20 Nov 2026, Train's journey planner): the planner card is shared with the Train home, so it is its own
+  // chunk (this branch's ferry PR measured worst 156,300 B, this 156,546 B).
+  '/ferry': 139.8 + 10 + 0.05 + 0.15 + 2.7 + 0.25,
+  // +1.75 (20 Nov 2026, journey planner): the "Where are you going?" card in the server HTML (From, To, swap, Popular,
+  // the answer with "Change at …") and the station planning over the bundled stopping patterns, replacing the "Find a
+  // station" search. Its sheets and the landmarks load on demand (the ferry PR measured worst 161,853 B, this
+  // 164,663 B). External JS unchanged.
+  '/train': 149.2 + 10 + 1.75,
   // +3 (#70, R7): the bus boards' elements moved to their own chunk (@bft/ui/bus), which takes about 3 KB gz off
   // every other page but costs the Bus pages about 1 KB in separate compression, plus R7's shared offline code.
   '/bus': 143.6 + 13,

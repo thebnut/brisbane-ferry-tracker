@@ -7,6 +7,7 @@ import { boardState, DepartureRow, type LinkRenderer, PlatformLineTile } from '@
 import { Link, useLocation, useParams } from 'react-router'
 import { at } from '../lib/base.ts'
 import type { TrainCard as Model } from '../lib/departures.ts'
+import { stationByKey } from '../lib/network.ts'
 
 export function tripHref(card: Model, from: string, to: string | null) {
   const q = new URLSearchParams({ from })
@@ -60,14 +61,18 @@ export function TrainCard({
           changedFrom={card.status.status === 'live' ? card.scheduledPlatform : null}
         />
       }
-      destination={card.headsign}
+      // "towards …": where the train ends, never where you're going (rider feedback, 19 Nov 2026).
+      destination={`towards ${card.headsign}`}
       status={card.status}
       fact={card.fact}
       wideFact={card.lineFact}
       extra={
         going && card.arrival ? (
           <>
-            <span className="text-charcoal dark:text-night-text">Arrives {card.arrival.time}</span>
+            {/* Where it arrives, by name: "Arrives Indooroopilly 4:57 am" (Codex review), as the phone row's fact. */}
+            <span className="text-charcoal dark:text-night-text">
+              {['Arrives', stationByKey(to)?.name, card.arrival.time].filter(Boolean).join(' ')}
+            </span>
             {card.journey ? <span className="text-xs font-normal">{card.journey}</span> : null}
           </>
         ) : null

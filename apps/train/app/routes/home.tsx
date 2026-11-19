@@ -18,13 +18,13 @@ import {
   pageLive,
   reportValue,
   SavedEmpty,
-  SearchPlaceholder,
   showsLive,
   UseLocationRow,
 } from '@bft/ui/mode-home'
 import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { SECTION, Shell, useReportLive } from '../components/Chrome.tsx'
+import Planner from '../components/Planner.tsx'
 import { fetchDepartures } from '../lib/api.ts'
 import { at, BASE } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
@@ -35,43 +35,11 @@ import { type DataMode, useDepartures, useFetcher } from '../lib/queries.ts'
 import { HOME_META, homeJsonLd, pageMeta } from '../lib/seo.ts'
 import { loaderEnv, settle, siteInfo } from '../lib/server.server.ts'
 import { type Favourite, favouriteId, favouritesFromCookie, readFavourites } from '../lib/storage.ts'
-import { useMounted, useNow, useOnline } from '../lib/useNow.ts'
+import { useNow, useOnline } from '../lib/useNow.ts'
 import type { Route } from './+types/home'
 
-// "Find a station" (THE-118 PR 3): client-only (Ark UI), loaded after hydration.
-const StationSearch = lazy(() =>
-  import.meta.env.SSR ? new Promise<never>(() => {}) : import('../components/StationSearch.tsx'),
-)
 // Only once the position is known.
 const NearYou = lazy(() => import('../components/NearYou.tsx'))
-
-const Search = () => <SearchPlaceholder label="Find a station" placeholder="Station name" />
-
-/** The search and a Map chip, where the section bar's Stations and Map went (THE-118 PR 3). */
-function ModeHomeTop() {
-  const mounted = useMounted()
-  return (
-    <div className="flex items-end gap-2">
-      <div className="min-w-0 flex-1">
-        {mounted ? (
-          <Suspense fallback={<Search />}>
-            <StationSearch />
-          </Suspense>
-        ) : (
-          <Search />
-        )}
-      </div>
-      <Link
-        to={at('/map')}
-        prefetch="intent"
-        className="flex min-h-12 shrink-0 items-center gap-1.5 rounded-full border-2 border-ferry-orange/30 bg-white px-3.5 text-sm font-bold text-aqua-text no-underline dark:bg-night-card dark:text-ferry-aqua-light"
-      >
-        <Icon name="map" size={18} />
-        Map
-      </Link>
-    </div>
-  )
-}
 
 const POPULAR = [
   'central',
@@ -85,6 +53,9 @@ const POPULAR = [
 export async function loader({ request, context }: Route.LoaderArgs) {
   const { fixtures, rt, fetcher, env } = loaderEnv(request, context)
   const favourites = favouritesFromCookie(request.headers.get('cookie')).filter((f) => stationByKey(f.from))
+  // "Plan a trip there" on a board (`?plan=to&to=<key>`), or "Somewhere else?" (`?plan=from&start=<key>`).
+  const params = new URL(request.url).searchParams
+  const plan = params.get('plan')
   const boards = await Promise.all(
     favourites.map((f) =>
       settle((signal) =>
@@ -94,6 +65,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   )
   return {
     favourites,
+    planTo: plan === 'to' ? params.get('to') : null,
+    planFrom: plan === 'from' ? params.get('start') : null,
     boards: Object.fromEntries(favourites.map((f, i) => [favouriteId(f), boards[i] ?? null])),
     renderedAt: Date.now(),
     via: VIA_NETWORK,
@@ -243,8 +216,27 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     >
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
         {/* Inside BrisbaneTransit the hub says which city's trains these are (its H1 for search). */}
-        <HomeTitle title={BASE ? 'Brisbane trains' : 'Train'}>
-          <ModeHomeTop />
+        <HomeTitle
+          title={BASE ? 'Brisbane trains' : 'Train'}
+          action={
+            // The live train map (THE-118 PR 9), beside the title.
+            <Link
+              to={at('/map')}
+              prefetch="intent"
+              className="flex min-h-12 shrink-0 items-center gap-1.5 rounded-full border-2 border-ferry-orange/30 bg-white px-3.5 text-sm font-bold text-aqua-text no-underline dark:bg-night-card dark:text-ferry-aqua-light"
+            >
+              <Icon name="map" size={18} />
+              Map
+            </Link>
+          }
+        >
+          {/* Where are you going? From first, then To (the journey planner, as on the Ferry tab). */}
+          <Planner
+            geo={geo}
+            locate={locate}
+            initialTo={loaderData.planTo}
+            initialFrom={loaderData.planFrom}
+          />
         </HomeTitle>
         <HomeSection id="saved" title="Saved">
           {favourites.length ? (
@@ -270,7 +262,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             <UseLocationRow state={geo.state} onLocate={locate} what="stations" />
           )}
         </HomeSection>
-        <HomeSection id="popular" title="Popular stations">
+        {/* Every station's board: plain links (search engines, and regulars who want a board). */}
+        <HomeSection
+          id="popular"
+          title="Station departure boards"
+          note="Every train leaving a station, all lines and platforms."
+        >
           <PlaceChips
             places={POPULAR.map((k) => stationByKey(k))
               .filter((s): s is Station => !!s)
