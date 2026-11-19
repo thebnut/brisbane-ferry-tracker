@@ -155,8 +155,14 @@ const OFFLINE_TEXT: Record<OfflineKind, { title: string; body: string }> = {
  * Any other 404 is an ordinary failure (Codex r1). Each app's ApiError carries the status and the 404's body.
  */
 export const isMissingStop = (error: unknown): boolean => {
-  const e = error as { status?: unknown; body?: unknown } | null | undefined
-  return e?.status === 404 && /"error":\s*"unknown stop"/.test(String(e.body))
+  const e = error as { status?: unknown; body?: string } | null | undefined
+  try {
+    // The top-level error only (Codex r2): a nested `"error":"unknown stop"` is some other 404. A body that isn't a
+    // JSON object (none, text, null) throws: not missing.
+    return e?.status === 404 && JSON.parse(e.body as string).error === 'unknown stop'
+  } catch {
+    return false
+  }
 }
 
 /** A saved card's line when its request failed with nothing to show (isMissingStop, or any other failure). */

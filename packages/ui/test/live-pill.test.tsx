@@ -37,6 +37,8 @@ describe('a saved card that failed', () => {
   it('a 404 "unknown stop" says the stop has no services in the timetable', () => {
     const missing = { status: 404, body: '{"error":"unknown stop","detail":"317584"}' }
     expect(isMissingStop(missing)).toBe(true)
+    // Any valid JSON spelling of it.
+    expect(isMissingStop({ status: 404, body: '{ "detail" : "x", "error" : "unknown stop" }' })).toBe(true)
     expect(cardFailedText(missing)).toMatch(/current timetable/)
   })
 
@@ -44,6 +46,9 @@ describe('a saved card that failed', () => {
     for (const error of [
       { status: 404 },
       { status: 404, body: '{"error":"not found"}' },
+      { status: 404, body: 'Not found' },
+      // Codex r2: only the top-level error counts.
+      { status: 404, body: '{"error":"not found","cause":{"error":"unknown stop"}}' },
       { status: 410, body: '{"error":"unknown stop"}' },
     ])
       expect(isMissingStop(error)).toBe(false)
