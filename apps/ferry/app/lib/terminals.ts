@@ -82,6 +82,13 @@ export const boardHref = (fromId: string, toId?: string | null): string => {
   return from ? `${terminalHref(from.slug)}${to ? `?to=${to.slug}` : ''}` : at('/')
 }
 
+/**
+ * The ferry home's journey planner with a place set: To (`plan=to`, "Plan a trip there") or the start (`plan=from`, a
+ * board's "Somewhere else?"). The home's own URL ends in "/" ("/ferry/" in BrisbaneTransit), so no redirect hop.
+ */
+export const planHref = (kind: 'to' | 'from', slug: string): string =>
+  `${at('/').replace(/\/?$/, '/')}?plan=${kind}&${kind === 'to' ? 'to' : 'start'}=${slug}`
+
 /** A ferry's trip page (THE-118 PR 6), from the terminal you board at to your "To" when the board has one. */
 export const tripHref = (tripInstance: string, fromId: string, toId?: string | null): string => {
   const q = new URLSearchParams()

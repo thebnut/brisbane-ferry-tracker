@@ -10,7 +10,7 @@ const HOME: HomeSpec = {
   // Phones on the standalone site: the thumb sheet's "Find a stop".
   search: /^(Find a stop|Stop name or number)$/,
   popular: {
-    title: 'Busy stops',
+    title: 'Bus stop boards',
     first: { name: 'Cultural Centre station, platform 1', href: '/stop/10802' },
   },
   near: 'stops',

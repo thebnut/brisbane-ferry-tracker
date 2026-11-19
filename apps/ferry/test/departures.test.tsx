@@ -37,7 +37,7 @@ describe('rowModel (THE-118 PR 4)', () => {
     expect(r).toMatchObject({
       code: 'F11',
       express: true,
-      destination: 'Riverside',
+      destination: 'towards Riverside',
       time: '7:42 pm',
       arrival: '7:54 pm',
       journey: '12 mins',
@@ -74,9 +74,9 @@ describe('rowModel (THE-118 PR 4)', () => {
     const extra = dep({ tripInstance: 'rt:EXTRA@20261018', schedDep: s(19, 46), estDep: s(19, 46) })
     expect(rowModel(extra, NOW).status).toMatchObject({ text: 'Live · Extra service', claim: true })
   })
-  it('headsigns lose " ferry terminal"', () => {
+  it('headsigns lose " ferry terminal", and say "towards" (the end of the line, not your destination)', () => {
     expect(rowModel(dep({ headsign: 'Northshore Hamilton ferry terminal' }), NOW).destination).toBe(
-      'Northshore Hamilton',
+      'towards Northshore Hamilton',
     )
   })
 })

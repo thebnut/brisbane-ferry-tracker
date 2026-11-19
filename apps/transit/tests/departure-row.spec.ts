@@ -143,7 +143,12 @@ function suite(wide: boolean) {
         const { list, rows } = await open(page, mode)
         const live = rows.nth(1)
         await expect(live.getByTestId('destination')).toHaveText(
-          mode.name === 'train' ? 'Ferny Grove' : 'Destination 1',
+          // Ferry rows say "towards", bus rows "to" (the tile reads "Route 199"): where it goes, not where you go.
+          mode.name === 'train'
+            ? 'Ferny Grove'
+            : mode.name === 'ferry'
+              ? 'towards Destination 1'
+              : 'to Destination 1',
         )
         const status = live.locator('[data-row-status]')
         await expect(status.locator('[data-dot=live]')).toHaveCount(1)

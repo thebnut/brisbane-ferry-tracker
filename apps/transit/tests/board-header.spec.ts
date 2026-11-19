@@ -1,8 +1,9 @@
 /**
  * THE-118 PR 5, one board header and filter row on every board, and Ferry as a terminal board:
- *  - the header: mode kicker, the place's name, one sub-line with the alert count, the labelled star;
+ *  - the header: kicker ("Departures from" on ferry and bus, rider feedback 19 Nov 2026), the place's name, one
+ *    sub-line with the alert count, the labelled star;
  *  - one row of 44 px chips (Bus: All routes, routes, Map, Now ▾; Train: All, Going to… ▾, Express, Map, Now ▾; Ferry:
- *    All, To… ▾, Express, Map, Now ▾), plus ⇄ with a destination set;
+ *    All, Express, Map, Now ▾, under "Where are you going from here?"); a ferry trip ("Your trip") swaps in its header;
  *  - the status line below the header, above the rows;
  *  - `/ferry/terminal/:slug?to=` boards, old `/ferry?from=&to=` links redirecting there, saved favourites opening
  *    with "To" set, three terminal pairs including cross-river (F2x).
@@ -23,7 +24,7 @@ const BOARDS = [
   {
     mode: 'bus',
     url: '/bus/stop/10802',
-    kicker: 'Bus stop',
+    kicker: 'Departures from',
     name: /Cultural Centre/,
     chips: ['All routes', 'Map', 'Now'],
   },
@@ -37,15 +38,20 @@ const BOARDS = [
   {
     mode: 'ferry',
     url: '/ferry/terminal/bulimba',
-    kicker: 'Ferry terminal',
+    kicker: 'Departures from',
     name: /^Bulimba$/,
     // Express too, but only while express services are on the board (as before), so not at every hour.
-    chips: ['All', 'To…', 'Map', 'Now'],
+    chips: ['All', 'Map', 'Now'],
   },
 ] as const
 
 const header = (page: Page) => page.locator('[data-board-header]')
 const chips = (page: Page) => header(page).locator('[data-filter-row]')
+/** The ferry board's "Where are you going from here?" field. */
+const field = (page: Page) => header(page).locator('[data-destination-field]')
+/** A ferry trip header's To (a button that changes it). */
+const toButton = (page: Page, name: string) =>
+  header(page).getByRole('button', { name: `To ${name}. Change destination` })
 
 /** The ferry board's three trips: along the river, and two cross-river (F21 with the F1, and the F22 only). */
 const PAIRS = [
@@ -117,11 +123,9 @@ function suite(desktop: boolean) {
       test(`old link ${p.from[2]} → ${p.to[2]} lands on its board with "To" set`, async ({ page }) => {
         await page.goto(`/ferry?from=${p.from[0]}&to=${p.to[0]}`)
         await expect(page).toHaveURL(`/ferry/terminal/${p.from[1]}?to=${p.to[1]}`)
-        await expect(header(page).getByRole('heading').first()).toHaveText(p.from[2])
-        await expect(chips(page).getByRole('button', { name: `To ${p.to[2]}` })).toHaveAttribute(
-          'aria-haspopup',
-          'dialog',
-        )
+        await expect(header(page).locator('[data-kicker]')).toHaveText('Your trip · Direct ferry')
+        await expect(header(page).getByRole('heading').first()).toHaveText(`From ${p.from[2]} to ${p.to[2]}`)
+        await expect(toButton(page, p.to[2])).toHaveAttribute('aria-haspopup', 'dialog')
         const board = page.locator('[data-board=outbound]')
         await expect(board).toHaveAttribute('aria-label', `${p.from[2]} to ${p.to[2]}`)
         // Whatever the hour: every row shown is a service that goes there (the F22 alone from Sydney Street).
@@ -142,43 +146,45 @@ function suite(desktop: boolean) {
         'Departures from Bulimba',
       )
       await expect(page.locator('[data-board=inbound]')).toHaveCount(0)
-      await expect(chips(page).getByRole('button', { name: 'Swap direction' })).toHaveCount(0)
-      await chips(page).getByRole('button', { name: 'To…' }).click()
-      const sheet = page.getByRole('dialog', { name: 'To, from Bulimba' })
+      await expect(header(page).getByRole('button', { name: 'Swap direction' })).toHaveCount(0)
+      await expect(header(page)).toContainText('Every ferry leaving here')
+      await field(page).click()
+      const sheet = page.getByRole('dialog', { name: 'Where are you going from Bulimba?' })
       await sheet.getByRole('button', { name: 'Teneriffe', exact: true }).click()
       await expect(page).toHaveURL('/ferry/terminal/bulimba?to=teneriffe')
-      await expect(chips(page).getByRole('button', { name: 'To Teneriffe' })).toBeVisible()
+      await expect(toButton(page, 'Teneriffe')).toBeVisible()
+      await expect(field(page)).toHaveCount(0)
       // "Any destination" clears it again.
-      await chips(page).getByRole('button', { name: 'To Teneriffe' }).click()
+      await toButton(page, 'Teneriffe').click()
       await page.getByRole('dialog').getByRole('button', { name: 'Any destination' }).click()
       await expect(page).toHaveURL('/ferry/terminal/bulimba')
     })
 
-    test('the "To…" sheet unable to load leaves the board up, and the next tap tries again (Codex r1)', async ({
+    test('the destination sheet unable to load leaves the board up, and the next tap tries again (Codex r1)', async ({
       page,
     }) => {
       await page.goto('/ferry/terminal/bulimba')
       let block = true
       await page.route('**/assets/ToSheet-*.js', (route) => (block ? route.abort() : route.continue()))
-      await chips(page).getByRole('button', { name: 'To…' }).click()
+      await field(page).click()
       const sheet = page.getByRole('dialog', { name: "Choose where you're going" })
       await expect(sheet).toContainText("can't load without a connection")
       await page.keyboard.press('Escape')
       await expect(sheet).toHaveCount(0)
       await expect(page.locator('[data-board=outbound]')).toBeVisible()
       block = false
-      await chips(page).getByRole('button', { name: 'To…' }).click()
-      await expect(page.getByRole('dialog', { name: 'To, from Bulimba' })).toBeVisible()
+      await field(page).click()
+      await expect(page.getByRole('dialog', { name: 'Where are you going from Bulimba?' })).toBeVisible()
     })
 
-    test('keyboard: "To…" opens its sheet; Escape gives focus back to the chip (Codex r4)', async ({
+    test('keyboard: "Where are you going from here?" opens its sheet; Escape gives focus back (Codex r4)', async ({
       page,
     }) => {
       await page.goto('/ferry/terminal/bulimba')
-      const chip = chips(page).getByRole('button', { name: 'To…' })
+      const chip = field(page)
       await chip.focus()
       await page.keyboard.press('Enter')
-      const sheet = page.getByRole('dialog', { name: 'To, from Bulimba' })
+      const sheet = page.getByRole('dialog', { name: 'Where are you going from Bulimba?' })
       await expect(sheet).toBeVisible()
       await page.keyboard.press('Escape')
       await expect(sheet).toBeHidden()
@@ -193,18 +199,15 @@ function suite(desktop: boolean) {
 
     test('a sheet reopened before its close event arrives stays open', async ({ page }) => {
       await page.goto('/ferry/terminal/bulimba')
-      await chips(page).getByRole('button', { name: 'To…' }).click()
-      const sheet = page.getByRole('dialog', { name: 'To, from Bulimba' })
+      await field(page).click()
+      const sheet = page.getByRole('dialog', { name: 'Where are you going from Bulimba?' })
       await expect(sheet).toBeVisible()
       // Escape closes the dialog at once, but its close event is queued: a reopen in between must survive it.
       await page.evaluate(async () => {
         const d = document.querySelector('dialog[open]') as HTMLDialogElement
         d.dispatchEvent(new Event('cancel', { cancelable: true }))
         await Promise.resolve()
-        const chip = [...document.querySelectorAll<HTMLButtonElement>('[data-filter-row] button')].find(
-          (b) => b.textContent?.trim() === 'To…',
-        )
-        chip?.click()
+        document.querySelector<HTMLButtonElement>('[data-destination-field]')?.click()
       })
       await page.waitForTimeout(300)
       await expect(sheet).toBeVisible()
@@ -212,10 +215,10 @@ function suite(desktop: boolean) {
 
     test('⇄ flips the direction', async ({ page }) => {
       await page.goto('/ferry/terminal/bulimba?to=riverside')
-      await chips(page).getByRole('button', { name: 'Swap direction' }).click()
+      await header(page).getByRole('button', { name: 'Swap direction' }).click()
       await expect(page).toHaveURL('/ferry/terminal/riverside?to=bulimba')
-      await expect(header(page).getByRole('heading').first()).toHaveText('Riverside')
-      await expect(chips(page).getByRole('button', { name: 'To Bulimba' })).toBeVisible()
+      await expect(header(page).getByRole('heading').first()).toHaveText('From Riverside to Bulimba')
+      await expect(toButton(page, 'Bulimba')).toBeVisible()
     })
 
     test('a saved favourite opens its board with "To" set', async ({ page }) => {
@@ -226,7 +229,7 @@ function suite(desktop: boolean) {
       await page.reload()
       await page.locator('main a[href="/ferry/terminal/bulimba?to=teneriffe"]').first().click()
       await expect(page).toHaveURL('/ferry/terminal/bulimba?to=teneriffe')
-      await expect(chips(page).getByRole('button', { name: 'To Teneriffe' })).toBeVisible()
+      await expect(toButton(page, 'Teneriffe')).toBeVisible()
       await expect(header(page).locator('[data-star]')).toHaveAttribute('aria-pressed', 'true')
     })
   })

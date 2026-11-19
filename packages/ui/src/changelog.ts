@@ -12,6 +12,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-20',
+    summary:
+      'The Ferry tab now asks “Where are you going?”: pick where you’re starting and where you’re headed, and see the ferries that go there.',
+    items: [
+      'Choose From, then To, or tap a popular place like South Bank or Howard Smith Wharves. Once you’ve allowed location, From starts at your nearest terminal. Your location stays on your phone.',
+      'Search for places as well as terminals. Type “Eat Street” and it tells you to get off at Northshore Hamilton. For places away from the river, like Suncorp Stadium, it says which train to take instead.',
+      'No direct ferry between your two terminals? It tells you where to change, with the next ferry on each leg.',
+      'It remembers where you last went, on this device only.',
+      'Every board now says “Departures from” at the top, and each ferry says where it’s heading, like “towards UQ St Lucia”, so the countdown is clearly when it leaves. Not at that terminal? Tap “Plan a trip there”.',
+      'The terminal list is now called Departure boards, and the Bus tab’s stop list Bus stop boards. Bus rows read like “Route 199 to Teneriffe”.',
+    ],
+  },
+  {
     date: '2026-11-19',
     summary:
       'The OFFLINE label now only shows when your phone has no connection. If live times are briefly unavailable, you’ll see Scheduled and the timetable instead.',
