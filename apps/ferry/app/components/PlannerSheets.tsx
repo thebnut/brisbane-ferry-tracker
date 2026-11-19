@@ -31,8 +31,11 @@ const renderLink = ({
 )
 const AZ = [...TERMINALS].sort((a, b) => name(a).localeCompare(name(b)))
 
-/** A train station's board in BrisbaneTransit; the standalone ferry site has no train pages. */
-const trainHref = (key: string) => (BASE ? `/train/station/${key}` : undefined)
+/**
+ * The Train tab's planner with that station as To, in BrisbaneTransit (never its board, which lists departures *from*
+ * it: the confusion the planner fixes, Codex review of #227); the standalone ferry site has no train pages.
+ */
+const trainHref = (key: string) => (BASE ? `/train/?plan=to&to=${key}` : undefined)
 
 const either = (list: readonly string[]) =>
   list.length < 2 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} or ${list[list.length - 1]}`
@@ -62,7 +65,7 @@ export function landmarkResult(l: Landmark) {
     name: l.name,
     text: ['Not near a ferry terminal.', l.bus, train].filter(Boolean).join(' '),
     href,
-    linkText: href && station ? `Trains from ${station.name}` : undefined,
+    linkText: href && station ? `Plan a train trip to ${station.name}` : undefined,
   }
 }
 

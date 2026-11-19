@@ -144,7 +144,10 @@ export function DepartureList({
                     extra={
                       r.arrival ? (
                         <>
-                          <span className="text-charcoal dark:text-night-text">Arrives {r.arrival}</span>
+                          {/* "Arrives Riverside 7:42 pm", as the phone row's fact (Codex review of #227). */}
+                          <span className="text-charcoal dark:text-night-text">
+                            {['Arrives', toName, r.arrival].filter(Boolean).join(' ')}
+                          </span>
                           {r.journey ? <span className="text-xs font-normal">{r.journey}</span> : null}
                         </>
                       ) : null

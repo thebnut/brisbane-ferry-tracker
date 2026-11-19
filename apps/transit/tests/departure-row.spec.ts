@@ -223,7 +223,8 @@ function suite(wide: boolean) {
           await expect(extra).toHaveCount(1)
           if (wide) await expect(extra).toBeVisible()
           else await expect(extra).toBeHidden()
-          if (wide) await expect(extra).toContainText(/Arrives \d+:\d\d [ap]m/)
+          // With the destination's name ("Arrives Ferny Grove 12:24 pm"), as the phone row's fact.
+          if (wide) await expect(extra).toContainText(/Arrives [A-Z][A-Za-z ]+ \d+:\d\d [ap]m/)
         } else {
           await expect(extra).toHaveCount(0)
         }

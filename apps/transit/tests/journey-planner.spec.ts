@@ -43,6 +43,10 @@ test('From comes first, then To; Popular fills To and asks where you start; the 
   ).toBeAttached()
   const row = page.locator('[data-board=outbound] [data-testid=departure]').first()
   await expect(row.getByTestId('destination')).toHaveText(/^towards /)
+  // Where it arrives, by name, on phones (the status line) and wide rows (the arrival column) alike (Codex review).
+  await expect(row).toContainText(
+    /arrives Howard Smith Wharves \d+:\d\d [ap]m|Arrives Howard Smith Wharves \d+:\d\d [ap]m/i,
+  )
 })
 
 test('the last destination is remembered on this device', async ({ page }) => {
@@ -68,7 +72,9 @@ test('landmarks resolve to the terminal to get off at; a stadium off the river p
   await search.fill('suncorp')
   const stadium = dest.locator('[data-landmark=suncorp-stadium]')
   await expect(stadium).toContainText('Not near a ferry terminal. Take the train to Milton or Roma Street')
-  await expect(stadium.getByRole('link')).toHaveAttribute('href', '/train/station/milton')
+  // The Train tab's planner with Milton as To, never Milton's board (departures *from* it).
+  await expect(stadium.getByRole('link')).toHaveAttribute('href', '/train/?plan=to&to=milton')
+  await expect(stadium).toContainText('Plan a train trip to Milton')
   await search.fill('eat street')
   await card.click()
   await expect(place(page, 'to')).toContainText('Northshore Hamilton')
@@ -182,6 +188,9 @@ test.describe('Train', () => {
     await expect(header.locator('[data-kicker]')).toHaveText('Your trip · Direct train')
     const row = page.locator('[data-testid=departure]').first()
     await expect(row.getByTestId('destination')).toHaveText(/^towards /)
+    const extra = row.locator('[data-extra]')
+    if (await extra.isVisible()) await expect(extra).toContainText(/^Arrives Central \d+:\d\d [ap]m/)
+    else await expect(row.locator('[data-row-status]')).toContainText(/arrives Central \d+:\d\d [ap]m/)
     expect(await page.evaluate(() => localStorage.getItem('bft-train-last-to'))).toBe('central')
   })
 
@@ -193,9 +202,15 @@ test.describe('Train', () => {
     await search.fill('eat street')
     const eat = dest.locator('[data-landmark=eat-street]')
     await expect(eat).toContainText('Not near a train station. Take the ferry to Northshore Hamilton.')
-    await expect(eat.getByRole('link')).toHaveAttribute('href', '/ferry/terminal/northshore-hamilton')
-    await search.fill('suncorp')
-    await dest.locator('[data-landmark=suncorp-stadium]').click()
+    // The Ferry tab's planner with the terminal as To (Codex review): never its departures-from board.
+    await expect(eat.getByRole('link')).toHaveAttribute('href', '/ferry/?plan=to&to=northshore-hamilton')
+    await eat.getByRole('link').click()
+    await expect(page).toHaveURL('/ferry/?plan=to&to=northshore-hamilton')
+    await expect(place(page, 'to')).toContainText('Northshore Hamilton')
+    await page.goto('/train')
+    await place(page, 'to').click()
+    await sheet(page, 'Where are you going?').getByLabel('Search stations and places').fill('suncorp')
+    await sheet(page, 'Where are you going?').locator('[data-landmark=suncorp-stadium]').click()
     await expect(place(page, 'to')).toContainText('Milton')
     await expect(place(page, 'to')).toContainText('for Suncorp Stadium')
   })

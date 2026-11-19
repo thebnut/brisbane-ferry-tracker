@@ -28,8 +28,11 @@ const renderLink = ({
   </Link>
 )
 
-/** A ferry terminal's board in BrisbaneTransit; the standalone train site has no ferry pages. */
-const ferryHref = (slug: string) => (BASE ? `/ferry/terminal/${slug}` : undefined)
+/**
+ * The Ferry tab's planner with that terminal as To, in BrisbaneTransit (never its board, which lists departures *from*
+ * it: the confusion the planner fixes, Codex review); the standalone train site has no ferry pages.
+ */
+const ferryHref = (slug: string) => (BASE ? `/ferry/?plan=to&to=${slug}` : undefined)
 /** The ferry terminals the landmarks name, by slug (no ferry data in the train app). */
 const FERRY_NAMES: Record<string, string> = {
   'qut-gardens-point': 'QUT Gardens Point',
@@ -67,7 +70,7 @@ export function landmarkResult(l: Landmark) {
     name: l.name,
     text: ['Not near a train station.', l.bus, ferry].filter(Boolean).join(' '),
     href,
-    linkText: href && slug ? `Ferries from ${FERRY_NAMES[slug] ?? slug}` : undefined,
+    linkText: href && slug ? `Plan a ferry trip to ${FERRY_NAMES[slug] ?? slug}` : undefined,
   }
 }
 
