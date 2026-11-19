@@ -30,8 +30,8 @@ const id = (slug: string) => {
 }
 /** 19 Nov 2026, noon AEST: Bulimba closed for works. */
 const CLOSED_DAY = Date.UTC(2026, 10, 19, 2)
-/** 20 Dec 2026: reopened. */
-const OPEN_DAY = Date.UTC(2026, 11, 20, 2)
+/** 20 Dec 2026, after the "mid-December" reopening council gave without a date. */
+const LATER = Date.UTC(2026, 11, 20, 2)
 
 describe('planTrip', () => {
   it('a direct ferry', () => {
@@ -64,7 +64,7 @@ describe('planTrip', () => {
     const cross = new Set(['dockside', 'holman-street', 'maritime-museum'])
     for (const a of TERMINALS)
       for (const b of TERMINALS) {
-        const p = planTrip(a.id, b.id, OPEN_DAY)
+        const p = planTrip(a.id, b.id, LATER)
         if (p.kind === 'none')
           expect(cross.has(a.slug) && cross.has(b.slug), `${a.slug} → ${b.slug}`).toBe(true)
         if (p.kind === 'change') {
@@ -75,32 +75,35 @@ describe('planTrip', () => {
   })
 })
 
-describe('a closed terminal (Bulimba, 9 Nov to mid-December 2026)', () => {
-  it('has a note while closed, none after', () => {
-    expect(closedNote(id('bulimba'), CLOSED_DAY)).toMatch(/closed for works/i)
-    expect(closedNote(id('bulimba'), OPEN_DAY)).toBeNull()
+describe('a closed terminal (Bulimba, from 9 Nov 2026 until its reopening is confirmed)', () => {
+  it('has a note, whatever the date: it reopens only when the entry is taken out', () => {
+    expect(closedNote(id('bulimba'), CLOSED_DAY)).toBe('Closed for works')
+    expect(closedNote(id('bulimba'), LATER)).toBe('Closed for works')
     expect(closedNote(id('riverside'), CLOSED_DAY)).toBeNull()
   })
 
-  it('is left out of Popular while closed', () => {
-    expect(popularTerminals(CLOSED_DAY).map((t) => t.slug)).toEqual([
+  it('is left out of Popular', () => {
+    expect(popularTerminals(LATER).map((t) => t.slug)).toEqual([
       'south-bank',
       'howard-smith-wharves',
       'northshore-hamilton',
       'new-farm-park',
       'uq-st-lucia',
     ])
-    expect(popularTerminals(OPEN_DAY).map((t) => t.slug)).toContain('bulimba')
   })
 
-  it('is never the nearest start while closed', () => {
+  it('is never the nearest start, nor a change point', () => {
     const bulimba = terminalBySlug('bulimba')
     if (!bulimba) throw new Error('no Bulimba')
     expect(nearestStart(bulimba.lat, bulimba.lng, null, CLOSED_DAY)?.slug).not.toBe('bulimba')
     expect(closestTerminals(bulimba.lat, bulimba.lng, CLOSED_DAY).map((c) => c.terminal.slug)).not.toContain(
       'bulimba',
     )
-    expect(nearestStart(bulimba.lat, bulimba.lng, null, OPEN_DAY)?.slug).toBe('bulimba')
+    for (const a of TERMINALS)
+      for (const b of TERMINALS) {
+        const p = planTrip(a.id, b.id, CLOSED_DAY)
+        if (p.kind === 'change') expect(p.via.slug).not.toBe('bulimba')
+      }
   })
 })
 
@@ -218,11 +221,12 @@ describe('the change-at connection', () => {
       ...extra,
     }) as unknown as Departure
 
-  it('the second leg leaves at least two minutes after the first arrives', () => {
+  it('the second leg leaves at least two minutes after the first arrives; the wait is given', () => {
     const c = connection([d(1000, 1300)], [d(1350, 1700), d(1420, 1800)])
     expect(c?.a.schedDep).toBe(1000)
     expect(c?.arr).toBe(1300)
     expect(c?.b?.schedDep).toBe(1420)
+    expect(c?.wait).toBe(120)
     expect(c?.arrB).toBe(1800)
   })
 
@@ -239,8 +243,28 @@ describe('the change-at connection', () => {
     expect(c?.b?.schedDep).toBe(1500)
   })
 
-  it('no second leg after the first: the first leg only; no first leg: nothing', () => {
-    expect(connection([d(1000, 1300)], [d(1200, 1500)])?.b).toBeNull()
+  it('a later first ferry that arrives sooner (an express, a delay) catches a connection the first misses (Codex r1)', () => {
+    // The 1000 arrives at 1600, too late for the 1650; the 1100 overtakes it, arriving at 1400.
+    const c = connection([d(1000, 1600), d(1100, 1400)], [d(1650, 2000), d(3000, 3300)])
+    expect(c?.a.schedDep).toBe(1100)
+    expect(c?.b?.schedDep).toBe(1650)
+    expect(c?.arrB).toBe(2000)
+  })
+
+  it('of several connections, the one that gets there first', () => {
+    const c = connection([d(1000, 1300), d(1200, 1500)], [d(1500, 2600), d(1700, 2100)])
+    expect(c?.a.schedDep).toBe(1200)
+    expect(c?.b?.schedDep).toBe(1700)
+  })
+
+  it('no connection within an hour (the last ferry, overnight): the first leg only, never tomorrow morning (Codex r1)', () => {
+    // The 11:30 pm ferry arrives at 11:40 pm; the next on the second leg is at 6 am.
+    const c = connection([d(84_600, 85_200)], [d(108_000, 108_600)])
+    expect(c?.a.schedDep).toBe(84_600)
+    expect(c?.b).toBeNull()
+  })
+
+  it('no first leg: nothing', () => {
     expect(connection([], [d(1200, 1500)])).toBeNull()
   })
 })

@@ -7,21 +7,19 @@
 import { TERMINALS, type Terminal, terminalById, terminalBySlug } from './terminals.ts'
 
 /**
- * Terminals closed for works, left out of Popular and of the planner's nearest-terminal default until the date (AEST,
- * inclusive), then treated as open again. Bulimba: gangway works from 9 Nov to mid-December 2026 (Brisbane City
- * Council); TransLink's timetable has no Bulimba services meanwhile, and its board says so (a 404 "unknown stop").
+ * Terminals closed for works: left out of Popular, of the planner's nearest-terminal default and of change points, and
+ * labelled in the lists. Bulimba: gangway works from 9 Nov 2026, reopening "mid-December" (Brisbane City Council,
+ * TransLink) with no confirmed date; TransLink's timetable has no Bulimba services meanwhile, and its board says so
+ * (a 404 "unknown stop"). Removed by hand once the reopening is confirmed (and 317584 is back in the timetable), never
+ * by a guessed date.
  */
-export const CLOSED: Record<string, { until: string; note: string }> = {
-  '317584': { until: '2026-12-15', note: 'Closed for works until mid-December' },
+export const CLOSED: Record<string, { note: string }> = {
+  '317584': { note: 'Closed for works' },
 }
 
-/** Brisbane's date (AEST, no daylight saving) as YYYY-MM-DD. */
-const brisbaneDate = (nowMs: number) => new Date(nowMs + 10 * 3_600_000).toISOString().slice(0, 10)
-
-/** The terminal's closure note while it is closed, else null. */
-export function closedNote(id: string, nowMs: number): string | null {
-  const c = CLOSED[id]
-  return c && brisbaneDate(nowMs) <= c.until ? c.note : null
+/** The terminal's closure note while it is closed, else null. `nowMs` is kept for a dated closure later. */
+export function closedNote(id: string, _nowMs: number): string | null {
+  return CLOSED[id]?.note ?? null
 }
 
 /** Popular destinations (the To chips), in order; a closed one is left out. */

@@ -1,11 +1,12 @@
 /**
- * The planner's answer when no ferry runs direct (the cross-river ferries, F22 to F24): "Change at <terminal>", each
- * leg's next ferry that connects (the second leg leaving at least two minutes after the first arrives), and a link to
+ * The planner's answer when no ferry runs direct (the cross-river ferries, F22 to F24): "Change at <terminal>", the
+ * soonest-arriving pair of ferries that connect (the second leaving two to 60 minutes after the first arrives, so an
+ * overnight wait is never shown as a connection), the wait between them, a date on any ferry not today, and a link to
  * each leg's board. Its own chunk, loaded only for such a pair. It marks nothing LIVE and reports nothing to the
  * header: these are next-ferry times, and each leg's board has the live detail.
  */
 import type { Departure } from '@bft/core/contract'
-import { arrivalAfter, formatClock, isMissingStop } from '@bft/ui'
+import { arrivalAfter, dayMarker, formatClock, isMissingStop } from '@bft/ui'
 import { usePageCheck } from '@bft/ui/connectivity'
 import { Link } from 'react-router'
 import { boardState, effectiveDep, visibleRows } from '../lib/departures.ts'
@@ -16,23 +17,43 @@ import { useOnline } from '../lib/useNow.ts'
 
 /** Time to walk between ferries at the change. */
 const CHANGE_S = 120
+/** The longest wait at the change still shown as a connection: past it (the last ferry, overnight), none is. */
+const MAX_WAIT_S = 60 * 60
+/** How many of the first leg's next ferries are tried: a later one can arrive first (an express, a delay). */
+const FIRST_LEG_TRIES = 6
 
 const boardable = (list: Departure[]) =>
   list
     .filter((d) => d.status !== 'cancelled' && d.status !== 'skipped')
     .sort((a, b) => effectiveDep(a) - effectiveDep(b))
 
-/** The first leg's next ferry and the second leg's first one after it arrives (with time to change). */
+const arrives = (d: Departure) => {
+  const raw = d.estArrTo ?? d.schedArrTo
+  return raw != null ? arrivalAfter(effectiveDep(d), raw) : null
+}
+
+/**
+ * The trip with one change that gets there first: of the first leg's next few ferries, each with the second leg's first
+ * ferry leaving two to 60 minutes after it arrives, the pair arriving soonest (then leaving soonest). With no such
+ * pair, the first leg's next ferry alone (`b` null); with none, null.
+ */
 export function connection(first: Departure[], second: Departure[]) {
-  const a = boardable(first)[0]
-  if (!a) return null
-  const dep = effectiveDep(a)
-  const raw = a.estArrTo ?? a.schedArrTo
-  const arr = raw != null ? arrivalAfter(dep, raw) : null
-  const b = arr != null ? boardable(second).find((d) => effectiveDep(d) >= arr + CHANGE_S) : undefined
-  if (!b) return { a, arr, b: null, arrB: null }
-  const rawB = b.estArrTo ?? b.schedArrTo
-  return { a, arr, b, arrB: rawB != null ? arrivalAfter(effectiveDep(b), rawB) : null }
+  const ones = boardable(first).slice(0, FIRST_LEG_TRIES)
+  const twos = boardable(second)
+  let best: { a: Departure; arr: number; b: Departure; wait: number; arrB: number | null } | null = null
+  for (const a of ones) {
+    const arr = arrives(a)
+    if (arr == null) continue
+    const b = twos.find((d) => effectiveDep(d) >= arr + CHANGE_S)
+    if (!b || effectiveDep(b) - arr > MAX_WAIT_S) continue
+    const arrB = arrives(b)
+    const end = arrB ?? effectiveDep(b)
+    const bestEnd = best ? (best.arrB ?? effectiveDep(best.b)) : Number.POSITIVE_INFINITY
+    if (end < bestEnd) best = { a, arr, b, wait: effectiveDep(b) - arr, arrB }
+  }
+  if (best) return best
+  const a = ones[0]
+  return a ? { a, arr: arrives(a), b: null, wait: null, arrB: null } : null
 }
 
 function useLeg(fromId: string, toId: string, nowMs: number, mode: DataMode) {
@@ -70,9 +91,14 @@ export default function ChangePlan({
       ? 'Times unavailable right now'
       : 'No connecting ferry found today'
   const n = (t: Terminal) => cleanStopName(t.name)
+  // A time with its date when it isn't today ("6:05 am (21/11)"): a trip shown at night may start tomorrow.
+  const clock = (s: number) => {
+    const day = dayMarker(s, nowMs)
+    return day ? `${formatClock(s)} ${day}` : formatClock(s)
+  }
   const line = (d: Departure | null | undefined, arr: number | null | undefined, at: Terminal) =>
     d
-      ? `${formatClock(effectiveDep(d))} ${d.route.short} towards ${cleanStopName(d.headsign)}${arr != null ? ` · arrives ${n(at)} ${formatClock(arr)}` : ''}`
+      ? `${clock(effectiveDep(d))} ${d.route.short} towards ${cleanStopName(d.headsign)}${arr != null ? ` · arrives ${n(at)} ${clock(arr)}` : ''}`
       : none
   return (
     <div data-plan="change" className="flex flex-col gap-2">
@@ -107,7 +133,11 @@ export default function ChangePlan({
                 2. {n(via)} → {n(to)}
               </span>
               <span className="text-[13px] text-sched-text dark:text-night-text/80">
-                {line(c?.b, c?.arrB, to)}
+                {c?.b
+                  ? `${Math.round((c.wait ?? 0) / 60)} min wait · ${line(c.b, c.arrB, to)}`
+                  : c && !loading && !failed
+                    ? 'No ferry on within an hour of arriving. Check this board for later ones.'
+                    : line(null, null, to)}
               </span>
             </span>
             <span className="shrink-0 text-sm font-bold text-aqua-text dark:text-ferry-aqua-light">

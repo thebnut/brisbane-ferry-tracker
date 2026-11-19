@@ -12,8 +12,6 @@ test.use({ serviceWorkers: 'block' })
 const planner = (page: Page) => page.locator('[data-planner]')
 const place = (page: Page, which: 'from' | 'to') => planner(page).locator(`[data-planner-place=${which}]`)
 const sheet = (page: Page, name: string) => page.getByRole('dialog', { name })
-/** Bulimba is closed for works until mid-December 2026 (apps/ferry/app/lib/journey.ts CLOSED). */
-const bulimbaClosed = () => new Date(Date.now() + 10 * 3_600_000).toISOString().slice(0, 10) <= '2026-12-15'
 
 test('From comes first, then To; Popular fills To and asks where you start; the board says "Your trip"', async ({
   page,
@@ -25,7 +23,8 @@ test('From comes first, then To; Popular fills To and asks where you start; the 
   expect(from && to && from.y < to.y).toBe(true)
   const popular = planner(page).getByRole('list', { name: 'Popular destinations' })
   await expect(popular.getByRole('button')).toContainText(['South Bank', 'Howard Smith Wharves'])
-  if (bulimbaClosed()) await expect(popular.getByRole('button', { name: 'Bulimba' })).toHaveCount(0)
+  // Bulimba is closed for works (apps/ferry/app/lib/journey.ts CLOSED): not featured.
+  await expect(popular.getByRole('button', { name: 'Bulimba' })).toHaveCount(0)
 
   await popular.getByRole('button', { name: 'Howard Smith Wharves' }).click()
   const start = sheet(page, 'Where are you starting?')
