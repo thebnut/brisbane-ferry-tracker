@@ -167,16 +167,15 @@ function suite(phone: boolean) {
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(path === '/train' || path === '/bus' ? 44 : 36)
     })
 
-  test('Train home: the search finds a station and opens its board', async ({ page }) => {
+  test('Train home: the journey planner opens the board for a trip', async ({ page }) => {
     await page.goto('/train')
     await ready(page)
-    const search = page.getByRole('combobox', { name: 'Find a station' })
-    await search.fill('Centr')
+    await page.locator('[data-planner]').getByRole('button', { name: 'Central', exact: true }).click()
     await page
-      .getByRole('option', { name: /^Central/ })
-      .first()
+      .getByRole('dialog', { name: 'Where are you starting?' })
+      .locator('[data-place-option=roma-street]')
       .click()
-    await expect(page).toHaveURL(/\/train\/station\/central$/)
+    await expect(page).toHaveURL(/\/train\/station\/roma-street\?to=central$/)
   })
 
   test('Bus home: the search at the top finds a stop and opens its board', async ({ page }) => {

@@ -48,11 +48,11 @@ describe('trainCard', () => {
     expect(c.headsign).toBe('Ferny Grove')
     expect(c.strip[0]?.id).toBe('central')
     expect(c.express).toBe(false)
-    // THE-118 PR 4: one fact, the line; with a destination, "arr 8:16 am" (the line moves to the wide row).
+    // THE-118 PR 4: one fact, the line; with a destination, when it arrives there (the line moves to the wide row).
     expect(c.status.text).toBe('Live · on time')
     expect(c.fact).toBe('Ferny Grove line')
     const going = trainCard(dep({ schedArrTo: nowS + 16 * 60 }), NOW, 'central', 'ferny-grove')
-    expect(going).toMatchObject({ fact: 'arr 8:16 am', lineFact: 'Ferny Grove line' })
+    expect(going).toMatchObject({ fact: 'arrives Ferny Grove 8:16 am', lineFact: 'Ferny Grove line' })
   })
   it('an unplanned train (rt: key) says "Extra service", never on time, late or early (R35-U1)', () => {
     const c = trainCard(

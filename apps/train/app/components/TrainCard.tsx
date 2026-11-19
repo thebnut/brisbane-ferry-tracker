@@ -60,7 +60,8 @@ export function TrainCard({
           changedFrom={card.status.status === 'live' ? card.scheduledPlatform : null}
         />
       }
-      destination={card.headsign}
+      // "towards …": where the train ends, never where you're going (rider feedback, 19 Nov 2026).
+      destination={`towards ${card.headsign}`}
       status={card.status}
       fact={card.fact}
       wideFact={card.lineFact}

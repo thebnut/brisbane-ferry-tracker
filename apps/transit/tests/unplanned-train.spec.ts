@@ -30,7 +30,7 @@ async function openCentral(page: Page): Promise<Locator> {
 }
 
 async function expectBoardRow(row: Locator) {
-  await expect(row.getByTestId('destination')).toHaveText('Roma Street')
+  await expect(row.getByTestId('destination')).toHaveText('towards Roma Street')
   await expect(row.getByRole('img', { name: 'Platform 5' })).toBeVisible()
   const status = row.locator('[data-row-status]')
   await expect(status.locator('[data-dot=live]')).toHaveCount(1)
