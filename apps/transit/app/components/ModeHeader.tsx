@@ -40,6 +40,8 @@ export function useConnection({ live, pending }: LiveProps): ConnectionState | n
 export const DOT: Record<ConnectionState, string> = {
   live: 'bg-ferry-orange-aa',
   connecting: 'bg-gray-400 motion-safe:animate-pulse',
+  // Online without live data: neutral, never the red of OFFLINE.
+  scheduled: 'bg-gray-400',
   offline: 'bg-cancel-text',
 }
 
@@ -61,7 +63,8 @@ function LiveState({ state }: { state: ConnectionState | null }) {
       className="flex items-center gap-1.5 rounded-full bg-sched-bg px-3 py-1.5 text-xs font-bold text-sched-text dark:bg-night-card dark:text-night-text/80"
     >
       <span aria-hidden="true" className={cx('size-2 rounded-full', DOT[state])} />
-      {state === 'connecting' ? 'Connecting…' : 'OFFLINE'}
+      {/* 'SCHEDULED' (online, not live) or 'OFFLINE' (no connection). */}
+      {state === 'connecting' ? 'Connecting…' : state.toUpperCase()}
     </span>
   )
 }

@@ -1,8 +1,10 @@
 // @vitest-environment node
 /** P6: page navigations redirect to BrisbaneTransit when REDIRECT_TO_TRANSIT is "1", through the Worker's fetch handler. */
 import { fileURLToPath } from 'node:url'
+import { directoryCanonical } from '@bft/ui/redirect'
 import { describe, expect, it, vi } from 'vitest'
 import { unstable_readConfig } from 'wrangler'
+import { directoryPath, parseDirectoryParams } from '../app/lib/stop-directory.ts'
 import worker from '../workers/app.ts'
 
 vi.mock('virtual:react-router/server-build', () => ({}))
@@ -203,5 +205,18 @@ describe('the permanent move (release 24: 301s in production)', () => {
     expect(robots.status).toBe(302)
     expect(robots.headers.get('location')).toBe(`${TRANSIT}/robots.txt`)
     expect(robots.headers.get('x-robots-tag')).toBe('noindex')
+  })
+})
+
+describe("the old host's directory spelling matches the directory's own 301s", () => {
+  // @bft/ui/redirect keeps its own copy of the rules (a package never imports an app): it must send every spelling the
+  // directory would 301 straight to that page, and leave alone what it would serve or 404.
+  const letters = ['a', 'B', 'z', 'Z', '0-9', 'zz', '0', '%42']
+  const pages = [undefined, '1', '01', '2', '02', '0002', '0', '9999', '12345', 'x', '-1']
+  it.each(letters.flatMap((l) => pages.map((p) => [l, p] as const)))('/stops/%s/%s', (letter, page) => {
+    const path = page === undefined ? `/stops/${letter}` : `/stops/${letter}/${page}`
+    const parsed = parseDirectoryParams(letter, page)
+    const expected = parsed?.redirect ? directoryPath(parsed.letter, parsed.page) : path
+    expect(directoryCanonical(path)).toBe(expected)
   })
 })

@@ -1,4 +1,6 @@
 /** www → apex 301 and the INDEXABLE soft-launch flag, through the Worker's fetch handler. */
+
+import { transitLocation } from '@bft/ui/redirect'
 import { describe, expect, it, vi } from 'vitest'
 import worker from '../workers/app.ts'
 import { canonicalLocation, canonicalPagePath, wwwRedirectLocation } from '../workers/security.ts'
@@ -228,5 +230,31 @@ describe('canonical page URLs (one 301: unprefixed old paths, trailing slashes, 
       expect(res.headers.get('strict-transport-security')).toContain('max-age=')
       expect(res.headers.get('x-robots-tag')).toBeNull()
     }
+  })
+})
+
+describe('old mode hosts → transit: the first Location is already canonical (one hop in all)', () => {
+  // transitPath is what the train and bus hosts 301 to; canonicalLocation is transit's own 301. Composed, the second
+  // must never fire, and the query must survive the first.
+  it.each([
+    ['bus', '/stops/B/1?x=1'],
+    ['bus', '/stops/b/02?x=1'],
+    ['bus', '/bus/stops/S/'],
+    ['bus', '/stops'],
+    ['bus', '/stop/000001?utm_source=x'],
+    ['bus', '/bus/stop/010813/'],
+    ['bus', '/route/66/'],
+    ['bus', '/'],
+    ['train', '/station/central/?a=1'],
+    ['train', '/stations/'],
+    ['train', '/train'],
+    ['ferry', '/terminal/south-bank/?x=1'],
+    ['ferry', '/ferry/terminal/bulimba'],
+  ] as const)('%s %s', (mode, path) => {
+    const location = transitLocation(mode, new URL(`https://old.example${path}`), SITE)
+    expect(location).not.toBeNull()
+    expect(location?.startsWith(`${SITE}/`)).toBe(true)
+    expect(new URL(location ?? '').search).toBe(new URL(`https://old.example${path}`).search)
+    expect(canonicalLocation(location ?? '', SITE)).toBeNull()
   })
 })

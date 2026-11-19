@@ -36,6 +36,8 @@ function page(boards: Board[]) {
     connecting: header.querySelector('[data-connection=connecting]') != null,
     live: header.querySelector('[data-live-claim]') != null,
     offline: header.textContent?.includes('OFFLINE') ?? false,
+    // Online, not live: the neutral SCHEDULED pill, never OFFLINE (19 Nov 2026).
+    scheduled: header.querySelector('[data-connection=scheduled]') != null,
   }
 }
 
@@ -54,26 +56,47 @@ describe('train Shell: pending across boards (R32-RT1)', () => {
   })
   it("a waiting board never hides another's failure", () => {
     // A board whose own answer isn't live.
-    expect(page([waiting, { live: false }])).toMatchObject({ connecting: false, offline: true })
+    expect(page([waiting, { live: false }])).toMatchObject({
+      connecting: false,
+      scheduled: true,
+      offline: false,
+    })
     cleanup()
     // Live data still on screen from before a failed (or retried) request.
-    expect(page([waiting, { live: true, failed: true }])).toMatchObject({ connecting: false, offline: true })
+    expect(page([waiting, { live: true, failed: true }])).toMatchObject({
+      connecting: false,
+      scheduled: true,
+      offline: false,
+    })
     cleanup()
     // A failure is never pending itself, even while retried with nothing to show.
     expect(page([waiting, { live: false, pending: true, failed: true }])).toMatchObject({ connecting: false })
   })
   it('a home card with live data but no live train shown claims nothing; LIVE over one that has (R36-L1)', () => {
     const timetabled = { live: true, liveRows: false }
-    expect(page([timetabled])).toMatchObject({ connecting: false, live: false, offline: false })
+    expect(page([timetabled])).toMatchObject({
+      connecting: false,
+      live: false,
+      offline: false,
+      scheduled: false,
+    })
     cleanup()
     expect(page([timetabled, live])).toMatchObject({ connecting: false, live: true, offline: false })
     cleanup()
     expect(page([timetabled, waiting])).toMatchObject({ connecting: true, live: false })
     cleanup()
-    expect(page([timetabled, { live: false }])).toMatchObject({ live: false, offline: true })
+    expect(page([timetabled, { live: false }])).toMatchObject({
+      live: false,
+      scheduled: true,
+      offline: false,
+    })
     cleanup()
-    // A failed request over timetabled trains: OFFLINE.
-    expect(page([{ ...timetabled, failed: true }])).toMatchObject({ live: false, offline: true })
+    // A failed request over timetabled trains, online: SCHEDULED, not OFFLINE.
+    expect(page([{ ...timetabled, failed: true }])).toMatchObject({
+      live: false,
+      scheduled: true,
+      offline: false,
+    })
   })
   it('live data from before a failed request stays LIVE on its own, as before', () => {
     expect(page([{ live: true, failed: true }])).toMatchObject({

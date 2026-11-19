@@ -140,13 +140,36 @@ export type OfflineKind = 'offline' | 'unavailable' | 'stale' | 'reloading'
 
 const OFFLINE_TEXT: Record<OfflineKind, { title: string; body: string }> = {
   offline: { title: 'Offline · scheduled', body: 'You are offline. Showing saved timetable times.' },
-  unavailable: { title: 'Live times unavailable', body: 'Showing scheduled times until live data returns.' },
+  unavailable: { title: 'Live times unavailable', body: 'Showing scheduled times. We keep retrying.' },
   stale: {
     title: 'Live times delayed',
     body: 'Live updates are late, so these are timetable times. We keep retrying.',
   },
   reloading: { title: 'Timetable updating', body: 'Showing scheduled times while the new timetable loads.' },
 }
+
+/**
+ * Did a saved card's request fail because the API doesn't know its stop (HTTP 404 with ErrorResponse error "unknown
+ * stop")? TransLink drops a stop from the timetable while it is closed (Bulimba ferry terminal, 9 Nov to mid-Dec 2026),
+ * and that is no outage: the card says so, and it makes no claim for the page's header (neither LIVE nor a failure).
+ * Any other 404 is an ordinary failure (Codex r1). Each app's ApiError carries the status and the 404's body.
+ */
+export const isMissingStop = (error: unknown): boolean => {
+  const e = error as { status?: unknown; body?: string } | null | undefined
+  try {
+    // The top-level error only (Codex r2): a nested `"error":"unknown stop"` is some other 404. A body that isn't a
+    // JSON object (none, text, null) throws: not missing.
+    return e?.status === 404 && JSON.parse(e.body as string).error === 'unknown stop'
+  } catch {
+    return false
+  }
+}
+
+/** A saved card's line when its request failed with nothing to show (isMissingStop, or any other failure). */
+export const cardFailedText = (error: unknown): string =>
+  isMissingStop(error)
+    ? 'No services in the current timetable.'
+    : 'Live times unavailable right now. We keep retrying; open the board for scheduled times.'
 
 export interface OfflineBannerProps {
   kind: OfflineKind
