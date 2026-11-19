@@ -45,13 +45,6 @@ export const DOT: Record<ConnectionState, string> = {
   offline: 'bg-cancel-text',
 }
 
-/** The pill's words for each non-live state. */
-const WORDS: Record<Exclude<ConnectionState, 'live'>, string> = {
-  connecting: 'Connecting…',
-  scheduled: 'SCHEDULED',
-  offline: 'OFFLINE',
-}
-
 function LiveState({ state }: { state: ConnectionState | null }) {
   if (state === 'live')
     return (
@@ -70,7 +63,8 @@ function LiveState({ state }: { state: ConnectionState | null }) {
       className="flex items-center gap-1.5 rounded-full bg-sched-bg px-3 py-1.5 text-xs font-bold text-sched-text dark:bg-night-card dark:text-night-text/80"
     >
       <span aria-hidden="true" className={cx('size-2 rounded-full', DOT[state])} />
-      {WORDS[state]}
+      {/* 'SCHEDULED' (online, not live) or 'OFFLINE' (no connection). */}
+      {state === 'connecting' ? 'Connecting…' : state.toUpperCase()}
     </span>
   )
 }

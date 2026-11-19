@@ -140,10 +140,7 @@ export type OfflineKind = 'offline' | 'unavailable' | 'stale' | 'reloading'
 
 const OFFLINE_TEXT: Record<OfflineKind, { title: string; body: string }> = {
   offline: { title: 'Offline · scheduled', body: 'You are offline. Showing saved timetable times.' },
-  unavailable: {
-    title: 'Live times unavailable',
-    body: 'Live times are unavailable right now, so these are scheduled times. We keep retrying.',
-  },
+  unavailable: { title: 'Live times unavailable', body: 'Showing scheduled times. We keep retrying.' },
   stale: {
     title: 'Live times delayed',
     body: 'Live updates are late, so these are timetable times. We keep retrying.',
@@ -163,8 +160,8 @@ export const isMissingStop = (error: unknown): boolean =>
 /** A saved card's line when its request failed with nothing to show (isMissingStop, or any other failure). */
 export const cardFailedText = (error: unknown): string =>
   isMissingStop(error)
-    ? 'No services from this stop in the current timetable. It may be closed for works.'
-    : 'Live times are unavailable right now. We keep retrying; open the board for scheduled times.'
+    ? 'No services in the current timetable.'
+    : 'Live times unavailable right now. We keep retrying.'
 
 export interface OfflineBannerProps {
   kind: OfflineKind

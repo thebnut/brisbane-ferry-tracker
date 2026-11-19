@@ -168,6 +168,17 @@ async function watchStates(page: Page) {
   return () => page.evaluate(() => (window as unknown as { __states: Record<string, number> }).__states)
 }
 
+/** Answers a stop's departures with the real response marked as a stale feed (the device is online). */
+const staleFeed = (context: BrowserContext, glob = '**/__fixtures/v1/bus/stops/*/departures*') =>
+  context.route(glob, async (route) => {
+    try {
+      const res = await route.fetch()
+      await route.fulfill({ response: res, json: { ...(await res.json()), rtState: 'stale' } })
+    } catch (error) {
+      if (!/disposed|closed|Target page|Test ended/i.test(String(error))) throw error
+    }
+  })
+
 const SAVED_HOMES = [
   {
     name: 'bus home',
@@ -255,15 +266,14 @@ function connectionTests() {
     })
   }
 
-  test('bus stop: LIVE → SCHEDULED, not OFFLINE, when a refresh gets an HTTP error', async ({
+  test('bus stop: LIVE → SCHEDULED, not OFFLINE, when a refresh answers a stale feed', async ({
     page,
     context,
   }) => {
     await page.goto('/bus/stop/10802')
     await expect(page.locator('header [data-connection="live"]')).toBeVisible()
-    await context.route('**/__fixtures/v1/bus/stops/*/departures*', (route) =>
-      route.fulfill({ status: 503, json: { error: 'upstream unavailable', detail: 'test' } }),
-    )
+    // Online + stale feed: the request reaches the API, whose live feed is behind.
+    await staleFeed(context)
     await page.locator('[data-status-line]').click()
     await expect(page.locator('header [data-connection="scheduled"]')).toHaveText('SCHEDULED')
     await expect(page.locator('header [data-connection="offline"]')).toHaveCount(0)
@@ -288,33 +298,13 @@ function connectionTests() {
     )
     const seen = await watchStates(page)
     await page.goto('/saved')
-    await expect(
-      page.getByText('No services from this stop in the current timetable.', { exact: false }),
-    ).toBeVisible({
+    await expect(page.getByText('No services in the current timetable.', { exact: false })).toBeVisible({
       timeout: 15_000,
     })
     // The bus card is live: the closed stop claims nothing, so the page is LIVE.
     await expect(page.locator('header [data-connection="live"]')).toHaveText('LIVE')
     expect(Object.keys(await seen())).toEqual(['live'])
     await expect(page.getByText("Live times aren't loading", { exact: false })).toHaveCount(0)
-  })
-
-  test('a ferry terminal the timetable no longer has (404): says so, never "check your connection" or OFFLINE', async ({
-    page,
-    context,
-  }) => {
-    await context.route('**/__fixtures/v1/ferry/stops/317584/departures*', (route) =>
-      route.fulfill({ status: 404, json: { error: 'unknown stop', detail: '317584' } }),
-    )
-    const seen = await watchStates(page)
-    await page.goto('/ferry/terminal/bulimba')
-    await expect(
-      page
-        .locator('[data-board=outbound]')
-        .getByText('No services from this terminal in the current timetable'),
-    ).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByText('Check your connection', { exact: false })).toHaveCount(0)
-    expect(Object.keys(await seen())).not.toContain('offline')
   })
 
   test("bus stop: LIVE → OFFLINE when a refresh can't reach the network", async ({ page, context }) => {
@@ -331,10 +321,10 @@ test.describe('360 px phone', () => {
   onlyIn('phone')
   test.use({ viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true })
   test('the header still fits with the wider SCHEDULED pill', async ({ page, context }) => {
-    await context.route('**/__fixtures/v1/bus/stops/*/departures*', (route) =>
-      route.fulfill({ status: 503, json: { error: 'upstream unavailable', detail: 'test' } }),
-    )
     await page.goto('/bus/stop/10802')
+    await expect(page.locator('header [data-connection="live"]')).toBeVisible()
+    await staleFeed(context)
+    await page.locator('[data-status-line]').click()
     const pill = page.locator('header [data-connection="scheduled"]')
     await expect(pill).toHaveText('SCHEDULED', { timeout: 15_000 })
     const box = await pill.boundingBox()

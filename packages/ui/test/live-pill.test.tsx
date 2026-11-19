@@ -42,7 +42,7 @@ describe('a saved card that failed', () => {
   it('any other failure says live times are unavailable and we keep retrying', () => {
     for (const error of [{ status: 502 }, new TypeError('Failed to fetch'), null, undefined]) {
       expect(isMissingStop(error)).toBe(false)
-      expect(cardFailedText(error)).toMatch(/unavailable right now.*keep retrying/)
+      expect(cardFailedText(error)).toMatch(/unavailable right now\. We keep retrying/)
     }
   })
 })
