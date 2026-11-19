@@ -4,15 +4,18 @@
 //    OG tags, JSON-LD and a static timetable section from schedule-data.
 //  - dist/404.html: the app with a "page not found" section, noindex.
 //  - dist/sitemap.xml with absolute canonical (www.brisbaneferry.com) URLs.
+//  - A Vercel preview build (scripts/preview-seo.mjs): no sitemap, robots.txt disallows all, every page noindex with
+//    its canonical on BrisbaneTransit.
 // A missing or unreadable schedule-data/latest.json must not fail the build
 // (the daily data commit triggers the production deploy): terminal pages are
 // still written, without a timetable.
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SITE_URL, TERMINALS, terminalPath } from '../src/utils/terminals.js';
 import { CLASSES, escapeHtml, seoShellHtml } from '../src/utils/seoContent.js';
 import { buildTerminalData, terminalJsonLd, terminalMeta, terminalSectionHtml } from '../src/utils/terminalPage.js';
+import { isPreviewBuild, PREVIEW_ROBOTS_TXT, previewHtml } from './preview-seo.mjs';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const distDir = path.join(rootDir, 'dist');
@@ -153,7 +156,21 @@ ${urls
 </urlset>
 `;
 
-writeFileSync(path.join(distDir, 'sitemap.xml'), xml);
-console.log(
-  `postbuild: wrote ${TERMINALS.length} terminal pages (${withTimetable} with a timetable), 404.html and sitemap.xml (${urls.length} URLs)`,
-);
+if (isPreviewBuild()) {
+  // Every HTML file in dist (index, terminal pages, 404, privacy, terms), then robots.txt; no sitemap.
+  const htmlFiles = (dir) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? htmlFiles(path.join(dir, e.name)) : e.name.endsWith('.html') ? [path.join(dir, e.name)] : [],
+    );
+  const files = htmlFiles(distDir);
+  for (const file of files) writeFileSync(file, previewHtml(readFileSync(file, 'utf8')));
+  writeFileSync(path.join(distDir, 'robots.txt'), PREVIEW_ROBOTS_TXT);
+  console.log(
+    `postbuild: preview build (VERCEL_ENV=${process.env.VERCEL_ENV}): ${TERMINALS.length} terminal pages (${withTimetable} with a timetable), 404.html; ${files.length} pages noindex with BrisbaneTransit canonicals, robots.txt disallows all, no sitemap`,
+  );
+} else {
+  writeFileSync(path.join(distDir, 'sitemap.xml'), xml);
+  console.log(
+    `postbuild: wrote ${TERMINALS.length} terminal pages (${withTimetable} with a timetable), 404.html and sitemap.xml (${urls.length} URLs)`,
+  );
+}

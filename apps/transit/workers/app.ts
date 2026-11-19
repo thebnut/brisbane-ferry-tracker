@@ -6,8 +6,12 @@
  *  - /__fixtures/*        recorded responses for fixture mode (only when ALLOW_FIXTURES or FIXTURES is "1")
  *  - /robots.txt          crawl all but /__fixtures/, with the sitemap, once INDEXABLE is "1"; else disallow all
  *  - /sitemap.xml         index over the landing page and every mode's sitemap under its prefix (workers/sitemap.ts)
- *  - /ferry, /train, /bus 301 to the hub's canonical /ferry/ etc. (query kept)
- *  - www.<SITE_URL host>  301 to SITE_URL (path and query kept); unless INDEXABLE is "1" every response is X-Robots-Tag: noindex
+ *  - /llms.txt           a short plain-text guide to the site for AI assistants
+ *  - pages                301 (query kept) to their canonical URL (workers/security.ts canonicalLocation): /ferry, /train,
+ *                         /bus to /ferry/ etc.; no trailing slash on other pages; the standalone apps' bare paths
+ *                         (/terminal/x, /station/x, /stop/n) under their prefix; http → https on SITE_URL's host
+ *  - www.<SITE_URL host>  301 to SITE_URL (path and query kept, canonicalised as above, one hop); unless INDEXABLE is
+ *                         "1" every response is X-Robots-Tag: noindex
  *  - everything else      React Router SSR, with a per-request CSP nonce (workers/security.ts). The mounted mode pages are the standalone apps' route modules, so their
  *                         loaders read their own app's context: each gets this Env with its own canonical SITE_URL
  *                         (modeSiteUrl: the standalone app's, or this site's page under the mode prefix).
@@ -27,14 +31,15 @@ import { fixtureAsk, handleFixtureApi } from '../app/lib/fixtures.server.ts'
 import { MODE_BASES, type MountedMode } from '../app/lib/modes.ts'
 import { apiFetch, isFixtureMode } from '../app/lib/server.server.ts'
 import {
+  canonicalLocation,
   canonicalRedirect,
-  modeHubSlashLocation,
   newNonce,
+  withRobotsMeta,
   withRobotsTag,
   withSecurityHeaders,
   wwwRedirectLocation,
 } from './security.ts'
-import { robotsTxt, sitemap } from './sitemap.ts'
+import { llmsTxt, robotsTxt, sitemap } from './sitemap.ts'
 import { ASK_TIMEOUT_MS, proxied, withTimeout } from './timeouts.ts'
 
 const requestHandler = createRequestHandler(
@@ -143,11 +148,18 @@ export default {
   async fetch(request, env, ctx) {
     // One nonce per request: the CSP header and every context (transit's root and the mounted apps) share it.
     const nonce = newNonce()
+    // www → apex, http → https on the apex, and a page's canonical path (unprefixed old paths, trailing slashes, the
+    // hubs' slash): all in one 301.
     const www = wwwRedirectLocation(request.url, env.SITE_URL)
-    const res = www ? canonicalRedirect(www) : await guarded(() => route(request, env, ctx, nonce))
+    const page = request.method === 'GET' || request.method === 'HEAD'
+    const to = page ? (canonicalLocation(www ?? request.url, env.SITE_URL) ?? www) : www
+    const res = to ? canonicalRedirect(to) : await guarded(() => route(request, env, ctx, nonce))
     return withBuild(
-      withRobotsTag(
-        withSecurityHeaders(res, nonce, gaId(env.GA_MEASUREMENT_ID) != null),
+      withRobotsMeta(
+        withRobotsTag(
+          withSecurityHeaders(res, nonce, gaId(env.GA_MEASUREMENT_ID) != null),
+          env.INDEXABLE === '1',
+        ),
         env.INDEXABLE === '1',
       ),
       env.BUILD_SHA,
@@ -198,13 +210,13 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, nonce: s
     return new Response(robotsTxt(env.SITE_URL, env.INDEXABLE === '1'), {
       headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' },
     })
+  if (url.pathname === '/llms.txt')
+    return new Response(llmsTxt(env.SITE_URL), {
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' },
+    })
   if (url.pathname === '/sitemap.xml' || url.pathname.startsWith('/sitemaps/')) {
     const res = await sitemap(url, env)
     if (res) return res
-  }
-  if (request.method === 'GET' || request.method === 'HEAD') {
-    const hub = modeHubSlashLocation(url)
-    if (hub) return canonicalRedirect(hub)
   }
   // Pages are GET/HEAD only (no route has an action): any other method is a 405 here, not React Router's logged one.
   const notAllowed = pageMethodNotAllowed(request.method)

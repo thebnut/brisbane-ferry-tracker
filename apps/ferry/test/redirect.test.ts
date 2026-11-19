@@ -46,8 +46,6 @@ const EXCLUDED = [
   '/api/gtfs-proxy',
   '/__fixtures/v1/x',
   '/__manifest',
-  '/sitemap.xml',
-  '/robots.txt',
   '/sw.js',
   '/manifest.webmanifest',
   '/assets/x-abc.js',
@@ -91,6 +89,19 @@ describe('redirect to transit (P6)', () => {
 
   it('301 only when REDIRECT_STATUS is "301"', async () => {
     expect((await get('/', envWith({ ...ON, REDIRECT_STATUS: '301' }))).status).toBe(301)
+  })
+
+  // Like the legacy ferry hosts (vercel.json): the old host's robots.txt, llms.txt and sitemaps are transit's own, so
+  // crawlers aren't sent back to thousands of old URLs, and robots.txt (followed through the redirect) lets them reach
+  // the 301s.
+  // (This Worker is unrouted since release 24, and its public/robots.txt is a static file, answered before it runs.)
+  it.each(['/llms.txt', '/sitemap.xml', '/sitemaps/x-1.xml'])("%s goes to transit's own", async (path) => {
+    const want = path.startsWith('/sitemap') ? '/sitemap.xml' : path
+    for (const init of [{}, { headers: { 'sec-fetch-mode': 'cors' } }, { method: 'HEAD' }]) {
+      const res = await get(path, envWith(ON), init)
+      expect(res.status).toBe(302)
+      expect(res.headers.get('location')).toBe(`${TRANSIT}${want}`)
+    }
   })
 
   it.each(EXCLUDED)('%s is served as before', async (path) => {

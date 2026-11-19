@@ -8,7 +8,11 @@ import { fileURLToPath } from 'node:url'
 import { seoHeads } from '@bft/ui/e2e/seo-head.ts'
 import { expect, test } from '@playwright/test'
 
-/** Taken from develop at 88ddb2c (`WRITE_SEO_GOLDEN=1` writes it again). */
+/**
+ * Taken from develop at 88ddb2c, then rewritten on purpose for the SEO batch of 12 Nov 2026 (feat/seo-fixes): titles
+ * fitted to snippet length, Brisbane Transit as the site name and WebSite, and the deploy's noindex in the HTML (this
+ * server isn't production). `WRITE_SEO_GOLDEN=1` writes it again.
+ */
 const GOLDEN = fileURLToPath(new URL('./terminal-seo.golden.json', import.meta.url))
 const golden = () => JSON.parse(readFileSync(GOLDEN, 'utf8')) as Record<string, string[]>
 /** Every terminal's page, and ferry home. */
@@ -17,7 +21,8 @@ const SLUGS = (
     slug: string
   }>
 ).map((t) => t.slug)
-const PATHS = ['/ferry', ...SLUGS.map((s) => `/ferry/terminal/${s}`)]
+// Ferry home at its canonical URL: bare /ferry has 301'd to /ferry/ since the hub-slash fix (#215).
+const PATHS = ['/ferry/', ...SLUGS.map((s) => `/ferry/terminal/${s}`)]
 
 test('terminal pages and ferry home keep their SEO head', async ({ request }) => {
   test.skip(test.info().project.name !== 'phone', 'server HTML: once')

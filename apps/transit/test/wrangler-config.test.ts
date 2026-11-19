@@ -66,6 +66,13 @@ describe('wrangler.jsonc production envs', () => {
     for (const env of [undefined, 'staging']) expect(read(env).vars.INDEXABLE ?? '0', String(env)).toBe('0')
   })
 
+  it('previews name the production URLs in canonicals and the sitemap, and stay noindex', () => {
+    for (const env of ['staging', 'production-preview']) {
+      expect(read(env).vars.SITE_URL, env).toBe(`https://${APEX}`)
+      expect(read(env).vars.INDEXABLE ?? '0', env).toBe('0')
+    }
+  })
+
   // Two Turnstile widgets (runbook section 9). Each bft-api holds only its own widget's secret, so a sitekey that
   // doesn't match the API the env binds fails closed. production-preview's host is on neither widget (by design).
   it('staging and dev use the STAGING widget, both production envs the PROD widget, nowhere the test key', () => {

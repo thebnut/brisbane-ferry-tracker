@@ -16,7 +16,7 @@ describe('landing page', () => {
     expect(m.find((t) => 'title' in t)?.title).toBe(HOME_TITLE)
     expect(m.find((t) => t.name === 'description')?.content).toBe(HOME_DESCRIPTION)
     expect(m.find((t) => t.property === 'og:url')?.content).toBe('https://brisbanetransit.com/')
-    expect(m.find((t) => t.property === 'og:image')?.content).toBe('https://brisbanetransit.com/icon-512.png')
+    expect(m.find((t) => t.property === 'og:image')?.content).toBe('https://brisbanetransit.com/og-image.jpg')
   })
 
   it('has a search-length title and description', () => {
