@@ -356,11 +356,27 @@ export function HeadlineCard({
 
 // ---- sections ----
 
-/** The large title ("Ferry") with the mode's search under it. */
-export function HomeTitle({ title, children }: { title: string; children?: ReactNode }) {
+/** The large title ("Ferry") with the mode's search (or journey planner) under it, and `action` (Map) beside it. */
+export function HomeTitle({
+  title,
+  action,
+  children,
+}: {
+  title: string
+  action?: ReactNode
+  children?: ReactNode
+}) {
+  const h1 = <h1 className="text-[28px] leading-tight font-extrabold">{title}</h1>
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="text-[28px] leading-tight font-extrabold">{title}</h1>
+      {action ? (
+        <div className="flex items-center justify-between gap-3">
+          {h1}
+          {action}
+        </div>
+      ) : (
+        h1
+      )}
       {children}
     </div>
   )
@@ -390,15 +406,18 @@ export function SearchPlaceholder({ label, placeholder }: { label: string; place
   )
 }
 
-/** One section with its small upper-case heading ("SAVED", "NEAR YOU", "POPULAR"). */
+/** One section with its small upper-case heading ("SAVED", "NEAR YOU", "DEPARTURE BOARDS"). */
 export function HomeSection({
   id,
   title,
+  note,
   action,
   children,
 }: {
   id: string
   title: string
+  /** One line under the heading ("Every ferry leaving a terminal, in all directions."). */
+  note?: string
   /** Beside the heading (e.g. a Map link). */
   action?: ReactNode
   children: ReactNode
@@ -414,6 +433,7 @@ export function HomeSection({
         </h2>
         {action}
       </div>
+      {note ? <p className="-mt-1.5 text-sm text-gray-700 dark:text-night-text/80">{note}</p> : null}
       {children}
     </section>
   )

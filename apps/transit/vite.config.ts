@@ -99,8 +99,10 @@ export default defineConfig({
                   // destination sheet (PR 5) is opened on demand. Trip detail (PR 6) is only on the trip pages. The
                   // panel beside the boards (PR 7) loads with the trip; the boards' layouts' small part (board-route) is
                   // only on the boards. The map pages' shell (PR 9) loads with the map pages. GA4's /ga.js (analytics-run) is
-                  // its own file (vite/ga-module.ts), loaded only when GA is on.
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|trip\.tsx|[Oo]nboarding|WhatsNew|changelog|DestinationSheet|panel\.tsx|board-route|mode-home|map-page|analytics)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
+                  // its own file (vite/ga-module.ts), loaded only when GA is on. The journey planner card and its sheets are
+                  // only on the ferry and train homes (sheets on demand); the boards' trip header and "Where are you going
+                  // from here?" (board-trip) only on the boards.
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|trip\.tsx|[Oo]nboarding|WhatsNew|changelog|DestinationSheet|panel\.tsx|board-route|board-trip|mode-home|[Pp]lanner|map-page|analytics)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
                 },
                 // The boards' own part of the column-and-panel layout (THE-118 PR 7): each board URL's child route (nothing of
                 // its own) with the layouts' revalidation and width check, one chunk on every board's first load. The panel
@@ -139,7 +141,7 @@ export default defineConfig({
                 // (FerryBoards, DepartureList) stays with the terminal page: ferry home has no board since PR 8.
                 {
                   name: 'ferry-departures',
-                  test: /apps[\\/]ferry[\\/]app[\\/]lib[\\/](departures|queries|api|home-card)\.ts$/,
+                  test: /apps[\\/]ferry[\\/]app[\\/]lib[\\/](departures|queries|api|home-card|journey)\.ts$/,
                 },
               ],
             },

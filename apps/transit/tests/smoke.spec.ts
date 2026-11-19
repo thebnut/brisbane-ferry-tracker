@@ -282,7 +282,11 @@ const BUDGET_KB: Record<string, number> = {
   // +0.15 (19 Nov 2026, OFFLINE pill fix): the shared chunk carries the saved cards' failure lines (a 404's body read
   // for "unknown stop") and the SCHEDULED state (develop c182cb7 measured worst 153,402 B, this 153,561 B). External JS
   // unchanged.
-  '/ferry': 139.8 + 10 + 0.05 + 0.15,
+  // +2.7 (20 Nov 2026, journey planner): the "Where are you going?" card (From, To, swap, Popular, the answer) is in
+  // the server HTML so the page doesn't move as it hydrates, with the bundled-terminal planning (direct, one change,
+  // nearest start). Its sheets, the landmarks and the change-at times load on demand. It replaced the "Find a terminal"
+  // search (develop a92682f measured worst 153,561 B, this 156,240 B). External JS unchanged.
+  '/ferry': 139.8 + 10 + 0.05 + 0.15 + 2.7,
   '/train': 149.2 + 10,
   // +3 (#70, R7): the bus boards' elements moved to their own chunk (@bft/ui/bus), which takes about 3 KB gz off
   // every other page but costs the Bus pages about 1 KB in separate compression, plus R7's shared offline code.

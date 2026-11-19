@@ -285,7 +285,7 @@ function StopBoardPage({
           className="mx-auto flex w-full max-w-[46rem] min-w-0 flex-col gap-2.5 lg:mx-0 lg:max-w-none"
         >
           <BoardHeader
-            kicker="Bus stop"
+            kicker="Departures from"
             name={name}
             facts={[
               stopMeta(stopId, platform),

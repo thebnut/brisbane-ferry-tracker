@@ -66,6 +66,8 @@ export interface DepartureListProps {
   offline?: boolean
   /** The rows' links: a terminal page's know about the trip beside the board (THE-118 PR 7). */
   renderLink?: LinkRenderer
+  /** The board's "To": each row says when it arrives there ("arrives Riverside 7:42 pm"). */
+  toName?: string | null
 }
 
 export function DepartureList({
@@ -81,6 +83,7 @@ export function DepartureList({
   tripHref,
   offline,
   renderLink = linkRenderer,
+  toName = null,
 }: DepartureListProps) {
   const [more, setMore] = useKept<boolean>(`more:${id}`, false)
   const list = departures ?? []
@@ -136,7 +139,7 @@ export function DepartureList({
                     tile={<ServiceTile code={r.code} express={r.express} />}
                     destination={r.destination}
                     status={r.status}
-                    fact={r.fact}
+                    fact={r.arrival && toName ? `arrives ${toName} ${r.arrival}` : r.fact}
                     wideFact={r.express ? 'express' : null}
                     extra={
                       r.arrival ? (

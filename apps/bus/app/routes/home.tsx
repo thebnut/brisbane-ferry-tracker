@@ -231,7 +231,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               <UseLocationRow state={geo.state} onLocate={locate} what="stops" />
             )}
           </HomeSection>
-          <HomeSection id="popular" title="Busy stops">
+          <HomeSection
+            id="popular"
+            title="Bus stop boards"
+            note="Every bus leaving a stop, on all its routes."
+          >
             <PlaceChips
               places={POPULAR.map((s) => ({ href: stopHref(s.id), name: s.name }))}
               renderLink={linkRenderer}

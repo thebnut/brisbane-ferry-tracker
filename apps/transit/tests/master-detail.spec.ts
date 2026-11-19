@@ -200,7 +200,8 @@ function desktop() {
       await openBoard(page, b)
       await rows(page).first().click()
       await expect(panel(page)).toBeVisible()
-      await page.locator('[data-filter-row]').getByRole('button', { name: 'Swap direction' }).click()
+      // Ferry: in the trip header ("Your trip"); train: in the filter row.
+      await page.locator('[data-board-header]').getByRole('button', { name: 'Swap direction' }).click()
       await expect(page).toHaveURL(
         new RegExp(`/${b.mode}/(terminal|station)/[a-z-]+\\?to=${b.name.toLowerCase()}`),
       )

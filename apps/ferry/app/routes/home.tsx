@@ -18,7 +18,6 @@ import {
   LiveReports,
   PlaceChips,
   SavedEmpty,
-  SearchPlaceholder,
   showsLive,
   UseLocationRow,
   useLiveReports,
@@ -28,6 +27,7 @@ import { Link, redirect, useNavigate } from 'react-router'
 import { Footer } from '../components/Chrome.tsx'
 import type HomeSaved from '../components/HomeSaved.tsx'
 import { SiteHeader } from '../components/header.tsx'
+import Planner from '../components/Planner.tsx'
 import { fetchDepartures } from '../lib/api.ts'
 import { at, BASE } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
@@ -50,10 +50,6 @@ import {
 import { useNow } from '../lib/useNow.ts'
 import type { Route } from './+types/home'
 
-// Client-only (Ark UI), loaded after hydration.
-const TerminalSearch = lazy(() =>
-  import.meta.env.SSR ? new Promise<never>(() => {}) : import('../components/TerminalSearch.tsx'),
-)
 // Only once the position is known.
 const NearYou = lazy(() => import('../components/NearYou.tsx'))
 const StopSelector = lazy(() => import('../components/StopSelector.tsx'))
@@ -68,6 +64,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   if (params.has('map')) throw redirect(mapForOldLink(params), 302)
   const { fixtures, rt, fetcher, env, fallback } = loaderEnv(request, context)
   const headline = favouriteFromCookie(request.headers.get('cookie'))
+  // "Plan a trip there" on a board (`?plan=to&to=<slug>`): the planner opens with that destination. "Somewhere else?"
+  // in a board's destination sheet (`?plan=from&start=<slug>`): with that start. Not `from`, which old board links use.
+  const plan = params.get('plan')
+  const planTo = plan === 'to' ? params.get('to') : null
+  const planFrom = plan === 'from' ? params.get('start') : null
   const initial = headline
     ? await settle((signal) =>
         fetchDepartures(fetcher, headline.from, headline.to ?? '', {
@@ -80,6 +81,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   return {
     headline,
     initial,
+    planTo,
+    planFrom,
     renderedAt: Date.now(),
     via: VIA_NETWORK,
     // After an API failure with FIXTURE_FALLBACK the browser polls the fixture API too (and shows the demo notice).
@@ -155,10 +158,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   // The saved trips: the cookie's first one until the list is read after hydration.
   const [trips, setTrips] = useState<Trip[] | null>(null)
   const [Saved, setSaved] = useState<typeof HomeSaved | null>(null)
-  const [mounted, setMounted] = useState(false)
   const [selector, setSelector] = useState(false)
   useEffect(() => {
-    setMounted(true)
     let off = () => {}
     let live = true
     import('../components/HomeSaved.tsx').then(
@@ -198,20 +199,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       <SiteHeader onSettings={() => setSelector(true)} live={reports.live} pending={reports.pending} />
       <main className="mx-auto flex max-w-2xl flex-col gap-6 px-3.5 pt-4 pb-4 md:px-4">
         {/* Inside BrisbaneTransit the hub says which city's ferrys these are (its H1 for search). */}
-        <HomeTitle title={BASE ? 'Brisbane ferries' : 'Ferry'}>
-          {/* The search, and the live ferry map beside it (THE-118 PR 9), as on Train. */}
-          <div className="flex items-end gap-2">
-            <div className="min-w-0 flex-1">
-              {mounted ? (
-                <Suspense
-                  fallback={<SearchPlaceholder label="Find a terminal" placeholder="Terminal name" />}
-                >
-                  <TerminalSearch />
-                </Suspense>
-              ) : (
-                <SearchPlaceholder label="Find a terminal" placeholder="Terminal name" />
-              )}
-            </div>
+        <HomeTitle
+          title={BASE ? 'Brisbane ferries' : 'Ferry'}
+          action={
+            // The live ferry map (THE-118 PR 9), beside the title.
             <Link
               to={at('/map')}
               className="flex min-h-12 shrink-0 items-center gap-1.5 rounded-full border-2 border-ferry-orange/30 bg-white px-3.5 text-sm font-bold text-aqua-text no-underline dark:bg-night-card dark:text-ferry-aqua-light"
@@ -219,7 +210,17 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               <Icon name="map" size={18} />
               Map
             </Link>
-          </div>
+          }
+        >
+          {/* Where are you going? From first, then To (the journey planner). */}
+          <Planner
+            nowMs={now}
+            geo={geo}
+            locate={locate}
+            mode={mode}
+            initialTo={loaderData.planTo}
+            initialFrom={loaderData.planFrom}
+          />
         </HomeTitle>
         {mode.fixtures ? (
           <p
@@ -255,7 +256,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             <UseLocationRow state={geo.state} onLocate={locate} what="terminals" />
           )}
         </HomeSection>
-        <HomeSection id="popular" title="All terminals">
+        {/* Every terminal's board: plain links (search engines, and regulars who want a board). */}
+        <HomeSection
+          id="popular"
+          title="Departure boards"
+          note="Every ferry leaving a terminal, in all directions."
+        >
           <PlaceChips
             places={TERMINALS.map((t) => ({ href: terminalHref(t.slug), name: cleanStopName(t.name) }))}
             renderLink={linkTo}

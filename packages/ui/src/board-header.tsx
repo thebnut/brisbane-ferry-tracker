@@ -1,7 +1,11 @@
 /**
- * The board header and its filter row (THE-118 PR 5), the same on every mode's board: the mode kicker ("FERRY
- * TERMINAL"), the place's name, one sub-line of facts (platforms or stop number, routes or lines, the alert count) and
- * the labelled star, then one row of 44 px chips that scrolls sideways on phones. The status line follows the header.
+ * The board header and its filter row (THE-118 PR 5), the same on every mode's board: the kicker ("DEPARTURES FROM",
+ * so nobody reads the place as where they are going), the place's name, one sub-line of facts ("Every ferry leaving
+ * here", platforms or stop number, routes or lines, the alert count) and the labelled star, then one row of 44 px chips
+ * that scrolls sideways on phones. The status line follows the header.
+ *
+ * A board with a destination set shows the trip instead, and a board without one asks where you're going
+ * (@bft/ui/board-trip, its own module: only the boards that use it load it).
  */
 import { type ReactNode, useMemo } from 'react'
 import { cx } from './cx.ts'
@@ -11,11 +15,14 @@ import { generateTimeSlots } from './time-slots.ts'
 export { generateTimeSlots, leavingFrom, type Slot } from './time-slots.ts'
 
 export interface BoardHeaderProps {
-  /** "TRAIN STATION", "BUS STOP", "FERRY TERMINAL". */
+  /** "Departures from", or "Your trip · Direct ferry". */
   kicker: string
   name: ReactNode
-  /** The name's heading level: h1 unless the page has its own (the SEO section's "Next ferry from …"). */
-  as?: 'h1' | 'h2'
+  /**
+   * The name's heading level: h1 unless the page has its own (the SEO section's "Next ferry from …"); 'div' when the
+   * name brings its own heading (TripPlaces).
+   */
+  as?: 'h1' | 'h2' | 'div'
   /** The sub-line, joined with " · "; empty entries are left out. */
   facts?: ReactNode[]
   /** The labelled star (StarButton), top right. */
