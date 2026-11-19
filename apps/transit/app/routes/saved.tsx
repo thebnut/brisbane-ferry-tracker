@@ -6,10 +6,12 @@
 
 import type { DeparturesResponse } from '@bft/core/contract'
 import {
+  cardFailedText,
   dayMarker,
   EmptyState,
   formatClock,
   Icon,
+  isMissingStop,
   liveState,
   minutesUntil,
   OfflineBanner,
@@ -152,10 +154,12 @@ type CardData = (DeparturesResponse & OfflineCopy) | undefined
  * The home page's own live judgement (R7-T1), reported the way the mode homes report theirs (@bft/ui mode-home
  * pageLive, R36-L1 and R32-RT1):
  *  - `unconfirmed`: the page came from the device's copy (the service worker's, or old by the device clock) and no
- *    card has its own network answer yet, so it shows the offline banner and the OFFLINE pill like a board rendered
- *    from a cached page (R8-T1);
- *  - `live` (the header pill): not live (OFFLINE) offline, unconfirmed, or while a saved card is not live: its answer
- *    is stale, not live, or its request failed with nothing to show (Codex review: a failed one too). LIVE once none
+ *    card has its own network answer yet, so it shows the offline banner and is not live, like a board rendered from a
+ *    cached page (R8-T1); the header says OFFLINE only once useOnline does (SCHEDULED until then, 19 Nov 2026);
+ *  - `live` (the header pill): not live offline, unconfirmed, or while a saved card is not live: its answer is stale,
+ *    not live, or its request failed with nothing to show (Codex review: a failed one too). Not live reads OFFLINE
+ *    only while useOnline is false, else SCHEDULED (connectionState). A card whose stop the timetable no longer has
+ *    (HTTP 404, `missing`) claims nothing (Bulimba closed for works, 19 Nov 2026). LIVE once none
  *    is, and a card shows its LIVE pill: live data whose next departure is timetabled marks nothing live, so it never
  *    puts LIVE over cards without a pill (P-3167c11-H1). Only such cards: no claim (undefined);
  *  - `pending`: a card still waiting for its first answer, and none not live: "Connecting…", not OFFLINE (before
@@ -167,8 +171,11 @@ type CardData = (DeparturesResponse & OfflineCopy) | undefined
  */
 export function homeLiveState(
   items: readonly unknown[] | null,
-  /** Per saved card: its data, and whether its request failed (`isError || failureCount > 0`, as the mode homes). */
-  cards: ReadonlyArray<{ data: CardData; failed: boolean }>,
+  /**
+   * Per saved card: its data, whether its request failed (`isError || failureCount > 0`, as the mode homes), and
+   * whether that failure says its stop is gone from the timetable (`missing`: isMissingStop, no claim either way).
+   */
+  cards: ReadonlyArray<{ data: CardData; failed: boolean; missing?: boolean }>,
   {
     online,
     nowMs,
@@ -200,6 +207,8 @@ export function homeLiveState(
   let held = false
   let pill = false
   for (const c of cards) {
+    // A stop the timetable no longer has (closed for works) is no outage, and nothing live: it claims nothing.
+    if (c.missing && c.data == null) continue
     const fresh =
       c.data != null && liveState(c.data, { offline: false, nowMs, unconfirmedBefore, arrivedAt }) == null
     const shows = fresh && marksLive(c.data)
@@ -290,7 +299,7 @@ function SavedList({
         const empty = q?.isPending
           ? 'Getting live departures…'
           : q?.isError && !q.data
-            ? "Live times aren't loading. Open the board for the timetable."
+            ? cardFailedText(q.error)
             : m.time
               ? null
               : online
@@ -412,7 +421,11 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   const reached = useReachedNetwork(items?.length === 0)
   const { live, pending, unconfirmed } = homeLiveState(
     items,
-    qs.map((q) => ({ data: q.data, failed: q.isError || q.failureCount > 0 })),
+    qs.map((q) => ({
+      data: q.data,
+      failed: q.isError || q.failureCount > 0,
+      missing: isMissingStop(q.error ?? q.failureReason),
+    })),
     { online, nowMs: now, unconfirmedBefore, arrivedAt: page?.arrivedAt, reached },
   )
   const updatedAt = useLastAnswerAt(

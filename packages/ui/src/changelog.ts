@@ -12,7 +12,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    date: '2026-11-12',
+    date: '2026-11-19',
+    summary:
+      'The OFFLINE label now only shows when your phone has no connection. If live times are briefly unavailable, you’ll see Scheduled and the timetable instead.',
+    items: [
+      'When live times can’t be fetched for a moment, the header says Scheduled, not OFFLINE, and the times shown are from the timetable. We keep trying and switch back to Live by ourselves.',
+      'A stop with no services in the current timetable, like Bulimba ferry terminal while it’s closed for works, now says so on its board and in My Transit, instead of saying live times aren’t loading or to check your connection.',
+    ],
+  },
+  {
+    date: '2026-11-19',
     summary:
       'Old links to ferry terminals, train stations and bus stops now always open the right page, and there’s a new A–Z list of every bus stop.',
     items: [

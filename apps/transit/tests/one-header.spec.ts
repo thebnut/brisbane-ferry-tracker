@@ -1,8 +1,9 @@
 /**
  * THE-118 PR 2, one header: every mode page has the one BrisbaneTransit header (a back link or the emblem, the LIVE
  * state and an icon-only gear on phones; the lockup, mode pills, Alerts, LIVE and the gear on desktop), the status
- * line refreshes, and the header starts as "Connecting…": LIVE only after a successful answer, OFFLINE only after a
- * failure.
+ * line refreshes, and the header starts as "Connecting…": LIVE only after a successful answer, OFFLINE only when a
+ * request can't reach the network (or the browser is offline), and SCHEDULED, a neutral pill, when the device is
+ * online but the answer isn't live: an HTTP error, a stale feed (19 Nov 2026: that said OFFLINE before).
  */
 import { type BrowserContext, expect, type Page, test } from '@playwright/test'
 import { pinUpcoming } from './upcoming.ts'
@@ -144,13 +145,27 @@ async function holdDepartures(context: BrowserContext, page: Page, glob: string)
     const seen: Record<string, number> = {}
     ;(window as unknown as { __seen: Record<string, number> }).__seen = seen
     new MutationObserver(() => {
-      for (const s of ['live', 'offline'])
+      for (const s of ['live', 'offline', 'scheduled'])
         if (!(s in seen) && document.querySelector(`header [data-connection="${s}"]`))
           seen[s] = performance.now()
     }).observe(document, { subtree: true, childList: true, attributes: true })
   })
   const seen = () => page.evaluate(() => (window as unknown as { __seen: Record<string, number> }).__seen)
   return { release: open, seen }
+}
+
+/** Records in the page when each header state first shows (a flash shorter than a poll included). */
+async function watchStates(page: Page) {
+  await page.addInitScript(() => {
+    const seen: Record<string, number> = {}
+    ;(window as unknown as { __states: Record<string, number> }).__states = seen
+    new MutationObserver(() => {
+      for (const s of ['live', 'offline', 'scheduled'])
+        if (!(s in seen) && document.querySelector(`header [data-connection="${s}"]`))
+          seen[s] = performance.now()
+    }).observe(document, { subtree: true, childList: true, attributes: true })
+  })
+  return () => page.evaluate(() => (window as unknown as { __states: Record<string, number> }).__states)
 }
 
 const SAVED_HOMES = [
@@ -204,7 +219,28 @@ function connectionTests() {
       expect(Object.keys(await seen())).toEqual(['live'])
     })
 
-    test(`${home.name}: Connecting… → OFFLINE only after a failure`, async ({ page, context }) => {
+    test(`${home.name}: online + API error (HTTP 503) => SCHEDULED, never OFFLINE`, async ({
+      page,
+      context,
+    }) => {
+      await page.addInitScript(home.seed)
+      // The request reaches a server that answers an error: the device is online.
+      await context.route(home.glob, (route) =>
+        route.fulfill({ status: 503, json: { error: 'upstream unavailable', detail: 'test' } }),
+      )
+      const seen = await watchStates(page)
+      await page.goto(home.path)
+      await expect(page.locator('header [data-connection="scheduled"]')).toHaveText('SCHEDULED', {
+        timeout: 15_000,
+      })
+      await page.waitForTimeout(1_000)
+      expect(Object.keys(await seen())).toEqual(['scheduled'])
+    })
+
+    test(`${home.name}: Connecting… → OFFLINE when the request can't reach the network`, async ({
+      page,
+      context,
+    }) => {
       await page.addInitScript(home.seed)
       const { release, seen } = await holdDepartures(context, page, home.glob)
       await page.goto(home.path)
@@ -219,7 +255,69 @@ function connectionTests() {
     })
   }
 
-  test('bus stop: LIVE → OFFLINE when a refresh fails', async ({ page, context }) => {
+  test('bus stop: LIVE → SCHEDULED, not OFFLINE, when a refresh gets an HTTP error', async ({
+    page,
+    context,
+  }) => {
+    await page.goto('/bus/stop/10802')
+    await expect(page.locator('header [data-connection="live"]')).toBeVisible()
+    await context.route('**/__fixtures/v1/bus/stops/*/departures*', (route) =>
+      route.fulfill({ status: 503, json: { error: 'upstream unavailable', detail: 'test' } }),
+    )
+    await page.locator('[data-status-line]').click()
+    await expect(page.locator('header [data-connection="scheduled"]')).toHaveText('SCHEDULED')
+    await expect(page.locator('header [data-connection="offline"]')).toHaveCount(0)
+    await expect(page.locator('[data-status-line]')).toHaveText(/^Scheduled/)
+  })
+
+  test('My Transit: a saved stop the timetable no longer has (404) never makes the page OFFLINE', async ({
+    page,
+    context,
+  }) => {
+    // 19 Nov 2026: Bulimba ferry terminal closed for works, the API 404s it ("unknown stop").
+    await page.addInitScript(() => {
+      localStorage.setItem('bft-ferry-favourites', JSON.stringify([{ from: '317584', to: '317590' }]))
+      localStorage.setItem(
+        'bft-bus-saved',
+        JSON.stringify([{ id: '10802', name: 'Cultural Centre station, platform 1' }]),
+      )
+    })
+    await pinUpcoming(context, '**/__fixtures/v1/bus/stops/*/departures*')
+    await context.route('**/__fixtures/v1/ferry/stops/317584/departures*', (route) =>
+      route.fulfill({ status: 404, json: { error: 'unknown stop', detail: '317584' } }),
+    )
+    const seen = await watchStates(page)
+    await page.goto('/saved')
+    await expect(
+      page.getByText('No services from this stop in the current timetable.', { exact: false }),
+    ).toBeVisible({
+      timeout: 15_000,
+    })
+    // The bus card is live: the closed stop claims nothing, so the page is LIVE.
+    await expect(page.locator('header [data-connection="live"]')).toHaveText('LIVE')
+    expect(Object.keys(await seen())).toEqual(['live'])
+    await expect(page.getByText("Live times aren't loading", { exact: false })).toHaveCount(0)
+  })
+
+  test('a ferry terminal the timetable no longer has (404): says so, never "check your connection" or OFFLINE', async ({
+    page,
+    context,
+  }) => {
+    await context.route('**/__fixtures/v1/ferry/stops/317584/departures*', (route) =>
+      route.fulfill({ status: 404, json: { error: 'unknown stop', detail: '317584' } }),
+    )
+    const seen = await watchStates(page)
+    await page.goto('/ferry/terminal/bulimba')
+    await expect(
+      page
+        .locator('[data-board=outbound]')
+        .getByText('No services from this terminal in the current timetable'),
+    ).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('Check your connection', { exact: false })).toHaveCount(0)
+    expect(Object.keys(await seen())).not.toContain('offline')
+  })
+
+  test("bus stop: LIVE → OFFLINE when a refresh can't reach the network", async ({ page, context }) => {
     await page.goto('/bus/stop/10802')
     await expect(page.locator('header [data-connection="live"]')).toBeVisible()
     await context.route('**/__fixtures/v1/bus/stops/*/departures*', (route) => route.abort('failed'))
@@ -228,6 +326,25 @@ function connectionTests() {
     await expect(page.locator('[data-status-line]')).toHaveText(/^Offline/)
   })
 }
+
+test.describe('360 px phone', () => {
+  onlyIn('phone')
+  test.use({ viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true })
+  test('the header still fits with the wider SCHEDULED pill', async ({ page, context }) => {
+    await context.route('**/__fixtures/v1/bus/stops/*/departures*', (route) =>
+      route.fulfill({ status: 503, json: { error: 'upstream unavailable', detail: 'test' } }),
+    )
+    await page.goto('/bus/stop/10802')
+    const pill = page.locator('header [data-connection="scheduled"]')
+    await expect(pill).toHaveText('SCHEDULED', { timeout: 15_000 })
+    const box = await pill.boundingBox()
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(360)
+    await expect(
+      page.locator('header').getByRole('button', { name: 'Settings', exact: true }),
+    ).toBeInViewport()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360)
+  })
+})
 
 test.describe('390×844 touch', () => {
   onlyIn('phone')

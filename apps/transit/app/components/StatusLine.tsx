@@ -32,7 +32,9 @@ export function StatusLine({
   const words =
     state === 'connecting'
       ? 'Connecting…'
-      : [state === 'live' ? 'Live' : state && 'Offline', detail].filter(Boolean).join(' · ')
+      : [state === 'live' ? 'Live' : state === 'scheduled' ? 'Scheduled' : state && 'Offline', detail]
+          .filter(Boolean)
+          .join(' · ')
   if (!words && !children) return null
   const Line = onRefresh ? 'button' : 'p'
   return (

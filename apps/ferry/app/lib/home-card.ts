@@ -3,6 +3,7 @@
  * like a board (timetable only unless live and fresh), reported to the page header, as a My Transit card.
  */
 import type { DeparturesResponse } from '@bft/core/contract'
+import { cardFailedText, isMissingStop } from '@bft/ui'
 import { awaitingSeedAnswer, type LiveState, usePageCheck } from '@bft/ui/connectivity'
 import { type HomeCard, homeCard, useReportLive } from '@bft/ui/mode-home'
 import { boardState, visibleRows } from './departures.ts'
@@ -36,12 +37,13 @@ export function useTripCard(
   const data = q.data && { ...q.data, departures: visibleRows(q.data.departures, state, nowMs) }
   const card = homeCard('ferry', data, nowMs, tripTitle(trip), trip.from)
   // A card with no answer yet, or a non-live seed whose own refetch is out, waits (R32-RT1). LIVE only over a live
-  // row it shows (R36-L1).
+  // row it shows (R36-L1). A stop the timetable no longer has (isMissingStop) claims nothing: no outage, nothing live.
+  const missing = !q.data && isMissingStop(q.error ?? q.failureReason)
   useReportLive(
     `ferry:${trip.from}>${trip.to ?? ''}`,
-    state == null && q.data != null,
-    (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
-    q.isError || q.failureCount > 0,
+    missing || (state == null && q.data != null),
+    !missing && ((!q.data && !q.isError) || awaitingSeedAnswer(q, state)),
+    !missing && (q.isError || q.failureCount > 0),
     card.liveRows,
   )
   return {
@@ -52,7 +54,7 @@ export function useTripCard(
     empty: q.isPending
       ? 'Getting live departures…'
       : q.isError && !q.data
-        ? "Live times aren't loading. Open the board for the timetable."
+        ? cardFailedText(q.error)
         : card.time
           ? null
           : state === 'offline'
