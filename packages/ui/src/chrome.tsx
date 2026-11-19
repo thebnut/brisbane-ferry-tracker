@@ -103,7 +103,7 @@ export function SettingsPill({ onClick, compact = false }: SettingsPillProps) {
       className={cx(
         'group flex h-11 items-center gap-2 rounded-full border border-ferry-orange/20 bg-white/90 text-sm font-semibold text-aqua-text shadow-md',
         'transition hover:border-ferry-orange/40 hover:shadow-lg dark:bg-night-card dark:text-ferry-aqua-light',
-        // Under 380 px the word goes (gear only), so the header fits a 360 px phone even with the wider OFFLINE pill.
+        // Under 380 px the word goes (gear only), so the header fits a 360 px phone even with the wider SCHEDULED pill.
         compact
           ? 'w-11 justify-center'
           : 'w-11 justify-center min-[380px]:w-auto min-[380px]:pr-3 min-[380px]:pl-4',
@@ -116,12 +116,17 @@ export function SettingsPill({ onClick, compact = false }: SettingsPillProps) {
 }
 
 export interface LivePillProps {
-  /** false shows the muted "OFFLINE" state instead of the glowing LIVE pill. */
+  /** false: not live, the muted SCHEDULED (online) or OFFLINE (`offline`) state instead of the glowing LIVE pill. */
   live?: boolean
+  /**
+   * The device has no connection (useOnline false): OFFLINE. Only then: an answer that isn't live while online (an API
+   * error, a stale or unavailable feed) is SCHEDULED, a neutral pill, since riders read OFFLINE as "the site is down".
+   */
+  offline?: boolean
 }
 
-export function LivePill({ live = true }: LivePillProps) {
-  return live ? (
+export function LivePill({ live = true, offline = false }: LivePillProps) {
+  return live && !offline ? (
     <span
       data-live-claim=""
       className="rounded-full bg-ferry-orange-aa px-3 py-1.5 text-xs font-bold text-white shadow-live motion-safe:animate-glow"
@@ -129,7 +134,12 @@ export function LivePill({ live = true }: LivePillProps) {
       LIVE
     </span>
   ) : (
-    <span className="rounded-full bg-sched-bg px-3 py-1.5 text-xs font-bold text-sched-text">OFFLINE</span>
+    <span
+      data-connection={offline ? 'offline' : 'scheduled'}
+      className="rounded-full bg-sched-bg px-3 py-1.5 text-xs font-bold text-sched-text"
+    >
+      {offline ? 'OFFLINE' : 'SCHEDULED'}
+    </span>
   )
 }
 

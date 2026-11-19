@@ -6,7 +6,7 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { Icon, SavedTripCard, useGeolocation } from '@bft/ui'
+import { cardFailedText, Icon, isMissingStop, SavedTripCard, useGeolocation } from '@bft/ui'
 import { asSeed, awaitingSeedAnswer, type PageCheck, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import {
   AboutTimes,
@@ -26,7 +26,7 @@ import { lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { SECTION, Shell, useReportLive } from '../components/Chrome.tsx'
 import { fetchDepartures } from '../lib/api.ts'
-import { at } from '../lib/base.ts'
+import { at, BASE } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { boardState, visibleRows } from '../lib/departures.ts'
 import { boardHref, STATIONS, type Station, stationByKey, stationHref } from '../lib/network.ts'
@@ -171,11 +171,13 @@ function FavouriteCard({
   // The header pill is LIVE only while no card is stale and one shows a live train (R36-L1). No data is never live (a
   // first request that failed with an HTTP error leaves the state null). A non-live seed whose own refetch is still
   // out waits too (R32-RT1).
+  // A station the timetable no longer has (isMissingStop) claims nothing: no outage, nothing live.
+  const missing = !q.data && isMissingStop(q.error ?? q.failureReason)
   useReportLive(
     `fav:${fav.from}>${fav.to ?? ''}`,
-    state == null && q.data != null,
-    (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
-    q.isError || q.failureCount > 0,
+    missing || (state == null && q.data != null),
+    !missing && ((!q.data && !q.isError) || awaitingSeedAnswer(q, state)),
+    !missing && (q.isError || q.failureCount > 0),
     card.liveRows,
   )
   return (
@@ -193,7 +195,7 @@ function FavouriteCard({
           q.isPending
             ? 'Getting live departures…'
             : q.isError && !q.data
-              ? "Live times aren't loading. Open the board for the timetable."
+              ? cardFailedText(q.error)
               : card.time
                 ? null
                 : 'No more trains today.'
@@ -240,7 +242,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       pending={seeds.some((r) => !r || awaitingSeedAnswer(asSeed(r), boardState(r, false, nowMs, page)))}
     >
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
-        <HomeTitle title="Train">
+        {/* Inside BrisbaneTransit the hub says which city's trains these are (its H1 for search). */}
+        <HomeTitle title={BASE ? 'Brisbane trains' : 'Train'}>
           <ModeHomeTop />
         </HomeTitle>
         <HomeSection id="saved" title="Saved">

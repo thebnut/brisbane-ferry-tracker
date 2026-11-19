@@ -6,10 +6,11 @@
  */
 
 import type { DeparturesResponse } from '@bft/core/contract'
-import { Icon, SavedTripCard, useGeolocation } from '@bft/ui'
+import { cardFailedText, Icon, isMissingStop, SavedTripCard, useGeolocation } from '@bft/ui'
 import { asSeed, awaitingSeedAnswer, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import {
   AboutTimes,
+  CHIP,
   HomeSection,
   homeCard,
   LiveReports,
@@ -28,7 +29,7 @@ import { SearchPanel } from '../components/SearchPanel.tsx'
 import { BusNav, DataBanner, DesktopNav, Footer, SiteHeader, UpdatedStrip } from '../components/Shell.tsx'
 import { linkRenderer } from '../components/StopBoard.tsx'
 import { fetchDepartures } from '../lib/api.ts'
-import { at } from '../lib/base.ts'
+import { at, BASE } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { useApi } from '../lib/mode.ts'
 import { liveView, useAlerts, useManyDepartures } from '../lib/queries.ts'
@@ -99,11 +100,13 @@ function StopCard({
   const card = homeCard('bus', data, nowMs, stop.name || data?.stop.name || `Stop ${stop.id}`, stop.id)
   // No data is never live; a non-live seed whose own refetch is still out waits (R32-RT1). LIVE only over a live row
   // it shows (R36-L1).
+  // A stop the timetable no longer has (isMissingStop) claims nothing: no outage, nothing live.
+  const missing = !q.data && isMissingStop(q.error ?? q.failureReason)
   useReportLive(
     `stop:${stop.id}`,
-    state == null && q.data != null && q.data.rtState === 'live',
-    (!q.data && !q.isError) || awaitingSeedAnswer(q, state),
-    q.isError || q.failureCount > 0,
+    missing || (state == null && q.data != null && q.data.rtState === 'live'),
+    !missing && ((!q.data && !q.isError) || awaitingSeedAnswer(q, state)),
+    !missing && (q.isError || q.failureCount > 0),
     card.liveRows,
   )
   return (
@@ -118,7 +121,7 @@ function StopCard({
       later={card.later}
       empty={
         q.isError && !q.data
-          ? "Couldn't load live times. Retrying…"
+          ? cardFailedText(q.error)
           : !data
             ? 'Getting live buses…'
             : card.time
@@ -188,7 +191,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <DesktopNav active="home" />
       </UpdatedStrip>
       <SearchPanel
-        title={<h1 className="mx-auto max-w-6xl px-4 pt-4 text-[28px] leading-tight font-extrabold">Bus</h1>}
+        title={
+          <h1 className="mx-auto max-w-6xl px-4 pt-4 text-[28px] leading-tight font-extrabold">
+            {BASE ? 'Brisbane buses' : 'Bus'}
+          </h1>
+        }
         footer={<Footer aboveSheet />}
         quick={
           <Link to={at('/nearby')} className={chip}>
@@ -228,7 +235,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             <PlaceChips
               places={POPULAR.map((s) => ({ href: stopHref(s.id), name: s.name }))}
               renderLink={linkRenderer}
-            />
+            >
+              {/* Every stop page as a plain link (the A–Z directory), for people browsing and for crawlers. */}
+              <li>
+                <Link className={CHIP} to={at('/stops')}>
+                  All stops A–Z
+                </Link>
+              </li>
+            </PlaceChips>
           </HomeSection>
           <AboutTimes title="About bus times">
             <h2 className="text-base font-bold text-aqua-text dark:text-ferry-aqua-light">

@@ -43,7 +43,11 @@
         "API_BASE": "https://bft-api.brisbanetransit.workers.dev",
         "ALLOW_FIXTURES": "1",
         "FIXTURES": "0",
-        "SITE_URL": "https://bft-transit.brisbanetransit.workers.dev",
+        // Canonicals, og:url, the sitemap and llms.txt name the production URLs, as production-preview's do: this host is
+        // never indexable (robots.txt disallows all, X-Robots-Tag and a robots meta say noindex), and a canonical to
+        // workers.dev would point search engines at it. Redirects never use it here (www and the https upgrade match only
+        // SITE_URL's own host).
+        "SITE_URL": "https://brisbanetransit.com",
         "TURNSTILE_SITEKEY": "0x4AAAAAAFZ6yPZTYH3xrIMT"
       },
       // SSR loaders, the /v1 + /data proxy and POST /v1/ask call the API Worker in-process through this binding.

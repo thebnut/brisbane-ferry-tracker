@@ -29,7 +29,7 @@ import { Footer } from '../components/Chrome.tsx'
 import type HomeSaved from '../components/HomeSaved.tsx'
 import { SiteHeader } from '../components/header.tsx'
 import { fetchDepartures } from '../lib/api.ts'
-import { at } from '../lib/base.ts'
+import { at, BASE } from '../lib/base.ts'
 import { validateDepartures } from '../lib/contract.server.ts'
 import { boardState, visibleRows } from '../lib/departures.ts'
 import { CARD_ROWS, type Trip, useTripCard } from '../lib/home-card.ts'
@@ -197,7 +197,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     <LiveReports value={reports.report}>
       <SiteHeader onSettings={() => setSelector(true)} live={reports.live} pending={reports.pending} />
       <main className="mx-auto flex max-w-2xl flex-col gap-6 px-3.5 pt-4 pb-4 md:px-4">
-        <HomeTitle title="Ferry">
+        {/* Inside BrisbaneTransit the hub says which city's ferrys these are (its H1 for search). */}
+        <HomeTitle title={BASE ? 'Brisbane ferries' : 'Ferry'}>
           {/* The search, and the live ferry map beside it (THE-118 PR 9), as on Train. */}
           <div className="flex items-end gap-2">
             <div className="min-w-0 flex-1">

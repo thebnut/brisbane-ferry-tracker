@@ -53,7 +53,7 @@ export function SiteHeader({
             first answer (R32-RT1: or a non-live seed's own answer). A page with no live data of its own claims nothing
             while online, as BrisbaneTransit's connectionState. */}
         {!online ? (
-          <LivePill live={false} />
+          <LivePill live={false} offline />
         ) : pending ? (
           <ConnectingPill />
         ) : live === undefined ? null : (

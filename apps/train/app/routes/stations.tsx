@@ -11,6 +11,7 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { SECTION, Shell } from '../components/Chrome.tsx'
 import { ReachableList } from '../components/ReachableList.tsx'
+import { BASE } from '../lib/base.ts'
 import { cleanStopName } from '../lib/names.ts'
 import {
   boardHref,
@@ -22,7 +23,7 @@ import {
   stationHref,
 } from '../lib/network.ts'
 import { searchStations } from '../lib/search.ts'
-import { pageMeta } from '../lib/seo.ts'
+import { BRAND, pageMeta } from '../lib/seo.ts'
 import { getEnv, siteInfo } from '../lib/server.server.ts'
 import { fetchStationIndex } from '../lib/stop-index.ts'
 import { useMounted } from '../lib/useNow.ts'
@@ -63,7 +64,9 @@ export function loader({ request, context }: Route.LoaderArgs) {
 export const meta: Route.MetaFunction = ({ loaderData }) => {
   const site = loaderData?.site ?? { siteUrl: '', indexable: false }
   return pageMeta({
-    title: 'All train stations – live departures | BrisbaneTrain',
+    title: BASE
+      ? `Brisbane train stations A–Z | ${BRAND}`
+      : 'All train stations – live departures | BrisbaneTrain',
     description: `Live departures for all ${STATIONS.length} train stations in South East Queensland. Pick a station and a destination to see only the trains that go there directly.`,
     url: `${site.siteUrl}/stations`,
     site,

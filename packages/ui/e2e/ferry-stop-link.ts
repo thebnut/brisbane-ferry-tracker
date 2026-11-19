@@ -54,8 +54,19 @@ const MAP_LINKS: Array<[string, string, string?]> = [
 
 const board = (page: Page) => page.locator('[data-board=outbound]')
 
-/** `home`: ferry home's path ('/ferry' or '/'); `base`: where its boards are ('/ferry' or ''). */
-export function ferryStopLinkSuite({ home, base }: { home: string; base: string }) {
+/**
+ * `home`: ferry home's path ('/ferry/' or '/'); `base`: where its boards are ('/ferry' or ''); `title`: ferry home's H1
+ * ('Ferry' standalone, 'Brisbane ferries' inside BrisbaneTransit).
+ */
+export function ferryStopLinkSuite({
+  home,
+  base,
+  title = 'Ferry',
+}: {
+  home: string
+  base: string
+  title?: string
+}) {
   const at = (q: string) => `${home}?${q}`
   for (const [size, project, use] of SIZES)
     test.describe(size, () => {
@@ -84,7 +95,7 @@ export function ferryStopLinkSuite({ home, base }: { home: string; base: string 
         test('an unknown stop stays ferry home', async ({ page }) => {
           await page.goto(at('stop=nope&to=317590'))
           await expect(page).toHaveURL(at('stop=nope&to=317590'))
-          await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ferry')
+          await expect(page.getByRole('heading', { level: 1 })).toHaveText(title)
         })
       })
 

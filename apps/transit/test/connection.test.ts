@@ -1,4 +1,7 @@
-/** The header's connection state (THE-118 PR 2): Connecting first, LIVE only from the page's answer, OFFLINE only after a failure. */
+/**
+ * The header's connection state (THE-118 PR 2): Connecting first, LIVE only from the page's answer, OFFLINE only when
+ * the device has no connection, SCHEDULED (neutral) for an answer that isn't live while online (19 Nov 2026).
+ */
 import { describe, expect, it } from 'vitest'
 import { connectionState } from '../app/lib/connection.ts'
 
@@ -14,14 +17,20 @@ describe('connectionState', () => {
     expect(connectionState({ live: true, pending: false, online: true })).toBe('live')
   })
 
-  it('Connecting → Offline only after a request has failed', () => {
-    // useOnline() turns false when a request fails (or times out): that is the failure.
+  it('navigator offline (or a request that never reached the network) => OFFLINE', () => {
+    // useOnline() is false while the browser is offline, or a request threw, timed out or came from the SW cache.
     expect(connectionState({ live: false, pending: true, online: false })).toBe('offline')
-    // An answer that is in but not live (an API error, an unavailable or stale feed) keeps the existing OFFLINE.
-    expect(connectionState({ live: false, pending: false, online: true })).toBe('offline')
+    expect(connectionState({ live: false, pending: false, online: false })).toBe('offline')
   })
 
-  it('Live → Offline when a refresh fails or the browser goes offline', () => {
+  it('online + API error or stale/unavailable feed => SCHEDULED, never OFFLINE', () => {
+    // An answer that is in but not live (an HTTP error, a stale or unavailable feed, one saved card failing): the
+    // device is online, so the neutral pill. It said OFFLINE before (release review C3), read as "the site is down".
+    expect(connectionState({ live: false, pending: false, online: true })).toBe('scheduled')
+    expect(connectionState({ live: false, online: true })).not.toBe('offline')
+  })
+
+  it('Live → Offline when the browser goes offline or requests stop reaching the network', () => {
     expect(connectionState({ live: true, pending: false, online: false })).toBe('offline')
   })
 

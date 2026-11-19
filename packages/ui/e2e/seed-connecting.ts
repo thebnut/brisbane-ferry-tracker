@@ -3,7 +3,7 @@
  * from its expired copy (`stale`) once its realtime wait ran out, and for about a second, until the board's own
  * refetch came back live, the page showed OFFLINE, "Offline", "Live times delayed" and every row Scheduled. While that
  * refetch is out the board is pending: "Connecting…", no banner, no LIVE (rows may stay Scheduled). Once it answers it
- * is judged as before: a live answer shows LIVE, a stale one OFFLINE and the banner.
+ * is judged as before: a live answer shows LIVE, a stale one SCHEDULED (OFFLINE until 19 Nov 2026) and the banner.
  *
  * The server render is the stale seed (?rt=stale, the fixture API's forced state). The board's own departures
  * requests are held until the pending page has been checked (at least 1.5 s), then answered live (rt removed) or still
@@ -97,7 +97,7 @@ export function seedConnectingSuite({
       await expect(page.locator('[data-banner=stale]')).toHaveCount(0)
     })
 
-    test('a stale first answer of its own: OFFLINE and "Live times delayed", as before', async ({
+    test('a stale first answer of its own: SCHEDULED (online + stale feed, never OFFLINE) and "Live times delayed"', async ({
       page,
       context,
     }) => {
@@ -108,9 +108,10 @@ export function seedConnectingSuite({
       await expect.poll(gate.asked).toBeGreaterThan(0)
       await expectConnecting(page)
       gate.release()
-      await expect(page.locator('header').getByText('OFFLINE', { exact: true }).first()).toBeVisible({
+      await expect(page.locator('header').getByText('SCHEDULED', { exact: true }).first()).toBeVisible({
         timeout: 5_000,
       })
+      await expect(page.locator('header').getByText('OFFLINE', { exact: true })).toHaveCount(0)
       await expect(page.locator('[data-banner=stale]').first()).toBeVisible()
       await expect(page.locator('header [data-connection=connecting]')).toHaveCount(0)
       expect(await visibleLiveClaims(page)).toEqual([])

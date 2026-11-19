@@ -11,11 +11,14 @@ export type ApiErrorKind = 'network' | 'http' | 'contract'
 export class ApiError extends Error {
   readonly kind: ApiErrorKind
   readonly status: number | undefined
-  constructor(kind: ApiErrorKind, message: string, status?: number) {
+  /** A 404's body (the API's ErrorResponse, e.g. `{"error":"unknown stop",…}`), for @bft/ui isMissingStop. */
+  readonly body: string | undefined
+  constructor(kind: ApiErrorKind, message: string, status?: number, body?: string) {
     super(message)
     this.name = 'ApiError'
     this.kind = kind
     this.status = status
+    this.body = body
   }
 }
 
@@ -49,7 +52,14 @@ export async function getJson<T>(
     if (signal?.aborted) throw error
     throw new ApiError('network', error instanceof Error ? error.message : String(error))
   }
-  if (!res.ok) throw new ApiError('http', `HTTP ${res.status} for ${path}`, res.status)
+  // A 404's body says why (the API's ErrorResponse): a stop the timetable no longer has is no outage (isMissingStop).
+  if (!res.ok)
+    throw new ApiError(
+      'http',
+      `HTTP ${res.status} for ${path}`,
+      res.status,
+      res.status === 404 ? await res.text() : '',
+    )
   let body: unknown
   try {
     body = noteCacheCopy(res, await res.json())

@@ -65,7 +65,8 @@ const ogImage = (m: Meta) => m.find((t) => t.property === 'og:image')?.content
 describe.each([
   ['production', 'https://brisbanetransit.com'],
   ['production-preview', 'https://brisbanetransit.com'],
-  ['staging', 'https://bft-transit.brisbanetransit.workers.dev'],
+  // Staging names the production URLs in its canonicals (it is never indexable); local dev keeps its own host.
+  ['staging', 'https://brisbanetransit.com'],
   [undefined, 'https://bft-transit.brisbanetransit.workers.dev'],
 ])('%s: mode pages link inside transit', (envName, T) => {
   it('SITE_URL + the mode prefix, and the OG images it names are in public/', async () => {
@@ -130,8 +131,8 @@ async function urlsOf(mode: string, file: string, siteUrl: string): Promise<stri
 describe('every mounted mode page', () => {
   it('covers all of them', () => {
     // Each board is a layout (its meta) over its own URL (board.tsx, no meta of its own) and the trip URL (THE-118 PR 7).
-    // Ferry's map page (THE-118 PR 9).
-    expect(PAGES.length).toBe(23)
+    // Ferry's map page (THE-118 PR 9). The bus stop directory (/bus/stops).
+    expect(PAGES.length).toBe(24)
   })
 
   it.each(['production', 'production-preview', 'staging', undefined])(
@@ -141,7 +142,11 @@ describe('every mounted mode page', () => {
       for (const { mode, file } of PAGES) {
         const site = urls[mode]
         const found = await urlsOf(mode, file, site)
-        for (const u of found) expect(u.startsWith(`${site}/`), `${mode}/${file}: ${u}`).toBe(true)
+        // The site-wide nodes are this site's own: its WebSite (home page, JSON-LD @id) and its share card.
+        const origin = new URL(site).origin
+        const shared = [`${origin}/`, `${origin}/#website`, `${origin}/og-image.jpg`]
+        for (const u of found)
+          expect(u.startsWith(`${site}/`) || shared.includes(u), `${mode}/${file}: ${u}`).toBe(true)
         // Pages with SEO tags emit them: not vacuous. A board URL's tags are its layout's.
         if (file === 'board.tsx') continue
         if (!['trip.tsx'].includes(file) || mode === 'bus')

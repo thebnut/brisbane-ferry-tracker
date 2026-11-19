@@ -167,3 +167,34 @@ describe('ServiceTile (THE-118 PR 4)', () => {
     expect(renderToStaticMarkup(<ServiceTile code="F1" />)).toMatch(/rounded-full[^"]*bg-aqua-text/)
   })
 })
+
+describe('DepartureList: a failed board (19 Nov 2026)', () => {
+  const render = async (missing: boolean) => {
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    const { DepartureList } = await import('../app/components/DepartureList.tsx')
+    return renderToStaticMarkup(
+      <DepartureList
+        id="outbound"
+        label="Bulimba to Riverside"
+        departures={null}
+        nowMs={NOW}
+        loading={false}
+        error
+        missing={missing}
+        onRetry={() => {}}
+        tripHref={() => '/trip'}
+      />,
+    )
+  }
+
+  it('a terminal the timetable no longer has (HTTP 404, Bulimba closed for works) says so, not "check your connection"', async () => {
+    const html = await render(true)
+    expect(html).toContain('No services from this terminal in the current timetable')
+    expect(html).not.toContain('Check your connection')
+  })
+
+  it('any other failure still offers to try again', async () => {
+    const html = await render(false)
+    expect(html).toContain('Check your connection')
+  })
+})

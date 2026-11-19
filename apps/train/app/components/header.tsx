@@ -42,7 +42,7 @@ export function SiteHeader({
           (a loader that timed out at SSR, a board not yet answered); a page with no live data of its own (no `live`,
           or Shell's `idle`) claims nothing. */}
       {!online ? (
-        <LivePill live={false} />
+        <LivePill live={false} offline />
       ) : pending ? (
         <ConnectingPill />
       ) : live === undefined || idle ? null : (

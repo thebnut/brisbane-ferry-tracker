@@ -54,6 +54,11 @@ export interface DepartureListProps {
   nowMs: number
   loading: boolean
   error: boolean
+  /**
+   * The request failed because the timetable no longer has this terminal (HTTP 404, @bft/ui isMissingStop): closed for
+   * works, not a connection problem (Bulimba, 9 Nov to mid-Dec 2026).
+   */
+  missing?: boolean
   onRetry: () => void
   /** The departure's trip page. */
   tripHref: (d: Departure) => string
@@ -71,6 +76,7 @@ export function DepartureList({
   nowMs,
   loading,
   error,
+  missing = false,
   onRetry,
   tripHref,
   offline,
@@ -100,6 +106,10 @@ export function DepartureList({
           />
           <span className="text-sched-text">Loading departures…</span>
         </div>
+      ) : departures == null && error && missing ? (
+        <EmptyState title="No services from this terminal in the current timetable">
+          It may be closed for works. Check TransLink for other ways to travel.
+        </EmptyState>
       ) : departures == null && error ? (
         <ErrorState onRetry={onRetry}>Check your connection. We'll keep trying.</ErrorState>
       ) : list.length === 0 && offline ? (

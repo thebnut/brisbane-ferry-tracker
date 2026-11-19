@@ -12,6 +12,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-19',
+    summary:
+      'The OFFLINE label now only shows when your phone has no connection. If live times are briefly unavailable, you’ll see Scheduled and the timetable instead.',
+    items: [
+      'When live times can’t be fetched for a moment, the header says Scheduled, not OFFLINE, and the times shown are from the timetable. We keep trying and switch back to Live by ourselves.',
+      'A stop with no services in the current timetable, like Bulimba ferry terminal while it’s closed for works, now says so on its board and in My Transit, instead of saying live times aren’t loading or to check your connection.',
+    ],
+  },
+  {
+    date: '2026-11-19',
+    summary:
+      'Old links to ferry terminals, train stations and bus stops now always open the right page, and there’s a new A–Z list of every bus stop.',
+    items: [
+      'Short links like brisbanetransit.com/terminal/south-bank, /station/central or /stop/1, including ones shared elsewhere on the web, now open that terminal, station or stop under its Ferry, Train or Bus tab.',
+      'Find any bus stop by name in the new A–Z list of every stop. Open it from “All stops A–Z” on the Bus tab or the home page.',
+      'The home page’s popular places now link straight to well-used ferry terminals, train stations and bus stops.',
+    ],
+  },
+  {
     date: '2026-11-09',
     summary: 'Old Brisbane Ferry, BrisbaneTrain and BrisbaneBus links now open the right page.',
     items: [

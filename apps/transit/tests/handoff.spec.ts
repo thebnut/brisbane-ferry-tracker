@@ -177,14 +177,8 @@ test('no saved data: the handoff page goes to the plain URL (no fragment, no not
 
 test('excluded paths are served by the mode host, not redirected', async ({ page, context, baseURL }) => {
   const answers = await emulateModeHost(context, 'train', baseURL ?? '')
-  for (const path of [
-    '/robots.txt',
-    '/sitemap.xml',
-    '/sw.js',
-    '/manifest.webmanifest',
-    '/v1/train/alerts',
-    '/data/train/x.json',
-  ]) {
+  // robots.txt, llms.txt and the sitemaps aren't among them: they go to transit's own (packages/ui redirect tests).
+  for (const path of ['/sw.js', '/manifest.webmanifest', '/v1/train/alerts', '/data/train/x.json']) {
     await page.goto(`${HOST.train}${path}`)
     await expect(page.locator('#served')).toHaveText(SERVED)
     expect(new URL(page.url()).origin).toBe(HOST.train)

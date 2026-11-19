@@ -241,7 +241,7 @@ describe('the home page’s live judgement (R7-T1), reported like the mode homes
     const answered = (...data: DeparturesResponse[]) => data.map((d) => ({ data: d, failed: false }))
     expect(homeLiveState(items, answered(live, live), opts)).toEqual(state(true))
     expect(homeLiveState(items, answered(live, quiet), opts)).toEqual(state(true))
-    // A stale or not-live card wins (not live, OFFLINE pill), as on the mode homes.
+    // A stale or not-live card wins (not live: the SCHEDULED pill while online), as on the mode homes.
     expect(homeLiveState(items, answered(live, res([dep({})], 'stale')), opts)).toEqual(state(false))
   })
 
@@ -270,6 +270,28 @@ describe('the home page’s live judgement (R7-T1), reported like the mode homes
         [
           { data: undefined, failed: true },
           { data: undefined, failed: false },
+        ],
+        opts,
+      ),
+    ).toEqual(state(false))
+  })
+
+  it('a stop the timetable no longer has (HTTP 404, Bulimba closed for works) claims nothing', () => {
+    // 19 Nov 2026: Bulimba's saved card 404'd ("unknown stop") and made My Transit OFFLINE beside live cards.
+    const missing = { data: undefined, failed: true, missing: true }
+    expect(homeLiveState(items, [missing, { data: live, failed: false }], opts)).toEqual(state(true))
+    expect(homeLiveState([{}], [missing], opts)).toEqual(state(undefined))
+    // Still being retried (failureCount 1, no data): no "Connecting…" and no failure either.
+    expect(homeLiveState(items, [missing, { data: undefined, failed: false }], opts)).toEqual(
+      state(false, true),
+    )
+    // Any other failure still makes the page not live (SCHEDULED in the header).
+    expect(
+      homeLiveState(
+        items,
+        [
+          { data: undefined, failed: true },
+          { data: live, failed: false },
         ],
         opts,
       ),

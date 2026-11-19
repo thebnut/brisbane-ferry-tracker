@@ -1,3 +1,4 @@
+import { directoryPath, parseDirectoryParams } from '@bft/bus/app/lib/stop-directory.ts'
 import { gaSources } from '@bft/ui/analytics-config'
 
 /**
@@ -78,11 +79,70 @@ export function wwwRedirectLocation(requestUrl: string, siteUrl: string): string
 }
 
 /**
- * The mode hubs' canonical is `/<mode>/` (their sitemap entries and canonicals): a bare `/ferry`, `/train` or `/bus`
- * 301s there on this same origin with the query kept. `/ferry/` itself is served, so this never loops.
+ * The standalone apps' page paths without their mode prefix. Links to them (ChatGPT cites `/terminal/south-bank` on
+ * this host; the old hosts served them bare) go to the mounted page: one 301, so they never 404 here.
  */
-export function modeHubSlashLocation(url: URL): string | null {
-  return /^\/(?:ferry|train|bus)$/.test(url.pathname) ? `${url.origin}${url.pathname}/${url.search}` : null
+const UNPREFIXED: readonly [RegExp, string][] = [
+  [/^\/terminal\/[^/]+$/, '/ferry'],
+  [/^\/stations$/, '/train'],
+  [/^\/station\/[^/]+$/, '/train'],
+  [/^\/stop\/[^/]+$/, '/bus'],
+  [/^\/route\/[^/]+$/, '/bus'],
+]
+
+/** Never redirected for their path or scheme: the API proxy, client data, fixtures, React Router's own requests. */
+const NOT_A_PAGE = /^\/(?:v1|data|api|__fixtures)(?:\/|$)|^\/__|\.data$/
+
+/** The bus stop page's own canonical: a stop number shared with leading zeros is the unpadded stop_id's page. */
+const unpadStop = (path: string) =>
+  /^\/bus\/stop\/0\d{1,5}$/.test(path) ? path.replace(/^\/bus\/stop\/0+(?=\d)/, '/bus/stop/') : path
+
+/** The stop directory's own canonical spelling (`/bus/stops/B/1` → `/bus/stops/b`), as its loader would 301 to. */
+function directoryCanonical(path: string): string {
+  const m = /^\/bus\/stops\/([^/]+)(?:\/([^/]+))?$/.exec(path)
+  if (!m) return path
+  const p = parseDirectoryParams(m[1], m[2])
+  return p?.redirect ? `/bus${directoryPath(p.letter, p.page)}` : path
+}
+
+/**
+ * The canonical path of a page path, the one in canonicals and the sitemap: no trailing slash on a page (the hubs and
+ * `/` keep theirs), the hubs with one, a bare old page under its mode prefix, a padded bus stop number unpadded and the
+ * stop directory's spelling (as those pages' own 301s do, so a request needing several fixes still takes one hop).
+ * Idempotent, so redirecting to it never loops.
+ */
+export function canonicalPagePath(pathname: string): string {
+  if (pathname === '/') return pathname
+  const path = pathname.replace(/\/+$/, '') || '/'
+  if (path === '/') return path
+  if (/^\/(?:ferry|train|bus)$/.test(path)) return `${path}/`
+  const prefix = UNPREFIXED.find(([re]) => re.test(path))?.[1]
+  return directoryCanonical(unpadStop(prefix ? `${prefix}${path}` : path))
+}
+
+/**
+ * Where a GET or HEAD request to a page should be, or null when it is already there: its canonical path (above), and
+ * https on the canonical host (`http://brisbanetransit.com/` was served as is; www already 301s to https). One hop for
+ * both. The API, data and fixture paths are never redirected, so a plain-HTTP client of them keeps working. The
+ * location is always this origin (or SITE_URL's for the scheme upgrade) plus a path starting with one "/".
+ */
+export function canonicalLocation(requestUrl: string, siteUrl: string): string | null {
+  let url: URL
+  try {
+    url = new URL(requestUrl)
+  } catch {
+    return null
+  }
+  if (NOT_A_PAGE.test(url.pathname)) return null
+  let site: URL | null = null
+  try {
+    site = new URL(siteUrl)
+  } catch {}
+  const upgrade = site?.protocol === 'https:' && url.protocol === 'http:' && url.hostname === site.hostname
+  const path = canonicalPagePath(url.pathname)
+  if (path === url.pathname && !upgrade) return null
+  // A path like "//evil.example" stays a path: it is appended to a fixed origin.
+  return `${upgrade && site ? site.origin : url.origin}${path}${url.search}`
 }
 
 /**
@@ -97,4 +157,25 @@ export function canonicalRedirect(location: string): Response {
 export function withRobotsTag(res: Response, indexable: boolean): Response {
   if (!indexable) res.headers.set('X-Robots-Tag', 'noindex')
   return res
+}
+
+/** The deploy-wide robots tag withRobotsMeta adds, marked apart from a page's own. */
+export const DEPLOY_NOINDEX_META = '<meta name="robots" content="noindex" data-deploy-noindex="">'
+
+/**
+ * Any deploy but production (staging, production-preview, local) also says noindex in its HTML, not only in the
+ * header, so a copy of a page served or cached without the header stays out of search. Added here as the page streams
+ * (HTMLRewriter), so no page's client JavaScript grows for it; React 19 hydration skips an extra tag in <head>. Where
+ * HTMLRewriter doesn't exist (unit tests under Node), the response is returned as it is.
+ */
+export function withRobotsMeta(res: Response, indexable: boolean): Response {
+  if (indexable || !(res.headers.get('content-type') ?? '').includes('text/html')) return res
+  if (typeof HTMLRewriter === 'undefined') return res
+  return new HTMLRewriter()
+    .on('head', {
+      element(head) {
+        head.append(DEPLOY_NOINDEX_META, { html: true })
+      },
+    })
+    .transform(res)
 }

@@ -16,6 +16,7 @@ import {
   formatAge,
   formatClock,
   Icon,
+  isMissingStop,
   type LinkRenderer,
   OfflineBanner,
   useFixtureCookie,
@@ -330,6 +331,7 @@ export function FerryBoards({
             nowMs={now}
             loading={out.isPending}
             error={out.isError}
+            missing={isMissingStop(out.error)}
             onRetry={() => void out.refetch()}
             offline={outState === 'offline'}
             tripHref={(d) => tripHref(d.tripInstance, fromId, trip.to?.id)}
@@ -348,6 +350,7 @@ export function FerryBoards({
                 nowMs={now}
                 loading={back.isPending}
                 error={back.isError}
+                missing={isMissingStop(back.error)}
                 onRetry={() => void back.refetch()}
                 offline={backState === 'offline'}
                 tripHref={(d) => tripHref(d.tripInstance, toId, fromId)}

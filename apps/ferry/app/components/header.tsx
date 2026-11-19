@@ -37,7 +37,7 @@ export function SiteHeader({
       {/* BrisbaneTransit's connectionState: offline wins; then "Connecting…" while the page waits for its first answer
           (R32-RT1: or a non-live seed's own answer); a page with no live data of its own claims nothing. */}
       {!online ? (
-        <LivePill live={false} />
+        <LivePill live={false} offline />
       ) : pending ? (
         <ConnectingPill />
       ) : live === undefined ? null : (

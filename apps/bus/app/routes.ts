@@ -9,6 +9,8 @@ export default [
     route('trip/:tripInstance', 'routes/trip.tsx'),
   ]),
   route('route/:route', 'routes/route.tsx'),
+  // The A–Z stop directory: /stops, /stops/:letter and its later pages (/stops/b/2).
+  route('stops/:letter?/:page?', 'routes/stops.tsx'),
   route('map', 'routes/map.tsx'),
   route('alerts', 'routes/alerts.tsx'),
   route('about', 'routes/about.tsx'),
