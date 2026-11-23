@@ -66,6 +66,12 @@ export const stationHref = (key: string) => at(stationPath(key))
 /** A station's board, going somewhere when `to` is set. Here, not in StationBoard: pages that only link to a board
  * (train home, the stations list) don't load the board's chunk for it (THE-118 PR 4 budget offset). */
 export const boardHref = (from: string, to: string | null) => `${stationHref(from)}${to ? `?to=${to}` : ''}`
+/**
+ * The train home's journey planner with a place set: To (`plan=to`, "Plan a trip there") or the start (`plan=from`, a
+ * board's "Somewhere else?"). The home's own URL ends in "/" ("/train/" in BrisbaneTransit), so no redirect hop.
+ */
+export const planHref = (kind: 'to' | 'from', key: string): string =>
+  `${at('/').replace(/\/?$/, '/')}?plan=${kind}&${kind === 'to' ? 'to' : 'start'}=${key}`
 
 /** Station and platform code for a platform stop id. */
 export const platformOf = (stopId: string) => byPlatform.get(stopId) ?? null

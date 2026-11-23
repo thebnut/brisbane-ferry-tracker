@@ -99,8 +99,10 @@ export default defineConfig({
                   // destination sheet (PR 5) is opened on demand. Trip detail (PR 6) is only on the trip pages. The
                   // panel beside the boards (PR 7) loads with the trip; the boards' layouts' small part (board-route) is
                   // only on the boards. The map pages' shell (PR 9) loads with the map pages. GA4's /ga.js (analytics-run) is
-                  // its own file (vite/ga-module.ts), loaded only when GA is on.
-                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|trip\.tsx|[Oo]nboarding|WhatsNew|changelog|DestinationSheet|panel\.tsx|board-route|mode-home|map-page|analytics)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
+                  // its own file (vite/ga-module.ts), loaded only when GA is on. The journey planner card and its sheets are
+                  // only on the ferry and train homes (sheets on demand); the boards' trip header and "Where are you going
+                  // from here?" (board-trip) only on the boards.
+                  test: /packages[\\/]ui[\\/]src[\\/](?!map[\\/]|StopSearch|StopPickerMap|MapToggle|stop-picker|map-pref|demo-cleanup|handoff-codec|bus\.tsx|star\.tsx|SaveToast|AlertCountLink|train\.tsx|trip\.tsx|[Oo]nboarding|WhatsNew|changelog|DestinationSheet|panel\.tsx|board-route|board-trip|mode-home|[Pp]lanner|map-page|analytics)|apps[\\/]transit[\\/]app[\\/](components[\\/](ModeHeader|ModeBar|StatusLine)\.tsx|lib[\\/](connection|useNow)\.ts)$/,
                 },
                 // The boards' own part of the column-and-panel layout (THE-118 PR 7): each board URL's child route (nothing of
                 // its own) with the layouts' revalidation and width check, one chunk on every board's first load. The panel
@@ -129,9 +131,10 @@ export default defineConfig({
                 { name: 'train-store', test: /apps[\\/]train[\\/]app[\\/]lib[\\/](storage|base)\.ts$/ },
                 // The train elements (@bft/ui train.tsx, THE-118 PR 4) ride with the train network, which every train page
                 // loads and no other page's first load does: in a chunk of their own they cost the train pages ~400 B more.
+                // The journey planner's station logic (journey.ts) rides here too: the home and its lazy sheets share it.
                 {
                   name: 'network',
-                  test: /apps[\\/]train[\\/]app[\\/]lib[\\/]network\.ts$|packages[\\/]ui[\\/]src[\\/]train\.tsx$/,
+                  test: /apps[\\/]train[\\/]app[\\/]lib[\\/](network|journey)\.ts$|packages[\\/]ui[\\/]src[\\/]train\.tsx$/,
                 },
                 { name: 'ferry-store', test: /apps[\\/]ferry[\\/]app[\\/]lib[\\/](storage|names)\.ts$/ },
                 // The ferry departures' code (THE-118 PR 6): the boards, the trip page and ferry home's cards (PR 8) share it,
@@ -139,7 +142,7 @@ export default defineConfig({
                 // (FerryBoards, DepartureList) stays with the terminal page: ferry home has no board since PR 8.
                 {
                   name: 'ferry-departures',
-                  test: /apps[\\/]ferry[\\/]app[\\/]lib[\\/](departures|queries|api|home-card)\.ts$/,
+                  test: /apps[\\/]ferry[\\/]app[\\/]lib[\\/](departures|queries|api|home-card|journey)\.ts$/,
                 },
               ],
             },

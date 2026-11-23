@@ -1,6 +1,7 @@
 /**
- * A ferry terminal's board (THE-118 PR 5): the board header (kicker, terminal, routes, alert count, star) with one
- * filter row (All, To… ▾, ⇄, Express, Map, Now ▾), the status line, rtState/offline banners and the departures
+ * A ferry terminal's board (THE-118 PR 5): the board header ("Departures from", terminal, "Every ferry leaving here",
+ * routes, alert count, star), "Where are you going from here?" and "Not at …? Plan a trip there ›", one filter row
+ * (All, Express, Map, Now ▾), the status line, rtState/offline banners and the departures
  * (each row opens its trip page, THE-118 PR 6) and the stop selector; Map opens the live ferry map on this terminal
  * (THE-118 PR 9). Rendered on the server with the
  * loader's rows, then polled every 15 s while visible.
@@ -23,6 +24,7 @@ import {
   useKept,
 } from '@bft/ui'
 import { BoardHeader, Chip, chipClass, FilterRow, leavingFrom, NowChip } from '@bft/ui/board-header'
+import { DestinationField, TripPlaces } from '@bft/ui/board-trip'
 import {
   type LiveState,
   pagePending,
@@ -40,6 +42,7 @@ import {
   type ServiceFilter,
   visibleRows,
 } from '../lib/departures.ts'
+import { closedNote } from '../lib/journey.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useDepartures, useFetcher, useShownData } from '../lib/queries.ts'
 import { FIXTURE_COOKIE, readDepartAt, writeDepartAt } from '../lib/storage.ts'
@@ -47,6 +50,7 @@ import {
   boardHref,
   mapHref,
   normalisePair,
+  planHref,
   type StopChoice,
   type StopPair,
   terminalById,
@@ -59,7 +63,7 @@ import type FerryStar from './FerryStar.tsx'
 import { SiteHeader, UpdatedStrip } from './header.tsx'
 
 const StopSelector = lazy(() => import('./StopSelector.tsx'))
-// The "To…" chip's sheet (Train's "Going to" sheet), off the first load. If its chunk can't load (offline before the
+// "Where are you going from here?"'s sheet (Train's "Going to" sheet), off the first load. If its chunk can't load (offline before the
 // service worker cached it), a short sheet says so and the board stays; the next tap tries again.
 // It stays mounted once opened, so closing it gives focus back to the chip (Codex r4).
 let toLoad = 0
@@ -115,6 +119,22 @@ function SheetFallback() {
     </div>
   )
 }
+
+/** "Plan a trip there": the ferry home's planner with this terminal as To. */
+const planThere = (id: string) => planHref('to', terminalById(id)?.slug ?? '')
+const planLink = ({
+  href,
+  className,
+  children,
+}: {
+  href: string
+  className: string
+  children: ReactNode
+}) => (
+  <Link to={href} className={className}>
+    {children}
+  </Link>
+)
 
 /** The board header's routes: "3 routes". */
 const routesText = (id: string) => {
@@ -245,6 +265,8 @@ export function FerryBoards({
 
   const fromName = cleanStopName(trip.from.name)
   const toName = trip.to ? cleanStopName(trip.to.name) : ''
+  // A trip to or from a closed terminal (a saved pair, a deep link) is never called a direct ferry (Codex release review).
+  const closed = trip.to ? [trip.from, trip.to].find((t) => closedNote(t.id, now)) : undefined
   return (
     <>
       <SiteHeader
@@ -256,9 +278,22 @@ export function FerryBoards({
       <main className="board-grid mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-6">
         <div className="board-column" data-board-column="">
           <BoardHeader
-            kicker="Ferry terminal"
-            as="h2"
-            name={fromName}
+            kicker={trip.to ? (closed ? 'Your trip' : 'Your trip · Direct ferry') : 'Departures from'}
+            as={trip.to ? 'div' : 'h2'}
+            name={
+              trip.to ? (
+                <TripPlaces from={fromName} to={toName} onTo={openTo} onSwap={() => open(toId, fromId)} />
+              ) : (
+                fromName
+              )
+            }
+            sub={
+              closed
+                ? `${cleanStopName(closed.name)} is closed for works. TransLink has no services there in the current timetable.`
+                : trip.to
+                  ? undefined
+                  : 'Every ferry leaving here'
+            }
             facts={[
               routesText(fromId),
               Alerts ? <Alerts key="alerts" fetcher={fetcher} mode={mode} /> : null,
@@ -271,16 +306,17 @@ export function FerryBoards({
               )
             }
           >
+            {trip.to ? null : (
+              // Where the rider is going, said in words: the board's "To" (THE-118 PR 5's "To…" chip, rider feedback).
+              <DestinationField
+                onClick={openTo}
+                plan={{ place: fromName, href: planThere(fromId), renderLink: planLink }}
+              />
+            )}
             <FilterRow label="Filter ferries">
               <Chip pressed={filter === 'all'} onClick={() => setFilter('all')}>
                 All
               </Chip>
-              <Chip opens on={!!trip.to} onClick={openTo}>
-                {trip.to ? `To ${toName}` : 'To…'}
-              </Chip>
-              {trip.to ? (
-                <Chip icon="swap" label="Swap direction" onClick={() => open(toId, fromId)} />
-              ) : null}
               {express || filter === 'express' ? (
                 <Chip pressed={filter === 'express'} onClick={() => setFilter('express')}>
                   Express
@@ -336,6 +372,7 @@ export function FerryBoards({
             offline={outState === 'offline'}
             tripHref={(d) => tripHref(d.tripInstance, fromId, trip.to?.id)}
             renderLink={rowLink}
+            toName={trip.to ? toName : null}
           />
         </div>
         {/* The panel (1024 px and wider): the open trip, else the return board, else the terminal's map. */}
@@ -355,6 +392,7 @@ export function FerryBoards({
                 offline={backState === 'offline'}
                 tripHref={(d) => tripHref(d.tripInstance, toId, fromId)}
                 renderLink={rowLink}
+                toName={fromName}
               />
             ) : (
               idle?.(boardsLive, out.data?.departures ?? [])

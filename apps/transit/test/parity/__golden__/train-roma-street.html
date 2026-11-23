@@ -6,8 +6,40 @@
 <div data-board-header="" class="bg-board-header flex flex-col gap-1.5 rounded-card border border-ferry-orange/10 px-3.5 pt-3 pb-1.5 shadow-sm">
 <div class="flex items-start justify-between gap-3">
 <div class="flex min-w-0 flex-col">
-<p data-kicker="" class="text-[11px] font-bold tracking-[0.12em] text-ferry-orange-deep uppercase dark:text-ferry-sunset">Train station</p>
-<h2 class="text-2xl leading-tight font-extrabold text-charcoal [overflow-wrap:anywhere] dark:text-night-text">Roma Street</h2>
+<p data-kicker="" class="text-[11px] font-bold tracking-[0.12em] text-ferry-orange-deep uppercase dark:text-ferry-sunset">Your trip · Direct train</p>
+<div class="text-2xl leading-tight font-extrabold text-charcoal [overflow-wrap:anywhere] dark:text-night-text">
+<div class="flex items-center gap-2 text-base font-normal">
+<h2 class="sr-only">From Roma Street to Indooroopilly</h2>
+<span aria-hidden="true" class="flex shrink-0 flex-col items-center self-stretch py-2">
+<span class="size-3 rounded-full border-[3px] border-aqua-text dark:border-ferry-aqua-light">
+</span>
+<span class="w-0.5 flex-1 bg-aqua-text/40 dark:bg-ferry-aqua-light/40">
+</span>
+<span class="size-3 rounded-full bg-ferry-orange">
+</span>
+</span>
+<span class="flex min-w-0 flex-1 flex-col gap-1">
+<span data-trip-place="from" aria-hidden="true">
+<span class="block text-xs font-semibold tracking-[0.06em] text-sched-text uppercase dark:text-night-text/70">From</span>
+<span class="block text-xl leading-tight font-extrabold [overflow-wrap:anywhere]">Roma Street</span>
+</span>
+<span data-trip-place="to">
+<span aria-hidden="true" class="block text-xs font-semibold tracking-[0.06em] text-sched-text uppercase dark:text-night-text/70">To</span>
+<button type="button" aria-haspopup="dialog" aria-label="To Indooroopilly. Change destination" class="flex min-h-11 items-center gap-1 text-left text-xl leading-tight font-extrabold [overflow-wrap:anywhere] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-aqua-text">Indooroopilly<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0 text-ferry-orange-deep dark:text-ferry-sunset">
+<path d="M6 9l6 6 6-6">
+</path>
+</svg>
+</button>
+</span>
+</span>
+<button type="button" aria-label="Swap direction" data-chip="" class="flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-ferry-orange/30 bg-white text-ferry-orange-deep focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-aqua-text dark:bg-night-card dark:text-ferry-sunset">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="rotate-90">
+<path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7">
+</path>
+</svg>
+</button>
+</div>
+</div>
 <div data-board-facts="" class="flex min-h-6 flex-wrap items-center gap-x-1.5 text-sm text-sched-text dark:text-night-text/80">
 <span data-fact="" class="inline-flex items-center">Platforms 3–9</span>
 <span data-fact="" class="inline-flex items-center">13 lines</span>
@@ -25,17 +57,6 @@
 <fieldset data-filter-row="" class="-mx-3.5 flex min-w-0 gap-2 overflow-x-auto px-3.5 py-1.5 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 [&amp;::-webkit-scrollbar]:hidden">
 <legend class="sr-only">Filter trains</legend>
 <button type="button" aria-pressed="true" data-chip="" class="px-4 inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full text-sm whitespace-nowrap no-underline transition active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100 bg-ferry-orange-aa font-bold text-white">All</button>
-<button type="button" aria-haspopup="dialog" data-chip="" class="px-4 inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full text-sm whitespace-nowrap no-underline transition active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100 bg-ferry-orange-aa font-bold text-white">To Indooroopilly<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="-mr-1">
-<path d="M6 9l6 6 6-6">
-</path>
-</svg>
-</button>
-<button type="button" aria-label="Swap direction" data-chip="" class="w-11 inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full text-sm whitespace-nowrap no-underline transition active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100 border border-ferry-orange/30 bg-white font-semibold text-ferry-orange-deep hover:border-ferry-orange dark:bg-night-card dark:text-ferry-sunset">
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-<path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7">
-</path>
-</svg>
-</button>
 <button type="button" aria-pressed="false" data-chip="" class="px-4 inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full text-sm whitespace-nowrap no-underline transition active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100 border border-ferry-orange/30 bg-white font-semibold text-ferry-orange-deep hover:border-ferry-orange dark:bg-night-card dark:text-ferry-sunset">Express</button>
 <a class="px-4 inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full text-sm whitespace-nowrap no-underline transition active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100 border border-ferry-orange/30 bg-white font-semibold text-ferry-orange-deep hover:border-ferry-orange dark:bg-night-card dark:text-ferry-sunset" href="/map?station=roma-street" data-discover="true">
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -74,18 +95,18 @@
 <span class="text-2xl font-extrabold tabular">8</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Springfield Central</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Springfield Central</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-chip-later-text dark:text-green-300">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · on time<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 8:57 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Indooroopilly 8:57 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Springfield line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 8:57 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Indooroopilly 8:57 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="15">
@@ -103,18 +124,18 @@
 <span class="text-2xl font-extrabold tabular">8</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Ipswich</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Ipswich</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-ferry-orange-aa dark:text-ferry-sunset">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · 2 min late<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 9:14 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Indooroopilly 9:14 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Ipswich/Rosewood line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 9:14 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Indooroopilly 9:14 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="32">
@@ -132,18 +153,18 @@
 <span class="text-2xl font-extrabold tabular">8</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Springfield Central</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Springfield Central</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-chip-later-text dark:text-green-300">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · on time<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 9:27 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Indooroopilly 9:27 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Springfield line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 9:27 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Indooroopilly 9:27 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="45">
@@ -161,18 +182,18 @@
 <span class="text-2xl font-extrabold tabular">8</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Ipswich</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Ipswich</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-aqua-text dark:text-ferry-aqua-light">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · 1 min early<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 9:41 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Indooroopilly 9:41 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Ipswich/Rosewood line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 9:41 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Indooroopilly 9:41 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="59">
@@ -190,18 +211,18 @@
 <span class="text-2xl font-extrabold tabular">8</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Springfield Central</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Springfield Central</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-chip-later-text dark:text-green-300">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · on time<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 9:57 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Indooroopilly 9:57 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Springfield line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 9:57 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Indooroopilly 9:57 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="75">
@@ -219,7 +240,7 @@
 <span class="text-2xl font-extrabold tabular">8</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text line-through decoration-2">Ipswich</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text line-through decoration-2">towards Ipswich</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span class="inline-flex items-center gap-1.5 text-cancel-text dark:text-red-300">
 <span aria-hidden="true" data-dot="cancelled" class="size-2 rounded-full bg-red-600">
@@ -241,18 +262,18 @@
 <span class="text-2xl font-extrabold tabular">8</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Springfield Central</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Springfield Central</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-ferry-orange-aa dark:text-ferry-sunset">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · 4 min late<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 10:31 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Indooroopilly 10:31 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Springfield line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 10:31 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Indooroopilly 10:31 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="109">
@@ -270,18 +291,18 @@
 <span class="text-2xl font-extrabold tabular">8</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Ipswich</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Ipswich</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span class="inline-flex items-center gap-1.5 text-sched-text dark:text-night-text/70">
 <span aria-hidden="true" data-dot="scheduled" class="size-2 rounded-full bg-gray-400">
 </span>Scheduled<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 10:42 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Indooroopilly 10:42 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Ipswich/Rosewood line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 10:42 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Indooroopilly 10:42 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="120">
@@ -299,18 +320,18 @@
 <span class="text-2xl font-extrabold tabular">8</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Springfield Central</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Springfield Central</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span class="inline-flex items-center gap-1.5 text-sched-text dark:text-night-text/70">
 <span aria-hidden="true" data-dot="scheduled" class="size-2 rounded-full bg-gray-400">
 </span>Scheduled<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 10:57 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Indooroopilly 10:57 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Springfield line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 10:57 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Indooroopilly 10:57 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="135">
@@ -328,18 +349,18 @@
 <span class="text-2xl font-extrabold tabular">8</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Ipswich</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Ipswich</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-ferry-orange-aa dark:text-ferry-sunset">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · 2 min late<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 11:14 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Indooroopilly 11:14 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Ipswich/Rosewood line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 11:14 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Indooroopilly 11:14 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="152">
@@ -357,18 +378,18 @@
 <span class="text-2xl font-extrabold tabular">8</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Springfield Central</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Springfield Central</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span class="inline-flex items-center gap-1.5 text-sched-text dark:text-night-text/70">
 <span aria-hidden="true" data-dot="scheduled" class="size-2 rounded-full bg-gray-400">
 </span>Scheduled<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 11:27 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Indooroopilly 11:27 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Springfield line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 11:27 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Indooroopilly 11:27 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="165">
@@ -386,18 +407,18 @@
 <span class="text-2xl font-extrabold tabular">8</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Ipswich</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Ipswich</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span class="inline-flex items-center gap-1.5 text-sched-text dark:text-night-text/70">
 <span aria-hidden="true" data-dot="scheduled" class="size-2 rounded-full bg-gray-400">
 </span>Scheduled<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 11:42 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Indooroopilly 11:42 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Ipswich/Rosewood line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 11:42 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Indooroopilly 11:42 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="180">
@@ -426,18 +447,18 @@
 <span class="text-2xl font-extrabold tabular">2</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Kippa-Ring</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Kippa-Ring</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-ferry-orange-aa dark:text-ferry-sunset">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · 2 min late<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 8:50 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Roma Street 8:50 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Redcliffe Peninsula line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 8:50 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Roma Street 8:50 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="8">
@@ -455,18 +476,18 @@
 <span class="text-2xl font-extrabold tabular">2</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Bowen Hills</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Bowen Hills</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-ferry-orange-aa dark:text-ferry-sunset">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · 4 min late<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 8:59 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Roma Street 8:59 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Ipswich/Rosewood line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 8:59 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Roma Street 8:59 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="17">
@@ -484,18 +505,18 @@
 <span class="text-2xl font-extrabold tabular">2</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Caboolture</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Caboolture</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-chip-later-text dark:text-green-300">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · on time<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 9:03 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Roma Street 9:03 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Caboolture line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 9:03 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Roma Street 9:03 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="21">
@@ -513,18 +534,18 @@
 <span class="text-2xl font-extrabold tabular">2</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Bowen Hills</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Bowen Hills</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-ferry-orange-aa dark:text-ferry-sunset">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · 3 min late<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 9:13 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Roma Street 9:13 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Ipswich/Rosewood line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 9:13 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Roma Street 9:13 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="31">
@@ -542,18 +563,18 @@
 <span class="text-2xl font-extrabold tabular">2</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Kippa-Ring</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Kippa-Ring</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-chip-later-text dark:text-green-300">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · on time<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 9:18 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Roma Street 9:18 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Redcliffe Peninsula line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 9:18 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Roma Street 9:18 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="36">
@@ -571,18 +592,18 @@
 <span class="text-2xl font-extrabold tabular">2</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Caboolture</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Caboolture</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-chip-later-text dark:text-green-300">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · on time<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 9:33 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Roma Street 9:33 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Caboolture line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 9:33 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Roma Street 9:33 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="51">
@@ -600,18 +621,18 @@
 <span class="text-2xl font-extrabold tabular">2</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Kippa-Ring</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Kippa-Ring</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-chip-later-text dark:text-green-300">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · on time<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 9:48 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Roma Street 9:48 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Redcliffe Peninsula line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 9:48 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Roma Street 9:48 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="66">
@@ -629,18 +650,18 @@
 <span class="text-2xl font-extrabold tabular">2</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Nambour</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Nambour</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span data-live-claim="" class="inline-flex items-center gap-1.5 text-chip-later-text dark:text-green-300">
 <span aria-hidden="true" data-dot="live" class="size-2 rounded-full bg-green-600">
 </span>Live · on time<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 10:03 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Roma Street 10:03 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Sunshine Coast line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 10:03 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Roma Street 10:03 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="81">
@@ -658,18 +679,18 @@
 <span class="text-2xl font-extrabold tabular">2</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Kippa-Ring</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Kippa-Ring</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span class="inline-flex items-center gap-1.5 text-sched-text dark:text-night-text/70">
 <span aria-hidden="true" data-dot="scheduled" class="size-2 rounded-full bg-gray-400">
 </span>Scheduled<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 10:18 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Roma Street 10:18 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Redcliffe Peninsula line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 10:18 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Roma Street 10:18 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="96">
@@ -687,18 +708,18 @@
 <span class="text-2xl font-extrabold tabular">2</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Caboolture</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Caboolture</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span class="inline-flex items-center gap-1.5 text-sched-text dark:text-night-text/70">
 <span aria-hidden="true" data-dot="scheduled" class="size-2 rounded-full bg-gray-400">
 </span>Scheduled<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 10:33 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Roma Street 10:33 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Caboolture line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 10:33 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Roma Street 10:33 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="111">
@@ -716,18 +737,18 @@
 <span class="text-2xl font-extrabold tabular">2</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Kippa-Ring</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Kippa-Ring</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span class="inline-flex items-center gap-1.5 text-sched-text dark:text-night-text/70">
 <span aria-hidden="true" data-dot="scheduled" class="size-2 rounded-full bg-gray-400">
 </span>Scheduled<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 10:48 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Roma Street 10:48 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Redcliffe Peninsula line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 10:48 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Roma Street 10:48 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="126">
@@ -745,18 +766,18 @@
 <span class="text-2xl font-extrabold tabular">2</span>
 </span>
 <span class="flex min-w-0 flex-1 flex-col gap-1">
-<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">Caboolture</span>
+<span data-testid="destination" class="line-clamp-3 text-[15px] leading-snug font-bold break-words text-charcoal min-[421px]:line-clamp-2 min-[421px]:text-base md:text-lg dark:text-night-text">towards Caboolture</span>
 <span data-row-status="" class="flex flex-wrap items-center gap-x-1 text-xs font-semibold">
 <span class="inline-flex items-center gap-1.5 text-sched-text dark:text-night-text/70">
 <span aria-hidden="true" data-dot="scheduled" class="size-2 rounded-full bg-gray-400">
 </span>Scheduled<span aria-hidden="true" class="">·</span>
 </span>
-<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arr 11:03 am</span>
+<span class="text-sched-text dark:text-night-text/70 @lg:hidden">arrives Roma Street 11:03 am</span>
 <span class="text-sched-text dark:text-night-text/70 sr-only @lg:not-sr-only">Caboolture line</span>
 </span>
 </span>
 <span data-extra="" class="hidden shrink-0 flex-col items-end text-right text-[13px] font-semibold text-sched-text @lg:flex dark:text-night-text/70">
-<span class="text-charcoal dark:text-night-text">Arrives 11:03 am</span>
+<span class="text-charcoal dark:text-night-text">Arrives Roma Street 11:03 am</span>
 <span class="text-xs font-normal">12 mins</span>
 </span>
 <span class="flex shrink-0 flex-col items-end" data-countdown="141">

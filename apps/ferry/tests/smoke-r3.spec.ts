@@ -31,7 +31,9 @@ test('R3-F2: ?from=&to= opens that pair without replacing the saved one', async 
   // THE-118 PR 5: the terminal's board, with "To" set.
   await page.goto('/?from=317583&to=317590')
   await expect(page).toHaveURL('/terminal/hawthorne?to=riverside')
-  await expect(page.locator('[data-board-header]').getByRole('heading')).toHaveText('Hawthorne')
+  await expect(page.locator('[data-board-header]').getByRole('heading')).toHaveText(
+    'From Hawthorne to Riverside',
+  )
   await expect(page.getByRole('button', { name: 'To Riverside' })).toBeVisible()
   // No first-visit selector over a deep link, and the next plain visit is unchanged (default pair).
   await expect(page.getByRole('dialog')).toHaveCount(0)

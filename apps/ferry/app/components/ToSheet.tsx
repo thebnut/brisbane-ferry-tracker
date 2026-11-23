@@ -1,10 +1,13 @@
 /**
- * The ferry board's "To…" sheet (THE-118 PR 5): Train's "Going to" sheet (@bft/ui/destination-sheet) with the terminals
- * this one reaches directly. Its own lazy chunk, off the board's first load.
+ * The ferry board's "Where are you going from here?" sheet (THE-118 PR 5): Train's "Going to" sheet
+ * (@bft/ui/destination-sheet) with the terminals this one reaches directly, and for anywhere else the ferry home's
+ * planner from here (it finds where to change). Its own lazy chunk, off the board's first load.
  */
 import { DestinationChoices, DestinationSheet } from '@bft/ui/destination-sheet'
+import { Link } from 'react-router'
+import { closedNote } from '../lib/journey.ts'
 import { cleanStopName } from '../lib/names.ts'
-import { type StopChoice, TERMINALS } from '../lib/terminals.ts'
+import { planHref, type StopChoice, TERMINALS } from '../lib/terminals.ts'
 
 export default function ToSheet({
   open,
@@ -20,8 +23,11 @@ export default function ToSheet({
   onPick: (id: string | null) => void
   onClose: () => void
 }) {
-  const reach = new Set(TERMINALS.find((t) => t.id === from.id)?.destinations)
-  const options = TERMINALS.filter((t) => reach.has(t.id))
+  const here = TERMINALS.find((t) => t.id === from.id)
+  const reach = new Set(here?.destinations)
+  // A terminal closed for works has no ferries to offer (Codex release review): left out, as the planner leaves it out.
+  const nowMs = Date.now()
+  const options = TERMINALS.filter((t) => reach.has(t.id) && !closedNote(t.id, nowMs))
     .map((t) => ({ id: t.id, name: cleanStopName(t.name) }))
     .sort((a, b) => a.name.localeCompare(b.name))
   const name = cleanStopName(from.name)
@@ -29,7 +35,7 @@ export default function ToSheet({
     <DestinationSheet
       open={open}
       onClose={onClose}
-      title={`To, from ${name}`}
+      title={`Where are you going from ${name}?`}
       note="Only terminals with a direct ferry are shown."
       onAny={to ? () => onPick(null) : undefined}
     >
@@ -39,6 +45,17 @@ export default function ToSheet({
         selected={to?.id ?? null}
         onPick={onPick}
       />
+      {here ? (
+        <p className="text-sm text-sched-text dark:text-night-text/80">
+          Somewhere else?{' '}
+          <Link
+            to={planHref('from', here.slug)}
+            className="font-bold text-aqua-text no-underline hover:underline dark:text-ferry-aqua-light"
+          >
+            Plan a trip with a change ›
+          </Link>
+        </p>
+      ) : null}
     </DestinationSheet>
   )
 }

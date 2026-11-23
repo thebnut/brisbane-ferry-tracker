@@ -143,7 +143,12 @@ function suite(wide: boolean) {
         const { list, rows } = await open(page, mode)
         const live = rows.nth(1)
         await expect(live.getByTestId('destination')).toHaveText(
-          mode.name === 'train' ? 'Ferny Grove' : 'Destination 1',
+          // Train and ferry rows say "towards", bus rows "to" (the tile reads "Route 199"): where it goes, not where you go.
+          mode.name === 'train'
+            ? 'towards Ferny Grove'
+            : mode.name === 'ferry'
+              ? 'towards Destination 1'
+              : 'to Destination 1',
         )
         const status = live.locator('[data-row-status]')
         await expect(status.locator('[data-dot=live]')).toHaveCount(1)
@@ -165,7 +170,8 @@ function suite(wide: boolean) {
         if (mode.name === 'train') {
           await expect(live.getByRole('img', { name: 'Platform 2' })).toHaveText('PLAT2')
           await expect(live.locator('[data-row-status]')).toContainText(
-            wide ? 'Ferny Grove line' : /arr \d+:\d\d [ap]m/,
+            // With a destination, when it arrives there ("arrives Ferny Grove 12:24 pm").
+            wide ? 'Ferny Grove line' : /arrives [A-Za-z ]+ \d+:\d\d [ap]m/,
           )
           // No stopping strip on the row any more.
           await expect(list.locator('[data-compact]')).toHaveCount(0)
@@ -217,7 +223,11 @@ function suite(wide: boolean) {
           await expect(extra).toHaveCount(1)
           if (wide) await expect(extra).toBeVisible()
           else await expect(extra).toBeHidden()
-          if (wide) await expect(extra).toContainText(/Arrives \d+:\d\d [ap]m/)
+          // With the board's destination named when it has one ("Arrives Ferny Grove 12:24 pm"), as the phone row's fact.
+          if (wide)
+            await expect(extra).toContainText(
+              mode.name === 'train' ? /Arrives [A-Z][A-Za-z ]+ \d+:\d\d [ap]m/ : /Arrives \d+:\d\d [ap]m/,
+            )
         } else {
           await expect(extra).toHaveCount(0)
         }

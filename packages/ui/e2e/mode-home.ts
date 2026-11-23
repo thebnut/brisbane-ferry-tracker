@@ -32,8 +32,8 @@ export interface HomeSpec {
   path: string
   base: string
   title: string
-  /** The search field's name. */
-  search: string | RegExp
+  /** The search field's name; or `planner`, the journey planner card ("Where are you going?") in its place. */
+  search: string | RegExp | { planner: true }
   popular: { title: string; first: { name: string; href: string } }
   near: string
   saved: SavedSeed
@@ -217,23 +217,30 @@ function suite(spec: HomeSpec) {
     await countGeolocation(page)
     await page.goto(spec.path)
     await expect(page.getByRole('heading', { level: 1, name: spec.title, exact: true })).toBeVisible()
-    const search = page
-      .getByRole('combobox', { name: spec.search })
-      .or(page.getByRole('textbox', { name: spec.search }))
-      .or(page.getByRole('searchbox', { name: spec.search }))
-    await expect(search.filter({ visible: true }).first()).toBeVisible()
-    // The title and the search are in the main landmark, as on every mode home.
     const main = page.getByRole('main')
     await expect(main).toHaveCount(1)
     await expect(main.getByRole('heading', { level: 1, name: spec.title, exact: true })).toBeVisible()
-    await expect(
-      main
-        .getByRole('combobox', { name: spec.search })
-        .or(main.getByRole('textbox', { name: spec.search }))
-        .or(main.getByRole('searchbox', { name: spec.search }))
-        .filter({ visible: true })
-        .first(),
-    ).toBeVisible()
+    // The title and the search (or the journey planner) are in the main landmark, as on every mode home.
+    if (typeof spec.search === 'object' && 'planner' in spec.search) {
+      const planner = main.locator('[data-planner]')
+      await expect(planner.getByRole('heading', { name: 'Where are you going?' })).toBeVisible()
+      await expect(planner.locator('[data-planner-place]')).toHaveText([/^From/, /^To/])
+    } else {
+      const name = spec.search
+      const search = page
+        .getByRole('combobox', { name })
+        .or(page.getByRole('textbox', { name }))
+        .or(page.getByRole('searchbox', { name }))
+      await expect(search.filter({ visible: true }).first()).toBeVisible()
+      await expect(
+        main
+          .getByRole('combobox', { name })
+          .or(main.getByRole('textbox', { name }))
+          .or(main.getByRole('searchbox', { name }))
+          .filter({ visible: true })
+          .first(),
+      ).toBeVisible()
+    }
     await expect(page.locator('[data-home-section]')).toHaveCount(3)
     expect(
       await page

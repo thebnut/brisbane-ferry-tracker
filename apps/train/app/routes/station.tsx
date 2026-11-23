@@ -14,6 +14,7 @@ import { formatAge, formatClock, Icon, useKept } from '@bft/ui'
 import { AlertCountLink, useCurrentAlerts } from '@bft/ui/alert-count'
 import { BoardHeader, Chip, chipClass, FilterRow, NowChip } from '@bft/ui/board-header'
 import { FULL, isWide, notWide, onWide, samePlace, showBoard } from '@bft/ui/board-route'
+import { DestinationField, TripPlaces } from '@bft/ui/board-trip'
 import { asSeed, awaitingSeedAnswer, sourceTimeS, usePageCheck, VIA_NETWORK } from '@bft/ui/connectivity'
 import { DestinationSheet } from '@bft/ui/destination-sheet'
 import { StarButton } from '@bft/ui/star'
@@ -52,6 +53,7 @@ import {
   boardHref,
   isReachable,
   lineCount,
+  planHref,
   platformsText,
   reachableFrom,
   STATIONS,
@@ -69,6 +71,19 @@ import type { Route } from './+types/station'
 const NoMap = (() => null) as never // renders nothing, whatever the props
 // The trip as the board's panel (THE-118 PR 7): loaded with the trip, never on the board's first load.
 const TripPanelHost = lazy(() => import('@bft/ui/panel'))
+const planLink = ({
+  href,
+  className,
+  children,
+}: {
+  href: string
+  className: string
+  children: ReactNode
+}) => (
+  <Link to={href} className={className}>
+    {children}
+  </Link>
+)
 const StationMap = lazy(() => import('../components/StationMap.tsx').catch(() => ({ default: NoMap })))
 
 /** A trip URL's board: the station it was opened from and its destination (`?from=`, `?to=`), or null. */
@@ -299,9 +314,21 @@ function StationBoardPage({
       <div className="board-grid">
         <div className="board-column" data-board-column="">
           <BoardHeader
-            kicker="Train station"
-            as="h2"
-            name={station.name}
+            kicker={to ? 'Your trip · Direct train' : 'Departures from'}
+            as={to ? 'div' : 'h2'}
+            name={
+              to ? (
+                <TripPlaces
+                  from={station.name}
+                  to={to.name}
+                  onTo={() => setPicker(true)}
+                  onSwap={reverse ? () => navigate(boardHref(reverse.key, station.key)) : undefined}
+                />
+              ) : (
+                station.name
+              )
+            }
+            sub={to ? undefined : 'Every train leaving here'}
             facts={[
               platformsText(station.platforms.map((p) => p.code)),
               lines ? `${lines} line${lines === 1 ? '' : 's'}` : null,
@@ -309,20 +336,17 @@ function StationBoardPage({
             ]}
             star={<StarButton saved={star.saved} onToggle={star.toggle} name={title} />}
           >
+            {to ? null : (
+              // Where the rider is going, said in words (the "Going to…" chip, rider feedback 19 Nov 2026).
+              <DestinationField
+                onClick={() => setPicker(true)}
+                plan={{ place: station.name, href: planHref('to', station.key), renderLink: planLink }}
+              />
+            )}
             <FilterRow label="Filter trains">
               <Chip pressed={filter === 'all'} onClick={() => setFilter('all')}>
                 All
               </Chip>
-              <Chip opens on={!!to} onClick={() => setPicker(true)}>
-                {to ? `To ${to.name}` : 'Going to…'}
-              </Chip>
-              {reverse ? (
-                <Chip
-                  icon="swap"
-                  label="Swap direction"
-                  onClick={() => navigate(boardHref(reverse.key, station.key))}
-                />
-              ) : null}
               <Chip pressed={filter === 'express'} onClick={() => setFilter('express')}>
                 Express
               </Chip>
@@ -399,11 +423,20 @@ function StationBoardPage({
       <DestinationSheet
         open={picker}
         onClose={() => setPicker(false)}
-        title={`Going to, from ${station.name}`}
+        title={`Where are you going from ${station.name}?`}
         note="Only stations with a direct train are shown."
         onAny={to ? () => go(null) : undefined}
       >
         <ReachableList from={station} selected={to?.key ?? null} onPick={go} />
+        <p className="text-sm text-sched-text dark:text-night-text/80">
+          Somewhere else?{' '}
+          <Link
+            to={planHref('from', station.key)}
+            className="font-bold text-aqua-text no-underline hover:underline dark:text-ferry-aqua-light"
+          >
+            Plan a trip with a change ›
+          </Link>
+        </p>
       </DestinationSheet>
       {loaderData.board ? <StationAbout station={station} /> : null}
     </Shell>

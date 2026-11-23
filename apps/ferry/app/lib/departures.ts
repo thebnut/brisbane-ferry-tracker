@@ -75,7 +75,8 @@ export function rowModel(d: Departure, nowMs: number, next?: Departure): RowMode
   }
   const time = formatClock(dep)
   const arrival = arr != null && boardable ? formatClock(arr) : null
-  const destination = cleanStopName(d.headsign)
+  // "towards …": the ferry's end of the line, never where you're going (rider feedback, 19 Nov 2026).
+  const destination = `towards ${cleanStopName(d.headsign)}`
   return {
     key: `${d.tripInstance}:${d.stopSequence}`,
     dep,

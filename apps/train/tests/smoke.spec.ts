@@ -27,7 +27,7 @@ test('station board: platform tiles on the line colour, countdowns, no strips; h
   // THE-118 PR 4: the stopping pattern moved to trip detail; the row says the line or "arr …" instead.
   await expect(board.getByRole('list', { name: /Stops from here to/ })).toHaveCount(0)
   await expect(board.locator('[data-row-status]').first()).toContainText(
-    /arr \d{1,2}:\d{2} (am|pm)|line|express/,
+    /(arr|arrives [A-Za-z ]+) \d{1,2}:\d{2} (am|pm)|line|express/,
   )
   await expect(board.locator('[data-countdown]').first()).toBeVisible()
   await expect(page.getByText(/updated \d+ s ago/)).toBeVisible()
@@ -37,7 +37,7 @@ test('station board: platform tiles on the line colour, countdowns, no strips; h
 
 test('reachable-only picker narrows the board to one destination', async ({ page }) => {
   await page.goto('/station/bowen-hills')
-  await page.getByRole('button', { name: 'Going to…' }).click()
+  await page.locator('[data-destination-field]').click()
   const sheet = page.getByRole('dialog')
   const fg = sheet.locator('[data-line="Ferny Grove"]').first()
   await expect(fg).toBeVisible()

@@ -248,7 +248,8 @@ export function DepartureList({
                   className="max-[420px]:h-11 max-[420px]:min-w-13 max-[420px]:text-xl"
                 />
               }
-              destination={v.departure.headsign}
+              // "Route 199 to Teneriffe" (the tile reads "Route 199"): where the bus goes, never where you're going.
+              destination={`to ${v.departure.headsign}`}
               status={v.status}
               // One fact: a detour first, then a busway platform other than this stop's, then GPS.
               fact={
