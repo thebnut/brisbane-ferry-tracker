@@ -230,6 +230,18 @@ describe('the change-at connection', () => {
     expect(c?.arrB).toBe(1800)
   })
 
+  it('every second-leg ferry in the window is tried: a later one that arrives sooner wins', () => {
+    const c = connection([d(1000, 1300)], [d(1500, 3000), d(1600, 2000)])
+    expect(c?.b?.schedDep).toBe(1600)
+    expect(c?.arrB).toBe(2000)
+    expect(c?.wait).toBe(300)
+  })
+
+  it('a second-leg ferry past the hour-long wait is not a connection', () => {
+    const c = connection([d(1000, 1300)], [d(1500, 9000), d(1300 + 3601, 5000)])
+    expect(c?.b?.schedDep).toBe(1500)
+  })
+
   it('a cancelled first ferry is skipped; live estimates count', () => {
     const c = connection(
       [

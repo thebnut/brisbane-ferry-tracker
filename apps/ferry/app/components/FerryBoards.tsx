@@ -42,6 +42,7 @@ import {
   type ServiceFilter,
   visibleRows,
 } from '../lib/departures.ts'
+import { closedNote } from '../lib/journey.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { type DataMode, useDepartures, useFetcher, useShownData } from '../lib/queries.ts'
 import { FIXTURE_COOKIE, readDepartAt, writeDepartAt } from '../lib/storage.ts'
@@ -264,6 +265,8 @@ export function FerryBoards({
 
   const fromName = cleanStopName(trip.from.name)
   const toName = trip.to ? cleanStopName(trip.to.name) : ''
+  // A trip to or from a closed terminal (a saved pair, a deep link) is never called a direct ferry (Codex release review).
+  const closed = trip.to ? [trip.from, trip.to].find((t) => closedNote(t.id, now)) : undefined
   return (
     <>
       <SiteHeader
@@ -275,7 +278,7 @@ export function FerryBoards({
       <main className="board-grid mx-auto max-w-6xl px-3 py-4 md:px-4 md:py-6">
         <div className="board-column" data-board-column="">
           <BoardHeader
-            kicker={trip.to ? 'Your trip · Direct ferry' : 'Departures from'}
+            kicker={trip.to ? (closed ? 'Your trip' : 'Your trip · Direct ferry') : 'Departures from'}
             as={trip.to ? 'div' : 'h2'}
             name={
               trip.to ? (
@@ -284,7 +287,13 @@ export function FerryBoards({
                 fromName
               )
             }
-            sub={trip.to ? undefined : 'Every ferry leaving here'}
+            sub={
+              closed
+                ? `${cleanStopName(closed.name)} is closed for works. TransLink has no services there in the current timetable.`
+                : trip.to
+                  ? undefined
+                  : 'Every ferry leaving here'
+            }
             facts={[
               routesText(fromId),
               Alerts ? <Alerts key="alerts" fetcher={fetcher} mode={mode} /> : null,

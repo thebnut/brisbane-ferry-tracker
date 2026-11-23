@@ -5,6 +5,7 @@
  */
 import { DestinationChoices, DestinationSheet } from '@bft/ui/destination-sheet'
 import { Link } from 'react-router'
+import { closedNote } from '../lib/journey.ts'
 import { cleanStopName } from '../lib/names.ts'
 import { planHref, type StopChoice, TERMINALS } from '../lib/terminals.ts'
 
@@ -24,7 +25,9 @@ export default function ToSheet({
 }) {
   const here = TERMINALS.find((t) => t.id === from.id)
   const reach = new Set(here?.destinations)
-  const options = TERMINALS.filter((t) => reach.has(t.id))
+  // A terminal closed for works has no ferries to offer (Codex release review): left out, as the planner leaves it out.
+  const nowMs = Date.now()
+  const options = TERMINALS.filter((t) => reach.has(t.id) && !closedNote(t.id, nowMs))
     .map((t) => ({ id: t.id, name: cleanStopName(t.name) }))
     .sort((a, b) => a.name.localeCompare(b.name))
   const name = cleanStopName(from.name)
