@@ -33,9 +33,9 @@ const arrives = (d: Departure) => {
 }
 
 /**
- * The trip with one change that gets there first: of the first leg's next few ferries, each with the second leg's first
- * ferry leaving two to 60 minutes after it arrives, the pair arriving soonest (then leaving soonest). With no such
- * pair, the first leg's next ferry alone (`b` null); with none, null.
+ * The trip with one change that gets there first: of the first leg's next few ferries, each with every second-leg ferry
+ * leaving two to 60 minutes after it arrives, the pair arriving soonest (then the later first ferry, the shorter wait).
+ * With no such pair, the first leg's next ferry alone (`b` null); with none, null.
  */
 export function connection(first: Departure[], second: Departure[]) {
   const ones = boardable(first).slice(0, FIRST_LEG_TRIES)
@@ -44,12 +44,19 @@ export function connection(first: Departure[], second: Departure[]) {
   for (const a of ones) {
     const arr = arrives(a)
     if (arr == null) continue
-    const b = twos.find((d) => effectiveDep(d) >= arr + CHANGE_S)
-    if (!b || effectiveDep(b) - arr > MAX_WAIT_S) continue
-    const arrB = arrives(b)
-    const end = arrB ?? effectiveDep(b)
-    const bestEnd = best ? (best.arrB ?? effectiveDep(best.b)) : Number.POSITIVE_INFINITY
-    if (end < bestEnd) best = { a, arr, b, wait: effectiveDep(b) - arr, arrB }
+    // Every second-leg ferry in the window, not just the first: a later express can arrive sooner (Codex release review).
+    for (const b of twos) {
+      const dep = effectiveDep(b)
+      if (dep < arr + CHANGE_S) continue
+      if (dep - arr > MAX_WAIT_S) break
+      const arrB = arrives(b)
+      const end = arrB ?? dep
+      const bestEnd = best ? (best.arrB ?? effectiveDep(best.b)) : Number.POSITIVE_INFINITY
+      // Same arrival: the later first ferry, the shorter wait at the change.
+      const better =
+        end < bestEnd || (best != null && end === bestEnd && effectiveDep(a) > effectiveDep(best.a))
+      if (better) best = { a, arr, b, wait: dep - arr, arrB }
+    }
   }
   if (best) return best
   const a = ones[0]

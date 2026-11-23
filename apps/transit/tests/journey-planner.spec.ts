@@ -254,3 +254,18 @@ test.describe('Train', () => {
     }
   })
 })
+
+test('a trip to a closed terminal is never "Direct ferry"; the board picker leaves it out (Codex release review)', async ({
+  page,
+}) => {
+  // A saved pair or deep link to Bulimba (closed for works, apps/ferry/app/lib/journey.ts CLOSED).
+  await page.goto('/ferry/terminal/riverside?to=bulimba')
+  const header = page.locator('[data-board-header]')
+  await expect(header.locator('[data-kicker]')).toHaveText('Your trip')
+  await expect(header).toContainText('Bulimba is closed for works.')
+  await page.goto('/ferry/terminal/riverside')
+  await page.locator('[data-destination-field]').click()
+  const pick = sheet(page, 'Where are you going from Riverside?')
+  await expect(pick.getByRole('button', { name: 'Hawthorne' })).toBeVisible()
+  await expect(pick.getByRole('button', { name: 'Bulimba' })).toHaveCount(0)
+})

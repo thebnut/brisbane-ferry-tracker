@@ -123,7 +123,12 @@ function suite(desktop: boolean) {
       test(`old link ${p.from[2]} → ${p.to[2]} lands on its board with "To" set`, async ({ page }) => {
         await page.goto(`/ferry?from=${p.from[0]}&to=${p.to[0]}`)
         await expect(page).toHaveURL(`/ferry/terminal/${p.from[1]}?to=${p.to[1]}`)
-        await expect(header(page).locator('[data-kicker]')).toHaveText('Your trip · Direct ferry')
+        // Bulimba is closed for works (apps/ferry/app/lib/journey.ts CLOSED): a trip from it is never "Direct ferry".
+        const closed = p.from[1] === 'bulimba'
+        await expect(header(page).locator('[data-kicker]')).toHaveText(
+          closed ? 'Your trip' : 'Your trip · Direct ferry',
+        )
+        if (closed) await expect(header(page)).toContainText('Bulimba is closed for works.')
         await expect(header(page).getByRole('heading').first()).toHaveText(`From ${p.from[2]} to ${p.to[2]}`)
         await expect(toButton(page, p.to[2])).toHaveAttribute('aria-haspopup', 'dialog')
         const board = page.locator('[data-board=outbound]')
