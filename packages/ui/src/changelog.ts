@@ -12,7 +12,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    date: '2026-11-20',
+    date: '2026-11-23',
     summary:
       'The Ferry and Train tabs now ask “Where are you going?”: pick where you’re starting and where you’re headed, and see the ferries or trains that go there.',
     items: [
